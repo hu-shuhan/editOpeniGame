@@ -67,6 +67,10 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QSplitter>
+#include <QTimer>
+#include <QPointer>
+
+#include "ui_igQtVariableCorrelationWidget.h"
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -183,7 +187,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     SliceDockWidget = new QDockWidget(this);
     SliceDockWidget->setWindowTitle("网格切割");
-    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
+    SliceWidget = new igQtModelClipWidget(nullptr);
+    SliceWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    SliceWidget->setMinimumWidth(300);
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->hide();
@@ -226,23 +232,119 @@ void igQtMainWindow::initAllComponents() {
     vortexMetricsLabel->setStyleSheet(
         "QLabel { color: rgb(230,230,230); font-size: 20px; "
         "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
-    vortexMetricsLabel->hide();
+	    vortexMetricsLabel->hide();
 
-    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!DynamicCast<PointSet>(obj)) return false;
+	    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
+	        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
+	        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+	        // 支持两种情况：
+	        // 1) 单块：当前对象本身是可压缩的 PointSet
+	        // 2) 多块：根对象为容器（HasSubDataObject()==true），由 MeshCodecDialog 自动切换到 IGCM + IGC
+	        if (!DynamicCast<PointSet>(obj) && !obj->HasSubDataObject()) return false;
 
-        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
-        d->exec();
+	        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
+	        d->exec();
 
-        return true;
-    });
+	        return true;
+	    });
 
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
     // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
     // connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
+    connect(ui->action_SaveMesh, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
+    
+    //// 添加按钮：将当前标量场移到第一个位置并另存为
+    //QAction* action_MoveScalarToFirstAndSave = new QAction("将标量场移到首位并另存为", this);
+    //action_MoveScalarToFirstAndSave->setShortcut(QKeySequence()); // 可以设置快捷键
+    //ui->menu_help->addAction(action_MoveScalarToFirstAndSave);
+    //connect(action_MoveScalarToFirstAndSave, &QAction::triggered, this, [&]() {
+    //    // 获取当前场景的当前模型
+    //    auto scene = rendererWidget->GetScene();
+    //    if (!scene) {
+    //        QMessageBox::warning(this, "警告", "当前没有活动场景");
+    //        return;
+    //    }
+    //    auto model = scene->GetCurrentModel();
+    //    if (!model) {
+    //        QMessageBox::warning(this, "警告", "当前没有活动模型");
+    //        return;
+    //    }
+    //    auto dataObject = model->GetDataObject();
+    //    if (!dataObject) {
+    //        QMessageBox::warning(this, "警告", "无法获取数据对象");
+    //        return;
+    //    }
+    //    
+    //    // 获取当前选择的标量场索引
+    //    int currentAttributeIndex = dataObject->GetAttributeIndex();
+    //    if (currentAttributeIndex < 0) {
+    //        QMessageBox::warning(this, "警告", "当前未选择任何标量场");
+    //        return;
+    //    }
+    //    
+    //    // 获取属性集
+    //    auto attributeSet = dataObject->GetAttributeSet();
+    //    if (!attributeSet) {
+    //        QMessageBox::warning(this, "警告", "无法获取属性集");
+    //        return;
+    //    }
+    //    
+    //    // 获取所有属性
+    //    auto allAttributes = attributeSet->GetAllAttributes();
+    //    if (!allAttributes || allAttributes->GetNumberOfElements() == 0) {
+    //        QMessageBox::warning(this, "警告", "属性集为空");
+    //        return;
+    //    }
+    //    
+    //    // 检查索引是否有效
+    //    if (currentAttributeIndex >= allAttributes->GetNumberOfElements()) {
+    //        QMessageBox::warning(this, "警告", "当前属性索引无效");
+    //        return;
+    //    }
+    //    
+    //    // 如果已经在第一个位置，直接另存为
+    //    if (currentAttributeIndex == 0) {
+    //        fileLoader->SaveFileAs();
+    //        return;
+    //    }
+    //    
+    //    // 创建新的属性数组，将当前属性移到第一个位置
+    //    auto newAttributes = ElementArray<AttributeSet::Attribute>::New();
+    //    newAttributes->Reserve(allAttributes->GetNumberOfElements());
+    //    
+    //    // 首先添加当前选择的属性
+    //    newAttributes->AddElement(allAttributes->GetElement(currentAttributeIndex));
+    //    
+    //    // 然后添加其他属性（跳过当前属性）
+    //    for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+    //        if (i != currentAttributeIndex) {
+    //            newAttributes->AddElement(allAttributes->GetElement(i));
+    //        }
+    //    }
+    //    
+    //    // 保存当前属性维度
+    //    int currentDimension = dataObject->GetAttributeDimension();
+    //    
+    //    // 设置新的属性数组
+    //    attributeSet->SetAllAttributes(newAttributes);
+    //    
+    //    // 标记数据对象已修改
+    //    dataObject->Modified();
+    //    
+    //    // 如果是 DrawObject，使用 ViewCloudPicture 方法设置新的属性索引为0
+    //    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    //    if (drawObject) {
+    //        drawObject->ViewCloudPicture(scene, 0, currentDimension);
+    //    }
+    //    
+    //    // 更新模型树和渲染
+    //    modelTreeWidget->updateAllAttriubute(dataObject);
+    //    rendererWidget->update();
+    //    
+    //    // 自动触发另存为
+    //    fileLoader->SaveFileAs();
+    //});
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_UseOrthographic->isChecked()) {
             SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
@@ -415,6 +517,15 @@ void igQtMainWindow::initAllComponents() {
 
     connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
         DeformationDockWidget->show();
+    });
+    connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
+        if(!ui->dockWidget_FlowField->isVisible()){
+            ui->dockWidget_FlowField->show();
+            ui->widget_FlowField->updateVectorNameList();
+        } else {
+            ui->dockWidget_FlowField->hide();
+        }
+
     });
 
 
@@ -773,9 +884,100 @@ void igQtMainWindow::initAllFilters() {
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
+        int index = data->GetAttributeIndex();
         if (filter->Execute()) {
             modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+
+                }
+            }
+            double acc  = filter->GetAccuracy();
+            double prec = filter->GetPrecision();
+            double rec  = filter->GetRecall();
+
+            if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
+                !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
+                // QString msg = QString(
+                //     "<table>"
+                //     "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
+                //     "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
+                //     "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
+                //     "</table>"
+                // )
+                // .arg(acc,  0, 'f', 3)
+                // .arg(prec, 0, 'f', 3)
+                // .arg(rec,  0, 'f', 3);
+                //
+                // QPointer<QWidget> self(this);
+                // QTimer::singleShot(48, this, [self, msg]() {
+                //     if (!self) return;
+                //
+                //     QMessageBox box(self->window());
+                //     box.setWindowTitle("Vortex Prediction Metrics");
+                //     box.setTextFormat(Qt::RichText);
+                //     box.setText(msg);
+                //     box.setIcon(QMessageBox::NoIcon);
+                //     box.setStandardButtons(QMessageBox::Ok);
+                //     box.exec();
+                // });
+                QDialog* dialog = this->property("vortexMetricsDialog").value<QDialog*>();
+
+                if (!dialog) {
+                    dialog = new QDialog(this);
+                    dialog->setWindowTitle("Vortex Prediction Metrics");
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->setModal(false);
+
+                    this->setProperty("vortexMetricsDialog", QVariant::fromValue(dialog));
+
+                    QLabel* label = new QLabel(dialog);
+                    label->setObjectName("vortexMetricsLabel");
+                    label->setTextFormat(Qt::RichText);
+                    label->setAlignment(Qt::AlignCenter);
+
+                    QVBoxLayout* layout = new QVBoxLayout(dialog);
+                    layout->addWidget(label);
+                    dialog->setLayout(layout);
+                    dialog->resize(270, 120);
+                    connect(dialog, &QDialog::destroyed, this, [this]() {
+                        this->setProperty("vortexMetricsDialog", QVariant());
+                    });
+                }
+                QLabel* label = dialog->findChild<QLabel*>("vortexMetricsLabel");
+                if (label) {
+                    QString msg = QString(
+                        "<table align='center' cellspacing='6'>"
+                        "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
+                        "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
+                        "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
+                        "</table>"
+                    )
+                    .arg(acc,  0, 'f', 3)
+                    .arg(prec, 0, 'f', 3)
+                    .arg(rec,  0, 'f', 3);
+
+                    label->setText(msg);
+                }
+                QPointer<QDialog> safeDialog(dialog);
+                QTimer::singleShot(48, this, [safeDialog]() {
+                    if (!safeDialog) return;
+                    safeDialog->show();
+                    safeDialog->raise();
+                });
+            }
 
             // vortexMetricsLabel
             // double acc  = filter->GetAccuracy();
@@ -855,8 +1057,41 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        ui->dockWidget_VariableCorrelationField->show();
-        ui->widget_VariableCorrelationField->SetModel(model);
+
+        // 使用动态属性存储对话框指针    // 匿名命名空间，只在当前cpp文件可见
+        static QDialog* dialog = nullptr;
+        static igQtVariableCorrelationWidget* widget = nullptr;
+
+        if (!dialog) {
+            dialog = new QDialog(this);
+            dialog->setWindowTitle("变量相关性分析");
+            //dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->setModal(false);
+
+            widget = new igQtVariableCorrelationWidget(dialog);
+            widget->GetUi()->splitter->setSizes({200, 300, 400});
+            QVBoxLayout* layout = new QVBoxLayout(dialog);
+            layout->addWidget(widget);
+            dialog->setLayout(layout);
+            dialog->resize(900, 500);
+            connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
+                // 使用sender()获取信号发送者
+                auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
+                if (!senderWidget) return;
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) return;
+                senderWidget->SetModel(model);
+            });
+        }
+
+        widget->SetModel(model);
+        dialog->show();
+        dialog->raise();
+        dialog->activateWindow();
+
+
+        //ui->dockWidget_VariableCorrelationField->show();
+        //ui->widget_VariableCorrelationField->SetModel(model);
     });
 
     connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
@@ -1243,11 +1478,42 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
+
     connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
         ui->widget_Animation->initAnimationComponents();
     });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
+    connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+
+        auto model = scene->GetCurrentModel();
+        if (!model) return;
+
+        auto dataObject = model->GetDataObject();
+        if (!dataObject) return;
+
+        auto attributeSet = dataObject->GetAttributeSet();
+        if (!attributeSet) return;
+
+        auto allAttributes = attributeSet->GetAllAttributes();
+        if (!allAttributes || allAttributes->GetNumberOfElements() == 0) return;
+
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (drawObject) {
+            auto item = modelTreeWidget->getItemFromObject(dataObject);
+            if (item && item->childCount() > 0) {
+                item->setExpanded(true);
+                auto child = item->child(0);
+                item->setCurrentChild(child);
+                item->setSelected(false);
+                item->viewAttribute(0, -1);
+                child->setSelected(true);
+                modelTreeWidget->setCurrentItem(child);
+            }
+        }
+    });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
         modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
@@ -1256,9 +1522,22 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
-                res->Modified();
-                rendererWidget->update();
                 modelTreeWidget->updateAllAttriubute(res);
+                rendererWidget->update();
+
+                auto drawObject = DynamicCast<DrawObject>(res);
+                if (drawObject) {
+                    auto item = modelTreeWidget->getItemFromObject(res);
+                    if (item && item->childCount() > 0) {
+                        item->setExpanded(true);
+                        auto child = item->child(0);
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(0, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
             });
 
 
@@ -1295,14 +1574,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     /* Model Tree signal connect BEGIN.*/
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
-    // Clear auto-rescaling states when model is deleted
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
     // Update Deformation Info when model is deleted
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             DeformationWidget, &igQtDeformationWidget::updateInfo);
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            ui->widget_Animation, &igQtAnimationWidget::ClearAnimationVCRInfo);
+            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
 
     // Update animation controls when model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
@@ -1682,9 +1958,8 @@ void igQtMainWindow::initAllInteractor() {
         if (dynamicBox == nullptr) return;
         ui->widget_SelectionField->SetInitBoxSettingDialog(rendererWidget);
     });
-    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetUseBox, this, [&]() {
-        if (!SelectionParameter::Instance().GetInSelection()) return;
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
+    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetUseBox, this, [&](Model::Pointer model) {
+        // model = rendererWidget-> GetScene()->GetCurrentModel();
         if (model == nullptr) return;
         auto dataObj = model->GetDataObject();
         if (dataObj == nullptr) return;

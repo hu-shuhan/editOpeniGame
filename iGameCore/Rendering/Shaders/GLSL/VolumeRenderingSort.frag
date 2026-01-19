@@ -3,7 +3,7 @@
 layout(binding = 0, r32ui) uniform readonly uimage2D headPointerImage;
 layout(binding = 1, rgba32ui) uniform readonly uimageBuffer listBuffer;
 
-#define MAX_FRAGMENTS 256
+#define MAX_FRAGMENTS 512
 #define STEP_BETWEEN_FRAGMENTS 100
 
 uvec4 fragments[MAX_FRAGMENTS];
@@ -60,6 +60,7 @@ vec3 blend(vec3 currentColor, vec4 newColor) {
 
 vec3 CalculateFinalColor(int fragCount) {
     vec3 finalColor = vec3(0.0f, 0.0f, 0.0f);
+    float tau = 0.0f;
 
     float start_t = uintBitsToFloat(fragments[0].z);
     float end_t = uintBitsToFloat(fragments[fragCount - 1].z);
@@ -78,14 +79,10 @@ vec3 CalculateFinalColor(int fragCount) {
         for (int j = 0; j < STEP_BETWEEN_FRAGMENTS; j++) {
             vec3 color = color1 + j * (color2 - color1)  / float(STEP_BETWEEN_FRAGMENTS);
             float alpha = alpha1 + j * (alpha2 - alpha1) / float(STEP_BETWEEN_FRAGMENTS);
-            float t = t1 + j * dt;
-            finalColor += exp(-alpha * t) * alpha * color * dt;
+            finalColor += exp(-tau) * alpha * color * dt;
+            tau += alpha * dt;
         }
     }
-
-    vec3 color3 = unpackUnorm4x8(fragments[fragCount - 1].y).xyz;
-    float alpha3 = unpackUnorm4x8(fragments[fragCount - 1].y).a;
-    finalColor += color3 * exp(-alpha3);
 
     return finalColor;
 }

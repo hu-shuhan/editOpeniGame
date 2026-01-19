@@ -32,6 +32,15 @@ public:
     }
 
     bool Execute() override {
+        // 无论解码成功/失败，都清理进度文本，避免 UI 文案残留
+        struct ProgressTextResetGuard {
+            ProgressObserver* observer{};
+            ~ProgressTextResetGuard() noexcept {
+                if (!observer) { return; }
+                observer->UpdateText("");
+            }
+        } resetTextGuard{m_ProgressObserver};
+
         if (!InitializeInputs()) { return false; }
 
         m_DecompressProgress = 0.0f;
@@ -46,6 +55,16 @@ public:
 
         SetOutput(0, m_DecoderOutput);
         UpdateProgress(1.0);
+
+        // 解码结束后复位进度条，避免停留在 100%
+        // 注意：Filter::UpdateProgress 会受 m_ProgressShift/m_ProgressScale 影响，不能用 UpdateProgress(0.0) 作为“清零”
+        m_Progress = 0.0;
+        m_ProgressShift = 0.0;
+        m_ProgressScale = 1.0;
+        if (m_ProgressObserver) {
+            m_ProgressObserver->UpdateProgress(0.0);
+            m_ProgressObserver->UpdateText("");
+        }
         return true;
     }
 

@@ -20,26 +20,42 @@ DataObject::Pointer FileReader::ReadFile(const std::string& filePath) {
     return nullptr;
 }
 bool FileReader::Execute() {
+    auto resetProgressUI = [this]() -> void {
+        // 强制复位进度，避免某些读取流程在结束后停留在 100%
+        // 注意：Filter::UpdateProgress 会受 m_ProgressShift/m_ProgressScale 影响，不能用 UpdateProgress(0.0) 作为“清零”
+        m_Progress = 0.0;
+        m_ProgressShift = 0.0;
+        m_ProgressScale = 1.0;
+        if (m_ProgressObserver) {
+            m_ProgressObserver->UpdateProgress(0.0);
+            m_ProgressObserver->UpdateText("");
+        }
+    };
+
     clock_t start, end;
     start = clock();
 
     clock_t time1 = clock();
     if (!Open()) {
         IGAME_CORE_ERROR("Opening failure");
+        resetProgressUI();
         return false;
     }
     clock_t time2 = clock();
     //std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
     if (!Parsing()) {
         IGAME_CORE_ERROR("Parsing failure");
+        resetProgressUI();
         return false;
     }
     if (!Close()) {
         IGAME_CORE_ERROR("Close failure");
+        resetProgressUI();
         return false;
     }
     if (!CreateDataObject()) {
         IGAME_CORE_ERROR("Generate DataObject failure");
+        resetProgressUI();
         return false;
     }
     clock_t time3 = clock();
@@ -51,6 +67,8 @@ bool FileReader::Execute() {
     this->SetOutput(0, m_Output);
     end = clock();
     igDebug("Read file success! The time cost: {} ms", end - start);
+
+    resetProgressUI();
     return true;
 }
 

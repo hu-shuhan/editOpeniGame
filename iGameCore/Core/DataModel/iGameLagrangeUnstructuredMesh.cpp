@@ -611,8 +611,9 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
         }
     }
 
-    attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
-    attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
+    // DO NOT write ColorMapper range back to attrRange - this corrupts Magnitude range!
+    // Previously: attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
+    // Previously: attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
 
     if (attr->GetDimension() != 1) return;
 
@@ -717,8 +718,9 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
         m_ColorMapper->InitRange(attr, dimension);
     }
 
-    attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
-    attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
+    // DO NOT write ColorMapper range back to attrRange - this corrupts Magnitude range!
+    // Previously: attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
+    // Previously: attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
 
     if (attr->GetDimension() != 1) return;
 

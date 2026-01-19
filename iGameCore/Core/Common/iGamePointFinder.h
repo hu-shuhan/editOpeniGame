@@ -25,7 +25,9 @@ public:
 	}
 
 	void Initialize() {
-		if (!m_Points) { return; }
+        if (!m_Points) {
+            std::cout << "no points" << std::endl;
+			return; }
 		// m_NumberOfPointsPerBox = m_Threshold * m_Points->GetNumberOfPoints();
         m_NumberOfPointsPerBox = std::sqrt(m_Points->GetNumberOfPoints());
 		int numBoxes = m_Points->GetNumberOfPoints() / m_NumberOfPointsPerBox;
@@ -66,7 +68,9 @@ public:
 		}
 	}
 	void Initialize(Points::Pointer points, BoundingBox bound, int NumberOfPointsPerBox, int numBoxes) {
-		if (!points) { return; }
+		if (!points) {
+            std::cout << "no points" << std::endl;
+			return; }
 		m_Points = points;
 		m_NumberOfPointsPerBox = NumberOfPointsPerBox;
 		m_Depth = std::ceil(std::log10(numBoxes) / std::log10(8));
@@ -168,7 +172,7 @@ public:
 		Vector3d p;
 		int level = 0;
 		igIndex ptId, closest, boxIndex, nids;
-		IdArray::Pointer ptIds;
+		IdArray* ptIds = nullptr;
 		Vector3i ijk, nei;
 		FlexArray<Vector3i> boxes;
 
@@ -181,7 +185,10 @@ public:
 				nei = boxes[i];
 				boxIndex = nei[0] + nei[1] * m_Size + nei[2] * m_SizeSquared;
 
-				if ((ptIds = m_Buffer->GetElement(boxIndex)) != nullptr) {
+				auto& tmp = m_Buffer->GetElement(boxIndex);
+                ptIds = tmp.get();
+
+				if (ptIds != nullptr) {
 					nids = ptIds->GetNumberOfIds();
 					for (j = 0; j < nids; j++) {
 						ptId = ptIds->GetId(j);
@@ -194,7 +201,10 @@ public:
 				}
 			}
 		}
-
+		if (closest == -1) { 
+			std::cout << "error in FindClosestPoint\n" << std::endl;
+            std::cout <<x<< std::endl;
+		}
 		// Since the nearest point of this box is not necessarily the global
 		// nearest, We need to search for all boxes within the minDist2 distance
 		// range.
@@ -204,7 +214,10 @@ public:
 				nei = boxes[i];
 				boxIndex = nei[0] + nei[1] * m_Size + nei[2] * m_SizeSquared;
 
-				if ((ptIds = m_Buffer->GetElement(boxIndex)) != nullptr) {
+				auto& tmp = m_Buffer->GetElement(boxIndex);
+                ptIds = tmp.get();
+
+				if (ptIds != nullptr) {
 					nids = ptIds->GetNumberOfIds();
 					for (j = 0; j < nids; j++) {
 						ptId = ptIds->GetId(j);

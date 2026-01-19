@@ -172,6 +172,7 @@ AttribTreeWidgetItem::AttribTreeWidgetItem(int index, QTreeWidget* treeview, Mod
 
 void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->clear();
+    m_Dimension = length;
 
     // For Dimension=1, show only the single dimension value, not magnitude
     if (length == 1) {
@@ -179,7 +180,7 @@ void AttribTreeWidgetItem::setDimension(int length) {
         comboBox->setCurrentIndex(0);
         return;
     }
-    
+
     // For Dimension>=2, show magnitude first, then individual dimensions
     comboBox->addItem("magnitude");
     if (length < 4) {
@@ -229,6 +230,17 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         QSize iconSize = item->icon(0).actualSize(QSize(20, 24));
         QRect iconRect(iconItem.left() + 4, iconItem.top() + (iconItem.height() - iconSize.height()) / 2,
                        iconSize.width(), iconSize.height());
+
+        // Check if click is on the expand/collapse indicator (branch arrow)
+        int indentation_level = 0;
+        QTreeWidgetItem* parentItem = static_cast<QTreeWidgetItem*>(item)->parent();
+        while (parentItem) {
+            indentation_level++;
+            parentItem = parentItem->parent();
+        }
+        int indicatorWidth = indentation() * (indentation_level + 1);
+        QRect indicatorRect(0, iconItem.top(), indicatorWidth, iconItem.height());
+        bool clickedOnIndicator = indicatorRect.contains(event->pos());
 
         if (event->button() == Qt::RightButton) {
             QMenu menu(this);
@@ -297,13 +309,15 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 }
             }
             call = false;
-        } 
-        else if (currentItem() != item) { // Check operation
+        } else if (clickedOnIndicator) {
+            // Clicked on expand/collapse indicator, only handle expand/collapse, don't change attribute display
+            // Just let the base class handle the expand/collapse
+        } else if (currentItem() != item) { // Check operation - only when clicking on the model itself
             if (item->getModel() != iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
                 iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
                 emit ChangeCurrentModel(item->getModel());
             }
-            
+
             item->setSelected(true);
             item->getModel()->ViewCloudPicture(-1);
             Q_EMIT ViewCloudPicture();
@@ -315,8 +329,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         }
 
 
-    } 
-    else if ((child = getChild(event->pos())) && child) {
+    } else if ((child = getChild(event->pos())) && child) {
         // Sub-data object item
         if (auto* sub = dynamic_cast<SubObjectTreeWidgetItem*>(child)) {
             // Right-click: set rotation center to sub-block bbox center
@@ -357,8 +370,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                     Q_EMIT ViewCloudPicture();
                 }
             }
-        } 
-        else if (auto* sa = dynamic_cast<SubAttribTreeWidgetItem*>(child)) {
+        } else if (auto* sa = dynamic_cast<SubAttribTreeWidgetItem*>(child)) {
             // Handle sub-attribute selection display and apply
             auto* parent = dynamic_cast<SubObjectTreeWidgetItem*>(sa->parent());
             if (parent) {
@@ -371,17 +383,18 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 parent->setCurrentChild(sa);
                 int dim = sa->currentIndex();
                 if (dim == -1) dim = 0;
-                sa->viewAttribute(dim - 1);
+                // For single-component fields: use component 0
+                // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
+                int actualDim = (sa->getDimension() == 1) ? 0 : (dim - 1);
+                sa->viewAttribute(actualDim);
                 call = false;
             }
-        } 
-        else {
+        } else {
             // Top-level attribute item under model
             int index = child->data(0, Qt::UserRole).toInt();
             ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
             if (parent) {
-                if (parent->getModel() != 
-                    iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
+                if (parent->getModel() != iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
                     iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModelId());
 
                     emit ChangeCurrentModel(parent->getModel());
@@ -399,7 +412,10 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
 
                     int dim = c->currentIndex();
                     if (dim == -1) { dim = 0; }
-                    c->viewAttribute(dim - 1);
+                    // For single-component fields: use component 0
+                    // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
+                    int actualDim = (c->getDimension() == 1) ? 0 : (dim - 1);
+                    c->viewAttribute(actualDim);
                     Q_EMIT ViewCloudPicture();
                 }
             }

@@ -7,6 +7,8 @@
 #include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
+#include <QMessageBox>
+#include<QDockWidget>
 class igQtStreamTracerWidget : public QWidget {
 
     Q_OBJECT
@@ -34,13 +36,14 @@ public slots:
     void Pressed();
     void Released();
     void changeVecName();
+    void refresh();
     void updateVectorNameList();
     //void changeOffsetP1();
     //void changeOffsetP2();
 signals:
     void AddStreamObject(iGame::DataObject::Pointer);
     void UpdateStreamObject(iGame::DataObject::Pointer);
-    void SetUseBox();
+    void SetUseBox(iGame::Model::Pointer);
     void SetSelectItemShow(bool show);
 
 

@@ -25,7 +25,6 @@
         <file>Icons/Slice.png</file>
         <file>Icons/StreamTracer.png</file>
         <file>Icons/VcrBack.svg</file>
-        <file>Icons/VcrDisabledLoop.png</file>
         <file>Icons/VcrFirst.svg</file>
         <file>Icons/VcrForward.svg</file>
         <file>Icons/VcrLast.svg</file>
@@ -58,6 +57,7 @@
         <file>Icons/select/hex.png</file>
         <file>Icons/select/point.png</file>
         <file>Icons/Open.png</file>
+        <file>Icons/refresh.png</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>
@@ -70,5 +70,4 @@
     <qresource prefix="/Styles">
         <file>Styles/SourceHanSansCN-Normal.otf</file>
     </qresource>
-
 </RCC>

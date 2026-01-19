@@ -30,6 +30,7 @@ public:
 		ODB,
 		CAS,
 		BDF,
+        IGCM,
 		FILETYPE_COUNT
 	};
 

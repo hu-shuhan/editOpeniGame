@@ -71,4 +71,8 @@ private:
     ViewMode m_ViewMode{IG_CLIP_MODE};
     bool m_Invert = true;
     bool m_Crinkle = false;
+    
+    // Observer tags for cleanup
+    unsigned long m_OriginObserverTag{0};
+    unsigned long m_ResultObserverTag{0};
 };

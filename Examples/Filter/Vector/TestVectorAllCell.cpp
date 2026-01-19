@@ -37,7 +37,6 @@ int main() {
         _AttributeSet = _obj->GetAttributeSet();
     }
     if (!_AttributeSet) return 0;
-    _AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return 0;
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {

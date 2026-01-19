@@ -39,7 +39,7 @@ layout(location = 4) in vec2 in_UV;
 
 layout(location = 0) out vec4 out_ScreenColor;
 
-#define MAX_FRAGMENTS 256
+#define MAX_FRAGMENTS 512
 
 void main() {
     vec4 fragColor = vec4(in_Color, objectData.transparent);

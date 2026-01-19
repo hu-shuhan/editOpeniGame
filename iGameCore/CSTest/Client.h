@@ -1,110 +1,105 @@
 #pragma once
-
-#if defined(_WIN32) || defined(_WIN64)
-
-#include <filesystem> // 需要C++17支持
-#include <iGameUnstructuredMesh.h>
+#include <fstream>
 #include <iostream>
+#include <string>
 #include <thread>
 #include <winsock2.h>
-namespace fs = std::filesystem;
+#include <ws2tcpip.h>
+#include <../IO/IGC/iGameIGCWriter.h>
+#include "iGameFileReader.h"
+#include <future>
 #pragma comment(lib, "ws2_32.lib")
-#ifndef OPENCMD_H
-#define OPENCMD_H
-#include "Spline XML/iGameSplineReaderCPU.h"
-#include "iGameFileIO.h"
-#include <string>
-class OpenCmd {
-public:
-    int selected_idx;
-    std::string filePath;
 
-    // 序列化函数
-    std::string serialize() const {
-        // 将 selected_idx 和 filePath 序列化为一个字符串
-        return std::to_string(selected_idx) + "|" + filePath;
-    }
 
-    // 反序列化函数
-    void deserialize(const std::string& data) {
-        size_t pos = data.find("|");
-        if (pos != std::string::npos) {
-            selected_idx = std::stoi(data.substr(0, pos));
-            filePath = data.substr(pos + 1);
-        }
-    }
-};
-#endif
-//static DataObject::Pointer _obj;
+inline std::string GetFileExtension(const std::string& path) {
+    size_t pos = path.find_last_of(".");
+    if (pos == std::string::npos) return "";
+    return path.substr(pos);
+}
 
-void clientThread(int selected_idx, std::string filePath) {
-    OpenCmd m_openCmd;
-    m_openCmd.selected_idx = selected_idx;
-    m_openCmd.filePath = filePath;
-
-    // 序列化 OpenCmd
-    std::string serializedData = m_openCmd.serialize();
-
+inline std::string clientThread(int dummyIdx, std::string filePath) {
     WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return nullptr;
 
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (clientSocket == INVALID_SOCKET) {
-        MessageBox(NULL, "Invalid Socket!", "错误", MB_ICONERROR);
-        return;
+        std::cerr << "[Client] Socket error\n";
+        WSACleanup();
+        return nullptr;
     }
+    //auto obj = iGame::FileIO::ReadFile(filePath);
 
-    sockaddr_in serverAddr;
+
+    sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    serverAddr.sin_port = htons(12345);
+    serverAddr.sin_port = htons(34567);
+    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
 
     if (connect(clientSocket, (sockaddr*) &serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        MessageBox(NULL, "Connect Error!!", "错误", MB_ICONERROR);
+        std::cerr << "[Client] Connect failed\n";
         closesocket(clientSocket);
-        return;
+        WSACleanup();
+        return nullptr;
     }
 
-    // 发送序列化后的数据
-    send(clientSocket, serializedData.c_str(), serializedData.size() + 1, 0);
-    std::string savePath = "./ReceivedFile.igc"; // 保存文件名
+    std::cout << "[Client] Connected to server\n";
+    std::string ext = GetFileExtension(filePath);
+    uint32_t extLen = ext.size();
+    // 先发送扩展名长度
+    send(clientSocket, (char*) &extLen, sizeof(extLen), 0);
+    // 再发送扩展名字符串
+    send(clientSocket, ext.c_str(), extLen, 0);
 
-    // 3. 接收文件
-    std::ofstream file(savePath, std::ios::binary);
+   
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        MessageBox(NULL, "failed ctreat file!", "错误", MB_ICONERROR);
+        std::cerr << "[Client] Failed to open file: " << filePath << "\n";
         closesocket(clientSocket);
-        return;
+        WSACleanup();
+        return nullptr;
     }
 
-    // 接收文件大小（假设服务器先发送文件大小）
-    std::streamsize fileSize;
-    if (recv(clientSocket, (char*) &fileSize, sizeof(fileSize), 0) <= 0) {
-        MessageBox(NULL, "receive file length failed", "错误", MB_ICONERROR);
-        file.close();
+    uint64_t fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    send(clientSocket, (char*) &fileSize, sizeof(fileSize), 0);
+
+    // 2. 发送文件内容
+    char buf[65536];
+    while (!file.eof()) {
+        file.read(buf, sizeof(buf));
+        int n = (int) file.gcount();
+        send(clientSocket, buf, n, 0);
+    }
+    file.close();
+    std::cout << "[Client] File sent to server\n";
+
+    // 3. 接收文件大小
+    uint64_t recvSize = 0;
+    int r = recv(clientSocket, (char*) &recvSize, sizeof(recvSize), 0);
+    if (r <= 0) {
+        std::cerr << "[Client] Failed to receive file size from server\n";
         closesocket(clientSocket);
-        return;
+        WSACleanup();
+        return nullptr;
     }
 
-    // 循环接收数据
-    constexpr size_t BUFFER_SIZE = 65536;
-    char buffer[BUFFER_SIZE];
-    std::streamsize totalReceived = 0;
+    std::cout << "[Client] Receiving file of size " << recvSize << "\n";
 
-    while (totalReceived < fileSize) {
-        int bytesToRead = (fileSize - totalReceived > BUFFER_SIZE) ? BUFFER_SIZE : fileSize - totalReceived;
-        int bytesReceived = recv(clientSocket, buffer, bytesToRead, 0);
-        if (bytesReceived <= 0) {
-            MessageBox(NULL, "received stoped!", "错误", MB_ICONERROR);
-            break;
-        }
-        file.write(buffer, bytesReceived);
-        totalReceived += bytesReceived;
-     }
+    // 4. 接收文件内容
+    std::string localFileName = "./clientFile"+ext;
+    std::ofstream outFile(localFileName, std::ios::binary);
+    uint64_t received = 0;
+    while (received < recvSize) {
+        int toRead = (recvSize - received > sizeof(buf)) ? sizeof(buf) : (int) (recvSize - received);
+        int n = recv(clientSocket, buf, toRead, 0);
+        if (n <= 0) break;
+        outFile.write(buf, n);
+        received += n;
+    }
+    outFile.close();
+    std::cout << "[Client] File received\n";
 
-     file.close();
-     closesocket(clientSocket);
-     WSACleanup();
- }
-
-#endif
+    closesocket(clientSocket);
+    WSACleanup();
+    return localFileName;
+}

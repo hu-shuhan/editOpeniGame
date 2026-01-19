@@ -620,6 +620,43 @@ void Scene::ResizeFrameBuffer() {
         }
     }
 
+#ifdef IGAME_OPENGL_VERSION_460
+    auto fbo = GLFramebuffer::New();
+    fbo->Create();
+    fbo->Target(GL_FRAMEBUFFER);
+    fbo->Bind();
+
+    auto colorTexture = GLTexture2d::New();
+    colorTexture->Create();
+    colorTexture->Bind();
+    colorTexture->Storage(1, GL_RGBA8, VOLUME_RENDERING_FRAMEBUFFER_WIDTH,
+                          VOLUME_RENDERING_FRAMEBUFFER_WIDTH /
+                                  m_Camera->aspect<float>());
+    colorTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    colorTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    colorTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
+
+    auto depthTexture = GLTexture2d::New();
+    depthTexture->Create();
+    depthTexture->Bind();
+    depthTexture->Storage(
+            1, GL_DEPTH_COMPONENT24, VOLUME_RENDERING_FRAMEBUFFER_WIDTH,
+            VOLUME_RENDERING_FRAMEBUFFER_WIDTH / m_Camera->aspect<float>());
+    fbo->Texture(GL_DEPTH_ATTACHMENT, depthTexture, 0);
+
+    fbo->Release();
+
+    m_VolumeColorTexture = colorTexture;
+    m_VolumeDepthTexture = depthTexture;
+    m_VolumeFramebuffer = fbo;
+    if (m_VolumeFramebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
+        IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
+                              this->GetName());
+    }
+#endif
+
     ResizeHzb();
 }
 void Scene::ResizeHzb() {
@@ -830,6 +867,9 @@ void Scene::DrawFrame() {
         m_Framebuffer->Bind();
         ClearFramebuffer();
 
+        m_VolumeFramebuffer->Bind();
+        ClearFramebuffer();
+
 #ifdef GL_SUPPORT_MSAA
         m_FramebufferMultisampled->Bind();
         ClearFramebuffer();
@@ -850,14 +890,19 @@ void Scene::DrawFrame() {
         }
 #endif
 
-        // Since painter 2D is always in the top
-        m_Painter2D->Draw();
+        // Draw painter 2d and axes
+        m_Framebuffer->Bind();
+        glViewport(0, 0, viewport.x, viewport.y);
+        {
+            // Draw painter 2D in the image top
+            m_Painter2D->Draw();
 
-        // Draw axes in bottom left
-        if (m_AxesVisible) {
-            int mx = std::max(viewport.x, viewport.y);
-            glViewport(0, 0, mx / 10, mx / 10);
-            m_Axes->Draw();
+            // Draw axes in bottom left
+            if (m_AxesVisible) {
+                int mx = std::max(viewport.x, viewport.y);
+                glViewport(0, 0, mx / 10, mx / 10);
+                m_Axes->Draw();
+            }
         }
     }
 }
@@ -1113,7 +1158,12 @@ void Scene::TransparentPass() {
 
 void Scene::VolumeRenderingPass() {
 #ifdef IGAME_OPENGL_VERSION_460
-    m_Framebuffer->Bind();
+    auto width = VOLUME_RENDERING_FRAMEBUFFER_WIDTH;
+    auto height = static_cast<uint32_t>(VOLUME_RENDERING_FRAMEBUFFER_WIDTH /
+                                        m_Camera->aspect<float>());
+
+    m_VolumeFramebuffer->Bind();
+    glViewport(0, 0, width, height);
 
     // use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
@@ -1160,7 +1210,7 @@ void Scene::VolumeRenderingPass() {
         auto shader = this->GetShader(ShaderType::VOLUMERENDERINGSORT);
         shader->Use();
 
-        m_ColorTexture->Active(GL_TEXTURE1);
+        m_VolumeColorTexture->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColor", 1);
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
@@ -1172,7 +1222,13 @@ void Scene::VolumeRenderingPass() {
         glDrawArrays(GL_TRIANGLES, 0, 3);
         m_EmptyVAO->Release();
     }
-    glEnable(GL_DEPTH_TEST);
+
+    // 4.resolve to main framebuffer
+    auto viewport = m_Camera->GetScaledViewPort();
+    GLFramebuffer::Blit(m_VolumeFramebuffer, m_Framebuffer, 0, 0, width, height,
+                        0, 0, viewport.x, viewport.y, GL_COLOR_BUFFER_BIT,
+                        GL_LINEAR);
+
 #endif
     glDisable(GL_DEPTH_TEST);
     GLCheckError();
@@ -1459,9 +1515,7 @@ void Scene::UpdateModelsBoundingSphere() {
         auto model = it->second;
 
         if (!model->GetVisibility()) { continue; }
-        //坐标轴不计算包围盒
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->IsAlwaysOnTop()) { continue; }
         box.combine(model->GetDataObject()->GetBoundingBox());
         box.combine(model->GetPainter3D()->GetBoundingBox());
     }

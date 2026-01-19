@@ -62,7 +62,12 @@ SurfaceMesh::Pointer UnstructuredMesh::TransferToSurfaceMesh() {
             break;
         }
     }
-    if (CouldTransfer == false) { return nullptr; }
+    if (CouldTransfer == false) { 
+        std::cout<<"Could not transfer to SurfaceMesh, because there are non-surface cells."<<std::endl;
+        return nullptr; 
+    } else {
+		std::cout<<"Transfer to SurfaceMesh successfully."<<std::endl;
+    }
     SurfaceMesh::Pointer mesh = SurfaceMesh::New();
     mesh->SetName(this->GetName());
     mesh->SetPoints(this->m_Points);

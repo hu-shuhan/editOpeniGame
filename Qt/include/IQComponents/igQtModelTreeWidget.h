@@ -82,6 +82,7 @@ public:
     AttribTreeWidgetItem(int index, QTreeWidget* treeview = nullptr, ModelTreeWidgetItem* parent = nullptr);
 
     void setDimension(int length);
+    int getDimension() const { return m_Dimension; }
 
     int currentIndex() const { return comboBox->currentIndex(); }
     void show() { comboBox->show(); }
@@ -91,6 +92,7 @@ public:
 
 private:
     int index;
+    int m_Dimension{1};
     MComboBox* comboBox;
     ModelTreeWidgetItem* parent;
 };
@@ -191,6 +193,7 @@ public:
 
     void setDimension(int length) {
         m_Combo->clear();
+        m_Dimension = length;
         
         // For Dimension=1, show only the single dimension value, not magnitude
         if (length == 1) {
@@ -211,6 +214,7 @@ public:
         m_Combo->setCurrentIndex(0);
     }
 
+    int getDimension() const { return m_Dimension; }
 
     int currentIndex() const { return m_Combo->currentIndex(); }
     void show() { m_Combo->show(); }
@@ -229,6 +233,7 @@ public:
 
 private:
     int m_Index;
+    int m_Dimension{1};
     MComboBox* m_Combo{nullptr};
     QTreeWidget* m_Tree{nullptr};
     SubObjectTreeWidgetItem* m_Parent{nullptr};

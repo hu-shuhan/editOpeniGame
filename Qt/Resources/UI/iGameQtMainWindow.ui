@@ -67,7 +67,7 @@ QToolBar QToolButton {
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>34</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -77,6 +77,10 @@ QToolBar QToolButton {
     <widget class="QMenu" name="menu_RecentFiles">
      <property name="title">
       <string>最近文件</string>
+     </property>
+     <property name="icon">
+      <iconset resource="../iGameQtMainWindow.qrc">
+       <normaloff>:/Ticon/Icons/Open.png</normaloff>:/Ticon/Icons/Open.png</iconset>
      </property>
      <addaction name="action_TmpFile"/>
     </widget>
@@ -94,6 +98,10 @@ QToolBar QToolButton {
     <widget class="QMenu" name="menu_clip">
      <property name="title">
       <string>切割</string>
+     </property>
+     <property name="icon">
+      <iconset resource="../iGameQtMainWindow.qrc">
+       <normaloff>:/Ticon/Icons/Slice.png</normaloff>:/Ticon/Icons/Slice.png</iconset>
      </property>
      <addaction name="action_ResetClipping"/>
      <addaction name="separator"/>
@@ -118,6 +126,7 @@ QToolBar QToolButton {
     <addaction name="action_ExportAnimation"/>
     <addaction name="menu_DataAnalysis"/>
     <addaction name="menu_clip"/>
+    <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menu_filters">
@@ -153,7 +162,7 @@ QToolBar QToolButton {
     <string>toolBar</string>
    </property>
    <property name="toolButtonStyle">
-    <enum>Qt::ToolButtonIconOnly</enum>
+    <enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum>
    </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
@@ -182,7 +191,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>模型列表</string>
@@ -222,7 +231,7 @@ QToolBar QToolButton {
       </sizepolicy>
      </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::Shape::NoFrame</enum>
      </property>
      <property name="lineWidth">
       <number>1</number>
@@ -286,7 +295,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>标量场</string>
@@ -294,7 +303,14 @@ QToolBar QToolButton {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtScalarViewWidget" name="widget_ScalarField"/>
+   <widget class="igQtScalarViewWidget" name="widget_ScalarField">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
@@ -304,7 +320,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>矢量场</string>
@@ -322,7 +338,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>流场</string>
@@ -333,6 +349,12 @@ QToolBar QToolButton {
    <widget class="igQtStreamTracerWidget" name="widget_FlowField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_TensorField">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <property name="minimumSize">
     <size>
      <width>99</width>
@@ -340,7 +362,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>张量场</string>
@@ -348,7 +370,14 @@ QToolBar QToolButton {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtTensorWidget" name="widget_TensorField"/>
+   <widget class="igQtTensorWidget" name="widget_TensorField">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
    <property name="minimumSize">
@@ -358,7 +387,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>平行坐标</string>
@@ -376,7 +405,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>变量相关性</string>
@@ -394,7 +423,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>变量数据密度</string>
@@ -412,7 +441,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>路径图</string>
@@ -430,7 +459,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>选择</string>
@@ -448,7 +477,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>已选数据的上下文保持显示</string>
@@ -481,7 +510,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>动画控件</string>
@@ -575,6 +604,12 @@ QToolBar QToolButton {
    <addaction name="action_ChangeBackground"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <property name="minimumSize">
     <size>
      <width>99</width>
@@ -587,7 +622,14 @@ QToolBar QToolButton {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtContourExtractWidget" name="widget_ContourExtract"/>
+   <widget class="igQtContourExtractWidget" name="widget_ContourExtract">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <action name="action_SaveMesh">
    <property name="icon">
@@ -604,6 +646,10 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_Vector">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/Glyph.png</normaloff>:/Ticon/Icons/Glyph.png</iconset>
+   </property>
    <property name="text">
     <string>矢量场</string>
    </property>
@@ -651,7 +697,7 @@ QToolBar QToolButton {
     <string>action_ResetView</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::NoRole</enum>
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="action_ResetViewByBoundingBox">
@@ -662,7 +708,7 @@ QToolBar QToolButton {
     <string>action_ResetViewByBoundingBox</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::NoRole</enum>
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="action_StrucDeformation">
@@ -917,11 +963,19 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_FlowField">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/StreamTracer.png</normaloff>:/Ticon/Icons/StreamTracer.png</iconset>
+   </property>
    <property name="text">
     <string>时序流场</string>
    </property>
   </action>
   <action name="action_ExportAnimation">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/animation_save_vcr.png</normaloff>:/Ticon/Icons/animation_save_vcr.png</iconset>
+   </property>
    <property name="text">
     <string>动画输出可视化</string>
    </property>
@@ -952,6 +1006,10 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_ModelPick">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/select/selectView.png</normaloff>:/Ticon/Icons/select/selectView.png</iconset>
+   </property>
    <property name="text">
     <string>点选模式</string>
    </property>
@@ -1094,6 +1152,10 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_SaveMeshAs">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/SaveFile.png</normaloff>:/Ticon/Icons/SaveFile.png</iconset>
+   </property>
    <property name="text">
     <string>另存为</string>
    </property>
@@ -1216,7 +1278,7 @@ QToolBar QToolButton {
     <string>使用正交投影</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::NoRole</enum>
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="action_slice">
