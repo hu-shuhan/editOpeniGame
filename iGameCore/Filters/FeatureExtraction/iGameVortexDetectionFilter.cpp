@@ -1480,7 +1480,6 @@ torch::Tensor VortexDetection::knn_smooth_labels(
     const torch::Device device = prefer_cuda ? prob_vol_1.device() : torch::kCPU;
     const bool use_fp16 = prefer_cuda;
 
-    // dv
     torch::Tensor dv_host = torch::from_blob((void*)data_val.data(), {M}, torch::kFloat32);
     torch::Tensor dv = prefer_cuda ? dv_host.clone().to(device, true) : dv_host.clone();
 
@@ -1502,12 +1501,11 @@ torch::Tensor VortexDetection::knn_smooth_labels(
     prob_all = prob_all.contiguous().view({-1}).to(torch::kFloat32);
     const int64_t nprob = prob_all.numel();
     const int64_t k60 = std::clamp<int64_t>(
-        static_cast<int64_t>(std::floor(0.9985 * (nprob - 1))) + 1,
+        static_cast<int64_t>(std::floor(0.999 * (nprob - 1))) + 1,
         1,
         nprob
     );
     float prob_med = std::get<0>(prob_all.kthvalue(k60)).item<float>();
-
     const float sx = global_step[0], sy = global_step[1], sz = global_step[2];
     const float inv_sx = (sx != 0.f) ? 1.f / sx : 0.f;
     const float inv_sy = (sy != 0.f) ? 1.f / sy : 0.f;
@@ -1523,7 +1521,6 @@ torch::Tensor VortexDetection::knn_smooth_labels(
         torch::Tensor vol5 = prob_vol_1;
         if (vol5.device() != device) vol5 = vol5.to(device, true);
         vol5 = vol5.unsqueeze(0).unsqueeze(0).contiguous(torch::MemoryFormat::ChannelsLast3d);
-
         torch::Tensor vol5_h;
         if (use_fp16) vol5_h = vol5.to(torch::kHalf);
 
