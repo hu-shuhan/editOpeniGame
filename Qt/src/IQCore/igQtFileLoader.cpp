@@ -62,9 +62,25 @@ void igQtFileLoader::LoadOnlineC() {
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     std::cout << filePath << std::endl;
-    std::thread client_thread(clientThread, selected_idx, filePath);
+    // 关键修改：用packaged_task获取线程返回值
+    // 1. 创建任务对象，绑定clientThread和参数
+    std::packaged_task<std::string(int, std::string)> task(clientThread);
+    // 2. 获取future对象，用于接收线程返回值
+    std::future<std::string> fut = task.get_future();
+    // 3. 启动线程（将task转移到线程中）
+    std::thread client_thread(std::move(task), selected_idx, filePath);
+    // 4. 等待线程结束，并获取返回值（localFileName）
     client_thread.join();
-    this->OpenFile("./ReceivedFile.igc");
+    std::string localFileName = fut.get();  // 获取接收后的文件名
+
+    // 5. 传递文件名给OpenFile（判断是否为空，避免传无效值）
+    if (!localFileName.empty()) {
+        this->OpenFile(localFileName);  // 替换空字符串为实际文件名
+    } else {
+        std::cerr << "[LoadOnlineC] Failed to receive file, OpenFile skipped\n";
+        this->OpenFile("");  // 失败时仍传空，保持原有逻辑
+    }
+
 #endif
 }
 void igQtFileLoader::LoadFile() {

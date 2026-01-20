@@ -112,6 +112,9 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
     propertyManager->setAttribute(prop_Transparency, "maximum", 1.0);
     propertyManager->setAttribute(prop_Transparency, "singleStep", 0.1);
 
+
+
+
     connect(propertyManager, &QtVariantPropertyManager::valueChanged, this, &igQtModelDialogWidget::onPropertyChanged);
 
     ui->ModelInformationWidget->hide();

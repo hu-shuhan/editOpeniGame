@@ -29,6 +29,7 @@
 
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>
@@ -45,7 +46,14 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
-#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
+#include <QDebug>
+#include <QLabel>
+#include <QMessageBox>
+#include <QSplitter>
+#include <QStyleFactory>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <QWidgetAction>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -64,10 +72,6 @@
 #include <meshoptimizer.h>
 #include <stdio.h>
 
-#include <QDebug>
-#include <QMessageBox>
-#include <QSplitter>
-
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     initAllUnDefinedComponents();
@@ -77,6 +81,27 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
+    UpdateIcons();
+    rebuildActionsAsTwoRowWidget(
+            ui->toolBar_4,
+            {
+                    ui->action_rotateNinetyClockwise,
+                    ui->action_rotateNinetyCounterClockwise
+            },
+            1   // 每行 3 个：X Y Z / -X -Y -Z
+    );
+    rebuildActionsAsTwoRowWidget(
+            ui->toolBar_4,
+            {
+                    ui->action_setViewToNegativeX,
+                    ui->action_setViewToNegativeY,
+                    ui->action_setViewToNegativeZ,
+                    ui->action_setViewToPositiveX,
+                    ui->action_setViewToPositiveY,
+                    ui->action_setViewToPositiveZ
+            },
+            3   // 每行 3 个：X Y Z / -X -Y -Z
+    );
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
@@ -84,7 +109,6 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     if (!commandManager->startConnection("localhost", 12345)) {
         qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
     }
-
     ThreadPool::Instance();
 }
 igQtMainWindow::~igQtMainWindow() {
@@ -127,6 +151,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
+
 
 
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ScalarField);
@@ -196,8 +221,15 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+
+    const auto docks = findChildren<QDockWidget*>();
+
+
+
 }
-void igQtMainWindow::initToolbarComponent() {}
+void igQtMainWindow::initToolbarComponent() {
+    // 不再添加工具栏下方标题，避免遮挡图标
+}
 
 void igQtMainWindow::initAllComponents() {
     connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked){
@@ -240,8 +272,8 @@ void igQtMainWindow::initAllComponents() {
     });
 
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
-    // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
-    // connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
+    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
+    connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
     connect(ui->action_SaveMesh, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
@@ -1957,7 +1989,7 @@ QString igQtMainWindow::LoadExternalFonts() {
 }
 void igQtMainWindow::UpdateIcons()
 {
-    int iconSize = 60;
+    int iconSize = 50;
 
     for (QToolBar* tb : this->findChildren<QToolBar*>()) {
         // 设置 toolbar 的图标大小
@@ -1965,7 +1997,107 @@ void igQtMainWindow::UpdateIcons()
 
         // 保证 toolbar 高度足够
         tb->setMinimumHeight(iconSize + 8);
+        for (QToolButton* btn : tb->findChildren<QToolButton*>()) {
+            // 设置文字显示方式
+            // 可选：
+            // Qt::ToolButtonTextUnderIcon : 图标下显示文字
+            // Qt::ToolButtonTextBesideIcon : 图标旁显示文字
+            // Qt::ToolButtonIconOnly : 只显示图标
+            btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+
+            // 如果你希望调整字体大小，可以在这里设置
+            QFont f = btn->font();
+            f.setPointSize(8);   // 改成你想要的字体大小
+            btn->setFont(f);
+        }
+    }
+}
+void igQtMainWindow::rebuildActionsAsTwoRowWidget(
+        QToolBar* toolbar,
+        const QList<QAction*>& targetActions,
+        int columns /* 每行几个targetActions，默认 2 */
+)
+{
+    if (!toolbar || targetActions.isEmpty())
+        return;
+
+    // 1. 先从 toolbar 移除这些 action
+    for (QAction* act : targetActions) {
+        if (act)
+            toolbar->removeAction(act);
     }
 
+    // 2. 创建两行 Widget
+    QWidget* container = new QWidget(toolbar);
+    QGridLayout* grid = new QGridLayout(container);
+    grid->setSpacing(4);
+    // 调整Grid上下边距（核心对齐点，可根据实际效果微调top/bottom）
+    grid->setContentsMargins(0, 0, 0, 0);
 
+    // ========== 关键修复：Qt 5.15.2兼容的原生按钮尺寸计算 ==========
+    // Qt 5中Toolbar原生按钮尺寸 = 图标尺寸 + 上下左右各4px留白（通用规则）
+    QSize iconSize = toolbar->iconSize();
+    QSize nativeBtnSize(iconSize.width()/2 + 8, iconSize.height()/2 + 8);
+    // 若默认留白不对，可手动微调（比如+6/+10），示例：
+    // QSize nativeBtnSize(iconSize.width() + 6, iconSize.height() + 6);
+
+    int row = 0;
+    int col = 0;
+
+    for (QAction* act : targetActions) {
+        if (!act)
+            continue;
+
+        QToolButton* btn = new QToolButton(container);
+        btn->setDefaultAction(act);
+        btn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        btn->setIconSize(iconSize); // 复用Toolbar的图标尺寸
+        btn->setAutoRaise(true);
+        btn->setFocusPolicy(Qt::NoFocus);
+
+        // 保持按钮尺寸和原生一致
+        btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        btn->setMinimumSize(nativeBtnSize);
+        btn->setMaximumSize(nativeBtnSize);
+
+        // 统一hover样式
+        btn->setStyleSheet(R"(
+            QToolButton {
+                border: none;
+                margin: 0px;
+                padding: 0px;
+            }
+            QToolButton:hover {
+                background-color: palette(highlight);
+                border-radius: 2px;
+            }
+            QToolButton:pressed {
+                background-color: palette(highlight).darker(120);
+            }
+        )");
+
+        // 按钮在单元格内垂直+水平居中（保证对齐）
+        grid->addWidget(btn, row, col, Qt::AlignVCenter | Qt::AlignHCenter);
+
+        if (++col >= columns) {
+            col = 0;
+            ++row;
+        }
+    }
+
+    // 取消容器硬编码高度，让布局自动计算（保证上下边缘对齐）
+    // container->setFixedHeight(xxx); // 保持注释/删除状态
+
+    // 3. 用 QWidgetAction 包装
+    QWidgetAction* widgetAction = new QWidgetAction(toolbar);
+    widgetAction->setDefaultWidget(container);
+    // 4. 插回 toolbar
+    toolbar->insertAction(
+            toolbar->actions().isEmpty() ? nullptr
+                                         : toolbar->actions().first(),
+            widgetAction
+    );
+
+    // 可选：微调Toolbar的整体边距（若仍有偏移）
+    // toolbar->setContentsMargins(0, 0, 0, 0);
 }

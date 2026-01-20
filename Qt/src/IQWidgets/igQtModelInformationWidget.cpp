@@ -96,7 +96,11 @@ void igQtModelInformationWidget::updateInformationFrame() {
         fileName = QString::fromStdString(filePath.substr(lastSlashPos + 1));
     }
 
+
     frameLayout->addWidget(createLabel("File Properties"));
+
+
+
     frameLayout->addWidget(createSeparator());
     frameLayout->addWidget(createPropertyLabel("Name", fileName));
     frameLayout->addWidget(createPropertyLabel("Path", directory));
@@ -154,6 +158,14 @@ QLabel* igQtModelInformationWidget::createLabel(const QString& text) {
     label->setStyleSheet("font-weight: bold;");
     label->setWordWrap(false);                                            // 禁用换行
     label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);   // 允许水平压缩
+    label->setStyleSheet(R"(
+        QLabel {
+            font-family: "PingFang SC" !important;
+            font-size: 14px !important;
+            color: #FFFFFF !important; /* 纯纯白，匹配iOS的#FFFFFF */
+            font-weight: 500; /* 可选：加一点字重，和iOS视觉对齐 */
+        }
+    )");
     return label;
 }
 
@@ -167,5 +179,13 @@ QFrame* igQtModelInformationWidget::createSeparator() {
     QFrame* line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    //添加修改样式
+    line->setStyleSheet(R"(
+        QWidget {
+            background-color: #3A3A3A !important; /* 深灰分割线，适配深色主题 */
+            height: 1px !important;
+            margin: 4px 0 !important;
+        }
+    )");
     return line;
 }

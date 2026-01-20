@@ -1,156 +1,109 @@
 #pragma once
-
-#if defined(_WIN32) || defined(_WIN64)
-
-#include <iGameUnstructuredMesh.h>
+#include <fstream>
 #include <iostream>
 #include <thread>
 #include <winsock2.h>
+#include <ws2tcpip.h>
+#include "iGameFileReader.h"
 #pragma comment(lib, "ws2_32.lib")
-#include "IGC/iGameIGCWriter.h"
-#include "MeshCodec/iGameMeshDecoderFilter.h"
-#include "Spline XML/iGameSplineReaderCPU.h"
-#include "iGameFileIO.h"
-#ifndef OPENCMD_H
-#define OPENCMD_H
-#include <string>
 
-class OpenCmd {
-public:
-    int selected_idx;
-    std::string filePath;
-
-    // 序列化函数
-    std::string serialize() const {
-        // 将 selected_idx 和 filePath 序列化为一个字符串
-        return std::to_string(selected_idx) + "|" + filePath;3
-    }
-
-    // 反序列化函数
-    void deserialize(const std::string& data) {
-        size_t pos = data.find("|");
-        if (pos != std::string::npos) {
-            selected_idx = std::stoi(data.substr(0, pos));
-            filePath = data.substr(pos + 1);
-        }
-    }
-};
-#endif
-iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
-    using namespace iGame;
-    if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return nullptr;
-
-    auto obj = iGame::FileIO::ReadFile(filePath);
-    if (obj == nullptr) {
-        igDebug("This file read error.");
-        return nullptr;
-    }
-
-    auto filename = filePath.substr(filePath.find_last_of('/') + 1);
-    obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
-    return obj;
-}
-bool LoadAndCompress(std::string filePath) {
-    auto tem = OpenFile(filePath);
-    auto writer = iGame::IGCWriter::New();
-    writer->SetCodecControlParams(iGame::MeshEncoderFilter<iGame::EncodeOutputBinaryArray>::GenerateDefaultCodecParams(tem));
-
-    if (!writer->WriteToFile(tem, "./CScomp.igc")) {
-        igDebug("Compress File Error\n");
-        return false;
-    }
-    return true;
-}
-void serverThread() {
-    system("cls");
-    WORD sockVersion = MAKEWORD(2, 2);
+inline void serverThread() {
     WSADATA wsaData;
-    if (WSAStartup(sockVersion, &wsaData) != 0) return;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return;
 
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET) {
-        std::cout << "socket error:" << WSAGetLastError() << std::endl;
+        std::cerr << "[Server] Socket error\n";
         WSACleanup();
         return;
     }
 
-    sockaddr_in serverAddr;
+    sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.S_un.S_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(12345);
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(34567);
 
-    if (bind(serverSocket, (SOCKADDR*) &serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cout << "Bind Error!" << std::endl;
+    if (bind(serverSocket, (sockaddr*) &serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr << "[Server] Bind failed\n";
         closesocket(serverSocket);
         WSACleanup();
         return;
     }
 
     if (listen(serverSocket, 5) == SOCKET_ERROR) {
-        std::cout << "Listen Error !" << std::endl;
+        std::cerr << "[Server] Listen failed\n";
         closesocket(serverSocket);
         WSACleanup();
         return;
     }
-    std::cout << "listening..." << std::endl;
+
+    std::cout << "[Server] Listening on port 34567...\n";
 
     while (true) {
-        SOCKET clientSocket = INVALID_SOCKET;
-        sockaddr_in clientAddr;
-        int iAddrLength = sizeof(clientAddr);
-        std::cout << "wait for login..." << std::endl;
-        clientSocket = accept(serverSocket, (SOCKADDR*) &clientAddr, &iAddrLength);
+        SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
+        if (clientSocket == INVALID_SOCKET) continue;
 
-        if (clientSocket == INVALID_SOCKET) {
-            std::cout << "Accept Error !" << WSAGetLastError() << std::endl;
-            closesocket(serverSocket);
-            WSACleanup();
-            return;
+        std::cout << "[Server] Client connected\n";
+        // 1. 接收扩展名长度
+        uint32_t extLen = 0;
+        recv(clientSocket, (char*) &extLen, sizeof(extLen), 0);
+
+        // 2. 接收扩展名
+        std::string ext(extLen, '\0');
+        recv(clientSocket, ext.data(), extLen, 0);
+
+        // 3. 构建本地文件名
+        std::string localFile = "./ServerFile" + ext;
+        std::ofstream outFile(localFile, std::ios::binary);
+        // 4. 接收文件大小
+        uint64_t fileSize = 0;
+        int r = recv(clientSocket, (char*) &fileSize, sizeof(fileSize), 0);
+        if (r <= 0) {
+            std::cerr << "[Server] Failed to receive file size\n";
+            closesocket(clientSocket);
+            continue;
         }
-        std::cout << "client addres：" << inet_ntoa(clientAddr.sin_addr) << std::endl;
 
-        char buffer[1024];
-        int iLenOfRecvData = recv(clientSocket, buffer, sizeof(buffer), 0);
-        if (iLenOfRecvData > 0) {
-            // 反序列化数据
-            OpenCmd recCmd;
-            recCmd.deserialize(buffer);
-            std::cout << recCmd.filePath << std::endl;
-            auto check = LoadAndCompress(recCmd.filePath);
-            std::ifstream file("./CScomp.igc", std::ios::binary | std::ios::ate);
-            if (!file.is_open()) {
-                std::cerr << "cant open file: "
-                          << "./CScomp.igc" << std::endl;
-                return;
-            }
+        std::cout << "[Server] Receiving file of size " << fileSize << "\n";
 
-            // 1. 发送文件大小
-            std::streamsize fileSize = file.tellg();
-            file.seekg(0, std::ios::beg);
-            send(clientSocket, (char*) &fileSize, sizeof(fileSize), 0);
-
-            // 2. 发送文件内容
-            constexpr size_t BUFFER_SIZE = 65536;
-            char buffer[BUFFER_SIZE];
-            while (!file.eof()) {
-                file.read(buffer, BUFFER_SIZE);
-                send(clientSocket, buffer, file.gcount(), 0);
-            }
-
-            file.close();
-
-        } else {
-            std::cout << "sever stoped..." << std::endl;
-            break;
+        // 5. 接收文件内容
+        uint64_t received = 0;
+        char buf[65536];
+        while (received < fileSize) {
+            int toRead = (fileSize - received > sizeof(buf)) ? sizeof(buf) : (int) (fileSize - received);
+            int n = recv(clientSocket, buf, toRead, 0);
+            if (n <= 0) break;
+            outFile.write(buf, n);
+            received += n;
         }
+        outFile.close();
+        std::cout << "[Server] File received\n";
+
+
+        // 6. 回传文件给客户端
+        std::ifstream inFile(localFile, std::ios::binary | std::ios::ate);
+        if (!inFile.is_open()) {
+            std::cerr << "[Server] Failed to open file to send\n";
+            closesocket(clientSocket);
+            continue;
+        }
+
+        uint64_t sendSize = inFile.tellg();
+        inFile.seekg(0, std::ios::beg);
+
+        send(clientSocket, (char*) &sendSize, sizeof(sendSize), 0);
+
+        while (!inFile.eof()) {
+            inFile.read(buf, sizeof(buf));
+            int n = (int) inFile.gcount();
+            send(clientSocket, buf, n, 0);
+        }
+
+        inFile.close();
         closesocket(clientSocket);
-        closesocket(serverSocket);
-        WSACleanup();
-        return;
+        std::cout << "[Server] File sent back to client\n";
     }
+
     closesocket(serverSocket);
     WSACleanup();
 }
-
-#endif

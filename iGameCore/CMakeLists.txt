@@ -93,10 +93,10 @@ if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
     # On Windows we still allow user to specify HDF5_DIR; on Linux CGNS already set up HDF5
-    if (WIN32)
-        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-        find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
-    endif ()
+    #if (WIN32)
+       # set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        #find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
+    #endif ()
 endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
