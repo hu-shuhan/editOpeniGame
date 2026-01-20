@@ -88,6 +88,7 @@ public:
         if (_mesh)
         std::cout << "isPoly:"<< _mesh->GetIsPolyhedronType() << std::endl;
         this->mesh = _mesh; };
+    auto GetModel() { return this->model; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
     void SetSubFlag(bool Subflag) { this->isSubModel = Subflag; };
     void AddPtFinder(PointFinder::Pointer ptf) { this->ptFinder.emplace_back(ptf); };
@@ -139,7 +140,7 @@ public:
     showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
                    std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine,
                    float lengthOfStep, float terminalSpeed, int maxSteps);
-    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum);
+    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum,bool isPoly=false);
     DataObjectId meshId = -1;
 
 
@@ -158,6 +159,8 @@ private:
                                  float terminalSpeed);
     Vector3f interpolationVectorTri(const Vector3f& coord, bool& inside, igIndex& VolumeId, std::string vectorName,
                                     float terminal);
+    bool IsInsideCell_RayCasting(const Vector3f& p, igIndex cellId);
+    bool IsInsideCell_ConvexHalfSpace(const Vector3f& p, igIndex cellId);
     /**
 	* @brief Calculate vector values with Newton interpolation method
 	* @param[in] coord  Input coord data
@@ -243,7 +246,6 @@ private:
     inline double fastSqrt(double x);
     void precomputeTrigValues();
 
-    std::unordered_map<int, float> cellBoundLength{};
     VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
     bool isSubModel = false;
@@ -252,9 +254,10 @@ private:
     std::vector<int> subIndex;
     enum StreamMode { Diagonal, PointId, Line };
     StreamMode streamMode = PointId;
-    std::shared_mutex rwMutex;
+    std::mutex Mutex;
     int processCount;
     int totalProcess;
+    float maxLength = 0.0f;
     std::shared_mutex ProMutex;
 
     // 存储流线计算参数
@@ -265,7 +268,7 @@ private:
     float m_TerminalSpeed = 0.001f;
     int m_MaxSteps = 10000;
 
-    bool m_IsSingleThread = true;
+    bool m_IsSingleThread = false;
 
     // 存储计算结果
     UnstructuredMesh::Pointer m_ResultMesh;

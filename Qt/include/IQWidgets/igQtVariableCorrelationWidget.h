@@ -48,6 +48,9 @@ private:
     Ui::igQtVariableCorrelationWidget* ui;
 
 public:
+    Ui::igQtVariableCorrelationWidget* GetUi();
+
+public:
     explicit igQtVariableCorrelationWidget(QWidget* parent = nullptr);
     ~igQtVariableCorrelationWidget();
 

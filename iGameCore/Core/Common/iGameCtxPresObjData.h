@@ -105,9 +105,9 @@ public:
 
 protected:
     int m_ChoosedAlpha{255};
-    int m_UnChoosedAlpha{140};
+    int m_UnChoosedAlpha{10};
     int m_ChoosedLight{255};
-    int m_UnChoosedLight{140};
+    int m_UnChoosedLight{10};
 
 public:
     /* static funcs */

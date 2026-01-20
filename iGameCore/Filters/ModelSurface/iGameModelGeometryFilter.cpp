@@ -1039,13 +1039,12 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     UnstructuredMesh::Pointer Mesh = DynamicCast<UnstructuredMesh>(input);
     //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
     //                     << Mesh->GetNumberOfCells() << " cells.");
-    bool isNot3D = false;
+    bool isNot3D = true;
     for (int i = 0; i < Mesh->GetNumberOfCells(); i++) {
         if (Cell::GetCellDimension(Mesh->GetCellType(i)) >= 3) {
-            continue;
+            isNot3D = false;
+            break;
         }
-        isNot3D = true;
-        break;
     }
     if (isNot3D) {
         auto surfaceMesh = Mesh->TransferToSurfaceMesh();

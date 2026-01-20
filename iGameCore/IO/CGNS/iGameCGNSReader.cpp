@@ -46,6 +46,7 @@ bool iGameCGNSReader::Execute() {
         IGAME_CORE_WARN("Unknown file type.");
         return false;
     }
+    this->UpdateProgress(0.05);
     int index_file;
     result = cg_open(fileName.data(), CG_MODE_READ, &index_file);
     if (CG_OK != result) {
@@ -53,6 +54,7 @@ bool iGameCGNSReader::Execute() {
     } else {
         IGAME_CORE_DEBUG("Success to open cgns file!");
     }
+    this->UpdateProgress(0.10);
 
     int cgio_num;
     result = cg_get_cgio(index_file, &cgio_num);
@@ -84,6 +86,7 @@ bool iGameCGNSReader::Execute() {
             continue;
         }
     }
+    this->UpdateProgress(0.20);
 
     int nbases;
     result = cg_nbases(index_file, &nbases);
@@ -92,7 +95,9 @@ bool iGameCGNSReader::Execute() {
     } else {
         // std::cout << "Base Num = " << nbases << std::endl;
     }
+    this->UpdateProgress(0.15);
     m_ParentObject = DrawObject::New();
+    double base_progress_step = 0.7 / nbases;  // 70% of total progress for all bases
     for (int index_base = 1; index_base <= nbases; index_base++) {
         char basename[100];
         int celldim, physdim;
@@ -110,7 +115,11 @@ bool iGameCGNSReader::Execute() {
             IGAME_CORE_ERROR("Get nzones Error: {}", cg_get_error());
         } else {
             IGAME_CORE_DEBUG("Zone Num of Base({}) = {}", index_base, nzones);
+            // 计算每个 zone 的进度步长 (总进度 70% 分配给所有 base 和 zone)
+            double zone_progress_step = base_progress_step / nzones;
             for (int index_zone = 1; index_zone <= nzones; index_zone++) {
+                // 当前 zone 的基础进度
+                double zone_base_progress = 0.20 + (index_base - 1) * base_progress_step + (index_zone - 1) * zone_progress_step;
                 DataObject::Pointer DataSet = DataObject::New();
                 ZoneType_t zoneType;
                 result = cg_zone_type(index_file, index_base, index_zone, &zoneType);
@@ -137,16 +146,24 @@ bool iGameCGNSReader::Execute() {
                         IGAME_CORE_DEBUG("Total Cells: {}", totalCells);
                         // Read vertices coordinates
                         this->ReadPointCoordinates(totalPoints, physdim, index_file, index_base, index_zone, size);
+                        // 读取完点后更新进度 (30% of zone progress)
+                        this->UpdateProgress(zone_base_progress + zone_progress_step * 0.3);
                         // Gen cells (connectivity)
                         this->GenStructuredCellConnectivities(celldim, size);
+                        // 读取完单元后更新进度 (70% of zone progress)
+                        this->UpdateProgress(zone_base_progress + zone_progress_step * 0.7);
                     } else if (zoneType == Unstructured) {
                         IGAME_CORE_DEBUG("ZoneType = Unstructured");
                         IGAME_CORE_DEBUG("Total Points: {}", size[0]);
                         IGAME_CORE_DEBUG("Total Cells: {}", size[1]);
                         // Read vertices coordinates
                         this->ReadPointCoordinates(size[0], physdim, index_file, index_base, index_zone, size);
+                        // 读取完点后更新进度 (30% of zone progress)
+                        this->UpdateProgress(zone_base_progress + zone_progress_step * 0.3);
                         // Read cells (connectivity)
                         this->ReadUnstructuredCellConnectivities(index_file, index_base, index_zone, size[1]);
+                        // 读取完单元后更新进度 (70% of zone progress)
+                        this->UpdateProgress(zone_base_progress + zone_progress_step * 0.7);
                     } else {
                         IGAME_CORE_WARN("Unknown ZoneType!");
                         this->m_DataObjectType = IG_NONE;
@@ -192,6 +209,8 @@ bool iGameCGNSReader::Execute() {
                     if (this->m_AttributeSet) {
                         this->GetCurrentDataObject()->SetAttributeSet(this->m_AttributeSet);
                     }
+                    // 读取完属性后更新进度 (100% of zone progress)
+                    this->UpdateProgress(zone_base_progress + zone_progress_step);
                 }
                 m_ParentObject->AddSubDataObject(this->GetCurrentDataObject());
                 this->m_Points = nullptr;
@@ -209,6 +228,7 @@ bool iGameCGNSReader::Execute() {
         this->SetOutput(m_ParentObject);
     }
     cg_close(index_file);
+    this->UpdateProgress(1.0);
     return true;
 }
 void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int index_file, int index_base,

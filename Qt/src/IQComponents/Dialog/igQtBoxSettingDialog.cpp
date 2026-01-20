@@ -160,7 +160,7 @@ void igQtBoxSettingDialog::SetBoxNumsToLineEdit() {
     ui->px->setText(QString::number(center[0]));
     ui->py->setText(QString::number(center[1]));
     ui->pz->setText(QString::number(center[2]));
-    auto& rotation = dynamicBox->GetRotation();
+    auto rotation = dynamicBox->GetRotation();
     ui->rx->setText(QString::number(rotation[0]));
     ui->ry->setText(QString::number(rotation[1]));
     ui->rz->setText(QString::number(rotation[2]));

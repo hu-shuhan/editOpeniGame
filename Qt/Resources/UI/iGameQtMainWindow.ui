@@ -108,8 +108,8 @@ QToolBar QToolButton:pressed {
 }
 QToolBar::handle {
     /* 竖线样式：宽度2px，背景色#333333（深灰，适配深色风格），高度占满ToolBar */
-    width: 2px; 
-    background-color: #333333; 
+    width: 2px;
+    background-color: #333333;
     margin: 8px 0; /* 上下留一点边距，竖线不贴顶/底，更美观 */
 }
 
@@ -350,8 +350,8 @@ QtTreePropertyBrowser * {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1667</width>
-     <height>34</height>
+     <width>1200</width>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -410,6 +410,7 @@ QtTreePropertyBrowser * {
     <addaction name="action_ExportAnimation"/>
     <addaction name="menu_DataAnalysis"/>
     <addaction name="menu_clip"/>
+    <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menu_filters">
@@ -600,7 +601,14 @@ QtTreePropertyBrowser * {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtScalarViewWidget" name="widget_ScalarField"/>
+   <widget class="igQtScalarViewWidget" name="widget_ScalarField">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
@@ -639,6 +647,12 @@ QtTreePropertyBrowser * {
    <widget class="igQtStreamTracerWidget" name="widget_FlowField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_TensorField">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <property name="minimumSize">
     <size>
      <width>115</width>
@@ -654,7 +668,14 @@ QtTreePropertyBrowser * {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtTensorWidget" name="widget_TensorField"/>
+   <widget class="igQtTensorWidget" name="widget_TensorField">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
    <property name="minimumSize">
@@ -718,7 +739,7 @@ QtTreePropertyBrowser * {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
+    <set>Qt::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>路径图</string>

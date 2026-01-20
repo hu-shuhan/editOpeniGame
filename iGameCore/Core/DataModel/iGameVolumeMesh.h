@@ -235,6 +235,7 @@ public:
         m_FaceEdgeLinks = nullptr;
         m_Edges = nullptr;
         m_EdgeLinks = nullptr;
+        m_InEditStatus = false;
     }
 
     static IGenum GetVolumeTypeWithPointNum(int npts) {

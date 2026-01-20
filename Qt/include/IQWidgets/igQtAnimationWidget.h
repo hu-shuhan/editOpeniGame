@@ -15,6 +15,9 @@ class IG_QT_MODULE_EXPORT igQtAnimationWidget : public QWidget{
 public:
     igQtAnimationWidget(QWidget* parent = nullptr);
 
+    // 检查动画是否正在播放（用于阻止播放期间重新初始化组件）
+    bool IsPlaying() const { return m_IsAnimationPlaying; }
+
 public slots:
     void initAnimationComponents();
 
@@ -27,6 +30,7 @@ private slots:
     void btnPlay_finishLoop();
     void updateAnimationComponentsKeyframeSum(int keyframeSum);
     void changeAnimationMode();
+    void onCacheNumChanged(int cacheNum);  // 缓存数量变化槽函数
 
 
 signals:
@@ -41,4 +45,5 @@ signals:
 private:
     Ui::Animation* ui;
     igQtAnimationVcrController* VcrController;
+    bool m_IsAnimationPlaying{false}; // 动画播放状态标记
 };

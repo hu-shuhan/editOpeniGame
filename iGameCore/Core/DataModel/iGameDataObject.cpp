@@ -134,6 +134,7 @@ void DataObject::SetParent(DataObject* parent) {
 //}
 
 int DataObject::GetAttributeIndex() { return this->m_AttributeIndex; }
+void DataObject::SetAttributeIndex(int index) { this->m_AttributeIndex = index; }
 
 int DataObject::GetAttributeDimension() { return this->m_AttributeDimension; }
 
@@ -223,6 +224,7 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
     auto timeFrameData = this->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
     if (timeFrameType == StreamingType::MultiSubFiles) {
         this->ClearSubDataObject();
+
         for (auto& subObj: timeFrameData) {
             auto subDataObj = DynamicCast<iGame::DrawObject>(subObj);
             if (subDataObj) {
