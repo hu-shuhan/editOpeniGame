@@ -317,7 +317,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     bool uniform = IsAxisAlignedUniformGrid(gridPoints,dims,origin,spacing,1e-10f);
     std::cout << "Is uniform grid: " << uniform << std::endl;
-    int split = 6;
+    int split = 4;
     int nx,ny,nz;
 
     if (!uniform) {
@@ -542,13 +542,9 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     }
     const double eps = 1e-12;
     const double total = static_cast<double>(TP + FP + TN + FN);
-
     const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
-    const double precision = 0.56 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
-                                     static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
-    const double r = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
-    const double recall = (precision + r > 0.0) ? (2.8 * precision * r / (precision + r)) : 0.0;
-
+    const double precision = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FP));
+    const double recall    = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
 
     std::cout << "\n================ Evaluation Metrics ================\n";
     std::cout << "Accuracy      : " << accuracy << "\n";
@@ -1438,77 +1434,8 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //     return prob_cropped;
 // }
 
-
-// torch::Tensor VortexDetection::knn_smooth_labels(  before
-//     std::vector<float> data_val,
-//     const torch::Tensor& prob_vol_1,
-//     const Eigen::Vector3f& min_pos,
-//     const Eigen::Vector3f& global_step,
-//     const std::vector<Eigen::Vector3f>& query_points,
-//     int k)
-// {
-//     auto prob = prob_vol_1.contiguous();
-//     const int nz = prob.size(0), ny = prob.size(1), nx = prob.size(2);
-//     const float* p = prob.data_ptr<float>();
-//
-//     const int N = (int)query_points.size();
-//     torch::Tensor out = torch::zeros({N}, torch::kFloat32);
-//     float* out_ptr = out.data_ptr<float>();
-//
-//     const double sigma = 2.0 * std::max({(double)global_step[0], (double)global_step[1], (double)global_step[2]});
-//     const double inv_two_sigma2 = (sigma>0)? 1.0/(2.0*sigma*sigma) : 1e6;
-//
-//     auto lin = [&](int x,int y,int z)->int64_t {
-//         return (int64_t)z*ny*nx + (int64_t)y*nx + x;
-//     };
-//
-//     auto worker = [&](int begin, int end){
-//         for (int i = begin; i < end; ++i) {
-//             const auto& qp = query_points[i];
-//             const float rx = (qp[0] - min_pos[0]) / global_step[0];
-//             const float ry = (qp[1] - min_pos[1]) / global_step[1];
-//             const float rz = (qp[2] - min_pos[2]) / global_step[2];
-//
-//             const int x0 = std::clamp((int)std::floor(rx), 0, nx-2);
-//             const int y0 = std::clamp((int)std::floor(ry), 0, ny-2);
-//             const int z0 = std::clamp((int)std::floor(rz), 0, nz-2);
-//             const int x1 = x0 + 1, y1 = y0 + 1, z1 = z0 + 1;
-//
-//             const float tx = rx - x0, ty = ry - y0, tz = rz - z0;
-//             const float w000 = (1-tx)*(1-ty)*(1-tz);
-//             const float w100 = tx*(1-ty)*(1-tz);
-//             const float w010 = (1-tx)*ty*(1-tz);
-//             const float w110 = tx*ty*(1-tz);
-//             const float w001 = (1-tx)*(1-ty)*tz;
-//             const float w101 = tx*(1-ty)*tz;
-//             const float w011 = (1-tx)*ty*tz;
-//             const float w111 = tx*ty*tz;
-//
-//             float val =
-//                 w000 * p[lin(x0,y0,z0)] +
-//                 w100 * p[lin(x1,y0,z0)] +
-//                 w010 * p[lin(x0,y1,z0)] +
-//                 w110 * p[lin(x1,y1,z0)] +
-//                 w001 * p[lin(x0,y0,z1)] +
-//                 w101 * p[lin(x1,y0,z1)] +
-//                 w011 * p[lin(x0,y1,z1)] +
-//                 w111 * p[lin(x1,y1,z1)];
-//
-//             const float dv = data_val[i];
-//             // out_ptr[i] = val;
-//             out_ptr[i] = ((dv >= 0.2f && val >= 0.01f) ||
-//                           (val >= 0.2f && dv >= 0.15f)  ||
-//                           (dv >= 0.8f)                     ||
-//                           (val >= 0.3f)) ? 1.f : 0.f;
-//         }
-//     };
-//
-//     ThreadPool::parallelFor(0, N, worker, 2048);
-//     return out;
-// }
-
 static inline uint64_t expandBits(uint32_t v) {
-    uint64_t x = v & 0x1fffff; // 21 bits
+    uint64_t x = v & 0x1fffff;
     x = (x | (x << 32)) & 0x1f00000000ffffULL;
     x = (x | (x << 16)) & 0x1f0000ff0000ffULL;
     x = (x | (x << 8)) & 0x100f00f00f00f00fULL;
@@ -1570,6 +1497,17 @@ torch::Tensor VortexDetection::knn_smooth_labels(
         thr25 = std::get<0>(pool.kthvalue(k25)).item<float>();
     }
 
+    torch::Tensor prob_all = prob_vol_1;
+    if (prob_all.device() != device) prob_all = prob_all.to(device, true);
+    prob_all = prob_all.contiguous().view({-1}).to(torch::kFloat32);
+    const int64_t nprob = prob_all.numel();
+    const int64_t k60 = std::clamp<int64_t>(
+        static_cast<int64_t>(std::floor(0.9985 * (nprob - 1))) + 1,
+        1,
+        nprob
+    );
+    float prob_med = std::get<0>(prob_all.kthvalue(k60)).item<float>();
+
     const float sx = global_step[0], sy = global_step[1], sz = global_step[2];
     const float inv_sx = (sx != 0.f) ? 1.f / sx : 0.f;
     const float inv_sy = (sy != 0.f) ? 1.f / sy : 0.f;
@@ -1582,7 +1520,6 @@ torch::Tensor VortexDetection::knn_smooth_labels(
     UpdateProgress(82 * 0.01);
 
     if (!uniform) {
-        // build vol5 only here
         torch::Tensor vol5 = prob_vol_1;
         if (vol5.device() != device) vol5 = vol5.to(device, true);
         vol5 = vol5.unsqueeze(0).unsqueeze(0).contiguous(torch::MemoryFormat::ChannelsLast3d);
@@ -1635,14 +1572,14 @@ torch::Tensor VortexDetection::knn_smooth_labels(
             }
 
             auto dv_chunk = dv.narrow(0, start, currN);
-            auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
-                         (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
-                         dv_chunk.ge(thr93) |
-                         sampled_chunk.ge(0.3f));
+            // auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
+            //              (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
+            //              dv_chunk.ge(thr93) |
+            //              sampled_chunk.ge(0.3f));
+            auto mask = (sampled_chunk.ge(prob_med)| dv_chunk.ge(thr93));
             cond_out.narrow(0, start, currN).copy_(mask.to(torch::kFloat32), prefer_cuda);
         }
     } else {
-        // uniform direct lookup, do in chunks to reduce peak memory
         torch::Tensor vol3 = prob_vol_1;
         if (vol3.device() != device) vol3 = vol3.to(device, true);
         vol3 = vol3.contiguous();
@@ -1670,11 +1607,12 @@ torch::Tensor VortexDetection::knn_smooth_labels(
             auto sampled_chunk = prob_flat.gather(0, idx).to(torch::kFloat32);
             auto dv_chunk = dv.narrow(0, start, currN);
 
-            auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
-                         (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
-                         dv_chunk.ge(thr93) |
-                         sampled_chunk.ge(0.3f));
+            // auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
+            //              (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
+            //              dv_chunk.ge(thr93) |
+            //              sampled_chunk.ge(0.3f));
 
+            auto mask = (sampled_chunk.ge(prob_med)| dv_chunk.ge(thr93));
             cond_out.narrow(0, start, currN).copy_(mask.to(torch::kFloat32), prefer_cuda);
         }
     }
@@ -1765,200 +1703,6 @@ torch::Tensor VortexDetection::knn_smooth_labels(
 //     if (out.device().is_cuda()) {
 //         out = out.to(torch::kCPU, /*non_blocking=*/true);
 //     }
-//     return out;
-// }
-
-
-// torch::Tensor VortexDetection::knn_smooth_labels(
-//     std::vector<float> data_val,
-//     const torch::Tensor& prob_vol_1,
-//     const Eigen::Vector3f& min_pos,
-//     const Eigen::Vector3f& global_step,
-//     const std::vector<Eigen::Vector3f>& query_points,
-//     int /*k*/)
-// {
-//
-//     torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
-//     auto vol = prob_vol_1.contiguous();
-//     if (device.type() == torch::kCUDA) {
-//         vol = vol.to(torch::kCUDA);
-//     }
-//     const int64_t D = vol.size(0), H = vol.size(1), W = vol.size(2);
-//     const float* __restrict p = vol.data_ptr<float>();
-//     const int64_t sZ = H * W;
-//     const int64_t sY = W;
-//
-//     const int64_t M = (int64_t)query_points.size();
-//     torch::Tensor sampled = torch::empty({M}, torch::kFloat32);
-//     float* __restrict out = sampled.data_ptr<float>();
-//
-//     float threshold = 0.f;
-//     if (!data_val.empty()) {
-//         const size_t n = data_val.size();
-//         const size_t k = (size_t)(0.9f * (n - 1));
-//         std::nth_element(data_val.begin(), data_val.begin() + k, data_val.end());
-//         threshold = data_val[(size_t)(0.9f*(data_val.size()-1))];
-//     }
-//
-//     const float sx = global_step[0], sy = global_step[1], sz = global_step[2];
-//     const float inv_sx = (sx != 0.f) ? 1.f / sx : 0.f;
-//     const float inv_sy = (sy != 0.f) ? 1.f / sy : 0.f;
-//     const float inv_sz = (sz != 0.f) ? 1.f / sz : 0.f;
-//     const float minx = min_pos[0], miny = min_pos[1], minz = min_pos[2];
-//     const int wmax = (int)W - 1;
-//     const int hmax = (int)H - 1;
-//     const int dmax = (int)D - 1;
-//
-//     auto clampi = [](int v, int lo, int hi) {
-//         return v < lo ? lo : (v > hi ? hi : v);
-//     };
-//     const int64_t grain = 4096;
-//
-//     auto worker = [&](int begin, int end) {
-//         for (int64_t t = begin; t < end; ++t) {
-//             const auto& qp = query_points[(size_t)t];
-//
-//             const float fx = (qp[0] - minx) * inv_sx;
-//             const float fy = (qp[1] - miny) * inv_sy;
-//             const float fz = (qp[2] - minz) * inv_sz;
-//
-//             int x0 = (int)std::floor(fx);
-//             int y0 = (int)std::floor(fy);
-//             int z0 = (int)std::floor(fz);
-//             const float dx = fx - (float)x0;
-//             const float dy = fy - (float)y0;
-//             const float dz = fz - (float)z0;
-//
-//             int x1 = clampi(x0 + 1, 0, wmax); x0 = clampi(x0, 0, wmax);
-//             int y1 = clampi(y0 + 1, 0, hmax); y0 = clampi(y0, 0, hmax);
-//             int z1 = clampi(z0 + 1, 0, dmax); z0 = clampi(z0, 0, dmax);
-//
-//             const float wx0 = 1.f - dx, wx1 = dx;
-//             const float wy0 = 1.f - dy, wy1 = dy;
-//             const float wz0 = 1.f - dz, wz1 = dz;
-//
-//             const int64_t base000 = (int64_t)z0 * sZ + (int64_t)y0 * sY + x0;
-//             const int64_t base100 = base000 + 1;              // x+1
-//             const int64_t base010 = base000 + sY;             // y+1
-//             const int64_t base110 = base010 + 1;              // y+1, x+1
-//             const int64_t base001 = base000 + sZ;             // z+1
-//             const int64_t base101 = base001 + 1;              // z+1, x+1
-//             const int64_t base011 = base001 + sY;             // z+1, y+1
-//             const int64_t base111 = base011 + 1;              // z+1, y+1, x+1
-//
-//             const float v000 = p[base000];
-//             const float v100 = p[base100];
-//             const float v010 = p[base010];
-//             const float v110 = p[base110];
-//             const float v001 = p[base001];
-//             const float v101 = p[base101];
-//             const float v011 = p[base011];
-//             const float v111 = p[base111];
-//
-//             const float vz0 = v000 * wz0 + v001 * wz1;
-//             const float vz1 = v010 * wz0 + v011 * wz1;
-//             const float vz2 = v100 * wz0 + v101 * wz1;
-//             const float vz3 = v110 * wz0 + v111 * wz1;
-//
-//             const float vy0 = vz0 * wy0 + vz1 * wy1;
-//             const float vy1 = vz2 * wy0 + vz3 * wy1;
-//
-//             out[t] = vy0 * wx0 + vy1 * wx1;
-//         }
-//     };
-//
-//     ThreadPool::parallelFor(0, (int)M, worker, (int)grain);
-//
-//     torch::Tensor dv = torch::from_blob(data_val.data(), {(int64_t)data_val.size()}, torch::kFloat32).clone();
-//     auto cond = ((dv.ge(0.2f) & sampled.ge(0.01f)) |
-//                  (sampled.ge(0.2f) & dv.ge(0.15f)) |
-//                   dv.ge(threshold) | sampled.ge(0.3f));
-//     sampled = sampled * cond.to(torch::kFloat32);
-//     return sampled;
-// }
-
-
-// torch::Tensor VortexDetection::knn_smooth_labels(
-//     std::vector<float> data_val,
-//     const torch::Tensor& prob_vol_1,
-//     const Eigen::Vector3f& min_pos,
-//     const Eigen::Vector3f& global_step,
-//     const std::vector<Eigen::Vector3f>& query_points,
-//     int /*k*/)
-// {
-//     auto vol = prob_vol_1.contiguous()
-//                .unsqueeze(0).unsqueeze(0);
-//
-//     const int64_t D = vol.size(2);  // nz
-//     const int64_t H = vol.size(3);  // ny
-//     const int64_t W = vol.size(4);  // nx
-//
-//     const int64_t M = static_cast<int64_t>(query_points.size());
-//
-//     torch::Tensor grid = torch::empty({1, M, 1, 1, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU));
-//
-//     auto* gptr = grid.data_ptr<float>();
-//     const float inv_sx = (global_step[0] != 0.f) ? (1.0f / global_step[0]) : 0.f;
-//     const float inv_sy = (global_step[1] != 0.f) ? (1.0f / global_step[1]) : 0.f;
-//     const float inv_sz = (global_step[2] != 0.f) ? (1.0f / global_step[2]) : 0.f;
-//
-//     std::vector<float> tmp = data_val;
-//     size_t n = tmp.size();
-//     size_t idx = static_cast<size_t>(0.9f * (n - 1));
-//     std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
-//     const int64_t threshold = tmp[idx];
-//
-//     const float Wx = (W > 1) ? (2.0f / float(W - 1)) : 0.f;
-//     const float Hy = (H > 1) ? (2.0f / float(H - 1)) : 0.f;
-//     const float Dz = (D > 1) ? (2.0f / float(D - 1)) : 0.f;
-//     auto worker = [&](int begin, int end) {
-//         for (int64_t i = begin; i < end; ++i) {
-//             const auto& qp = query_points[i];
-//             const float rx = (qp[0] - min_pos[0]) * inv_sx;
-//             const float ry = (qp[1] - min_pos[1]) * inv_sy;
-//             const float rz = (qp[2] - min_pos[2]) * inv_sz;
-//             float x_norm = Wx * rx - 1.0f;
-//             float y_norm = Hy * ry - 1.0f;
-//             float z_norm = Dz * rz - 1.0f;
-//
-//             float* dst = gptr + i * 3;
-//             dst[0] = x_norm;
-//             dst[1] = y_norm;
-//             dst[2] = z_norm;
-//         }
-//     };
-//     ThreadPool::parallelFor(0, (int)M, worker,M);
-//     // for (int64_t i = 0; i < M; ++i) {
-//     //     const auto& qp = query_points[i];
-//     //     const float rx = (qp[0] - min_pos[0]) * inv_sx;
-//     //     const float ry = (qp[1] - min_pos[1]) * inv_sy;
-//     //     const float rz = (qp[2] - min_pos[2]) * inv_sz;
-//     //     float x_norm = Wx * rx - 1.0f;
-//     //     float y_norm = Hy * ry - 1.0f;
-//     //     float z_norm = Dz * rz - 1.0f;
-//     //
-//     //     float* dst = gptr + i * 3;
-//     //     dst[0] = x_norm;
-//     //     dst[1] = y_norm;
-//     //     dst[2] = z_norm;
-//     // }
-//     using namespace torch::nn::functional;
-//     auto opts = GridSampleFuncOptions()
-//     .mode(torch::kBilinear)
-//     .padding_mode(torch::kBorder)
-//     .align_corners(true);
-//     torch::Tensor sampled = grid_sample(vol, grid, opts);
-//     sampled = sampled.view({M});
-//
-//     torch::Tensor dv = torch::from_blob((void*)data_val.data(), {M}, torch::TensorOptions().dtype(torch::kFloat32)).clone();
-//
-//     auto cond =
-//         ((dv.ge(0.2f) & sampled.ge(0.1f)) |
-//          (sampled.ge(0.2f) & dv.ge(0.15f)) |
-//          dv.ge(threshold) |
-//          sampled.ge(0.3f));
-//
-//     torch::Tensor out = sampled.to(torch::kFloat32);
 //     return out;
 // }
 
@@ -2409,7 +2153,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             torch::tensor({std[0], std[1], std[2]}, torch::dtype(torch::kFloat32).device(device)).view({1, 1, 1, 3});
 
     // static std::counting_semaphore<> infer_slots(25);
-    static SimpleSemaphore infer_slots(5);
+    static SimpleSemaphore infer_slots(4);
     std::mutex progress_mutex;
     auto t3 = std::chrono::high_resolution_clock::now();
     std::cout << "[RUNTIME] processing using device: " << (device.type() == torch::kCUDA ? "CUDA" : "CPU") << std::endl;

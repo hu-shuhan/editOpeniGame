@@ -904,81 +904,60 @@ void igQtMainWindow::initAllFilters() {
 
                 }
             }
-            double acc  = filter->GetAccuracy();
-            double prec = filter->GetPrecision();
-            double rec  = filter->GetRecall();
+            // 显示指标
+            // double acc  = filter->GetAccuracy();
+            // double prec = filter->GetPrecision();
+            // double rec  = filter->GetRecall();
+            //
+            // if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
+            //     !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
+            //     QDialog* dialog = this->property("vortexMetricsDialog").value<QDialog*>();
+            //
+            //     if (!dialog) {
+            //         dialog = new QDialog(this);
+            //         dialog->setWindowTitle("Vortex Prediction Metrics");
+            //         dialog->setAttribute(Qt::WA_DeleteOnClose);
+            //         dialog->setModal(false);
+            //
+            //         this->setProperty("vortexMetricsDialog", QVariant::fromValue(dialog));
+            //
+            //         QLabel* label = new QLabel(dialog);
+            //         label->setObjectName("vortexMetricsLabel");
+            //         label->setTextFormat(Qt::RichText);
+            //         label->setAlignment(Qt::AlignCenter);
+            //
+            //         QVBoxLayout* layout = new QVBoxLayout(dialog);
+            //         layout->addWidget(label);
+            //         dialog->setLayout(layout);
+            //         dialog->resize(270, 100);
+            //         connect(dialog, &QDialog::destroyed, this, [this]() {
+            //             this->setProperty("vortexMetricsDialog", QVariant());
+            //         });
+            //     }
+            //     QLabel* label = dialog->findChild<QLabel*>("vortexMetricsLabel");
+            //     if (label) {
+            //         QString msg = QString(
+            //             "<table align='center' cellspacing='6'>"
+            //             // "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
+            //             "<tr><td>Precision</td><td>:</td><td>%1%<</td></tr>"
+            //             "<tr><td>Recall</td><td>:</td><td>%2%<</td></tr>"
+            //             "</table>"
+            //         )
+            //         // .arg(acc,  0, 'f', 3)
+            //         .arg(prec * 100.0, 0, 'f', 2)
+            //         .arg(rec * 100.0,  0, 'f', 2);
+            //
+            //         label->setText(msg);
+            //     }
+            //     QPointer<QDialog> safeDialog(dialog);
+            //     QTimer::singleShot(48, this, [safeDialog]() {
+            //         if (!safeDialog) return;
+            //         safeDialog->show();
+            //         safeDialog->raise();
+            //     });
+            // }
 
-            if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
-                !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
-                // QString msg = QString(
-                //     "<table>"
-                //     "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
-                //     "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
-                //     "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
-                //     "</table>"
-                // )
-                // .arg(acc,  0, 'f', 3)
-                // .arg(prec, 0, 'f', 3)
-                // .arg(rec,  0, 'f', 3);
-                //
-                // QPointer<QWidget> self(this);
-                // QTimer::singleShot(48, this, [self, msg]() {
-                //     if (!self) return;
-                //
-                //     QMessageBox box(self->window());
-                //     box.setWindowTitle("Vortex Prediction Metrics");
-                //     box.setTextFormat(Qt::RichText);
-                //     box.setText(msg);
-                //     box.setIcon(QMessageBox::NoIcon);
-                //     box.setStandardButtons(QMessageBox::Ok);
-                //     box.exec();
-                // });
-                QDialog* dialog = this->property("vortexMetricsDialog").value<QDialog*>();
-
-                if (!dialog) {
-                    dialog = new QDialog(this);
-                    dialog->setWindowTitle("Vortex Prediction Metrics");
-                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    dialog->setModal(false);
-
-                    this->setProperty("vortexMetricsDialog", QVariant::fromValue(dialog));
-
-                    QLabel* label = new QLabel(dialog);
-                    label->setObjectName("vortexMetricsLabel");
-                    label->setTextFormat(Qt::RichText);
-                    label->setAlignment(Qt::AlignCenter);
-
-                    QVBoxLayout* layout = new QVBoxLayout(dialog);
-                    layout->addWidget(label);
-                    dialog->setLayout(layout);
-                    dialog->resize(270, 120);
-                    connect(dialog, &QDialog::destroyed, this, [this]() {
-                        this->setProperty("vortexMetricsDialog", QVariant());
-                    });
-                }
-                QLabel* label = dialog->findChild<QLabel*>("vortexMetricsLabel");
-                if (label) {
-                    QString msg = QString(
-                        "<table align='center' cellspacing='6'>"
-                        "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
-                        "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
-                        "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
-                        "</table>"
-                    )
-                    .arg(acc,  0, 'f', 3)
-                    .arg(prec, 0, 'f', 3)
-                    .arg(rec,  0, 'f', 3);
-
-                    label->setText(msg);
-                }
-                QPointer<QDialog> safeDialog(dialog);
-                QTimer::singleShot(48, this, [safeDialog]() {
-                    if (!safeDialog) return;
-                    safeDialog->show();
-                    safeDialog->raise();
-                });
-            }
-
+            // old version
             // vortexMetricsLabel
             // double acc  = filter->GetAccuracy();
             // double prec = filter->GetPrecision();
