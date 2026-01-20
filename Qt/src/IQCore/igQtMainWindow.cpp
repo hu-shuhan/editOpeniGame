@@ -90,26 +90,6 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllInteractor();
     updateRecentFilePaths();
     UpdateIcons();
-    rebuildActionsAsTwoRowWidget(
-            ui->toolBar_4,
-            {
-                    ui->action_rotateNinetyClockwise,
-                    ui->action_rotateNinetyCounterClockwise
-            },
-            1   // 每行 3 个：X Y Z / -X -Y -Z
-    );
-    rebuildActionsAsTwoRowWidget(
-            ui->toolBar_4,
-            {
-                    ui->action_setViewToNegativeX,
-                    ui->action_setViewToNegativeY,
-                    ui->action_setViewToNegativeZ,
-                    ui->action_setViewToPositiveX,
-                    ui->action_setViewToPositiveY,
-                    ui->action_setViewToPositiveZ
-            },
-            3   // 每行 3 个：X Y Z / -X -Y -Z
-    );
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接

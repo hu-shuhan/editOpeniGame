@@ -98,7 +98,6 @@ private slots:
 private:
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
-    void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns);
 };
 
 
