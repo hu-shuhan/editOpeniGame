@@ -824,7 +824,25 @@ void igQtMainWindow::initAllFilters() {
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
-        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        int index = data->GetAttributeIndex();
+        if (filter->Execute()) {
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+        }
         else {
             std::string message = filter->GetMessage();
             QMessageBox::warning(this, "Warning", QString::fromStdString(message));
@@ -839,7 +857,25 @@ void igQtMainWindow::initAllFilters() {
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
-        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        int index = data->GetAttributeIndex();
+        if (filter->Execute()) {
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+        }
         else {
             std::string message = filter->GetMessage();
             QMessageBox::warning(this, "Warning", QString::fromStdString(message));
@@ -853,7 +889,25 @@ void igQtMainWindow::initAllFilters() {
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
-        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        int index = data->GetAttributeIndex();
+        if (filter->Execute()) {
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+        }
         else {
             std::string message = filter->GetMessage();
             QMessageBox::warning(this, "Warning", QString::fromStdString(message));
@@ -866,11 +920,26 @@ void igQtMainWindow::initAllFilters() {
         VortexFilter::Pointer filter = VortexFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetAttributeByIndex(data->GetAttributeIndex());
-
         filter->SetInput(data);
+        int index = data->GetAttributeIndex();
         if (filter->Execute()) {
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
         }else {
             std::string message = filter->GetMessage();
             QMessageBox::warning(this, "Warning", QString::fromStdString(message));
