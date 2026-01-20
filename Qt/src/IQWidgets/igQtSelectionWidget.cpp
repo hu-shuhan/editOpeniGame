@@ -100,6 +100,20 @@ void igQtSelectionWidget::SetDefaultSelectionButton() {
     SetVariableNames({});
 }
 
+void igQtSelectionWidget::SetCurrentVariable(IGenum type, int index) {
+    switch (type) {
+        case IG_POINT:
+            ui->POINT_SELECTION->click();
+            break;
+        case IG_CELL:
+            ui->CELL_SELECTION->click();
+            break;
+        default:
+            return;
+    }
+    ui->variableChoose->setCurrentIndex(index + 1);
+}
+
 void igQtSelectionWidget::SetInitBoxSettingDialog(QWidget* renderWidget) {
     if (m_BoxSettingDialog == nullptr) {
         m_BoxSettingDialog = new igQtBoxSettingDialog(renderWidget, this);
@@ -319,6 +333,8 @@ void igQtSelectionWidget::HideAllSelectModeUi() {
 }
 
 void igQtSelectionWidget::HideSelectionTypeUi() {
+    //######### RETURN #########
+    return;
     ui->opeTypeLabel->hide();
     ui->POINT_SELECTION->hide();
     ui->CELL_SELECTION->hide();

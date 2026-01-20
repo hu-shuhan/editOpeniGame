@@ -1908,6 +1908,39 @@ void igQtMainWindow::initAllInteractor() {
                 break;
         }
     });
+    //######### View Cloud Change ST #########
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, this, [&]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto attrSet = dataObj->GetAttributeSet();
+        if (attrSet == nullptr) return;
+        auto allAttr = attrSet->GetAllAttributes();
+        if (allAttr == nullptr) return;
+        auto currentAttributeIndex = dataObj->GetCurrentAttributeIndex();
+        if (currentAttributeIndex < 0 || allAttr->Size() <= currentAttributeIndex) return;
+        auto& currentAttr = allAttr->GetElement(currentAttributeIndex);
+        auto dataType = currentAttr.GetAttachmentType();
+        auto currentAttributeDim = dataObj->GetCurrentAttributeDimension();
+        int variableIndex = 0;
+        for (int attrIndex = 0; attrIndex < currentAttributeIndex; attrIndex++) {
+        //for (int attrIndex = 0; attrIndex < allAttr->Size(); attrIndex++) {
+            auto& attr = allAttr->GetElement(attrIndex);
+            if (attr.attachmentType != dataType) continue;
+            auto dim = attr.pointer->GetDimension();
+            variableIndex += ((dim == 1) ? 1 : dim + 1);
+        }
+        //if the attribute is not scalar, Extra plus one
+        variableIndex += ((currentAttr.pointer->GetDimension() == 1) ? currentAttributeDim : currentAttributeDim + 1);
+
+        auto variableNames = CtxPresObjData_Main::GenerateVariableNames(allAttr, dataType);
+        ui->widget_SelectionField->SetVariableNames(variableNames);
+
+        ui->widget_SelectionField->SetCurrentVariable(dataType, variableIndex);
+        });
+    
+    //######### View Cloud Change ED #########
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;

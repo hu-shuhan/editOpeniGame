@@ -27,7 +27,7 @@ public:
     void SetVariableNames(const std::vector<std::string>& variableNames = {});
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
-
+    void SetCurrentVariable(IGenum type, int index);
     void SetInitBoxSettingDialog(QWidget* renderWidget);
 
 public:
