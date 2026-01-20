@@ -24,7 +24,12 @@
     <normaloff>:/Ticon/Icons/iGameLogo.png</normaloff>:/Ticon/Icons/iGameLogo.png</iconset>
   </property>
   <property name="styleSheet">
-   <string notr="true">/* ========== 主窗口整体 ========== */
+   <string notr="true">/* ========== 全局字體（更順滑、減少鋸齒感） ========== */
+* {
+    font-family: &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+}
+
+/* ========== 主窗口整体 ========== */
 QMainWindow {
     background-color: #1E1E1E; /* 主背景：深灰近黑 */
 }
@@ -33,7 +38,6 @@ QMainWindow {
 QMenuBar {
     background-color: #181818; /* 菜单背景和全局统一 */
     color: #FFFFFF; /* 文字纯白*/
-    font-family: &quot;PingFang SC&quot;; /* 苹方字体，和iOS一致 */
     font-size: 14px; /* 14号字体*/
     padding: 4px 0; /* 上下内边距，避免文字贴边 */
     border: none; /* 去掉默认边框 */
@@ -59,7 +63,6 @@ QMenuBar::item:selected {
 QMenu {
     background-color: #181818; /* 下拉菜单背景，对齐全局 */
     color: #FFFFFF; /* 文字纯白 */
-    font-family: &quot;PingFang SC&quot;; /* 苹方字体 */
     font-size: 14px; /* 14号字体 */
     border: 1px solid #333333; /* 轻边框，区分菜单区域 */
     border-radius: 4px; /* 圆角，适配风格 */
@@ -97,7 +100,7 @@ QToolBar QToolButton {
     background-color: transparent;
     color: #FFFFFF;
     border: none;
-    padding: 4px;
+    padding: 2px;   /* 減少內邊距，留更多空間給按鈕間距 */
 }
 QToolBar QToolButton:hover {
     background-color: #3A3A3A; /* 按钮 hover 高亮 */
@@ -114,9 +117,8 @@ QToolBar::handle {
 }
 
 /* 工具栏标题标签样式 */
-QToolBar QLabel[objectName^="toolbarTitle"] {
+QToolBar QLabel[objectName^=&quot;toolbarTitle&quot;] {
     color: #CCCCCC;
-    font-family: &quot;PingFang SC&quot;;
     font-size: 12px;
     padding: 2px 8px;
     background-color: transparent;
@@ -139,15 +141,16 @@ QDockWidget::title {
     min-height: 32px;
     max-height: 32px;
     padding: 2px 8px;
-    font-family: &quot;PingFang SC&quot; ;
     font-size: 14px;
     line-height: 28px ;
     color: #FFFFFF !important;
 }
 QDockWidget QWidget {
     background-color: #222222;
-    color: #FFFFFF;
+    color: rgba(255,255,255,204); /* 80% 透明白色文字 */
 }
+
+
 
 /* 常见嵌套控件特殊处理 */
 QDockWidget QScrollArea,
@@ -254,7 +257,6 @@ QSpinBox, QDoubleSpinBox, QSlider, QProgressBar {
 QtTreePropertyBrowser, QtPropertyBrowser {
     background-color: #1E1E1E; /* 对齐你的深色背景 */
     color: #FFFFFF !important; /* 强制文字纯白 */
-    font-family: &quot;PingFang SC&quot;;
     font-size: 14px;
 }
 
@@ -350,8 +352,8 @@ QtTreePropertyBrowser * {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1200</width>
-     <height>18</height>
+     <width>1667</width>
+     <height>34</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -574,6 +576,7 @@ QtTreePropertyBrowser * {
    </attribute>
    <addaction name="action_UseOrthographic"/>
    <addaction name="action_setViewToIsometric"/>
+   <addaction name="action_setViewToPositiveX"/>
    <addaction name="action_setViewToNegativeX"/>
    <addaction name="action_setViewToPositiveY"/>
    <addaction name="action_setViewToNegativeY"/>
@@ -739,7 +742,7 @@ QtTreePropertyBrowser * {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>路径图</string>

@@ -155,15 +155,12 @@ void igQtModelInformationWidget::updateInformationFrame() {
 
 QLabel* igQtModelInformationWidget::createLabel(const QString& text) {
     QLabel* label = new QLabel(text);
-    label->setStyleSheet("font-weight: bold;");
     label->setWordWrap(false);                                            // 禁用换行
     label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);   // 允许水平压缩
     label->setStyleSheet(R"(
         QLabel {
-            font-family: "PingFang SC" !important;
             font-size: 14px !important;
             color: #FFFFFF !important; /* 纯纯白，匹配iOS的#FFFFFF */
-            font-weight: 500; /* 可选：加一点字重，和iOS视觉对齐 */
         }
     )");
     return label;
@@ -173,6 +170,8 @@ QLabel* igQtModelInformationWidget::createPropertyLabel(const QString& name, con
     QLabel* label = new QLabel(QString("%1: %2").arg(name, value));
     label->setWordWrap(false);                                            // 禁用换行
     label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);   // 允许水平压缩
+    // 僅固定字體大小，字體家族沿用全局（與樹狀列表 bunny 一致）
+    label->setStyleSheet("QLabel { font-size: 14px; }");
     return label;
 }
 QFrame* igQtModelInformationWidget::createSeparator() {

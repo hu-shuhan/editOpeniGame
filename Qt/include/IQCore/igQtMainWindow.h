@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @class   igQtMainWindow
  * @brief   igQtMainWindow's brief
  */
@@ -98,6 +98,9 @@ private slots:
 private:
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
+    void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
+                                      QAction* insertBefore = nullptr);
+    void addToolbarTitle(QToolBar* toolbar, const QString& title);
 };
 
 

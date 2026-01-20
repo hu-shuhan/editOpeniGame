@@ -51,6 +51,8 @@
 #include <QMessageBox>
 #include <QSplitter>
 #include <QStyleFactory>
+#include <QGridLayout>
+#include <QHBoxLayout>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidgetAction>
@@ -83,13 +85,27 @@
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     initAllUnDefinedComponents();
-    initToolbarComponent();
+    UpdateIcons();
     initAllComponents();
     initAllFilters();
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
-    UpdateIcons();
+    // 将 toolBar_4 的 +X -X +Y -Y +Z -Z 六个按钮分为两行、每行三个展示
+    rebuildActionsAsTwoRowWidget(
+            ui->toolBar_4,
+            {
+                    ui->action_setViewToPositiveX,
+                    ui->action_setViewToNegativeX,
+                    ui->action_setViewToPositiveY,
+                    ui->action_setViewToNegativeY,
+                    ui->action_setViewToPositiveZ,
+                    ui->action_setViewToNegativeZ
+            },
+            3,
+            ui->action_rotateNinetyCounterClockwise
+    );
+    initToolbarComponent();  // 在 rebuild 之后：用 QToolButton 行+标题替代 QToolBar，避免 QToolBar 进 layout 导致图标不渲染
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
@@ -212,13 +228,15 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
 
-    const auto docks = findChildren<QDockWidget*>();
-
 
 
 }
 void igQtMainWindow::initToolbarComponent() {
-    // 不再添加工具栏下方标题，避免遮挡图标
+    // 为每个工具栏在下方添加居中文字标题（顺序：文件与输出、操作、选择与编辑、视图设置）
+    addToolbarTitle(ui->toolBar_meshfile, "文件与输出");
+    addToolbarTitle(ui->toolBar_3, "操作");
+    addToolbarTitle(ui->toolBar_2, "选择与编辑");
+    addToolbarTitle(ui->toolBar_4, "视图设置");
 }
 
 void igQtMainWindow::initAllComponents() {
@@ -2236,15 +2254,175 @@ QString igQtMainWindow::LoadExternalFonts() {
 
     return family;
 }
+void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions,
+                                                  int columns, QAction* insertBefore) {
+    if (!toolbar || targetActions.isEmpty())
+        return;
+
+    // 1. 先移除目标action（原逻辑保留）
+    for (QAction* act : targetActions) {
+        if (act)
+            toolbar->removeAction(act);
+    }
+
+    // 2. 创建容器和布局（原逻辑保留，微调尺寸计算）
+    QWidget* container = new QWidget(toolbar);
+    QGridLayout* grid = new QGridLayout(container);
+    const int gridSpacing = 4;
+    grid->setSpacing(gridSpacing);
+    grid->setContentsMargins(0, 0, 0, 0);
+
+    QSize iconSize = toolbar->iconSize();
+    const int singleRowHeight = iconSize.height() + 8;
+    const int rowHeight = (singleRowHeight - gridSpacing) / 2;
+    const int smallIcon = qMax(16, rowHeight - 6);
+    QSize btnSize(rowHeight, rowHeight);
+
+    // 【修改1】放宽尺寸约束，避免被父布局挤压
+    container->setMinimumHeight(singleRowHeight);
+    container->setMinimumWidth(3 * rowHeight + 2 * gridSpacing); // 去掉fixedHeight，改用minimumHeight
+    container->setObjectName("twoRowViewGrid");
+
+    // 3. 构建两行按钮（原逻辑保留）
+    int row = 0, col = 0;
+    for (QAction* act : targetActions) {
+        if (!act)
+            continue;
+        QToolButton* btn = new QToolButton(container);
+        btn->setDefaultAction(act);
+        btn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        btn->setIconSize(QSize(smallIcon, smallIcon));
+        btn->setAutoRaise(true);
+        btn->setFocusPolicy(Qt::NoFocus);
+        btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        btn->setMinimumSize(btnSize);
+        btn->setMaximumSize(btnSize);
+        btn->setStyleSheet(R"(
+            QToolButton { border: none; margin: 0; padding: 0; }
+            QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }
+            QToolButton:pressed { background-color: #4A4A4A; }
+        )");
+        grid->addWidget(btn, row, col, Qt::AlignVCenter | Qt::AlignHCenter);
+        if (++col >= columns) {
+            col = 0;
+            ++row;
+        }
+    }
+
+    // 4. 添加QWidgetAction到toolbar（原逻辑保留）
+    QWidgetAction* widgetAction = new QWidgetAction(toolbar);
+    widgetAction->setDefaultWidget(container);
+    if (insertBefore && toolbar->actions().contains(insertBefore))
+        toolbar->insertAction(insertBefore, widgetAction);
+    else
+        toolbar->addAction(widgetAction); // 【修改2】改用addAction，避免insert位置异常
+
+    // 调试：确认container已添加（可选，测试后可删除）
+    qDebug() << "两行按钮容器已创建：" << container->objectName() << "子控件数：" << container->children().count();
+}
+
+void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
+    if (!toolbar)
+        return;
+
+    Qt::ToolBarArea area = this->toolBarArea(toolbar);
+    QSize iconSize = toolbar->iconSize();
+    if (iconSize.width() <= 0)
+        iconSize = QSize(60, 60);
+    Qt::ToolButtonStyle btnStyle = toolbar->toolButtonStyle();
+    const QList<QAction*> actions = toolbar->actions();
+    const int totalH = iconSize.height() + 32;  // 單行顯示，留出標題高度
+
+    QWidget* container = new QWidget(this);
+    container->setObjectName("toolbarContainer_" + toolbar->objectName());
+    container->setMinimumSize(100, totalH);
+    // 【删除这行】container->setStyleSheet("background-color: #222222;");
+
+    QWidget* topRow = new QWidget(container);
+    QHBoxLayout* hLayout = new QHBoxLayout(topRow);
+    hLayout->setContentsMargins(2, 0, 2, 0);
+    hLayout->setSpacing(2);
+    hLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    for (QAction* act : actions) {
+        if (!act) continue;
+
+        if (QWidgetAction* wa = qobject_cast<QWidgetAction*>(act)) {
+            QWidget* w = wa->defaultWidget();
+            if (w) {
+                w->setParent(topRow);
+                w->setVisible(true);
+                w->show();
+                w->setMinimumSize(w->minimumSizeHint());
+                // 【删除下面这4行】
+                // if (w->objectName() == "twoRowViewGrid") {
+                //     w->setStyleSheet("background-color: #444444;");
+                //     qDebug() << "转移后twoRowViewGrid尺寸：" << w->size() << "最小尺寸：" << w->minimumSize();
+                // }
+                hLayout->addWidget(w, 0, Qt::AlignLeft | Qt::AlignVCenter);
+                continue;
+            }
+        }
+
+        // 普通按钮逻辑（不变）
+        QToolButton* b = new QToolButton(topRow);
+        b->setDefaultAction(act);
+        b->setIconSize(iconSize);
+        b->setToolButtonStyle(btnStyle);
+        b->setAutoRaise(true);
+        b->setMinimumSize(iconSize.width() + 4, iconSize.height() + 4);
+        b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        b->setStyleSheet(
+                "QToolButton { border: none; margin: 0; padding: 2px; }"
+                "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
+                "QToolButton:pressed { background-color: #4A4A4A; }"
+        );
+        hLayout->addWidget(b, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    }
+
+    this->removeToolBar(toolbar);
+    toolbar->hide();
+
+    // 垂直布局逻辑（不变）
+    QVBoxLayout* vLayout = new QVBoxLayout(container);
+    vLayout->setContentsMargins(2, 0, 2, 2);
+    vLayout->setSpacing(4);
+    vLayout->addWidget(topRow, 1);
+
+    QLabel* titleLabel = new QLabel(title, container);
+    titleLabel->setObjectName("toolbarTitle_" + toolbar->objectName());
+    titleLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    titleLabel->setStyleSheet(
+            "QLabel { color: #CCCCCC; font-size: 12px; padding: 0; "
+            "background-color: transparent; border: none; font-family: 'PingFang SC'; }"
+    );
+    vLayout->addWidget(titleLabel, 0);
+
+    QToolBar* wrapper = new QToolBar(this);
+    wrapper->setObjectName("wrapper_" + toolbar->objectName());
+    wrapper->setMovable(true);
+    wrapper->setFloatable(true);
+    wrapper->setMinimumHeight(totalH);
+    wrapper->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+    QWidgetAction* wrapperAction = new QWidgetAction(wrapper);
+    wrapperAction->setDefaultWidget(container);
+    wrapper->addAction(wrapperAction);
+
+    this->addToolBar(area, wrapper);
+
+    // 【删除这行调试输出】
+    // qDebug() << "Wrapper Toolbar尺寸：" << wrapper->size() << "包含的容器：" << container->objectName() << "容器内的topRow子控件数：" << topRow->children().count();
+}
+
 void igQtMainWindow::UpdateIcons()
 {
-    int iconSize = 60;
+    int iconSize = 44;  /* 略缩小以利图标与图下文字完整显示，60 易显不全 */
 
     for (QToolBar* tb : this->findChildren<QToolBar*>()) {
-        // 设置 toolbar 的图标大小
+        if (tb->objectName().startsWith("wrapper_"))
+            continue;
         tb->setIconSize(QSize(iconSize, iconSize));
-
-        // 保证 toolbar 高度足够
         tb->setMinimumHeight(iconSize + 8);
     }
 
