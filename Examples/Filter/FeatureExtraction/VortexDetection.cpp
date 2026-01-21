@@ -12,7 +12,7 @@ static void VortexDetectionExtract() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/redsea/PredictedLabel.vtu";
+    const std::string fileName = "./Models/pipedcylinder2d_gt.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);
@@ -27,7 +27,7 @@ static void VortexDetectionExtract() {
     }
 
     // Select a scalar to extract features
-    drawObj->ViewCloudPicture(scene, 1);
+    drawObj->ViewCloudPicture(scene, 0);
     // Execute vortexFilter
     iGame::VortexDetection::Pointer filter = iGame::VortexDetection::New();
     filter->SetInput(drawObj);
