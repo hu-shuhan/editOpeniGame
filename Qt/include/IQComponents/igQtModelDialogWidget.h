@@ -11,18 +11,25 @@
 #include <Plugin/qtpropertybrowser/qteditorfactory.h>
 #include <Plugin/qtpropertybrowser/qttreepropertybrowser.h>
 #include <Plugin/qtpropertybrowser/qtvariantproperty.h>
-#include <QDockWidget>
 #include <QMouseEvent>
+#include <QObject>
 #include <QString>
 #include <QTreeWidget>
 #include <iostream>
 
+class QDockWidget;
 
-class IG_QT_MODULE_EXPORT igQtModelDialogWidget : public QDockWidget {
+class IG_QT_MODULE_EXPORT igQtModelDialogWidget : public QObject {
     Q_OBJECT
 public:
     igQtModelDialogWidget(QWidget* parent);
     ~igQtModelDialogWidget() override = default;
+
+    /** 上半部分：圖層/模型樹，可單獨拖出懸浮 */
+    QDockWidget* getTreeDock() const { return m_treeDock; }
+    /** 下半部分：屬性 / 模型資訊 */
+    QDockWidget* getPropertiesDock() const { return m_propertiesDock; }
+
 
 public slots:
     int addModelToModelTree(iGame::Model::Pointer model);
@@ -39,6 +46,7 @@ public slots:
     void setCurrentItem(QTreeWidgetItem* item) {
         if (modelTreeWidget) modelTreeWidget->setCurrentItem(item);
     }
+    void positionTreeDockToRendererCorner(QWidget* rendererWidget);
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();
@@ -61,5 +69,7 @@ private:
     QtVariantProperty* prop_Transparency;
 
     Ui::LayerDialog* ui;
+    QDockWidget* m_treeDock = nullptr;       // 上半
+    QDockWidget* m_propertiesDock = nullptr; // 下半
     static bool m_AutoAccelerate;
 };

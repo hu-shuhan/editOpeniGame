@@ -46,7 +46,6 @@ public:
     void initAllFilters();
     void initAllSources();
     void initAllInteractor();
-
     void initArgs(const QStringList& args);
     void updateVortexMetricsLabelPos();
 

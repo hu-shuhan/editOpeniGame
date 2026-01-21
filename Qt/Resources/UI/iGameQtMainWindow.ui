@@ -26,7 +26,8 @@
   <property name="styleSheet">
    <string notr="true">/* ========== 全局字體（更順滑、減少鋸齒感） ========== */
 * {
-    font-family: &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    font-size: 14pt;
 }
 
 /* ========== 主窗口整体 ========== */
@@ -37,8 +38,8 @@ QMainWindow {
 /* ========== 菜单栏（QMenuBar）整体样式 ========== */
 QMenuBar {
     background-color: #181818; /* 菜单背景和全局统一 */
-    color: #FFFFFF; /* 文字纯白*/
-    font-size: 14px; /* 14号字体*/
+    color: #FFFFFF; /* 文字纯白 100%*/
+    font-size: 14pt; /* 14号字体*/
     padding: 4px 0; /* 上下内边距，避免文字贴边 */
     border: none; /* 去掉默认边框 */
 }
@@ -55,15 +56,15 @@ QMenuBar::item {
 /* 菜单栏项选中态 */
 QMenuBar::item:selected {
     background-color: #222222; /* 高亮背景，保持深色风格 */
-    color: #FFFFFF; /* 选中后文字仍为纯白 */
+    color: #FFFFFF; /* 选中后文字仍为纯白 100% */
     border-radius: 4px; /* 轻微圆角，更精致 */
 }
 
 /* ========== 下拉菜单（QMenu）样式 ========== */
 QMenu {
     background-color: #181818; /* 下拉菜单背景，对齐全局 */
-    color: #FFFFFF; /* 文字纯白 */
-    font-size: 14px; /* 14号字体 */
+    color: #FFFFFF; /* 文字纯白 100% */
+    font-size: 14pt; /* 14号字体 */
     border: 1px solid #333333; /* 轻边框，区分菜单区域 */
     border-radius: 4px; /* 圆角，适配风格 */
     padding: 4px 0; /* 上下内边距 */
@@ -71,7 +72,7 @@ QMenu {
 
 /* 下拉菜单单个选项 */
 QMenu::item {
-    color: #FFFFFF; /* 文字纯白 */
+    color: #FFFFFF; /* 文字纯白 100% */
     padding: 6px 24px; /* 左右大间距，适配左对齐阅读 */
     text-align: left; /* 左对齐 */
     border: none;
@@ -80,7 +81,7 @@ QMenu::item {
 /* 下拉菜单项选中态（hover/点击） */
 QMenu::item:selected {
     background-color: #222222; /* 高亮背景，不破坏深色风格 */
-    color: #FFFFFF; /* 文字仍为纯白 */
+    color: #FFFFFF; /* 文字仍为纯白 100% */
     border-radius: 2px; /* 轻微圆角 */
 }
 
@@ -101,6 +102,7 @@ QToolBar QToolButton {
     color: #FFFFFF;
     border: none;
     padding: 2px;   /* 減少內邊距，留更多空間給按鈕間距 */
+    font-size: 12pt;
 }
 QToolBar QToolButton:hover {
     background-color: #3A3A3A; /* 按钮 hover 高亮 */
@@ -256,15 +258,15 @@ QSpinBox, QDoubleSpinBox, QSlider, QProgressBar {
 /* 1. 属性面板整体控件 */
 QtTreePropertyBrowser, QtPropertyBrowser {
     background-color: #1E1E1E; /* 对齐你的深色背景 */
-    color: #FFFFFF !important; /* 强制文字纯白 */
-    font-size: 14px;
+    color: rgba(255, 255, 255, 204) !important; /* 文字白色 80% */
+    font-size: 14pt;
 }
 
 /* 2. 属性分组标题（对应objectGroup的标题） */
 QtPropertyEditorView QGroupBox,
 QtPropertyBrowser QGroupBox,
 QtTreePropertyBrowser QGroupBox {
-    color: #FFFFFF !important; /* 分组标题文字纯白 */
+    color: rgba(255, 255, 255, 204) !important; /* 分组标题文字白色 80% */
     border: 1px solid #3A3A3A;
     background-color: #252526;
 }
@@ -274,7 +276,7 @@ QtPropertyEditorView QLabel,
 QtPropertyEditorView QWidget,
 QtTreePropertyBrowser QLabel,
 QtTreePropertyBrowser QWidget {
-    color: #FFFFFF !important; /* 强制所有子元素文字纯白 */
+    color: rgba(255, 255, 255, 204) !important; /* 强制所有子元素文字白色 80% */
     background-color: transparent;
 }
 
@@ -287,28 +289,132 @@ QtPropertyEditorView {
 QtTreePropertyBrowser QTreeWidget::item,
 QtPropertyEditorView::item {
     background-color: #222222;
-    color: #FFFFFF;
+    color: rgba(255, 255, 255, 204); /* 文字白色 80% */
 }
 QtTreePropertyBrowser QTreeWidget::item:alternate,
 QtPropertyEditorView::item:alternate {
     background-color: #272727;
-    color: #FFFFFF;
+    color: rgba(255, 255, 255, 204); /* 文字白色 80% */
 }
 QtTreePropertyBrowser QTreeWidget::item:selected,
 QtPropertyEditorView::item:selected {
     background-color: #3A3A3A;
-    color: #FFFFFF;
+    color: rgba(255, 255, 255, 204); /* 文字白色 80% */
 }
 QtTreePropertyBrowser QTreeWidget::item:hover,
 QtPropertyEditorView::item:hover {
     background-color: #2A2A2A;
-    color: #FFFFFF;
+    color: rgba(255, 255, 255, 204); /* 文字白色 80% */
 }
 
 /* 5. 兜底：覆盖所有未匹配的子控件（防止漏网） */
 QtTreePropertyBrowser * {
-    color: #FFFFFF !important; /* !important 强制覆盖默认样式 */
+    color: rgba(255, 255, 255, 204) !important; /* !important 强制覆盖默认样式 白色 80% */
     background-color: inherit;
+}
+
+/* ========== 悬浮图层树窗口样式（对齐截图）========== */
+QDockWidget#LayerTreeDock {
+    background-color: rgba(24, 24, 24, 235);
+    border: 1px solid rgba(255, 255, 255, 18);
+    border-radius: 12px;
+    font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    font-size: 10pt;
+}
+
+/* 标题：左对齐、留出右侧按钮空间 */
+QDockWidget#LayerTreeDock::title {
+    background-color: rgba(24, 24, 24, 0);
+    color: #FFFFFF; /* 标题文字白色 100% */
+    padding: 10px 64px 10px 14px;
+    min-height: 40px;
+    max-height: 40px;
+    font-size: 10pt;
+    font-weight: 600;
+    text-align: left;
+}
+
+/* 右上角按钮（浮动/关闭） */
+QDockWidget#LayerTreeDock::float-button,
+QDockWidget#LayerTreeDock::close-button {
+    subcontrol-origin: margin;
+    subcontrol-position: top right;
+    width: 26px;
+    height: 26px;
+    margin-top: 7px;
+    border: none;
+    background: transparent;
+}
+QDockWidget#LayerTreeDock::float-button { right: 40px; }
+QDockWidget#LayerTreeDock::close-button { right: 10px; }
+
+QDockWidget#LayerTreeDock::float-button:hover,
+QDockWidget#LayerTreeDock::close-button:hover {
+    background-color: rgba(255, 255, 255, 18);
+    border-radius: 7px;
+}
+
+/* 彻底去掉内部白边：viewport / frame / scrollarea */
+QDockWidget#LayerTreeDock QWidget,
+QDockWidget#LayerTreeDock QFrame,
+QDockWidget#LayerTreeDock QScrollArea,
+QDockWidget#LayerTreeDock QAbstractScrollArea,
+QDockWidget#LayerTreeDock QAbstractScrollArea::viewport {
+    background: transparent;
+    border: none;
+    font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    font-size: 10pt;
+}
+
+/* 树内容：行高、交替底色、hover/选中效果（接近截图） */
+QDockWidget#LayerTreeDock QTreeWidget {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: rgba(255, 255, 255, 204); /* 内容文字白色 80% */
+    alternate-background-color: rgba(255, 255, 255, 10);
+    show-decoration-selected: 1;
+    font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    font-size: 12pt;
+}
+
+QDockWidget#LayerTreeDock QTreeWidget::item {
+    border: none;
+    padding: 8px 10px;
+}
+QDockWidget#LayerTreeDock QTreeWidget::item:alternate {
+    background-color: rgba(255, 255, 255, 8);
+}
+QDockWidget#LayerTreeDock QTreeWidget::item:hover {
+    background-color: rgba(255, 255, 255, 14);
+}
+QDockWidget#LayerTreeDock QTreeWidget::item:selected {
+    background-color: rgba(255, 255, 255, 20);
+    color: rgba(255, 255, 255, 204); /* 选中文字白色 80% */
+}
+
+/* 让分支/展开箭头区也保持透明 */
+QDockWidget#LayerTreeDock QTreeWidget::branch {
+    background: transparent;
+}
+
+/* 滚动条（细、深色） */
+QDockWidget#LayerTreeDock QScrollBar:vertical {
+    background: rgba(0, 0, 0, 0);
+    width: 10px;
+    margin: 6px 2px 6px 2px;
+}
+QDockWidget#LayerTreeDock QScrollBar::handle:vertical {
+    background-color: rgba(255, 255, 255, 35);
+    border-radius: 5px;
+    min-height: 24px;
+}
+QDockWidget#LayerTreeDock QScrollBar::handle:vertical:hover {
+    background-color: rgba(255, 255, 255, 55);
+}
+QDockWidget#LayerTreeDock QScrollBar::add-line:vertical,
+QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
+    height: 0;
 }
 </string>
   </property>
@@ -353,7 +459,7 @@ QtTreePropertyBrowser * {
      <x>0</x>
      <y>0</y>
      <width>1667</width>
-     <height>34</height>
+     <height>43</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">

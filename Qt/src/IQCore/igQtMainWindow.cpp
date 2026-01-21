@@ -77,8 +77,8 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QSplitter>
-#include <QTimer>
 #include <QPointer>
+#include <QTimer>
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
@@ -204,10 +204,15 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
 
     modelTreeWidget = new igQtModelDialogWidget(this);
-    modelTreeWidget->setFloating(false); // Make sure it's docked
-    modelTreeWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::TopDockWidgetArea);
-    modelTreeWidget->setFeatures(QDockWidget::NoDockWidgetFeatures); // Disable floating and moving
-    this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget);
+    // 属性窗口停靠在左侧，图层树悬浮在OpenGL渲染窗口右下角
+    this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
+
+    // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
+    QTimer::singleShot(100, this, [this]() {
+        if (rendererWidget && modelTreeWidget) {
+            modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+        }
+    });
 
 
     SliceDockWidget = new QDockWidget(this);
@@ -227,7 +232,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
-
 
 
 }

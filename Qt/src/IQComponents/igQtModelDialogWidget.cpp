@@ -2,7 +2,7 @@
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
 #include <QQueue>
-#include <QSplitter>
+#include <QDockWidget>
 #include <iGameSceneManager.h>
 #include <qaction.h>
 #include <qdebug.h>
@@ -46,24 +46,38 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
 }
 } // namespace
 
-igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(parent), ui(new Ui::LayerDialog) {
-    ui->setupUi(this);
-    this->setMinimumWidth(parent->width() / 6);
+igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent), ui(new Ui::LayerDialog) {
+    // 用臨時 QDockWidget 載入 UI，以取得 modelTreeWidget 與 tabWidget
+    QDockWidget dummy;
+    ui->setupUi(&dummy);
 
     tabWidget = ui->tabWidget;
     modelTreeWidget = ui->modelTreeWidget;
     propertyWidget = ui->propertyWidget;
-    QSplitter* splitter = new QSplitter(Qt::Vertical, this);
-    this->setWidget(splitter);
-    splitter->addWidget(ui->modelTreeWidget);
-    splitter->addWidget(tabWidget);
-    //splitter->addWidget(ui->propertyWidget);
-    splitter->setChildrenCollapsible(false);
-    
+
+    int totalWidth = parent ? parent->width() / 6 : 200;
+
+    // 上半部分：圖層/模型樹 Dock（可單獨拖出懸浮）
+    m_treeDock = new QDockWidget(tr("Layer Dialog"), parent);
+    m_treeDock->setObjectName("LayerTreeDock");
+    m_treeDock->setWidget(modelTreeWidget);
+    m_treeDock->setMinimumWidth(totalWidth);
+    m_treeDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable |
+                            QDockWidget::DockWidgetFloatable);
+    m_treeDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
+
+
+    //  Properties Dock（也可懸浮）
+    m_propertiesDock = new QDockWidget(tr("Properties"), parent);
+    m_propertiesDock->setObjectName("LayerPropertiesDock");
+    m_propertiesDock->setWidget(tabWidget);
+    m_propertiesDock->setMinimumWidth(totalWidth);
+    m_propertiesDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable |
+                                  QDockWidget::DockWidgetFloatable);
+    m_propertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
+
     tabWidget->addTab(ui->ModelInformationWidget, "Model Info");
     tabWidget->addTab(ui->propertyWidget, "Model Properties");
-
-    int totalWidth = parent->width() / 6;
 
     // 根据总宽度调整列宽
     int col1Width = totalWidth * 0.4;
@@ -75,6 +89,8 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
     modelTreeWidget->setColumnWidth(0, 140);
     modelTreeWidget->setColumnWidth(1, 200);
     modelTreeWidget->setIndentation(15);
+    modelTreeWidget->setAlternatingRowColors(true);
+    modelTreeWidget->setUniformRowHeights(true);
 
 
     propertyWidget->setHeaderVisible(false);
@@ -330,4 +346,38 @@ void igQtModelDialogWidget::onPropertyChanged(QtProperty* property, const QVaria
 iGame::Model* igQtModelDialogWidget::GetCurrentModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     return scene->GetCurrentModel();
+}
+
+
+void igQtModelDialogWidget::positionTreeDockToRendererCorner(QWidget* rendererWidget) {
+    if (!rendererWidget || !m_treeDock) return;
+
+    // 确保dock widget是悬浮状态，然后设置无边框
+    m_treeDock->setFloating(true);
+    m_treeDock->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    m_treeDock->setAttribute(Qt::WA_TranslucentBackground);
+
+
+    // 获取渲染窗口在屏幕上的几何信息
+    QRect rendererGeometry = rendererWidget->geometry();
+    QPoint rendererTopLeft = rendererWidget->mapToGlobal(rendererGeometry.topLeft());
+
+    // 计算悬浮窗口的位置：渲染窗口右下角，留出边距
+    int margin = 15; // 边距
+    int dockWidth = 380;  // 悬浮窗口宽度
+    int dockHeight = 280; // 悬浮窗口高度
+
+    QPoint dockPosition(
+            rendererTopLeft.x() + rendererGeometry.width() - dockWidth - margin,
+            rendererTopLeft.y() + rendererGeometry.height() - dockHeight - margin
+    );
+
+    // 设置悬浮窗口的大小和位置
+    m_treeDock->resize(dockWidth, dockHeight);
+    m_treeDock->move(dockPosition);
+
+    // 确保窗口可见并激活
+    m_treeDock->show();
+    m_treeDock->raise();
+    m_treeDock->activateWindow();
 }
