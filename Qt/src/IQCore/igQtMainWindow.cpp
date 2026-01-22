@@ -2075,6 +2075,7 @@ void igQtMainWindow::initAllInteractor() {
                                                               : Selection::Operate::Remove);
                 }
             } break;
+            case IG_STRUCTURED_MESH:
             case IG_VOLUME_MESH: {
                 auto mesh = DynamicCast<VolumeMesh>(dataObj);
                 mesh->RequestEditStatus();

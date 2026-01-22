@@ -323,7 +323,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
                     SelectionParameter::Instance()
                             .GetSelectOnlySelectSeeAbleCells());
         } break;
-        //case IG_STRUCTURED_MESH:
+        case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
             {
                 auto buildAdjacencyRelationFilter =
@@ -431,7 +431,7 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
                     SelectionParameter::Instance()
                             .GetSelectOnlySelectSeeAbleCells());
         } break;
-        //case IG_STRUCTURED_MESH:
+        case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
             {
                 auto buildAdjacencyRelationFilter =
