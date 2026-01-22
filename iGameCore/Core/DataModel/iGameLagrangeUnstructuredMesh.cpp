@@ -572,6 +572,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
     bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
+        m_ColorWithCell = false;
         if (m_AttributeIndex != -1) {
             auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
             if (attr.type == IG_RGB) {
@@ -619,44 +620,6 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
     FloatArray::Pointer attributeScalars = FloatArray::New();
     attributeScalars->SetDimension(attr->GetDimension());
 
-    for (int i = 0; i < GetNumberOfCells(); ++i) {
-        int order = GetCellOrder(i);
-        if (order < 2) std::cerr << "error cell type";
-
-        Cell* cell = GetCell(i);
-        if (cell == nullptr) continue;
-
-        //GetFace返回的指针是一个复制品，指向一个固定的空间，非Face真实的地址
-        auto tesselateEachFace = [&](Cell* f) {
-            FloatArray::Pointer originData = FloatArray::New();
-            originData->SetDimension(attr->GetDimension());
-            for (int pointIndex = 0; pointIndex < f->GetNumberOfPoints(); ++pointIndex) {
-                std::vector<float> singleAttribute(attr->GetDimension());
-                for (int attributeDim = 0; attributeDim < attr->GetDimension(); ++attributeDim)
-                    singleAttribute.at(attributeDim) = attr->GetElementValue(f->GetPointId(pointIndex), attributeDim);
-                for (const auto& val: singleAttribute) originData->AddValue(val);
-            }
-
-            FloatArray::Pointer outData = FloatArray::New();
-            std::vector<int> outTriangleIndices;
-            std::vector<unsigned char> outTriangleEdgeMasks;
-            TessellateLagrangeFace(originData, f->GetCellType(), order, tessellation_divisions, outData,
-                                   outTriangleIndices, outTriangleEdgeMasks);
-
-            for (const auto& index: outTriangleIndices) {
-                std::vector<float> data = outData->GetElement(index);
-                for (const auto& val: data) attributeScalars->AddValue(val);
-            }
-        };
-        if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
-            for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j) tesselateEachFace(volume_cell->GetFace(j));
-        else if (auto* face_cell = dynamic_cast<LagrangeFace*>(cell))
-            tesselateEachFace(face_cell);
-    }
-
-    FloatArray::Pointer trianglePointRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
-    if (trianglePointRGBColors == nullptr) { return; }
-
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
     UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
@@ -672,6 +635,46 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
 
     float color[3]{};
     igIndex vertexIds[3]{};
+
+    for (int i = 0; i < GetNumberOfCells(); ++i) {
+        int order = GetCellOrder(i);
+        if (order < 2) std::cerr << "error cell type";
+
+        Cell* cell = GetCell(i);
+        if (cell == nullptr) continue;
+
+        //GetFace返回的指针是一个复制品，指向一个固定的空间，非Face真实的地址
+
+        auto tesselateEachFace = [&](Cell* f) {
+        FloatArray::Pointer originData = FloatArray::New();
+        originData->SetDimension(attr->GetDimension());
+        for (int pointIndex = 0; pointIndex < f->GetNumberOfPoints(); ++pointIndex) {
+            std::vector<float> singleAttribute(attr->GetDimension());
+            for (int attributeDim = 0; attributeDim < attr->GetDimension(); ++attributeDim)
+                singleAttribute.at(attributeDim) = attr->GetElementValue(f->GetPointId(pointIndex), attributeDim);
+            for (const auto& val: singleAttribute) originData->AddValue(val);
+        }
+
+        FloatArray::Pointer outData = FloatArray::New();
+        std::vector<int> outTriangleIndices;
+        std::vector<unsigned char> outTriangleEdgeMasks;
+        TessellateLagrangeFace(originData, f->GetCellType(), order, tessellation_divisions, outData,
+                                outTriangleIndices, outTriangleEdgeMasks);
+
+        for (const auto& index: outTriangleIndices) {
+            std::vector<float> data = outData->GetElement(index);
+            for (const auto& val: data) attributeScalars->AddValue(val);
+        }
+            for (const auto& mask: outTriangleEdgeMasks) { newEdgeMasks->AddValue(mask); }
+    };
+        if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
+            for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j) tesselateEachFace(volume_cell->GetFace(j));
+        else if (auto* face_cell = dynamic_cast<LagrangeFace*>(cell))
+            tesselateEachFace(face_cell);
+    }
+
+    FloatArray::Pointer trianglePointRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
+    if (trianglePointRGBColors == nullptr) { return; }
 
     // 遍历所有细分后的三角形
     for (IGsize i = 0; i < numTriangles; i++) {
@@ -724,6 +727,22 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
     FloatArray::Pointer attributeScalars = FloatArray::New();
     attributeScalars->SetDimension(attr->GetDimension());
 
+    FloatArray::Pointer newPositions = FloatArray::New();
+    FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
+
+    newPositions->SetDimension(3);
+    newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
+
+    IGsize numTriangles = m_TriangleIndices->GetNumberOfElements() / 3;
+    newPositions->Reserve(numTriangles * 3);
+    newColors->Reserve(numTriangles * 3);
+    newEdgeMasks->Reserve(numTriangles);
+
+    float color[3]{};
+    igIndex vertexIds[3]{};
+
     for (int i = 0; i < GetNumberOfCells(); ++i) {
         int order = GetCellOrder(i);
         if (order < 2) std::cerr << "error cell type";
@@ -746,6 +765,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
             attr->GetElement(i, attribute);
             for (int tri = 0; tri < outTriangleIndices.size() / 3; ++tri)
                 for (const auto& val: attribute) attributeScalars->AddValue(val);
+            for (const auto& mask: outTriangleEdgeMasks) { newEdgeMasks->AddValue(mask); }
         };
         if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
             for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j) tesselateEachFace(volume_cell->GetFace(j));
@@ -755,22 +775,6 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
 
     FloatArray::Pointer triangleRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
     if (triangleRGBColors == nullptr) { return; }
-
-    FloatArray::Pointer newPositions = FloatArray::New();
-    FloatArray::Pointer newColors = FloatArray::New();
-    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
-
-    newPositions->SetDimension(3);
-    newColors->SetDimension(3);
-    newEdgeMasks->SetDimension(3);
-
-    IGsize numTriangles = m_TriangleIndices->GetNumberOfElements() / 3;
-    newPositions->Reserve(numTriangles * 3);
-    newColors->Reserve(numTriangles * 3);
-    newEdgeMasks->Reserve(numTriangles);
-
-    float color[3]{};
-    igIndex vertexIds[3]{};
 
     // 遍历所有细分后的三角形
     for (IGsize i = 0; i < numTriangles; i++) {

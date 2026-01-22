@@ -159,6 +159,8 @@ private:
                                  float terminalSpeed);
     Vector3f interpolationVectorTri(const Vector3f& coord, bool& inside, igIndex& VolumeId, std::string vectorName,
                                     float terminal);
+    bool IsInsideCell_RayCasting(const Vector3f& p, igIndex cellId);
+    bool IsInsideCell_ConvexHalfSpace(const Vector3f& p, igIndex cellId);
     /**
 	* @brief Calculate vector values with Newton interpolation method
 	* @param[in] coord  Input coord data
@@ -244,7 +246,6 @@ private:
     inline double fastSqrt(double x);
     void precomputeTrigValues();
 
-    std::unordered_map<int, float> cellBoundLength{};
     VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
     bool isSubModel = false;
@@ -253,7 +254,7 @@ private:
     std::vector<int> subIndex;
     enum StreamMode { Diagonal, PointId, Line };
     StreamMode streamMode = PointId;
-    std::shared_mutex rwMutex;
+    std::mutex Mutex;
     int processCount;
     int totalProcess;
     float maxLength = 0.0f;

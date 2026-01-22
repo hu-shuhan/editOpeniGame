@@ -86,10 +86,6 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
         scene->GetInteractor()->SetDataObject(m_DataObject);
         scene->GetInteractor()->SetPainter3D(Painter);
 
-        //if (rendererWidget->GetScene()->GetInteractor()) {
-        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
-        //}
-
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
     std::cout << first << std::endl;
