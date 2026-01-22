@@ -31,8 +31,8 @@ public:
 			m_Triangle->m_PointIds->SetId(i,  m_PointIds->GetId(verts[i]));
 			m_Triangle->m_Points->SetPoint(i, m_Points->GetPoint(verts[i]));
 		}
-		for (int i = 0; i < 3; ++i) {
-			m_Triangle->EdgeIds->SetId(i, EdgeIds->GetId(edges[i]));
+        if (EdgeIds && EdgeIds->GetNumberOfIds() > 0) {
+            for (int i = 0; i < 3; ++i) { m_Triangle->EdgeIds->SetId(i, EdgeIds->GetId(edges[i])); }
 		}
 		return m_Triangle.get();
 	}
