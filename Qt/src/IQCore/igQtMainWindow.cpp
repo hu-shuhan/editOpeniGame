@@ -166,7 +166,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableCorrelationField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableDensityField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_DataChangeField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SelectionField);
+    // SelectionField 改為停靠在左側，並放在 Properties 視窗上方
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_SelectionField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContextPreservingShowField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SearchInfo);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_QualityDetection);
@@ -206,6 +207,10 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     modelTreeWidget = new igQtModelDialogWidget(this);
     // 属性窗口停靠在左侧，图层树悬浮在OpenGL渲染窗口右下角
     this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
+    // 讓 SelectionField 位於 Properties Dock 的上方（同為左側停靠區，垂直分割）
+    this->splitDockWidget(ui->dockWidget_SelectionField,
+                          modelTreeWidget->getPropertiesDock(),
+                          Qt::Vertical);
 
     // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
     QTimer::singleShot(100, this, [this]() {

@@ -102,7 +102,7 @@ QToolBar QToolButton {
     color: #FFFFFF;
     border: none;
     padding: 2px;   /* 減少內邊距，留更多空間給按鈕間距 */
-    font-size: 12pt;
+    font-size: 8pt;
 }
 QToolBar QToolButton:hover {
     background-color: #3A3A3A; /* 按钮 hover 高亮 */
@@ -133,6 +133,7 @@ QDockWidget {
     border-radius: 8px;
     border: none;
     color: #FFFFFF;
+    font-size: 10pt;
 }
 
 /* 标题栏 */
@@ -143,13 +144,14 @@ QDockWidget::title {
     min-height: 32px;
     max-height: 32px;
     padding: 2px 8px;
-    font-size: 14px;
-    line-height: 28px ;
+    font: 12pt &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    line-height: 28px;
     color: #FFFFFF !important;
 }
 QDockWidget QWidget {
     background-color: #222222;
     color: rgba(255,255,255,204); /* 80% 透明白色文字 */
+    font-size: 10pt !important;
 }
 
 
@@ -313,13 +315,69 @@ QtTreePropertyBrowser * {
     background-color: inherit;
 }
 
-/* ========== 悬浮图层树窗口样式（对齐截图）========== */
+/* ========== 悬浮圖層樹 LayerTreeDock 樣式（只定義這一個 Dock，避免影響其他 Properties Dock） ========== */
 QDockWidget#LayerTreeDock {
-    background-color: rgba(24, 24, 24, 235);
-    border: 1px solid rgba(255, 255, 255, 18);
-    border-radius: 12px;
+    background-color: #222222;
+    /* QDockWidget 自身不畫邊框（邊框由 titleBar + 內容區拼起來畫） */
+    border: none;
+    border-radius: 0;
     font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
     font-size: 10pt;
+}
+
+/* 讓 LayerTreeDock 的內容區與標題欄共同拼出整圈邊框：內容畫左/右/下，標題畫上/左/右 */
+QDockWidget#LayerTreeDock igQtModelTreeWidget#modelTreeWidget,
+QDockWidget#LayerTreeDock QWidget#modelTreeWidget,
+QDockWidget#LayerTreeDock QWidget[objectName="modelTreeWidget"] {
+    margin: 0;
+    /* 第二列自訂 widget 所在區域背景，與整體一致，避免出現獨立黑色矩形 */
+    background-color: #222222;
+    /* 1pt 邊框：約等於 1px，alpha = 26 ≈ 10% 不透明度 */
+    border-left: 1px solid rgba(255, 255, 255, 26);
+    border-right: 1px solid rgba(255, 255, 255, 26);
+    border-bottom: 1px solid rgba(255, 255, 255, 26);
+    border-top: none;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+/* Tree 中第二列那個承載若干按鈕的容器本身（buttonWidget），預設是 QWidget，沒設樣式時會顯示系統默認黑底。
+   這裡強制讓它透明，讓背景透出 #222222，不再看到一塊純黑矩形。 */
+QDockWidget#LayerTreeDock igQtModelTreeWidget#modelTreeWidget QWidget {
+    background-color: transparent;
+    border: none;
+}
+
+/* LayerTreeDock 無邊框 floating 時的自訂標題欄（上邊 + 左右邊 + 上圓角） */
+QDockWidget#LayerTreeDock QWidget#DockTitleBar {
+    background-color: #222222;
+    margin: 0;
+    border-left: 1px solid rgba(255, 255, 255, 26);
+    border-right: 1px solid rgba(255, 255, 255, 26);
+    border-top: 1px solid rgba(255, 255, 255, 26);
+    border-bottom: none;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+QDockWidget#LayerTreeDock QLabel#DockTitleLabel,
+QDockWidget#LayerPropertiesDock QLabel#DockTitleLabel {
+    color: #FFFFFF;
+    font-size: 12pt;
+    background: transparent;
+}
+QDockWidget#LayerTreeDock QPushButton#DockTitleCloseButton,
+QDockWidget#LayerPropertiesDock QPushButton#DockTitleCloseButton {
+    color: #FFFFFF;
+    background: transparent;
+    border: none;
+    font-size: 14pt;
+}
+QDockWidget#LayerTreeDock QPushButton#DockTitleCloseButton:hover,
+QDockWidget#LayerPropertiesDock QPushButton#DockTitleCloseButton:hover {
+    background-color: rgba(255, 255, 255, 18);
+    border-radius: 7px;
 }
 
 /* 标题：左对齐、留出右侧按钮空间 */
@@ -329,7 +387,7 @@ QDockWidget#LayerTreeDock::title {
     padding: 10px 64px 10px 14px;
     min-height: 40px;
     max-height: 40px;
-    font-size: 10pt;
+    font: 12pt &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
     font-weight: 600;
     text-align: left;
 }
@@ -360,7 +418,7 @@ QDockWidget#LayerTreeDock QFrame,
 QDockWidget#LayerTreeDock QScrollArea,
 QDockWidget#LayerTreeDock QAbstractScrollArea,
 QDockWidget#LayerTreeDock QAbstractScrollArea::viewport {
-    background: transparent;
+    background-color: rgba(24, 24, 24, 255);
     border: none;
     font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
     font-size: 10pt;
@@ -368,14 +426,15 @@ QDockWidget#LayerTreeDock QAbstractScrollArea::viewport {
 
 /* 树内容：行高、交替底色、hover/选中效果（接近截图） */
 QDockWidget#LayerTreeDock QTreeWidget {
-    background: transparent;
+    /* 整個 LayerDialog 樹的背景與 Dock 一致，避免載入數據後左側出現純黑條 */
+    background-color: #222222;
     border: none;
     outline: none;
     color: rgba(255, 255, 255, 204); /* 内容文字白色 80% */
     alternate-background-color: rgba(255, 255, 255, 10);
     show-decoration-selected: 1;
     font-family: &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
-    font-size: 12pt;
+    font-size: 10pt;
 }
 
 QDockWidget#LayerTreeDock QTreeWidget::item {
@@ -393,9 +452,9 @@ QDockWidget#LayerTreeDock QTreeWidget::item:selected {
     color: rgba(255, 255, 255, 204); /* 选中文字白色 80% */
 }
 
-/* 让分支/展开箭头区也保持透明 */
+/* 让分支/展开箭头区背景也與整體一致，避免左側縮進區變成黑色條 */
 QDockWidget#LayerTreeDock QTreeWidget::branch {
-    background: transparent;
+    background-color: #222222;
 }
 
 /* 滚动条（细、深色） */
@@ -415,6 +474,19 @@ QDockWidget#LayerTreeDock QScrollBar::handle:vertical:hover {
 QDockWidget#LayerTreeDock QScrollBar::add-line:vertical,
 QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     height: 0;
+}
+
+/* ========== Properties Dock 样式 ========== */
+QDockWidget#LayerPropertiesDock::title {
+    background-color: #222222;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    min-height: 32px;
+    max-height: 32px;
+    padding: 2px 8px;
+    font: 12pt &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
+    line-height: 28px;
+    color: #FFFFFF !important;
 }
 </string>
   </property>

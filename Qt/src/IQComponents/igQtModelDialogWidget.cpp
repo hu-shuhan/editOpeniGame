@@ -3,6 +3,10 @@
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
 #include <QQueue>
 #include <QDockWidget>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QMouseEvent>
+#include <QPushButton>
 #include <iGameSceneManager.h>
 #include <qaction.h>
 #include <qdebug.h>
@@ -10,6 +14,80 @@
 
 namespace
 {
+// A small custom title bar for frameless floating QDockWidget.
+// - Provides drag-to-move behavior
+// - Provides a close button
+class DockTitleBar final : public QWidget {
+public:
+    explicit DockTitleBar(QDockWidget* dock, const QString& title, QWidget* parent = nullptr)
+        : QWidget(parent), m_dock(dock) {
+        setObjectName("DockTitleBar");
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        setFixedHeight(32);
+
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(10, 0, 6, 0);
+        layout->setSpacing(8);
+
+        m_titleLabel = new QLabel(title, this);
+        m_titleLabel->setObjectName("DockTitleLabel");
+        m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        layout->addWidget(m_titleLabel);
+
+        auto* closeBtn = new QPushButton("×", this);
+        closeBtn->setObjectName("DockTitleCloseButton");
+        closeBtn->setFixedSize(24, 24);
+        closeBtn->setFlat(true);
+        closeBtn->setFocusPolicy(Qt::NoFocus);
+        layout->addWidget(closeBtn);
+
+        if (m_dock) {
+            connect(closeBtn, &QPushButton::clicked, m_dock, &QDockWidget::close);
+        }
+    }
+
+    void setTitle(const QString& t) {
+        if (m_titleLabel) m_titleLabel->setText(t);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent* e) override {
+        if (!m_dock) return QWidget::mousePressEvent(e);
+        if (e->button() == Qt::LeftButton) {
+            m_dragging = true;
+            m_dragOffset = e->globalPos() - m_dock->frameGeometry().topLeft();
+            e->accept();
+            return;
+        }
+        QWidget::mousePressEvent(e);
+    }
+
+    void mouseMoveEvent(QMouseEvent* e) override {
+        if (!m_dock) return QWidget::mouseMoveEvent(e);
+        if (m_dragging && (e->buttons() & Qt::LeftButton)) {
+            m_dock->move(e->globalPos() - m_dragOffset);
+            e->accept();
+            return;
+        }
+        QWidget::mouseMoveEvent(e);
+    }
+
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        if (e->button() == Qt::LeftButton) {
+            m_dragging = false;
+            e->accept();
+            return;
+        }
+        QWidget::mouseReleaseEvent(e);
+    }
+
+private:
+    QDockWidget* m_dock = nullptr;
+    QLabel* m_titleLabel = nullptr;
+    bool m_dragging = false;
+    QPoint m_dragOffset;
+};
+
 // Build sub-dataobject hierarchy under a given parent tree item
 static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, iGame::DataObject::Pointer obj) {
     if (!obj || !obj->HasSubDataObject()) return;
@@ -66,6 +144,11 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
                             QDockWidget::DockWidgetFloatable);
     m_treeDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
 
+    // 避免透明背景造成 Dock 穿透
+    m_treeDock->setAttribute(Qt::WA_TranslucentBackground, false);
+    // 自定义标题栏（用于无边框 floating 时提供可拖拽移动）
+    auto* treeTitle = new DockTitleBar(m_treeDock, m_treeDock->windowTitle(), m_treeDock);
+    m_treeDock->setTitleBarWidget(treeTitle);
 
     //  Properties Dock（也可懸浮）
     m_propertiesDock = new QDockWidget(tr("Properties"), parent);
@@ -75,6 +158,36 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     m_propertiesDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable |
                                   QDockWidget::DockWidgetFloatable);
     m_propertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
+
+    m_propertiesDock->setAttribute(Qt::WA_TranslucentBackground, false);
+    auto* propTitle = new DockTitleBar(m_propertiesDock, m_propertiesDock->windowTitle(), m_propertiesDock);
+    m_propertiesDock->setTitleBarWidget(propTitle);
+
+    // floating 时强制无系统边框（但仍可通过自定义 title bar 拖拽移动）
+    connect(m_treeDock, &QDockWidget::topLevelChanged, m_treeDock, [this](bool floating) {
+        if (!m_treeDock) return;
+        if (floating) {
+            m_treeDock->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+            // 關閉透明背景：使用樣式表來控制外觀與邊框
+            m_treeDock->setAttribute(Qt::WA_TranslucentBackground, false);
+            m_treeDock->show();
+        } else {
+            // 回到 docked：让 Qt 恢复正常 DockWidget 行为
+            m_treeDock->setWindowFlags(Qt::Widget);
+            m_treeDock->show();
+        }
+    });
+    connect(m_propertiesDock, &QDockWidget::topLevelChanged, m_propertiesDock, [this](bool floating) {
+        if (!m_propertiesDock) return;
+        if (floating) {
+            m_propertiesDock->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+            m_propertiesDock->setAttribute(Qt::WA_TranslucentBackground, false);
+            m_propertiesDock->show();
+        } else {
+            m_propertiesDock->setWindowFlags(Qt::Widget);
+            m_propertiesDock->show();
+        }
+    });
 
     tabWidget->addTab(ui->ModelInformationWidget, "Model Info");
     tabWidget->addTab(ui->propertyWidget, "Model Properties");
@@ -354,8 +467,11 @@ void igQtModelDialogWidget::positionTreeDockToRendererCorner(QWidget* rendererWi
 
     // 确保dock widget是悬浮状态，然后设置无边框
     m_treeDock->setFloating(true);
-    m_treeDock->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-    m_treeDock->setAttribute(Qt::WA_TranslucentBackground);
+    // 使用无边框 floating（可通过自定义 title bar 拖拽移动）
+    m_treeDock->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+    // 關閉透明背景，讓樣式表的背景與邊框生效
+    m_treeDock->setAttribute(Qt::WA_TranslucentBackground, false);
+    m_treeDock->show(); // window flags 变更后需要 show()
 
 
     // 获取渲染窗口在屏幕上的几何信息
