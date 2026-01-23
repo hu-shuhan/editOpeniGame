@@ -84,11 +84,21 @@ bool igQtSelectionWidget::GetSelectBoxShow() const { return m_SelectBoxShow; }
 
 void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
     PreventSignalSend(true);
+
+    int currentIndex = ui->variableChoose->currentIndex();
+
     ui->variableChoose->clear();
     ui->variableChoose->addItem("⨀无");
 
     for (auto& name: variableNames) { ui->variableChoose->addItem(name.c_str()); }
-    iGame::SelectionParameter::Instance().SetSelectVariableIndex(-1);
+
+    if (currentIndex < 0 || ui->variableChoose->count() <= currentIndex)
+        iGame::SelectionParameter::Instance().SetSelectVariableIndex(-1);
+    else {
+        iGame::SelectionParameter::Instance().SetSelectVariableIndex(currentIndex);
+        ui->variableChoose->setCurrentIndex(currentIndex);
+    }
+
     PreventSignalSend(false);
 }
 
@@ -98,6 +108,20 @@ void igQtSelectionWidget::SetDefaultSelectionButton() {
     ui->NONE_SELECTION->setChecked(false);
     iGame::SelectionParameter::Instance().SetInSelection(false);
     SetVariableNames({});
+}
+
+void igQtSelectionWidget::SetCurrentVariable(IGenum type, int index) {
+    switch (type) {
+        case IG_POINT:
+            ui->POINT_SELECTION->click();
+            break;
+        case IG_CELL:
+            ui->CELL_SELECTION->click();
+            break;
+        default:
+            return;
+    }
+    ui->variableChoose->setCurrentIndex(index + 1);
 }
 
 void igQtSelectionWidget::SetInitBoxSettingDialog(QWidget* renderWidget) {
@@ -319,6 +343,8 @@ void igQtSelectionWidget::HideAllSelectModeUi() {
 }
 
 void igQtSelectionWidget::HideSelectionTypeUi() {
+    //######### RETURN #########
+    return;
     ui->opeTypeLabel->hide();
     ui->POINT_SELECTION->hide();
     ui->CELL_SELECTION->hide();

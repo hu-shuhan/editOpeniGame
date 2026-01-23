@@ -40,10 +40,10 @@ public:
 		for (int i = 0; i < verts[MaxFaceSize]; ++i) {
 			face->m_PointIds->SetId(i, this->m_PointIds->GetId(verts[i]));
 			face->m_Points->SetPoint(i, this->m_Points->GetPoint(verts[i]));
-		}
-		for (int i = 0; i < edges[MaxFaceSize / 2]; ++i) {
-			face->EdgeIds->SetId(i, EdgeIds->GetId(edges[i]));
-		}
+        }
+        if (EdgeIds && EdgeIds->GetNumberOfIds() > 0) {
+            for (int i = 0; i < edges[MaxFaceSize / 2]; ++i) { face->EdgeIds->SetId(i, EdgeIds->GetId(edges[i])); }
+        }
 		return face;
 	}
 

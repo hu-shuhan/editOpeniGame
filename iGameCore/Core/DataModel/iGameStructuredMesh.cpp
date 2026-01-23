@@ -84,7 +84,6 @@ void StructuredMesh::GenStructuredCellConnectivities() {
     igIndex i = 0, j = 0, k = 0;
     igIndex vhs[8] = {0};
     igIndex st = 0;
-    this->m_Faces = CellArray::New();
     if (this->Dimension == 3) {
         this->m_Volumes = CellArray::New();
         this->m_Volumes->Resize((size[0] - 1) * (size[1] - 1) * (size[2] - 1));
@@ -110,6 +109,7 @@ void StructuredMesh::GenStructuredCellConnectivities() {
         }
 
     } else {
+        this->m_Faces = CellArray::New();
         this->m_Faces->Resize((size[0] - 1) * (size[1] - 1));
         igIndex tmpvhs[4] = {0, 1, size[0] + 1, size[0]};
         for (j = 0; j < size[1] - 1; ++j) {

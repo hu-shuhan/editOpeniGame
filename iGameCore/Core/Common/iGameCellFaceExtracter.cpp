@@ -408,7 +408,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
 void CellFaceExtracter::_VisitCell(int cellId, Cell* cell,
                                    std::vector<std::vector<std::pair<Face, Face>>>& cellToPFace) {
     auto faceNum = cell->GetNumberOfFaces();
-    if (cell->GetCellType() == IG_QUADRATIC_TETRA) return;
+    //if (cell->GetCellType() == IG_QUADRATIC_TETRA) return;
     if (faceNum == 0) {
         int pointSize = cell->GetNumberOfPoints();
         if (pointSize <= 1) return;

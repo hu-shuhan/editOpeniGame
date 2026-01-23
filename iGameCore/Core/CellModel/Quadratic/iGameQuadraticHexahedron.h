@@ -34,10 +34,10 @@ public:
 		for (int i = 0; i < 8; ++i) {
 			m_Quad->m_PointIds->SetId(i, m_PointIds->GetId(verts[i]));
 			m_Quad->m_Points->SetPoint(i, m_Points->GetPoint(verts[i]));
-		}
-		for (int i = 0; i < 4; ++i) {
-			m_Quad->EdgeIds->SetId(i, EdgeIds->GetId(edges[i]));
-		}
+        }
+        if (EdgeIds && EdgeIds->GetNumberOfIds() > 0) {
+            for (int i = 0; i < 4; ++i) { m_Quad->EdgeIds->SetId(i, EdgeIds->GetId(edges[i])); }
+        }
 		return m_Quad.get();
 	}
 
