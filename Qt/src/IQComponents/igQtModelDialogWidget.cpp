@@ -1,12 +1,15 @@
 #include "Sources/iGameLineTypePointsSourceFilter.h"
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
+#include <QApplication>
+#include <QMainWindow>
 #include <QQueue>
 #include <QDockWidget>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QScreen>
 #include <iGameSceneManager.h>
 #include <qaction.h>
 #include <qdebug.h>
@@ -471,26 +474,130 @@ void igQtModelDialogWidget::positionTreeDockToRendererCorner(QWidget* rendererWi
     m_treeDock->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
     // 關閉透明背景，讓樣式表的背景與邊框生效
     m_treeDock->setAttribute(Qt::WA_TranslucentBackground, false);
-    m_treeDock->show(); // window flags 变更后需要 show()
 
-
-    // 获取渲染窗口在屏幕上的几何信息
-    QRect rendererGeometry = rendererWidget->geometry();
-    QPoint rendererTopLeft = rendererWidget->mapToGlobal(rendererGeometry.topLeft());
-
-    // 计算悬浮窗口的位置：渲染窗口右下角，留出边距
-    int margin = 15; // 边距
+    // 先设置窗口大小
     int dockWidth = 380;  // 悬浮窗口宽度
     int dockHeight = 280; // 悬浮窗口高度
+    m_treeDock->resize(dockWidth, dockHeight);
+    m_treeDock->show(); // window flags 变更后需要 show()
+    
+    // 等待窗口完全显示后再计算位置
+    QApplication::processEvents();
+    
+    // 获取dock窗口的实际大小（窗口显示后可能略有调整）
+    QSize actualDockSize = m_treeDock->size();
 
-    QPoint dockPosition(
-            rendererTopLeft.x() + rendererGeometry.width() - dockWidth - margin,
-            rendererTopLeft.y() + rendererGeometry.height() - dockHeight - margin
+    // 获取OpenGL渲染窗口在屏幕上的几何信息
+    // rendererWidget本身就是centralWidget，直接使用它作为渲染窗口
+    QWidget* actualRendererWidget = rendererWidget;
+    
+    // 获取渲染窗口的几何信息
+    // 直接获取窗口的四个角点的全局坐标
+    QPoint rendererTopLeft = actualRendererWidget->mapToGlobal(QPoint(0, 0));
+    QPoint rendererBottomRight = actualRendererWidget->mapToGlobal(QPoint(actualRendererWidget->width(), actualRendererWidget->height()));
+
+    // 计算悬浮窗口的位置：layerdialog的右下角对应渲染窗口的右下角，留出边距
+    int margin = 15; // 边距
+    
+    // layerdialog的左上角位置（全局坐标）= 渲染窗口右下角 - layerdialog实际大小 - 边距
+    QPoint dockTopLeft(
+            rendererBottomRight.x() - actualDockSize.width() - margin,
+            rendererBottomRight.y() - actualDockSize.height() - margin
     );
 
-    // 设置悬浮窗口的大小和位置
-    m_treeDock->resize(dockWidth, dockHeight);
-    m_treeDock->move(dockPosition);
+    // 获取渲染窗口所在的屏幕，确保窗口完全在屏幕内
+    QScreen* screen = nullptr;
+    if (QWidget* mainWindow = rendererWidget->window()) {
+        screen = mainWindow->screen();
+    }
+    if (!screen) {
+        // 如果无法获取，使用计算位置所在的屏幕
+        screen = QApplication::screenAt(dockTopLeft);
+    }
+    if (!screen) {
+        // 如果还是无法获取，使用主屏幕
+        screen = QApplication::primaryScreen();
+    }
+    
+    if (screen) {
+        QRect screenGeometry = screen->availableGeometry();
+        
+        // 计算layerdialog的右下角位置
+        QPoint dockBottomRight = dockTopLeft + QPoint(actualDockSize.width(), actualDockSize.height());
+        
+        // 检查并调整位置，确保窗口完全在屏幕内
+        // 优先保持layerdialog的右下角对应渲染窗口的右下角
+        
+        // 如果右下角超出屏幕右边界
+        if (dockBottomRight.x() > screenGeometry.right()) {
+            // 调整到屏幕右边界内，但确保仍然在渲染窗口右侧
+            int newX = screenGeometry.right() - actualDockSize.width() - margin;
+            // 计算调整后layerdialog的右下角X坐标
+            int newDockRight = newX + actualDockSize.width();
+            
+            // 只有当调整后的layerdialog右下角仍然在渲染窗口右下角的右侧时才调整
+            // 如果调整后会移到渲染窗口左侧，则保持原位置（即使部分超出屏幕）
+            if (newDockRight >= rendererBottomRight.x() - margin) {
+                // 调整后的位置仍然在渲染窗口右侧，使用新位置
+                dockTopLeft.setX(newX);
+            }
+            // 否则保持原位置，即使部分超出屏幕也比移到左侧好
+        }
+        
+        // 如果右下角超出屏幕下边界
+        if (dockBottomRight.y() > screenGeometry.bottom()) {
+            dockTopLeft.setY(screenGeometry.bottom() - actualDockSize.height() - margin);
+        }
+        
+        // 确保左上角也在屏幕内（防止窗口完全超出屏幕）
+        // 但如果渲染窗口在右侧，layerdialog绝对不应该被移到屏幕左侧
+        if (dockTopLeft.x() < screenGeometry.left()) {
+            // 检查渲染窗口的位置：如果渲染窗口在屏幕右侧，绝对不调整到左侧
+            int rendererRight = rendererBottomRight.x();
+            int rendererLeft = rendererTopLeft.x();
+            
+            // 如果渲染窗口的右边界在屏幕中心右侧，说明渲染窗口在右侧
+            // 此时layerdialog不应该被移到屏幕左侧，保持原位置
+            // 或者，如果layerdialog的右下角在渲染窗口右侧，也不应该移到左侧
+            int dockRight = dockTopLeft.x() + actualDockSize.width();
+            bool rendererOnRight = (rendererRight > screenGeometry.center().x() || rendererLeft > screenGeometry.center().x());
+            bool dockOnRightOfRenderer = (dockRight >= rendererBottomRight.x() - margin);
+            
+            if (rendererOnRight || dockOnRightOfRenderer) {
+                // 渲染窗口在右侧，或者layerdialog在渲染窗口右侧
+                // 绝对不调整到屏幕左侧，保持原位置
+                // 完全不进行调整，直接跳过
+            } else {
+                // 渲染窗口在屏幕左侧或中间，且layerdialog不在渲染窗口右侧
+                // 可以调整到屏幕左边界（但这种情况不应该发生）
+                dockTopLeft.setX(screenGeometry.left() + margin);
+            }
+        }
+        if (dockTopLeft.y() < screenGeometry.top()) {
+            dockTopLeft.setY(screenGeometry.top() + margin);
+        }
+    }
+
+    // 最终检查：如果渲染窗口在屏幕右侧，确保layerdialog不会出现在屏幕左侧
+    if (screen) {
+        QRect screenGeometry = screen->availableGeometry();
+        int rendererRight = rendererBottomRight.x();
+        
+        // 如果渲染窗口在屏幕右侧（右边界在屏幕中心右侧）
+        if (rendererRight > screenGeometry.center().x()) {
+            // 确保layerdialog不会出现在屏幕左侧
+            if (dockTopLeft.x() < screenGeometry.left() + 100) {
+                // layerdialog出现在屏幕左侧，这是错误的
+                // 强制放在渲染窗口右下角
+                dockTopLeft.setX(rendererBottomRight.x() - actualDockSize.width() - margin);
+                dockTopLeft.setY(rendererBottomRight.y() - actualDockSize.height() - margin);
+            }
+        }
+    }
+    
+
+    // 设置悬浮窗口的位置（使用全局坐标）
+    m_treeDock->move(dockTopLeft);
 
     // 确保窗口可见并激活
     m_treeDock->show();

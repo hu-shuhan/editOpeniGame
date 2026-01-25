@@ -2422,7 +2422,7 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
         iconSize = QSize(60, 60);
     Qt::ToolButtonStyle btnStyle = toolbar->toolButtonStyle();
     const QList<QAction*> actions = toolbar->actions();
-    const int totalH = iconSize.height() + 32;  // 單行顯示，留出標題高度
+    const int totalH = iconSize.height() + 52;  // 單行顯示，留出標題高度和下方邊距（約12pt）
 
     QWidget* container = new QWidget(this);
     container->setObjectName("toolbarContainer_" + toolbar->objectName());
@@ -2476,15 +2476,15 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
 
     // 垂直布局逻辑（不变）
     QVBoxLayout* vLayout = new QVBoxLayout(container);
-    vLayout->setContentsMargins(2, 0, 2, 2);
-    vLayout->setSpacing(4);
+    vLayout->setContentsMargins(2, 0, 2, 16);  // 增加下边距到约12pt，让标题文字与下方边界有距离
+    vLayout->setSpacing(8);  // 增加间距
     vLayout->addWidget(topRow, 1);
 
     QLabel* titleLabel = new QLabel(title, container);
     titleLabel->setObjectName("toolbarTitle_" + toolbar->objectName());
     titleLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     titleLabel->setStyleSheet(
-            "QLabel { color: #CCCCCC; font-size: 12px; padding: 0; "
+            "QLabel { color: #6B6B6B; font-size: 10pt; padding: 0; "
             "background-color: transparent; border: none; font-family: 'PingFang SC'; }"
     );
     vLayout->addWidget(titleLabel, 0);
