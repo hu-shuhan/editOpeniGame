@@ -50,11 +50,209 @@ static double SegmentIntersectsTriangle(const Point& start, const Point& dir,
     return -1;
 }
 
+static double SegmentIntersectsRay(const Point& rayStart, const Point& rayDir,
+                                   const Point& segStart, const Point& segEnd,
+                                   Point& intersectionPoint) {
+    // 计算射线方向向量（已归一化）
+    double rayLength = rayDir.length();
+    if (rayLength < 1e-7) { return -1; } // 无效射线方向
+    Point rayNorm = rayDir / rayLength;
+
+    // 线段向量
+    Point segVec = segEnd - segStart;
+    double segLength = segVec.length();
+
+    // 如果线段退化为点
+    if (segLength < 1e-7) {
+        // 计算点到射线的距离
+        Point w0 = segStart - rayStart;
+        double t = w0.dot(rayNorm);
+
+        // 如果点在射线后方
+        if (t < -1e-7) {
+            // 返回射线起点到线段点的距离
+            intersectionPoint = segStart;
+            return (segStart - rayStart).length();
+        }
+
+        // 射线上最近点
+        Point rayClosest = rayStart + rayNorm * t;
+        intersectionPoint = segStart;
+        return (rayClosest - segStart).length();
+    }
+
+    // 线段方向向量（归一化）
+    Point segNorm = segVec / segLength;
+
+    // 计算射线和线段方向的点积
+    double rayDotSeg = rayNorm.dot(segNorm);
+
+    // 处理平行或接近平行的情况
+    if (std::abs(rayDotSeg) > 1 - 1e-7) {
+        // 基本平行，计算射线起点到线段所在直线的距离
+        Point w0 = rayStart - segStart;
+        Point crossProd = w0.cross(segNorm);
+        double dist = crossProd.length();
+
+        // 检查射线起点在线段上的投影
+        double proj = w0.dot(segNorm);
+
+        // 如果投影在线段范围内
+        if (proj >= -1e-7 && proj <= segLength + 1e-7) {
+            Point segClosest = segStart + segNorm * proj;
+
+            // 计算射线起点到segClosest的向量在射线方向上的投影
+            Point vecToSeg = segClosest - rayStart;
+            double t = vecToSeg.dot(rayNorm);
+
+            if (t >= -1e-7) {
+                // 射线正方向上有点
+                intersectionPoint = segClosest;
+                return dist;
+            } else {
+                // 最近点在射线反方向，返回射线起点到线段端点的最小距离
+                Point rayClosest = rayStart;
+
+                // 计算到两个端点的距离
+                double dist1 = (segStart - rayStart).length();
+                double dist2 = (segEnd - rayStart).length();
+
+                if (dist1 <= dist2) {
+                    intersectionPoint = segStart;
+                    return dist1;
+                } else {
+                    intersectionPoint = segEnd;
+                    return dist2;
+                }
+            }
+        } else {
+            // 投影在线段外，检查射线起点到线段端点的距离
+            Point rayClosest = rayStart;
+
+            // 计算到两个端点的距离
+            double dist1 = (segStart - rayStart).length();
+            double dist2 = (segEnd - rayStart).length();
+
+            // 检查端点是否在射线正方向
+            Point vecToStart = segStart - rayStart;
+            Point vecToEnd = segEnd - rayStart;
+
+            double t1 = vecToStart.dot(rayNorm);
+            double t2 = vecToEnd.dot(rayNorm);
+
+            bool startInFront = t1 >= -1e-7;
+            bool endInFront = t2 >= -1e-7;
+
+            if (startInFront && endInFront) {
+                // 两端点都在射线正方向
+                if (dist1 <= dist2) {
+                    intersectionPoint = segStart;
+                    return dist1;
+                } else {
+                    intersectionPoint = segEnd;
+                    return dist2;
+                }
+            } else if (startInFront) {
+                // 只有起点在正方向
+                intersectionPoint = segStart;
+                return dist1;
+            } else if (endInFront) {
+                // 只有终点在正方向
+                intersectionPoint = segEnd;
+                return dist2;
+            } else {
+                // 两端点都在射线反方向，返回射线起点到线段的最小距离
+                if (dist1 <= dist2) {
+                    intersectionPoint = segStart;
+                    return dist1;
+                } else {
+                    intersectionPoint = segEnd;
+                    return dist2;
+                }
+            }
+        }
+    }
+
+    // 一般情况：计算两条空间直线的最近点
+
+    // 设射线: R(s) = rayStart + s * rayNorm, s >= 0
+    // 设线段: L(t) = segStart + t * segNorm, 0 <= t <= segLength
+
+    // 计算向量
+    Point w0 = rayStart - segStart;
+
+    // 计算系数
+    double a = rayNorm.dot(rayNorm); // 应该为1
+    double b = rayNorm.dot(segNorm);
+    double c = segNorm.dot(segNorm); // 应该为1
+    double d = rayNorm.dot(w0);
+    double e = segNorm.dot(w0);
+
+    // 计算行列式
+    double denom = a * c - b * b; // 应该为 1 - b^2
+
+    // 计算参数s和t（两条无限直线的最近点参数）
+    double s, t;
+
+    if (std::abs(denom) > 1e-7) {
+        s = (b * e - c * d) / denom;
+        t = (a * e - b * d) / denom;
+    } else {
+        // 接近平行，已经处理过这种情况
+        s = 0;
+        t = e / c;
+    }
+
+    // 限制t在线段范围内
+    double t_clamped = std::max(0.0, std::min(t, segLength));
+
+    // 限制s在射线正方向（s >= 0）
+    double s_clamped = std::max(0.0, s);
+
+    // 计算线段上的最近点
+    Point segClosest = segStart + segNorm * t_clamped;
+
+    // 计算射线上的最近点
+    Point rayClosest = rayStart + rayNorm * s_clamped;
+
+    // 如果s在有效范围内，可以重新计算更精确的segClosest
+    if (s >= -1e-7 && std::abs(denom) > 1e-7) {
+        // 计算两条无限直线的最近点对
+        double s_exact = (b * e - c * d) / denom;
+        double t_exact = (a * e - b * d) / denom;
+
+        if (s_exact >= -1e-7) {
+            // 射线点在正方向
+            t_exact = std::max(0.0, std::min(t_exact, segLength));
+            segClosest = segStart + segNorm * t_exact;
+            rayClosest = rayStart + rayNorm * s_exact;
+        }
+    }
+
+    // 返回最近距离
+    intersectionPoint = segClosest;
+
+    auto dirLen = (rayClosest - segClosest).length();
+
+    if (dirLen > 0.007) return -1;
+
+    return (rayClosest - segClosest).length();
+}
+
+static igm::vec4 PointToVec4(const Point& p) {
+    return {p[0], p[1], p[2], 1.0f};
+}
+
+static Point Vec4ToPoint(const igm::vec4& p) {
+    return {p.x / p.w, p.y / p.w, p.z / p.w};
+}
+
 void BoxStyle::MousePressEvent(IEvent event) {
     BasicStyle::MousePressEvent(event);
     if (!SelectionParameter::Instance().GetHaveBox()) return;
     m_SelectedDirection = -1;
     m_SelectedItem = -1;
+    igm::vec4 intersectionPointV4;
 
     if (m_DynamicBox == nullptr) return;
     if (event.button != MouseButton::MiddleButton) return;
@@ -77,38 +275,70 @@ void BoxStyle::MousePressEvent(IEvent event) {
 
     m_MaxDis = m_DynamicBox->GetLength().length() * 0.02;
 
-    //Select Box Ope Point
-    auto& opePoints = m_DynamicBox->GetOpePoints();
-    if (m_SelectedDirection == -1) {
-        float minPointDist = std::numeric_limits<float>::max();
+    if (m_SelectedItem == -1) {
+        //Select Box Ope Point
+        auto& opePoints = m_DynamicBox->GetOpePoints();
+        float minDist = std::numeric_limits<float>::max();
         for (int i = 0; i < 6; i++) {
             float dist = Line::ComputePointToLineDis(lineStartPoint, lineDir,
                                                      opePoints[i]);
             if (dist > m_MaxDis) continue;
-            if (m_SelectedDirection == -1 || dist < minPointDist) {
+            if (m_SelectedItem == -1 || dist < minDist) {
                 m_SelectedDirection = i;
-                minPointDist = dist;
+                intersectionPointV4 = PointToVec4(opePoints[i]);
+                minDist = dist;
                 m_SelectedItem = IG_POINT;
             }
         }
     }
 
-    //Select Mid Point
-    auto& midPoint = m_DynamicBox->GetMidPoint();
-    if (m_SelectedDirection == -1) {
+    if (m_SelectedItem == -1) {
+        //Select Mid Point
+        auto& midPoint = m_DynamicBox->GetMidPoint();
         float dist =
                 Line::ComputePointToLineDis(lineStartPoint, lineDir, midPoint);
         if (dist <= m_MaxDis) {
-            m_SelectedDirection = -2;
+            intersectionPointV4 = PointToVec4(midPoint);
             m_SelectedItem = IG_MID_POINT;
         }
     }
 
-    //Select Box Face
-    Point intersectionPoint;
-    if (m_SelectedDirection == -1) {
+    if (m_SelectedItem == -1) {
+        //Select OpePoint Edge
+        auto& opePoints = m_DynamicBox->GetOpePoints();
+        float minDist = std::numeric_limits<float>::max();
+        for (int i = 0; i < 6; i += 2) {
+            Point tempP;
+            float dist =
+                    SegmentIntersectsRay(lineStartPoint, lineDir, opePoints[i],
+                                         opePoints[i + 1], tempP);
+            if (dist == -1) continue;
+            if (m_SelectedItem == -1 || dist < minDist) {
+                intersectionPointV4 = PointToVec4(tempP);
+                minDist = dist;
+                m_SelectedItem = IG_MID_POINT;
+            }
+        }
+        //Select Box Edge
+        auto boxEdges = m_DynamicBox->GetAllEdges();
+        for (int i = 0; i < 6; i++) {
+            auto& edge = boxEdges[i];
+            Point tempP;
+            auto dist = SegmentIntersectsRay(lineStartPoint, lineDir,
+                                             edge.first, edge.second, tempP);
+            if (dist == -1) continue;
+            if (m_SelectedItem == -1 || dist < minDist) {
+                intersectionPointV4 = PointToVec4(tempP);
+                minDist = dist;
+                m_SelectedItem = IG_MID_POINT;
+            }
+        }
+    }
+
+    if (m_SelectedItem == -1) {
+        //Select Box Face
         auto boxFaces = m_DynamicBox->GetAllFaces();
-        float minFaceDist = std::numeric_limits<float>::max();
+        float minDist = std::numeric_limits<float>::max();
         for (int i = 0; i < 6; i++) {
             auto& boxFace = boxFaces[i];
             auto& p0 = boxFace[0];
@@ -121,44 +351,31 @@ void BoxStyle::MousePressEvent(IEvent event) {
                 auto dist = SegmentIntersectsTriangle(lineStartPoint, lineDir,
                                                       p0, p1, p2, tempP);
                 if (dist == -1) continue;
-                if (m_SelectedDirection == -1 || dist < minFaceDist) {
-                    m_SelectedDirection = i;
-                    minFaceDist = dist;
+                if (m_SelectedItem == -1 || dist < minDist) {
+                    intersectionPointV4 = PointToVec4(tempP);
+                    minDist = dist;
                     m_SelectedItem = IG_CELL;
-                    intersectionPoint = tempP;
                     break;
                 }
             }
         }
     }
 
-    if (m_SelectedDirection == -1) {
+    if (m_SelectedItem == -1) {
         SetNeedReSet();
         return;
     }
 
     m_MeetedBox = true;
 
-    igm::vec4 p;
-    if (m_SelectedItem == IG_MID_POINT) {
-        p = igm::vec4{midPoint[0], midPoint[1], midPoint[2], 1.f};
-    } else if (m_SelectedItem == IG_POINT) {
-        p = igm::vec4{opePoints[m_SelectedDirection][0],
-                      opePoints[m_SelectedDirection][1],
-                      opePoints[m_SelectedDirection][2], 1.f};
-    } else if (m_SelectedItem == IG_CELL) {
-        p = igm::vec4{intersectionPoint[0], intersectionPoint[1],
-                      intersectionPoint[2], 1.f};
-    }
-    //m_PrePosition = opePoints[m_SelectedDirection];
-    m_PrePosition = Point(p.x, p.y, p.z);
-    p = m_MVP * p;
-    m_SelectedNDCZ = p.z / p.w;
+    m_PrePosition = Vec4ToPoint(intersectionPointV4);
+    intersectionPointV4 = m_MVP * intersectionPointV4;
+    m_SelectedNDCZ = intersectionPointV4.z / intersectionPointV4.w;
 }
 
 void BoxStyle::MouseMoveEvent(IEvent event) {
     if (!SelectionParameter::Instance().GetHaveBox()) return;
-    if (m_SelectedDirection == -1) return;
+    if (m_SelectedItem == -1) return;
     if (m_DynamicBox == nullptr) return;
     if (m_SelectedItem != IG_POINT && m_SelectedItem != IG_CELL &&
         m_SelectedItem != IG_MID_POINT)
@@ -180,7 +397,8 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
     auto dir = nowPosition - m_PrePosition;
 
     if (m_SelectedItem == IG_MID_POINT) {
-        m_DynamicBox->MovePosition(nowPosition);
+        //m_DynamicBox->MovePosition(nowPosition);
+        m_DynamicBox->MoveBox(dir);
     } else if (m_SelectedItem == IG_POINT) {
         m_DynamicBox->MoveOpePoint((DynamicBox::OpeInt) m_SelectedDirection,
                                    dir);

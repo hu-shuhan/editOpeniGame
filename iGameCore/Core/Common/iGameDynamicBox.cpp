@@ -276,6 +276,11 @@ void DynamicBox::MovePosition(const Point& position) {
     SetOpePoints();
 }
 
+void DynamicBox::MoveBox(const Point& dir) {
+    m_Position += dir;
+    SetOpePoints();
+}
+
 // 获取中心点
 const Point& DynamicBox::GetMidPoint() const { return m_Position; }
 
