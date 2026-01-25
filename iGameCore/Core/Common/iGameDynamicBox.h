@@ -26,6 +26,7 @@ public:
     Point GetRotation() const;
     void MovePosition(double x, double y, double z);
     void MovePosition(const Point& position);
+    void MoveBox(const Point& dir);
     const Point& GetMidPoint() const;
 
     // 旋转相关函数
