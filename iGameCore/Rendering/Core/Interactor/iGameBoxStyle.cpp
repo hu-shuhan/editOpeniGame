@@ -416,8 +416,6 @@ void BoxStyle::MousePressEvent(IEvent event) {
         }
     }
 
-    std::cout << m_SelectedItem << std::endl;
-
     if (m_SelectedItem == IG_NONE) {
         SetNeedReSet();
         return;
