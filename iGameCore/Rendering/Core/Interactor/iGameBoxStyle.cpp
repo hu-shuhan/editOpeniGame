@@ -247,121 +247,178 @@ static Point Vec4ToPoint(const igm::vec4& p) {
     return {p.x / p.w, p.y / p.w, p.z / p.w};
 }
 
-void BoxStyle::MousePressEvent(IEvent event) {
-    BasicStyle::MousePressEvent(event);
-    if (!SelectionParameter::Instance().GetHaveBox()) return;
-    m_SelectedDirection = -1;
-    m_SelectedItem = -1;
-    igm::vec4 intersectionPointV4;
-
-    if (m_DynamicBox == nullptr) return;
-    if (event.button != MouseButton::MiddleButton) return;
-
+std::pair<Point, Point> BoxStyle::GetRayStartAndDir(IEvent event) {
     m_MVP = m_Interactor->GetMVP();
     m_InvertedMVP = m_MVP.invert();
-
     auto& pos = event.pos;
-    m_OldPoint2D = event.pos;
-
-    m_PressSite = event.pos;
-    m_MeetedBox = false;
-
     igm::vec3 nearPoint = GetNearWorldCoord(pos, m_InvertedMVP);
     igm::vec3 farPoint = GetFarWorldCoord(pos, m_InvertedMVP);
     igm::vec3 rayDir = (farPoint - nearPoint).normalized();
 
     Point lineStartPoint = Point(nearPoint.x, nearPoint.y, nearPoint.z);
     Point lineDir = Point(rayDir.x, rayDir.y, rayDir.z);
+    return {lineStartPoint, lineDir};
+}
 
-    m_MaxDis = m_DynamicBox->GetLength().length() * 0.02;
-
-    if (m_SelectedItem == -1) {
-        //Select Box Ope Point
-        auto& opePoints = m_DynamicBox->GetOpePoints();
-        float minDist = std::numeric_limits<float>::max();
-        for (int i = 0; i < 6; i++) {
-            float dist = Line::ComputePointToLineDis(lineStartPoint, lineDir,
-                                                     opePoints[i]);
-            if (dist > m_MaxDis) continue;
-            if (m_SelectedItem == -1 || dist < minDist) {
-                m_SelectedDirection = i;
-                intersectionPointV4 = PointToVec4(opePoints[i]);
-                minDist = dist;
-                m_SelectedItem = IG_POINT;
-            }
-        }
-    }
-
-    if (m_SelectedItem == -1) {
-        //Select Mid Point
-        auto& midPoint = m_DynamicBox->GetMidPoint();
+std::tuple<bool, int, Point> BoxStyle::MeetOpePoint(IEvent event,
+                                                    const Point& rayStart,
+                                                    const Point& rayDir) {
+    std::tuple<bool, int, Point> re(false, -1, Point{});
+    auto& opePoints = m_DynamicBox->GetOpePoints();
+    float minDist = std::numeric_limits<float>::max();
+    auto maxDist = m_DynamicBox->GetLength().length() * 0.02;
+    for (int i = 0; i < 6; i++) {
         float dist =
-                Line::ComputePointToLineDis(lineStartPoint, lineDir, midPoint);
-        if (dist <= m_MaxDis) {
-            intersectionPointV4 = PointToVec4(midPoint);
+                Line::ComputePointToLineDis(rayStart, rayDir,
+                                                 opePoints[i]);
+        if (dist > maxDist) continue;
+        if (!std::get<0>(re) || dist < minDist) {
+            std::get<0>(re) = true;
+            std::get<1>(re) = i;
+            std::get<2>(re) = opePoints[i];
+            minDist = dist;
+        }
+    }
+    return re;
+}
+
+std::tuple<bool, Point> BoxStyle::MeetCenterPoint(IEvent event,
+                                                  const Point& rayStart,
+                                                  const Point& rayDir) {
+    std::tuple<bool, Point> re(false, Point{});
+    auto& midPoint = m_DynamicBox->GetMidPoint();
+    auto maxDist = m_DynamicBox->GetLength().length() * 0.02;
+    float dist = Line::ComputePointToLineDis(rayStart, rayDir, midPoint);
+    if (dist <= maxDist) {
+        std::get<0>(re) = true;
+        std::get<1>(re) = midPoint;
+    }
+    return re;
+}
+
+std::tuple<bool, Point> BoxStyle::MeetBoxEdge(IEvent event,
+                                              const Point& rayStart,
+                                              const Point& rayDir) {
+    std::tuple<bool, Point> re(false, Point{});
+    //Select OpePoint Edge
+    auto& opePoints = m_DynamicBox->GetOpePoints();
+    float minDist = std::numeric_limits<float>::max();
+    for (int i = 0; i < 6; i += 2) {
+        Point tempP;
+        float dist = SegmentIntersectsRay(rayStart, rayDir, opePoints[i],
+                                          opePoints[i + 1], tempP);
+        if (dist == -1) continue;
+        if (!std::get<0>(re) || dist < minDist) {
+            std::get<0>(re) = true;
+            std::get<1>(re) = tempP;
+            minDist = dist;
+        }
+    }
+    //Select Box Edge
+    auto boxEdges = m_DynamicBox->GetAllEdges();
+    for (int i = 0; i < 12; i++) {
+        auto& edge = boxEdges[i];
+        Point tempP;
+        auto dist = SegmentIntersectsRay(rayStart, rayDir, edge.first,
+                                         edge.second, tempP);
+        if (dist == -1) continue;
+        if (!std::get<0>(re) || dist < minDist) {
+            std::get<0>(re) = true;
+            std::get<1>(re) = tempP;
+            minDist = dist;
+        }
+    }
+    return re;
+}
+
+std::tuple<bool, Point> BoxStyle::MeetBoxRotate(IEvent event,
+                                                const Point& rayStart,
+                                                const Point& rayDir) {
+    std::tuple<bool, Point> re(false, Point{});
+    //Select Box Face
+    auto boxFaces = m_DynamicBox->GetAllFaces();
+    float minDist = std::numeric_limits<float>::max();
+    for (int i = 0; i < 6; i++) {
+        auto& boxFace = boxFaces[i];
+        auto& p0 = boxFace[0];
+        for (int pIndex = 1; pIndex < 3; pIndex++) {
+            int pI1 = pIndex;
+            int pI2 = (pIndex + 1) % 4;
+            auto& p1 = boxFace[pI1];
+            auto& p2 = boxFace[pI2];
+            Point tempP;
+            auto dist = SegmentIntersectsTriangle(rayStart, rayDir, p0,
+                                                  p1, p2, tempP);
+            if (dist == -1) continue;
+            if (!std::get<0>(re) || dist < minDist) {
+                std::get<0>(re) = true;
+                std::get<1>(re) = tempP;
+                minDist = dist;
+                break;
+            }
+        }
+    }
+    return re;
+}
+
+void BoxStyle::MousePressEvent(IEvent event) {
+    BasicStyle::MousePressEvent(event);
+    m_InMousePress = true;
+    if (!SelectionParameter::Instance().GetHaveBox()) return;
+    if (m_DynamicBox == nullptr) return;
+    m_SelectedDirection = -1;
+    m_SelectedItem = IG_NONE;
+    igm::vec4 intersectionPointV4;
+
+    if (event.button != MouseButton::MiddleButton) return;
+
+    m_OldPoint2D = event.pos;
+    m_PressSite = event.pos;
+    m_MeetedBox = false;
+
+    auto [rayStart, rayDir] = GetRayStartAndDir(event);
+
+    if (m_SelectedItem == IG_NONE) {
+        //Select Box Ope Point
+        auto meet = MeetOpePoint(event, rayStart, rayDir);
+        if (std::get<0>(meet)) {
+            m_SelectedItem = IG_POINT;
+            m_SelectedDirection = std::get<1>(meet);
+            intersectionPointV4 = PointToVec4(std::get<2>(meet));
+        }
+    }
+
+    if (m_SelectedItem == IG_NONE) {
+        //Select Mid Point
+        auto meet = MeetCenterPoint(event, rayStart, rayDir);
+        if (std::get<0>(meet)) {
             m_SelectedItem = IG_MID_POINT;
+            intersectionPointV4 = PointToVec4(std::get<1>(meet));
         }
     }
 
-    if (m_SelectedItem == -1) {
+    if (m_SelectedItem == IG_NONE) {
         //Select OpePoint Edge
-        auto& opePoints = m_DynamicBox->GetOpePoints();
-        float minDist = std::numeric_limits<float>::max();
-        for (int i = 0; i < 6; i += 2) {
-            Point tempP;
-            float dist =
-                    SegmentIntersectsRay(lineStartPoint, lineDir, opePoints[i],
-                                         opePoints[i + 1], tempP);
-            if (dist == -1) continue;
-            if (m_SelectedItem == -1 || dist < minDist) {
-                intersectionPointV4 = PointToVec4(tempP);
-                minDist = dist;
-                m_SelectedItem = IG_MID_POINT;
-            }
-        }
         //Select Box Edge
-        auto boxEdges = m_DynamicBox->GetAllEdges();
-        for (int i = 0; i < 6; i++) {
-            auto& edge = boxEdges[i];
-            Point tempP;
-            auto dist = SegmentIntersectsRay(lineStartPoint, lineDir,
-                                             edge.first, edge.second, tempP);
-            if (dist == -1) continue;
-            if (m_SelectedItem == -1 || dist < minDist) {
-                intersectionPointV4 = PointToVec4(tempP);
-                minDist = dist;
-                m_SelectedItem = IG_MID_POINT;
-            }
+        auto meet = MeetBoxEdge(event, rayStart, rayDir);
+        if (std::get<0>(meet)) {
+            m_SelectedItem = IG_EDGE;
+            intersectionPointV4 = PointToVec4(std::get<1>(meet));
         }
     }
 
-    if (m_SelectedItem == -1) {
+    if (m_SelectedItem == IG_NONE) {
         //Select Box Face
-        auto boxFaces = m_DynamicBox->GetAllFaces();
-        float minDist = std::numeric_limits<float>::max();
-        for (int i = 0; i < 6; i++) {
-            auto& boxFace = boxFaces[i];
-            auto& p0 = boxFace[0];
-            for (int pIndex = 1; pIndex < 3; pIndex++) {
-                int pI1 = pIndex;
-                int pI2 = (pIndex + 1) % 4;
-                auto& p1 = boxFace[pI1];
-                auto& p2 = boxFace[pI2];
-                Point tempP;
-                auto dist = SegmentIntersectsTriangle(lineStartPoint, lineDir,
-                                                      p0, p1, p2, tempP);
-                if (dist == -1) continue;
-                if (m_SelectedItem == -1 || dist < minDist) {
-                    intersectionPointV4 = PointToVec4(tempP);
-                    minDist = dist;
-                    m_SelectedItem = IG_CELL;
-                    break;
-                }
-            }
+        auto meet = MeetBoxRotate(event, rayStart, rayDir);
+        if (std::get<0>(meet)) {
+            m_SelectedItem = IG_CELL;
+            intersectionPointV4 = PointToVec4(std::get<1>(meet));
         }
     }
 
-    if (m_SelectedItem == -1) {
+    std::cout << m_SelectedItem << std::endl;
+
+    if (m_SelectedItem == IG_NONE) {
         SetNeedReSet();
         return;
     }
@@ -374,12 +431,60 @@ void BoxStyle::MousePressEvent(IEvent event) {
 }
 
 void BoxStyle::MouseMoveEvent(IEvent event) {
+    BasicStyle::MouseMoveEvent(event);
+    ChangeBoxDrawMode(event);
+    OperateBox(event);
+}
+
+void BoxStyle::ChangeBoxDrawMode(IEvent event) {
+    if (m_InMousePress) return;
     if (!SelectionParameter::Instance().GetHaveBox()) return;
-    if (m_SelectedItem == -1) return;
     if (m_DynamicBox == nullptr) return;
-    if (m_SelectedItem != IG_POINT && m_SelectedItem != IG_CELL &&
-        m_SelectedItem != IG_MID_POINT)
-        return;
+
+    auto [rayStart, rayDir] = GetRayStartAndDir(event);
+
+    auto preBoxDrawMode = m_BoxDrawMode;
+
+    m_BoxDrawMode = IG_NONE;
+
+    if (m_BoxDrawMode == IG_NONE) {
+        //Select Box Ope Point
+        auto meet = MeetOpePoint(event, rayStart, rayDir);
+        if (std::get<0>(meet)) {
+            m_BoxDrawMode = IG_POINT;
+            m_BoxDrawModeOpePoint = std::get<1>(meet);
+        }
+    }
+
+    if (m_BoxDrawMode == IG_NONE) {
+        //Select Mid Point
+        auto meet = MeetCenterPoint(event, rayStart, rayDir);
+        if (std::get<0>(meet)) { m_BoxDrawMode = IG_MID_POINT; }
+    }
+
+    if (m_BoxDrawMode == IG_NONE) {
+        //Select OpePoint Edge
+        //Select Box Edge
+        auto meet = MeetBoxEdge(event, rayStart, rayDir);
+        if (std::get<0>(meet)) { m_BoxDrawMode = IG_EDGE; }
+    }
+
+    if (m_BoxDrawMode == IG_NONE) {
+        //Select Box Face
+        auto meet = MeetBoxRotate(event, rayStart, rayDir);
+        if (std::get<0>(meet)) { m_BoxDrawMode = IG_CELL; }
+    }
+
+    if (m_BoxDrawMode == preBoxDrawMode) return;
+
+    ClearDraw();
+    ToDraw();
+}
+
+void BoxStyle::OperateBox(IEvent event) {
+    if (!SelectionParameter::Instance().GetHaveBox()) return;
+    if (m_SelectedItem == IG_NONE) return;
+    if (m_DynamicBox == nullptr) return;
     if (m_MouseMode != MouseButton::MiddleButton) return;
 
     igm::vec2 pos = event.pos;
@@ -399,18 +504,13 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
     if (m_SelectedItem == IG_MID_POINT) {
         //m_DynamicBox->MovePosition(nowPosition);
         m_DynamicBox->MoveBox(dir);
+    } else if (m_SelectedItem == IG_EDGE) {
+        m_DynamicBox->MoveBox(dir);
     } else if (m_SelectedItem == IG_POINT) {
         m_DynamicBox->MoveOpePoint((DynamicBox::OpeInt) m_SelectedDirection,
                                    dir);
     } else if (m_SelectedItem == IG_CELL) {
         m_DynamicBox->RotateBox(m_PrePosition, nowPosition);
-        //################# TEST #################
-        //m_DynamicBox->OldP = m_PrePosition;
-        //m_DynamicBox->NewP = nowPosition;
-        //m_DynamicBox->RotateBox(m_OldPoint2D, m_NewPoint2D,
-        //                        igm::vec3{m_Scene->GetRotationBoundingSphere()},
-        //                        m_Scene->GetModelMatrix(),
-        //                        m_Scene->GetCamera());
     }
     m_PrePosition = nowPosition;
     PointMoveCallBack();
@@ -422,6 +522,8 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
 
 void BoxStyle::MouseReleaseEvent(IEvent event) {
     BasicStyle::MouseReleaseEvent(event);
+    m_InMousePress = false;
+    ChangeBoxDrawMode(event);
     if (!m_MeetedBox) return;
     if (m_PressSite != event.pos) return;
     SetNeedReSet();
@@ -429,6 +531,7 @@ void BoxStyle::MouseReleaseEvent(IEvent event) {
 
 void BoxStyle::InitBox(const Point& p1, const Point& p2) {
     m_DynamicBox = DynamicBox::New(p1, p2);
+    m_PrePosition.setZero();
     ToDraw();
 }
 
@@ -443,11 +546,8 @@ void BoxStyle::ToDraw() {
     auto painter = m_Scene->GetPainter3D();
 
     painter->SetPen(3);
-    //if (m_ChoosedStation) {
-        painter->SetPen(Color::White);
-    //} else {
-    //    painter->SetPen(Color::Red);
-    //}
+    painter->SetPen(Color::White);
+    if (m_BoxDrawMode == IG_EDGE) painter->SetPen(Color::Yellow);
     for (int i = 0; i < 6; i++) {
         int opeLineHandle = painter->DrawLine(m_DynamicBox->GetMidPoint(),
                                               m_DynamicBox->GetOpePoints()[i]);
@@ -459,31 +559,28 @@ void BoxStyle::ToDraw() {
         m_DrawHandles.push_back(edgeHandle);
     }
 
-    painter->SetPen(16);
+    painter->SetPen(10);
     painter->SetPen(Color::Blue);
+    if (m_BoxDrawMode == IG_MID_POINT) painter->SetPen(16);
     int midHandle = painter->DrawPoint(m_DynamicBox->GetMidPoint());
     m_DrawHandles.push_back(midHandle);
 
-    painter->SetPen(7);
     painter->SetPen(Color::Red);
     for (int i = 0; i < 6; i++) {
+        painter->SetPen(7);
+        if (m_BoxDrawMode == IG_POINT && m_BoxDrawModeOpePoint == i)
+            painter->SetPen(15);
         int opeHandle = painter->DrawPoint(m_DynamicBox->GetOpePoints()[i]);
         m_DrawHandles.push_back(opeHandle);
     }
 
-    //################# TEST #################
-    //{
-    //    painter->SetPen(12);
-    //    painter->SetPen(Color::Yellow);
-    //    int opeHandle = painter->DrawPoint(m_DynamicBox->OldP);
-    //    m_DrawHandles.push_back(opeHandle);
-    //}
-    //{
-    //    painter->SetPen(12);
-    //    painter->SetPen(Color::Green);
-    //    int opeHandle = painter->DrawPoint(m_DynamicBox->NewP);
-    //    m_DrawHandles.push_back(opeHandle);
-    //}
+    
+    painter->SetPen(10);
+    painter->SetPen(Color::Yellow);
+    {
+        int xhandle = painter->DrawPoint(m_PrePosition);
+        m_DrawHandles.push_back(xhandle);
+    }
 }
 
 void BoxStyle::ClearDraw() {

@@ -41,6 +41,23 @@ public:
     void RemoveUpdateWidgetFunc();
 
 private:
+    std::pair<Point, Point> GetRayStartAndDir(IEvent event);
+    std::tuple<bool, int, Point>
+    MeetOpePoint(IEvent event, const Point& rayStart, const Point& rayDir);
+    std::tuple<bool, Point> MeetCenterPoint(IEvent event, const Point& rayStart,
+                                            const Point& rayDir);
+    std::tuple<bool, Point> MeetBoxEdge(IEvent event, const Point& rayStart,
+                                        const Point& rayDir);
+    std::tuple<bool, Point> MeetBoxRotate(IEvent event, const Point& rayStart,
+                                          const Point& rayDir);
+
+private:
+    IGenum m_BoxDrawMode{IG_NONE};
+    int m_BoxDrawModeOpePoint{};
+    void ChangeBoxDrawMode(IEvent event);
+    void OperateBox(IEvent event);
+
+private:
     void PointMoveCallBack();
 
 private:
@@ -57,8 +74,6 @@ protected:
 
     bool m_ChoosedStation{};
 
-    float m_MaxDis{};
-
     float m_SelectedNDCZ{};
     igm::mat4 m_MVP{};
     igm::mat4 m_InvertedMVP{};
@@ -67,6 +82,7 @@ protected:
 
     igm::vec2 m_PressSite = igm::vec2{0.0f};
     bool m_MeetedBox{};
+    bool m_InMousePress{};
 
     std::vector<IGuint> m_DrawHandles;
     std::map<std::string, std::function<void()>> m_PointMoveCallBacks;
