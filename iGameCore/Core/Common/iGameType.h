@@ -94,6 +94,7 @@ enum {
     IG_POINT = 0,
     IG_CELL,
     // Other
+    IG_EDGE,
     IG_POINT_BOX,
     IG_CELL_BOX,
     IG_CHANGE,
