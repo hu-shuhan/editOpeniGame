@@ -388,14 +388,14 @@ void BoxStyle::MousePressEvent(IEvent event) {
         }
     }
 
-    if (m_SelectedItem == IG_NONE) {
-        //Select Mid Point
-        auto meet = MeetCenterPoint(event, rayStart, rayDir);
-        if (std::get<0>(meet)) {
-            m_SelectedItem = IG_MID_POINT;
-            intersectionPointV4 = PointToVec4(std::get<1>(meet));
-        }
-    }
+    //if (m_SelectedItem == IG_NONE) {
+    //    //Select Mid Point
+    //    auto meet = MeetCenterPoint(event, rayStart, rayDir);
+    //    if (std::get<0>(meet)) {
+    //        m_SelectedItem = IG_MID_POINT;
+    //        intersectionPointV4 = PointToVec4(std::get<1>(meet));
+    //    }
+    //}
 
     if (m_SelectedItem == IG_NONE) {
         //Select OpePoint Edge
@@ -456,11 +456,11 @@ void BoxStyle::ChangeBoxDrawMode(IEvent event) {
         }
     }
 
-    if (m_BoxDrawMode == IG_NONE) {
-        //Select Mid Point
-        auto meet = MeetCenterPoint(event, rayStart, rayDir);
-        if (std::get<0>(meet)) { m_BoxDrawMode = IG_MID_POINT; }
-    }
+    //if (m_BoxDrawMode == IG_NONE) {
+    //    //Select Mid Point
+    //    auto meet = MeetCenterPoint(event, rayStart, rayDir);
+    //    if (std::get<0>(meet)) { m_BoxDrawMode = IG_MID_POINT; }
+    //}
 
     if (m_BoxDrawMode == IG_NONE) {
         //Select OpePoint Edge
@@ -531,7 +531,7 @@ void BoxStyle::MouseReleaseEvent(IEvent event) {
 
 void BoxStyle::InitBox(const Point& p1, const Point& p2) {
     m_DynamicBox = DynamicBox::New(p1, p2);
-    m_PrePosition.setZero();
+    //m_PrePosition.setZero();
     ToDraw();
 }
 
@@ -559,11 +559,11 @@ void BoxStyle::ToDraw() {
         m_DrawHandles.push_back(edgeHandle);
     }
 
-    painter->SetPen(10);
-    painter->SetPen(Color::Blue);
-    if (m_BoxDrawMode == IG_MID_POINT) painter->SetPen(16);
-    int midHandle = painter->DrawPoint(m_DynamicBox->GetMidPoint());
-    m_DrawHandles.push_back(midHandle);
+    //painter->SetPen(10);
+    //painter->SetPen(Color::Blue);
+    //if (m_BoxDrawMode == IG_MID_POINT) painter->SetPen(16);
+    //int midHandle = painter->DrawPoint(m_DynamicBox->GetMidPoint());
+    //m_DrawHandles.push_back(midHandle);
 
     painter->SetPen(Color::Red);
     for (int i = 0; i < 6; i++) {
@@ -575,12 +575,12 @@ void BoxStyle::ToDraw() {
     }
 
     
-    painter->SetPen(10);
-    painter->SetPen(Color::Yellow);
-    {
-        int xhandle = painter->DrawPoint(m_PrePosition);
-        m_DrawHandles.push_back(xhandle);
-    }
+    //painter->SetPen(10);
+    //painter->SetPen(Color::Yellow);
+    //{
+    //    int xhandle = painter->DrawPoint(m_PrePosition);
+    //    m_DrawHandles.push_back(xhandle);
+    //}
 }
 
 void BoxStyle::ClearDraw() {
