@@ -232,7 +232,7 @@ void DynamicBox::RotateBox(const Point& oldP, const Point& newP) {
 
     // 计算旋转角度
     const float trackballRadius = 0.6f;
-    float t = 0.5f * direction.length() / (trackballRadius * this->GetCatercornerLen());
+    float t = 0.5f * direction.length() / (trackballRadius * this->GetLength().length());
     t = std::max(-1.0f, std::min(1.0f, t));
 
     float phi = 2.0f * asin(t);
@@ -496,7 +496,5 @@ std::pair<Point, Point> DynamicBox::GetExtremePoint() const {
 
     return {minP, maxP};
 }
-
-double DynamicBox::GetCatercornerLen() const { return std::hypot(m_Length[0], m_Length[1], m_Length[2]); }
 
 IGAME_NAMESPACE_END

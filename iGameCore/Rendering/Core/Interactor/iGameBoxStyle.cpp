@@ -313,7 +313,7 @@ std::tuple<bool, Point> BoxStyle::MeetBoxEdge(IEvent event,
         Point tempP;
         float dist = SegmentIntersectsRay(
                 rayStart, rayDir, opePoints[i], opePoints[i + 1], tempP,
-                m_DynamicBox->GetCatercornerLen() *
+                m_DynamicBox->GetLength().length() *
                         CATER_CORNER_LEN_STAND_DISTANCE_RATIO);
         if (dist == -1) continue;
         if (!std::get<0>(re) || dist < minDist) {
@@ -329,7 +329,7 @@ std::tuple<bool, Point> BoxStyle::MeetBoxEdge(IEvent event,
         Point tempP;
         auto dist = SegmentIntersectsRay(
                 rayStart, rayDir, edge.first, edge.second, tempP,
-                m_DynamicBox->GetCatercornerLen() *
+                m_DynamicBox->GetLength().length() *
                         CATER_CORNER_LEN_STAND_DISTANCE_RATIO);
         if (dist == -1) continue;
         if (!std::get<0>(re) || dist < minDist) {

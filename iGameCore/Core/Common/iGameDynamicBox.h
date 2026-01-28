@@ -42,8 +42,6 @@ public:
     void SetLength(double lengthX, double lengthY, double lengthZ);
     std::pair<Point, Point> GetExtremePoint() const;
 
-    double GetCatercornerLen() const;
-
 public:
     //############ TEST ############
     //Point OldP;
