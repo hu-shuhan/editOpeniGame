@@ -151,7 +151,6 @@ public:
     const std::vector<int>& GetSeeAbleCells(SurfaceMesh* mesh);
 
     void SetSelectItemVisable(bool visable);
-    void SetSelectBoxVisable(bool visable);
 
     CellFaceExtracter& GetCellFaceExtracter();
 

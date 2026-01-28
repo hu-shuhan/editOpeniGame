@@ -37,13 +37,9 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->expdRateSlid, &QAbstractSlider::valueChanged, this, &igQtSelectionWidget::SelectionExpdRateSlid);
     SetExpdRateSlidToolTip(ui->expdRateSlid->value());
     connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectItemShow);
-    connect(ui->noneSelectBox, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectBoxShow);
-    ui->noneSelectBox->hide();
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
-    ui->drawBoundBox->hide();
     //############ HIDE GROUP ############
     ui->chooseStationGroupBox->hide();
-    ui->chooseItemGroupBox->hide();
     ui->chooseModeGroupBox->hide();
     //############ BOX ############
     connect(ui->clearBox, &QPushButton::clicked, this, &igQtSelectionWidget::ClearBox);
@@ -65,9 +61,6 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     ui->ctBoxMode->hide();
     ui->ctBoxMode->setChecked(true);
     iGame::SelectionParameter::Instance().SetSelectMode(iGame::SelectionParameter::SelectMode::CT_BOX_MODE);
-    //############ Pre Load ############
-    connect(ui->preLoadModelMsg, &QPushButton::clicked, this, &igQtSelectionWidget::PreLoadModelMsg);
-    ui->preLoadModelMsg->hide();
     //############ R ############
     auto radius = 0.5;
     ui->RadiusSpinBox->setText(QString::number(radius));
@@ -285,13 +278,6 @@ void igQtSelectionWidget::SelectItemShow(bool unShow) {
     emit SetSelectItemShow(show);
 }
 
-void igQtSelectionWidget::SelectBoxShow(bool unShow) {
-    auto show = !unShow;
-    m_SelectBoxShow = show;
-    if (m_PreventSignalSend) return;
-    emit SetSelectBoxShow(show);
-}
-
 void igQtSelectionWidget::ClearBox() {
     if (m_PreventSignalSend) return;
     if (m_BoxSettingDialog) m_BoxSettingDialog->hide();
@@ -304,11 +290,6 @@ void igQtSelectionWidget::UseBox() {
 }
 
 void igQtSelectionWidget::BoxSettingDialog() { emit SetBoxSettingDialog(); }
-
-void igQtSelectionWidget::PreLoadModelMsg() {
-    if (m_PreventSignalSend) return;
-    emit SetPreLoadModelMsg();
-}
 
 void igQtSelectionWidget::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);

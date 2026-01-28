@@ -666,11 +666,6 @@ void Selection::SetSelectItemVisable(bool visable) {
     m_Model->GetPainter3D(Painter3D::Usage::SelectedCell)->SetTotallyHide(!visable);
 }
 
-void Selection::SetSelectBoxVisable(bool visable) {
-    if (m_Model == nullptr) return;
-    m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
-}
-
 CellFaceExtracter& Selection::GetCellFaceExtracter() { return m_CellFaceExtracter; }
 
 Selection::Selection() {}

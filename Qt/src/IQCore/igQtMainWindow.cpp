@@ -2005,14 +2005,6 @@ void igQtMainWindow::initAllInteractor() {
         selection->SetSelectItemVisable(visiable);
         rendererWidget->update();
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectBoxShow, this, [&](bool visiable) {
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) return;
-        auto selection = model->GetSelection();
-        if (selection == nullptr) return;
-        selection->SetSelectBoxVisable(visiable);
-        rendererWidget->update();
-    });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -2177,11 +2169,6 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->PreventSignalSend(false);
         rendererWidget->update();
     });
-
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
-            [&]() { 
-            //TODO
-        });
 
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
         ui->widget_SelectionField->PreventSignalSend(true);
