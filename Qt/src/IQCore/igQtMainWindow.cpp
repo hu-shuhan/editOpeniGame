@@ -61,6 +61,7 @@
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 #include <meshoptimizer.h>
 #include <stdio.h>
 
@@ -1942,15 +1943,46 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 break;
         }
+
+        static auto PreVisitFunc = [](iGame::Model::Pointer model) {
+            if (model == nullptr) return;
+            auto dataObj = model->GetDataObject();
+            if (dataObj == nullptr) return;
+            auto type = dataObj->GetDataObjectType();
+            switch (type) {
+                case IG_SURFACE_MESH:
+                case IG_STRUCTURED_MESH:
+                case IG_VOLUME_MESH: {
+                    auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+                    buildAdjacencyRelationFilter->SetInput(dataObj);
+                    buildAdjacencyRelationFilter->Execute();
+                } break;
+                case IG_UNSTRUCTURED_MESH: {
+                    auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    if (mesh == nullptr) return;
+                    auto selection = mesh->GetSelection();
+                    if (selection == nullptr) return;
+                    auto& cellFaceExtracter = selection->GetCellFaceExtracter();
+                    cellFaceExtracter.PreVisit(mesh);
+                } break;
+                default:
+                    return;
+            }
+        };
+
         switch (selectionStation) {
             case iGame::SelectionParameter::SelectionStation::NONE_SELECTION:
                 rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
                 break;
             case iGame::SelectionParameter::SelectionStation::POINT_SELECTION: {
                 rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle);
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                PreVisitFunc(model);
             } break;
             case iGame::SelectionParameter::SelectionStation::CELL_SELECTION: {
                 rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle);
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                PreVisitFunc(model);
             } break;
             default:
                 break;
