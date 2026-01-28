@@ -110,7 +110,8 @@ void DynamicBox::MoveOpePoint(OpeInt pointIndex, const Point& direction) {
 
     // 计算在局部轴方向上的投影
     double dotProduct = localDir.x * localAxis[0] + localDir.y * localAxis[1] + localDir.z * localAxis[2];
-    double projectionLength = dotProduct;
+    //double projectionLength = dotProduct;
+    double projectionLength = std::copysign(direction.length(), dotProduct);
 
     // 在局部坐标系中计算移动向量
     Point localMoveVector = localAxis * projectionLength;
