@@ -36,6 +36,16 @@
     <enum>QLayout::SetDefaultConstraint</enum>
    </property>
    <item>
+    <widget class="QLabel" name="source">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1,0">
      <item>
       <widget class="QLabel" name="label">
@@ -85,6 +95,23 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="1,1">
+     <item>
+      <widget class="QLabel" name="label_16">
+       <property name="text">
+        <string>流线宽度</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineWidth"/>
      </item>
     </layout>
    </item>

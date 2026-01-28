@@ -32,6 +32,7 @@ public slots:
     int addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source);
     int updateCurrentModelInfo();
     void updateCurrentModelProperty(iGame::Model* model);
+    void updateCurrentModelProperty();
     int updateCloudPicture();
     void deleteCurrentModel();
     void onPropertyChanged(QtProperty* property, const QVariant& value);

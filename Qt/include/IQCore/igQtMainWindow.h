@@ -98,6 +98,7 @@ private slots:
 private:
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
+    int streamTreeIndex = -1;
 };
 
 

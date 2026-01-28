@@ -83,13 +83,14 @@ public:
      * @return 当前模型的指针。
      */
     SmartPointer<Model> GetCurrentModel();
-
+    IGuint GetCurrentModelID();
     /**
      * @brief 根据索引获取模型。
      * @param modelID 模型索引。
      * @return 模型指针。
      */
     SmartPointer<Model> GetModelById(int modelID);
+    bool SetModelById(int modelID, SmartPointer<Model>model);
 
     /**
      * @brief 根据索引获取数据对象。

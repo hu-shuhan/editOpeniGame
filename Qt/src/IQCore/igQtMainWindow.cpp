@@ -1565,15 +1565,18 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
-        modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
+        streamTreeIndex=modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         scene->GetCurrentModel()->SetViewWireframeSwitch(true);
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                if (scene->GetCurrentModelID() == streamTreeIndex) {
+                    modelTreeWidget->updateCurrentModelProperty();
+                }
                 modelTreeWidget->updateAllAttriubute(res);
                 rendererWidget->update();
-
                 auto drawObject = DynamicCast<DrawObject>(res);
                 if (drawObject) {
                     auto item = modelTreeWidget->getItemFromObject(res);
