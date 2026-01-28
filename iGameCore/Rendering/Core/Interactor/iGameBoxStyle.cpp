@@ -276,11 +276,13 @@ std::tuple<bool, int, Point> BoxStyle::MeetOpePoint(IEvent event,
         float dist =
                 Line::ComputePointToLineDis(rayStart, rayDir, opePoints[i]);
         if (dist > maxDist) continue;
-        if (!std::get<0>(re) || dist < minDist) {
+        float pointToRayStartDist = (rayStart - opePoints[i]).length();
+        //if (!std::get<0>(re) || dist < minDist) {
+        if (!std::get<0>(re) || pointToRayStartDist < minDist) {
             std::get<0>(re) = true;
             std::get<1>(re) = i;
             std::get<2>(re) = opePoints[i];
-            minDist = dist;
+            minDist = pointToRayStartDist;
         }
     }
     return re;
