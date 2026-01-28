@@ -431,7 +431,7 @@ void BoxStyle::MiddleButtonPress(IEvent event) {
     }
 
     if (m_SelectedItem == IG_NONE) {
-        SetNeedReSet();
+        //SetNeedReSet();
         return;
     }
 

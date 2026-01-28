@@ -271,15 +271,21 @@ SingleSelectionStyle::~SingleSelectionStyle() {}
 
 void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     SelectionStyle::MousePressEvent(_event);
+    m_PressSite = _event.pos;
+}
 
-    if (_event.button != MiddleButton) return;
+void SingleSelectionStyle::MouseReleaseEvent(IEvent event) {
+    auto preMouseMode = m_MouseMode;
+    SelectionStyle::MouseReleaseEvent(event);
+    if (preMouseMode != MouseButton::MiddleButton) return;
+    if (m_PressSite != event.pos) return;
     if (!SelectionParameter::Instance().GetInSelection()) return;
     switch (GetSelectedType()) {
         case SelectionStyle::SelectPoint:
-            this->SelectPoint(_event.pos);
+            this->SelectPoint(event.pos);
             break;
         case SelectionStyle::SelectCell:
-            this->SelectCell(_event.pos);
+            this->SelectCell(event.pos);
             break;
         default:
             break;
