@@ -3,10 +3,10 @@
 #include "iGameLine.h"
 #include "iGameScene.h"
 #include "iGameSelectionParameter.h"
-#include "iGameSurfaceMesh.h"
-#include "iGameVolumeMesh.h"
 #include "iGameStructuredMesh.h"
+#include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
+#include "iGameVolumeMesh.h"
 IGAME_NAMESPACE_BEGIN
 static double SegmentIntersectsTriangle(const Point& start, const Point& dir,
                                         const Point& a, const Point& b,
@@ -56,7 +56,8 @@ static double SegmentIntersectsTriangle(const Point& start, const Point& dir,
 
 static double SegmentIntersectsRay(const Point& rayStart, const Point& rayDir,
                                    const Point& segStart, const Point& segEnd,
-                                   Point& intersectionPoint) {
+                                   Point& intersectionPoint,
+                                   double standardDistance = 0.007) {
     // 计算射线方向向量（已归一化）
     double rayLength = rayDir.length();
     if (rayLength < 1e-7) { return -1; } // 无效射线方向
@@ -238,9 +239,9 @@ static double SegmentIntersectsRay(const Point& rayStart, const Point& rayDir,
 
     auto dirLen = (rayClosest - segClosest).length();
 
-    if (dirLen > 0.007) return -1;
+    if (dirLen > standardDistance) return -1;
 
-    return (rayClosest - segClosest).length();
+    return dirLen;
 }
 
 static igm::vec4 PointToVec4(const Point& p) {
@@ -273,8 +274,7 @@ std::tuple<bool, int, Point> BoxStyle::MeetOpePoint(IEvent event,
     auto maxDist = m_DynamicBox->GetLength().length() * 0.02;
     for (int i = 0; i < 6; i++) {
         float dist =
-                Line::ComputePointToLineDis(rayStart, rayDir,
-                                                 opePoints[i]);
+                Line::ComputePointToLineDis(rayStart, rayDir, opePoints[i]);
         if (dist > maxDist) continue;
         if (!std::get<0>(re) || dist < minDist) {
             std::get<0>(re) = true;
@@ -300,6 +300,8 @@ std::tuple<bool, Point> BoxStyle::MeetCenterPoint(IEvent event,
     return re;
 }
 
+static constexpr auto CATER_CORNER_LEN_STAND_DISTANCE_RATIO = 0.005;
+
 std::tuple<bool, Point> BoxStyle::MeetBoxEdge(IEvent event,
                                               const Point& rayStart,
                                               const Point& rayDir) {
@@ -309,8 +311,10 @@ std::tuple<bool, Point> BoxStyle::MeetBoxEdge(IEvent event,
     float minDist = std::numeric_limits<float>::max();
     for (int i = 0; i < 6; i += 2) {
         Point tempP;
-        float dist = SegmentIntersectsRay(rayStart, rayDir, opePoints[i],
-                                          opePoints[i + 1], tempP);
+        float dist = SegmentIntersectsRay(
+                rayStart, rayDir, opePoints[i], opePoints[i + 1], tempP,
+                m_DynamicBox->GetCatercornerLen() *
+                        CATER_CORNER_LEN_STAND_DISTANCE_RATIO);
         if (dist == -1) continue;
         if (!std::get<0>(re) || dist < minDist) {
             std::get<0>(re) = true;
@@ -323,8 +327,10 @@ std::tuple<bool, Point> BoxStyle::MeetBoxEdge(IEvent event,
     for (int i = 0; i < 12; i++) {
         auto& edge = boxEdges[i];
         Point tempP;
-        auto dist = SegmentIntersectsRay(rayStart, rayDir, edge.first,
-                                         edge.second, tempP);
+        auto dist = SegmentIntersectsRay(
+                rayStart, rayDir, edge.first, edge.second, tempP,
+                m_DynamicBox->GetCatercornerLen() *
+                        CATER_CORNER_LEN_STAND_DISTANCE_RATIO);
         if (dist == -1) continue;
         if (!std::get<0>(re) || dist < minDist) {
             std::get<0>(re) = true;
@@ -351,8 +357,8 @@ std::tuple<bool, Point> BoxStyle::MeetBoxRotate(IEvent event,
             auto& p1 = boxFace[pI1];
             auto& p2 = boxFace[pI2];
             Point tempP;
-            auto dist = SegmentIntersectsTriangle(rayStart, rayDir, p0,
-                                                  p1, p2, tempP);
+            auto dist = SegmentIntersectsTriangle(rayStart, rayDir, p0, p1, p2,
+                                                  tempP);
             if (dist == -1) continue;
             if (!std::get<0>(re) || dist < minDist) {
                 std::get<0>(re) = true;
@@ -708,7 +714,7 @@ void BoxStyle::ToDraw() {
         m_DrawHandles.push_back(opeHandle);
     }
 
-    
+
     //painter->SetPen(10);
     //painter->SetPen(Color::Yellow);
     //{

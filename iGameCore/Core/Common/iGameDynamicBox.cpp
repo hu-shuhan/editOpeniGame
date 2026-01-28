@@ -496,4 +496,6 @@ std::pair<Point, Point> DynamicBox::GetExtremePoint() const {
     return {minP, maxP};
 }
 
+double DynamicBox::GetCatercornerLen() const { return std::hypot(m_Length[0], m_Length[1], m_Length[2]); }
+
 IGAME_NAMESPACE_END
