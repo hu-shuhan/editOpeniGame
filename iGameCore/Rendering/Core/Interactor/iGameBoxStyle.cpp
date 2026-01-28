@@ -392,6 +392,7 @@ void BoxStyle::MousePressEvent(IEvent event) {
 
 void BoxStyle::LeftButtonPress(IEvent event) {
     //USE BOX
+    //UNNEEDED FUNC
 }
 
 void BoxStyle::MiddleButtonPress(IEvent event) {
@@ -442,6 +443,7 @@ void BoxStyle::MiddleButtonPress(IEvent event) {
 
 void BoxStyle::RightButtonPress(IEvent event) {
     //DELETE BOX
+    //UNNEEDED FUNC
 }
 
 void BoxStyle::MouseMoveEvent(IEvent event) {
