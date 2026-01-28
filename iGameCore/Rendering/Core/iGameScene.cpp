@@ -139,10 +139,8 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     SmartPointer<Model> model = Model::New();
     model->SetDataObject(obj);
     model->SetScene(this);
-
     auto modelID = m_ModelPool->AllocateObject(model);
     m_CurrentModelID = modelID;
-
     ChangeModelVisibility(model, true);
     Update();
     return modelID;
@@ -232,6 +230,7 @@ void Scene::SetCurrentModel(SmartPointer<Model> model) {
 SmartPointer<Model> Scene::GetCurrentModel() {
     return m_ModelPool->GetObjectByHandle(m_CurrentModelID);
 }
+IGuint Scene::GetCurrentModelID() { return m_CurrentModelID; }
 
 SmartPointer<Model> Scene::GetModelById(int id) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
@@ -241,6 +240,16 @@ SmartPointer<Model> Scene::GetModelById(int id) {
         if (modelID == id) { return model; }
     }
     return nullptr;
+}
+bool Scene::SetModelById(int id, SmartPointer<Model>model) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto modelID = it->first;
+        if (modelID == id) { 
+            it->second = model;
+            return true; 
+        }
+    }
+    return false;
 }
 
 SmartPointer<DataObject> Scene::GetDataObjectById(int id) {
