@@ -276,15 +276,9 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     if (!SelectionParameter::Instance().GetInSelection()) return;
     switch (GetSelectedType()) {
         case SelectionStyle::SelectPoint:
-            if (SelectionParameter::Instance().GetInSelection() &&
-                SelectionParameter::Instance().GetHaveBox())
-                return;
             this->SelectPoint(_event.pos);
             break;
         case SelectionStyle::SelectCell:
-            if (SelectionParameter::Instance().GetInSelection() &&
-                SelectionParameter::Instance().GetHaveBox())
-                return;
             this->SelectCell(_event.pos);
             break;
         default:

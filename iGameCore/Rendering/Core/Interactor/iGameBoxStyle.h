@@ -21,8 +21,6 @@ public:
     void InitBox(const Point& p1, const Point& p2);
     void DeleteBox();
 
-    void SetChooedStation(bool choosedStation);
-
     void ToDraw();
     void ClearDraw();
 
@@ -39,6 +37,15 @@ public:
     void SetUpdateWidgetFunc(std::function<void()> func);
 
     void RemoveUpdateWidgetFunc();
+
+private:
+    void LeftButtonPress(IEvent event);
+    void MiddleButtonPress(IEvent event);
+    void RightButtonPress(IEvent event);
+
+    void LeftButtonRelease(IEvent event);
+
+    void RightButtonRelease(IEvent event);
 
 private:
     std::pair<Point, Point> GetRayStartAndDir(IEvent event);
@@ -77,12 +84,10 @@ protected:
     float m_SelectedNDCZ{};
     igm::mat4 m_MVP{};
     igm::mat4 m_InvertedMVP{};
-    igm::vec2 m_OldPoint2D = igm::vec2{0.0f};
-    igm::vec2 m_NewPoint2D = igm::vec2{0.0f};
 
     igm::vec2 m_PressSite = igm::vec2{0.0f};
     bool m_MeetedBox{};
-    bool m_InMousePress{};
+    MouseButton m_MousePressButton{MouseButton::NoButton};
 
     std::vector<IGuint> m_DrawHandles;
     std::map<std::string, std::function<void()>> m_PointMoveCallBacks;

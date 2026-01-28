@@ -2056,7 +2056,6 @@ void igQtMainWindow::initAllInteractor() {
         auto dynamicBox = boxStyle->GetBox();
         if (dynamicBox == nullptr) return;
         auto faces = dynamicBox->GetAllFaces();
-        boxStyle->SetChooedStation(true);
         auto meshType = dataObj->GetDataObjectType();
         switch (meshType) {
             case IG_SURFACE_MESH: {
@@ -2100,7 +2099,6 @@ void igQtMainWindow::initAllInteractor() {
         auto dynamicBox = boxStyle->GetBox();
         if (dynamicBox == nullptr) return;
         auto faces = dynamicBox->GetAllFaces();
-        boxStyle->SetChooedStation(true);
         auto meshType = dataObj->GetDataObjectType();
         switch (meshType) {
             case IG_SURFACE_MESH: {

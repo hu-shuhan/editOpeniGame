@@ -3,6 +3,10 @@
 #include "iGameLine.h"
 #include "iGameScene.h"
 #include "iGameSelectionParameter.h"
+#include "iGameSurfaceMesh.h"
+#include "iGameVolumeMesh.h"
+#include "iGameStructuredMesh.h"
+#include "iGameUnstructuredMesh.h"
 IGAME_NAMESPACE_BEGIN
 static double SegmentIntersectsTriangle(const Point& start, const Point& dir,
                                         const Point& a, const Point& b,
@@ -363,18 +367,37 @@ std::tuple<bool, Point> BoxStyle::MeetBoxRotate(IEvent event,
 
 void BoxStyle::MousePressEvent(IEvent event) {
     BasicStyle::MousePressEvent(event);
-    m_InMousePress = true;
     if (!SelectionParameter::Instance().GetHaveBox()) return;
     if (m_DynamicBox == nullptr) return;
+
+    m_PressSite = event.pos;
+    m_MousePressButton = event.button;
+
+    switch (event.button) {
+        case MouseButton::LeftButton: {
+            LeftButtonPress(event);
+        } break;
+        case MouseButton::MiddleButton: {
+            MiddleButtonPress(event);
+        } break;
+        case MouseButton::RightButton: {
+            RightButtonPress(event);
+        } break;
+        case MouseButton::NoButton: {
+        } break;
+        default: {
+        }
+    }
+}
+
+void BoxStyle::LeftButtonPress(IEvent event) {
+    //USE BOX
+}
+
+void BoxStyle::MiddleButtonPress(IEvent event) {
     m_SelectedDirection = -1;
     m_SelectedItem = IG_NONE;
     igm::vec4 intersectionPointV4;
-
-    if (event.button != MouseButton::MiddleButton) return;
-
-    m_OldPoint2D = event.pos;
-    m_PressSite = event.pos;
-    m_MeetedBox = false;
 
     auto [rayStart, rayDir] = GetRayStartAndDir(event);
 
@@ -387,15 +410,6 @@ void BoxStyle::MousePressEvent(IEvent event) {
             intersectionPointV4 = PointToVec4(std::get<2>(meet));
         }
     }
-
-    //if (m_SelectedItem == IG_NONE) {
-    //    //Select Mid Point
-    //    auto meet = MeetCenterPoint(event, rayStart, rayDir);
-    //    if (std::get<0>(meet)) {
-    //        m_SelectedItem = IG_MID_POINT;
-    //        intersectionPointV4 = PointToVec4(std::get<1>(meet));
-    //    }
-    //}
 
     if (m_SelectedItem == IG_NONE) {
         //Select OpePoint Edge
@@ -421,21 +435,25 @@ void BoxStyle::MousePressEvent(IEvent event) {
         return;
     }
 
-    m_MeetedBox = true;
-
     m_PrePosition = Vec4ToPoint(intersectionPointV4);
     intersectionPointV4 = m_MVP * intersectionPointV4;
     m_SelectedNDCZ = intersectionPointV4.z / intersectionPointV4.w;
 }
 
+void BoxStyle::RightButtonPress(IEvent event) {
+    //DELETE BOX
+}
+
 void BoxStyle::MouseMoveEvent(IEvent event) {
     BasicStyle::MouseMoveEvent(event);
+    if (!SelectionParameter::Instance().GetHaveBox()) return;
+    if (m_DynamicBox == nullptr) return;
     ChangeBoxDrawMode(event);
     OperateBox(event);
 }
 
 void BoxStyle::ChangeBoxDrawMode(IEvent event) {
-    if (m_InMousePress) return;
+    if (m_MousePressButton != MouseButton::NoButton) return;
     if (!SelectionParameter::Instance().GetHaveBox()) return;
     if (m_DynamicBox == nullptr) return;
 
@@ -486,7 +504,6 @@ void BoxStyle::OperateBox(IEvent event) {
     if (m_MouseMode != MouseButton::MiddleButton) return;
 
     igm::vec2 pos = event.pos;
-    m_NewPoint2D = event.pos;
 
     igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
                   1.0f - (2.0f * pos.y / m_Interactor->GetHeight()));
@@ -512,32 +529,149 @@ void BoxStyle::OperateBox(IEvent event) {
     }
     m_PrePosition = nowPosition;
     PointMoveCallBack();
-    SetChooedStation(false);
     ClearDraw();
     ToDraw();
-    m_OldPoint2D = m_NewPoint2D;
 }
 
 void BoxStyle::MouseReleaseEvent(IEvent event) {
     BasicStyle::MouseReleaseEvent(event);
-    m_InMousePress = false;
+    if (!SelectionParameter::Instance().GetHaveBox()) return;
+    if (m_DynamicBox == nullptr) return;
+
+    switch (m_MousePressButton) {
+        case MouseButton::LeftButton: {
+            LeftButtonRelease(event);
+        } break;
+        case MouseButton::MiddleButton: {
+        } break;
+        case MouseButton::RightButton: {
+            RightButtonRelease(event);
+        } break;
+        case MouseButton::NoButton: {
+        } break;
+        default: {
+        }
+    }
+    m_MousePressButton = MouseButton::NoButton;
     ChangeBoxDrawMode(event);
-    if (!m_MeetedBox) return;
+}
+
+void BoxStyle::LeftButtonRelease(IEvent event) {
     if (m_PressSite != event.pos) return;
+    if (!SelectionParameter::Instance().GetInSelection()) return;
+    auto [rayStart, rayDir] = GetRayStartAndDir(event);
+    auto meet = MeetBoxRotate(event, rayStart, rayDir);
+    if (!std::get<0>(meet)) return;
+    //Use Box
+    if (m_Scene == nullptr) return;
+    auto model = m_Scene->GetCurrentModel();
+    auto dataObj = model->GetDataObject();
+    if (dataObj == nullptr) return;
+    auto selection = model->GetSelection();
+    if (selection == nullptr) return;
+    auto faces = m_DynamicBox->GetAllFaces();
+    auto meshType = dataObj->GetDataObjectType();
+    switch (meshType) {
+        case IG_SURFACE_MESH: {
+            auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+            mesh->RequestEditStatus();
+            if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+                iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+                auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                        faces, mesh,
+                        SelectionParameter::Instance()
+                                .GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(
+                        IG_CELL, cellIds,
+                        SelectionParameter::Instance().GetSelectOrUnSelect()
+                                ? Selection::Operate::Add
+                                : Selection::Operate::Remove);
+            } else {
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                        faces, mesh,
+                        SelectionParameter::Instance()
+                                .GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(
+                        IG_POINT, pointIds,
+                        SelectionParameter::Instance().GetSelectOrUnSelect()
+                                ? Selection::Operate::Add
+                                : Selection::Operate::Remove);
+            }
+        } break;
+        case IG_STRUCTURED_MESH:
+        case IG_VOLUME_MESH: {
+            auto mesh = DynamicCast<VolumeMesh>(dataObj);
+            mesh->RequestEditStatus();
+            if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+                iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+                auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                        faces, mesh,
+                        SelectionParameter::Instance()
+                                .GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(
+                        IG_CELL, cellIds,
+                        SelectionParameter::Instance().GetSelectOrUnSelect()
+                                ? Selection::Operate::Add
+                                : Selection::Operate::Remove);
+            } else {
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                        faces, mesh,
+                        SelectionParameter::Instance()
+                                .GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(
+                        IG_POINT, pointIds,
+                        SelectionParameter::Instance().GetSelectOrUnSelect()
+                                ? Selection::Operate::Add
+                                : Selection::Operate::Remove);
+            }
+        } break;
+        case IG_UNSTRUCTURED_MESH: {
+            auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+            if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+                iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+                auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                        faces, mesh,
+                        SelectionParameter::Instance()
+                                .GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(
+                        IG_CELL, cellIds,
+                        SelectionParameter::Instance().GetSelectOrUnSelect()
+                                ? Selection::Operate::Add
+                                : Selection::Operate::Remove);
+            } else {
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                        faces, mesh,
+                        SelectionParameter::Instance()
+                                .GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(
+                        IG_POINT, pointIds,
+                        SelectionParameter::Instance().GetSelectOrUnSelect()
+                                ? Selection::Operate::Add
+                                : Selection::Operate::Remove);
+            }
+        } break;
+        default:
+            return;
+    }
+}
+
+void BoxStyle::RightButtonRelease(IEvent event) {
+    if (m_PressSite != event.pos) return;
+    auto [rayStart, rayDir] = GetRayStartAndDir(event);
+    auto meet = MeetBoxRotate(event, rayStart, rayDir);
+    if (!std::get<0>(meet)) return;
+    //Reset Box
     SetNeedReSet();
 }
 
 void BoxStyle::InitBox(const Point& p1, const Point& p2) {
     m_DynamicBox = DynamicBox::New(p1, p2);
     //m_PrePosition.setZero();
+    ClearDraw();
     ToDraw();
 }
 
 void BoxStyle::DeleteBox() { m_DynamicBox = nullptr; }
-
-void BoxStyle::SetChooedStation(bool choosedStation) {
-    m_ChoosedStation = choosedStation;
-}
 
 void BoxStyle::ToDraw() {
     if (m_DynamicBox == nullptr) return;

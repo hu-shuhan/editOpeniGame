@@ -681,11 +681,18 @@ void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
     if (scene == nullptr) return;
     auto interactor = scene->GetInteractor();
     if (interactor == nullptr) return;
-    auto boxStyle = BoxStyle::New();
-    boxStyle->Initialize(interactor);
-    boxStyle->InitBox(p.first, p.second);
+    
+    if (interactor->HaveSpecialInteractor("SelectBox")) {
+        auto boxStyle = DynamicCast<BoxStyle>(interactor->GetSpecialInteractor("SelectBox"));
+        boxStyle->InitBox(p.first, p.second);
+    } else {
+        auto boxStyle = BoxStyle::New();
+        boxStyle->Initialize(interactor);
+        boxStyle->InitBox(p.first, p.second);
+        interactor->_SetSpecialInteractor("SelectBox", boxStyle);
+    }
+
     SelectionParameter::Instance().SetHaveBox(true);
-    interactor->_SetSpecialInteractor("SelectBox", boxStyle);
 }
 
 void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
