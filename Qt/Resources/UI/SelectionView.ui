@@ -131,7 +131,7 @@
      <item row="0" column="0">
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
-        <string>鼠标中键选取</string>
+        <string>选择功能</string>
        </property>
        <property name="checkable">
         <bool>false</bool>
