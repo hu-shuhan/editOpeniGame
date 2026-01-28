@@ -231,7 +231,7 @@ void DynamicBox::RotateBox(const Point& oldP, const Point& newP) {
 
     // 计算旋转角度
     const float trackballRadius = 0.6f;
-    float t = 0.5f * direction.length() / trackballRadius;
+    float t = 0.5f * direction.length() / (trackballRadius * this->GetCatercornerLen());
     t = std::max(-1.0f, std::min(1.0f, t));
 
     float phi = 2.0f * asin(t);
