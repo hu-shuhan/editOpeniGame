@@ -372,8 +372,8 @@ void igQtSelectionWidget::ShowCtUi() {
 }
 
 void igQtSelectionWidget::ShowBoxUi() {
-    ui->boxLabel->show();
+    //ui->boxLabel->show();
     //ui->clearBox->show();
     //ui->settingBox->show();
-    ui->useBox->show();
+    //ui->useBox->show();
 }
