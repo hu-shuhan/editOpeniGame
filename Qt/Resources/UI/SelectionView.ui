@@ -77,6 +77,9 @@
         </property>
         <item>
          <widget class="QCheckBox" name="NONE_SELECTION">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;生成包围框：单击鼠标中键&lt;/p&gt;&lt;p&gt;操作包围框：拖动鼠标中键&lt;/p&gt;&lt;p&gt;应用包围框：单击鼠标左键&lt;/p&gt;&lt;p&gt;删除包围框：单击鼠标右键&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string>开启</string>
           </property>
