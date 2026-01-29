@@ -37,11 +37,13 @@ public:
         m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         layout->addWidget(m_titleLabel);
 
-        auto* closeBtn = new QPushButton("×", this);
+        auto* closeBtn = new QPushButton(this);
         closeBtn->setObjectName("DockTitleCloseButton");
         closeBtn->setFixedSize(24, 24);
         closeBtn->setFlat(true);
         closeBtn->setFocusPolicy(Qt::NoFocus);
+        closeBtn->setIcon(QIcon(":/Ticon/Icons/dock_close_white.svg"));
+        closeBtn->setIconSize(QSize(16, 16));
         layout->addWidget(closeBtn);
 
         if (m_dock) {
@@ -72,7 +74,7 @@ protected:
             e->accept();
             return;
         }
-        QWidget::mouseMoveEvent(e);
+        QWidget::mousePressEvent(e);
     }
 
     void mouseReleaseEvent(QMouseEvent* e) override {
@@ -81,7 +83,7 @@ protected:
             e->accept();
             return;
         }
-        QWidget::mouseReleaseEvent(e);
+        QWidget::mousePressEvent(e);
     }
 
 private:
@@ -143,6 +145,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     m_treeDock->setObjectName("LayerTreeDock");
     m_treeDock->setWidget(modelTreeWidget);
     m_treeDock->setMinimumWidth(totalWidth);
+    // LayerDialog 允许悬浮 + 可拖动（可关闭、可移动、可浮动）
     m_treeDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable |
                             QDockWidget::DockWidgetFloatable);
     m_treeDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
@@ -158,13 +161,13 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     m_propertiesDock->setObjectName("LayerPropertiesDock");
     m_propertiesDock->setWidget(tabWidget);
     m_propertiesDock->setMinimumWidth(totalWidth);
-    m_propertiesDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable |
-                                  QDockWidget::DockWidgetFloatable);
+    // Properties 不允许悬浮/拖动（只保留可关闭）
+    m_propertiesDock->setFeatures(QDockWidget::DockWidgetClosable);
     m_propertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
 
     m_propertiesDock->setAttribute(Qt::WA_TranslucentBackground, false);
-    auto* propTitle = new DockTitleBar(m_propertiesDock, m_propertiesDock->windowTitle(), m_propertiesDock);
-    m_propertiesDock->setTitleBarWidget(propTitle);
+    // Properties 使用 Qt 默认 dock 标题栏（与普通 dock 一致）
+    m_propertiesDock->setTitleBarWidget(nullptr);
 
     // floating 时强制无系统边框（但仍可通过自定义 title bar 拖拽移动）
     connect(m_treeDock, &QDockWidget::topLevelChanged, m_treeDock, [this](bool floating) {
@@ -204,7 +207,8 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     modelTreeWidget->header()->hide();
     modelTreeWidget->setColumnWidth(0, 140);
     modelTreeWidget->setColumnWidth(1, 200);
-    modelTreeWidget->setIndentation(15);
+    // 减小缩进，让模型和 attribute 文本更靠近左侧
+    modelTreeWidget->setIndentation(10);
     modelTreeWidget->setAlternatingRowColors(true);
     modelTreeWidget->setUniformRowHeights(true);
 
@@ -467,6 +471,11 @@ iGame::Model* igQtModelDialogWidget::GetCurrentModel() {
 
 void igQtModelDialogWidget::positionTreeDockToRendererCorner(QWidget* rendererWidget) {
     if (!rendererWidget || !m_treeDock) return;
+
+    // 如果不允许悬浮，就不要强制 setFloating(true)，否则会变成系统浮动窗
+    if (!(m_treeDock->features() & QDockWidget::DockWidgetFloatable)) {
+        return;
+    }
 
     // 确保dock widget是悬浮状态，然后设置无边框
     m_treeDock->setFloating(true);

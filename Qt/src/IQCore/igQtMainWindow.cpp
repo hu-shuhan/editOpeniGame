@@ -56,6 +56,8 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidgetAction>
+#include <QPushButton>
+#include <QMouseEvent>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -84,6 +86,9 @@
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
+    // 使用无边框窗口并自定义标题栏
+    this->setWindowFlags(Qt::FramelessWindowHint | Qt::Window | Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint);
+    initCustomTitleBar();
     initAllUnDefinedComponents();
     UpdateIcons();
     initAllComponents();
@@ -115,6 +120,156 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     }
 
     ThreadPool::Instance();
+}
+
+void igQtMainWindow::initCustomTitleBar() {
+    if (m_titleBar) return;
+
+    m_titleBar = new QWidget(this);
+    m_titleBar->setObjectName("CustomTitleBar");
+    // 调高标题栏整体高度
+    m_titleBar->setFixedHeight(72);
+    m_titleBar->setStyleSheet(
+            "QWidget#CustomTitleBar {"
+            "  background-color: #181818;"
+            "  border-bottom: 1px solid #181818;"
+            "}"
+            "QPushButton {"
+            "  border: none;"
+            "  padding: 0 10px;"
+            "  color: #dddddd;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #444444;"
+            "}"
+            "QPushButton#CloseButton:hover {"
+            "  background-color: #d9534f;"
+            "  color: white;"
+            "}"
+    );
+
+    // 垂直布局：第一行标题栏，第二行菜单栏
+    auto* mainLayout = new QVBoxLayout(m_titleBar);
+    mainLayout->setContentsMargins(8, 0, 0, 0);
+    mainLayout->setSpacing(0);
+
+    // 顶部一行：图标 + 标题 + 按钮
+    QWidget* topRow = new QWidget(m_titleBar);
+    auto* topLayout = new QHBoxLayout(topRow);
+    topLayout->setContentsMargins(0, 0, 0, 0);
+    topLayout->setSpacing(4);
+
+    // 图标
+    QLabel* iconLabel = new QLabel(topRow);
+    iconLabel->setFixedSize(18, 18);
+    QPixmap pm = windowIcon().pixmap(18, 18);
+    iconLabel->setPixmap(pm);
+    iconLabel->setScaledContents(true);
+    topLayout->addWidget(iconLabel);
+
+    // 标题
+    m_titleLabel = new QLabel(topRow);
+    m_titleLabel->setText(this->windowTitle());
+    m_titleLabel->setStyleSheet("QLabel { color: #dddddd; font-size: 11pt; }");
+    topLayout->addWidget(m_titleLabel, 1);
+
+    // 按钮区域
+    m_btnMinimize = new QPushButton("-", topRow);
+    m_btnMaximize = new QPushButton("□", topRow);
+    m_btnClose = new QPushButton("×", topRow);
+    m_btnClose->setObjectName("CloseButton");
+
+    // 按钮高度也稍微调大，和标题栏更匹配
+    m_btnMinimize->setFixedSize(30, 28);
+    m_btnMaximize->setFixedSize(30, 28);
+    m_btnClose->setFixedSize(36, 28);
+
+    topLayout->addWidget(m_btnMinimize, 0);
+    topLayout->addWidget(m_btnMaximize, 0);
+    topLayout->addWidget(m_btnClose, 0);
+
+    // 添加顶部行到主布局
+    mainLayout->addWidget(topRow, 0);
+
+    // 第二行：原来的菜单栏整行显示
+    if (ui->menuBar) {
+        ui->menuBar->setParent(m_titleBar);
+        ui->menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        ui->menuBar->setStyleSheet(
+            "QMenuBar { background: #181818; color: #dddddd; }"
+            "QMenuBar::item { background: transparent; padding: 0 8px; }"
+            "QMenuBar::item:selected { background: #444444; }"
+        );
+        mainLayout->addWidget(ui->menuBar, 0);
+    }
+
+    // 放到 QMainWindow 的菜单栏区域，相当于自定义标题栏
+    this->setMenuWidget(m_titleBar);
+
+    // 拖动事件用 eventFilter 处理（只对标题栏整体和标题文本生效，不干扰按钮点击）
+    m_titleBar->installEventFilter(this);
+    m_titleLabel->installEventFilter(this);
+
+    // 按钮功能
+    connect(m_btnMinimize, &QPushButton::clicked, this, [this]() {
+        this->showMinimized();
+    });
+
+    connect(m_btnMaximize, &QPushButton::clicked, this, [this]() {
+        if (this->isMaximized()) {
+            this->showNormal();
+        } else {
+            this->showMaximized();
+        }
+    });
+
+    connect(m_btnClose, &QPushButton::clicked, this, [this]() {
+        this->close();
+    });
+}
+
+bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (!m_titleBar) return QMainWindow::eventFilter(watched, event);
+
+    // 按钮自身的事件交给 Qt 处理，保证 clicked() 能正常触发
+    if (qobject_cast<QPushButton*>(watched)) {
+        return QMainWindow::eventFilter(watched, event);
+    }
+
+    // 只对标题栏本身或标题文本处理拖动，不拦截按钮
+    if (watched == m_titleBar || watched == m_titleLabel) {
+        switch (event->type()) {
+            case QEvent::MouseButtonPress: {
+                auto* me = static_cast<QMouseEvent*>(event);
+                if (me->button() == Qt::LeftButton) {
+                    m_titleBarDragging = true;
+                    m_dragOffset = me->globalPos() - frameGeometry().topLeft();
+                    return true;
+                }
+                break;
+            }
+            case QEvent::MouseMove: {
+                auto* me = static_cast<QMouseEvent*>(event);
+                if (m_titleBarDragging && (me->buttons() & Qt::LeftButton)) {
+                    move(me->globalPos() - m_dragOffset);
+                    return true;
+                }
+                break;
+            }
+            case QEvent::MouseButtonRelease: {
+                auto* me = static_cast<QMouseEvent*>(event);
+                if (me->button() == Qt::LeftButton) {
+                    m_titleBarDragging = false;
+                    return true;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    return QMainWindow::eventFilter(watched, event);
 }
 igQtMainWindow::~igQtMainWindow() {
     // 清理命令管理器
@@ -149,14 +304,13 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     aiChatWidget = new igQtAiChatWidget(aiChatDockWidget, this);
     aiChatDockWidget->setWidget(aiChatWidget);
     aiChatDockWidget->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
-    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable |
-                                  QDockWidget::DockWidgetClosable);
+    // AI 聊天窗口：不允许拖动/悬浮（只保留可关闭）
+    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     aiChatDockWidget->hide(); // 初始隐藏
     this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
 
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
-
 
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ScalarField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VectorField);
@@ -175,6 +329,26 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->addDockWidget(Qt::BottomDockWidgetArea, ui->dockWidget_Animation);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ModelList);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContourExtract);
+
+    // 禁止所有 dock 悬浮：去掉 DockWidgetFloatable
+    // 同时为了防止“拖拽标题栏就被扯成系统浮动窗”，这里也把 Movable 去掉（只保留可关闭）。
+    // 如果你仍希望允许在 dock 区域内重新排列位置，可以把 DockWidgetMovable 加回去，但必须保持不包含 DockWidgetFloatable。
+    ui->dockWidget_ScalarField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_VectorField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_FlowField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_TensorField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_ParallelCoordinatesField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_VariableCorrelationField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_VariableDensityField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_DataChangeField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_SelectionField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_ContextPreservingShowField->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_SearchInfo->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_QualityDetection->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_EditMode->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_Animation->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_ModelList->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_ContourExtract->setFeatures(QDockWidget::DockWidgetClosable);
 
     QDockWidget* dockWidget_null = new QDockWidget("", this);
     this->addDockWidget(Qt::RightDockWidgetArea, dockWidget_null);
@@ -227,6 +401,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     SliceWidget->setMinimumWidth(300);
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
+    SliceDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     SliceDockWidget->hide();
     this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
 
@@ -235,9 +410,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
     DeformationDockWidget->setWidget(DeformationWidget);
     DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+    DeformationDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
-
 
 }
 void igQtMainWindow::initToolbarComponent() {
@@ -2501,9 +2676,6 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     wrapper->addAction(wrapperAction);
 
     this->addToolBar(area, wrapper);
-
-    // 【删除这行调试输出】
-    // qDebug() << "Wrapper Toolbar尺寸：" << wrapper->size() << "包含的容器：" << container->objectName() << "容器内的topRow子控件数：" << topRow->children().count();
 }
 
 void igQtMainWindow::UpdateIcons()

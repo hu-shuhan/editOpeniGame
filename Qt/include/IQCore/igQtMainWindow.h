@@ -97,9 +97,22 @@ private slots:
 private:
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
+    // 自定义标题栏相关
+    QWidget* m_titleBar = nullptr;
+    QLabel* m_titleLabel = nullptr;
+    QPushButton* m_btnMinimize = nullptr;
+    QPushButton* m_btnMaximize = nullptr;
+    QPushButton* m_btnClose = nullptr;
+    bool m_titleBarDragging = false;
+    QPoint m_dragOffset;
+
     void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
                                       QAction* insertBefore = nullptr);
     void addToolbarTitle(QToolBar* toolbar, const QString& title);
+    void initCustomTitleBar();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 };
 
 

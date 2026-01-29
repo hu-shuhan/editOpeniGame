@@ -102,7 +102,7 @@ QToolBar QToolButton {
     color: rgba(255, 255, 255, 204);
     border: none;
     padding: 2px;   /* 減少內邊距，留更多空間給按鈕間距 */
-    font-size: 10pt;
+    font-size: 8pt;
 }
 QToolBar QToolButton:hover {
     background-color: #3A3A3A; /* 按钮 hover 高亮 */
@@ -134,6 +134,12 @@ QDockWidget {
     border: none;
     color: #FFFFFF;
     font-size: 10pt;
+}
+
+/* 停靠(docked)状态：关闭按钮图标改为纯白（不改尺寸/位置，保持原来的观感） */
+QDockWidget::close-button {
+    image: url(:/Ticon/Icons/dock_close_white.svg);
+    color: #FFFFFF;  /* 如果当前 style 使用文本方式绘制按钮，这里强制文字为白色 */
 }
 
 /* 标题栏 */
@@ -257,6 +263,17 @@ QSpinBox, QDoubleSpinBox, QSlider, QProgressBar {
     color: #FFFFFF; /* 设计师指定的字体色：纯白 RGB(255,255,255) */
 }
 
+/* 狀態欄字體：略小於全局，但比剛才大兩號（包含 Ready for 文本） */
+QStatusBar {
+    font-size: 10pt;
+}
+
+/* 狀態欄內進度條右側的數字等文字與狀態欄保持一致字號 */
+QStatusBar QProgressBar,
+QStatusBar QLabel {
+    font-size: 10pt;
+}
+
 /* 1. 属性面板整体控件 */
 QtTreePropertyBrowser, QtPropertyBrowser {
     background-color: #1E1E1E; /* 对齐你的深色背景 */
@@ -316,6 +333,7 @@ QtTreePropertyBrowser * {
 }
 
 /* ========== 悬浮圖層樹 LayerTreeDock 樣式（只定義這一個 Dock，避免影響其他 Properties Dock） ========== */
+
 QDockWidget#LayerTreeDock {
     background-color: #222222;
     /* QDockWidget 自身不畫邊框（邊框由 titleBar + 內容區拼起來畫） */
@@ -361,21 +379,18 @@ QDockWidget#LayerTreeDock QWidget#DockTitleBar {
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
 }
-QDockWidget#LayerTreeDock QLabel#DockTitleLabel,
-QDockWidget#LayerPropertiesDock QLabel#DockTitleLabel {
+QDockWidget#LayerTreeDock QLabel#DockTitleLabel {
     color: #FFFFFF;
     font-size: 12pt;
     background: transparent;
 }
-QDockWidget#LayerTreeDock QPushButton#DockTitleCloseButton,
-QDockWidget#LayerPropertiesDock QPushButton#DockTitleCloseButton {
+QDockWidget#LayerTreeDock QPushButton#DockTitleCloseButton {
     color: #FFFFFF;
     background: transparent;
     border: none;
     font-size: 14pt;
 }
-QDockWidget#LayerTreeDock QPushButton#DockTitleCloseButton:hover,
-QDockWidget#LayerPropertiesDock QPushButton#DockTitleCloseButton:hover {
+QDockWidget#LayerTreeDock QPushButton#DockTitleCloseButton:hover {
     background-color: rgba(255, 255, 255, 18);
     border-radius: 7px;
 }
@@ -402,6 +417,11 @@ QDockWidget#LayerTreeDock::close-button {
     margin-top: 7px;
     border: none;
     background: transparent;
+}
+QDockWidget#LayerTreeDock::close-button {
+    /* 覆盖全局 close-button，确保图层树 Dock 的关闭按钮也是白色 */
+    image: url(:/Ticon/Icons/dock_close_white.svg);
+    color: #FFFFFF;
 }
 QDockWidget#LayerTreeDock::float-button { right: 40px; }
 QDockWidget#LayerTreeDock::close-button { right: 10px; }
@@ -477,17 +497,7 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
 }
 
 /* ========== Properties Dock 样式 ========== */
-QDockWidget#LayerPropertiesDock::title {
-    background-color: #222222;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    min-height: 32px;
-    max-height: 32px;
-    padding: 2px 8px;
-    font: 12pt &quot;PingFang SC Regular&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, &quot;Segoe UI&quot;, &quot;Arial&quot;;
-    line-height: 28px;
-    color: #FFFFFF !important;
-}
+/* LayerPropertiesDock 使用全局 QDockWidget::title 样式即可 */
 </string>
   </property>
   <widget class="QWidget" name="centralwidget">
