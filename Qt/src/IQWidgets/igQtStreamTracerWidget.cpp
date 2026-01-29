@@ -9,6 +9,7 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->control_comboBox, SIGNAL(currentIndexChanged(QString)), this, SLOT(changeControl()));
     connect(ui->numOfSeedLineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changenumOfSeeds()));
     connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
+    connect(ui->lineWidth, SIGNAL(textChanged(const QString&)), this, SLOT(changeWidthOfStreamLine()));
     connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
     connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
     connect(ui->startX, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
@@ -41,6 +42,8 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     // ui->proportion_Slider->setValue(35);
     lengthOfStreamLine = 5;
     ui->lengthOfStreamLine->setText("5");
+    widthOfStreamLine = 3;
+    ui->lineWidth->setText("3");
     maxSteps = 1200;
     ui->maxSteps->setText("1200");
     lengthOfStep = 0.05;
@@ -153,6 +156,7 @@ void igQtStreamTracerWidget::changeEnd() {
 void igQtStreamTracerWidget::changelengthOfStreamLine() {
     lengthOfStreamLine = ui->lengthOfStreamLine->text().toFloat();
 }
+void igQtStreamTracerWidget::changeWidthOfStreamLine() { widthOfStreamLine = ui->lineWidth->text().toFloat(); }
 void igQtStreamTracerWidget::changelengthOfStep() { lengthOfStep = ui->lengthOfStep->text().toFloat(); }
 void igQtStreamTracerWidget::changemaxSteps() { maxSteps = ui->maxSteps->text().toFloat(); }
 void igQtStreamTracerWidget::changeterminalSpeed() { terminalSpeed = ui->terminalSpeed->text().toFloat(); }
@@ -244,7 +248,7 @@ void igQtStreamTracerWidget::updateVectorNameList() {
 
         streamtracer->initStreamTracer(currentModel);
         masterName = currentModel->GetDataObject()->GetName();
-
+        ui->source->setText(QString::fromStdString("Source: " + masterName));
         auto tem = currentModel->GetDataObject();
         m_DataObject = tem;
 
@@ -264,13 +268,11 @@ void igQtStreamTracerWidget::generateStreamline() {
     Model::Pointer model = scene->GetCurrentModel();
     if (!modelBound) {
         std::cout << "[StreamTracer] First model binding\n";
-
         streamtracer->initStreamTracer(model);
         masterName = model->GetDataObject()->GetName();
-
+        ui->source->setText(QString::fromStdString("Source: " + masterName));
         auto tem = model->GetDataObject();
         m_DataObject = tem;
-
         modelBound = true;
     }
     std::vector<std::vector<int>> seedPids = {{1797284, 3468659},
@@ -359,14 +361,14 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetShellRenderingOption(false);
         // m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene, 0);
-        m_ResultObject->SetLineWidth(5);
+        m_ResultObject->SetLineWidth(widthOfStreamLine);
     } else {
         m_ResultObject->SetPoints(iGame::Points::New());
         m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
         m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
         m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->SetAttributeIndex(-1);
-        m_ResultObject->SetLineWidth(5);
+        m_ResultObject->SetLineWidth(widthOfStreamLine);
     }
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {

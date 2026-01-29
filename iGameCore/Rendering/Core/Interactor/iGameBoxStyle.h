@@ -21,8 +21,6 @@ public:
     void InitBox(const Point& p1, const Point& p2);
     void DeleteBox();
 
-    void SetChooedStation(bool choosedStation);
-
     void ToDraw();
     void ClearDraw();
 
@@ -41,6 +39,32 @@ public:
     void RemoveUpdateWidgetFunc();
 
 private:
+    void LeftButtonPress(IEvent event);
+    void MiddleButtonPress(IEvent event);
+    void RightButtonPress(IEvent event);
+
+    void LeftButtonRelease(IEvent event);
+
+    void RightButtonRelease(IEvent event);
+
+private:
+    std::pair<Point, Point> GetRayStartAndDir(IEvent event);
+    std::tuple<bool, int, Point>
+    MeetOpePoint(IEvent event, const Point& rayStart, const Point& rayDir);
+    std::tuple<bool, Point> MeetCenterPoint(IEvent event, const Point& rayStart,
+                                            const Point& rayDir);
+    std::tuple<bool, Point> MeetBoxEdge(IEvent event, const Point& rayStart,
+                                        const Point& rayDir);
+    std::tuple<bool, Point> MeetBoxRotate(IEvent event, const Point& rayStart,
+                                          const Point& rayDir);
+
+private:
+    IGenum m_BoxDrawMode{IG_NONE};
+    int m_BoxDrawModeOpePoint{};
+    void ChangeBoxDrawMode(IEvent event);
+    void OperateBox(IEvent event);
+
+private:
     void PointMoveCallBack();
 
 private:
@@ -57,16 +81,13 @@ protected:
 
     bool m_ChoosedStation{};
 
-    float m_MaxDis{};
-
     float m_SelectedNDCZ{};
     igm::mat4 m_MVP{};
     igm::mat4 m_InvertedMVP{};
-    igm::vec2 m_OldPoint2D = igm::vec2{0.0f};
-    igm::vec2 m_NewPoint2D = igm::vec2{0.0f};
 
     igm::vec2 m_PressSite = igm::vec2{0.0f};
     bool m_MeetedBox{};
+    MouseButton m_MousePressButton{MouseButton::NoButton};
 
     std::vector<IGuint> m_DrawHandles;
     std::map<std::string, std::function<void()>> m_PointMoveCallBacks;

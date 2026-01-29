@@ -256,7 +256,9 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     ui->ModelInformationWidget->hide();
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
     connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this,
-            &igQtModelDialogWidget::updateCurrentModelProperty);
+            static_cast<void (igQtModelDialogWidget::*)(iGame::Model*)>(
+                    &igQtModelDialogWidget::updateCurrentModelProperty));
+
     connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this,
             &igQtModelDialogWidget::updateCurrentModelInfo);
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
@@ -368,6 +370,30 @@ int igQtModelDialogWidget::updateCurrentModelInfo() {
 
 
     return 1;
+}
+void igQtModelDialogWidget::updateCurrentModelProperty() {
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    auto model=scene->GetCurrentModel();
+    if (!model) {
+        return;
+    }
+    //currentModel = model;
+    auto obj = DynamicCast<iGame::DrawObject>(model->GetDataObject());
+    if (obj) {
+        prop_PointSize->setEnabled(true);
+        prop_PointSize->setValue(obj->GetPointSize());
+        pror_LineWidth->setEnabled(true);
+        pror_LineWidth->setValue(obj->GetLineWidth());
+        prop_Transparency->setEnabled(true);
+        prop_Transparency->setValue(obj->GetTransparency());
+    } else {
+        prop_PointSize->setEnabled(false);
+        prop_PointSize->setValue(0);
+        pror_LineWidth->setEnabled(false);
+        pror_LineWidth->setValue(0);
+        prop_Transparency->setEnabled(false);
+        prop_Transparency->setValue(0);
+    }
 }
 void igQtModelDialogWidget::updateCurrentModelProperty(iGame::Model* model) {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();

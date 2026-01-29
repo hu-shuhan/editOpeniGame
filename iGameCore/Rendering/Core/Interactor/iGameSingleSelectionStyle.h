@@ -16,9 +16,13 @@ public:
     static Pointer New() { return new SingleSelectionStyle; }
 
     void MousePressEvent(IEvent _event) override;
+    void MouseReleaseEvent(IEvent event) override;
 
     void SelectPoint(igm::vec2 pos);
     void SelectCell(igm::vec2 pos);
+
+private:
+    igm::vec2 m_PressSite = igm::vec2{0.0f};
 
 protected:
     SingleSelectionStyle();

@@ -28,6 +28,7 @@ public slots:
     void increaseProportion();
     void changenumOfSeeds();
     void changelengthOfStreamLine();
+    void changeWidthOfStreamLine();
     void changelengthOfStep();
     void changemaxSteps();
     void changeStart();
@@ -59,6 +60,7 @@ private:
     int control;
     float proportion;
     float lengthOfStreamLine;
+    int widthOfStreamLine;
     float lengthOfStep;
     float maxSteps;
     float terminalSpeed;

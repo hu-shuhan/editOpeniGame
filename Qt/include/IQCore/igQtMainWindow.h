@@ -113,6 +113,7 @@ private:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+    int streamTreeIndex = -1;
 };
 
 

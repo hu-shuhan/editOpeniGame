@@ -46,13 +46,11 @@ public:
 signals:
     void Signal_SetSelectionStationChanged();
     void SetSelectItemShow(bool show);
-    void SetSelectBoxShow(bool show);
     void SetClearSelection();
     void Hided();
     void SetClearBox();
     void SetUseBox();
     void SetBoxSettingDialog();
-    void SetPreLoadModelMsg();
 
 private slots:
     void SelectionStationNone(bool checked);
@@ -78,14 +76,11 @@ private slots:
 
     void ClearSelectionState();
     void SelectItemShow(bool unShow);
-    void SelectBoxShow(bool unShow);
 
     void ClearBox();
     void UseBox();
 
     void BoxSettingDialog();
-
-    void PreLoadModelMsg();
 
 protected:
     void hideEvent(QHideEvent* event) override;

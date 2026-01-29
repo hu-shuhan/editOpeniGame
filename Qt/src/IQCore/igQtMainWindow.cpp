@@ -73,6 +73,7 @@
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 #include <meshoptimizer.h>
 #include <stdio.h>
 
@@ -1782,15 +1783,18 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
-        modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
+        streamTreeIndex=modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         scene->GetCurrentModel()->SetViewWireframeSwitch(true);
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                if (scene->GetCurrentModelID() == streamTreeIndex) {
+                    modelTreeWidget->updateCurrentModelProperty();
+                }
                 modelTreeWidget->updateAllAttriubute(res);
                 rendererWidget->update();
-
                 auto drawObject = DynamicCast<DrawObject>(res);
                 if (drawObject) {
                     auto item = modelTreeWidget->getItemFromObject(res);
@@ -2160,15 +2164,46 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 break;
         }
+
+        static auto PreVisitFunc = [](iGame::Model::Pointer model) {
+            if (model == nullptr) return;
+            auto dataObj = model->GetDataObject();
+            if (dataObj == nullptr) return;
+            auto type = dataObj->GetDataObjectType();
+            switch (type) {
+                case IG_SURFACE_MESH:
+                case IG_STRUCTURED_MESH:
+                case IG_VOLUME_MESH: {
+                    auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+                    buildAdjacencyRelationFilter->SetInput(dataObj);
+                    buildAdjacencyRelationFilter->Execute();
+                } break;
+                case IG_UNSTRUCTURED_MESH: {
+                    auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    if (mesh == nullptr) return;
+                    auto selection = mesh->GetSelection();
+                    if (selection == nullptr) return;
+                    auto& cellFaceExtracter = selection->GetCellFaceExtracter();
+                    cellFaceExtracter.PreVisit(mesh);
+                } break;
+                default:
+                    return;
+            }
+        };
+
         switch (selectionStation) {
             case iGame::SelectionParameter::SelectionStation::NONE_SELECTION:
                 rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
                 break;
             case iGame::SelectionParameter::SelectionStation::POINT_SELECTION: {
                 rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle);
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                PreVisitFunc(model);
             } break;
             case iGame::SelectionParameter::SelectionStation::CELL_SELECTION: {
                 rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle);
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                PreVisitFunc(model);
             } break;
             default:
                 break;
@@ -2223,14 +2258,6 @@ void igQtMainWindow::initAllInteractor() {
         selection->SetSelectItemVisable(visiable);
         rendererWidget->update();
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectBoxShow, this, [&](bool visiable) {
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) return;
-        auto selection = model->GetSelection();
-        if (selection == nullptr) return;
-        selection->SetSelectBoxVisable(visiable);
-        rendererWidget->update();
-    });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -2274,7 +2301,6 @@ void igQtMainWindow::initAllInteractor() {
         auto dynamicBox = boxStyle->GetBox();
         if (dynamicBox == nullptr) return;
         auto faces = dynamicBox->GetAllFaces();
-        boxStyle->SetChooedStation(true);
         auto meshType = dataObj->GetDataObjectType();
         switch (meshType) {
             case IG_SURFACE_MESH: {
@@ -2318,7 +2344,6 @@ void igQtMainWindow::initAllInteractor() {
         auto dynamicBox = boxStyle->GetBox();
         if (dynamicBox == nullptr) return;
         auto faces = dynamicBox->GetAllFaces();
-        boxStyle->SetChooedStation(true);
         auto meshType = dataObj->GetDataObjectType();
         switch (meshType) {
             case IG_SURFACE_MESH: {
@@ -2397,11 +2422,6 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->PreventSignalSend(false);
         rendererWidget->update();
     });
-
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
-            [&]() { 
-            //TODO
-        });
 
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
         ui->widget_SelectionField->PreventSignalSend(true);

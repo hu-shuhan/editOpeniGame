@@ -28,6 +28,7 @@ bool BuildAdjacencyRelationFilter::Execute() {
 
 void BuildAdjacencyRelationFilter::Run(UnstructuredMesh::Pointer mesh) { return; }
 void BuildAdjacencyRelationFilter::Run(SurfaceMesh::Pointer mesh) {
+    if (mesh == nullptr) return;
     if (mesh->InEditStatus()) { return; }
     this->UpdateProgress(0.0);
     mesh->RequestPointStatus([&](double progress) { this->UpdateProgress(0.0 + 0.3 * progress); });
@@ -37,6 +38,7 @@ void BuildAdjacencyRelationFilter::Run(SurfaceMesh::Pointer mesh) {
     this->UpdateProgress(1.0);
 }
 void BuildAdjacencyRelationFilter::Run(VolumeMesh::Pointer mesh) {
+    if (mesh == nullptr) return;
     if (mesh->InEditStatus()) { return; }
     this->UpdateProgress(0.0);
     if (mesh->IsPolyhedronType) {
@@ -50,6 +52,7 @@ void BuildAdjacencyRelationFilter::Run(VolumeMesh::Pointer mesh) {
     this->UpdateProgress(1.0);
 }
 void BuildAdjacencyRelationFilter::Run(StructuredMesh::Pointer mesh) {
+    if (mesh == nullptr) return;
     if (mesh->InEditStatus()) { return; }
     this->UpdateProgress(0.0);
     if (mesh->IsPolyhedronType) {

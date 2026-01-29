@@ -110,7 +110,8 @@ void DynamicBox::MoveOpePoint(OpeInt pointIndex, const Point& direction) {
 
     // 计算在局部轴方向上的投影
     double dotProduct = localDir.x * localAxis[0] + localDir.y * localAxis[1] + localDir.z * localAxis[2];
-    double projectionLength = dotProduct;
+    //double projectionLength = dotProduct;
+    double projectionLength = std::abs(dotProduct) < 1e-6 ? 0.0 : std::copysign(direction.length(), dotProduct);
 
     // 在局部坐标系中计算移动向量
     Point localMoveVector = localAxis * projectionLength;
@@ -231,7 +232,7 @@ void DynamicBox::RotateBox(const Point& oldP, const Point& newP) {
 
     // 计算旋转角度
     const float trackballRadius = 0.6f;
-    float t = 0.5f * direction.length() / trackballRadius;
+    float t = 0.5f * direction.length() / (trackballRadius * this->GetLength().length());
     t = std::max(-1.0f, std::min(1.0f, t));
 
     float phi = 2.0f * asin(t);
