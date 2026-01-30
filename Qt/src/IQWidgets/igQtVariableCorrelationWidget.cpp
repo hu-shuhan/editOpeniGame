@@ -1,7 +1,9 @@
 #include "ui_igQtVariableCorrelationWidget.h"
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <QElapsedTimer>
+#include <QPalette>
 #include <QPoint>
+#include <QScrollArea>
 #include <algorithm>
 #include <cmath>
 #include <thread>
@@ -155,6 +157,23 @@ Ui::igQtVariableCorrelationWidget* igQtVariableCorrelationWidget::GetUi() { retu
 igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
     ui->setupUi(this);
+
+    // 强制“变量选择”“相关性(%)”“变量”表格区域使用深色背景，避免 Windows 下仍显示白底
+    const QColor darkBg(0x2b, 0x2b, 0x2b);
+    QPalette darkPalette;
+    darkPalette.setColor(QPalette::Window, darkBg);
+    darkPalette.setColor(QPalette::Base, darkBg);
+    for (QScrollArea* area : {ui->scrollArea, ui->scrollArea_2}) {
+        if (area && area->viewport()) {
+            area->viewport()->setAutoFillBackground(true);
+            area->viewport()->setPalette(darkPalette);
+        }
+        if (area && area->widget()) {
+            area->widget()->setAutoFillBackground(true);
+            area->widget()->setPalette(darkPalette);
+        }
+    }
+
     connect(ui->choosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtVariableCorrelationWidget::ChoosedAlphaSliderChanged);
     connect(ui->choosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,

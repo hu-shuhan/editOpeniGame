@@ -313,23 +313,24 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
 
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ScalarField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VectorField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_FlowField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_TensorField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ParallelCoordinatesField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableCorrelationField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableDensityField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_DataChangeField);
+    // 将原本右侧的 dockwidget 移到左侧（后续统一加入左侧 tab 组）
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ScalarField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_VectorField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_FlowField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_TensorField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ParallelCoordinatesField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_VariableCorrelationField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_VariableDensityField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_DataChangeField);
     // SelectionField 改為停靠在左側，並放在 Properties 視窗上方
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_SelectionField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContextPreservingShowField);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SearchInfo);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_QualityDetection);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_EditMode);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ContextPreservingShowField);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_SearchInfo);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_QualityDetection);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_EditMode);
     this->addDockWidget(Qt::BottomDockWidgetArea, ui->dockWidget_Animation);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ModelList);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContourExtract);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ModelList);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ContourExtract);
 
     // 禁止所有 dock 悬浮：去掉 DockWidgetFloatable
     // 同时为了防止“拖拽标题栏就被扯成系统浮动窗”，这里也把 Movable 去掉（只保留可关闭）。
@@ -372,7 +373,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_ContourExtract->hide();
     
     // Setup default GUI layout.
-    //this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
+    // 启用左侧区域的 tab 功能，使左侧 dockwidget 可以通过 tab 切换
+    this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
     //this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
     // Set up the dock window corners to give the vertical docks more room.
@@ -382,10 +384,25 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     modelTreeWidget = new igQtModelDialogWidget(this);
     // 属性窗口停靠在左侧，图层树悬浮在OpenGL渲染窗口右下角
     this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
-    // 讓 SelectionField 位於 Properties Dock 的上方（同為左側停靠區，垂直分割）
+    // 让上方是一组 tab（Selection + 各种 Field），下方是单独的 Properties，形成垂直布局
     this->splitDockWidget(ui->dockWidget_SelectionField,
                           modelTreeWidget->getPropertiesDock(),
                           Qt::Vertical);
+    // 将其他 dockwidget 以 SelectionField 为基准组织成上方的 tab 组
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ScalarField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VectorField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_FlowField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_TensorField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ParallelCoordinatesField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableCorrelationField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableDensityField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_DataChangeField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContextPreservingShowField);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_SearchInfo);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_QualityDetection);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_EditMode);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
 
     // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
     QTimer::singleShot(100, this, [this]() {
@@ -404,7 +421,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     SliceDockWidget->hide();
-    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+    // 将 SliceDockWidget 添加到左侧上方的 tab 组中
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, SliceDockWidget);
 
     DeformationDockWidget = new QDockWidget(this);
     DeformationDockWidget->setWindowTitle("结构形变");
@@ -1334,6 +1352,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             dialog->setWindowTitle("变量相关性分析");
             //dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->setModal(false);
+            // 设置对话框深色背景，与变量相关性控件风格一致
+            dialog->setStyleSheet("QDialog { background-color: #2b2b2b; }");
 
             widget = new igQtVariableCorrelationWidget(dialog);
             widget->GetUi()->splitter->setSizes({200, 300, 400});

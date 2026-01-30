@@ -13,6 +13,77 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="styleSheet">
+   <string>/* 使用类名选择器，确保嵌入 MainWindow 或 Dialog 时都能应用深色背景 */
+igQtVariableCorrelationWidget,
+QWidget#igQtVariableCorrelationWidget {
+    background-color: #2b2b2b;
+    color: #ffffff;
+}
+/* 滚动区域及内部内容背景（表格“变量选择”“相关性(%)”“变量”所在区域） */
+QScrollArea {
+    background-color: #2b2b2b;
+    border: none;
+}
+QScrollArea::viewport {
+    background-color: #2b2b2b !important;
+}
+QScrollArea QFrame,
+QScrollArea QWidget {
+    background-color: #2b2b2b !important;
+    color: #ffffff;
+}
+/* 明确指定两个表格内容控件的深色背景，避免 Windows 下仍显示白底 */
+QWidget#widget_2,
+QWidget#scrollAreaWidgetContents_2 {
+    background-color: #2b2b2b !important;
+    color: #ffffff;
+}
+QLabel {
+    background-color: transparent;
+    color: #ffffff;
+}
+/* 下拉框、按钮、复选框、数字框、滑块 - 统一深色 */
+QComboBox, QPushButton, QCheckBox, QSpinBox, QSlider {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: 1px solid #555555;
+}
+QComboBox:hover, QPushButton:hover {
+    background-color: #4a4a4a;
+}
+QComboBox:focus, QPushButton:focus {
+    border: 1px solid #0078d4;
+}
+/* QSpinBox 上下箭头按钮 */
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    color: #ffffff;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #4a4a4a;
+}
+/* QSlider 轨道与滑块 */
+QSlider::groove:horizontal {
+    background: #3c3c3c;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background: #5a5a5a;
+    width: 14px;
+    margin: -4px 0;
+    border-radius: 7px;
+}
+QSlider::handle:horizontal:hover {
+    background: #6a6a6a;
+}
+/* 分割线等 */
+Line, QFrame[frameShape="4"] {
+    background-color: #555555;
+}</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout_5">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
