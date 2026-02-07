@@ -18,6 +18,9 @@ endif ()
 #--------------------------------------------------------------------
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 
+# 排除 test_pybind11.cpp，避免被编译进 iGameCore 库
+list(FILTER IGAME_CORE_FILE EXCLUDE REGEX ".*test_pybind11\\.cpp$")
+
 # Currently, only shared libraries for the Linux system are supported
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
@@ -98,6 +101,28 @@ if (ENABLE_CGNS_MODULE)
         #find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
     #endif ()
 endif ()
+
+
+if(TARGET pybind11::module)
+    message(STATUS "pybind11 integrated into iGameCore")
+    
+    # 从 iGameCore 的源文件列表（如果使用了通配符）中排除 test_pybind11.cpp
+    # 注意：我们应该在定义 iGameCore 目标之前或在 GLOB 中排除它
+    # 但由于 iGameCore 目标已经定义，我们这里只需要确保 pybind11_add_module 能正确编译它
+    
+    # 示例：构建一个名为 test_pybind11 的 Python 扩展模块
+    # 注意：这里我们假设 test_pybind11.cpp 位于 Core 目录下
+    pybind11_add_module(test_pybind11 Core/python/test_pybind11.cpp)
+    
+    # 显式取消 HEADER_FILE_ONLY 属性，以防万一
+    set_source_files_properties(Core/test_pybind11.cpp PROPERTIES HEADER_FILE_ONLY FALSE)
+    
+    # 链接 iGameCore 库，以便在绑定中使用 iGame 的类和函数
+    target_link_libraries(test_pybind11 PRIVATE iGameCore)
+    
+    # 可选：设置输出目录，方便测试
+    set_target_properties(test_pybind11 PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/python_modules)
+endif()
 
 if (ENABLE_LIBTORCH_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
