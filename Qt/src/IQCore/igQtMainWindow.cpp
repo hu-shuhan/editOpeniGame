@@ -758,6 +758,7 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
         if(!ui->dockWidget_FlowField->isVisible()){
             ui->dockWidget_FlowField->show();
+            ui->dockWidget_FlowField->raise();
             ui->widget_FlowField->updateVectorNameList();
         } else {
             ui->dockWidget_FlowField->hide();
@@ -1305,27 +1306,33 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     // { 	ui->dockWidget_SearchInfo->sh
     //  ow();
     //	});
+    // 显示并切换到对应 DockWidget 的 tab（tabifyDockWidget 场景下 show() 不一定会自动切 tab）
+    auto showAndRaiseDock = [&](QDockWidget* dock) {
+        if (!dock) return;
+        dock->show();
+        dock->raise(); // 关键：让 dock 成为当前 tab
+        if (dock->widget()) dock->widget()->setFocus(Qt::OtherFocusReason);
+    };
+
     connect(ui->action_IsShowColorBar, &QAction::triggered, this, &igQtMainWindow::updateColorBarShow);
-    connect(ui->action_ExportAnimation, &QAction::triggered, this,
-            [&](bool checked) { ui->dockWidget_Animation->show(); });
-    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_ScalarField->show(); });
+    connect(ui->action_ExportAnimation, &QAction::triggered, this, [&](bool checked) { showAndRaiseDock(ui->dockWidget_Animation); });
+    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { showAndRaiseDock(ui->dockWidget_ScalarField); });
     connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_VectorField->show();
+        showAndRaiseDock(ui->dockWidget_VectorField);
         ui->widget_VectorField->updateVectorNameList();
     });
-    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_ScalarField->show(); });
     connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_VectorField->show();
+        showAndRaiseDock(ui->dockWidget_VectorField);
         ui->widget_VectorField->updateVectorNameList();
     });
     connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_TensorField->show();
+        showAndRaiseDock(ui->dockWidget_TensorField);
         ui->widget_TensorField->InitTensorWidget();
     });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        ui->dockWidget_ParallelCoordinatesField->show();
+        showAndRaiseDock(ui->dockWidget_ParallelCoordinatesField);
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
 
@@ -1390,7 +1397,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_VariableDensity, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        ui->dockWidget_VariableDensityField->show();
+        showAndRaiseDock(ui->dockWidget_VariableDensityField);
         ui->widget_VariableDensityField->SetModel(model);
     });
 
@@ -1402,7 +1409,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     auto DataChangeFunc = [&](igQtMainWindow* mainWindow) {
         auto model = mainWindow->rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        mainWindow->ui->dockWidget_DataChangeField->show();
+        showAndRaiseDock(mainWindow->ui->dockWidget_DataChangeField);
         mainWindow->ui->widget_DataChangeField->InitRadialStyle(
                 mainWindow->rendererWidget->GetScene()->GetInteractor());
         auto name = mainWindow->rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
@@ -1420,7 +1427,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
             auto model = rendererWidget->GetScene()->GetCurrentModel();
             if (model == nullptr) return;
-            ui->dockWidget_ContextPreservingShowField->show();
+            showAndRaiseDock(ui->dockWidget_ContextPreservingShowField);
             ui->widget_ContextPreservingShowField->SetContextPreserving(model);
         } else if (!checked && ui->dockWidget_ContextPreservingShowField->isVisible())
             ui->dockWidget_ContextPreservingShowField->hide();
@@ -1437,7 +1444,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
             [&]() { rendererWidget->update(); });
     connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_FlowField->show();
+        showAndRaiseDock(ui->dockWidget_FlowField);
         ui->widget_FlowField->updateVectorNameList();
     });
 
@@ -1457,7 +1464,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
     connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_ContourExtract->show();
+        showAndRaiseDock(ui->dockWidget_ContourExtract);
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) return;
         auto CurrentModel = scene->GetCurrentModel();
@@ -2140,7 +2147,12 @@ void igQtMainWindow::initAllSources() {
 
 void igQtMainWindow::initAllInteractor() {
     connect(ui->action_SelectView, &QAction::triggered, this, [&](bool checked) {
-        if (checked && !ui->dockWidget_SelectionField->isVisible()) ui->dockWidget_SelectionField->show();
+        if (checked && !ui->dockWidget_SelectionField->isVisible()) {
+            ui->dockWidget_SelectionField->show();
+            ui->dockWidget_SelectionField->raise(); // 切换到该 tab
+            if (ui->dockWidget_SelectionField->widget())
+                ui->dockWidget_SelectionField->widget()->setFocus(Qt::OtherFocusReason);
+        }
         else if (!checked && ui->dockWidget_SelectionField->isVisible())
             ui->dockWidget_SelectionField->hide();
     });

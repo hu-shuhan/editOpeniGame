@@ -170,6 +170,32 @@ QDockWidget QTextEdit {
     background-color: #1E1E1E !important;
 }
 
+/* ========== DockWidget 中的 PushButton 样式（内边框设计） ========== */
+/* 内边框效果：使用浅色边框（比背景亮），营造内嵌视觉，与深色背景协调 */
+QDockWidget QPushButton {
+    background-color: #2A2A2A; /* 按钮背景色，比 DockWidget 背景(#222222)稍亮 */
+    color: rgba(255, 255, 255, 204); /* 文字颜色 */
+    /* 内边框：浅色半透明边框，比背景色更亮，形成内嵌感 */
+    border: 1px solid rgba(255, 255, 255, 20); /* 浅色边框，营造内边框效果 */
+    border-radius: 4px;
+    padding: 5px 12px; /* 适当的内边距 */
+    min-height: 24px;
+    font-size: 10pt;
+}
+
+/* Hover 状态：边框更明显，背景稍亮 */
+QDockWidget QPushButton:hover {
+    background-color: #2F2F2F; /* hover 时背景稍亮 */
+    border: 1px solid rgba(255, 255, 255, 32); /* hover 时内边框更明显 */
+}
+
+/* Pressed 状态：按下时内缩效果 */
+QDockWidget QPushButton:pressed {
+    background-color: #252526; /* 按下时背景稍暗 */
+    border: 1px solid rgba(255, 255, 255, 26);
+    padding: 6px 13px 4px 11px; /* 按下时稍微内缩，增强按下感 */
+}
+
 
 
 /* ========== 分组框（QGroupBox） ========== */
@@ -238,6 +264,35 @@ QScrollBar::handle:vertical:hover {
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0; /* 隐藏上下箭头 */
+}
+
+/* ========== 矢量场 Dock（dockWidget_VectorField）中的滑动条（QSlider） ========== */
+/* 让滑动条与 Dock 深色背景 (#222222) 协调，减少高亮白色带来的晃眼感 */
+QDockWidget#dockWidget_VectorField QSlider::groove:horizontal {
+    background-color: #2A2A2A;      /* 比 Dock 背景略亮一点 */
+    height: 6px;
+    border-radius: 3px;
+}
+
+QDockWidget#dockWidget_VectorField QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;      /* 深蓝灰色高亮，低饱和不刺眼 */
+    border-radius: 3px;
+}
+
+QDockWidget#dockWidget_VectorField QSlider::add-page:horizontal {
+    background-color: #262626;      /* 未激活部分更暗，贴近背景 */
+    border-radius: 3px;
+}
+
+QDockWidget#dockWidget_VectorField QSlider::handle:horizontal {
+    background-color: #B0B0B0;      /* 中灰色手柄，去掉刺眼的纯白 */
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;                 /* 让手柄略微溢出槽，高级一点的视觉 */
+}
+
+QDockWidget#dockWidget_VectorField QSlider::handle:horizontal:hover {
+    background-color: #C8C8C8;      /* 悬停时稍微变亮，但依旧不是纯白 */
 }
 
 /* ========== 标签页（TabWidget） ========== */
@@ -738,8 +793,6 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
    <addaction name="action_ResetCameraView"/>
    <addaction name="action_ContextPreserving"/>
    <addaction name="action_SelectView"/>
-   <addaction name="action_select_point"/>
-   <addaction name="action_select_face"/>
    <addaction name="action_drag_point"/>
    <addaction name="action_ChangeBackground"/>
   </widget>
@@ -1662,6 +1715,9 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
    <property name="toolTip">
     <string>select point</string>
    </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
   </action>
   <action name="action_select_face">
    <property name="checkable">
@@ -1676,6 +1732,9 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
    </property>
    <property name="toolTip">
     <string>select face</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="action_drag_point">
