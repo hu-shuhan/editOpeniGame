@@ -382,17 +382,43 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
 
     modelTreeWidget = new igQtModelDialogWidget(this);
+
+    // 创建左侧自定义“数据面板”，用 QTabWidget 替代 QDockWidget 自带 tab 样式
+    m_leftFieldDock = new QDockWidget(this);
+    m_leftFieldDock->setObjectName("LeftFieldDock");
+    m_leftFieldDock->setWindowTitle("数据面板");
+    m_leftFieldDock->setAllowedAreas(Qt::LeftDockWidgetArea);
+    m_leftFieldDock->setFeatures(QDockWidget::DockWidgetClosable);
+    m_leftFieldTabs = new QTabWidget(m_leftFieldDock);
+    m_leftFieldTabs->setObjectName("LeftFieldTabs");
+    m_leftFieldTabs->setTabPosition(QTabWidget::North);
+    m_leftFieldTabs->setDocumentMode(true);
+    m_leftFieldDock->setWidget(m_leftFieldTabs);
+    this->addDockWidget(Qt::LeftDockWidgetArea, m_leftFieldDock);
+
+    // 启动时一次性把四个主要 Field 面板放进自定义 Tab 中，避免运行时 reparent 导致崩溃
+    auto moveDockContentToCustomTab = [&](QDockWidget* dock, QWidget* content, const QString& title) {
+        if (!dock || !content || !m_leftFieldTabs) return;
+        dock->setWidget(nullptr);
+        this->removeDockWidget(dock);
+        dock->hide();
+        content->setParent(m_leftFieldTabs);
+        m_leftFieldTabs->addTab(content, title);
+    };
+    moveDockContentToCustomTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"));
+    moveDockContentToCustomTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"));
+    moveDockContentToCustomTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"));
+    moveDockContentToCustomTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"));
+    m_leftFieldTabs->setCurrentIndex(0);
+    m_leftFieldDock->show();
+
     // 属性窗口停靠在左侧，图层树悬浮在OpenGL渲染窗口右下角
     this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
-    // 让上方是一组 tab（Selection + 各种 Field），下方是单独的 Properties，形成垂直布局
-    this->splitDockWidget(ui->dockWidget_SelectionField,
+    // 上方是自定义“数据面板”，下方是单独的 Properties，形成垂直布局
+    this->splitDockWidget(m_leftFieldDock,
                           modelTreeWidget->getPropertiesDock(),
                           Qt::Vertical);
     // 将其他 dockwidget 以 SelectionField 为基准组织成上方的 tab 组
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ScalarField);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VectorField);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_FlowField);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_TensorField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ParallelCoordinatesField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableCorrelationField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableDensityField);
@@ -421,8 +447,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     SliceDockWidget->hide();
-    // 将 SliceDockWidget 添加到左侧上方的 tab 组中
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, SliceDockWidget);
 
     DeformationDockWidget = new QDockWidget(this);
     DeformationDockWidget->setWindowTitle("结构形变");
@@ -756,14 +780,12 @@ void igQtMainWindow::initAllComponents() {
         DeformationDockWidget->show();
     });
     connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
-        if(!ui->dockWidget_FlowField->isVisible()){
-            ui->dockWidget_FlowField->show();
-            ui->dockWidget_FlowField->raise();
-            ui->widget_FlowField->updateVectorNameList();
-        } else {
-            ui->dockWidget_FlowField->hide();
-        }
-
+        if (!m_leftFieldDock || !m_leftFieldTabs) return;
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        int idx = m_leftFieldTabs->indexOf(ui->widget_FlowField);
+        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
+        ui->widget_FlowField->updateVectorNameList();
     });
 
 
@@ -1306,27 +1328,47 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     // { 	ui->dockWidget_SearchInfo->sh
     //  ow();
     //	});
-    // 显示并切换到对应 DockWidget 的 tab（tabifyDockWidget 场景下 show() 不一定会自动切 tab）
+    // 显示并切换到对应 DockWidget / Tab
     auto showAndRaiseDock = [&](QDockWidget* dock) {
         if (!dock) return;
         dock->show();
-        dock->raise(); // 关键：让 dock 成为当前 tab
+        dock->raise();
         if (dock->widget()) dock->widget()->setFocus(Qt::OtherFocusReason);
     };
 
     connect(ui->action_IsShowColorBar, &QAction::triggered, this, &igQtMainWindow::updateColorBarShow);
     connect(ui->action_ExportAnimation, &QAction::triggered, this, [&](bool checked) { showAndRaiseDock(ui->dockWidget_Animation); });
-    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { showAndRaiseDock(ui->dockWidget_ScalarField); });
+
+    // 左侧主数据面板使用自定义 QTabWidget：点击菜单时切换到对应 Tab
+    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) {
+        if (!m_leftFieldDock || !m_leftFieldTabs) return;
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        int idx = m_leftFieldTabs->indexOf(ui->widget_ScalarField);
+        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
+    });
     connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
-        showAndRaiseDock(ui->dockWidget_VectorField);
+        if (!m_leftFieldDock || !m_leftFieldTabs) return;
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        int idx = m_leftFieldTabs->indexOf(ui->widget_VectorField);
+        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
         ui->widget_VectorField->updateVectorNameList();
     });
     connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
-        showAndRaiseDock(ui->dockWidget_VectorField);
+        if (!m_leftFieldDock || !m_leftFieldTabs) return;
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        int idx = m_leftFieldTabs->indexOf(ui->widget_VectorField);
+        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
         ui->widget_VectorField->updateVectorNameList();
     });
     connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-        showAndRaiseDock(ui->dockWidget_TensorField);
+        if (!m_leftFieldDock || !m_leftFieldTabs) return;
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        int idx = m_leftFieldTabs->indexOf(ui->widget_TensorField);
+        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
         ui->widget_TensorField->InitTensorWidget();
     });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
@@ -1444,7 +1486,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
             [&]() { rendererWidget->update(); });
     connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
-        showAndRaiseDock(ui->dockWidget_FlowField);
+        if (!m_leftFieldDock || !m_leftFieldTabs) return;
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        int idx = m_leftFieldTabs->indexOf(ui->widget_FlowField);
+        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
         ui->widget_FlowField->updateVectorNameList();
     });
 

@@ -106,6 +106,10 @@ private:
     bool m_titleBarDragging = false;
     QPoint m_dragOffset;
 
+    // 左侧自定义“数据面板”：替代 QDockWidget 自带 tab 样式
+    QDockWidget* m_leftFieldDock = nullptr;
+    QTabWidget* m_leftFieldTabs = nullptr;
+
     void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
                                       QAction* insertBefore = nullptr);
     void addToolbarTitle(QToolBar* toolbar, const QString& title);
