@@ -165,7 +165,7 @@
          </property>
          <property name="icon">
           <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrFirst.svg</normaloff>:/Ticon/Icons/VcrFirst.svg</iconset>
+           <normaloff>:/Ticon/Icons/VcrFirst.png</normaloff>:/Ticon/Icons/VcrFirst.png</iconset>
          </property>
          <property name="flat">
           <bool>false</bool>
@@ -185,7 +185,7 @@
          </property>
          <property name="icon">
           <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrBack.svg</normaloff>:/Ticon/Icons/VcrBack.svg</iconset>
+           <normaloff>:/Ticon/Icons/VcrBack.png</normaloff>:/Ticon/Icons/VcrBack.png</iconset>
          </property>
         </widget>
        </item>
@@ -202,7 +202,7 @@
          </property>
          <property name="icon">
           <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrReverse.svg</normaloff>:/Ticon/Icons/VcrReverse.svg</iconset>
+           <normaloff>:/Ticon/Icons/VcrReverse.png</normaloff>:/Ticon/Icons/VcrReverse.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -222,7 +222,7 @@
          </property>
          <property name="icon">
           <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrPlay.svg</normaloff>:/Ticon/Icons/VcrPlay.svg</iconset>
+           <normaloff>:/Ticon/Icons/VcrPlay.png</normaloff>:/Ticon/Icons/VcrPlay.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -245,7 +245,7 @@
          </property>
          <property name="icon">
           <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrForward.svg</normaloff>:/Ticon/Icons/VcrForward.svg</iconset>
+           <normaloff>:/Ticon/Icons/skip-previous.png</normaloff>:/Ticon/Icons/skip-previous.png</iconset>
          </property>
         </widget>
        </item>
@@ -262,7 +262,7 @@
          </property>
          <property name="icon">
           <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrLast.svg</normaloff>:/Ticon/Icons/VcrLast.svg</iconset>
+           <normaloff>:/Ticon/Icons/VcrLast.png</normaloff>:/Ticon/Icons/VcrLast.png</iconset>
          </property>
         </widget>
        </item>
@@ -276,7 +276,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>:Ticon/Icons/VcrLoop.svg</normaloff>:Ticon/Icons/VcrLoop.svg</iconset>
+           <normaloff>:Ticon/Icons/VcrDisabledLoop.png</normaloff>:Ticon/Icons/VcrDisabledLoop.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>

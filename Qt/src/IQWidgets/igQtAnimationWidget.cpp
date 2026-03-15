@@ -75,11 +75,11 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
             } else {
                 VcrController->onPlay(true);
                 ui->btnPlayOrPause->setIcon(
-                        QIcon(":/Ticon/Icons/VcrPause.svg"));
+                        QIcon(":/Ticon/Icons/VcrPause.png"));
             }
         } else {
             VcrController->onPause();
-            ui->btnPlayOrPause->setIcon(QIcon(":/Ticon/Icons/VcrPlay.svg"));
+            ui->btnPlayOrPause->setIcon(QIcon(":/Ticon/Icons/VcrPlay.png"));
         }
     });
     connect(ui->btnReverseOrPause, &QPushButton::toggled, this,
@@ -91,18 +91,18 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
                     else {
                         VcrController->onPlay(false);
                         ui->btnReverseOrPause->setIcon(
-                                QIcon(":/Ticon/Icons/VcrPause.svg"));
+                                QIcon(":/Ticon/Icons/VcrPause.png"));
                     }
                 } else {
                     VcrController->onPause();
                     ui->btnReverseOrPause->setIcon(
-                            QIcon(":/Ticon/Icons/VcrReverse.svg"));
+                            QIcon(":/Ticon/Icons/VcrReverse.png"));
                 }
             });
     connect(ui->btnLoop, &QPushButton::toggled, this, [&](bool checked) {
         VcrController->onLoop(checked);
         if (checked) {
-            ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrLoop.svg"));
+            ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrDisabledLoop.png"));
         } else {
             ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrDisabledLoop.png"));
         }
