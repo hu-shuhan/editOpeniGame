@@ -273,7 +273,7 @@
        </property>
        <property name="icon">
         <iconset resource="../iGameQtMainWindow.qrc">
-         <normaloff>:/Ticon/Icons/check.png</normaloff>:/Ticon/Icons/check.png</iconset>
+         <normaloff>:/Ticon/Icons/Chart-1.png</normaloff>:/Ticon/Icons/Chart-1.png</iconset>
        </property>
       </widget>
      </item>

@@ -311,10 +311,10 @@ QTabBar::tab:selected {
     background-color: #1E1E1E;
     border-bottom-color: #1E1E1E; /* 选中时与面板背景融合 */
 }
-QToolBar,
-QLabel, QPushButton, QCheckBox, QRadioButton,
-QLineEdit, QComboBox, QGroupBox, QTabBar, QTextEdit,
-QSpinBox, QDoubleSpinBox, QSlider, QProgressBar {
+QMainWindow QToolBar,
+QMainWindow QLabel, QMainWindow QPushButton, QMainWindow QCheckBox, QMainWindow QRadioButton,
+QMainWindow QLineEdit, QMainWindow QComboBox, QMainWindow QGroupBox, QMainWindow QTabBar, QMainWindow QTextEdit,
+QMainWindow QSpinBox, QMainWindow QDoubleSpinBox, QMainWindow QSlider, QMainWindow QProgressBar {
     color: #FFFFFF; /* 设计师指定的字体色：纯白 RGB(255,255,255) */
 }
 

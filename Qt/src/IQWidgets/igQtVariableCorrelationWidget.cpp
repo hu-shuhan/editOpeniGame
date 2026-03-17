@@ -174,6 +174,29 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
         }
     }
 
+    // SpinBox：某些情况下全局样式会导致“白底白字”，QSS 不生效时用 Palette 兜底强制黑底白字
+    auto forceSpinBoxDark = [](QAbstractSpinBox* sb) {
+        if (!sb) return;
+        QPalette p = sb->palette();
+        // 稍微浅一点的深灰底，避免纯黑太“硬”
+        const QColor bg(0x1e, 0x1e, 0x1e);
+        p.setColor(QPalette::Base, bg);
+        p.setColor(QPalette::Window, bg);
+        p.setColor(QPalette::Button, QColor(0x2b, 0x2b, 0x2b));
+        p.setColor(QPalette::Text, QColor(255, 255, 255));
+        p.setColor(QPalette::WindowText, QColor(255, 255, 255));
+        p.setColor(QPalette::ButtonText, QColor(255, 255, 255));
+        sb->setAutoFillBackground(true);
+        sb->setPalette(p);
+        sb->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
+        // 只强制输入区（不要覆盖 up/down button，避免箭头显示异常）
+        sb->setStyleSheet("QAbstractSpinBox QLineEdit { background-color: #1e1e1e; color: #ffffff; border: none; }");
+    };
+    forceSpinBoxDark(ui->choosedAlphaSpinBox);
+    forceSpinBoxDark(ui->unChoosedAlphaSpinBox);
+    forceSpinBoxDark(ui->choosedLightSpinBox);
+    forceSpinBoxDark(ui->unChoosedLightSpinBox);
+
     connect(ui->choosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtVariableCorrelationWidget::ChoosedAlphaSliderChanged);
     connect(ui->choosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
