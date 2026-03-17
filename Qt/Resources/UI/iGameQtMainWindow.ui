@@ -108,6 +108,14 @@ QToolBar QToolButton:hover {
     background-color: #3A3A3A; /* 按钮 hover 高亮 */
     border-radius: 2px;
 }
+QToolBar QToolButton:checked {
+    background-color: rgba(255, 255, 255, 40); /* 选中态：浅灰底 */
+    border: 1px solid rgba(255, 255, 255, 70);
+    border-radius: 2px;
+}
+QToolBar QToolButton:checked:hover {
+    background-color: rgba(255, 255, 255, 55);
+}
 QToolBar QToolButton:pressed {
     background-color: #4A4A4A; /* 按钮按下效果 */
 }

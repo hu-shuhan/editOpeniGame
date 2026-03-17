@@ -680,7 +680,7 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->update();
     });
 
-    connect(ui->action_PickCenter, &QAction::triggered, this, [&](bool checked) {
+    connect(ui->action_PickCenter, &QAction::toggled, this, [&](bool checked) {
         //拖拽
         if (checked) {
             // 显示坐标轴并进入拖拽模式
@@ -692,6 +692,7 @@ void igQtMainWindow::initAllComponents() {
             rendererWidget->setCursor(Qt::ArrowCursor);
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
+        ui->action_PickCenter->setChecked(checked);
         rendererWidget->update();
     });
 
