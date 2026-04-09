@@ -82,6 +82,8 @@
 #include <QSplitter>
 #include <QPointer>
 #include <QTimer>
+#include <QGuiApplication>
+#include <QScreen>
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
@@ -272,6 +274,12 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
 
     return QMainWindow::eventFilter(watched, event);
 }
+
+void igQtMainWindow::resizeEvent(QResizeEvent* event) {
+    QMainWindow::resizeEvent(event);
+    relayoutToolbarWrappers();
+}
+
 igQtMainWindow::~igQtMainWindow() {
     // 清理命令管理器
     if (commandManager) {
@@ -430,6 +438,13 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
 
+    // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
+    QTimer::singleShot(0, this, [this]() {
+        if (m_leftFieldDock) {
+            this->resizeDocks({m_leftFieldDock}, {320}, Qt::Horizontal);
+        }
+    });
+
     // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
     QTimer::singleShot(100, this, [this]() {
         if (rendererWidget && modelTreeWidget) {
@@ -464,6 +479,7 @@ void igQtMainWindow::initToolbarComponent() {
     addToolbarTitle(ui->toolBar_3, "操作");
     addToolbarTitle(ui->toolBar_2, "选择与编辑");
     addToolbarTitle(ui->toolBar_4, "视图设置");
+    relayoutToolbarWrappers();
 }
 
 void igQtMainWindow::initAllComponents() {
@@ -714,11 +730,33 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->resize(width, height);
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
-        if (saved_image.save(path, "BMP")) {
-            QMessageBox::information(this, "截图结果", "保存成功");
-        } else {
-            QMessageBox::information(this, "截图结果", "保存失败");
+        QMessageBox resultBox(this);
+        resultBox.setIcon(QMessageBox::Information);
+        resultBox.setWindowTitle("截图结果");
+        resultBox.setStandardButtons(QMessageBox::Ok);
+        resultBox.setStyleSheet(
+                "QMessageBox { background-color: #1E1E1E; color: #EAEAEA; }"
+                "QMessageBox QLabel { color: #D8D8D8; }"
+                "QMessageBox QLabel { color: #D8D8D8; }");
+        if (auto *okBtn = resultBox.button(QMessageBox::Ok)) {
+            okBtn->setStyleSheet(
+                    "QPushButton {"
+                    " background-color: #2A2A2A;"
+                    " color: #EAEAEA;"
+                    " border: 1px solid #3A3A3A;"
+                    " border-radius: 4px;"
+                    " min-width: 72px;"
+                    " padding: 6px 12px;"
+                    "}"
+                    "QPushButton:hover { background-color: #3A3A3A; }"
+                    "QPushButton:pressed { background-color: #252526; }");
         }
+        if (saved_image.save(path, "BMP")) {
+            resultBox.setText("保存成功");
+        } else {
+            resultBox.setText("保存失败");
+        }
+        resultBox.exec();
     });
 
     connect(ui->action_SaveAnimation, &QAction::triggered, this, [&]() { ui->widget_Animation->saveAnimation(); });
@@ -2701,9 +2739,11 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     QWidget* container = new QWidget(this);
     container->setObjectName("toolbarContainer_" + toolbar->objectName());
     container->setMinimumSize(100, totalH);
+    container->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     // 【删除这行】container->setStyleSheet("background-color: #222222;");
 
     QWidget* topRow = new QWidget(container);
+    topRow->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     QHBoxLayout* hLayout = new QHBoxLayout(topRow);
     hLayout->setContentsMargins(2, 0, 2, 0);
     hLayout->setSpacing(2);
@@ -2752,6 +2792,7 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     QVBoxLayout* vLayout = new QVBoxLayout(container);
     vLayout->setContentsMargins(2, 0, 2, 16);  // 增加下边距到约12pt，让标题文字与下方边界有距离
     vLayout->setSpacing(8);  // 增加间距
+    vLayout->setSizeConstraint(QLayout::SetFixedSize);
     vLayout->addWidget(topRow, 1);
 
     QLabel* titleLabel = new QLabel(title, container);
@@ -2768,18 +2809,74 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     wrapper->setMovable(true);
     wrapper->setFloatable(true);
     wrapper->setMinimumHeight(totalH);
-    wrapper->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    wrapper->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     QWidgetAction* wrapperAction = new QWidgetAction(wrapper);
     wrapperAction->setDefaultWidget(container);
     wrapper->addAction(wrapperAction);
+    wrapper->setMinimumWidth(container->sizeHint().width() + 8);
 
     this->addToolBar(area, wrapper);
 }
 
+void igQtMainWindow::relayoutToolbarWrappers() {
+    QList<QToolBar*> wrappers;
+    const QStringList orderedNames = {
+            "wrapper_toolBar_meshfile",
+            "wrapper_toolBar_3",
+            "wrapper_toolBar_2",
+            "wrapper_toolBar_4"
+    };
+
+    for (const QString& name : orderedNames) {
+        if (QToolBar* tb = this->findChild<QToolBar*>(name)) {
+            wrappers.push_back(tb);
+        }
+    }
+    if (wrappers.isEmpty()) return;
+
+    // 每次重排前先清掉舊分行點，避免重複斷行導致排版漂移
+    for (QToolBar* tb : wrappers) {
+        this->removeToolBarBreak(tb);
+    }
+
+    const int availableWidth = qMax(320, this->width() - 40);
+    const int gap = 6;
+    int usedWidth = 0;
+
+    for (QToolBar* tb : wrappers) {
+        if (!tb) continue;
+        const int needWidth = qMax(tb->minimumWidth(), tb->sizeHint().width());
+        if (usedWidth > 0 && (usedWidth + needWidth) > availableWidth) {
+            this->insertToolBarBreak(tb);
+            usedWidth = 0;
+        }
+        usedWidth += needWidth + gap;
+    }
+}
+
 void igQtMainWindow::UpdateIcons()
 {
-    int iconSize = 44;  /* 略缩小以利图标与图下文字完整显示，60 易显不全 */
+    // 依螢幕寬度與 DPI 動態縮放，避免高縮放或低解析度下 toolbar 後段按鈕被擠壓。
+    QScreen* screen = this->screen();
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
+
+    const qreal dpiScale = screen ? qMax<qreal>(1.0, screen->devicePixelRatio()) : 1.0;
+    const int availableWidth = screen ? screen->availableGeometry().width() : this->width();
+
+    int iconSize = 44; // 基準大小
+    if (availableWidth <= 1366) {
+        iconSize = 32;
+    } else if (availableWidth <= 1600) {
+        iconSize = 36;
+    } else if (availableWidth <= 1920) {
+        iconSize = 40;
+    }
+
+    // 在高 DPI 螢幕上進一步收斂，避免實際物理像素過大造成佈局擁擠。
+    iconSize = qBound(24, static_cast<int>(iconSize / dpiScale), 44);
 
     for (QToolBar* tb : this->findChildren<QToolBar*>()) {
         if (tb->objectName().startsWith("wrapper_"))

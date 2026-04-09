@@ -10,6 +10,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScreen>
+#include <QHeaderView>
 #include <iGameSceneManager.h>
 #include <qaction.h>
 #include <qdebug.h>
@@ -211,12 +212,30 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     modelTreeWidget->setIndentation(10);
     modelTreeWidget->setAlternatingRowColors(true);
     modelTreeWidget->setUniformRowHeights(true);
+    // 修复：首行图标显示被裁剪（行高小于图标高度时会只显示上半截）
+    modelTreeWidget->setIconSize(QSize(20, 24));
+    modelTreeWidget->setStyleSheet(modelTreeWidget->styleSheet() +
+                                   QStringLiteral("QTreeView::item{height:28px;}"));
 
 
-    propertyWidget->setHeaderVisible(false);
+    // 允许手动拖拽调整属性名/属性值两列宽度（拖动表头的分隔线）
+    propertyWidget->setHeaderVisible(true);
+    propertyWidget->setResizeMode(QtTreePropertyBrowser::Interactive);
+    propertyWidget->setSplitterPosition(static_cast<int>(totalWidth * 0.40));
     propertyManager = new QtVariantPropertyManager(propertyWidget);
     editFactory = new QtVariantEditorFactory(propertyWidget);
     propertyWidget->setFactoryForManager(propertyManager, editFactory);
+    // 进一步：关闭 elide（...）策略，必要时允许横向滚动以显示完整文本
+    if (auto* propTree = propertyWidget->findChild<QTreeWidget*>()) {
+        propTree->setTextElideMode(Qt::ElideNone);
+        if (auto* hdr = propTree->header()) {
+            // 允许拖拽调整两列宽度：必须是 Interactive，Stretch/ResizeToContents 会锁死无法拖动
+            hdr->setStretchLastSection(false);
+            hdr->setSectionResizeMode(0, QHeaderView::Interactive);
+            hdr->setSectionResizeMode(1, QHeaderView::Interactive);
+            hdr->setMinimumHeight(16); // 头部保持很窄，但可拖拽分隔线
+        }
+    }
 
     propertyWidget->removeProperty(objectGroup);
     objectGroup =
