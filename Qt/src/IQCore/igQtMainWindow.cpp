@@ -2671,18 +2671,19 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
     // 2. 创建容器和布局（原逻辑保留，微调尺寸计算）
     QWidget* container = new QWidget(toolbar);
     QGridLayout* grid = new QGridLayout(container);
-    const int gridSpacing = 4;
+    const int gridSpacing = 6;
     grid->setSpacing(gridSpacing);
     grid->setContentsMargins(0, 0, 0, 0);
 
     QSize iconSize = toolbar->iconSize();
-    const int singleRowHeight = iconSize.height() + 8;
-    const int rowHeight = (singleRowHeight - gridSpacing) / 2;
-    const int smallIcon = qMax(16, rowHeight - 6);
+    // 两行视图按钮比默认更大，提升可见性和点击性
+    const int targetIcon = qMax(20, static_cast<int>(iconSize.height() * 0.65));
+    const int rowHeight = targetIcon + 8;
+    const int containerHeight = 2 * rowHeight + gridSpacing;
     QSize btnSize(rowHeight, rowHeight);
 
     // 【修改1】放宽尺寸约束，避免被父布局挤压
-    container->setMinimumHeight(singleRowHeight);
+    container->setMinimumHeight(containerHeight);
     container->setMinimumWidth(3 * rowHeight + 2 * gridSpacing); // 去掉fixedHeight，改用minimumHeight
     container->setObjectName("twoRowViewGrid");
 
@@ -2694,7 +2695,7 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
         QToolButton* btn = new QToolButton(container);
         btn->setDefaultAction(act);
         btn->setToolButtonStyle(Qt::ToolButtonIconOnly);
-        btn->setIconSize(QSize(smallIcon, smallIcon));
+        btn->setIconSize(QSize(targetIcon, targetIcon));
         btn->setAutoRaise(true);
         btn->setFocusPolicy(Qt::NoFocus);
         btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
