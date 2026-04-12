@@ -68,15 +68,18 @@ public:
     void initStreamTracer(Model::Pointer _model);
     void initStreamTracer(DataObject::Pointer obj);
     void initSubmodelLinks();
-    std::vector<Vector3f> computeSubBlockCenters(const Vector3f& minCorner, const Vector3f& maxCorner, int splitCount);
-    std::vector<Vector3f> getAllSubBlockCenters(const Vector3f& boxMax,   // 包围盒最大值
-                                                const Vector3f& boxMin,   // 包围盒最小值
-                                                const Vector3f& focusMax, // 重点观察区域最大值
-                                                const Vector3f& focusMin, // 重点观察区域最小值
-                                                int boxSplitCount,        // 包围盒分割数量（e×e×e）
-                                                int focusSplitCount       // 重点观察区域分割数量（f×f×f）
+    std::vector<Vector3f> computeSubBlockCenters(const Vector3f& minCorner, const Vector3f& maxCorner, int splitX,
+                                                 int splitY, int splitZ);
+    std::vector<Vector3f> getAllSubBlockCenters(const Vector3f& boxMax,                      // 包围盒最大值
+                                                const Vector3f& boxMin,                      // 包围盒最小值
+                                                const Vector3f& focusMax,                    // 重点观察区域最大值
+                                                const Vector3f& focusMin,                    // 重点观察区域最小值
+                                                int boxSplitX, int boxSplitY, int boxSplitZ, // 包围盒分割数量
+                                                int focusSplitX, int focusSplitY,
+                                                int focusSplitZ // 重点观察区域分割数量
     );
-    std::vector<Vector3f> getModelSelect();
+    std::vector<Vector3f> getModelSelect(int boxSplitX = 4, int boxSplitY = 4, int boxSplitZ = 4, int focusSplitX = 4,
+                                         int focusSplitY = 4, int focusSplitZ = 4);
     std::vector<Vector3f> getModelSelectMax(std::string VectorName, int numOfSeeds);
     std::vector<Vector3f> getModelSelectMin(std::string VectorName, int numOfSeeds);
     std::vector<Vector3f> currentV;
@@ -84,10 +87,10 @@ public:
     float maxF = FLT_MIN;
     float minF = FLT_MAX;
     bool CellData2PointData(std::string vectorName);
-    void SetMesh(VolumeMesh::Pointer _mesh) { 
-        if (_mesh)
-        std::cout << "isPoly:"<< _mesh->GetIsPolyhedronType() << std::endl;
-        this->mesh = _mesh; };
+    void SetMesh(VolumeMesh::Pointer _mesh) {
+        if (_mesh) std::cout << "isPoly:" << _mesh->GetIsPolyhedronType() << std::endl;
+        this->mesh = _mesh;
+    };
     auto GetModel() { return this->model; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
     void SetSubFlag(bool Subflag) { this->isSubModel = Subflag; };
@@ -140,7 +143,7 @@ public:
     showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
                    std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine,
                    float lengthOfStep, float terminalSpeed, int maxSteps);
-    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum,bool isPoly=false);
+    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum, bool isPoly = false);
     DataObjectId meshId = -1;
 
 
@@ -230,7 +233,8 @@ private:
 * @param[in] v1  Input a vertex that makes up the face
 * @param[in] v2  Input a vertex that makes up the face
 */
-    bool checkContact(const Vector3f& coord, const Vector3f& v0,const Vector3f& v1,const Vector3f& v2);
+    bool checkContact(const Vector3f& coord, const Vector3f& v0, const Vector3f& v1, const Vector3f& v2);
+
 private:
     struct adjacent {
         std::vector<long long> offset;
