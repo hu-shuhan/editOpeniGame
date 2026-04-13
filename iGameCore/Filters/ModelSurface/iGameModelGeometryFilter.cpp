@@ -499,8 +499,7 @@ struct ExtractCellBoundaries {
 int ModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                 SurfaceMesh::Pointer exc) {
     SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(input);
-    //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
-    //                     << Mesh->GetNumberOfFaces() << " faces.");
+    igDebug("Input has {} points and {} faces.", Mesh->GetNumberOfPoints(), Mesh->GetNumberOfFaces());
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
     igIndex64 numCells = Mesh->GetNumberOfFaces();

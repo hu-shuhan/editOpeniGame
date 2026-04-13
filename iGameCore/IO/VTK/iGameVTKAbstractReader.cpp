@@ -844,6 +844,8 @@ bool VTKAbstractReader::ReadUnstructuredGrid() {
 bool VTKAbstractReader::ReadSurfaceMesh() {
     if (m_SurfaceMesh == nullptr) { m_SurfaceMesh = SurfaceMesh::New(); }
     m_DataObjectType = IG_SURFACE_MESH;
+    m_SurfaceMesh->SetFaces(iGame::CellArray::New());
+
     char line[IGAME_CELL_MAX_SIZE];
     char buffer[IGAME_CELL_MAX_SIZE];
     igIndex i = 0, PointsNum = 0, CellsNum = 0, size = 0;
@@ -866,7 +868,30 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
             points->Reserve(npts);
             if (!this->ReadPointCoordinates(points, npts)) { return false; }
             m_SurfaceMesh->SetPoints(points);
-        } else if (!strncmp(line, "polygons", 8)) {
+        } 
+          
+        else if (!strncmp(line, "lines", 5)) {
+            if (this->m_FileType == IGAME_BINARY) {
+                this->ReadCellsWithOffsetType(ncells, CellsId, CellsConnect);
+            } else {
+                const char* tmpIS = this->IS;
+                if (!(this->Read(&ncells) && this->Read(&size))) {
+                    igError("Cannot read cells!");
+                    return false;
+                }
+                this->SkipNullData();
+                if (strncmp(this->IS, "OFFSETS", 7) == 0) {
+                    this->IS = tmpIS;
+                    this->ReadCellsWithOffsetType(ncells, CellsId, CellsConnect);
+                } else {
+                    this->ReadCellsWithCellSizeType(ncells, size, CellsId, CellsConnect);
+                }
+            }
+            m_SurfaceMesh->SetEdges(this->CreateCellArray(CellsId, CellsConnect));
+        }
+        
+        
+        else if (!strncmp(line, "polygons", 8)) {
 
             if (this->m_FileType == IGAME_BINARY) {
                 this->ReadCellsWithOffsetType(ncells, CellsId, CellsConnect);
