@@ -84,6 +84,10 @@
 #include <QTimer>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QApplication>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
@@ -215,24 +219,36 @@ void igQtMainWindow::initCustomTitleBar() {
 
     // 按钮功能
     connect(m_btnMinimize, &QPushButton::clicked, this, [this]() {
-        this->showMinimized();
+        minimizeWithAnimation();
     });
 
     connect(m_btnMaximize, &QPushButton::clicked, this, [this]() {
-        if (this->isMaximized()) {
-            this->showNormal();
-        } else {
-            this->showMaximized();
-        }
+        toggleMaximizeRestore();
     });
 
     connect(m_btnClose, &QPushButton::clicked, this, [this]() {
         this->close();
     });
+
+    // 监听全局鼠标释放，防止拖动状态在某些场景下卡住
+    qApp->installEventFilter(this);
+    updateMaximizeButtonIcon();
 }
 
 bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (!m_titleBar) return QMainWindow::eventFilter(watched, event);
+
+    // 全局兜底：只要左键释放就结束拖动，避免窗口“黏在鼠标上”
+    if (m_titleBarDragging) {
+        if (event->type() == QEvent::MouseButtonRelease) {
+            auto* me = static_cast<QMouseEvent*>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_titleBarDragging = false;
+            }
+        } else if (event->type() == QEvent::WindowDeactivate) {
+            m_titleBarDragging = false;
+        }
+    }
 
     // 按钮自身的事件交给 Qt 处理，保证 clicked() 能正常触发
     if (qobject_cast<QPushButton*>(watched)) {
@@ -254,7 +270,27 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
             case QEvent::MouseMove: {
                 auto* me = static_cast<QMouseEvent*>(event);
                 if (m_titleBarDragging && (me->buttons() & Qt::LeftButton)) {
+                    if (isMaximized()) {
+                        const qreal ratioX = qBound<qreal>(0.0, static_cast<qreal>(me->pos().x()) / qMax(1, m_titleBar->width()), 1.0);
+                        showNormal();
+                        const int newX = me->globalPos().x() - static_cast<int>(width() * ratioX);
+                        const int newY = me->globalPos().y() - m_titleBar->height() / 2;
+                        m_dragOffset = me->globalPos() - QPoint(newX, newY);
+                        move(newX, newY);
+                        return true;
+                    }
                     move(me->globalPos() - m_dragOffset);
+                    return true;
+                }
+                if (!(me->buttons() & Qt::LeftButton)) {
+                    m_titleBarDragging = false;
+                }
+                break;
+            }
+            case QEvent::MouseButtonDblClick: {
+                auto* me = static_cast<QMouseEvent*>(event);
+                if (me->button() == Qt::LeftButton) {
+                    toggleMaximizeRestore();
                     return true;
                 }
                 break;
@@ -273,6 +309,90 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
     }
 
     return QMainWindow::eventFilter(watched, event);
+}
+
+void igQtMainWindow::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::WindowStateChange) {
+        updateMaximizeButtonIcon();
+    }
+    QMainWindow::changeEvent(event);
+}
+
+void igQtMainWindow::minimizeWithAnimation() {
+    if (m_isMinimizing || isMinimized()) {
+        return;
+    }
+
+    m_isMinimizing = true;
+    m_geometryBeforeMinimize = geometry();
+
+    const QRect startRect = m_geometryBeforeMinimize;
+    const QPoint center = startRect.center();
+    const int endW = qMax(20, startRect.width() / 8);
+    const int endH = qMax(20, startRect.height() / 8);
+    const QRect endRect(center.x() - endW / 2, center.y() - endH / 2, endW, endH);
+
+    auto* anim = new QPropertyAnimation(this, "geometry");
+    anim->setDuration(160);
+    anim->setStartValue(startRect);
+    anim->setEndValue(endRect);
+    anim->setEasingCurve(QEasingCurve::InCubic);
+
+    connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
+        this->showMinimized();
+        this->setGeometry(m_geometryBeforeMinimize);
+        m_isMinimizing = false;
+        anim->deleteLater();
+    });
+
+    anim->start();
+}
+
+void igQtMainWindow::toggleMaximizeRestore() {
+    if (isMaximized()) {
+        if (m_isRestoringFromMaximized) {
+            return;
+        }
+
+        m_isRestoringFromMaximized = true;
+        QRect targetRect = m_normalGeometry;
+        if (!targetRect.isValid() || targetRect.width() < 100 || targetRect.height() < 100) {
+            QRect workArea = QGuiApplication::primaryScreen()->availableGeometry();
+            targetRect = QRect(workArea.x() + workArea.width() / 10,
+                               workArea.y() + workArea.height() / 10,
+                               workArea.width() * 8 / 10,
+                               workArea.height() * 8 / 10);
+        }
+
+        QRect startRect = QGuiApplication::primaryScreen()->availableGeometry();
+        if (windowHandle() && windowHandle()->screen()) {
+            startRect = windowHandle()->screen()->availableGeometry();
+        }
+
+        showNormal();
+        setGeometry(startRect);
+
+        auto* anim = new QPropertyAnimation(this, "geometry");
+        anim->setDuration(170);
+        anim->setStartValue(startRect);
+        anim->setEndValue(targetRect);
+        anim->setEasingCurve(QEasingCurve::OutCubic);
+        connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
+            m_isRestoringFromMaximized = false;
+            updateMaximizeButtonIcon();
+            anim->deleteLater();
+        });
+        anim->start();
+    } else {
+        m_normalGeometry = geometry();
+        showMaximized();
+        updateMaximizeButtonIcon();
+    }
+}
+
+void igQtMainWindow::updateMaximizeButtonIcon() {
+    if (!m_btnMaximize) return;
+    m_btnMaximize->setText(isMaximized() ? QStringLiteral("❐") : QStringLiteral("□"));
 }
 
 void igQtMainWindow::resizeEvent(QResizeEvent* event) {
@@ -2746,8 +2866,8 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     QWidget* topRow = new QWidget(container);
     topRow->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     QHBoxLayout* hLayout = new QHBoxLayout(topRow);
-    hLayout->setContentsMargins(2, 0, 2, 0);
-    hLayout->setSpacing(2);
+    hLayout->setContentsMargins(1, 0, 1, 0);
+    hLayout->setSpacing(1);
     hLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
     for (QAction* act : actions) {
@@ -2776,10 +2896,11 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
         b->setIconSize(iconSize);
         b->setToolButtonStyle(btnStyle);
         b->setAutoRaise(true);
-        b->setMinimumSize(iconSize.width() + 4, iconSize.height() + 4);
+        const int buttonPadding = qMax(1, iconSize.width() / 20);
+        b->setMinimumSize(iconSize.width() + 2 * buttonPadding, iconSize.height() + 2 * buttonPadding);
         b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         b->setStyleSheet(
-                "QToolButton { border: none; margin: 0; padding: 2px; }"
+                "QToolButton { border: none; margin: 0; padding: 1px; }"
                 "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
                 "QToolButton:pressed { background-color: #4A4A4A; }"
         );

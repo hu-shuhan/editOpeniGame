@@ -18,6 +18,7 @@
 #include <IQCore/igQtExportModule.h>
 #include <QtWidgets/QMainWindow>
 #include <QResizeEvent>
+#include <QRect>
 #undef QT_NO_OPENGL
 
 class igQtModelDrawWidget;
@@ -106,6 +107,10 @@ private:
     QPushButton* m_btnClose = nullptr;
     bool m_titleBarDragging = false;
     QPoint m_dragOffset;
+    bool m_isMinimizing = false;
+    bool m_isRestoringFromMaximized = false;
+    QRect m_geometryBeforeMinimize;
+    QRect m_normalGeometry;
 
     // 左侧自定义“数据面板”：替代 QDockWidget 自带 tab 样式
     QDockWidget* m_leftFieldDock = nullptr;
@@ -120,7 +125,13 @@ private:
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
     int streamTreeIndex = -1;
+
+private:
+    void minimizeWithAnimation();
+    void toggleMaximizeRestore();
+    void updateMaximizeButtonIcon();
 };
 
 
