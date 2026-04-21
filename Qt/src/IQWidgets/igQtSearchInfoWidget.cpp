@@ -1,4 +1,4 @@
-#include "igQtSearchInfoWidget.h"
+#include "IQWidgets/igQtSearchInfoWidget.h"
 #include "ui_igQtSearchInfo.h"
 #include <QDockWidget>
 

@@ -9,6 +9,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QScrollArea>
 #include "iGameDataObject.h"
 class igQtModelInformationWidget : public QWidget {
 public:
@@ -27,6 +28,7 @@ private:
 	void CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj, QFormLayout* formLayout);
 
 private:
+	QScrollArea* scrollArea;
 	QFrame* informationFrame;
 	QVBoxLayout* frameLayout;
 };

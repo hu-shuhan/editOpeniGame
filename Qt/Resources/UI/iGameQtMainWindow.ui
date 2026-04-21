@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>iGameVis</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../iGameQtMainWindow.qrc">
