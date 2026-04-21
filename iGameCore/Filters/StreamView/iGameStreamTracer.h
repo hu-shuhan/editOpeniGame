@@ -82,6 +82,7 @@ public:
                                          int focusSplitY = 4, int focusSplitZ = 4);
     std::vector<Vector3f> getModelSelectMax(std::string VectorName, int numOfSeeds);
     std::vector<Vector3f> getModelSelectMin(std::string VectorName, int numOfSeeds);
+    std::vector<Vector3f> getEntropySeeding(std::string vectorName, float topPercent = 0.1f);
     std::vector<Vector3f> currentV;
     void SetSingleThread(bool single = false) { this->m_IsSingleThread = single; };
     float maxF = FLT_MIN;

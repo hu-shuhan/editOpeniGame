@@ -937,8 +937,6 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
     if (model == nullptr && mesh == nullptr) return tem;
     if (!isSubModel) {
         if (isChange) {
-            int numOfPoints = mesh->GetNumberOfPoints();
-            clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
             auto Vector = PointData->GetAttribute(vectorName);
             std::cout << "Vector type is:" << Vector.attachmentType << std::endl;
@@ -950,168 +948,117 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                 minF = std::min(static_cast<float>(minF),
                                 static_cast<float>(sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])));
             }
-            int component = Vector.pointer->GetDimension();
             isChange = false;
         }
-    } else {
-        if (isChange) { isChange = false; }
     }
     //   std::cout << "333333333333333" << std::endl;
 
     auto func = [&](int i) -> void {
-        //std::cout << i << " start\n";
-        // auto time1 = clock();
-        int steps = maxSteps;
-        auto& _coord = seed[i];
-        tem[i].emplace_back(_coord[0]);
-        tem[i].emplace_back(_coord[1]);
-        tem[i].emplace_back(_coord[2]);
-        bool inside = true;
-        bool flag = true;
-        igIndex flag1 = -1;
-        float length = 0;
-        while (flag && length < lengOfStreamLine && steps-- > 0) {
-            inside = false;
-            bool check = false;
-            Vector3f k[7];
-            auto temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
-            k[1] = lengthOfStep * safeNormalized(temV) * maxLength;
-            streamColor[i].emplace_back(temV[0]);
-            streamColor[i].emplace_back(temV[1]);
-            streamColor[i].emplace_back(temV[2]);
-            if (inside) {
-                inside = false;
-            } else {
-                flag = false;
-                k[1] = (float) 0.0 * temV;
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-                streamColor[i].emplace_back(temV[0]);
-                streamColor[i].emplace_back(temV[1]);
-                streamColor[i].emplace_back(temV[2]);
-                break;
-            }
-            k[2] = lengthOfStep *
-                   safeNormalized(
-                           interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed)) *
-                   maxLength;
-            if (inside) {
-                inside = false;
-            } else {
-                flag = false;
-                k[2] = (float) 0.0 * temV;
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-                streamColor[i].emplace_back(temV[0]);
-                streamColor[i].emplace_back(temV[1]);
-                streamColor[i].emplace_back(temV[2]);
-                break;
-            }
+        auto traceOneWay = [&](float direction, std::vector<float>& pts, std::vector<float>& cols) {
+            int steps = maxSteps;
+            Vector3f _coord = seed[i];
+            igIndex flag1 = -1;
+            bool inside = true;
+            bool flag = true;
+            float length = 0;
 
-            k[3] = lengthOfStep *
-                   safeNormalized(interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
-                                                      vectorName, terminalSpeed)) *
-                   maxLength;
-            if (inside) {
+            while (flag && length < lengOfStreamLine && steps-- > 0) {
                 inside = false;
-            } else {
-                flag = false;
-                k[3] = (float) 0.0 * temV;
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-                streamColor[i].emplace_back(temV[0]);
-                streamColor[i].emplace_back(temV[1]);
-                streamColor[i].emplace_back(temV[2]);
-                break;
-            }
+                Vector3f k[7];
+                Vector3f temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
+                if (!inside || temV.length() < terminalSpeed) {
+                    flag = false;
+                    break;
+                }
 
-            k[4] = lengthOfStep *
-                   safeNormalized(interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
-                                                      flag1, vectorName, terminalSpeed)) *
-                   maxLength;
-            if (inside) {
-                inside = false;
-            } else {
-                flag = false;
-                k[4] = (float) 0.0 * temV;
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-                streamColor[i].emplace_back(temV[0]);
-                streamColor[i].emplace_back(temV[1]);
-                streamColor[i].emplace_back(temV[2]);
-                break;
-            }
+                pts.emplace_back(_coord[0]);
+                pts.emplace_back(_coord[1]);
+                pts.emplace_back(_coord[2]);
+                cols.emplace_back(temV[0]);
+                cols.emplace_back(temV[1]);
+                cols.emplace_back(temV[2]);
 
-            k[5] = lengthOfStep *
-                   safeNormalized(interpolationVector(_coord + k[1] * B[3][0] + k[2] * B[3][1] + k[3] * B[3][2] +
-                                                              k[4] * B[3][3],
-                                                      inside, flag1, vectorName, terminalSpeed)) *
-                   maxLength;
-            if (inside) {
-                inside = false;
-            } else {
-                flag = false;
-                k[5] = (float) 0.0 * temV;
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-                streamColor[i].emplace_back(temV[0]);
-                streamColor[i].emplace_back(temV[1]);
-                streamColor[i].emplace_back(temV[2]);
-                break;
-            }
+                // RK45 Stages
+                k[1] = (lengthOfStep * safeNormalized(temV) * maxLength) * direction;
 
-            k[6] = lengthOfStep *
-                   safeNormalized(interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
-                                                              k[4] * B[4][3] + k[5] * B[4][4],
-                                                      inside, flag1, vectorName, terminalSpeed)) *
-                   maxLength;
-            if (inside) {
-                inside = false;
-            } else {
-                flag = false;
-                k[6] = (float) 0.0 * temV;
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-                streamColor[i].emplace_back(temV[0]);
-                streamColor[i].emplace_back(temV[1]);
-                streamColor[i].emplace_back(temV[2]);
-                break;
-            }
+                auto computeK = [&](int stage, const Vector3f& offset) -> bool {
+                    bool sInside = false;
+                    Vector3f sV = interpolationVector(_coord + offset, sInside, flag1, vectorName, terminalSpeed);
+                    if (!sInside) return false;
+                    k[stage] = (lengthOfStep * safeNormalized(sV) * maxLength) * direction;
+                    return true;
+                };
 
-            if (flag) {
-                Vector3f temC(0, 0, 0);
-                for (int i = 0; i < 6; i++) { temC += k[i + 1] * C[i]; }
-                length += temC.length();
-                _coord += temC;
+                if (!computeK(2, k[1] * B[0][0])) { flag = false; }
+                if (flag && !computeK(3, k[1] * B[1][0] + k[2] * B[1][1])) { flag = false; }
+                if (flag && !computeK(4, k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2])) { flag = false; }
+                if (flag && !computeK(5, k[1] * B[3][0] + k[2] * B[3][1] + k[3] * B[3][2] + k[4] * B[3][3])) {
+                    flag = false;
+                }
+                if (flag &&
+                    !computeK(6, k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] + k[4] * B[4][3] + k[5] * B[4][4])) {
+                    flag = false;
+                }
+
+                if (flag) {
+                    Vector3f temC(0, 0, 0);
+                    for (int j = 0; j < 6; j++) { temC += k[j + 1] * C[j]; }
+                    length += temC.length();
+                    _coord += temC;
+
+                    pts.emplace_back(_coord[0]);
+                    pts.emplace_back(_coord[1]);
+                    pts.emplace_back(_coord[2]);
+
+                    Vector3f nextV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
+                    cols.emplace_back(nextV[0]);
+                    cols.emplace_back(nextV[1]);
+                    cols.emplace_back(nextV[2]);
+                } else {
+                    // Fill the second point of the last segment even if we failed midway
+                    pts.emplace_back(_coord[0]);
+                    pts.emplace_back(_coord[1]);
+                    pts.emplace_back(_coord[2]);
+                    cols.emplace_back(temV[0]);
+                    cols.emplace_back(temV[1]);
+                    cols.emplace_back(temV[2]);
+                }
             }
-            tem[i].emplace_back(_coord[0]);
-            tem[i].emplace_back(_coord[1]);
-            tem[i].emplace_back(_coord[2]);
-            temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
-            streamColor[i].emplace_back(temV[0]);
-            streamColor[i].emplace_back(temV[1]);
-            streamColor[i].emplace_back(temV[2]);
-            if (flag && length < lengOfStreamLine && steps != 0) {
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-            }
+        };
+
+        std::vector<float> fPts, fCols, bPts, bCols;
+        traceOneWay(1.0f, fPts, fCols);  // Forward
+        traceOneWay(-1.0f, bPts, bCols); // Backward
+
+        // Merge: Backward (reversed) + Forward
+        // Backward segments are (S, B1), (B1, B2)...
+        // We want (Bn, Bn-1), ..., (B1, S)
+        for (int k = (int) bPts.size() / 6 - 1; k >= 0; --k) {
+            tem[i].push_back(bPts[k * 6 + 3]);
+            tem[i].push_back(bPts[k * 6 + 4]);
+            tem[i].push_back(bPts[k * 6 + 5]);
+            tem[i].push_back(bPts[k * 6 + 0]);
+            tem[i].push_back(bPts[k * 6 + 1]);
+            tem[i].push_back(bPts[k * 6 + 2]);
+
+            streamColor[i].push_back(bCols[k * 6 + 3]);
+            streamColor[i].push_back(bCols[k * 6 + 4]);
+            streamColor[i].push_back(bCols[k * 6 + 5]);
+            streamColor[i].push_back(bCols[k * 6 + 0]);
+            streamColor[i].push_back(bCols[k * 6 + 1]);
+            streamColor[i].push_back(bCols[k * 6 + 2]);
         }
+        // Add Forward segments
+        for (float val: fPts) tem[i].push_back(val);
+        for (float val: fCols) streamColor[i].push_back(val);
     };
+
     processCount = 0;
     totalProcess = seed.size();
 
     //  std::cout << "555555555555555" << std::endl;
     if (m_IsSingleThread) {
-        //    if (true) {
         for (int i = 0; i < seed.size(); i++) {
-            //for (int i = 19; i < 22; i++) {
             func(i);
             processCount++;
             this->UpdateProgress((double) processCount / seed.size());
@@ -1120,9 +1067,6 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
         ThreadPool::Pointer tp = ThreadPool::Instance();
         std::vector<std::future<void>> result(seed.size());
         for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
-        // for (int i = 99; i < 100; i++) { result[i] = tp->Commit(func, i); }
-
-        // for (int i = 99; i < 100; i++) {
         for (int i = 0; i < seed.size(); i++) {
             result[i].wait();
             processCount++;
@@ -1132,10 +1076,11 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
 
     // std::cout << "6666666666666666" << std::endl;
     return tem;
-
-
-    //	std::cout << "time: " << clock() - time1 << std::endl;
 }
+
+
+//	std::cout << "time: " << clock() - time1 << std::endl;
+
 
 float StreamTracer::distance2Line(Vector3f point, Vector3f lineP1, Vector3f lineP2) {
     Vector3f pP1 = point - lineP1;
@@ -2172,6 +2117,114 @@ void StreamTracer::precomputeTrigValues() {
         trigCache.tanCache[i] = std::tan(angle);
         if (angle <= 1.0) { trigCache.asinCache[i] = std::asin(angle); }
     }
+}
+
+std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, float topPercent) {
+    if (!ptFinder[0]) return {};
+    int totalBoxes = ptFinder[0]->GetNumberOfBoxes();
+    if (totalBoxes <= 0) return {};
+
+    if (currentV.empty() || isChange) {
+        currentV = std::move(GetUnifiedVectorField(vectorName));
+        isChange = false;
+    }
+
+    struct BoxStat {
+        float entropy;
+        int index;
+    };
+    std::vector<BoxStat> boxStats(totalBoxes);
+
+    // Phase 1: Parallel Entropy Calculation
+    ThreadPool::parallelFor(0, totalBoxes, [&](int start, int end) {
+        for (int i = start; i < end; ++i) {
+            boxStats[i].index = i;
+            auto ptIds = ptFinder[0]->GetPointsInBox(i);
+            if (!ptIds || ptIds->GetNumberOfIds() <= 1) {
+                boxStats[i].entropy = 0;
+                continue;
+            }
+
+            std::vector<int> counts(360, 0);
+            int n = ptIds->GetNumberOfIds();
+            for (int j = 0; j < n; ++j) {
+                igIndex pid = ptIds->GetId(j);
+                if (pid < 0 || pid >= currentV.size()) continue;
+                const Vector3f& v = currentV[pid];
+                float mag = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+                if (mag < 1e-8f) continue;
+
+                // Equal-Area partitioning (Lambert Cylindrical Equal-Area)
+                float phi = std::atan2(v[1], v[0]); // Azimuthal angle [-PI, PI]
+                float cosTheta = v[2] / mag;        // cos(polar angle) [-1, 1]
+
+                // Azimuthal: 24 bins
+                int phiBin = (int) ((phi + M_PI) / (2.0f * M_PI) * 24);
+                if (phiBin >= 24) phiBin = 23;
+                if (phiBin < 0) phiBin = 0;
+
+                // Polar: 15 bins based on cosTheta to ensure equal area
+                int cosBin = (int) ((cosTheta + 1.0f) / 2.0f * 15);
+                if (cosBin >= 15) cosBin = 14;
+                if (cosBin < 0) cosBin = 0;
+
+                int bin = phiBin * 15 + cosBin;
+                counts[bin]++;
+            }
+
+            float H = 0;
+            for (int b = 0; b < 360; ++b) {
+                if (counts[b] > 0) {
+                    float p = (float) counts[b] / n;
+                    H -= p * std::log(p);
+                }
+            }
+            boxStats[i].entropy = H;
+        }
+    });
+
+    // Phase 2: Selection of top 1/10 boxes
+    std::sort(boxStats.begin(), boxStats.end(),
+              [](const BoxStat& a, const BoxStat& b) { return a.entropy > b.entropy; });
+
+    int numSelected = std::max(1, (int) (totalBoxes * topPercent));
+    std::vector<Vector3f> allSeeds;
+    std::mutex mtx;
+
+    // Phase 3: Parallel Selection of Extreme Magnitude Points
+    ThreadPool::parallelFor(0, numSelected, [&](int start, int end) {
+        std::vector<Vector3f> localSeeds;
+        for (int i = start; i < end; ++i) {
+            int boxIdx = boxStats[i].index;
+            auto ptIds = ptFinder[0]->GetPointsInBox(boxIdx);
+            if (!ptIds || ptIds->GetNumberOfIds() == 0) continue;
+
+            int n = ptIds->GetNumberOfIds();
+            std::vector<std::pair<float, igIndex>> mags;
+            mags.reserve(n);
+            for (int j = 0; j < n; ++j) {
+                igIndex pid = ptIds->GetId(j);
+                const Vector3f& v = currentV[pid];
+                mags.push_back({v[0] * v[0] + v[1] * v[1] + v[2] * v[2], pid});
+            }
+            std::sort(mags.begin(), mags.end());
+
+            // 2 Smallest
+            for (int k = 0; k < std::min(2, (int) mags.size()); ++k) {
+                localSeeds.push_back(mesh->GetPoint(mags[k].second));
+            }
+            // 2 Largest
+            for (int k = 0; k < std::min(2, (int) mags.size()); ++k) {
+                int idx = mags.size() - 1 - k;
+                if (idx < std::min(2, (int) mags.size())) break; // Avoid overlap with Smallest
+                localSeeds.push_back(mesh->GetPoint(mags[idx].second));
+            }
+        }
+        std::lock_guard<std::mutex> lock(mtx);
+        allSeeds.insert(allSeeds.end(), localSeeds.begin(), localSeeds.end());
+    });
+
+    return allSeeds;
 }
 
 void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum, bool isPoly) {

@@ -92,6 +92,11 @@
          <string>均匀模式</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>信息熵模式</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>

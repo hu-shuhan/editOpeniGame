@@ -41,7 +41,7 @@ if (ENABLE_CGNS_MODULE)
         set(HDF5_PREFER_PARALLEL OFF CACHE BOOL "Prefer parallel HDF5" FORCE)
     endif ()
 
-   # add_subdirectory(cgns)
+    add_subdirectory(cgns)
 
     message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()
