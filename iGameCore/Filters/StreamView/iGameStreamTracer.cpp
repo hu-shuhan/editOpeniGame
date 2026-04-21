@@ -400,6 +400,10 @@ bool StreamTracer::Execute() {
     FloatArray::Pointer velocityArray = FloatArray::New();
     velocityArray->SetDimension(3);
     velocityArray->SetName("Velocity");
+    //流线id
+    IntArray::Pointer streamIdArray = IntArray::New();
+    streamIdArray->SetDimension(1);
+    streamIdArray->SetName("StreamlineId");
     igIndex globalPointIndex = 0;
  //   std::cout << "99999999999999999" << std::endl;
     // 处理每条流线
@@ -424,6 +428,7 @@ bool StreamTracer::Execute() {
             cells->AddCellIds(tem, 2);
             types->AddValue(IG_LINE);
             globalPointIndex+= 2;
+            streamIdArray->AddValue(streamlineIdx);
         }
 
     }
@@ -447,7 +452,8 @@ bool StreamTracer::Execute() {
     // 添加速度属性
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
    // std::cout << "33333333333333333333" << std::endl;
-
+    // 添加流线ID属性
+    attrSet->AddAttribute(IG_SCALAR, IG_CELL, streamIdArray);
     // 设置属性集到网格
     streamMesh->SetAttributeSet(attrSet);
 
