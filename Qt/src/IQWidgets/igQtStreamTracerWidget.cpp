@@ -2,6 +2,7 @@
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameBoxStyle.h>
 #include <iGameSceneManager.h>
+#include "E:\editOpeniGame\iGameCore\Filters\StreamView\iGameStreamlineSimplifier.h"
 
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
@@ -39,9 +40,10 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
-
+    
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
     connect(ui->refreshBtn, &QPushButton::clicked, this, &igQtStreamTracerWidget::refresh);
+    connect(ui->Cluster, &QPushButton::clicked, this, &igQtStreamTracerWidget::Simplifier);
 
     numOfSeeds = 200;
     ui->numOfSeedLineEdit->setText("200");
@@ -63,6 +65,7 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     haveClicked = true;
     ui->control_comboBox->setCurrentIndex(1);
     streamlineResult = UnstructuredMesh::New();
+
 }
 
 void igQtStreamTracerWidget::refresh() {
@@ -445,4 +448,40 @@ void igQtStreamTracerWidget::generateStreamline() {
         scene->GetInteractor()->SetPainter3D(Painter);
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
+    // 深拷贝一份原始流线,供 Simplifier 重复使用
+    m_OriginalStream = iGame::UnstructuredMesh::New();
+    m_OriginalStream->DeepCopy(m_ResultObject); 
+}
+void igQtStreamTracerWidget::Simplifier() {
+    if (!haveDraw || !m_StreamBase || !m_StreamBase->streamFilter) {
+        std::cout << "[Simplify] Please generate streamlines first\n";
+        return;
+    }
+
+    auto original = m_StreamBase->streamFilter->GetOutput();
+    if (!original) return;
+
+    auto simp = iGame::StreamlineSimplifier::New();
+    simp->SetInput(original);
+    simp->SetCurvBins(40);
+    simp->SetNumClusters(ui->clusterSpin->value());
+    //simp->SetPerCluster(ui->perClusterSpin->value());
+    simp->SetTotalTarget(ui->perClusterSpin->value());  
+    if (!simp->Execute()) {
+        std::cout << "[Simplify] Execute failed\n";
+        return;
+    }
+    auto out = simp->GetOutput();
+    if (!out) return;
+
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    m_ResultObject->SetPoints(out->GetPoints());
+    m_ResultObject->SetCells(out->GetCells(), out->GetCellTypes());
+    m_ResultObject->SetAttributeSet(out->GetAttributeSet());
+    m_ResultObject->SetShellRenderingOption(false);
+    m_ResultObject->ViewCloudPicture(scene, 0);
+    m_ResultObject->SetLineWidth(widthOfStreamLine);
+    m_ResultObject->ConvertToDrawableData();
+
+    Q_EMIT UpdateStreamObject(m_ResultObject);
 }
