@@ -600,7 +600,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
-            this->resizeDocks({m_leftFieldDock}, {320}, Qt::Horizontal);
+            const int curW = m_leftFieldDock->width();
+            const int targetW = qMax(curW + 60, 360); // 比默认稍宽一点
+            this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
         }
         if (m_leftFieldDock && modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
             this->resizeDocks({m_leftFieldDock, modelTreeWidget->getPropertiesDock()}, {3, 2}, Qt::Vertical);

@@ -326,6 +326,15 @@ QMainWindow QSpinBox, QMainWindow QDoubleSpinBox, QMainWindow QSlider, QMainWind
     color: #FFFFFF; /* 设计师指定的字体色：纯白 RGB(255,255,255) */
 }
 
+/* Tooltip 字体稍小，避免悬停提示过大 */
+QToolTip {
+    font-size: 9pt;
+    color: rgba(255, 255, 255, 230);
+    background-color: rgba(34, 34, 34, 245);
+    border: 1px solid rgba(255, 255, 255, 30);
+    padding: 6px 8px;
+}
+
 /* 狀態欄字體：略小於全局，但比剛才大兩號（包含 Ready for 文本） */
 QStatusBar {
     font-size: 10pt;
