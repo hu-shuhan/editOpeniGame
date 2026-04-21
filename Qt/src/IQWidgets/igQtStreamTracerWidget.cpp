@@ -2,7 +2,7 @@
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameBoxStyle.h>
 #include <iGameSceneManager.h>
-#include "E:\editOpeniGame\iGameCore\Filters\StreamView\iGameStreamlineSimplifier.h"
+#include "StreamView/iGameStreamlineSimplifier.h"
 
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
