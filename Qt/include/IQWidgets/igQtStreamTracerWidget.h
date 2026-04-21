@@ -40,6 +40,7 @@ public slots:
     void changeVecName();
     void refresh();
     void updateVectorNameList();
+    void Simplifier();
     //void changeOffsetP1();
     //void changeOffsetP2();
 signals:
@@ -92,4 +93,7 @@ private:
     bool first = true;
     int p1;
     int p2;
+    //添加一个成员变量来保存原始的流线数据，以便在刷新时使用
+    iGame::UnstructuredMesh::Pointer m_OriginalStream;
+
 };

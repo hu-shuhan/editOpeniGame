@@ -866,7 +866,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
     if (m_Clipper->IsAllDisable()) {
         // set triangle indices
         int i, ncell;
-        igIndex cell[32]{};
+        igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
         lineIndices->Reserve(this->GetNumberOfEdges());
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
@@ -882,49 +882,52 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
         triangleIndices->Resize(faceIdNum - fcnt * 2);
         triangleEdgeMasks->Resize(faceIdNum - fcnt * 2);
-        auto func = [&](igIndex start, igIndex end) -> void {
-            int ncell;
-            auto faces = this->GetFaces();
-            auto cellPointer = faces->GetCellIdArray()->RawPointer();
-            cellPointer += faces->GetStartOffset(start);
-            igIndex i = 0, j = 0;
-            int mask = 0;
-            IGsize index = faces->GetStartOffset(start) - start * 2;
-            auto trianglePointer = triangleIndices->RawPointer() + index * 3;
-            auto triangleEdgeMasksPointer = triangleEdgeMasks->RawPointer() + index;
-            for (i = start; i < end; i++) {
-                ncell = faces->GetCellSize(i);
-                if (ncell == 6) {
-                    *trianglePointer++ = cellPointer[0];
-                    *trianglePointer++ = cellPointer[1];
-                    *trianglePointer++ = cellPointer[5];
-                    *trianglePointer++ = cellPointer[1];
-                    *trianglePointer++ = cellPointer[2];
-                    *trianglePointer++ = cellPointer[3];
-                    *trianglePointer++ = cellPointer[3];
-                    *trianglePointer++ = cellPointer[4];
-                    *trianglePointer++ = cellPointer[5];
-                    *trianglePointer++ = cellPointer[5];
-                    *trianglePointer++ = cellPointer[3];
-                    *trianglePointer++ = cellPointer[1];
-                    *triangleEdgeMasksPointer++ = 5;
-                    *triangleEdgeMasksPointer++ = 3;
-                    *triangleEdgeMasksPointer++ = 3;
-                    *triangleEdgeMasksPointer++ = 0;
-                } else {
-                    for (j = 1; j < ncell - 1; j++) {
-                        // add edge mask
-                        mask = ncell == 3 ? 7 : j == 1 ? 3 : j == ncell - 2 ? 6 : 2;
+
+        if (fcnt > 0) { 
+                auto func = [&](igIndex start, igIndex end) -> void {
+                int ncell;
+                auto faces = this->GetFaces();
+                auto cellPointer = faces->GetCellIdArray()->RawPointer();
+                cellPointer += faces->GetStartOffset(start);
+                igIndex i = 0, j = 0;
+                int mask = 0;
+                IGsize index = faces->GetStartOffset(start) - start * 2;
+                auto trianglePointer = triangleIndices->RawPointer() + index * 3;
+                auto triangleEdgeMasksPointer = triangleEdgeMasks->RawPointer() + index;
+                for (i = start; i < end; i++) {
+                    ncell = faces->GetCellSize(i);
+                    if (ncell == 6) {
                         *trianglePointer++ = cellPointer[0];
-                        *trianglePointer++ = cellPointer[j];
-                        *trianglePointer++ = cellPointer[j + 1];
-                        *triangleEdgeMasksPointer++ = mask;
+                        *trianglePointer++ = cellPointer[1];
+                        *trianglePointer++ = cellPointer[5];
+                        *trianglePointer++ = cellPointer[1];
+                        *trianglePointer++ = cellPointer[2];
+                        *trianglePointer++ = cellPointer[3];
+                        *trianglePointer++ = cellPointer[3];
+                        *trianglePointer++ = cellPointer[4];
+                        *trianglePointer++ = cellPointer[5];
+                        *trianglePointer++ = cellPointer[5];
+                        *trianglePointer++ = cellPointer[3];
+                        *trianglePointer++ = cellPointer[1];
+                        *triangleEdgeMasksPointer++ = 5;
+                        *triangleEdgeMasksPointer++ = 3;
+                        *triangleEdgeMasksPointer++ = 3;
+                        *triangleEdgeMasksPointer++ = 0;
+                    } else {
+                        for (j = 1; j < ncell - 1; j++) {
+                            // add edge mask
+                            mask = ncell == 3 ? 7 : j == 1 ? 3 : j == ncell - 2 ? 6 : 2;
+                            *trianglePointer++ = cellPointer[0];
+                            *trianglePointer++ = cellPointer[j];
+                            *trianglePointer++ = cellPointer[j + 1];
+                            *triangleEdgeMasksPointer++ = mask;
+                        }
                     }
+                    cellPointer += ncell;
                 }
-                cellPointer += ncell;
-            }
-        };
-        ThreadPool::parallelFor(0, this->GetNumberOfFaces(), func);
+            };
+            ThreadPool::parallelFor(0, fcnt, func);
+        }
         //IGsize fcnt = this->GetNumberOfFaces();
         //IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
         //triangleIndices->Reserve(faceIdNum - fcnt * 2);
@@ -956,7 +959,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
     } else {
         // set triangle indices
         int i, ncell;
-        igIndex cell[32]{};
+        igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
             ncell = this->GetEdgePointIds(i, cell);
