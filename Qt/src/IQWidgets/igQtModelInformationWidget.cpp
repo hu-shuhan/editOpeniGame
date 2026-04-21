@@ -8,11 +8,22 @@
 igQtModelInformationWidget::igQtModelInformationWidget(QWidget* parent) : QWidget(parent) {
     // Layout for the main widget
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
     // Creating frames and adding them to the main layout
+    this->scrollArea = new QScrollArea(this);
+    this->scrollArea->setWidgetResizable(true);
+    this->scrollArea->setFrameShape(QFrame::NoFrame);
+    this->scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    this->scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     this->informationFrame = new QFrame();
     this->informationFrame->setFrameShape(QFrame::StyledPanel);
     this->frameLayout = new QVBoxLayout(this->informationFrame);
-    mainLayout->addWidget(this->informationFrame);
+    this->frameLayout->setContentsMargins(8, 8, 8, 8);
+    this->frameLayout->setSpacing(6);
+    this->scrollArea->setWidget(this->informationFrame);
+    mainLayout->addWidget(this->scrollArea);
+    this->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
 }
 
 void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj, QFormLayout* formLayout) {
@@ -67,7 +78,11 @@ void igQtModelInformationWidget::updateInformationFrame() {
     // 获取当前场景和模型
     auto sceneManeger = iGame::SceneManager::Instance();
     auto scene = sceneManeger->GetCurrentScene();
-    if (!scene) return;
+    if (!scene) {
+        frameLayout->blockSignals(false);
+        this->setUpdatesEnabled(true);
+        return;
+    }
 
     auto currentModel = scene->GetCurrentModel();
     if (!currentModel) {
@@ -156,9 +171,11 @@ void igQtModelInformationWidget::updateInformationFrame() {
     }
 
 
+    // 底部弹性区保证内容在较少时贴顶显示
+    frameLayout->addStretch();
+
     // 恢复界面更新
     this->setUpdatesEnabled(true);
-    this->updateGeometry();
     // 修改布局
     frameLayout->blockSignals(false);
 }

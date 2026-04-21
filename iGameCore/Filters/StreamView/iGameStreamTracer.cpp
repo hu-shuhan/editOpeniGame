@@ -1,4 +1,4 @@
-﻿#include "iGameStreamTracer.h"
+#include "iGameStreamTracer.h"
 #include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 #include <algorithm>
 #include <cmath>

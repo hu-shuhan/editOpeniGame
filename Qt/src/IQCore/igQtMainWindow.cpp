@@ -58,6 +58,7 @@
 #include <QWidgetAction>
 #include <QPushButton>
 #include <QMouseEvent>
+#include <QScrollArea>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -515,6 +516,28 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     modelTreeWidget = new igQtModelDialogWidget(this);
 
+    auto makeWidgetScrollable = [&](QWidget* content, QWidget* parent) -> QWidget* {
+        if (!content) return nullptr;
+        if (qobject_cast<QScrollArea*>(content)) return content;
+        content->setMinimumHeight(0);
+        content->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+
+        auto* scroll = new QScrollArea(parent);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scroll->setWidget(content);
+        return scroll;
+    };
+
+    auto makeDockWidgetScrollable = [&](QDockWidget* dock) {
+        if (!dock) return;
+        QWidget* content = dock->widget();
+        if (!content || qobject_cast<QScrollArea*>(content)) return;
+        dock->setWidget(makeWidgetScrollable(content, dock));
+    };
+
     // 创建左侧自定义“数据面板”，用 QTabWidget 替代 QDockWidget 自带 tab 样式
     m_leftFieldDock = new QDockWidget(this);
     m_leftFieldDock->setObjectName("LeftFieldDock");
@@ -534,8 +557,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
         dock->setWidget(nullptr);
         this->removeDockWidget(dock);
         dock->hide();
-        content->setParent(m_leftFieldTabs);
-        m_leftFieldTabs->addTab(content, title);
+        auto* scrollContent = makeWidgetScrollable(content, m_leftFieldTabs);
+        m_leftFieldTabs->addTab(scrollContent, title);
     };
     moveDockContentToCustomTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"));
     moveDockContentToCustomTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"));
@@ -561,10 +584,26 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
 
+    // 左侧扩展面板统一采用可滚动内容，避免 dock 过多时撑高主窗口
+    makeDockWidgetScrollable(ui->dockWidget_SelectionField);
+    makeDockWidgetScrollable(ui->dockWidget_ParallelCoordinatesField);
+    makeDockWidgetScrollable(ui->dockWidget_VariableCorrelationField);
+    makeDockWidgetScrollable(ui->dockWidget_VariableDensityField);
+    makeDockWidgetScrollable(ui->dockWidget_DataChangeField);
+    makeDockWidgetScrollable(ui->dockWidget_ContextPreservingShowField);
+    makeDockWidgetScrollable(ui->dockWidget_QualityDetection);
+    makeDockWidgetScrollable(ui->dockWidget_EditMode);
+    makeDockWidgetScrollable(ui->dockWidget_ModelList);
+    makeDockWidgetScrollable(ui->dockWidget_ContourExtract);
+    makeDockWidgetScrollable(modelTreeWidget->getPropertiesDock());
+
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
             this->resizeDocks({m_leftFieldDock}, {320}, Qt::Horizontal);
+        }
+        if (m_leftFieldDock && modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
+            this->resizeDocks({m_leftFieldDock, modelTreeWidget->getPropertiesDock()}, {3, 2}, Qt::Vertical);
         }
     });
 
