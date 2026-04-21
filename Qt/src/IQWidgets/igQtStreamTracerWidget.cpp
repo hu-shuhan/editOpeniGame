@@ -1,8 +1,9 @@
+#include "StreamView/iGameStreamlineSimplifier.h"
 #include "iGameSelection.h"
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameBoxStyle.h>
 #include <iGameSceneManager.h>
-#include "StreamView/iGameStreamlineSimplifier.h"
+
 
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
@@ -40,7 +41,7 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
-    
+
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
     connect(ui->refreshBtn, &QPushButton::clicked, this, &igQtStreamTracerWidget::refresh);
     connect(ui->Cluster, &QPushButton::clicked, this, &igQtStreamTracerWidget::Simplifier);
@@ -65,7 +66,6 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     haveClicked = true;
     ui->control_comboBox->setCurrentIndex(1);
     streamlineResult = UnstructuredMesh::New();
-
 }
 
 void igQtStreamTracerWidget::refresh() {
@@ -373,6 +373,12 @@ void igQtStreamTracerWidget::generateStreamline() {
         seeds = streamtracer->computeSubBlockCenters(streamtracer->GetMesh()->GetBoundingBox().min,
                                                      streamtracer->GetMesh()->GetBoundingBox().max, splitX, splitY,
                                                      splitZ);
+    } else if (control == 6) {
+        seeds = streamtracer->getEntropySeeding(vectorName, 0.025f, 8);
+        auto uniformSeeds = streamtracer->computeSubBlockCenters(streamtracer->GetMesh()->GetBoundingBox().min,
+                                                                 streamtracer->GetMesh()->GetBoundingBox().max, splitX,
+                                                                 splitY, splitZ);
+        seeds.insert(seeds.end(), uniformSeeds.begin(), uniformSeeds.end());
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
@@ -448,9 +454,8 @@ void igQtStreamTracerWidget::generateStreamline() {
         scene->GetInteractor()->SetPainter3D(Painter);
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
-    // ���һ��ԭʼ����,�� Simplifier �ظ�ʹ��
     m_OriginalStream = iGame::UnstructuredMesh::New();
-    m_OriginalStream->DeepCopy(m_ResultObject); 
+    m_OriginalStream->DeepCopy(m_ResultObject);
 }
 void igQtStreamTracerWidget::Simplifier() {
     if (!haveDraw || !m_StreamBase || !m_StreamBase->streamFilter) {
@@ -466,7 +471,7 @@ void igQtStreamTracerWidget::Simplifier() {
     simp->SetCurvBins(40);
     simp->SetNumClusters(ui->clusterSpin->value());
     //simp->SetPerCluster(ui->perClusterSpin->value());
-    simp->SetTotalTarget(ui->perClusterSpin->value());  
+    simp->SetTotalTarget(ui->perClusterSpin->value());
     if (!simp->Execute()) {
         std::cout << "[Simplify] Execute failed\n";
         return;

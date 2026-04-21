@@ -431,7 +431,7 @@ bool StreamTracer::Execute() {
             int tem[2]{globalPointIndex, globalPointIndex + 1};
             cells->AddCellIds(tem, 2);
             types->AddValue(IG_LINE);
-            globalPointIndex+= 2;
+            globalPointIndex += 2;
             streamIdArray->AddValue(streamlineIdx);
         }
     }
@@ -454,7 +454,7 @@ bool StreamTracer::Execute() {
     // std::cout << "22222222222222222222" << std::endl;
     // 添加速度属性
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
-   // std::cout << "33333333333333333333" << std::endl;
+    // std::cout << "33333333333333333333" << std::endl;
     // 添加流线ID属性
     attrSet->AddAttribute(IG_SCALAR, IG_CELL, streamIdArray);
     // 设置属性集到网格
@@ -2125,8 +2125,8 @@ void StreamTracer::precomputeTrigValues() {
     }
 }
 
-std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, float topPercent) {
-    if (!ptFinder[0]) return {};
+std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, float topPercent, int ptsPerExtrema) {
+    if (ptFinder.empty() || !ptFinder[0]) return {};
     int totalBoxes = ptFinder[0]->GetNumberOfBoxes();
     if (totalBoxes <= 0) return {};
 
@@ -2215,14 +2215,14 @@ std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, fl
             }
             std::sort(mags.begin(), mags.end());
 
-            // 2 Smallest
-            for (int k = 0; k < std::min(2, (int) mags.size()); ++k) {
+            // ptsPerExtrema Smallest
+            for (int k = 0; k < std::min(ptsPerExtrema, (int) mags.size()); ++k) {
                 localSeeds.push_back(mesh->GetPoint(mags[k].second));
             }
-            // 2 Largest
-            for (int k = 0; k < std::min(2, (int) mags.size()); ++k) {
+            // ptsPerExtrema Largest
+            for (int k = 0; k < std::min(ptsPerExtrema, (int) mags.size()); ++k) {
                 int idx = mags.size() - 1 - k;
-                if (idx < std::min(2, (int) mags.size())) break; // Avoid overlap with Smallest
+                if (idx < std::min(ptsPerExtrema, (int) mags.size())) break; // Avoid overlap with Smallest
                 localSeeds.push_back(mesh->GetPoint(mags[idx].second));
             }
         }
