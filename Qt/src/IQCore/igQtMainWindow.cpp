@@ -93,6 +93,8 @@
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
+    // 设置窗口标题为iGameVis
+    this->setWindowTitle("iGameVis");
     // 使用无边框窗口并自定义标题栏
     this->setWindowFlags(Qt::FramelessWindowHint | Qt::Window | Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint);
     initCustomTitleBar();
@@ -181,7 +183,7 @@ void igQtMainWindow::initCustomTitleBar() {
     topLayout->addWidget(m_titleLabel, 1);
 
     // 按钮区域
-    m_btnMinimize = new QPushButton("-", topRow);
+    m_btnMinimize = new QPushButton(topRow);
     m_btnMaximize = new QPushButton("□", topRow);
     m_btnClose = new QPushButton("×", topRow);
     m_btnClose->setObjectName("CloseButton");
@@ -190,6 +192,8 @@ void igQtMainWindow::initCustomTitleBar() {
     m_btnMinimize->setFixedSize(30, 28);
     m_btnMaximize->setFixedSize(30, 28);
     m_btnClose->setFixedSize(36, 28);
+    m_btnMinimize->setIcon(QIcon(":/Ticon/Icons/window_minimize_white.svg"));
+    m_btnMinimize->setIconSize(QSize(12, 12));
 
     topLayout->addWidget(m_btnMinimize, 0);
     topLayout->addWidget(m_btnMaximize, 0);
@@ -453,7 +457,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // SelectionField 改為停靠在左側，並放在 Properties 視窗上方
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_SelectionField);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ContextPreservingShowField);
-    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_SearchInfo);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SearchInfo);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_QualityDetection);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_EditMode);
     this->addDockWidget(Qt::BottomDockWidgetArea, ui->dockWidget_Animation);
@@ -552,7 +556,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableDensityField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_DataChangeField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContextPreservingShowField);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_SearchInfo);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_QualityDetection);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_EditMode);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
@@ -1483,10 +1486,6 @@ void igQtMainWindow::initAllFilters() {
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
-    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-    // { 	ui->dockWidget_SearchInfo->sh
-    //  ow();
-    //	});
     // 显示并切换到对应 DockWidget / Tab
     auto showAndRaiseDock = [&](QDockWidget* dock) {
         if (!dock) return;
@@ -1497,6 +1496,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
     connect(ui->action_IsShowColorBar, &QAction::triggered, this, &igQtMainWindow::updateColorBarShow);
     connect(ui->action_ExportAnimation, &QAction::triggered, this, [&](bool checked) { showAndRaiseDock(ui->dockWidget_Animation); });
+    connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked) {
+        if (ui->dockWidget_SearchInfo) {
+            ui->dockWidget_SearchInfo->show();
+            ui->dockWidget_SearchInfo->raise();
+        }
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObject = model->GetDataObject();
+        if (dataObject == nullptr) return;
+        ui->widget_SearchInfo->setCurrentModelData(dataObject);
+    });
 
     // 左侧主数据面板使用自定义 QTabWidget：点击菜单时切换到对应 Tab
     connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) {
@@ -1658,9 +1668,6 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 //        ui->widget_FlowField->updateVectorNameList();
 //    });
 
-    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-    // { 	ui->dockWidget_SearchInfo->show();
-    //	});
     //  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
     //  {
     //	ui->dockWidget_EditMode->show();

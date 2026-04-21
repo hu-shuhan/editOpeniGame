@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>igQtSearchInfo</class>
+ <widget class="QWidget" name="igQtSearchInfo">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>查找数据</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox_DataSelection">
+     <property name="title">
+      <string>数据类型</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_DataSelection">
+      <item>
+       <widget class="QRadioButton" name="radioButton_Points">
+        <property name="text">
+         <string>点数据</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QRadioButton { font-size: 14px; color: #C8C8C8; }</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="radioButton_Cells">
+        <property name="text">
+         <string>面数据</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QRadioButton { font-size: 14px; color: #C8C8C8; }</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_Query">
+     <property name="title">
+      <string>查询条件</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_Query">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_Property">
+        <property name="text">
+         <string>属性:</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QLabel { font-size: 14px; color: #C8C8C8; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboBox_Property">
+        <property name="styleSheet">
+         <string notr="true">QComboBox { background-color: #252526; color: #FFFFFF; border: 1px solid #3C3C3C; padding: 4px; }
+QComboBox::drop-down { background-color: #252526; border: 1px solid #3C3C3C; }
+QComboBox::item { background-color: #252526; color: #FFFFFF; }
+QComboBox::item:selected { background-color: #3A3A3A; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_Operator">
+        <property name="text">
+         <string>操作符:</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QLabel { font-size: 14px; color: #C8C8C8; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="comboBox_Operator">
+        <item>
+         <property name="text">
+          <string>=</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>&gt;</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>&lt;</string>
+         </property>
+        </item>
+        <property name="styleSheet">
+         <string notr="true">QComboBox { background-color: #252526; color: #FFFFFF; border: 1px solid #3C3C3C; padding: 4px; }
+QComboBox::drop-down { background-color: #252526; border: 1px solid #3C3C3C; }
+QComboBox::item { background-color: #252526; color: #FFFFFF; }
+QComboBox::item:selected { background-color: #3A3A3A; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_Value">
+        <property name="text">
+         <string>值:</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QLabel { font-size: 14px; color: #C8C8C8; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="lineEdit_Value">
+        <property name="styleSheet">
+         <string notr="true">QLineEdit { background-color: #252526; color: #FFFFFF; border: 1px solid #3C3C3C; padding: 4px; }</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QPushButton" name="pushButton_Query">
+        <property name="text">
+         <string>查询</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 6px; }
+QPushButton:hover { background-color: #3A3A3A; }
+QPushButton:pressed { background-color: #1E1E1E; }</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_Results">
+     <property name="title">
+      <string>查询结果</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_Results">
+      <item>
+       <widget class="QTableWidget" name="tableWidget_Results">
+        <property name="styleSheet">
+         <string notr="true">QTableWidget { background-color: #252526; color: #FFFFFF; border: 1px solid #3C3C3C; }
+QTableWidget::header { background-color: #2A2A2A; color: #C8C8C8; }
+QTableWidget::item { padding: 4px; }
+QTableWidget::item:alternate { background-color: #2A2A2A; }</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

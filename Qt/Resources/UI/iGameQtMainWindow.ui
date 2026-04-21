@@ -664,6 +664,7 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     <addaction name="action_ExportAnimation"/>
     <addaction name="menu_DataAnalysis"/>
     <addaction name="menu_clip"/>
+    <addaction name="action_SearchInfo"/>
     <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="separator"/>
    </widget>
@@ -1239,6 +1240,11 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     <string>模式编辑</string>
    </property>
   </action>
+  <action name="action_SearchInfo">
+   <property name="text">
+    <string>查找数据</string>
+   </property>
+  </action>
   <action name="action_AiChat">
    <property name="text">
     <string>AI聊天助手</string>
@@ -1662,11 +1668,6 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
    </property>
    <property name="toolTip">
     <string>Glyph</string>
-   </property>
-  </action>
-  <action name="action_SearchInfo">
-   <property name="text">
-    <string>查找信息</string>
    </property>
   </action>
   <action name="action_SaveMeshAs">

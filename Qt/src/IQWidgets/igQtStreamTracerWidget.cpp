@@ -448,7 +448,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         scene->GetInteractor()->SetPainter3D(Painter);
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
-    // Éî¿½±´Ò»·ÝÔ­Ê¼Á÷Ïß,¹© Simplifier ÖØ¸´Ê¹ÓÃ
+    // ï¿½î¿½ï¿½ï¿½Ò»ï¿½ï¿½Ô­Ê¼ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ Simplifier ï¿½Ø¸ï¿½Ê¹ï¿½ï¿½
     m_OriginalStream = iGame::UnstructuredMesh::New();
     m_OriginalStream->DeepCopy(m_ResultObject); 
 }

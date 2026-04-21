@@ -60,6 +60,7 @@
         <file>Icons/Open.png</file>
         <file>Icons/refresh.png</file>
         <file>Icons/dock_close_white.svg</file>
+        <file>Icons/window_minimize_white.svg</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>
