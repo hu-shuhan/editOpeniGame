@@ -116,7 +116,9 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
                 auto& attr = all->GetElement(i);
                 if (attr.isDeleted) continue;
                 auto* aitem = new SubAttribTreeWidgetItem(i, tree, childItem);
-                aitem->setText(0, QString::fromStdString(attr.pointer->GetName()));
+                const QString attrName = QString::fromStdString(attr.pointer->GetName());
+                aitem->setText(0, attrName);
+                aitem->setToolTip(0, attrName);
                 if (attr.attachmentType == IG_POINT) aitem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
                 else if (attr.attachmentType == IG_CELL)
                     aitem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
@@ -299,7 +301,9 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         //    item->setCurrentChild(child);
         //    child->setSelected(true);
         //}
-        child->setText(0, QString::fromStdString(attr.pointer->GetName()));
+        const QString attrName = QString::fromStdString(attr.pointer->GetName());
+        child->setText(0, attrName);
+        child->setToolTip(0, attrName);
         if (attr.attachmentType == IG_POINT) 
             child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
@@ -331,7 +335,9 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         auto& attr = attrSet->GetElement(i);
         if (attr.isDeleted) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
-        child->setText(0, QString::fromStdString(attr.pointer->GetName()));
+        const QString attrName = QString::fromStdString(attr.pointer->GetName());
+        child->setText(0, attrName);
+        child->setToolTip(0, attrName);
         if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
