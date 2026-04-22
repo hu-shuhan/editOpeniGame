@@ -92,8 +92,80 @@
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
+namespace {
+const char* kGlobalSpinBoxDarkQss = R"(
+QSpinBox, QDoubleSpinBox {
+    background-color: #252526;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    padding: 4px 24px 4px 8px;
+    selection-background-color: #094771;
+}
+QSpinBox:hover, QDoubleSpinBox:hover {
+    border: 1px solid #4A4A4A;
+}
+QSpinBox:focus, QDoubleSpinBox:focus {
+    border: 1px solid #0E639C;
+}
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 18px;
+    border-left: 1px solid #3C3C3C;
+    border-top-right-radius: 4px;
+    background-color: #2D2D30;
+}
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 18px;
+    border-left: 1px solid #3C3C3C;
+    border-top: 1px solid #3C3C3C;
+    border-bottom-right-radius: 4px;
+    background-color: #2D2D30;
+}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #3A3A3D;
+}
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {
+    background-color: #45454A;
+}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url(:/Ticon/Icons/spin_up_silver.svg);
+    width: 9px;
+    height: 9px;
+}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
+    width: 9px;
+    height: 9px;
+}
+QComboBox::drop-down {
+    border-left: 1px solid #3C3C3C;
+    width: 20px;
+}
+QComboBox::down-arrow {
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
+    width: 10px;
+    height: 10px;
+}
+QComboBox QAbstractItemView {
+    background-color: #252526;
+    color: #CCCCCC;
+    border: 1px solid #3C3C3C;
+    outline: 0;
+    selection-background-color: #3A3A3A;
+    selection-color: #FFFFFF;
+}
+)";
+}
+
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
+    qApp->setStyleSheet(qApp->styleSheet() + QString::fromUtf8(kGlobalSpinBoxDarkQss));
     // 设置窗口标题为iGameVis
     this->setWindowTitle("iGameVis");
     // 使用无边框窗口并自定义标题栏

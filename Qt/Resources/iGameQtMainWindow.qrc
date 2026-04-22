@@ -61,6 +61,9 @@
         <file>Icons/refresh.png</file>
         <file>Icons/dock_close_white.svg</file>
         <file>Icons/window_minimize_white.svg</file>
+        <file>Icons/spin_up_silver.svg</file>
+        <file>Icons/spin_down_silver.svg</file>
+        <file>Icons/loop_silver.svg</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>

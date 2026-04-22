@@ -251,9 +251,17 @@ QComboBox::drop-down {
     border-left: 1px solid #3A3A3A;
 }
 QComboBox::down-arrow {
-    image: url(:/icons/down_arrow.png); /* 可替换为实际下拉箭头图标 */
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
     width: 10px;
     height: 10px;
+}
+QComboBox QAbstractItemView {
+    background-color: #252526;
+    color: #CCCCCC;
+    border: 1px solid #3A3A3A;
+    outline: 0;
+    selection-background-color: #3A3A3A;
+    selection-color: #FFFFFF;
 }
 
 /* ========== 滚动条 ========== */

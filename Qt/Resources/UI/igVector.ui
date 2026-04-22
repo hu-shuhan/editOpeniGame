@@ -25,6 +25,34 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QSlider::groove:horizontal {
+    background: #2F2F2F;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background: #C0C0C0;
+    border-radius: 3px;
+}
+QSlider::add-page:horizontal {
+    background: #3A3A3A;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background: #D6D6D6;
+    border: 1px solid #8E8E8E;
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+QSlider::handle:horizontal:hover {
+    background: #E2E2E2;
+}
+QSlider::handle:horizontal:pressed {
+    background: #B8B8B8;
+}</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="label">
