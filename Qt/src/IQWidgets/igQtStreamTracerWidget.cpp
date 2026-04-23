@@ -8,6 +8,7 @@
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
     ui->setupUi(this);
+    ui->source->hide();
 
     connect(ui->control_comboBox, SIGNAL(currentIndexChanged(QString)), this, SLOT(changeControl()));
     connect(ui->numOfSeedLineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changenumOfSeeds()));
@@ -279,6 +280,7 @@ void igQtStreamTracerWidget::updateVectorNameList() {
         streamtracer->initStreamTracer(currentModel);
         masterName = currentModel->GetDataObject()->GetName();
         ui->source->setText(QString::fromStdString("Source: " + masterName));
+        ui->source->show();
         auto tem = currentModel->GetDataObject();
         m_DataObject = tem;
 
@@ -301,6 +303,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         streamtracer->initStreamTracer(model);
         masterName = model->GetDataObject()->GetName();
         ui->source->setText(QString::fromStdString("Source: " + masterName));
+        ui->source->show();
         auto tem = model->GetDataObject();
         m_DataObject = tem;
         modelBound = true;

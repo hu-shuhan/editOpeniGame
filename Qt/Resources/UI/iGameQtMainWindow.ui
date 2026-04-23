@@ -266,49 +266,97 @@ QComboBox QAbstractItemView {
 
 /* ========== 滚动条 ========== */
 QScrollBar:vertical {
-    background-color: #1E1E1E;
-    width: 10px;
+    background-color: #1B1B1B;
+    border: none;
+    width: 12px;
     margin: 0;
 }
 QScrollBar::handle:vertical {
-    background-color: #3A3A3A;
-    border-radius: 5px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
     min-height: 20px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: #4A4A4A;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background-color: #242424;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0; /* 隐藏上下箭头 */
 }
 
+/* ========== 左侧数据面板滚动条（银色深色适配） ========== */
+QTabWidget#LeftFieldTabs QScrollBar:vertical {
+    background-color: #1B1B1B;
+    border: none;
+    width: 12px;
+    margin: 0;
+}
+QTabWidget#LeftFieldTabs QScrollBar::handle:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
+    min-height: 20px;
+}
+QTabWidget#LeftFieldTabs QScrollBar::handle:vertical:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QTabWidget#LeftFieldTabs QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QTabWidget#LeftFieldTabs QScrollBar::add-page:vertical,
+QTabWidget#LeftFieldTabs QScrollBar::sub-page:vertical {
+    background-color: #242424;
+}
+QTabWidget#LeftFieldTabs QScrollBar::add-line:vertical,
+QTabWidget#LeftFieldTabs QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
 /* ========== 矢量场 Dock（dockWidget_VectorField）中的滑动条（QSlider） ========== */
 /* 让滑动条与 Dock 深色背景 (#222222) 协调，减少高亮白色带来的晃眼感 */
-QDockWidget#dockWidget_VectorField QSlider::groove:horizontal {
-    background-color: #2A2A2A;      /* 比 Dock 背景略亮一点 */
+QWidget#widget_VectorField QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
     height: 6px;
     border-radius: 3px;
 }
 
-QDockWidget#dockWidget_VectorField QSlider::sub-page:horizontal {
-    background-color: #3A4A6A;      /* 深蓝灰色高亮，低饱和不刺眼 */
+QWidget#widget_VectorField QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
     border-radius: 3px;
 }
 
-QDockWidget#dockWidget_VectorField QSlider::add-page:horizontal {
-    background-color: #262626;      /* 未激活部分更暗，贴近背景 */
+QWidget#widget_VectorField QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
     border-radius: 3px;
 }
 
-QDockWidget#dockWidget_VectorField QSlider::handle:horizontal {
-    background-color: #B0B0B0;      /* 中灰色手柄，去掉刺眼的纯白 */
+QWidget#widget_VectorField QSlider::handle:horizontal {
+    background-color: #B0B0B0;
     width: 12px;
     border-radius: 6px;
-    margin: -4px 0;                 /* 让手柄略微溢出槽，高级一点的视觉 */
+    margin: -4px 0;
 }
 
-QDockWidget#dockWidget_VectorField QSlider::handle:horizontal:hover {
-    background-color: #C8C8C8;      /* 悬停时稍微变亮，但依旧不是纯白 */
+QWidget#widget_VectorField QSlider::handle:horizontal:hover {
+    background-color: #C8C8C8;
+}
+
+QWidget#widget_VectorField QSlider::handle:horizontal:pressed {
+    background-color: #B0B0B0;
 }
 
 /* ========== 标签页（TabWidget） ========== */
