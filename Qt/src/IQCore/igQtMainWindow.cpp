@@ -690,6 +690,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
 
     SliceDockWidget = new QDockWidget(this);
+    SliceDockWidget->setObjectName("dockWidget_Slice");
     SliceDockWidget->setWindowTitle("网格切割");
     SliceWidget = new igQtModelClipWidget(nullptr);
     SliceWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -697,6 +698,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
+    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+    this->tabifyDockWidget(ui->dockWidget_SelectionField, SliceDockWidget);
+    makeDockWidgetScrollable(SliceDockWidget);
     SliceDockWidget->hide();
 
     DeformationDockWidget = new QDockWidget(this);

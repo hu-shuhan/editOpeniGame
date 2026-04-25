@@ -453,6 +453,19 @@ QtPropertyEditorView::item:hover {
     background-color: #2A2A2A;
     color: rgba(255, 255, 255, 204); /* 文字白色 80% */
 }
+/* 属性结构树分支箭头：统一为银色（展开/收起） */
+QtTreePropertyBrowser QTreeView::branch:closed:has-children:has-siblings,
+QtTreePropertyBrowser QTreeView::branch:closed:has-children:!has-siblings,
+QtPropertyEditorView::branch:closed:has-children:has-siblings,
+QtPropertyEditorView::branch:closed:has-children:!has-siblings {
+    image: url(:/Ticon/Icons/tree_arrow_right_silver.svg);
+}
+QtTreePropertyBrowser QTreeView::branch:open:has-children:has-siblings,
+QtTreePropertyBrowser QTreeView::branch:open:has-children:!has-siblings,
+QtPropertyEditorView::branch:open:has-children:has-siblings,
+QtPropertyEditorView::branch:open:has-children:!has-siblings {
+    image: url(:/Ticon/Icons/tree_arrow_down_silver.svg);
+}
 
 /* 5. 兜底：覆盖所有未匹配的子控件（防止漏网） */
 QtTreePropertyBrowser * {
@@ -749,14 +762,14 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     <property name="title">
      <string>编辑</string>
     </property>
-    <addaction name="action_ModelCut"/>
-    <addaction name="action_ModelPick"/>
-    <addaction name="action_ModelView"/>
-    <addaction name="action_ModelEdit"/>
+    <!-- <addaction name="action_ModelCut"/> -->
+    <!-- <addaction name="action_ModelPick"/> -->
+    <!-- <addaction name="action_ModelView"/> -->
+    <!-- <addaction name="action_ModelEdit"/> -->
     <addaction name="separator"/>
    </widget>
    <addaction name="menu_file"/>
-   <addaction name="menu_edit"/>
+   <!-- <addaction name="menu_edit"/> -->
    <addaction name="menu_view"/>
    <addaction name="menu_filters"/>
    <addaction name="menu_help"/>
@@ -866,7 +879,7 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
    </attribute>
    <addaction name="action_ShowOrientationAxes"/>
    <addaction name="action_ResetCameraView"/>
-   <addaction name="action_ContextPreserving"/>
+  <!-- <addaction name="action_ContextPreserving"/> -->
    <addaction name="action_SelectView"/>
    <addaction name="action_drag_point"/>
    <addaction name="action_ChangeBackground"/>

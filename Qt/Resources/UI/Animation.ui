@@ -308,6 +308,20 @@
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
       <widget class="igQtAnimationTreeWidget_snap" name="treeWidget_snap">
+       <property name="styleSheet">
+        <string notr="true">QTreeWidget {
+    border: 1px solid #BEBEBE;
+    background-color: #222222;
+}
+QTreeWidget::item {
+    color: rgba(255, 255, 255, 204);
+}
+QHeaderView::section {
+    border: 1px solid #BEBEBE;
+    background-color: #2A2A2A;
+    color: rgba(255, 255, 255, 230);
+}</string>
+       </property>
        <column>
         <property name="text">
          <string notr="true">文件原始时间</string>
@@ -332,6 +346,20 @@
      </item>
      <item>
       <widget class="igQtAnimationTreeWidget_interpolate" name="treeWidget_interpolate">
+       <property name="styleSheet">
+        <string notr="true">QTreeWidget {
+    border: 1px solid #BEBEBE;
+    background-color: #222222;
+}
+QTreeWidget::item {
+    color: rgba(255, 255, 255, 204);
+}
+QHeaderView::section {
+    border: 1px solid #BEBEBE;
+    background-color: #2A2A2A;
+    color: rgba(255, 255, 255, 230);
+}</string>
+       </property>
        <column>
         <property name="text">
          <string notr="true">插值时间序列</string>

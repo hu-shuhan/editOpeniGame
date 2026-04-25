@@ -64,6 +64,8 @@
         <file>Icons/spin_up_silver.svg</file>
         <file>Icons/spin_down_silver.svg</file>
         <file>Icons/loop_silver.svg</file>
+        <file>Icons/tree_arrow_right_silver.svg</file>
+        <file>Icons/tree_arrow_down_silver.svg</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>
