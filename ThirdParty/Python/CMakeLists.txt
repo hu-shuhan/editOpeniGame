@@ -152,15 +152,6 @@
 #message(STATUS "==========================================================")
 #
 
-cmake_minimum_required(VERSION 3.15)
-
-# Add pybind11
-add_subdirectory(pybind11-master)
-
-if(TARGET pybind11::module)
-    message(STATUS "pybind11 integrated successfully")
-endif()
-
 if (ENABLE_NASTRAN_MODULE)
     set(PYNASTRAN_LIB_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/pyNastranLib)
     set(PYTHON_RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
@@ -177,9 +168,3 @@ set(PYTHON_RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
 file(MAKE_DIRECTORY ${PYTHON_RESOURCES_OUTPUT_DIR})
 
 file(COPY ${PYFLUENT_LIB_SOURCE_DIR}/ DESTINATION ${PYTHON_RESOURCES_OUTPUT_DIR}/pyFluentLib)
-
-
-
-
-
-
