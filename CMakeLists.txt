@@ -74,17 +74,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(IGAMEVIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Find Python3 Globally
-# 指定使用 Python 3.8 版本
-# 如果系统中有多个版本，可能需要显式设置 Python3_ROOT_DIR，或者设置 Python3_EXECUTABLE
-set(Python3_FIND_STRATEGY LOCATION) # 优先使用路径查找
-set(Python3_FIND_REGISTRY LAST)     # 最后才查找注册表
-find_package(Python3 3.8 COMPONENTS Interpreter Development.Module REQUIRED)
-message(STATUS "Python3 Found: ${Python3_VERSION}")
-message(STATUS "Python3 Executable: ${Python3_EXECUTABLE}")
-message(STATUS "Python3 Include: ${Python3_INCLUDE_DIRS}")
-
-
 #--------------------------------------------------------------------
 # Add subdirectories
 #--------------------------------------------------------------------

@@ -1433,9 +1433,7 @@ SmartPointer<CenterAxesModel> Scene::GetCenterAxesModel() const {
 }
 
 igm::vec4 Scene::GetRotationBoundingSphere() const {
-    /*return m_ModelsBoundingSphere;*/
-    return m_UseCustomRotationBoundingSphere
-            ? m_CustomRotationBoundingSphere
+    return m_UseCustomRotationBoundingSphere ? m_CustomRotationBoundingSphere
                                              : m_ModelsBoundingSphere;
 }
 
@@ -1448,7 +1446,6 @@ void Scene::SetRotationBoundingSphere(const igm::vec4 boundingSphere) {
 
 void Scene::ResetRotationBoundingSphere() {
     m_UseCustomRotationBoundingSphere = false;
-    m_CenterAxesModel->SetRotationCenter(m_ModelsBoundingSphere.xyz());
     this->Modified();
 }
 
@@ -1548,7 +1545,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
