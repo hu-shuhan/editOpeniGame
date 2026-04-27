@@ -58,6 +58,7 @@
 #include <QWidgetAction>
 #include <QPushButton>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QScrollArea>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
@@ -1087,6 +1088,65 @@ void igQtMainWindow::updateVortexMetricsLabelPos()
 }
 
 void igQtMainWindow::initAllFilters() {
+    auto showDarkWarning = [this](const QString& title, const QString& message) {
+        QMessageBox msgBox(this);
+        msgBox.setWindowFlags((msgBox.windowFlags() | Qt::FramelessWindowHint) & ~Qt::WindowContextHelpButtonHint);
+        msgBox.setIcon(QMessageBox::NoIcon);
+        QPixmap warnPixmap = style()->standardIcon(QStyle::SP_MessageBoxWarning).pixmap(30, 30);
+        {
+            QPainter painter(&warnPixmap);
+            painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
+            painter.fillRect(warnPixmap.rect(), QColor(0, 0, 0, 75));
+        }
+        msgBox.setIconPixmap(warnPixmap);
+        msgBox.setWindowTitle(title);
+        msgBox.setText(message);
+        msgBox.setStandardButtons(QMessageBox::Ok);
+        msgBox.setDefaultButton(QMessageBox::Ok);
+        msgBox.setMinimumSize(460, 200);
+        msgBox.setStyleSheet(
+            "QMessageBox {"
+            "  background-color: #232323;"
+            "  border: 1px solid #5A5A5A;"
+            "  border-radius: 8px;"
+            "}"
+            "QMessageBox QLabel {"
+            "  color: #C9C9C9;"
+            "  background: transparent;"
+            "  border: none;"
+            "}"
+            "QMessageBox QPushButton {"
+            "  min-width: 64px;"
+            "  padding: 3px 9px;"
+            "  color: #ECECEC;"
+            "  background-color: #5A6066;"
+            "  border: 1px solid #747C84;"
+            "  border-radius: 4px;"
+            "}"
+            "QMessageBox QPushButton:hover {"
+            "  background-color: #666D74;"
+            "}"
+            "QMessageBox QPushButton:pressed {"
+            "  background-color: #4A5056;"
+            "}"
+        );
+        if (QPushButton* okBtn = qobject_cast<QPushButton*>(msgBox.button(QMessageBox::Ok))) {
+            okBtn->setStyleSheet(
+                "QPushButton {"
+                "  min-width: 64px;"
+                "  padding: 3px 9px;"
+                "  color: #ECECEC;"
+                "  background-color: #5A6066;"
+                "  border: 1px solid #747C84;"
+                "  border-radius: 4px;"
+                "}"
+                "QPushButton:hover { background-color: #666D74; }"
+                "QPushButton:pressed { background-color: #4A5056; }"
+            );
+        }
+        msgBox.exec();
+    };
+
     QMenu* mesh_processing = ui->menu_filters->addMenu("Data Processing");
     connect(mesh_processing->addAction("Surface Simplification"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1357,7 +1417,7 @@ void igQtMainWindow::initAllFilters() {
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
     QAction* gradient = view->addAction("ComputeGradient");
-    connect(gradient, &QAction::triggered, this, [&](bool checked) {
+    connect(gradient, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1384,13 +1444,13 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkWarning("Warning", QString::fromStdString(message));
 
         }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
-    connect(laplacian, &QAction::triggered, this, [&](bool checked) {
+    connect(laplacian, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1417,12 +1477,12 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkWarning("Warning", QString::fromStdString(message));
         }
     });
 
     QAction* curvature = view->addAction("ComputeCurvature");
-    connect(curvature, &QAction::triggered, this, [&](bool checked) {
+    connect(curvature, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         CurvatureFilter::Pointer filter = CurvatureFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1449,12 +1509,12 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkWarning("Warning", QString::fromStdString(message));
         }
     });
 
     QAction* vortex = view->addAction("ComputeVorticity");
-    connect(vortex, &QAction::triggered, this, [&](bool checked) {
+    connect(vortex, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1481,12 +1541,12 @@ void igQtMainWindow::initAllFilters() {
             }
         }else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkWarning("Warning", QString::fromStdString(message));
         }
     });
 
     QAction* vortexPrection = view->addAction("PredictVortex");
-    connect(vortexPrection, &QAction::triggered, this, [&](bool checked) {
+    connect(vortexPrection, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexDetection::Pointer filter = VortexDetection::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1584,7 +1644,7 @@ void igQtMainWindow::initAllFilters() {
             // }
         }else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkWarning("Warning", QString::fromStdString(message));
         }
     });
 
