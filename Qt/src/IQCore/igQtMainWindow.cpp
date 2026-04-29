@@ -46,6 +46,7 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
+#include <IQComponents/Dialog/igQtMessageDialog.h>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -160,6 +161,60 @@ QComboBox QAbstractItemView {
     outline: 0;
     selection-background-color: #3A3A3A;
     selection-color: #FFFFFF;
+}
+QScrollBar:vertical {
+    background-color: #1B1B1B;
+    border: none;
+    width: 12px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
+    min-height: 20px;
+}
+QScrollBar::handle:vertical:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background-color: #242424;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar:horizontal {
+    background-color: #1B1B1B;
+    border: none;
+    height: 12px;
+    margin: 0;
+}
+QScrollBar::handle:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
+    min-width: 20px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QScrollBar::handle:horizontal:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background-color: #242424;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0;
 }
 )";
 }
@@ -631,6 +686,11 @@ void igQtMainWindow::initAllUnDefinedComponents() {
         this->removeDockWidget(dock);
         dock->hide();
         auto* scrollContent = makeWidgetScrollable(content, m_leftFieldTabs);
+        if (title == QStringLiteral("流场")) {
+            if (auto* scrollArea = qobject_cast<QScrollArea*>(scrollContent)) {
+                scrollArea->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
+            }
+        }
         m_leftFieldTabs->addTab(scrollContent, title);
     };
     moveDockContentToCustomTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"));
@@ -1171,7 +1231,7 @@ void igQtMainWindow::initAllFilters() {
 
             if (!ok) {
                 result = QString("网格简化算法只支持表面网格");
-                QMessageBox::information(this, "非表面网格", result);
+                igQtMessageDialog::information(this, "非表面网格", result);
                 dialog->close();
                 return;
             }

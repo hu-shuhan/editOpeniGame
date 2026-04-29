@@ -11,6 +11,9 @@
 #include <QtCharts/QChartView>
 #include <QtCharts/QValueAxis>
 #include <QDialog>
+#include <QLabel>
+#include <QPushButton>
+#include <QResizeEvent>
 #include "iGameArrayObject.h"
 QT_CHARTS_USE_NAMESPACE
 
@@ -23,9 +26,23 @@ public:
     void drawLineChart(iGame::ArrayObject::Pointer m_data);
     QChartView* getChartView() const;
 
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+
 private:
+    void updateRoundedMask();
+
     QChart* chart;
     QChartView* chartView;
+    QWidget* m_titleBar{nullptr};
+    QLabel* m_titleLabel{nullptr};
+    QPushButton* m_closeButton{nullptr};
+    bool m_dragging{false};
+    QPoint m_dragOffset;
+    int m_cornerRadius{10};
 };
 
 
