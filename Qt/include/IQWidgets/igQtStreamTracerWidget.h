@@ -96,4 +96,5 @@ private:
     //添加一个成员变量来保存原始的流线数据，以便在刷新时使用
     iGame::UnstructuredMesh::Pointer m_OriginalStream;
 
+    void ensureStreamBase();
 };

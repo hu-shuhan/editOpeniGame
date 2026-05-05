@@ -6,6 +6,18 @@
 
 
 using namespace iGame;
+
+void igQtStreamTracerWidget::ensureStreamBase() {
+    if (m_StreamBase) return;
+    m_StreamBase = iGame::StreamBase::New();
+    m_StreamBase->DrawObject::AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+        haveDraw = false;
+        first = true;
+        std::cout << "change first" << first << std::endl;
+        this->hide();
+    });
+}
+
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
     ui->setupUi(this);
     ui->source->hide();
@@ -75,8 +87,12 @@ void igQtStreamTracerWidget::refresh() {
     updateVectorNameList();
 }
 void igQtStreamTracerWidget::hideEvent(QHideEvent* event) {
+    QWidget::hideEvent(event);
     auto scene = SceneManager::Instance()->GetCurrentScene();
-    scene->GetInteractor()->RequestBasicStyle();
+    if (!scene) return;
+    auto interactor = scene->GetInteractor();
+    if (!interactor) return;
+    interactor->RequestBasicStyle();
 }
 void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
     if (event->spontaneous()) {
@@ -120,13 +136,7 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
     std::cout << first << std::endl;
     if (first) {
         std::cout << "do link" << std::endl;
-        m_StreamBase = iGame::StreamBase::New();
-        m_StreamBase->DrawObject::AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-            haveDraw = false;
-            first = true;
-            std::cout << "change first" << first << std::endl;
-            this->hide();
-        });
+        ensureStreamBase();
         auto sceneManager = iGame::SceneManager::Instance();
         auto scene = sceneManager->GetCurrentScene();
         if (!scene) return;
@@ -273,6 +283,7 @@ void igQtStreamTracerWidget::updateVectorNameList() {
         }
     }
 
+    ensureStreamBase();
     iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
     if (!modelBound) {
         std::cout << "[StreamTracer] First model binding\n";
@@ -295,9 +306,11 @@ void igQtStreamTracerWidget::changeVecName() {
 void igQtStreamTracerWidget::generateStreamline() {
 
     auto scene = SceneManager::Instance()->GetCurrentScene();
-
+    if (!scene) return;
+    ensureStreamBase();
     iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
     Model::Pointer model = scene->GetCurrentModel();
+    if (!model) return;
     if (!modelBound) {
         std::cout << "[StreamTracer] First model binding\n";
         streamtracer->initStreamTracer(model);
@@ -390,11 +403,13 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!m_ResultObject) {
         m_ResultObject = iGame::UnstructuredMesh::New();
         m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-            m_StreamBase->streamFilter->meshId = -1;
+            if (m_StreamBase && m_StreamBase->streamFilter) { m_StreamBase->streamFilter->meshId = -1; }
             modelBound = false;
             haveDraw = false;
             isExisted = false;
-            this->parentWidget()->hide();
+            if (auto scene = SceneManager::Instance()->GetCurrentScene()) {
+                if (auto interactor = scene->GetInteractor()) { interactor->RequestBasicStyle(); }
+            }
         });
     }
     auto resObj = streamtracer->GetOutput();
