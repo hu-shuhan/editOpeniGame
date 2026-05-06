@@ -721,10 +721,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
             const int targetW = qMax(curW + 60, 360); // 比默认稍宽一点
             this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
         }
-        if (m_leftFieldDock && modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
-            // 工具面板 : Properties 初始约 3:2，首次打开时工具区略高（用户仍可拖分隔条）
-            this->resizeDocks({m_leftFieldDock, modelTreeWidget->getPropertiesDock()}, {3, 2}, Qt::Vertical);
-        }
     });
 
     // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
@@ -2155,6 +2151,7 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::ContourExtract: return ui->dockWidget_ContourExtract;
     case LeftToolPanelId::Slice: return SliceDockWidget;
     case LeftToolPanelId::Deformation: return DeformationDockWidget;
+    case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
     case LeftToolPanelId::Count: return nullptr;
     }
     return nullptr;
@@ -2173,6 +2170,14 @@ QWidget* igQtMainWindow::wrapContentInScrollArea(QWidget* content, QWidget* pare
     scroll->setWidget(content);
     if (centerFlowField) scroll->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
     return scroll;
+}
+
+void igQtMainWindow::applyLeftToolStackVerticalSplit() {
+    if (!m_leftFieldDock || !modelTreeWidget) return;
+    QDockWidget* props = modelTreeWidget->getPropertiesDock();
+    if (!props || !m_leftFieldDock->isVisible()) return;
+    // 工具面板 : Properties = 1:1（事件循环跑完后再调，否则常不生效）
+    resizeDocks({m_leftFieldDock, props}, {1, 1}, Qt::Vertical);
 }
 
 void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
@@ -2202,12 +2207,16 @@ void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner
             }
         }
     }
+    const bool firstTabInStack = (m_leftFieldTabs->count() == 0);
     QWidget* page = wrapContentInScrollArea(inner, m_leftFieldTabs, centerFlowField);
     const int idx = m_leftFieldTabs->addTab(page, title);
     m_leftToolTabByPanel[static_cast<size_t>(pid)] = idx;
     m_leftFieldDock->show();
     m_leftFieldDock->raise();
     m_leftFieldTabs->setCurrentIndex(idx);
+    if (firstTabInStack) {
+        QTimer::singleShot(0, this, [this]() { applyLeftToolStackVerticalSplit(); });
+    }
 }
 
 void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
@@ -2235,6 +2244,9 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         break;
     case LeftToolPanelId::Deformation:
         relocateContentToLeftTab(DeformationDockWidget, DeformationWidget, QStringLiteral("结构形变"), id, false);
+        break;
+    case LeftToolPanelId::Selection:
+        relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"), id, false);
         break;
     case LeftToolPanelId::Count:
         break;
@@ -2284,6 +2296,7 @@ void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
         rendererWidget->getInteractor()->RequestBasicStyle();
     }
     if (id == LeftToolPanelId::Deformation && ui->action_deformation) ui->action_deformation->setChecked(false);
+    if (id == LeftToolPanelId::Selection && ui->action_SelectView) ui->action_SelectView->setChecked(false);
     if (m_leftFieldTabs->count() == 0 && m_leftFieldDock) m_leftFieldDock->hide();
 }
 
@@ -2680,15 +2693,13 @@ void igQtMainWindow::initAllSources() {
 }
 
 void igQtMainWindow::initAllInteractor() {
-    connect(ui->action_SelectView, &QAction::triggered, this, [&](bool checked) {
-        if (checked && !ui->dockWidget_SelectionField->isVisible()) {
-            ui->dockWidget_SelectionField->show();
-            ui->dockWidget_SelectionField->raise(); // 切换到该 tab
-            if (ui->dockWidget_SelectionField->widget())
-                ui->dockWidget_SelectionField->widget()->setFocus(Qt::OtherFocusReason);
+    connect(ui->action_SelectView, &QAction::triggered, this, [this](bool checked) {
+        if (checked) {
+            openLeftToolPanel(LeftToolPanelId::Selection);
+            if (ui->widget_SelectionField) ui->widget_SelectionField->setFocus(Qt::OtherFocusReason);
+        } else {
+            closeLeftToolPanel(LeftToolPanelId::Selection);
         }
-        else if (!checked && ui->dockWidget_SelectionField->isVisible())
-            ui->dockWidget_SelectionField->hide();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
         if (!iGame::SelectionParameter::Instance().GetInSelection()) {
@@ -2978,7 +2989,9 @@ void igQtMainWindow::initAllInteractor() {
         rendererWidget->update();
     });
 
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [&]() {
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [this]() {
+        if (m_leftToolTabByPanel[static_cast<size_t>(LeftToolPanelId::Selection)] >= 0)
+            closeLeftToolPanel(LeftToolPanelId::Selection);
         ui->action_SelectView->setChecked(false);
         auto scene = rendererWidget->GetScene();
         SelectionParameter::Instance().SetHaveBox(false);

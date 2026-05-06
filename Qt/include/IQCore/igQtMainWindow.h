@@ -46,6 +46,7 @@ public:
         ContourExtract,
         Slice,
         Deformation,
+        Selection,
         Count
     };
 
@@ -133,13 +134,15 @@ private:
     // 左侧工具 Tab（按需添加；下方 Properties 常驻）
     QDockWidget* m_leftFieldDock = nullptr;
     QTabWidget* m_leftFieldTabs = nullptr;
-    std::array<int, static_cast<size_t>(LeftToolPanelId::Count)> m_leftToolTabByPanel{{-1, -1, -1, -1, -1, -1, -1}};
+    std::array<int, static_cast<size_t>(LeftToolPanelId::Count)> m_leftToolTabByPanel{{-1, -1, -1, -1, -1, -1, -1, -1}};
 
     void relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
                                   bool centerFlowField);
     QWidget* wrapContentInScrollArea(QWidget* content, QWidget* parent, bool centerFlowField);
     QDockWidget* shellDockForLeftPanel(LeftToolPanelId id) const;
     void onLeftToolTabCloseRequested(int index);
+    /** 工具面板与 Properties 垂直比例（需在工具 Dock 已 show 后调用） */
+    void applyLeftToolStackVerticalSplit();
 
     void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
                                       QAction* insertBefore = nullptr);
