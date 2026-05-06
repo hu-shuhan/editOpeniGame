@@ -293,7 +293,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0; /* 隐藏上下箭头 */
 }
 
-/* ========== 左侧数据面板滚动条（银色深色适配） ========== */
+/* ========== 左侧可视化面板滚动条（银色深色适配） ========== */
 QTabWidget#LeftFieldTabs QScrollBar:vertical {
     background-color: #1B1B1B;
     border: none;
@@ -359,6 +359,73 @@ QWidget#widget_VectorField QSlider::handle:horizontal:pressed {
     background-color: #B0B0B0;
 }
 
+/* ========== 张量场面板：与矢量场一致的滑条样式，并与左侧可视化面板字体/控件观感对齐 ========== */
+QWidget#widget_TensorField QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    height: 6px;
+    border-radius: 3px;
+}
+
+QWidget#widget_TensorField QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+
+QWidget#widget_TensorField QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+
+QWidget#widget_TensorField QSlider::handle:horizontal {
+    background-color: #B0B0B0;
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;
+}
+
+QWidget#widget_TensorField QSlider::handle:horizontal:hover {
+    background-color: #C8C8C8;
+}
+
+QWidget#widget_TensorField QSlider::handle:horizontal:pressed {
+    background-color: #B0B0B0;
+}
+
+QWidget#widget_TensorField QLabel,
+QWidget#widget_TensorField QPushButton {
+    color: #FFFFFF;
+}
+
+QWidget#widget_TensorField QLineEdit,
+QWidget#widget_TensorField QComboBox {
+    background-color: #252526;
+    color: #FFFFFF;
+    border: 1px solid #3A3A3A;
+    border-radius: 2px;
+    padding: 2px 4px;
+}
+
+QWidget#widget_TensorField QComboBox::drop-down {
+    border-left: 1px solid #3A3A3A;
+}
+
+QWidget#widget_TensorField QComboBox::down-arrow {
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
+    width: 10px;
+    height: 10px;
+}
+
+QWidget#widget_TensorField QComboBox QAbstractItemView {
+    background-color: #252526;
+    color: #CCCCCC;
+    border: 1px solid #3A3A3A;
+    outline: 0;
+    selection-background-color: #3A3A3A;
+    selection-color: #FFFFFF;
+}
+
 /* ========== 标签页（TabWidget） ========== */
 QTabWidget::pane {
     border: 1px solid #3A3A3A;
@@ -375,6 +442,34 @@ QTabBar::tab:selected {
     background-color: #1E1E1E;
     border-bottom-color: #1E1E1E; /* 选中时与面板背景融合 */
 }
+
+/* 左侧工具面板 Tab：关闭叉用中性灰，避免全局 QTabBar 纯白在选中态刺眼 */
+QTabWidget#LeftFieldTabs QTabBar {
+    color: #CCCCCC;
+}
+QTabWidget#LeftFieldTabs QTabBar::tab:selected {
+    color: #DCDCDC;
+}
+QTabWidget#LeftFieldTabs QTabBar::close-button {
+    image: url(:/Ticon/Icons/tab_close_muted.svg);
+    width: 14px;
+    height: 14px;
+    subcontrol-origin: padding;
+    subcontrol-position: center;
+    margin: 1px 4px 1px 2px;
+    border: none;
+    background: transparent;
+}
+QTabWidget#LeftFieldTabs QTabBar::close-button:hover {
+    image: url(:/Ticon/Icons/tab_close_muted_hover.svg);
+    background-color: rgba(255, 255, 255, 12);
+    border-radius: 3px;
+}
+QTabWidget#LeftFieldTabs QTabBar::close-button:pressed {
+    image: url(:/Ticon/Icons/tab_close_muted.svg);
+    background-color: rgba(0, 0, 0, 25);
+}
+
 QMainWindow QToolBar,
 QMainWindow QLabel, QMainWindow QPushButton, QMainWindow QCheckBox, QMainWindow QRadioButton,
 QMainWindow QLineEdit, QMainWindow QComboBox, QMainWindow QGroupBox, QMainWindow QTabBar, QMainWindow QTextEdit,

@@ -60,6 +60,8 @@
         <file>Icons/Open.png</file>
         <file>Icons/refresh.png</file>
         <file>Icons/dock_close_white.svg</file>
+        <file>Icons/tab_close_muted.svg</file>
+        <file>Icons/tab_close_muted_hover.svg</file>
         <file>Icons/window_minimize_white.svg</file>
         <file>Icons/spin_up_silver.svg</file>
         <file>Icons/spin_down_silver.svg</file>

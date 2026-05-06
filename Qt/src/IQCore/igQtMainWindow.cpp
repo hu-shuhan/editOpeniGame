@@ -666,46 +666,30 @@ void igQtMainWindow::initAllUnDefinedComponents() {
         dock->setWidget(makeWidgetScrollable(content, dock));
     };
 
-    // 创建左侧自定义“数据面板”，用 QTabWidget 替代 QDockWidget 自带 tab 样式
+    // 左侧「工具面板」：QTabWidget 内按需加入各面板；下方 Properties 常驻
     m_leftFieldDock = new QDockWidget(this);
     m_leftFieldDock->setObjectName("LeftFieldDock");
-    m_leftFieldDock->setWindowTitle("数据面板");
+    m_leftFieldDock->setWindowTitle(QStringLiteral("工具面板"));
     m_leftFieldDock->setAllowedAreas(Qt::LeftDockWidgetArea);
     m_leftFieldDock->setFeatures(QDockWidget::DockWidgetClosable);
     m_leftFieldTabs = new QTabWidget(m_leftFieldDock);
     m_leftFieldTabs->setObjectName("LeftFieldTabs");
     m_leftFieldTabs->setTabPosition(QTabWidget::North);
     m_leftFieldTabs->setDocumentMode(true);
+    m_leftFieldTabs->setTabsClosable(true);
+    connect(m_leftFieldTabs, &QTabWidget::tabCloseRequested, this, &igQtMainWindow::onLeftToolTabCloseRequested);
     m_leftFieldDock->setWidget(m_leftFieldTabs);
     this->addDockWidget(Qt::LeftDockWidgetArea, m_leftFieldDock);
 
-    // 启动时一次性把四个主要 Field 面板放进自定义 Tab 中，避免运行时 reparent 导致崩溃
-    auto moveDockContentToCustomTab = [&](QDockWidget* dock, QWidget* content, const QString& title) {
-        if (!dock || !content || !m_leftFieldTabs) return;
-        dock->setWidget(nullptr);
-        this->removeDockWidget(dock);
-        dock->hide();
-        auto* scrollContent = makeWidgetScrollable(content, m_leftFieldTabs);
-        if (title == QStringLiteral("流场")) {
-            if (auto* scrollArea = qobject_cast<QScrollArea*>(scrollContent)) {
-                scrollArea->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
-            }
-        }
-        m_leftFieldTabs->addTab(scrollContent, title);
-    };
-    moveDockContentToCustomTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"));
-    moveDockContentToCustomTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"));
-    moveDockContentToCustomTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"));
-    moveDockContentToCustomTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"));
-    m_leftFieldTabs->setCurrentIndex(0);
-    m_leftFieldDock->show();
-
-    // 属性窗口停靠在左侧，图层树悬浮在OpenGL渲染窗口右下角
+    // 属性窗口停靠在左侧（常驻），图层树悬浮在 OpenGL 右下角
     this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
-    // 上方是自定义“数据面板”，下方是单独的 Properties，形成垂直布局
+    // 上方为工具 Tab，下方为 Properties
     this->splitDockWidget(m_leftFieldDock,
                           modelTreeWidget->getPropertiesDock(),
                           Qt::Vertical);
+    modelTreeWidget->getPropertiesDock()->show();
+    // 无 Tab 时不占工具区（仅 Properties 可见）
+    m_leftFieldDock->hide();
     // 将其他 dockwidget 以 SelectionField 为基准组织成上方的 tab 组
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ParallelCoordinatesField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableCorrelationField);
@@ -715,7 +699,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_QualityDetection);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_EditMode);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
+    // 轮廓提取 / 网格切面 / 结构形变 改由左侧「工具面板」Tab 按需打开，不再叠在 Selection 组
 
     // 左侧扩展面板统一采用可滚动内容，避免 dock 过多时撑高主窗口
     makeDockWidgetScrollable(ui->dockWidget_SelectionField);
@@ -738,6 +722,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
             this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
         }
         if (m_leftFieldDock && modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
+            // 工具面板 : Properties 初始约 3:2，首次打开时工具区略高（用户仍可拖分隔条）
             this->resizeDocks({m_leftFieldDock, modelTreeWidget->getPropertiesDock()}, {3, 2}, Qt::Vertical);
         }
     });
@@ -760,7 +745,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, SliceDockWidget);
     makeDockWidgetScrollable(SliceDockWidget);
     SliceDockWidget->hide();
 
@@ -768,7 +752,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->setWindowTitle("结构形变");
     DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
     DeformationDockWidget->setWidget(DeformationWidget);
-    DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+    DeformationDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     DeformationDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
@@ -1116,17 +1100,10 @@ void igQtMainWindow::initAllComponents() {
         }
     });
 
-    connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
-        DeformationDockWidget->show();
-    });
-    connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_FlowField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_FlowField->updateVectorNameList();
-    });
+    connect(ui->action_StrucDeformation, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Deformation); });
+    connect(ui->action_StreamLine, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Flow); });
 
 
     initAllDockWidgetConnectWithAction();
@@ -1745,38 +1722,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->widget_SearchInfo->setCurrentModelData(dataObject);
     });
 
-    // 左侧主数据面板使用自定义 QTabWidget：点击菜单时切换到对应 Tab
-    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_ScalarField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-    });
-    connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_VectorField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_VectorField->updateVectorNameList();
-    });
-    connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_VectorField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_VectorField->updateVectorNameList();
-    });
-    connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_TensorField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_TensorField->InitTensorWidget();
-    });
+    connect(ui->action_Scalar, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
+    connect(ui->action_Vector, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
+    connect(ui->action_Glyph, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
+    connect(ui->action_Tensor, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Tensor); });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -1891,14 +1844,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
             [&]() { rendererWidget->update(); });
-    connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_FlowField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_FlowField->updateVectorNameList();
-    });
+    connect(ui->action_FlowField, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Flow); });
 
 //    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
 //        ui->dockWidget_FlowField->show();
@@ -1912,8 +1859,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
-    connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool checked) {
-        showAndRaiseDock(ui->dockWidget_ContourExtract);
+    connect(ui->action_ContourExtract, &QAction::triggered, this, [this](bool) {
+        openLeftToolPanel(LeftToolPanelId::ContourExtract);
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) return;
         auto CurrentModel = scene->GetCurrentModel();
@@ -2163,25 +2110,20 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         });
     });
 
-    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) { return; }
+    connect(ui->action_slice, &QAction::triggered, this, [this](bool) {
+        const int sid = static_cast<int>(LeftToolPanelId::Slice);
+        const int existing = m_leftToolTabByPanel[static_cast<size_t>(sid)];
+        if (existing >= 0 && m_leftFieldDock && m_leftFieldDock->isVisible() && m_leftFieldTabs &&
+            m_leftFieldTabs->currentIndex() == existing) {
+            return;
+        }
+        openLeftToolPanel(LeftToolPanelId::Slice);
+        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
-        //if (!rendererWidget->getInteractor()->IsBase()) {
-        //    rendererWidget->getInteractor()->RequestBasicStyle();
-        //    return;
-        //}
-        if (SliceDockWidget->isHidden() == false) { return; }
-        SliceDockWidget->show();
         SliceWidget->SetOriginDataObject(obj);
-
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter3D(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
-
-        //if (rendererWidget->GetScene()->GetInteractor()) {
-        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
-        //}
-
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
@@ -2196,12 +2138,155 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             return;
         }
     });
-    connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked) {
-        if (checked) DeformationDockWidget->show();
+    connect(ui->action_deformation, &QAction::triggered, this, [this](bool checked) {
+        if (checked)
+            openLeftToolPanel(LeftToolPanelId::Deformation);
         else
-            DeformationDockWidget->hide();
+            closeLeftToolPanel(LeftToolPanelId::Deformation);
     });
 }
+
+QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
+    switch (id) {
+    case LeftToolPanelId::Scalar: return ui->dockWidget_ScalarField;
+    case LeftToolPanelId::Vector: return ui->dockWidget_VectorField;
+    case LeftToolPanelId::Tensor: return ui->dockWidget_TensorField;
+    case LeftToolPanelId::Flow: return ui->dockWidget_FlowField;
+    case LeftToolPanelId::ContourExtract: return ui->dockWidget_ContourExtract;
+    case LeftToolPanelId::Slice: return SliceDockWidget;
+    case LeftToolPanelId::Deformation: return DeformationDockWidget;
+    case LeftToolPanelId::Count: return nullptr;
+    }
+    return nullptr;
+}
+
+QWidget* igQtMainWindow::wrapContentInScrollArea(QWidget* content, QWidget* parent, bool centerFlowField) {
+    if (!content) return nullptr;
+    if (qobject_cast<QScrollArea*>(content)) return content;
+    content->setMinimumHeight(0);
+    content->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    auto* scroll = new QScrollArea(parent);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setWidget(content);
+    if (centerFlowField) scroll->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    return scroll;
+}
+
+void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
+                                              bool centerFlowField) {
+    const int pid = static_cast<int>(id);
+    if (!m_leftFieldTabs || !m_leftFieldDock || !inner) return;
+    if (m_leftToolTabByPanel[static_cast<size_t>(pid)] >= 0) {
+        const int t = m_leftToolTabByPanel[static_cast<size_t>(pid)];
+        if (t < m_leftFieldTabs->count()) m_leftFieldTabs->setCurrentIndex(t);
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        return;
+    }
+    if (shell) {
+        QWidget* top = shell->widget();
+        if (top == inner) {
+            shell->setWidget(nullptr);
+            removeDockWidget(shell);
+            shell->hide();
+        } else if (auto* sa = qobject_cast<QScrollArea*>(top)) {
+            if (sa->widget() == inner) {
+                sa->takeWidget();
+                shell->setWidget(nullptr);
+                delete sa;
+                removeDockWidget(shell);
+                shell->hide();
+            }
+        }
+    }
+    QWidget* page = wrapContentInScrollArea(inner, m_leftFieldTabs, centerFlowField);
+    const int idx = m_leftFieldTabs->addTab(page, title);
+    m_leftToolTabByPanel[static_cast<size_t>(pid)] = idx;
+    m_leftFieldDock->show();
+    m_leftFieldDock->raise();
+    m_leftFieldTabs->setCurrentIndex(idx);
+}
+
+void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
+    switch (id) {
+    case LeftToolPanelId::Scalar:
+        relocateContentToLeftTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"), id, false);
+        break;
+    case LeftToolPanelId::Vector:
+        relocateContentToLeftTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"), id, false);
+        ui->widget_VectorField->updateVectorNameList();
+        break;
+    case LeftToolPanelId::Tensor:
+        relocateContentToLeftTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"), id, false);
+        ui->widget_TensorField->InitTensorWidget();
+        break;
+    case LeftToolPanelId::Flow:
+        relocateContentToLeftTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"), id, true);
+        ui->widget_FlowField->updateVectorNameList();
+        break;
+    case LeftToolPanelId::ContourExtract:
+        relocateContentToLeftTab(ui->dockWidget_ContourExtract, ui->widget_ContourExtract, QStringLiteral("轮廓提取"), id, false);
+        break;
+    case LeftToolPanelId::Slice:
+        relocateContentToLeftTab(SliceDockWidget, SliceWidget, QStringLiteral("网格切面"), id, false);
+        break;
+    case LeftToolPanelId::Deformation:
+        relocateContentToLeftTab(DeformationDockWidget, DeformationWidget, QStringLiteral("结构形变"), id, false);
+        break;
+    case LeftToolPanelId::Count:
+        break;
+    }
+}
+
+void igQtMainWindow::onLeftToolTabCloseRequested(int index) {
+    if (index < 0) return;
+    for (size_t i = 0; i < m_leftToolTabByPanel.size(); ++i) {
+        if (m_leftToolTabByPanel[i] == index) {
+            closeLeftToolPanel(static_cast<LeftToolPanelId>(i));
+            return;
+        }
+    }
+}
+
+void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
+    const int pid = static_cast<int>(id);
+    if (!m_leftFieldTabs) return;
+    int idx = m_leftToolTabByPanel[static_cast<size_t>(pid)];
+    if (idx < 0 || idx >= m_leftFieldTabs->count()) return;
+
+    QWidget* page = m_leftFieldTabs->widget(idx);
+    auto* scroll = qobject_cast<QScrollArea*>(page);
+    QWidget* inner = scroll ? scroll->takeWidget() : nullptr;
+    if (scroll) scroll->deleteLater();
+
+    QDockWidget* shell = shellDockForLeftPanel(id);
+    if (shell && inner) {
+        shell->setWidget(inner);
+        if (id == LeftToolPanelId::Deformation)
+            addDockWidget(Qt::RightDockWidgetArea, shell);
+        else
+            addDockWidget(Qt::LeftDockWidgetArea, shell);
+        shell->hide();
+    }
+
+    m_leftFieldTabs->removeTab(idx);
+    m_leftToolTabByPanel[static_cast<size_t>(pid)] = -1;
+    for (size_t i = 0; i < m_leftToolTabByPanel.size(); ++i) {
+        int& t = m_leftToolTabByPanel[i];
+        if (t == idx) t = -1;
+        else if (t > idx) --t;
+    }
+    if (id == LeftToolPanelId::Slice && rendererWidget && rendererWidget->getInteractor() &&
+        !rendererWidget->getInteractor()->IsBasicStyle()) {
+        rendererWidget->getInteractor()->RequestBasicStyle();
+    }
+    if (id == LeftToolPanelId::Deformation && ui->action_deformation) ui->action_deformation->setChecked(false);
+    if (m_leftFieldTabs->count() == 0 && m_leftFieldDock) m_leftFieldDock->hide();
+}
+
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
     // ui->modelTreeView, &igQtModelListView::InsertModel);

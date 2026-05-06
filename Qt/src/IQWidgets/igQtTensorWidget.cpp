@@ -1,6 +1,14 @@
 #include<IQWidgets/igQtTensorWidget.h>
 #include "iGameSceneManager.h"
+#include <QSignalBlocker>
+#include <cmath>
 #include <iomanip>
+
+namespace {
+// 滑块仍为 value/1000 → 实际缩放；文本框展示为实际缩放的 10 倍（拉满 99 → 实际 0.099，显示 0.99）
+constexpr double kTensorScaleDisplayFactor = 10.0;
+} // namespace
+
 /**
  * @class   igQtTensorWidget
  * @brief   igQtTensorWidget's brief
@@ -20,19 +28,22 @@ igQtTensorWidget::igQtTensorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 	QRegExp rx = QRegExp("^?\\d+(\\.\\d+)?([eE][-+]?\\d+)?$");
 	ui->lineEdit_TensorScale->setValidator(new QRegExpValidator(rx, this));
 	connect(ui->horizontalSlider_ScaleSlider, &QSlider::valueChanged, this, [&]() {
-		double scale = ui->horizontalSlider_ScaleSlider->value() * 1.0 / 1000.0;
-		this->UpdateGlyphScale(scale);
+		const double internalScale = ui->horizontalSlider_ScaleSlider->value() * 1.0 / 1000.0;
+		this->UpdateGlyphScale(internalScale);
+		const double displayScale = internalScale * kTensorScaleDisplayFactor;
 		std::stringstream ss;
-		ss << std::setprecision(4) << scale;
+		ss << std::fixed << std::setprecision(2) << displayScale;
 		ui->lineEdit_TensorScale->setText(QString::fromStdString(ss.str()));
 		});
 	connect(ui->lineEdit_TensorScale, &QLineEdit::editingFinished, this, [&]() {
 		QString data = ui->lineEdit_TensorScale->text();
 		std::stringstream ss(data.toStdString());
-		double scale = .0;
-		ss >> scale;
-		this->UpdateGlyphScale(scale);
-		ui->horizontalSlider_ScaleSlider->setValue(scale * 1000.0);
+		double displayScale = .0;
+		ss >> displayScale;
+		const double internalScale = displayScale / kTensorScaleDisplayFactor;
+		this->UpdateGlyphScale(internalScale);
+		const QSignalBlocker blocker(ui->horizontalSlider_ScaleSlider);
+		ui->horizontalSlider_ScaleSlider->setValue(static_cast<int>(std::round(internalScale * 1000.0)));
 		});
 	connect(ui->ScalarInfoComboBox, &QComboBox::currentTextChanged, this, [&]() {
 		this->UpdateGlyphColors();
@@ -45,6 +56,24 @@ igQtTensorWidget::igQtTensorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 igQtTensorWidget::~igQtTensorWidget()
 {
 
+}
+
+void igQtTensorWidget::bindTensorManagerDeleteObserver()
+{
+	if (!m_Manager) return;
+	m_Manager->AddObserver(iGame::Command::DeleteEvent, [this]() { handleTensorManagerDeleted(); });
+}
+
+void igQtTensorWidget::handleTensorManagerDeleted()
+{
+	m_Manager = nullptr;
+	m_Generated = false;
+	UpdateComponentsShow(false);
+	m_Manager = iGame::iGameTensorBase::New();
+	bindTensorManagerDeleteObserver();
+	if (m_DataObject && !ui->TensorInfoComboBox->currentText().isEmpty()) {
+		InitTensorAttributes();
+	}
 }
 
 void igQtTensorWidget::UpdateGlyphType()
@@ -75,6 +104,7 @@ void igQtTensorWidget::UpdateComponentsShow(bool flag)
 		ui->label_ColorFrom->show();
 		ui->label_ScaleData->show();
 		ui->btn_Apply->hide();
+		ui->btn_GenerateVector->show();
 	}
 	else {
 		ui->lineEdit_TensorScale->hide();
@@ -83,6 +113,7 @@ void igQtTensorWidget::UpdateComponentsShow(bool flag)
 		ui->label_ColorFrom->hide();
 		ui->label_ScaleData->hide();
 		ui->btn_Apply->show();
+		ui->btn_GenerateVector->hide();
 	}
 }
 void igQtTensorWidget::InitTensorWidget() 
@@ -90,11 +121,11 @@ void igQtTensorWidget::InitTensorWidget()
 	this->m_Manager = iGame::iGameTensorBase::New();
 	this->m_Generated = false;
 	this->m_DataObject = nullptr;
-	this->m_Manager->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-		this->parentWidget()->hide();
-		UpdateComponentsShow(false);
-		});
+	bindTensorManagerDeleteObserver();
 	UpdateInfoCombox();
+	if (ui->btn_GenerateVector) {
+		ui->btn_GenerateVector->hide();
+	}
 }
 void igQtTensorWidget::UpdateInfoCombox() {
 
