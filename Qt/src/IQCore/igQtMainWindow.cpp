@@ -267,24 +267,7 @@ void igQtMainWindow::initCustomTitleBar() {
     m_titleBar->setObjectName("CustomTitleBar");
     // 调高标题栏整体高度
     m_titleBar->setFixedHeight(72);
-    m_titleBar->setStyleSheet(
-            "QWidget#CustomTitleBar {"
-            "  background-color: #181818;"
-            "  border-bottom: 1px solid #181818;"
-            "}"
-            "QPushButton {"
-            "  border: none;"
-            "  padding: 0 10px;"
-            "  color: #dddddd;"
-            "}"
-            "QPushButton:hover {"
-            "  background-color: #444444;"
-            "}"
-            "QPushButton#CloseButton:hover {"
-            "  background-color: #d9534f;"
-            "  color: white;"
-            "}"
-    );
+    // 标题栏 QSS 见 iGameQtMainWindow.ui 中 MainWindow.styleSheet（QWidget#CustomTitleBar 等）
 
     // 垂直布局：第一行标题栏，第二行菜单栏
     auto* mainLayout = new QVBoxLayout(m_titleBar);
@@ -305,24 +288,32 @@ void igQtMainWindow::initCustomTitleBar() {
     iconLabel->setScaledContents(true);
     topLayout->addWidget(iconLabel);
 
-    // 标题
+    // 标题（样式见 .ui 中 QLabel#CustomTitleLabel）
     m_titleLabel = new QLabel(topRow);
+    m_titleLabel->setObjectName(QStringLiteral("CustomTitleLabel"));
     m_titleLabel->setText(this->windowTitle());
-    m_titleLabel->setStyleSheet("QLabel { color: #dddddd; font-size: 11pt; }");
     topLayout->addWidget(m_titleLabel, 1);
 
-    // 按钮区域
+    // 按钮区域（尺寸与 Windows 标题栏按钮比例相近：较宽、易点）
     m_btnMinimize = new QPushButton(topRow);
-    m_btnMaximize = new QPushButton("□", topRow);
-    m_btnClose = new QPushButton("×", topRow);
-    m_btnClose->setObjectName("CloseButton");
+    m_btnMinimize->setObjectName(QStringLiteral("MinimizeButton"));
+    m_btnMaximize = new QPushButton(topRow);
+    m_btnMaximize->setObjectName(QStringLiteral("MaximizeButton"));
+    m_btnClose = new QPushButton(QStringLiteral("×"), topRow);
+    m_btnClose->setObjectName(QStringLiteral("CloseButton"));
 
-    // 按钮高度也稍微调大，和标题栏更匹配
-    m_btnMinimize->setFixedSize(30, 28);
-    m_btnMaximize->setFixedSize(30, 28);
-    m_btnClose->setFixedSize(36, 28);
-    m_btnMinimize->setIcon(QIcon(":/Ticon/Icons/window_minimize_white.svg"));
+    const QSize captionBtnSize(46, 30);
+    m_btnMinimize->setFixedSize(captionBtnSize);
+    m_btnMaximize->setFixedSize(captionBtnSize);
+    m_btnClose->setFixedSize(captionBtnSize);
+
+    m_btnMinimize->setIcon(QIcon(QStringLiteral(":/Ticon/Icons/window_minimize_white.svg")));
     m_btnMinimize->setIconSize(QSize(12, 12));
+    m_btnMaximize->setIconSize(QSize(12, 12));
+    m_btnMaximize->setText(QString());
+    m_btnMaximize->setFlat(true);
+    m_btnMinimize->setFlat(true);
+    m_btnClose->setFlat(true);
 
     topLayout->addWidget(m_btnMinimize, 0);
     topLayout->addWidget(m_btnMaximize, 0);
@@ -335,11 +326,6 @@ void igQtMainWindow::initCustomTitleBar() {
     if (ui->menuBar) {
         ui->menuBar->setParent(m_titleBar);
         ui->menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        ui->menuBar->setStyleSheet(
-            "QMenuBar { background: #181818; color: #dddddd; }"
-            "QMenuBar::item { background: transparent; padding: 0 8px; }"
-            "QMenuBar::item:selected { background: #444444; }"
-        );
         mainLayout->addWidget(ui->menuBar, 0);
     }
 
@@ -525,7 +511,10 @@ void igQtMainWindow::toggleMaximizeRestore() {
 
 void igQtMainWindow::updateMaximizeButtonIcon() {
     if (!m_btnMaximize) return;
-    m_btnMaximize->setText(isMaximized() ? QStringLiteral("❐") : QStringLiteral("□"));
+    m_btnMaximize->setIcon(QIcon(isMaximized() ? QStringLiteral(":/Ticon/Icons/window_restore_white.svg")
+                                               : QStringLiteral(":/Ticon/Icons/window_maximize_white.svg")));
+    m_btnMaximize->setIconSize(isMaximized() ? QSize(15, 15) : QSize(12, 12));
+    m_btnMaximize->setText(QString());
 }
 
 void igQtMainWindow::resizeEvent(QResizeEvent* event) {

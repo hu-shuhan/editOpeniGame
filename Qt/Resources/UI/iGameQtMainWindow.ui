@@ -733,6 +733,60 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     height: 0;
 }
 
+/* ========== Custom title bar (frameless caption, code-built widget) ========== */
+QWidget#CustomTitleBar {
+    background-color: #181818;
+    border-bottom: 1px solid #181818;
+}
+QWidget#CustomTitleBar QPushButton {
+    border: none;
+    padding: 0 10px;
+    color: #dddddd;
+}
+QWidget#CustomTitleBar QPushButton:hover {
+    background-color: #444444;
+}
+QPushButton#MinimizeButton,
+QPushButton#MaximizeButton {
+    padding: 0;
+    background: transparent;
+}
+QPushButton#MinimizeButton:hover,
+QPushButton#MaximizeButton:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+QPushButton#MinimizeButton:pressed,
+QPushButton#MaximizeButton:pressed {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+QPushButton#CloseButton {
+    padding: 0;
+    background: transparent;
+}
+QPushButton#CloseButton:hover {
+    background-color: #E81123;
+    color: white;
+}
+QPushButton#CloseButton:pressed {
+    background-color: #C50F1F;
+    color: white;
+}
+QWidget#CustomTitleBar QMenuBar {
+    background: #181818;
+    color: #dddddd;
+}
+QWidget#CustomTitleBar QMenuBar::item {
+    background: transparent;
+    padding: 0 8px;
+}
+QWidget#CustomTitleBar QMenuBar::item:selected {
+    background: #444444;
+}
+QLabel#CustomTitleLabel {
+    color: #dddddd;
+    font-size: 11pt;
+}
+
 /* ========== Properties Dock 样式 ========== */
 /* LayerPropertiesDock 使用全局 QDockWidget::title 样式即可 */
 </string>
