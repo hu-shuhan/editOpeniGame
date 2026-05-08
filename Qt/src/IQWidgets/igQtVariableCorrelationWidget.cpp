@@ -8,6 +8,7 @@
 #include <cmath>
 #include <thread>
 #include <QCheckBox>
+#include <QString>
 #include <iGameThreadPool.h>
 #include <iGameTimer.h>
 using namespace std;
@@ -145,6 +146,18 @@ static double CalculateValueByPos(int pos, int minPos, int maxPos, double minVal
     return (pos - minPos) * (maxValue - minValue) / (maxPos - minPos) + minValue;
 }
 
+/** 说明性 QLabel：银灰色 + 字号（写在控件自身 stylesheet，避免被主窗口全局 QLabel 覆盖） */
+static void ApplyCaptionLabelStyle(QLabel* w, int r, int g, int b, double a, int fontSizePx) {
+    if (!w) return;
+    w->setStyleSheet(QStringLiteral(
+            "QLabel { color: rgba(%1, %2, %3, %4) !important; background-color: transparent; font-size: %5px; }")
+                             .arg(r)
+                             .arg(g)
+                             .arg(b)
+                             .arg(a, 0, 'f', 2)
+                             .arg(fontSizePx));
+}
+
 igQtVariableCorrelationWidget_VariableChooseButton::igQtVariableCorrelationWidget_VariableChooseButton(QWidget* parent)
     : QRadioButton(parent) {}
 
@@ -158,39 +171,53 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
     ui->setupUi(this);
 
-    // 强制“变量选择”“相关性(%)”“变量”表格区域使用深色背景，避免 Windows 下仍显示白底
-    const QColor darkBg(0x2b, 0x2b, 0x2b);
-    QPalette darkPalette;
-    darkPalette.setColor(QPalette::Window, darkBg);
-    darkPalette.setColor(QPalette::Base, darkBg);
+    // 与无边框弹窗配合：略透底；滚动区不铺不透明 Palette，避免挡住半透明合成
+    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAutoFillBackground(false);
     for (QScrollArea* area : {ui->scrollArea, ui->scrollArea_2}) {
-        if (area && area->viewport()) {
-            area->viewport()->setAutoFillBackground(true);
-            area->viewport()->setPalette(darkPalette);
+        if (!area) continue;
+        area->setAttribute(Qt::WA_TranslucentBackground, true);
+        area->setAutoFillBackground(false);
+        if (area->viewport()) {
+            area->viewport()->setAttribute(Qt::WA_TranslucentBackground, true);
+            area->viewport()->setAutoFillBackground(false);
         }
-        if (area && area->widget()) {
-            area->widget()->setAutoFillBackground(true);
-            area->widget()->setPalette(darkPalette);
+        if (area->widget()) {
+            area->widget()->setAttribute(Qt::WA_TranslucentBackground, true);
+            area->widget()->setAutoFillBackground(false);
         }
     }
 
-    // SpinBox：某些情况下全局样式会导致“白底白字”，QSS 不生效时用 Palette 兜底强制黑底白字
+    ApplyCaptionLabelStyle(ui->label_10, 205, 207, 213, 0.96, 13);
+    for (QLabel* hdr : {ui->label, ui->label_2, ui->label_3, ui->label_4, ui->label_5}) {
+        ApplyCaptionLabelStyle(hdr, 212, 214, 220, 0.97, 14);
+    }
+    for (QLabel* row : {ui->label_6, ui->label_7, ui->label_8, ui->label_9}) {
+        ApplyCaptionLabelStyle(row, 198, 200, 208, 0.95, 13);
+    }
+    for (QLabel* meta :
+            {ui->mainVariableName, ui->subVariableName, ui->mainVariablePos, ui->subVariablePos}) {
+        ApplyCaptionLabelStyle(meta, 186, 188, 196, 0.94, 13);
+    }
+
     auto forceSpinBoxDark = [](QAbstractSpinBox* sb) {
         if (!sb) return;
         QPalette p = sb->palette();
-        // 稍微浅一点的深灰底，避免纯黑太“硬”
-        const QColor bg(0x1e, 0x1e, 0x1e);
+        const QColor bg(37, 37, 38, 235);
         p.setColor(QPalette::Base, bg);
         p.setColor(QPalette::Window, bg);
-        p.setColor(QPalette::Button, QColor(0x2b, 0x2b, 0x2b));
-        p.setColor(QPalette::Text, QColor(255, 255, 255));
-        p.setColor(QPalette::WindowText, QColor(255, 255, 255));
-        p.setColor(QPalette::ButtonText, QColor(255, 255, 255));
+        p.setColor(QPalette::Button, QColor(45, 45, 48, 240));
+        const QColor fg(228, 230, 236, 252);
+        p.setColor(QPalette::Text, fg);
+        p.setColor(QPalette::WindowText, fg);
+        p.setColor(QPalette::ButtonText, fg);
         sb->setAutoFillBackground(true);
         sb->setPalette(p);
         sb->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
-        // 只强制输入区（不要覆盖 up/down button，避免箭头显示异常）
-        sb->setStyleSheet("QAbstractSpinBox QLineEdit { background-color: #1e1e1e; color: #ffffff; border: none; }");
+        sb->setStyleSheet(
+                "QAbstractSpinBox { background-color: rgba(37, 37, 38, 0.9); color: rgba(228, 230, 236, 0.96); "
+                "border: 1px solid rgba(100, 102, 110, 0.42); border-radius: 4px; }"
+                "QAbstractSpinBox QLineEdit { background-color: transparent; color: rgba(228, 230, 236, 0.96); border: none; }");
     };
     forceSpinBoxDark(ui->choosedAlphaSpinBox);
     forceSpinBoxDark(ui->unChoosedAlphaSpinBox);

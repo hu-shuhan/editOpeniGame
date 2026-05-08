@@ -14,78 +14,152 @@
    <string>Form</string>
   </property>
   <property name="styleSheet">
-   <string>/* 使用类名选择器，确保嵌入 MainWindow 或 Dialog 时都能应用深色背景 */
+   <string>/* 半透明深色 + 柔化亮色（与无边框变量相关性弹窗合成） */
 igQtVariableCorrelationWidget,
 QWidget#igQtVariableCorrelationWidget {
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: rgba(30, 30, 32, 0.88);
 }
-/* 滚动区域及内部内容背景（表格“变量选择”“相关性(%)”“变量”所在区域） */
 QScrollArea {
-    background-color: #2b2b2b;
+    background-color: rgba(30, 30, 32, 0.82);
     border: none;
 }
 QScrollArea::viewport {
-    background-color: #2b2b2b !important;
+    background-color: rgba(30, 30, 32, 0.82) !important;
 }
 QScrollArea QFrame,
 QScrollArea QWidget {
-    background-color: #2b2b2b !important;
-    color: #ffffff;
+    background-color: rgba(30, 30, 32, 0.82) !important;
 }
-/* 明确指定两个表格内容控件的深色背景，避免 Windows 下仍显示白底 */
 QWidget#widget_2,
 QWidget#scrollAreaWidgetContents_2 {
-    background-color: #2b2b2b !important;
-    color: #ffffff;
+    background-color: rgba(30, 30, 32, 0.82) !important;
 }
-QLabel {
+/* 说明性 QLabel：银灰色 + 略大字号（与 cpp ApplyCaptionLabelStyle 一致） */
+QWidget#igQtVariableCorrelationWidget QLabel {
     background-color: transparent;
-    color: #ffffff;
+    color: rgba(198, 200, 208, 0.95) !important;
+    font-size: 13px;
 }
-/* 下拉框、按钮、复选框、滑块 - 统一深色 */
-QComboBox, QPushButton, QCheckBox, QSlider {
-    background-color: #3c3c3c;
-    color: #ffffff;
-    border: 1px solid #555555;
+QWidget#igQtVariableCorrelationWidget QLabel#label_10 {
+    color: rgba(205, 207, 213, 0.96) !important;
+    font-size: 13px;
+    font-weight: 600;
+    padding-right: 6px;
 }
-QComboBox:hover, QPushButton:hover {
-    background-color: #4a4a4a;
+QWidget#igQtVariableCorrelationWidget QLabel#label,
+QWidget#igQtVariableCorrelationWidget QLabel#label_2,
+QWidget#igQtVariableCorrelationWidget QLabel#label_3,
+QWidget#igQtVariableCorrelationWidget QLabel#label_4,
+QWidget#igQtVariableCorrelationWidget QLabel#label_5 {
+    color: rgba(212, 214, 220, 0.97) !important;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 4px 2px;
 }
-QComboBox:focus, QPushButton:focus {
-    border: 1px solid #0078d4;
+QWidget#igQtVariableCorrelationWidget QLabel#label_6,
+QWidget#igQtVariableCorrelationWidget QLabel#label_7,
+QWidget#igQtVariableCorrelationWidget QLabel#label_8,
+QWidget#igQtVariableCorrelationWidget QLabel#label_9 {
+    color: rgba(198, 200, 208, 0.95) !important;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 2px 0;
 }
-/* SpinBox：深灰底白字（不要纯黑），并尽量别影响原生上下箭头绘制 */
-QSpinBox, QDoubleSpinBox, QAbstractSpinBox {
-    background-color: #1e1e1e !important;
-    color: #ffffff !important;
-    border: 1px solid #555555;
+QWidget#igQtVariableCorrelationWidget QLabel#mainVariableName,
+QWidget#igQtVariableCorrelationWidget QLabel#subVariableName,
+QWidget#igQtVariableCorrelationWidget QLabel#mainVariablePos,
+QWidget#igQtVariableCorrelationWidget QLabel#subVariablePos {
+    color: rgba(186, 188, 196, 0.94) !important;
+    font-size: 13px;
+    font-weight: 500;
 }
-QSpinBox QLineEdit, QDoubleSpinBox QLineEdit, QAbstractSpinBox QLineEdit {
-    background-color: #1e1e1e !important;
-    color: #ffffff !important;
-    border: none;
+/* 相关性矩阵内数值 */
+QWidget#igQtVariableCorrelationWidget igQtVariableCorrelationWidget_VariableCorrelationLabel {
+    color: rgba(220, 222, 230, 0.94) !important;
+    font-weight: 500;
+    font-size: 13px;
 }
-/* 注意：在 Qt 的样式系统里，一旦自定义 up/down-button，很容易导致默认箭头不绘制。
-   这里不再自定义按钮，保留系统/风格的默认箭头绘制。 */
-/* QSlider 轨道与滑块 */
-QSlider::groove:horizontal {
-    background: #3c3c3c;
-    height: 6px;
+QComboBox {
+    background-color: rgba(37, 37, 40, 0.88);
+    color: rgba(228, 230, 236, 0.96) !important;
+    border: 1px solid rgba(100, 102, 110, 0.45);
+    border-radius: 5px;
+    min-height: 28px;
+    padding-left: 6px;
+}
+QComboBox:hover {
+    background-color: rgba(48, 48, 52, 0.9);
+    border: 1px solid rgba(120, 122, 130, 0.5);
+}
+QPushButton {
+    background-color: rgba(45, 45, 50, 0.88);
+    color: rgba(228, 230, 236, 0.96) !important;
+    border: 1px solid rgba(100, 102, 110, 0.45);
+    border-radius: 5px;
+    min-height: 28px;
+}
+QPushButton:hover {
+    background-color: rgba(58, 58, 64, 0.9);
+    border: 1px solid rgba(130, 132, 140, 0.48);
+}
+QPushButton:pressed {
+    background-color: rgba(52, 52, 58, 0.92);
+}
+QCheckBox {
+    spacing: 6px;
+    color: rgba(224, 226, 232, 0.95) !important;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QCheckBox::indicator:unchecked {
+    background-color: rgba(37, 37, 40, 0.9);
+    border: 1px solid rgba(100, 102, 110, 0.5);
     border-radius: 3px;
 }
-QSlider::handle:horizontal {
-    background: #5a5a5a;
+QCheckBox::indicator:checked {
+    background-color: rgba(14, 99, 156, 0.82);
+    border: 1px solid rgba(30, 120, 180, 0.65);
+    border-radius: 3px;
+}
+QComboBox:focus, QPushButton:focus {
+    border: 1px solid rgba(14, 99, 156, 0.65);
+}
+/* 滑条样式见各 QSlider 的 styleSheet 属性（Win 下父级 QSS 对 groove/handle 常不生效） */
+QSpinBox, QDoubleSpinBox, QAbstractSpinBox {
+    background-color: rgba(37, 37, 40, 0.88) !important;
+    color: rgba(228, 230, 236, 0.96) !important;
+    border: 1px solid rgba(100, 102, 110, 0.45);
+    border-radius: 5px;
+}
+QSpinBox QLineEdit, QDoubleSpinBox QLineEdit, QAbstractSpinBox QLineEdit {
+    background-color: transparent !important;
+    color: rgba(228, 230, 236, 0.96) !important;
+    border: none;
+}
+Line, QFrame[frameShape="4"] {
+    background-color: rgba(90, 92, 98, 0.55);
+}
+igQtVariableCorrelationWidget QRadioButton {
+    color: rgba(224, 226, 232, 0.95) !important;
+    background: transparent;
+    spacing: 6px;
+}
+igQtVariableCorrelationWidget QRadioButton::indicator {
     width: 14px;
-    margin: -4px 0;
+    height: 14px;
+}
+igQtVariableCorrelationWidget QRadioButton::indicator:unchecked {
+    background-color: rgba(37, 37, 40, 0.9);
+    border: 1px solid rgba(100, 102, 110, 0.5);
     border-radius: 7px;
 }
-QSlider::handle:horizontal:hover {
-    background: #6a6a6a;
-}
-/* 分割线等 */
-Line, QFrame[frameShape="4"] {
-    background-color: #555555;
+igQtVariableCorrelationWidget QRadioButton::indicator:checked {
+    background-color: rgba(14, 99, 156, 0.75);
+    border: 1px solid rgba(30, 120, 180, 0.55);
+    border-radius: 7px;
 }</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -328,7 +402,7 @@ Line, QFrame[frameShape="4"] {
           <item row="0" column="0" colspan="3">
            <widget class="QLabel" name="label_5">
             <property name="text">
-             <string>相关性(%)</string>
+             <string>相关性（%）</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -426,6 +500,12 @@ Line, QFrame[frameShape="4"] {
        </item>
        <item>
         <layout class="QGridLayout" name="gridLayout_2">
+         <property name="horizontalSpacing">
+          <number>6</number>
+         </property>
+         <property name="verticalSpacing">
+          <number>4</number>
+         </property>
          <item row="2" column="0">
           <widget class="QLabel" name="label_7">
            <property name="text">
@@ -446,6 +526,32 @@ Line, QFrame[frameShape="4"] {
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="styleSheet">
+            <string>QSlider { background: transparent; min-height: 22px; }
+QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background-color: #B0B0B0;
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;
+}
+QSlider::handle:horizontal:hover { background-color: #C8C8C8; }
+QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
            </property>
           </widget>
          </item>
@@ -485,6 +591,32 @@ Line, QFrame[frameShape="4"] {
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
+           <property name="styleSheet">
+            <string>QSlider { background: transparent; min-height: 22px; }
+QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background-color: #B0B0B0;
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;
+}
+QSlider::handle:horizontal:hover { background-color: #C8C8C8; }
+QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
+           </property>
           </widget>
          </item>
          <item row="3" column="1">
@@ -495,6 +627,32 @@ Line, QFrame[frameShape="4"] {
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
+           <property name="styleSheet">
+            <string>QSlider { background: transparent; min-height: 22px; }
+QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background-color: #B0B0B0;
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;
+}
+QSlider::handle:horizontal:hover { background-color: #C8C8C8; }
+QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
+           </property>
           </widget>
          </item>
          <item row="4" column="1">
@@ -504,6 +662,32 @@ Line, QFrame[frameShape="4"] {
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="styleSheet">
+            <string>QSlider { background: transparent; min-height: 22px; }
+QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background-color: #B0B0B0;
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;
+}
+QSlider::handle:horizontal:hover { background-color: #C8C8C8; }
+QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
            </property>
           </widget>
          </item>

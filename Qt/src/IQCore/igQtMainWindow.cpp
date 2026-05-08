@@ -46,6 +46,7 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
+#include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <IQComponents/Dialog/igQtMessageDialog.h>
 #include <QDebug>
 #include <QLabel>
@@ -1737,22 +1738,16 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         if (model == nullptr) return;
 
         // 使用动态属性存储对话框指针    // 匿名命名空间，只在当前cpp文件可见
-        static QDialog* dialog = nullptr;
+        static igQtChromeFramelessDialog* dialog = nullptr;
         static igQtVariableCorrelationWidget* widget = nullptr;
 
         if (!dialog) {
-            dialog = new QDialog(this);
-            dialog->setWindowTitle("变量相关性分析");
-            //dialog->setAttribute(Qt::WA_DeleteOnClose);
-            dialog->setModal(false);
-            // 设置对话框深色背景，与变量相关性控件风格一致
-            dialog->setStyleSheet("QDialog { background-color: #2b2b2b; }");
+            dialog = new igQtChromeFramelessDialog(this);
+            dialog->setDialogTitle(QStringLiteral("变量相关性分析"));
 
-            widget = new igQtVariableCorrelationWidget(dialog);
+            widget = new igQtVariableCorrelationWidget(dialog->contentHost());
             widget->GetUi()->splitter->setSizes({200, 300, 400});
-            QVBoxLayout* layout = new QVBoxLayout(dialog);
-            layout->addWidget(widget);
-            dialog->setLayout(layout);
+            dialog->setContentWidget(widget);
             dialog->resize(900, 500);
             connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
                 // 使用sender()获取信号发送者
