@@ -26,7 +26,8 @@ QScrollArea {
 QScrollArea::viewport {
     background-color: rgba(30, 30, 32, 0.82) !important;
 }
-QScrollArea QFrame,
+/* 勿给 HLine/VLine 铺底，否则与 Line 银色分隔线冲突 */
+QScrollArea QFrame:not([frameShape=&quot;4&quot;]):not([frameShape=&quot;5&quot;]),
 QScrollArea QWidget {
     background-color: rgba(30, 30, 32, 0.82) !important;
 }
@@ -139,8 +140,20 @@ QSpinBox QLineEdit, QDoubleSpinBox QLineEdit, QAbstractSpinBox QLineEdit {
     color: rgba(228, 230, 236, 0.96) !important;
     border: none;
 }
-Line, QFrame[frameShape="4"] {
-    background-color: rgba(90, 92, 98, 0.55);
+/* 4=HLine 5=VLine；银色分隔线 + 分割条 */
+Line, QFrame[frameShape=&quot;4&quot;], QFrame[frameShape=&quot;5&quot;] {
+    background-color: rgba(192, 194, 202, 0.88) !important;
+    border: none;
+    color: rgba(192, 194, 202, 0.88);
+}
+/* 与 cpp 中 splitter->setStyleSheet 一致；用 objectName 提高与主窗口全局 QSS 并存时的命中率 */
+QWidget#igQtVariableCorrelationWidget QSplitter#splitter::handle:horizontal {
+    background-color: rgba(192, 194, 202, 0.88);
+    width: 3px;
+    margin: 0 1px;
+}
+QWidget#igQtVariableCorrelationWidget QSplitter#splitter::handle:horizontal:hover {
+    background-color: rgba(210, 212, 220, 0.95);
 }
 igQtVariableCorrelationWidget QRadioButton {
     color: rgba(224, 226, 232, 0.95) !important;
@@ -199,6 +212,38 @@ igQtVariableCorrelationWidget QRadioButton::indicator:checked {
       <widget class="QPushButton" name="refreshData">
        <property name="text">
         <string>刷新数据</string>
+       </property>
+       <property name="flat">
+        <bool>false</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton {
+    background-color: rgba(58, 60, 66, 0.96);
+    color: rgba(218, 220, 226, 0.96);
+    border: 1px solid rgba(92, 94, 102, 0.7);
+    border-radius: 5px;
+    min-height: 28px;
+    font-weight: 600;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+QPushButton:hover {
+    background-color: rgba(72, 74, 82, 0.97);
+    border: 1px solid rgba(110, 112, 120, 0.75);
+}
+QPushButton:pressed {
+    background-color: rgba(46, 48, 54, 0.98);
+    border: 1px solid rgba(78, 80, 88, 0.65);
+}
+QPushButton:disabled {
+    background-color: rgba(40, 42, 48, 0.88);
+    color: rgba(100, 102, 110, 0.5);
+    border: 1px solid rgba(58, 60, 66, 0.45);
+    font-weight: 500;
+}
+QPushButton:focus {
+    border: 1px solid rgba(140, 142, 152, 0.72);
+}</string>
        </property>
       </widget>
      </item>

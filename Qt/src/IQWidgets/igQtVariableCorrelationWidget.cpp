@@ -8,6 +8,8 @@
 #include <cmath>
 #include <thread>
 #include <QCheckBox>
+#include <QFrame>
+#include <QSplitter>
 #include <QString>
 #include <iGameThreadPool.h>
 #include <iGameTimer.h>
@@ -185,6 +187,26 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
         if (area->widget()) {
             area->widget()->setAttribute(Qt::WA_TranslucentBackground, true);
             area->widget()->setAutoFillBackground(false);
+        }
+    }
+
+    /* QSplitter::handle / QFrame(HLine|VLine) 在仅依赖父级 .ui QSS 时，Windows 风格下常不生效；在控件上再设一层 */
+    if (ui->splitter) {
+        ui->splitter->setHandleWidth(4);
+        ui->splitter->setStyleSheet(QStringLiteral(
+                "QSplitter::handle:horizontal { background-color: rgba(192, 194, 202, 0.92); margin: 0 1px; }"
+                "QSplitter::handle:horizontal:hover { background-color: rgba(210, 212, 220, 0.98); }"));
+    }
+    for (QFrame* fr : findChildren<QFrame*>()) {
+        const QFrame::Shape sh = fr->frameShape();
+        if (sh == QFrame::HLine) {
+            fr->setStyleSheet(QStringLiteral(
+                    "QFrame { background-color: rgba(192, 194, 202, 0.9); border: none; min-height: 1px; max-height: "
+                    "2px; }"));
+        } else if (sh == QFrame::VLine) {
+            fr->setStyleSheet(QStringLiteral(
+                    "QFrame { background-color: rgba(192, 194, 202, 0.9); border: none; min-width: 1px; max-width: "
+                    "3px; }"));
         }
     }
 
