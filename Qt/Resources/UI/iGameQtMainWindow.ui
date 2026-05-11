@@ -178,6 +178,112 @@ QDockWidget QTextEdit {
     background-color: #1E1E1E !important;
 }
 
+/* 切割等 Filter：無邊框浮動 + 自訂標題欄。背景與標量場「編輯顏色映射」窗口 ColorManager.ui 一致 (#1E1E1E 等) */
+/* 外形圆角由 igQtFilterDialogDockWidget::setMask 保证（Windows 下仅靠 stylesheet 圆角常无效）；此处 !important 防止被全局 QDockWidget 覆盖 */
+QDockWidget#IgQtFilterFramelessDock {
+    background-color: #1E1E1E;
+    border: none;
+    border-radius: 10px !important;
+}
+QDockWidget#IgQtFilterFramelessDock::title {
+    height: 0;
+    max-height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+}
+QDockWidget#IgQtFilterFramelessDock QWidget#FilterFrameTitleBar {
+    background-color: #1E1E1E;
+    border-left: 2px solid #4A4A4A;
+    border-right: 2px solid #4A4A4A;
+    border-top: 2px solid #4A4A4A;
+    border-bottom: none;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+    margin: 0;
+    padding: 0;
+}
+QDockWidget#IgQtFilterFramelessDock QLabel#IgQtFilterTitleLabel {
+    color: #E0E0E0;
+    background: transparent;
+    border: none;
+}
+QDockWidget#IgQtFilterFramelessDock QPushButton#FilterFrameTitleCloseButton {
+    background: transparent;
+    border: none;
+}
+QDockWidget#IgQtFilterFramelessDock QWidget#dockWidgetContents {
+    background-color: #1E1E1E;
+    border-left: 2px solid #4A4A4A;
+    border-right: 2px solid #4A4A4A;
+    border-bottom: 2px solid #4A4A4A;
+    border-top: none;
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+    margin-top: 0;
+    padding-top: 0;
+}
+/* 覆蓋全局「QDockWidget QWidget → #222222」，否則 Preview 等 QCheckBox 仍繼承 #222222 與周圍 #1E1E1E 不一致 */
+QDockWidget#IgQtFilterFramelessDock QWidget {
+    background-color: #1E1E1E;
+}
+/* 與 ColorManager 內容區一致；覆蓋全局 scroll 規則 */
+QDockWidget#IgQtFilterFramelessDock QScrollArea,
+QDockWidget#IgQtFilterFramelessDock QScrollArea QWidget,
+QDockWidget#IgQtFilterFramelessDock QFrame,
+QDockWidget#IgQtFilterFramelessDock QAbstractScrollArea::viewport {
+    background-color: #1E1E1E !important;
+}
+QDockWidget#IgQtFilterFramelessDock QLabel {
+    color: #D0D0D0;
+}
+QDockWidget#IgQtFilterFramelessDock QLineEdit {
+    background-color: #252526;
+    color: #E0E0E0;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    min-height: 28px;
+    padding: 0 8px;
+}
+QDockWidget#IgQtFilterFramelessDock QLineEdit:focus {
+    border: 1px solid #0E639C;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox {
+    spacing: 6px;
+    color: #D0D0D0;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox::indicator:unchecked {
+    background-color: #252526;
+    border: 1px solid #3C3C3C;
+    border-radius: 2px;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox::indicator:checked {
+    background-color: #0E639C;
+    border: 1px solid #0E639C;
+    border-radius: 2px;
+}
+/* Apply/Close：對齊 ColorManager.ui 按鈕（標題欄關閉鍵仍由上條透明規則覆蓋） */
+QDockWidget#IgQtFilterFramelessDock QPushButton {
+    background-color: #2D2D30;
+    color: #E0E0E0;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    min-height: 30px;
+    padding: 0 10px;
+}
+QDockWidget#IgQtFilterFramelessDock QPushButton:hover {
+    background-color: #3A3A3D;
+}
+QDockWidget#IgQtFilterFramelessDock QPushButton:pressed {
+    background-color: #45454A;
+}
+
 /* ========== DockWidget 中的 PushButton 样式（内边框设计） ========== */
 /* 内边框效果：使用浅色边框（比背景亮），营造内嵌视觉，与深色背景协调 */
 QDockWidget QPushButton {

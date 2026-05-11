@@ -1984,7 +1984,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("盒子切割（美观）"));
         int x_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_min(0..1)", "0.0");
         int y_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_min(0..1)", "0.0");
         int z_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_min(0..1)", "0.0");
@@ -2046,7 +2047,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("平面切割（美观）"));
         int origin_x_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_x(0..1)", "0.5");
         int origin_y_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_y(0..1)", "0.5");
         int origin_z_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_z(0..1)", "0.5");
@@ -2527,7 +2529,8 @@ void igQtMainWindow::initAllMySignalConnections() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("盒子切割"));
         int x_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_min(0..1)", "0.0");
         int y_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_min(0..1)", "0.0");
         int z_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_min(0..1)", "0.0");
@@ -2585,7 +2588,8 @@ void igQtMainWindow::initAllMySignalConnections() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("平面切割"));
         int origin_x_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_x(0..1)", "0.5");
         int origin_y_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_y(0..1)", "0.5");
         int origin_z_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_z(0..1)", "0.5");
