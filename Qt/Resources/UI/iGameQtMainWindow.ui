@@ -399,6 +399,65 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0; /* 隐藏上下箭头 */
 }
 
+/* ========== 全局滑动条 QSlider（原矢量场 Dock 样式，用于全应用水平/垂直滑条） ========== */
+QSlider {
+    background: transparent;
+}
+QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background-color: #B0B0B0;
+    width: 12px;
+    border-radius: 6px;
+    margin: -4px 0;
+}
+QSlider::handle:horizontal:hover {
+    background-color: #C8C8C8;
+}
+QSlider::handle:horizontal:pressed {
+    background-color: #B0B0B0;
+}
+QSlider::groove:vertical {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    width: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:vertical {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:vertical {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:vertical {
+    background-color: #B0B0B0;
+    height: 12px;
+    border-radius: 6px;
+    margin: 0 -4px;
+}
+QSlider::handle:vertical:hover {
+    background-color: #C8C8C8;
+}
+QSlider::handle:vertical:pressed {
+    background-color: #B0B0B0;
+}
+
 /* ========== 左侧可视化面板滚动条（银色深色适配） ========== */
 QTabWidget#LeftFieldTabs QScrollBar:vertical {
     background-color: #1B1B1B;
@@ -430,75 +489,7 @@ QTabWidget#LeftFieldTabs QScrollBar::sub-line:vertical {
     height: 0;
 }
 
-/* ========== 矢量场 Dock（dockWidget_VectorField）中的滑动条（QSlider） ========== */
-/* 让滑动条与 Dock 深色背景 (#222222) 协调，减少高亮白色带来的晃眼感 */
-QWidget#widget_VectorField QSlider::groove:horizontal {
-    background-color: #2A2A2A;
-    border: 1px solid #3C3C3C;
-    height: 6px;
-    border-radius: 3px;
-}
-
-QWidget#widget_VectorField QSlider::sub-page:horizontal {
-    background-color: #3A4A6A;
-    border-radius: 3px;
-}
-
-QWidget#widget_VectorField QSlider::add-page:horizontal {
-    background-color: #383838;
-    border: 1px solid #464646;
-    border-radius: 3px;
-}
-
-QWidget#widget_VectorField QSlider::handle:horizontal {
-    background-color: #B0B0B0;
-    width: 12px;
-    border-radius: 6px;
-    margin: -4px 0;
-}
-
-QWidget#widget_VectorField QSlider::handle:horizontal:hover {
-    background-color: #C8C8C8;
-}
-
-QWidget#widget_VectorField QSlider::handle:horizontal:pressed {
-    background-color: #B0B0B0;
-}
-
-/* ========== 张量场面板：与矢量场一致的滑条样式，并与左侧可视化面板字体/控件观感对齐 ========== */
-QWidget#widget_TensorField QSlider::groove:horizontal {
-    background-color: #2A2A2A;
-    border: 1px solid #3C3C3C;
-    height: 6px;
-    border-radius: 3px;
-}
-
-QWidget#widget_TensorField QSlider::sub-page:horizontal {
-    background-color: #3A4A6A;
-    border-radius: 3px;
-}
-
-QWidget#widget_TensorField QSlider::add-page:horizontal {
-    background-color: #383838;
-    border: 1px solid #464646;
-    border-radius: 3px;
-}
-
-QWidget#widget_TensorField QSlider::handle:horizontal {
-    background-color: #B0B0B0;
-    width: 12px;
-    border-radius: 6px;
-    margin: -4px 0;
-}
-
-QWidget#widget_TensorField QSlider::handle:horizontal:hover {
-    background-color: #C8C8C8;
-}
-
-QWidget#widget_TensorField QSlider::handle:horizontal:pressed {
-    background-color: #B0B0B0;
-}
-
+/* ========== 张量场面板：字体/控件与左侧可视化面板对齐（滑条已用全局 QSlider 样式） ========== */
 QWidget#widget_TensorField QLabel,
 QWidget#widget_TensorField QPushButton {
     color: #FFFFFF;

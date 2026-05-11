@@ -1170,11 +1170,22 @@ void igQtMainWindow::initAllFilters() {
         msgBox.exec();
     };
 
+    /* Data Processing 前两档：略窄于默认 filter 宽度，并关闭参数区滚动条（内容较少无需滚动） */
+    auto tuneMeshSimplifyFilterDialog = [](igQtFilterDialogDockWidget* d) {
+        constexpr int kDialogWidth = 252;
+        d->setFixedWidth(kDialogWidth);
+        if (auto* sa = d->findChild<QScrollArea*>(QStringLiteral("scrollArea"))) {
+            sa->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            sa->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        }
+    };
+
     QMenu* mesh_processing = ui->menu_filters->addMenu("Data Processing");
     connect(mesh_processing->addAction("Surface Simplification"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("表面网格简化"));
         int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
         int preserveId =
                 dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
@@ -1182,6 +1193,7 @@ void igQtMainWindow::initAllFilters() {
                                             "true");
         int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
                                            "false");
+        tuneMeshSimplifyFilterDialog(dialog);
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             bool ok;
@@ -1290,7 +1302,8 @@ void igQtMainWindow::initAllFilters() {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("快速表面简化"));
         int reductionId =
                 dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Reduction (0..1)", "0.5");
         int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
@@ -1300,6 +1313,7 @@ void igQtMainWindow::initAllFilters() {
         //int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
         //                                    "true");
 
+        tuneMeshSimplifyFilterDialog(dialog);
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             bool ok;
