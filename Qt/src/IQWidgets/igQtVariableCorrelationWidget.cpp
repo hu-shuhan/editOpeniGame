@@ -210,16 +210,16 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
         }
     }
 
-    ApplyCaptionLabelStyle(ui->label_10, 205, 207, 213, 0.96, 13);
+    ApplyCaptionLabelStyle(ui->label_10, 205, 207, 213, 0.96, 15);
     for (QLabel* hdr : {ui->label, ui->label_2, ui->label_3, ui->label_4, ui->label_5}) {
-        ApplyCaptionLabelStyle(hdr, 212, 214, 220, 0.97, 14);
+        ApplyCaptionLabelStyle(hdr, 212, 214, 220, 0.97, 16);
     }
     for (QLabel* row : {ui->label_6, ui->label_7, ui->label_8, ui->label_9}) {
-        ApplyCaptionLabelStyle(row, 198, 200, 208, 0.95, 13);
+        ApplyCaptionLabelStyle(row, 198, 200, 208, 0.95, 15);
     }
     for (QLabel* meta :
             {ui->mainVariableName, ui->subVariableName, ui->mainVariablePos, ui->subVariablePos}) {
-        ApplyCaptionLabelStyle(meta, 186, 188, 196, 0.94, 13);
+        ApplyCaptionLabelStyle(meta, 186, 188, 196, 0.94, 15);
     }
 
     auto forceSpinBoxDark = [](QAbstractSpinBox* sb) {

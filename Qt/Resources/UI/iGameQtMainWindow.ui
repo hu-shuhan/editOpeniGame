@@ -637,8 +637,18 @@ QtPropertyEditorView::item:alternate {
 }
 QtTreePropertyBrowser QTreeWidget::item:selected,
 QtPropertyEditorView::item:selected {
-    background-color: #3A3A3A;
-    color: rgba(255, 255, 255, 204); /* 文字白色 80% */
+    /* 银色选中行（避免系统默认蓝色）；与 igQtModelDialogWidget 内 QPalette::Highlight 一致 */
+    background-color: #C0C0C0 !important;
+    selection-background-color: #C0C0C0 !important;
+    selection-color: #252526 !important;
+    color: #252526 !important;
+}
+QtTreePropertyBrowser QTreeWidget::item:selected:!active,
+QtPropertyEditorView::item:selected:!active {
+    background-color: #A8A8AC !important;
+    selection-background-color: #A8A8AC !important;
+    selection-color: #252526 !important;
+    color: #252526 !important;
 }
 QtTreePropertyBrowser QTreeWidget::item:hover,
 QtPropertyEditorView::item:hover {

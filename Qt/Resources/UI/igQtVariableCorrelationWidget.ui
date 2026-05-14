@@ -39,11 +39,11 @@ QWidget#scrollAreaWidgetContents_2 {
 QWidget#igQtVariableCorrelationWidget QLabel {
     background-color: transparent;
     color: rgba(198, 200, 208, 0.95) !important;
-    font-size: 13px;
+    font-size: 15px;
 }
 QWidget#igQtVariableCorrelationWidget QLabel#label_10 {
     color: rgba(205, 207, 213, 0.96) !important;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     padding-right: 6px;
 }
@@ -53,7 +53,7 @@ QWidget#igQtVariableCorrelationWidget QLabel#label_3,
 QWidget#igQtVariableCorrelationWidget QLabel#label_4,
 QWidget#igQtVariableCorrelationWidget QLabel#label_5 {
     color: rgba(212, 214, 220, 0.97) !important;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     letter-spacing: 0.3px;
     padding: 4px 2px;
@@ -63,7 +63,7 @@ QWidget#igQtVariableCorrelationWidget QLabel#label_7,
 QWidget#igQtVariableCorrelationWidget QLabel#label_8,
 QWidget#igQtVariableCorrelationWidget QLabel#label_9 {
     color: rgba(198, 200, 208, 0.95) !important;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     padding: 2px 0;
 }
@@ -72,14 +72,14 @@ QWidget#igQtVariableCorrelationWidget QLabel#subVariableName,
 QWidget#igQtVariableCorrelationWidget QLabel#mainVariablePos,
 QWidget#igQtVariableCorrelationWidget QLabel#subVariablePos {
     color: rgba(186, 188, 196, 0.94) !important;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
 }
 /* 相关性矩阵内数值 */
 QWidget#igQtVariableCorrelationWidget igQtVariableCorrelationWidget_VariableCorrelationLabel {
     color: rgba(220, 222, 230, 0.94) !important;
     font-weight: 500;
-    font-size: 13px;
+    font-size: 15px;
 }
 QComboBox {
     background-color: rgba(37, 37, 40, 0.88);
@@ -110,6 +110,7 @@ QPushButton:pressed {
 QCheckBox {
     spacing: 6px;
     color: rgba(224, 226, 232, 0.95) !important;
+    font-size: 15px;
 }
 QCheckBox::indicator {
     width: 14px;
@@ -159,6 +160,7 @@ igQtVariableCorrelationWidget QRadioButton {
     color: rgba(224, 226, 232, 0.95) !important;
     background: transparent;
     spacing: 6px;
+    font-size: 15px;
 }
 igQtVariableCorrelationWidget QRadioButton::indicator {
     width: 14px;

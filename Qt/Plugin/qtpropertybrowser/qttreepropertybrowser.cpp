@@ -49,8 +49,25 @@
 #include <QtGui/QFocusEvent>
 #include <QtWidgets/QStyle>
 #include <QtGui/QPalette>
+#include <QtWidgets/QStyleOption>
 
 QT_BEGIN_NAMESPACE
+
+/** Windows 原生样式下选中行仍用系统蓝；在绘制前改写 option.palette，强制与主界面 QSS 一致的银色高亮。 */
+static void qtPropertyBrowserApplySilverSelectionPalette(QStyleOptionViewItem &opt)
+{
+    if (!(opt.state & QStyle::State_Selected))
+        return;
+
+    const bool inactiveWindow = !(opt.state & QStyle::State_Active);
+    const QColor highlight = inactiveWindow ? QColor(0xA8, 0xA8, 0xAC) : QColor(0xC0, 0xC0, 0xC0);
+    const QColor highlightedText(0x25, 0x25, 0x26);
+
+    for (auto cg : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+        opt.palette.setColor(cg, QPalette::Highlight, highlight);
+        opt.palette.setColor(cg, QPalette::HighlightedText, highlightedText);
+    }
+}
 
 class QtPropertyEditorView;
 
@@ -160,6 +177,7 @@ void QtPropertyEditorView::drawRow(QPainter *painter, const QStyleOptionViewItem
             opt.palette.setColor(QPalette::AlternateBase, c.lighter(112));
         }
     }
+    qtPropertyBrowserApplySilverSelectionPalette(opt);
     QTreeWidget::drawRow(painter, opt, index);
     QColor color = static_cast<QRgb>(QApplication::style()->styleHint(QStyle::SH_Table_GridLineColor, &opt));
     painter->save();
@@ -344,19 +362,36 @@ void QtPropertyEditorDelegate::paint(QPainter *painter, const QStyleOptionViewIt
             opt.fontMetrics = QFontMetrics(opt.font);
         }
     }
-    QColor c;
-    if (!hasValue && m_editorPrivate->markPropertiesWithoutValue()) {
-        c = opt.palette.color(QPalette::Dark);
-        opt.palette.setColor(QPalette::Text, opt.palette.color(QPalette::BrightText));
-    } else {
-        c = m_editorPrivate->calculatedBackgroundColor(m_editorPrivate->indexToBrowserItem(index));
-        if (c.isValid() && (opt.features & QStyleOptionViewItem::Alternate))
-            c = c.lighter(112);
-    }
-    if (c.isValid())
-        painter->fillRect(option.rect, c);
     opt.state &= ~QStyle::State_HasFocus;
-    QItemDelegate::paint(painter, opt, index);
+
+    // Windows Vista/11 等原生样式在 item 选中时仍用主题蓝绘制，会忽略 QPalette/QSS；
+    // 先自绘银色底，再去掉 State_Selected 交给 QItemDelegate 只画文字与装饰。
+    if (opt.state & QStyle::State_Selected) {
+        const bool inactiveWindow = !(opt.state & QStyle::State_Active);
+        const QColor highlight = inactiveWindow ? QColor(0xA8, 0xA8, 0xAC) : QColor(0xC0, 0xC0, 0xC0);
+        const QColor fg(0x25, 0x25, 0x26);
+        painter->fillRect(opt.rect, highlight);
+        opt.state &= ~QStyle::State_Selected;
+        for (auto cg : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+            opt.palette.setColor(cg, QPalette::Text, fg);
+            opt.palette.setColor(cg, QPalette::WindowText, fg);
+            opt.palette.setColor(cg, QPalette::BrightText, fg);
+        }
+        QItemDelegate::paint(painter, opt, index);
+    } else {
+        QColor c;
+        if (!hasValue && m_editorPrivate->markPropertiesWithoutValue()) {
+            c = opt.palette.color(QPalette::Dark);
+            opt.palette.setColor(QPalette::Text, opt.palette.color(QPalette::BrightText));
+        } else {
+            c = m_editorPrivate->calculatedBackgroundColor(m_editorPrivate->indexToBrowserItem(index));
+            if (c.isValid() && (opt.features & QStyleOptionViewItem::Alternate))
+                c = c.lighter(112);
+        }
+        if (c.isValid())
+            painter->fillRect(option.rect, c);
+        QItemDelegate::paint(painter, opt, index);
+    }
 
     opt.palette.setCurrentColorGroup(QPalette::Active);
     QColor color = static_cast<QRgb>(QApplication::style()->styleHint(QStyle::SH_Table_GridLineColor, &opt));

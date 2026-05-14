@@ -5,6 +5,21 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <filesystem>
+
+namespace {
+/** 在路径分隔符后插入零宽空格，便于 QLabel 在窄 dock 内按段换行（路径通常不含空格）。 */
+QString pathForLabelWrap(const QString& path) {
+    if (path.isEmpty() || path == QLatin1String("(n/a)")) return path;
+    QString out;
+    out.reserve(path.size() + path.size() / 8 + 8);
+    for (QChar c : path) {
+        out.append(c);
+        if (c == QLatin1Char('/') || c == QLatin1Char('\\')) out.append(QChar(0x200B));
+    }
+    return out;
+}
+} // namespace
+
 igQtModelInformationWidget::igQtModelInformationWidget(QWidget* parent) : QWidget(parent) {
     // Layout for the main widget
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -126,8 +141,8 @@ void igQtModelInformationWidget::updateInformationFrame() {
     filePropForm->setHorizontalSpacing(10);
     filePropForm->setVerticalSpacing(6);
     filePropForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    createPropertyLabel(filePropForm, "Name", fileName);
-    createPropertyLabel(filePropForm, "Path", directory);
+    createPropertyLabel(filePropForm, "Name", pathForLabelWrap(fileName));
+    createPropertyLabel(filePropForm, "Path", pathForLabelWrap(directory));
     frameLayout->addWidget(filePropWidget);
 
     // 数据统计
@@ -200,8 +215,9 @@ void igQtModelInformationWidget::createPropertyLabel(QFormLayout* formLayout, co
     nameLabel->setStyleSheet("QLabel { font-size: 14px; color: #C8C8C8; }");
 
     QLabel* valueLabel = new QLabel(value);
-    valueLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    valueLabel->setWordWrap(false);
+    valueLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    valueLabel->setWordWrap(true);
+    valueLabel->setMinimumWidth(0);
     valueLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     valueLabel->setStyleSheet("QLabel { font-size: 14px; color: #FFFFFF; }");
     formLayout->addRow(nameLabel, valueLabel);

@@ -1792,7 +1792,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_VariableDensity, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        showAndRaiseDock(ui->dockWidget_VariableDensityField);
+        openLeftToolPanel(LeftToolPanelId::VariableDensity);
         ui->widget_VariableDensityField->SetModel(model);
     });
 
@@ -1804,7 +1804,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     auto DataChangeFunc = [&](igQtMainWindow* mainWindow) {
         auto model = mainWindow->rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        showAndRaiseDock(mainWindow->ui->dockWidget_DataChangeField);
+        mainWindow->openLeftToolPanel(LeftToolPanelId::DataChange);
         mainWindow->ui->widget_DataChangeField->InitRadialStyle(
                 mainWindow->rendererWidget->GetScene()->GetInteractor());
         auto name = mainWindow->rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
@@ -2152,6 +2152,8 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Slice: return SliceDockWidget;
     case LeftToolPanelId::Deformation: return DeformationDockWidget;
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
+    case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
+    case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
     case LeftToolPanelId::Count: return nullptr;
     }
     return nullptr;
@@ -2247,6 +2249,14 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         break;
     case LeftToolPanelId::Selection:
         relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"), id, false);
+        break;
+    case LeftToolPanelId::VariableDensity:
+        relocateContentToLeftTab(ui->dockWidget_VariableDensityField, ui->widget_VariableDensityField,
+                                 QStringLiteral("变量数据密度"), id, false);
+        break;
+    case LeftToolPanelId::DataChange:
+        relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
+                                 false);
         break;
     case LeftToolPanelId::Count:
         break;
