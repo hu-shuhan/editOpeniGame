@@ -146,6 +146,9 @@ private:
     /** 工具面板与 Properties 垂直比例（需在工具 Dock 已 show 后调用） */
     void applyLeftToolStackVerticalSplit();
 
+    /** 与菜单「算法处理 / 特征提取」等一致：无边框 QMessageBox + 暗色圆角边框。 */
+    void showDarkFramelessMessage(const QString& title, const QString& text, bool useInformationIcon = false);
+
     void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
                                       QAction* insertBefore = nullptr);
     void addToolbarTitle(QToolBar* toolbar, const QString& title);

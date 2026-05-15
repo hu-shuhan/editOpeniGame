@@ -153,11 +153,32 @@ void igQtChromeFramelessDialog::setContentWidget(QWidget* widget) {
     m_contentLayout->addWidget(widget);
 }
 
+void igQtChromeFramelessDialog::setMaximizeEnabled(bool enabled) {
+    m_maximizeEnabled = enabled;
+    if (m_maximizeButton) {
+        m_maximizeButton->setVisible(enabled);
+        m_maximizeButton->setEnabled(enabled);
+    }
+    if (!enabled && isMaximized()) {
+        showNormal();
+        if (m_normalGeometry.isValid() && m_normalGeometry.width() >= minimumWidth() &&
+            m_normalGeometry.height() >= minimumHeight()) {
+            setGeometry(m_normalGeometry);
+        }
+        updateMaximizeButtonIcon();
+        updateFrameMarginsForWindowState();
+    }
+}
+
 bool igQtChromeFramelessDialog::isOnCaptionButton(const QPoint& dialogPos) const {
-    if (!m_titleBar || !m_minimizeButton || !m_maximizeButton || !m_closeButton) return false;
+    if (!m_titleBar || !m_minimizeButton || !m_closeButton) return false;
     const QPoint inTitle = m_titleBar->mapFrom(this, dialogPos);
-    return m_minimizeButton->geometry().contains(inTitle) || m_maximizeButton->geometry().contains(inTitle) ||
-           m_closeButton->geometry().contains(inTitle);
+    if (m_minimizeButton->geometry().contains(inTitle) || m_closeButton->geometry().contains(inTitle)) return true;
+    if (m_maximizeEnabled && m_maximizeButton && m_maximizeButton->isVisible() &&
+        m_maximizeButton->geometry().contains(inTitle)) {
+        return true;
+    }
+    return false;
 }
 
 void igQtChromeFramelessDialog::mousePressEvent(QMouseEvent* event) {
@@ -217,8 +238,8 @@ void igQtChromeFramelessDialog::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void igQtChromeFramelessDialog::mouseDoubleClickEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton && m_titleBar && m_titleBar->geometry().contains(event->pos()) &&
-        !isOnCaptionButton(event->pos())) {
+    if (m_maximizeEnabled && event->button() == Qt::LeftButton && m_titleBar &&
+        m_titleBar->geometry().contains(event->pos()) && !isOnCaptionButton(event->pos())) {
         toggleMaximizeRestore();
         event->accept();
         return;
@@ -250,6 +271,7 @@ void igQtChromeFramelessDialog::updateMaximizeButtonIcon() {
 }
 
 void igQtChromeFramelessDialog::toggleMaximizeRestore() {
+    if (!m_maximizeEnabled) return;
     if (isMaximized()) {
         showNormal();
         if (m_normalGeometry.isValid() && m_normalGeometry.width() >= minimumWidth() &&

@@ -26,6 +26,9 @@ public:
     void setContentWidget(QWidget* widget);
     QWidget* contentHost() const { return m_contentHost; }
 
+    /** 为小型工具窗关闭标题栏最大化按钮及双击标题最大化（默认可用）。 */
+    void setMaximizeEnabled(bool enabled);
+
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -60,4 +63,5 @@ private:
     QRect m_normalGeometry;
     bool m_dragging{false};
     QPoint m_dragOffset;
+    bool m_maximizeEnabled{true};
 };

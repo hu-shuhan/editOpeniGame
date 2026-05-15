@@ -47,7 +47,6 @@
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
-#include <IQComponents/Dialog/igQtMessageDialog.h>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -91,6 +90,7 @@
 #include <QApplication>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
+#include <QStyle>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
@@ -988,7 +988,7 @@ void igQtMainWindow::initAllComponents() {
         QString path =
                 QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
         igQtScreenShotOptionDialog dialog(this);
-        dialog.setWindowTitle("Save ScreenShot Option.");
+        dialog.setDialogTitle(QStringLiteral("Save Screenshot option"));
         int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
         int ratio_pixel = rendererWidget->devicePixelRatio();
         int width = 1920, height = 1080;
@@ -1001,33 +1001,9 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->resize(width, height);
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
-        QMessageBox resultBox(this);
-        resultBox.setIcon(QMessageBox::Information);
-        resultBox.setWindowTitle("截图结果");
-        resultBox.setStandardButtons(QMessageBox::Ok);
-        resultBox.setStyleSheet(
-                "QMessageBox { background-color: #1E1E1E; color: #EAEAEA; }"
-                "QMessageBox QLabel { color: #D8D8D8; }"
-                "QMessageBox QLabel { color: #D8D8D8; }");
-        if (auto *okBtn = resultBox.button(QMessageBox::Ok)) {
-            okBtn->setStyleSheet(
-                    "QPushButton {"
-                    " background-color: #2A2A2A;"
-                    " color: #EAEAEA;"
-                    " border: 1px solid #3A3A3A;"
-                    " border-radius: 4px;"
-                    " min-width: 72px;"
-                    " padding: 6px 12px;"
-                    "}"
-                    "QPushButton:hover { background-color: #3A3A3A; }"
-                    "QPushButton:pressed { background-color: #252526; }");
-        }
-        if (saved_image.save(path, "BMP")) {
-            resultBox.setText("保存成功");
-        } else {
-            resultBox.setText("保存失败");
-        }
-        resultBox.exec();
+        const bool savedOk = saved_image.save(path, "BMP");
+        showDarkFramelessMessage(QStringLiteral("截图结果"),
+                                 savedOk ? QStringLiteral("保存成功") : QStringLiteral("保存失败"), savedOk);
     });
 
     connect(ui->action_SaveAnimation, &QAction::triggered, this, [&]() { ui->widget_Animation->saveAnimation(); });
@@ -1110,24 +1086,25 @@ void igQtMainWindow::updateVortexMetricsLabelPos()
     vortexMetricsLabel->raise();
 }
 
-void igQtMainWindow::initAllFilters() {
-    auto showDarkWarning = [this](const QString& title, const QString& message) {
-        QMessageBox msgBox(this);
-        msgBox.setWindowFlags((msgBox.windowFlags() | Qt::FramelessWindowHint) & ~Qt::WindowContextHelpButtonHint);
-        msgBox.setIcon(QMessageBox::NoIcon);
-        QPixmap warnPixmap = style()->standardIcon(QStyle::SP_MessageBoxWarning).pixmap(30, 30);
-        {
-            QPainter painter(&warnPixmap);
-            painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
-            painter.fillRect(warnPixmap.rect(), QColor(0, 0, 0, 75));
-        }
-        msgBox.setIconPixmap(warnPixmap);
-        msgBox.setWindowTitle(title);
-        msgBox.setText(message);
-        msgBox.setStandardButtons(QMessageBox::Ok);
-        msgBox.setDefaultButton(QMessageBox::Ok);
-        msgBox.setMinimumSize(460, 200);
-        msgBox.setStyleSheet(
+void igQtMainWindow::showDarkFramelessMessage(const QString& title, const QString& text, bool useInformationIcon) {
+    QMessageBox msgBox(this);
+    msgBox.setWindowFlags((msgBox.windowFlags() | Qt::FramelessWindowHint) & ~Qt::WindowContextHelpButtonHint);
+    msgBox.setIcon(QMessageBox::NoIcon);
+    const QStyle::StandardPixmap which =
+            useInformationIcon ? QStyle::SP_MessageBoxInformation : QStyle::SP_MessageBoxWarning;
+    QPixmap iconPixmap = style()->standardIcon(which).pixmap(30, 30);
+    {
+        QPainter painter(&iconPixmap);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
+        painter.fillRect(iconPixmap.rect(), QColor(0, 0, 0, 75));
+    }
+    msgBox.setIconPixmap(iconPixmap);
+    msgBox.setWindowTitle(title);
+    msgBox.setText(text);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    msgBox.setMinimumSize(460, 200);
+    msgBox.setStyleSheet(
             "QMessageBox {"
             "  background-color: #232323;"
             "  border: 1px solid #5A5A5A;"
@@ -1152,9 +1129,9 @@ void igQtMainWindow::initAllFilters() {
             "QMessageBox QPushButton:pressed {"
             "  background-color: #4A5056;"
             "}"
-        );
-        if (QPushButton* okBtn = qobject_cast<QPushButton*>(msgBox.button(QMessageBox::Ok))) {
-            okBtn->setStyleSheet(
+    );
+    if (QPushButton* okBtn = qobject_cast<QPushButton*>(msgBox.button(QMessageBox::Ok))) {
+        okBtn->setStyleSheet(
                 "QPushButton {"
                 "  min-width: 64px;"
                 "  padding: 3px 9px;"
@@ -1165,11 +1142,12 @@ void igQtMainWindow::initAllFilters() {
                 "}"
                 "QPushButton:hover { background-color: #666D74; }"
                 "QPushButton:pressed { background-color: #4A5056; }"
-            );
-        }
-        msgBox.exec();
-    };
+        );
+    }
+    msgBox.exec();
+}
 
+void igQtMainWindow::initAllFilters() {
     /* Data Processing 前两档：略窄于默认 filter 宽度，并关闭参数区滚动条（内容较少无需滚动） */
     auto tuneMeshSimplifyFilterDialog = [](igQtFilterDialogDockWidget* d) {
         constexpr int kDialogWidth = 252;
@@ -1206,7 +1184,7 @@ void igQtMainWindow::initAllFilters() {
 
             if (!ok) {
                 result = QString("网格简化算法只支持表面网格");
-                igQtMessageDialog::information(this, "非表面网格", result);
+                showDarkFramelessMessage(QStringLiteral("非表面网格"), result);
                 dialog->close();
                 return;
             }
@@ -1454,7 +1432,7 @@ void igQtMainWindow::initAllFilters() {
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
     QAction* gradient = view->addAction("ComputeGradient");
-    connect(gradient, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
+    connect(gradient, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1481,13 +1459,13 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            showDarkWarning("Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
 
         }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
-    connect(laplacian, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
+    connect(laplacian, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1514,12 +1492,12 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            showDarkWarning("Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
     QAction* curvature = view->addAction("ComputeCurvature");
-    connect(curvature, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
+    connect(curvature, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         CurvatureFilter::Pointer filter = CurvatureFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1546,12 +1524,12 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            showDarkWarning("Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
     QAction* vortex = view->addAction("ComputeVorticity");
-    connect(vortex, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
+    connect(vortex, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1578,12 +1556,12 @@ void igQtMainWindow::initAllFilters() {
             }
         }else {
             std::string message = filter->GetMessage();
-            showDarkWarning("Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
     QAction* vortexPrection = view->addAction("PredictVortex");
-    connect(vortexPrection, &QAction::triggered, this, [this, showDarkWarning](bool checked) {
+    connect(vortexPrection, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexDetection::Pointer filter = VortexDetection::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1681,7 +1659,7 @@ void igQtMainWindow::initAllFilters() {
             // }
         }else {
             std::string message = filter->GetMessage();
-            showDarkWarning("Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
