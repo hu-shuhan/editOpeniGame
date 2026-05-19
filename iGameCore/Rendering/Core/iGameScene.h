@@ -90,7 +90,7 @@ public:
      * @return 模型指针。
      */
     SmartPointer<Model> GetModelById(int modelID);
-    bool SetModelById(int modelID, SmartPointer<Model>model);
+    bool SetModelById(int modelID, SmartPointer<Model> model);
 
     /**
      * @brief 根据索引获取数据对象。
@@ -163,6 +163,11 @@ public:
      * @return 相机指针。
      */
     SmartPointer<Camera> GetCamera();
+
+    // Surface shading mode used by web bridge APIs.
+    // 0: BlinnPhong (default), 1: NoLight.
+    void SetSurfaceShadingMode(int mode);
+    int GetSurfaceShadingMode() const;
 
     /**
      * @brief 更改相机类型。
@@ -400,7 +405,7 @@ protected:
 
     SmartPointer<Camera> m_Camera;
     //Light> m_Light;
-    bool m_AxesVisible {true};
+    bool m_AxesVisible{true};
     SmartPointer<Axes> m_Axes;
 
     SmartPointer<Interactor> m_Interactor;
@@ -481,6 +486,8 @@ protected:
 
     // 记录是否处于交互状态
     bool m_IsInteracting = false;
+
+    int m_SurfaceShadingMode = 0;
 
     friend class RenderWindow;
     friend class Model;

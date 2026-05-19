@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>iGame wasm vtk demo</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --text: #1b2430;
+            --accent: #0e7490;
+            --line: #d7e2ef;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: radial-gradient(circle at 15% 20%, #e5f2ff 0%, var(--bg) 45%), var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 960px;
+            margin: 32px auto;
+            padding: 0 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(20, 40, 70, 0.08);
+        }
+
+        #log {
+            min-height: 60px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            margin-top: 12px;
+            border-top: 1px solid var(--line);
+            padding-top: 10px;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 540px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            margin-top: 14px;
+            background: #0b0f14;
+            display: block;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="card">
+            <h2>iGame wasm vtk demo</h2>
+            <div class="row">
+                <input id="vtkFile" type="file" accept=".vtk,.vtu" />
+                <label>Import</label>
+                <select id="importMode">
+                    <option value="append" selected>Append</option>
+                    <option value="replace">Replace</option>
+                </select>
+                <button id="btnReset" type="button">Reset Camera</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Remote API</label>
+                <input id="apiBaseUrl" type="text" style="min-width: 280px;" placeholder="http://<server-ip>" />
+                <button id="btnUseCurrentOrigin" type="button">Use Current Origin</button>
+                <button id="btnFetchRemoteModels" type="button">Fetch Remote Models</button>
+                <select id="remoteModelList" style="min-width: 320px;"></select>
+                <button id="btnLoadRemoteModel" type="button">Load Remote</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Models</label>
+                <select id="modelList" style="min-width: 360px;"></select>
+                <button id="btnRefreshModels" type="button">Refresh Models</button>
+                <button id="btnSetActiveModel" type="button">Set Active</button>
+                <button id="btnToggleModelVisibility" type="button">Toggle Visible</button>
+                <button id="btnRemoveModel" type="button">Remove</button>
+                <button id="btnRemoveAllModels" type="button">Remove All</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>View</label>
+                <select id="viewStyle">
+                    <option value="1">Points</option>
+                    <option value="4">Surface</option>
+                    <option value="2">Wireframe</option>
+                    <option value="6" selected>Surface + Wireframe</option>
+                    <option value="7">Points + Wireframe + Surface</option>
+                </select>
+                <button id="btnApplyView" type="button">Apply View</button>
+
+                <label>Shading</label>
+                <select id="shadingMode">
+                    <option value="0" selected>BlinnPhong</option>
+                    <option value="1">NoLight</option>
+                </select>
+                <button id="btnApplyShading" type="button">Apply Shading</button>
+
+                <label>Background</label>
+                <input id="bgColor" type="color" value="#222222" />
+                <button id="btnApplyBg" type="button">Apply Background</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Scalar</label>
+                <select id="scalarSelect" style="min-width: 260px;">
+                    <option value="-1" selected>None</option>
+                </select>
+                <button id="btnRefreshScalarList" type="button">Refresh Scalar List</button>
+                <label>Dimension</label>
+                <select id="scalarDimSelect" style="min-width: 120px;">
+                    <option value="-1" selected>Auto (-1)</option>
+                </select>
+                <label>Attachment</label>
+                <select id="scalarAttachment">
+                    <option value="-1" selected>Any</option>
+                    <option value="0">PointData</option>
+                    <option value="1">CellData</option>
+                </select>
+                <button id="btnApplyScalar" type="button">Apply Scalar</button>
+            </div>
+            <div id="log">Waiting for wasm...</div>
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const log = (msg) => { document.getElementById('log').textContent = msg; };
+        let renderLoopStarted = false;
+
+        const eventType = {
+            MousePress: 0,
+            MouseMove: 1,
+            MouseRelease: 2,
+            Wheel: 3,
+        };
+
+        const mouseButton = {
+            NoButton: 0,
+            LeftButton: 1,
+            RightButton: 2,
+            MiddleButton: 4,
+        };
+
+        const drawStyle = {
+            Points: 1,
+            Wireframe: 2,
+            Surface: 4,
+        };
+
+        const dataAttachment = {
+            Any: -1,
+            Point: 0,
+            Cell: 1,
+        };
+
+        // Fallback for browsers/extensions that forcibly hijack right-drag gestures.
+        const useShiftLeftAsRightDragFallback = true;
+
+        const domButtonToIgame = (btn) => {
+            if (btn === 0) return mouseButton.LeftButton;
+            if (btn === 1) return mouseButton.MiddleButton;
+            if (btn === 2) return mouseButton.RightButton;
+            return mouseButton.NoButton;
+        };
+
+        const getCanvasPos = (canvas, e) => {
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width;
+            const sy = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * sx,
+                y: (e.clientY - rect.top) * sy,
+            };
+        };
+
+        window.onerror = function (message, source, lineno, colno) {
+            log(`window error: ${message} @ ${source}:${lineno}:${colno}`);
+        };
+
+        window.onunhandledrejection = function (event) {
+            const reason = event && event.reason ? event.reason : 'unknown';
+            log(`promise rejection: ${reason}`);
+        };
+
+        Module = {
+            canvas: document.getElementById('canvas'),
+            onAbort(what) {
+                log(`wasm abort: ${what}`);
+            },
+            onRuntimeInitialized() {
+                try {
+                    log('runtime initialized, calling igw_init...');
+                    const initOk = Module.ccall('igw_init', 'number', [], []);
+                    log(initOk ? 'wasm initialized' : 'init failed');
+                } catch (err) {
+                    log(`init exception: ${err && err.stack ? err.stack : err}`);
+                    return;
+                }
+
+                document.getElementById('btnReset').addEventListener('click', () => {
+                    try {
+                        Module.ccall('igw_reset_camera', null, [], []);
+                    } catch (err) {
+                        log(`reset exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyView').addEventListener('click', () => {
+                    try {
+                        const styleMask = parseInt(document.getElementById('viewStyle').value, 10);
+                        const ok = Module.ccall('igw_set_view_style', 'number', ['number'], [styleMask]);
+                        if (!ok) log('apply view style failed');
+                    } catch (err) {
+                        log(`apply view exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyShading').addEventListener('click', () => {
+                    try {
+                        const mode = parseInt(document.getElementById('shadingMode').value, 10);
+                        const ok = Module.ccall('igw_set_surface_shading_mode', 'number', ['number'], [mode]);
+                        if (!ok) log('apply shading failed');
+                    } catch (err) {
+                        log(`apply shading exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyBg').addEventListener('click', () => {
+                    try {
+                        const hex = document.getElementById('bgColor').value || '#222222';
+                        const r = parseInt(hex.slice(1, 3), 16);
+                        const g = parseInt(hex.slice(3, 5), 16);
+                        const b = parseInt(hex.slice(5, 7), 16);
+                        const ok = Module.ccall(
+                            'igw_set_background_color',
+                            'number',
+                            ['number', 'number', 'number'],
+                            [r, g, b]
+                        );
+                        if (!ok) log('apply background color failed');
+                    } catch (err) {
+                        log(`apply background exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyScalar').addEventListener('click', () => {
+                    try {
+                        const attributeIndex = parseInt(document.getElementById('scalarSelect').value, 10);
+                        const dimension = parseInt(document.getElementById('scalarDimSelect').value, 10);
+                        const attachment = parseInt(document.getElementById('scalarAttachment').value, 10);
+                        const status = Module.ccall(
+                            'igw_set_scalar_field',
+                            'number',
+                            ['number', 'number', 'number'],
+                            [attributeIndex, dimension, attachment]
+                        );
+                        if (status !== 1) {
+                            const messageByCode = {
+                                '-1': 'apply scalar failed: no active model',
+                                '-2': 'apply scalar failed: model is not drawable',
+                                '-3': 'apply scalar failed: invalid scalar index',
+                                '-4': 'apply scalar failed: attachment mismatch',
+                                '-5': 'apply scalar failed: invalid dimension',
+                            };
+                            log(messageByCode[String(status)] || `apply scalar failed: code=${status}`);
+                        }
+                    } catch (err) {
+                        log(`apply scalar exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                const buildDimensionOptions = (dimension) => {
+                    const dimSelect = document.getElementById('scalarDimSelect');
+                    dimSelect.innerHTML = '';
+
+                    const autoOption = document.createElement('option');
+                    autoOption.value = '-1';
+                    autoOption.textContent = 'Auto (-1)';
+                    autoOption.selected = true;
+                    dimSelect.appendChild(autoOption);
+
+                    const dim = Number.isFinite(dimension) ? dimension : 0;
+                    for (let i = 0; i < dim; i++) {
+                        const option = document.createElement('option');
+                        option.value = String(i);
+                        option.textContent = `Component ${i}`;
+                        dimSelect.appendChild(option);
+                    }
+                };
+
+                const refreshScalarList = () => {
+                    try {
+                        const raw = Module.ccall('igw_get_attribute_list_json', 'string', [], []);
+                        const list = raw ? JSON.parse(raw) : [];
+                        const scalarSelect = document.getElementById('scalarSelect');
+                        const attachmentSelect = document.getElementById('scalarAttachment');
+
+                        scalarSelect.innerHTML = '';
+
+                        const noneOption = document.createElement('option');
+                        noneOption.value = '-1';
+                        noneOption.textContent = 'None';
+                        noneOption.selected = true;
+                        scalarSelect.appendChild(noneOption);
+
+                        for (const item of list) {
+                            const option = document.createElement('option');
+                            option.value = String(item.index);
+                            const attachment = item.attachment === dataAttachment.Point
+                                ? 'Point'
+                                : (item.attachment === dataAttachment.Cell ? 'Cell' : 'Other');
+                            option.textContent = `[${item.index}] ${item.name} (${attachment}, dim=${item.dimension})`;
+                            option.dataset.attachment = String(item.attachment);
+                            option.dataset.dimension = String(item.dimension);
+                            scalarSelect.appendChild(option);
+                        }
+
+                        scalarSelect.onchange = () => {
+                            const selected = scalarSelect.options[scalarSelect.selectedIndex];
+                            if (!selected || selected.value === '-1') {
+                                attachmentSelect.value = String(dataAttachment.Any);
+                                buildDimensionOptions(0);
+                                return;
+                            }
+                            const att = selected.dataset.attachment;
+                            if (att === String(dataAttachment.Point) || att === String(dataAttachment.Cell)) {
+                                attachmentSelect.value = att;
+                            }
+                            buildDimensionOptions(parseInt(selected.dataset.dimension || '0', 10));
+                        };
+
+                        const selected = scalarSelect.options[scalarSelect.selectedIndex];
+                        buildDimensionOptions(
+                            selected && selected.value !== '-1'
+                                ? parseInt(selected.dataset.dimension || '0', 10)
+                                : 0
+                        );
+                    } catch (err) {
+                        log(`refresh scalar list exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                const getSelectedModelId = () => {
+                    const modelSelect = document.getElementById('modelList');
+                    if (!modelSelect || !modelSelect.value) return null;
+                    const value = parseInt(modelSelect.value, 10);
+                    return Number.isFinite(value) ? value : null;
+                };
+
+                const refreshModelList = () => {
+                    try {
+                        const raw = Module.ccall('igw_get_model_list_json', 'string', [], []);
+                        const list = raw ? JSON.parse(raw) : [];
+                        const modelSelect = document.getElementById('modelList');
+                        const previous = modelSelect.value;
+                        modelSelect.innerHTML = '';
+
+                        if (!Array.isArray(list) || list.length === 0) {
+                            const option = document.createElement('option');
+                            option.value = '';
+                            option.textContent = 'No model loaded';
+                            modelSelect.appendChild(option);
+                            return;
+                        }
+
+                        let activeValue = '';
+                        for (const model of list) {
+                            const option = document.createElement('option');
+                            option.value = String(model.modelId);
+                            const activeTag = model.isActive ? 'active' : 'inactive';
+                            const visibleTag = model.visible ? 'visible' : 'hidden';
+                            option.textContent = `#${model.modelId} ${model.name} [${activeTag}, ${visibleTag}] (${model.sourceType})`;
+                            option.dataset.visible = String(model.visible);
+                            option.dataset.active = String(model.isActive);
+                            modelSelect.appendChild(option);
+                            if (model.isActive) {
+                                activeValue = option.value;
+                            }
+                        }
+
+                        if (previous && Array.from(modelSelect.options).some((o) => o.value === previous)) {
+                            modelSelect.value = previous;
+                        } else if (activeValue) {
+                            modelSelect.value = activeValue;
+                        } else {
+                            modelSelect.selectedIndex = 0;
+                        }
+                    } catch (err) {
+                        log(`refresh model list exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                document.getElementById('btnRefreshModels').addEventListener('click', refreshModelList);
+
+                document.getElementById('btnSetActiveModel').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('set active failed: no model selected');
+                            return;
+                        }
+                        const ok = Module.ccall('igw_set_active_model', 'number', ['number'], [modelId]);
+                        if (!ok) {
+                            log('set active failed');
+                            return;
+                        }
+                        refreshModelList();
+                        refreshScalarList();
+                    } catch (err) {
+                        log(`set active exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnToggleModelVisibility').addEventListener('click', () => {
+                    try {
+                        const modelSelect = document.getElementById('modelList');
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('toggle visibility failed: no model selected');
+                            return;
+                        }
+                        const selected = modelSelect.options[modelSelect.selectedIndex];
+                        const currentVisible = selected && selected.dataset.visible === 'true';
+                        const nextVisible = currentVisible ? 0 : 1;
+                        const ok = Module.ccall('igw_set_model_visibility', 'number', ['number', 'number'], [modelId, nextVisible]);
+                        if (!ok) {
+                            log('toggle visibility failed');
+                            return;
+                        }
+                        refreshModelList();
+                    } catch (err) {
+                        log(`toggle visibility exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnRemoveModel').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('remove failed: no model selected');
+                            return;
+                        }
+                        const ok = Module.ccall('igw_remove_model', 'number', ['number'], [modelId]);
+                        if (!ok) {
+                            log('remove model failed');
+                            return;
+                        }
+                        refreshModelList();
+                        refreshScalarList();
+                    } catch (err) {
+                        log(`remove model exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnRemoveAllModels').addEventListener('click', () => {
+                    try {
+                        const ok = Module.ccall('igw_remove_all_models', 'number', [], []);
+                        if (!ok) {
+                            log('remove all models failed');
+                            return;
+                        }
+                        refreshModelList();
+                        refreshScalarList();
+                    } catch (err) {
+                        log(`remove all models exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnRefreshScalarList').addEventListener('click', refreshScalarList);
+                refreshModelList();
+
+                const startRenderLoopIfNeeded = () => {
+                    if (renderLoopStarted) return;
+                    renderLoopStarted = true;
+                    const loop = () => {
+                        try {
+                            Module.ccall('igw_render_frame', null, [], []);
+                        } catch (err) {
+                            log(`render exception: ${err && err.stack ? err.stack : err}`);
+                            renderLoopStarted = false;
+                            return;
+                        }
+                        requestAnimationFrame(loop);
+                    };
+                    requestAnimationFrame(loop);
+                };
+
+                const loadModelFromBytes = (bytes, fileName, replaceExisting) => {
+                    const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+                    const ptr = Module._malloc(data.length);
+                    Module.HEAPU8.set(data, ptr);
+
+                    let ok = 0;
+                    try {
+                        const lowerName = (fileName || '').toLowerCase();
+                        const isVTU = lowerName.endsWith('.vtu');
+                        const targetFunc = isVTU ? 'igw_load_vtu_from_mem_ex' : 'igw_load_vtk_from_mem_ex';
+                        const fallbackName = isVTU ? 'Imported VTU' : 'Imported VTK';
+                        ok = Module.ccall(
+                            targetFunc,
+                            'number',
+                            ['number', 'number', 'string', 'number'],
+                            [ptr, data.length, fileName || fallbackName, replaceExisting]
+                        );
+                    } catch (err) {
+                        log(`load exception: ${err && err.stack ? err.stack : err}`);
+                    } finally {
+                        Module._free(ptr);
+                    }
+
+                    if (!ok) {
+                        log('load model failed (.vtk/.vtu)');
+                        return false;
+                    }
+
+                    log('model loaded, start rendering');
+                    refreshModelList();
+                    refreshScalarList();
+                    startRenderLoopIfNeeded();
+                    return true;
+                };
+
+                const apiInput = document.getElementById('apiBaseUrl');
+                apiInput.value = window.location.origin;
+
+                const getApiBaseUrl = () => {
+                    const base = (apiInput.value || '').trim();
+                    return base || window.location.origin;
+                };
+
+                const remoteModelList = document.getElementById('remoteModelList');
+
+                const setRemoteModelListPlaceholder = (message) => {
+                    remoteModelList.innerHTML = '';
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = message;
+                    remoteModelList.appendChild(option);
+                };
+
+                const fetchRemoteModelList = async () => {
+                    const base = getApiBaseUrl();
+                    setRemoteModelListPlaceholder('Loading remote models...');
+                    try {
+                        const response = await fetch(`${base}/api/models`);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        const payload = await response.json();
+                        const items = Array.isArray(payload) ? payload : (payload.items || []);
+                        remoteModelList.innerHTML = '';
+
+                        if (!Array.isArray(items) || items.length === 0) {
+                            setRemoteModelListPlaceholder('No remote model found');
+                            return;
+                        }
+
+                        for (const item of items) {
+                            const option = document.createElement('option');
+                            option.value = item.id;
+                            const sizeMB = Number(item.sizeBytes || 0) / (1024 * 1024);
+                            const prettySize = Number.isFinite(sizeMB) ? `${sizeMB.toFixed(2)} MB` : 'unknown';
+                            option.textContent = `${item.id} (${item.format || 'unknown'}, ${prettySize})`;
+                            option.dataset.format = item.format || '';
+                            option.dataset.name = item.name || item.id;
+                            remoteModelList.appendChild(option);
+                        }
+                        log(`remote model list loaded: ${items.length}`);
+                    } catch (err) {
+                        setRemoteModelListPlaceholder('Fetch remote models failed');
+                        log(`fetch remote models exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                const loadRemoteModel = async () => {
+                    const selected = remoteModelList.options[remoteModelList.selectedIndex];
+                    if (!selected || !selected.value) {
+                        log('load remote failed: no remote model selected');
+                        return;
+                    }
+
+                    const base = getApiBaseUrl();
+                    const mode = document.getElementById('importMode').value;
+                    const replaceExisting = mode === 'replace' ? 1 : 0;
+                    const modelId = selected.value;
+
+                    try {
+                        const response = await fetch(`${base}/api/models/${encodeURIComponent(modelId)}/file`);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+
+                        const serverName = response.headers.get('X-Model-Name') || modelId;
+                        const content = new Uint8Array(await response.arrayBuffer());
+                        const ok = loadModelFromBytes(content, serverName, replaceExisting);
+                        if (ok) {
+                            log(`remote model loaded: ${serverName}`);
+                        }
+                    } catch (err) {
+                        log(`load remote exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                document.getElementById('btnUseCurrentOrigin').addEventListener('click', () => {
+                    apiInput.value = window.location.origin;
+                });
+                document.getElementById('btnFetchRemoteModels').addEventListener('click', fetchRemoteModelList);
+                document.getElementById('btnLoadRemoteModel').addEventListener('click', loadRemoteModel);
+                setRemoteModelListPlaceholder('Click "Fetch Remote Models"');
+
+                const canvas = document.getElementById('canvas');
+                canvas.style.touchAction = 'none';
+                let activePointerId = null;
+                let activeButton = mouseButton.NoButton;
+                let rightDragLock = false;
+
+                // Old-style handlers are kept as an extra guard for browsers that trigger
+                // context gestures before modern event listeners can fully suppress them.
+                canvas.oncontextmenu = () => false;
+                canvas.onselectstart = () => false;
+
+                const suppressCanvasDefault = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+
+                const shouldSuppress = (e) => {
+                    return e.target === canvas || rightDragLock;
+                };
+
+                const mapPointerButtonToAction = (e) => {
+                    const nativeButton = domButtonToIgame(e.button);
+                    if (useShiftLeftAsRightDragFallback && nativeButton === mouseButton.LeftButton && e.shiftKey) {
+                        return mouseButton.RightButton;
+                    }
+                    return nativeButton;
+                };
+
+                const suppressWindowDefaultIfNeeded = (e) => {
+                    if (shouldSuppress(e)) {
+                        e.preventDefault();
+                    }
+                };
+
+                const clearInteractionState = () => {
+                    activePointerId = null;
+                    activeButton = mouseButton.NoButton;
+                    rightDragLock = false;
+                };
+
+                const interceptOptions = { capture: true };
+                const wheelInterceptOptions = { capture: true, passive: false };
+
+                canvas.addEventListener('contextmenu', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('auxclick', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('mousedown', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('mouseup', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('mousemove', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('wheel', suppressCanvasDefault, wheelInterceptOptions);
+                canvas.addEventListener('dragstart', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('selectstart', suppressCanvasDefault, interceptOptions);
+
+                window.addEventListener('contextmenu', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('auxclick', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('mousedown', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('mouseup', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('mousemove', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('pointermove', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('pointerup', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('wheel', suppressWindowDefaultIfNeeded, wheelInterceptOptions);
+                window.addEventListener('blur', () => {
+                    clearInteractionState();
+                }, interceptOptions);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState !== 'visible') {
+                        clearInteractionState();
+                    }
+                }, interceptOptions);
+
+                const sendMouseEvent = (type, button, e, delta = 0) => {
+                    const pos = getCanvasPos(canvas, e);
+                    Module.ccall(
+                        'igw_send_mouse_event',
+                        null,
+                        ['number', 'number', 'number', 'number', 'number'],
+                        [type, button, pos.x, pos.y, delta]
+                    );
+                };
+
+                canvas.addEventListener('pointerdown', (e) => {
+                    suppressCanvasDefault(e);
+                    try {
+                        activePointerId = e.pointerId;
+                        activeButton = mapPointerButtonToAction(e);
+                        rightDragLock = activeButton === mouseButton.RightButton;
+                        canvas.setPointerCapture(e.pointerId);
+                        sendMouseEvent(eventType.MousePress, activeButton, e, 0);
+                    } catch (err) {
+                        log(`pointer down exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                }, interceptOptions);
+
+                canvas.addEventListener('pointermove', (e) => {
+                    if (e.pointerId === activePointerId || e.buttons !== 0) {
+                        suppressCanvasDefault(e);
+                    }
+                    try {
+                        // Mouse move keeps C++ side mode unchanged; mode is decided at press/release.
+                        sendMouseEvent(eventType.MouseMove, mouseButton.NoButton, e, 0);
+                    } catch (err) {
+                        log(`pointer move exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                }, interceptOptions);
+
+                const handlePointerRelease = (e) => {
+                    suppressCanvasDefault(e);
+                    try {
+                        if (canvas.hasPointerCapture(e.pointerId)) {
+                            canvas.releasePointerCapture(e.pointerId);
+                        }
+                        const releaseButton = activeButton !== mouseButton.NoButton ? activeButton : mapPointerButtonToAction(e);
+                        sendMouseEvent(eventType.MouseRelease, releaseButton, e, 0);
+                        clearInteractionState();
+                    } catch (err) {
+                        log(`pointer release exception: ${err && err.stack ? err.stack : err}`);
+                        clearInteractionState();
+                    }
+                };
+
+                canvas.addEventListener('pointerup', handlePointerRelease, interceptOptions);
+                canvas.addEventListener('pointercancel', handlePointerRelease, interceptOptions);
+                canvas.addEventListener('lostpointercapture', () => {
+                    clearInteractionState();
+                }, interceptOptions);
+
+                canvas.addEventListener('wheel', (e) => {
+                    suppressCanvasDefault(e);
+                    try {
+                        const delta = e.deltaY < 0 ? 120 : -120;
+                        sendMouseEvent(eventType.Wheel, mouseButton.NoButton, e, delta);
+                    } catch (err) {
+                        log(`wheel exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                }, wheelInterceptOptions);
+
+                document.getElementById('vtkFile').addEventListener('change', async (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+
+                    const mode = document.getElementById('importMode').value;
+                    const replaceExisting = mode === 'replace' ? 1 : 0;
+                    const buf = await file.arrayBuffer();
+                    loadModelFromBytes(new Uint8Array(buf), file.name, replaceExisting);
+                });
+            }
+        };
+    </script>
+    <script src="iGameWasmDemo.js"></script>
+</body>
+
+</html>

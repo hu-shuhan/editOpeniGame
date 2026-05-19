@@ -28,10 +28,10 @@ protected:
     ~DrawObject() override = default;
 
 public:
-    bool IsDrawable() override { return true; } // 标识可以被渲染
-    virtual void ConvertToDrawableData();       //转化为可渲染模式（当前对象及其所有子对象）
-    void ForceReConvertToDrawableData();  // 强制触发重新映射
-    virtual bool IsUseSinglePassWireframeRendering();                         // 是否使用单通道线框渲染
+    bool IsDrawable() override { return true; }       // 标识可以被渲染
+    virtual void ConvertToDrawableData();             //转化为可渲染模式（当前对象及其所有子对象）
+    void ForceReConvertToDrawableData();              // 强制触发重新映射
+    virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
@@ -128,6 +128,7 @@ protected:
         Meshleter::Pointer mMeshleter = nullptr;
     };
     RenderableMesh m_RenderableMesh;
+    bool m_SimplifiedMeshBuildAttempted = false;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
@@ -192,6 +193,9 @@ protected:
 
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);
+
+    void BuildSimplifiedRenderableObject();
+    void SyncRenderableState(const DrawObject::Pointer& renderableObject);
 };
 //递归处理所有子对象的模板函数实现
 template<typename Functor, typename... Args>

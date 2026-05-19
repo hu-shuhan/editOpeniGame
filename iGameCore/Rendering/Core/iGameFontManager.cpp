@@ -8,6 +8,14 @@
 
 IGAME_NAMESPACE_BEGIN
 
+#ifdef __EMSCRIPTEN__
+constexpr GLenum kGlyphInternalFormat = GL_LUMINANCE;
+constexpr GLenum kGlyphFormat = GL_LUMINANCE;
+#else
+constexpr GLenum kGlyphInternalFormat = GL_R8;
+constexpr GLenum kGlyphFormat = GL_RED;
+#endif
+
 FontManager::FontManager() {}
 
 FontManager::~FontManager() {
@@ -69,8 +77,8 @@ void FontManager::RegisterWords(const wchar_t* text) {
         SmartPointer<GLTexture2d> texture = GLTexture2d::New();
         texture->Create();
         texture->Bind();
-        texture->Storage(1, GL_R8, font_width, font_rows);
-        texture->SubImage(0, 0, 0, font_width, font_rows, GL_RED,
+        texture->Storage(1, kGlyphInternalFormat, font_width, font_rows);
+        texture->SubImage(0, 0, 0, font_width, font_rows, kGlyphFormat,
                           GL_UNSIGNED_BYTE, data);
         texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);

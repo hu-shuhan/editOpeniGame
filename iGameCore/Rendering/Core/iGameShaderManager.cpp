@@ -51,11 +51,16 @@ void ShaderManager::UpdateCameraBlock(SmartPointer<Camera> camera) {
     buffer.proj = camera->GetProjectionMatrix();
     buffer.proj_view = camera->GetProjectionMatrix() * camera->GetViewMatrix();
 
-    m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &buffer);
+    UpdateCameraBlock(buffer);
 }
 
 void ShaderManager::UpdateCameraBlock(CameraDataBuffer buffer) {
+#ifdef __EMSCRIPTEN__
+    m_WebCameraData = buffer;
+    return;
+#else
     m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &buffer);
+#endif
 }
 
 void ShaderManager::UpdateObjectBlock(SmartPointer<DataObject> obj,
@@ -72,11 +77,16 @@ void ShaderManager::UpdateObjectBlock(SmartPointer<DataObject> obj,
     buffer.sphereBounds = igm::vec4{center[0], center[1], center[2],
                                     static_cast<float>(box.diag() / 2)};
 
-    m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &buffer);
+    UpdateObjectBlock(buffer);
 }
 
 void ShaderManager::UpdateObjectBlock(ObjectDataBuffer buffer) {
+#ifdef __EMSCRIPTEN__
+    m_WebObjectData = buffer;
+    return;
+#else
     m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &buffer);
+#endif
 }
 
 void ShaderManager::UpdateUBOBlock(SmartPointer<DataObject> obj) {
@@ -87,11 +97,16 @@ void ShaderManager::UpdateUBOBlock(SmartPointer<DataObject> obj) {
     buffer.useColor = drawObject->IsUseColor();
     buffer.useNormalSmooth = drawObject->IsUseNormalSmooth();
 
-    m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &buffer);
+    UpdateUBOBlock(buffer);
 }
 
 void ShaderManager::UpdateUBOBlock(UniformBufferObjectBuffer buffer) {
+#ifdef __EMSCRIPTEN__
+    m_WebUboData = buffer;
+    return;
+#else
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &buffer);
+#endif
 }
 
 void ShaderManager::UpdateCullDataBuffer(SmartPointer<Camera> camera,
@@ -134,6 +149,9 @@ SmartPointer<GLBuffer> ShaderManager::GetCullDataBuffer() {
 }
 
 void ShaderManager::MapBufferBlock() {
+#ifdef __EMSCRIPTEN__
+    return;
+#endif
     m_CameraDataBlock->Create();
     m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
     m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
@@ -209,6 +227,21 @@ void ShaderManager::MapBufferBlock() {
     shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
 #endif
 }
+
+#ifdef __EMSCRIPTEN__
+void ShaderManager::ApplyWebFallbackUniforms(
+        SmartPointer<GLShaderProgram> shader) {
+    if (shader == nullptr) { return; }
+
+    shader->SetUniformMatrix4x4("uView", false, m_WebCameraData.view);
+    shader->SetUniformMatrix4x4("uProj", false, m_WebCameraData.proj);
+    shader->SetUniformMatrix4x4("uModel", false, m_WebObjectData.model);
+    shader->SetUniformMatrix4x4("uNormal", false, m_WebObjectData.normal);
+    shader->SetUniform3f("uViewPos", m_WebCameraData.camera_position);
+    shader->SetUniformi("uIsOrtho", m_WebCameraData.isOrtho);
+    shader->SetUniformi("uUseColor", m_WebUboData.useColor);
+}
+#endif
 
 SmartPointer<GLShaderProgram>
 ShaderManager::GetShaderWithType(ShaderType type) {

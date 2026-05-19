@@ -74,10 +74,14 @@ Scene::~Scene() {
 }
 
 void Scene::BindFramebuffer() const {
-#ifdef GL_SUPPORT_MSAA
-    m_FramebufferMultisampled->Bind();
+#ifdef __EMSCRIPTEN__
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
+    #ifdef GL_SUPPORT_MSAA
+    m_FramebufferMultisampled->Bind();
+    #else
     m_Framebuffer->Bind();
+    #endif
 #endif
 }
 
@@ -116,8 +120,12 @@ bool Scene::Initialize() {
     }
 
     this->InitOpenGL();
+#ifndef IGAME_OPENGL_VERSION_GLES2
     this->InitOIT();
+#endif
+#ifndef __EMSCRIPTEN__
     this->InitAxes();
+#endif
 
     this->ResetCameraView();
 
@@ -241,12 +249,12 @@ SmartPointer<Model> Scene::GetModelById(int id) {
     }
     return nullptr;
 }
-bool Scene::SetModelById(int id, SmartPointer<Model>model) {
+bool Scene::SetModelById(int id, SmartPointer<Model> model) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto modelID = it->first;
-        if (modelID == id) { 
+        if (modelID == id) {
             it->second = model;
-            return true; 
+            return true;
         }
     }
     return false;
@@ -345,6 +353,11 @@ void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
+void Scene::SetSurfaceShadingMode(int mode) {
+    if (mode < 0 || mode > 1) { mode = 0; }
+    m_SurfaceShadingMode = mode;
+}
+int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
 
 void Scene::ChangeCameraType(Camera::Type type) {
     this->ResetCameraView();
@@ -367,7 +380,9 @@ SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
 }
 
 void Scene::InitOpenGL() {
+#ifndef __EMSCRIPTEN__
     if (!gladLoadGL()) { IGAME_RENDERING_ERROR("Failed to initialize GLAD"); }
+#endif
 
     // log opengl info
     {
@@ -715,7 +730,9 @@ void Scene::Draw() {
     if (m_FramePacingEnabled && m_LastRenderEndValid) {
         if (!ShouldRenderThisCall()) {
             // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
+#ifndef __EMSCRIPTEN__
             RenderToSpecificFrame(defaultFramebuffer);
+#endif
             return;
         }
     }
@@ -724,14 +741,19 @@ void Scene::Draw() {
     UpdateCameraClippingRange();
 
     // Start counting the rendering time consumption
+#ifndef __EMSCRIPTEN__
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
+#endif
 
     // render
     DrawFrame();
+#ifndef __EMSCRIPTEN__
     RenderToSpecificFrame(defaultFramebuffer);
+#endif
 
     // End counting the rendering time consumption
+#ifndef __EMSCRIPTEN__
     glEndQuery(GL_TIME_ELAPSED);
     {
         int prevIdx = 1 - curIdx;
@@ -760,6 +782,7 @@ void Scene::Draw() {
         m_TimeQueryReady[curIdx] = true;
         m_TimeQueryIndex = 1 - curIdx;
     }
+#endif
 
     // Record the end time of this frame
     m_LastRenderEnd = std::chrono::steady_clock::now();
@@ -873,15 +896,17 @@ void Scene::DrawFrame() {
         };
 
         // Clear default framebuffer before rendering
-        m_Framebuffer->Bind();
+        BindFramebuffer();
         ClearFramebuffer();
 
+#ifndef __EMSCRIPTEN__
         m_VolumeFramebuffer->Bind();
         ClearFramebuffer();
 
-#ifdef GL_SUPPORT_MSAA
+    #ifdef GL_SUPPORT_MSAA
         m_FramebufferMultisampled->Bind();
         ClearFramebuffer();
+    #endif
 #endif
 
         // Render to framebuffer
@@ -900,18 +925,20 @@ void Scene::DrawFrame() {
 #endif
 
         // Draw painter 2d and axes
-        m_Framebuffer->Bind();
+        BindFramebuffer();
         glViewport(0, 0, viewport.x, viewport.y);
         {
             // Draw painter 2D in the image top
             m_Painter2D->Draw();
 
             // Draw axes in bottom left
+#ifndef __EMSCRIPTEN__
             if (m_AxesVisible) {
                 int mx = std::max(viewport.x, viewport.y);
                 glViewport(0, 0, mx / 10, mx / 10);
                 m_Axes->Draw();
             }
+#endif
         }
     }
 }
@@ -1088,8 +1115,9 @@ void Scene::ForwardPass() {
     BindFramebuffer();
     m_Painter3D->Draw();
 
+#ifndef __EMSCRIPTEN__
     ResolveFrameBuffer();
-    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+#endif
     GLCheckError();
 }
 

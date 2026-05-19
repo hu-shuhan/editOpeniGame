@@ -4,10 +4,10 @@
 #include "CGNS/iGameCGNSReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "Fluent/iGameCASReader.h"
-#include "IGC/iGameIGCReader.h"
 #include "IGC/iGameIGCMReader.h"
 #include "IGC/iGameIGCMTimeSeriesWriter.h"
 #include "IGC/iGameIGCMWriter.h"
+#include "IGC/iGameIGCReader.h"
 #include "IGC/iGameIGCWriter.h"
 #include "INP/iGameINPReader.h"
 #include "MESH/iGameMESHReader.h"
@@ -161,8 +161,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     isvector = false;
                 }
             }
-        } 
-        else if (name[name.length() - 1] == '0') {
+        } else if (name[name.length() - 1] == '0') {
             isvector = true;
             int j = 1;
             for (j = 1; j < 3; j++) {
@@ -202,7 +201,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                 Vector->SetName(name.substr(0, name.length() - 2));
             } else
                 Vector->SetName(name.substr(0, name.length() - 1));
-           // Vector->SetName(name.substr(0, name.length() - 1));
+            // Vector->SetName(name.substr(0, name.length() - 1));
             Vector->SetDimension(3);
             Vector->Resize(attr.pointer->GetNumberOfElements());
             float* vector = Vector->RawPointer();
@@ -221,16 +220,17 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
             newDataRange->SetDimension(2);
             newDataRange->Resize(3 + 1);
             /* 将输入的x、y、z的维度标量范围直接更新成Vector的x、y、z维度的范围 */
-            for(int j = 0; j < 3; j ++){
+            for (int j = 0; j < 3; j++) {
                 auto scalarData = Attrs->GetAttribute(i + j).GetDataRange();
-                newDataRange->SetElement(j + 1, scalarData->RawPointer()+2);
+                newDataRange->SetElement(j + 1, scalarData->RawPointer() + 2);
             }
             /* 计算Vector 维度的Magnitude*/
             double maxMagnitude = 0, minMagnitude = DBL_MAX;
             for (int k = 0; k < Vector->GetNumberOfValues(); k += 3) {
-                double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1]  + vector[k + 2] * vector[k + 2]);
-               maxMagnitude = std::max(maxMagnitude, curMagnitude);
-               minMagnitude = std::min(minMagnitude, curMagnitude);
+                double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1] +
+                                                vector[k + 2] * vector[k + 2]);
+                maxMagnitude = std::max(maxMagnitude, curMagnitude);
+                minMagnitude = std::min(minMagnitude, curMagnitude);
             }
             newDataRange->SetValue(0, minMagnitude);
             newDataRange->SetValue(1, maxMagnitude);
@@ -240,6 +240,21 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
         }
     }
     return newAttrs;
+}
+
+static DataObject::Pointer FinalizeLoadedObject(DataObject::Pointer resObj, const std::string& objectName) {
+    if (resObj) {
+        if (!objectName.empty()) { resObj->SetName(objectName); }
+        if (resObj->GetAttributeSet()) {
+            resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet()));
+        }
+    }
+
+    if (auto* progress = ProgressObserver::Instance()) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
+    return resObj;
 }
 
 DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
@@ -383,9 +398,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
     std::filesystem::path pathObj(file_name);
     std::string baseName = pathObj.stem().string();
-    if (resObj) {
-        resObj->SetName(baseName);
-    }
+    resObj = FinalizeLoadedObject(resObj, baseName);
 
     end = clock();
     out.append(", success: ");
@@ -394,17 +407,29 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     out.append(FormatTime(end - start));
     out.append("]");
     igDebug(out);
-
-
-    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
-
-    // 读文件流程里很多 Reader 会把进度推到 1.0，但并不会在结束时清理。
-    // ProgressObserver 是全局单例，不复位就会导致 UI 进度条停在 100%。
-    if (auto* progress = ProgressObserver::Instance()) {
-        progress->UpdateProgress(0.0);
-        progress->UpdateText("");
-    }
     return resObj;
+}
+
+DataObject::Pointer FileIO::ReadVTKFromMemory(const void* data, size_t size) {
+    if (data == nullptr || size == 0) return nullptr;
+
+    VTKReader::Pointer reader = VTKReader::New();
+    reader->SetMemoryBuffer(data, size);
+    if (!reader->Execute()) { return nullptr; }
+
+    auto result = reader->GetOutput();
+    return FinalizeLoadedObject(result, "Imported VTK");
+}
+
+DataObject::Pointer FileIO::ReadVTUFromMemory(const void* data, size_t size) {
+    if (data == nullptr || size == 0) return nullptr;
+
+    iGameVTUReader::Pointer reader = iGameVTUReader::New();
+    reader->SetMemoryBuffer(data, size);
+    if (!reader->Execute()) { return nullptr; }
+
+    auto result = reader->GetOutput();
+    return FinalizeLoadedObject(result, "Imported VTU");
 }
 
 
@@ -437,9 +462,7 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
             DataObject::Pointer rootObj = dataObject;
             if (dataObject) {
                 auto* parent = dataObject->FindParent();
-                if (parent && parent != dataObject.get()) {
-                    rootObj = DataObject::Pointer(parent);
-                }
+                if (parent && parent != dataObject.get()) { rootObj = DataObject::Pointer(parent); }
             }
 
             auto timeFrames = rootObj ? rootObj->PeekTimeFrames() : nullptr;
