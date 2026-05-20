@@ -16,6 +16,7 @@
 #include <QGroupBox>
 #include <QSpinBox>
 #include <QLineEdit>
+#include <QPaintEvent>
 #include <ui_ColorManager.h>
 class IG_QT_MODULE_EXPORT  igQtColorManagerWidget : public QWidget {
 	Q_OBJECT
@@ -48,6 +49,7 @@ signals:
 	void UpdateColorBarFinished();
 
 protected:
+	void paintEvent(QPaintEvent* event) override;
 	Ui::ColorManager* ui{nullptr};
 	QColor myColor;
 	QString customColorStr;

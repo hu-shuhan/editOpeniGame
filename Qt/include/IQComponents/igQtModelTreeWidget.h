@@ -105,7 +105,10 @@ public:
     void setDataObject(iGame::DataObject::Pointer obj) { m_DataObject = obj; }
     iGame::DataObject::Pointer getDataObject() const { return m_DataObject; }
 
-    void setName(const QString& name) { setText(0, name); }
+    void setName(const QString& name) {
+        setText(0, name);
+        setToolTip(0, name);
+    }
 
     bool getVisibility() const {
         auto draw = DynamicCast<iGame::DrawObject>(m_DataObject);

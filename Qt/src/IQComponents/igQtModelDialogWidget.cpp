@@ -10,7 +10,9 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScreen>
+#include <QColor>
 #include <QHeaderView>
+#include <QPalette>
 #include <iGameSceneManager.h>
 #include <qaction.h>
 #include <qdebug.h>
@@ -116,7 +118,9 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
                 auto& attr = all->GetElement(i);
                 if (attr.isDeleted) continue;
                 auto* aitem = new SubAttribTreeWidgetItem(i, tree, childItem);
-                aitem->setText(0, QString::fromStdString(attr.pointer->GetName()));
+                const QString attrName = QString::fromStdString(attr.pointer->GetName());
+                aitem->setText(0, attrName);
+                aitem->setToolTip(0, attrName);
                 if (attr.attachmentType == IG_POINT) aitem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
                 else if (attr.attachmentType == IG_CELL)
                     aitem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
@@ -228,6 +232,16 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
             propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object properties"));
     propertyWidget->addProperty(objectGroup);
 
+    // QtTreePropertyBrowser 内部用 QItemDelegate 绘制选中行，会使用 QPalette::Highlight（Windows 上常为蓝色）。
+    // 与主窗口 QSS 中银色选中行一致，改为银色 + 深色文字。
+    for (QTreeWidget* tw : propertyWidget->findChildren<QTreeWidget*>()) {
+        QPalette pal = tw->palette();
+        pal.setColor(QPalette::Active, QPalette::Highlight, QColor(0xC0, 0xC0, 0xC0));
+        pal.setColor(QPalette::Inactive, QPalette::Highlight, QColor(0xA8, 0xA8, 0xAC));
+        pal.setColor(QPalette::Active, QPalette::HighlightedText, QColor(0x25, 0x25, 0x26));
+        pal.setColor(QPalette::Inactive, QPalette::HighlightedText, QColor(0x25, 0x25, 0x26));
+        tw->setPalette(pal);
+    }
 
     prop_PointSize = propertyManager->addProperty(QVariant::Int, "Point Size");
     prop_PointSize->setEnabled(false);
@@ -299,7 +313,9 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         //    item->setCurrentChild(child);
         //    child->setSelected(true);
         //}
-        child->setText(0, QString::fromStdString(attr.pointer->GetName()));
+        const QString attrName = QString::fromStdString(attr.pointer->GetName());
+        child->setText(0, attrName);
+        child->setToolTip(0, attrName);
         if (attr.attachmentType == IG_POINT) 
             child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
@@ -331,7 +347,9 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         auto& attr = attrSet->GetElement(i);
         if (attr.isDeleted) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
-        child->setText(0, QString::fromStdString(attr.pointer->GetName()));
+        const QString attrName = QString::fromStdString(attr.pointer->GetName());
+        child->setText(0, attrName);
+        child->setToolTip(0, attrName);
         if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));

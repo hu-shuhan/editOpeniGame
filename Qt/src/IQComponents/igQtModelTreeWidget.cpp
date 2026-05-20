@@ -1,6 +1,7 @@
 #include <IQComponents/igQtModelTreeWidget.h>
 #include <QAction>
 #include <QMenu>
+#include <QHeaderView>
 
 #include "iGameSceneManager.h"
 
@@ -62,7 +63,10 @@ void ModelTreeWidgetItem::setModel(iGame::Model* model) {
     showPickedItem();
 }
 
-void ModelTreeWidgetItem::setName(const QString& name) { setText(0, name); }
+void ModelTreeWidgetItem::setName(const QString& name) {
+    setText(0, name);
+    setToolTip(0, name);
+}
 
 void ModelTreeWidgetItem::changeVisibility() {
     if (getVisibility()) {
@@ -193,7 +197,15 @@ void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->setCurrentIndex(0);
 }
 
-igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) {}
+igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) {
+    // Keep eliding ("xxxx...") but show full name via tooltip.
+    setTextElideMode(Qt::ElideRight);
+
+    if (header()) {
+        header()->setStretchLastSection(false);
+        header()->setSectionResizeMode(QHeaderView::Interactive);
+    }
+}
 
 ModelTreeWidgetItem* igQtModelTreeWidget::getItem(const QPoint& p) const {
     return dynamic_cast<ModelTreeWidgetItem*>(itemAt(p));

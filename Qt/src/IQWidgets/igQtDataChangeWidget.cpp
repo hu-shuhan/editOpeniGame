@@ -1,6 +1,7 @@
 #include "ui_igQtDataChangeWidget.h"
 #include <IQWidgets/igQtDataChangeWidget.h>
 #include <QElapsedTimer>
+#include <QEvent>
 #include <iGameThreadPool.h>
 #include <utility>
 #include <iGameTimer.h>
@@ -215,15 +216,6 @@ void igQtDataChangeWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
     update();
 }
 
-void igQtDataChangeWidget::DrawRangeChooseRect() {
-    if (!m_RangeChooseOn) return;
-    if (!m_RangeChoosing) return;
-    QPainter painter(this);
-    painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
-}
-
 void igQtDataChangeWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
 
 void igQtDataChangeWidget::mousePressEvent(QMouseEvent* event) {
@@ -237,9 +229,7 @@ void igQtDataChangeWidget::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void igQtDataChangeWidget::paintEvent(QPaintEvent* QPE) {
-    if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;
-    Draw();
-    DrawRangeChooseRect();
+    QWidget::paintEvent(QPE);
 }
 
 void igQtDataChangeWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -248,10 +238,26 @@ void igQtDataChangeWidget::mouseMoveEvent(QMouseEvent* event) {
 }
 
 bool igQtDataChangeWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched != ui->drawWidget) return QWidget::eventFilter(watched, event);
+
+    if (event->type() == QEvent::Paint) {
+        QPainter painter(ui->drawWidget);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        _PaintPlotOnDrawWidget(painter);
+        return true;
+    }
+    if (event->type() == QEvent::MouseButtonPress) {
+        auto* mouseEvent = static_cast<QMouseEvent*>(event);
+        StartRangeChoose(ui->drawWidget->mapTo(this, mouseEvent->pos()));
+        return false;
+    }
+    if (event->type() == QEvent::MouseButtonRelease) {
+        EndRangeChoose();
+        return false;
+    }
     if (event->type() == QEvent::MouseMove) {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-
-        QPoint parentPos = static_cast<QWidget*>(watched)->mapTo(this, mouseEvent->pos());
+        QPoint parentPos = ui->drawWidget->mapTo(this, mouseEvent->pos());
         handleMouseMove(parentPos);
         return true;
     }
@@ -320,11 +326,8 @@ void igQtDataChangeWidget::DrawRadial() {
 }
 
 void igQtDataChangeWidget::GenerateBackgroundColor() {
-    //########################### White ###########################
-    m_BackgroundColor = {242, 242, 242};
-    return;
-    //########################### White ###########################
-    m_BackgroundColor = {255, 255, 255};
+    // 与主界面/变量相关性等深色面板一致 (#2b2b2b)
+    m_BackgroundColor = {0x2b, 0x2b, 0x2b};
 }
 
 void igQtDataChangeWidget::SetUiData() {
@@ -418,12 +421,23 @@ void igQtDataChangeWidget::SetRadialData() {
     for (auto& Data: m_DataChangeDatas) { _SetRadialData(Data); }
 }
 
-void igQtDataChangeWidget::Draw() {
-    QRect bigDrawFrame, smallDrawFrame;
-    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
-    _DrawBackground(bigDrawFrame);
-    _DrawCoordinateRect(smallDrawFrame);
-    _DrawImages(bigDrawFrame);
+void igQtDataChangeWidget::_PaintPlotOnDrawWidget(QPainter& painter) {
+    const QRect plotRect = ui->drawWidget->rect();
+    if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) {
+        painter.fillRect(plotRect, QColor(0x2b, 0x2b, 0x2b));
+        return;
+    }
+    QRect smallDrawFrame = InsetRectByBoundaryRatio(plotRect, boundaryRatio);
+    _DrawBackground(painter, plotRect);
+    _DrawCoordinateRect(painter, smallDrawFrame);
+    _DrawImages(painter, plotRect);
+    if (m_RangeChooseOn && m_RangeChoosing) {
+        QPoint a = ui->drawWidget->mapFrom(this, m_RangeChooseStartPoint);
+        QPoint b = ui->drawWidget->mapFrom(this, m_RangeChooseEndPoint);
+        painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRect(QRect(a, b).normalized());
+    }
 }
 
 PlotLineData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum dataType) {
@@ -642,24 +656,22 @@ void igQtDataChangeWidget::_DrawPoint(double minValue, double maxValue, double m
     painter->drawPoint(x, y);
 }
 
-void igQtDataChangeWidget::_DrawBackground(const QRect& range) {
-    QPainter painter(this);
+void igQtDataChangeWidget::_DrawBackground(QPainter& painter, const QRect& range) {
     QBrush brush;
     brush.setColor(QColor(get<0>(m_BackgroundColor), get<1>(m_BackgroundColor), get<2>(m_BackgroundColor)));
     brush.setStyle(Qt::SolidPattern);
     painter.setBrush(brush);
+    painter.setPen(Qt::NoPen);
     painter.drawRect(range);
 }
 
-void igQtDataChangeWidget::_DrawCoordinateRect(const QRect& range) {
-    QPainter painter(this);
-    painter.setPen(QPen(QColorConstants::Black, 1));
+void igQtDataChangeWidget::_DrawCoordinateRect(QPainter& painter, const QRect& range) {
+    painter.setPen(QPen(QColor(0xa8, 0xa8, 0xa8), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(range);
 }
 
-void igQtDataChangeWidget::_DrawImages(const QRect& range) {
-    QPainter painter(this);
+void igQtDataChangeWidget::_DrawImages(QPainter& painter, const QRect& range) {
     for (int variableIndex = 0; variableIndex < m_VariableShow.size(); variableIndex++) {
         if (!m_VariableShow[variableIndex]) continue;
         painter.drawImage(range, m_VariableImages[variableIndex]);

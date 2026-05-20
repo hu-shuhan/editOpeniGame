@@ -1,15 +1,23 @@
 ﻿#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
 #include "IQCore/igQtFramelessWidget.h"
+#include <QPainter>
 
 igQtColorManagerWidget::igQtColorManagerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::ColorManager)
 {
 	ui->setupUi(this);
 	// 初始化界面
-	this->setWindowFlags(Qt::WindowStaysOnTopHint);
-	this->setFixedSize(760, 450);
+	this->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+	const QSize initSize = this->size();
+	this->setFixedSize(initSize.width(), initSize.height() - 16);
 	this->setWindowTitle("ColorSelect");
-
-
+	this->setAttribute(Qt::WA_TranslucentBackground, true);
+	this->setAttribute(Qt::WA_StyledBackground, true);
+	auto* frameless = new igQtFramelessWidget(this);
+	frameless->setWidget(this);
+	frameless->setPadding(6);
+	frameless->setMoveEnable(true);
+	// 当前窗口是 fixed size，保留系统“可移动”交互，关闭 resize 行为避免误操作。
+	frameless->setResizeEnable(false);
 	QRegExp rx("(\\d?[a-f]?[A-F]?){0,6}");
 	ui->lineEdit_CustomColor->setValidator(new QRegExpValidator(rx, this));
 	ui->lineEdit_CustomColor->setText("");
@@ -51,6 +59,16 @@ igQtColorManagerWidget::igQtColorManagerWidget(QWidget* parent) : QWidget(parent
 igQtColorManagerWidget::~igQtColorManagerWidget()
 {
 
+}
+void igQtColorManagerWidget::paintEvent(QPaintEvent* event)
+{
+	Q_UNUSED(event);
+	QPainter painter(this);
+	painter.setRenderHint(QPainter::Antialiasing, true);
+	const QRect r = this->rect().adjusted(1, 1, -1, -1);
+	painter.setPen(QPen(QColor("#4A4A4A"), 2));
+	painter.setBrush(QColor("#1E1E1E"));
+	painter.drawRoundedRect(r, 10, 10);
 }
 void igQtColorManagerWidget::changeColorMapMode()
 {

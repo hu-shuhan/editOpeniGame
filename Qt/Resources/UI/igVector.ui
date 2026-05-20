@@ -140,6 +140,12 @@
     <layout class="QHBoxLayout" name="horizontalLayout_9">
      <item>
       <widget class="QLabel" name="label_7">
+      <property name="minimumSize">
+       <size>
+        <width>72</width>
+        <height>0</height>
+       </size>
+      </property>
        <property name="text">
         <string>模式参数</string>
        </property>
@@ -173,9 +179,15 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,3,0">
+    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1,0">
      <item>
       <widget class="QLabel" name="label_6">
+      <property name="minimumSize">
+       <size>
+        <width>72</width>
+        <height>0</height>
+       </size>
+      </property>
        <property name="text">
         <string>数据来源</string>
        </property>

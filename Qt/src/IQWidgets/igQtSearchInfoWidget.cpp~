@@ -1,0 +1,158 @@
+#include "IQWidgets/igQtSearchInfoWidget.h"
+#include "ui_igQtSearchInfo.h"
+#include <QDockWidget>
+
+#include <iGameDataObject.h>
+
+using namespace Ui;
+
+igQtSearchInfoWidget::igQtSearchInfoWidget(QWidget* parent)
+    : QWidget(parent), ui(new Ui::igQtSearchInfo), m_currentModelData(nullptr) {
+    ui->setupUi(this);
+    initUI();
+    initConnections();
+}
+
+igQtSearchInfoWidget::~igQtSearchInfoWidget() { delete ui; }
+
+QDockWidget* igQtSearchInfoWidget::createDockWidget(QWidget* parent) {
+    QDockWidget* dockWidget = new QDockWidget("查找数据", parent);
+    dockWidget->setObjectName("dockWidget_SearchInfo");
+    dockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+
+    igQtSearchInfoWidget* widget = new igQtSearchInfoWidget(dockWidget);
+    dockWidget->setWidget(widget);
+
+    return dockWidget;
+}
+
+void igQtSearchInfoWidget::setCurrentModelData(void* modelData) {
+    m_currentModelData = modelData;
+    refreshProperties();
+    // 初始化时显示所有数据，不进行过滤
+    refreshData();
+}
+
+void igQtSearchInfoWidget::refreshProperties() {
+    ui->comboBox_Property->clear();
+
+    if (!m_currentModelData) { return; }
+
+    // 根据实际模型数据结构添加属性
+    // 示例：添加位置坐标和标量属性
+    ui->comboBox_Property->addItem("Position X", "pos.x");
+    ui->comboBox_Property->addItem("Position Y", "pos.y");
+    ui->comboBox_Property->addItem("Position Z", "pos.z");
+
+    // 这里需要根据实际模型数据结构添加更多属性
+    // 例如：标量场、向量场等
+}
+
+void igQtSearchInfoWidget::onQueryButtonClicked() { executeQuery(); }
+
+void igQtSearchInfoWidget::refreshData() {
+    if (!m_currentModelData) {
+        ui->tableWidget_Results->clearContents();
+        ui->tableWidget_Results->setRowCount(0);
+        return;
+    }
+
+    // 读取模型数据并显示
+    readModelData();
+}
+
+void igQtSearchInfoWidget::initUI() {
+    // 初始化表格
+    ui->tableWidget_Results->setColumnCount(4);
+    ui->tableWidget_Results->setHorizontalHeaderLabels({"ID", "X", "Y", "Z"});
+    ui->tableWidget_Results->setSortingEnabled(true);
+}
+
+void igQtSearchInfoWidget::initConnections() {
+    connect(ui->pushButton_Query, &QPushButton::clicked, this, &igQtSearchInfoWidget::onQueryButtonClicked);
+}
+
+void igQtSearchInfoWidget::readModelData() {
+    if (!m_currentModelData) { return; }
+
+    m_allData.clear();
+
+    auto dataObject = static_cast<iGame::DataObject*>(m_currentModelData);
+    auto points = dataObject->GetPoints();
+
+    if (points) {
+        int numPoints = points->GetNumberOfPoints();
+        for (int i = 0; i < numPoints; i++) {
+            auto point = points->GetPoint(i);
+            QMap<QString, QVariant> item;
+            item["id"] = i;
+            item["x"] = point[0];
+            item["y"] = point[1];
+            item["z"] = point[2];
+            m_allData.append(item);
+        }
+    }
+
+    populateResultsTable(m_allData);
+}
+
+void igQtSearchInfoWidget::executeQuery() {
+    if (m_allData.isEmpty()) { return; }
+
+    QString property = ui->comboBox_Property->currentData().toString();
+    QString operatorStr = ui->comboBox_Operator->currentText();
+    QString valueStr = ui->lineEdit_Value->text();
+
+    if (property.isEmpty() || valueStr.isEmpty()) {
+        populateResultsTable(m_allData);
+        return;
+    }
+
+    bool ok;
+    double value = valueStr.toDouble(&ok);
+    if (!ok) {
+        populateResultsTable(m_allData);
+        return;
+    }
+
+    QList<QMap<QString, QVariant>> results;
+
+    for (const QMap<QString, QVariant>& item: m_allData) {
+        bool match = false;
+        double propValue = 0;
+
+        if (property == "pos.x") {
+            propValue = item["x"].toDouble();
+        } else if (property == "pos.y") {
+            propValue = item["y"].toDouble();
+        } else if (property == "pos.z") {
+            propValue = item["z"].toDouble();
+        }
+
+        if (operatorStr == "=") match = (propValue == value);
+        else if (operatorStr == ">")
+            match = (propValue > value);
+        else if (operatorStr == "<")
+            match = (propValue < value);
+
+        if (match) { results.append(item); }
+    
+
+    populateResultsTable(results);
+}
+
+void igQtSearchInfoWidget::populateResultsTable(const QList<QMap<QString, QVariant>>& results) {
+    ui->tableWidget_Results->clearContents();
+    ui->tableWidget_Results->setRowCount(results.size());
+
+    for (int i = 0; i < results.size(); i++) {
+        const QMap<QString, QVariant>& item = results[i];
+
+        ui->tableWidget_Results->setItem(i, 0, new QTableWidgetItem(QString::number(item["id"].toInt())));
+        ui->tableWidget_Results->setItem(i, 1, new QTableWidgetItem(QString::number(item["x"].toDouble())));
+        ui->tableWidget_Results->setItem(i, 2, new QTableWidgetItem(QString::number(item["y"].toDouble())));
+        ui->tableWidget_Results->setItem(i, 3, new QTableWidgetItem(QString::number(item["z"].toDouble())));
+    }
+
+    ui->tableWidget_Results->resizeColumnsToContents();
+}

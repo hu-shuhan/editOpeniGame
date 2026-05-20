@@ -81,14 +81,9 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
     m_ResultMesh = iGame::SurfaceMesh::New();
     m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Contour");
     m_ResultMesh->SetAttributeSet(m_OriginDataObject->GetAttributeSet());
-    m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-        m_Generated = false;
-        this->m_OriginDataObject = nullptr;
-        this->m_PointData = nullptr;
-        this->m_Extracter = nullptr;
-        //ui->comboBox_ScalarIndex->clear();
-        this->parentWidget()->hide();
-    });
+    // 场景/模型树移除轮廓结果时会 Invoke DeleteEvent；不应关闭工具面板或清空源网格，
+    // 否则用户删除结果模型后无法在同一面板内再次执行提取。
+    m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void { m_Generated = false; });
 }
 
 void igQtContourExtractWidget::ContourExtract() {

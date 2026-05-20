@@ -178,6 +178,112 @@ QDockWidget QTextEdit {
     background-color: #1E1E1E !important;
 }
 
+/* 切割等 Filter：無邊框浮動 + 自訂標題欄。背景與標量場「編輯顏色映射」窗口 ColorManager.ui 一致 (#1E1E1E 等) */
+/* 外形圆角由 igQtFilterDialogDockWidget::setMask 保证（Windows 下仅靠 stylesheet 圆角常无效）；此处 !important 防止被全局 QDockWidget 覆盖 */
+QDockWidget#IgQtFilterFramelessDock {
+    background-color: #1E1E1E;
+    border: none;
+    border-radius: 10px !important;
+}
+QDockWidget#IgQtFilterFramelessDock::title {
+    height: 0;
+    max-height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+}
+QDockWidget#IgQtFilterFramelessDock QWidget#FilterFrameTitleBar {
+    background-color: #1E1E1E;
+    border-left: 2px solid #4A4A4A;
+    border-right: 2px solid #4A4A4A;
+    border-top: 2px solid #4A4A4A;
+    border-bottom: none;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+    margin: 0;
+    padding: 0;
+}
+QDockWidget#IgQtFilterFramelessDock QLabel#IgQtFilterTitleLabel {
+    color: #E0E0E0;
+    background: transparent;
+    border: none;
+}
+QDockWidget#IgQtFilterFramelessDock QPushButton#FilterFrameTitleCloseButton {
+    background: transparent;
+    border: none;
+}
+QDockWidget#IgQtFilterFramelessDock QWidget#dockWidgetContents {
+    background-color: #1E1E1E;
+    border-left: 2px solid #4A4A4A;
+    border-right: 2px solid #4A4A4A;
+    border-bottom: 2px solid #4A4A4A;
+    border-top: none;
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+    margin-top: 0;
+    padding-top: 0;
+}
+/* 覆蓋全局「QDockWidget QWidget → #222222」，否則 Preview 等 QCheckBox 仍繼承 #222222 與周圍 #1E1E1E 不一致 */
+QDockWidget#IgQtFilterFramelessDock QWidget {
+    background-color: #1E1E1E;
+}
+/* 與 ColorManager 內容區一致；覆蓋全局 scroll 規則 */
+QDockWidget#IgQtFilterFramelessDock QScrollArea,
+QDockWidget#IgQtFilterFramelessDock QScrollArea QWidget,
+QDockWidget#IgQtFilterFramelessDock QFrame,
+QDockWidget#IgQtFilterFramelessDock QAbstractScrollArea::viewport {
+    background-color: #1E1E1E !important;
+}
+QDockWidget#IgQtFilterFramelessDock QLabel {
+    color: #D0D0D0;
+}
+QDockWidget#IgQtFilterFramelessDock QLineEdit {
+    background-color: #252526;
+    color: #E0E0E0;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    min-height: 28px;
+    padding: 0 8px;
+}
+QDockWidget#IgQtFilterFramelessDock QLineEdit:focus {
+    border: 1px solid #0E639C;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox {
+    spacing: 6px;
+    color: #D0D0D0;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox::indicator:unchecked {
+    background-color: #252526;
+    border: 1px solid #3C3C3C;
+    border-radius: 2px;
+}
+QDockWidget#IgQtFilterFramelessDock QCheckBox::indicator:checked {
+    background-color: #0E639C;
+    border: 1px solid #0E639C;
+    border-radius: 2px;
+}
+/* Apply/Close：對齊 ColorManager.ui 按鈕（標題欄關閉鍵仍由上條透明規則覆蓋） */
+QDockWidget#IgQtFilterFramelessDock QPushButton {
+    background-color: #2D2D30;
+    color: #E0E0E0;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    min-height: 30px;
+    padding: 0 10px;
+}
+QDockWidget#IgQtFilterFramelessDock QPushButton:hover {
+    background-color: #3A3A3D;
+}
+QDockWidget#IgQtFilterFramelessDock QPushButton:pressed {
+    background-color: #45454A;
+}
+
 /* ========== DockWidget 中的 PushButton 样式（内边框设计） ========== */
 /* 内边框效果：使用浅色边框（比背景亮），营造内嵌视觉，与深色背景协调 */
 QDockWidget QPushButton {
@@ -251,56 +357,170 @@ QComboBox::drop-down {
     border-left: 1px solid #3A3A3A;
 }
 QComboBox::down-arrow {
-    image: url(:/icons/down_arrow.png); /* 可替换为实际下拉箭头图标 */
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
     width: 10px;
     height: 10px;
+}
+QComboBox QAbstractItemView {
+    background-color: #252526;
+    color: #CCCCCC;
+    border: 1px solid #3A3A3A;
+    outline: 0;
+    selection-background-color: #3A3A3A;
+    selection-color: #FFFFFF;
 }
 
 /* ========== 滚动条 ========== */
 QScrollBar:vertical {
-    background-color: #1E1E1E;
-    width: 10px;
+    background-color: #1B1B1B;
+    border: none;
+    width: 12px;
     margin: 0;
 }
 QScrollBar::handle:vertical {
-    background-color: #3A3A3A;
-    border-radius: 5px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
     min-height: 20px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: #4A4A4A;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background-color: #242424;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0; /* 隐藏上下箭头 */
 }
 
-/* ========== 矢量场 Dock（dockWidget_VectorField）中的滑动条（QSlider） ========== */
-/* 让滑动条与 Dock 深色背景 (#222222) 协调，减少高亮白色带来的晃眼感 */
-QDockWidget#dockWidget_VectorField QSlider::groove:horizontal {
-    background-color: #2A2A2A;      /* 比 Dock 背景略亮一点 */
+/* ========== 全局滑动条 QSlider（原矢量场 Dock 样式，用于全应用水平/垂直滑条） ========== */
+QSlider {
+    background: transparent;
+}
+QSlider::groove:horizontal {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
     height: 6px;
     border-radius: 3px;
 }
-
-QDockWidget#dockWidget_VectorField QSlider::sub-page:horizontal {
-    background-color: #3A4A6A;      /* 深蓝灰色高亮，低饱和不刺眼 */
+QSlider::sub-page:horizontal {
+    background-color: #3A4A6A;
     border-radius: 3px;
 }
-
-QDockWidget#dockWidget_VectorField QSlider::add-page:horizontal {
-    background-color: #262626;      /* 未激活部分更暗，贴近背景 */
+QSlider::add-page:horizontal {
+    background-color: #383838;
+    border: 1px solid #464646;
     border-radius: 3px;
 }
-
-QDockWidget#dockWidget_VectorField QSlider::handle:horizontal {
-    background-color: #B0B0B0;      /* 中灰色手柄，去掉刺眼的纯白 */
+QSlider::handle:horizontal {
+    background-color: #B0B0B0;
     width: 12px;
     border-radius: 6px;
-    margin: -4px 0;                 /* 让手柄略微溢出槽，高级一点的视觉 */
+    margin: -4px 0;
+}
+QSlider::handle:horizontal:hover {
+    background-color: #C8C8C8;
+}
+QSlider::handle:horizontal:pressed {
+    background-color: #B0B0B0;
+}
+QSlider::groove:vertical {
+    background-color: #2A2A2A;
+    border: 1px solid #3C3C3C;
+    width: 6px;
+    border-radius: 3px;
+}
+QSlider::sub-page:vertical {
+    background-color: #3A4A6A;
+    border-radius: 3px;
+}
+QSlider::add-page:vertical {
+    background-color: #383838;
+    border: 1px solid #464646;
+    border-radius: 3px;
+}
+QSlider::handle:vertical {
+    background-color: #B0B0B0;
+    height: 12px;
+    border-radius: 6px;
+    margin: 0 -4px;
+}
+QSlider::handle:vertical:hover {
+    background-color: #C8C8C8;
+}
+QSlider::handle:vertical:pressed {
+    background-color: #B0B0B0;
 }
 
-QDockWidget#dockWidget_VectorField QSlider::handle:horizontal:hover {
-    background-color: #C8C8C8;      /* 悬停时稍微变亮，但依旧不是纯白 */
+/* ========== 左侧可视化面板滚动条（银色深色适配） ========== */
+QTabWidget#LeftFieldTabs QScrollBar:vertical {
+    background-color: #1B1B1B;
+    border: none;
+    width: 12px;
+    margin: 0;
+}
+QTabWidget#LeftFieldTabs QScrollBar::handle:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
+    min-height: 20px;
+}
+QTabWidget#LeftFieldTabs QScrollBar::handle:vertical:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QTabWidget#LeftFieldTabs QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QTabWidget#LeftFieldTabs QScrollBar::add-page:vertical,
+QTabWidget#LeftFieldTabs QScrollBar::sub-page:vertical {
+    background-color: #242424;
+}
+QTabWidget#LeftFieldTabs QScrollBar::add-line:vertical,
+QTabWidget#LeftFieldTabs QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+/* ========== 张量场面板：字体/控件与左侧可视化面板对齐（滑条已用全局 QSlider 样式） ========== */
+QWidget#widget_TensorField QLabel,
+QWidget#widget_TensorField QPushButton {
+    color: #FFFFFF;
+}
+
+QWidget#widget_TensorField QLineEdit,
+QWidget#widget_TensorField QComboBox {
+    background-color: #252526;
+    color: #FFFFFF;
+    border: 1px solid #3A3A3A;
+    border-radius: 2px;
+    padding: 2px 4px;
+}
+
+QWidget#widget_TensorField QComboBox::drop-down {
+    border-left: 1px solid #3A3A3A;
+}
+
+QWidget#widget_TensorField QComboBox::down-arrow {
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
+    width: 10px;
+    height: 10px;
+}
+
+QWidget#widget_TensorField QComboBox QAbstractItemView {
+    background-color: #252526;
+    color: #CCCCCC;
+    border: 1px solid #3A3A3A;
+    outline: 0;
+    selection-background-color: #3A3A3A;
+    selection-color: #FFFFFF;
 }
 
 /* ========== 标签页（TabWidget） ========== */
@@ -319,11 +539,48 @@ QTabBar::tab:selected {
     background-color: #1E1E1E;
     border-bottom-color: #1E1E1E; /* 选中时与面板背景融合 */
 }
+
+/* 左侧工具面板 Tab：关闭叉用中性灰，避免全局 QTabBar 纯白在选中态刺眼 */
+QTabWidget#LeftFieldTabs QTabBar {
+    color: #CCCCCC;
+}
+QTabWidget#LeftFieldTabs QTabBar::tab:selected {
+    color: #DCDCDC;
+}
+QTabWidget#LeftFieldTabs QTabBar::close-button {
+    image: url(:/Ticon/Icons/tab_close_muted.svg);
+    width: 14px;
+    height: 14px;
+    subcontrol-origin: padding;
+    subcontrol-position: center;
+    margin: 1px 4px 1px 2px;
+    border: none;
+    background: transparent;
+}
+QTabWidget#LeftFieldTabs QTabBar::close-button:hover {
+    image: url(:/Ticon/Icons/tab_close_muted_hover.svg);
+    background-color: rgba(255, 255, 255, 12);
+    border-radius: 3px;
+}
+QTabWidget#LeftFieldTabs QTabBar::close-button:pressed {
+    image: url(:/Ticon/Icons/tab_close_muted.svg);
+    background-color: rgba(0, 0, 0, 25);
+}
+
 QMainWindow QToolBar,
 QMainWindow QLabel, QMainWindow QPushButton, QMainWindow QCheckBox, QMainWindow QRadioButton,
 QMainWindow QLineEdit, QMainWindow QComboBox, QMainWindow QGroupBox, QMainWindow QTabBar, QMainWindow QTextEdit,
 QMainWindow QSpinBox, QMainWindow QDoubleSpinBox, QMainWindow QSlider, QMainWindow QProgressBar {
     color: #FFFFFF; /* 设计师指定的字体色：纯白 RGB(255,255,255) */
+}
+
+/* Tooltip 字体稍小，避免悬停提示过大 */
+QToolTip {
+    font-size: 9pt;
+    color: rgba(255, 255, 255, 230);
+    background-color: rgba(34, 34, 34, 245);
+    border: 1px solid rgba(255, 255, 255, 30);
+    padding: 6px 8px;
 }
 
 /* 狀態欄字體：略小於全局，但比剛才大兩號（包含 Ready for 文本） */
@@ -380,13 +637,36 @@ QtPropertyEditorView::item:alternate {
 }
 QtTreePropertyBrowser QTreeWidget::item:selected,
 QtPropertyEditorView::item:selected {
-    background-color: #3A3A3A;
-    color: rgba(255, 255, 255, 204); /* 文字白色 80% */
+    /* 银色选中行（避免系统默认蓝色）；与 igQtModelDialogWidget 内 QPalette::Highlight 一致 */
+    background-color: #C0C0C0 !important;
+    selection-background-color: #C0C0C0 !important;
+    selection-color: #252526 !important;
+    color: #252526 !important;
+}
+QtTreePropertyBrowser QTreeWidget::item:selected:!active,
+QtPropertyEditorView::item:selected:!active {
+    background-color: #A8A8AC !important;
+    selection-background-color: #A8A8AC !important;
+    selection-color: #252526 !important;
+    color: #252526 !important;
 }
 QtTreePropertyBrowser QTreeWidget::item:hover,
 QtPropertyEditorView::item:hover {
     background-color: #2A2A2A;
     color: rgba(255, 255, 255, 204); /* 文字白色 80% */
+}
+/* 属性结构树分支箭头：统一为银色（展开/收起） */
+QtTreePropertyBrowser QTreeView::branch:closed:has-children:has-siblings,
+QtTreePropertyBrowser QTreeView::branch:closed:has-children:!has-siblings,
+QtPropertyEditorView::branch:closed:has-children:has-siblings,
+QtPropertyEditorView::branch:closed:has-children:!has-siblings {
+    image: url(:/Ticon/Icons/tree_arrow_right_silver.svg);
+}
+QtTreePropertyBrowser QTreeView::branch:open:has-children:has-siblings,
+QtTreePropertyBrowser QTreeView::branch:open:has-children:!has-siblings,
+QtPropertyEditorView::branch:open:has-children:has-siblings,
+QtPropertyEditorView::branch:open:has-children:!has-siblings {
+    image: url(:/Ticon/Icons/tree_arrow_down_silver.svg);
 }
 
 /* 5. 兜底：覆盖所有未匹配的子控件（防止漏网） */
@@ -560,6 +840,60 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     height: 0;
 }
 
+/* ========== Custom title bar (frameless caption, code-built widget) ========== */
+QWidget#CustomTitleBar {
+    background-color: #181818;
+    border-bottom: 1px solid #181818;
+}
+QWidget#CustomTitleBar QPushButton {
+    border: none;
+    padding: 0 10px;
+    color: #dddddd;
+}
+QWidget#CustomTitleBar QPushButton:hover {
+    background-color: #444444;
+}
+QPushButton#MinimizeButton,
+QPushButton#MaximizeButton {
+    padding: 0;
+    background: transparent;
+}
+QPushButton#MinimizeButton:hover,
+QPushButton#MaximizeButton:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+QPushButton#MinimizeButton:pressed,
+QPushButton#MaximizeButton:pressed {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+QPushButton#CloseButton {
+    padding: 0;
+    background: transparent;
+}
+QPushButton#CloseButton:hover {
+    background-color: #E81123;
+    color: white;
+}
+QPushButton#CloseButton:pressed {
+    background-color: #C50F1F;
+    color: white;
+}
+QWidget#CustomTitleBar QMenuBar {
+    background: #181818;
+    color: #dddddd;
+}
+QWidget#CustomTitleBar QMenuBar::item {
+    background: transparent;
+    padding: 0 8px;
+}
+QWidget#CustomTitleBar QMenuBar::item:selected {
+    background: #444444;
+}
+QLabel#CustomTitleLabel {
+    color: #dddddd;
+    font-size: 11pt;
+}
+
 /* ========== Properties Dock 样式 ========== */
 /* LayerPropertiesDock 使用全局 QDockWidget::title 样式即可 */
 </string>
@@ -684,14 +1018,14 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
     <property name="title">
      <string>编辑</string>
     </property>
-    <addaction name="action_ModelCut"/>
-    <addaction name="action_ModelPick"/>
-    <addaction name="action_ModelView"/>
-    <addaction name="action_ModelEdit"/>
+    <!-- <addaction name="action_ModelCut"/> -->
+    <!-- <addaction name="action_ModelPick"/> -->
+    <!-- <addaction name="action_ModelView"/> -->
+    <!-- <addaction name="action_ModelEdit"/> -->
     <addaction name="separator"/>
    </widget>
    <addaction name="menu_file"/>
-   <addaction name="menu_edit"/>
+   <!-- <addaction name="menu_edit"/> -->
    <addaction name="menu_view"/>
    <addaction name="menu_filters"/>
    <addaction name="menu_help"/>
@@ -801,7 +1135,7 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
    </attribute>
    <addaction name="action_ShowOrientationAxes"/>
    <addaction name="action_ResetCameraView"/>
-   <addaction name="action_ContextPreserving"/>
+  <!-- <addaction name="action_ContextPreserving"/> -->
    <addaction name="action_SelectView"/>
    <addaction name="action_drag_point"/>
    <addaction name="action_ChangeBackground"/>

@@ -31,9 +31,58 @@
 		<property name="windowTitle">
 			<string>Form</string>
 		</property>
+		<property name="styleSheet">
+			<string notr="true">QWidget { background-color: #1F1F1F; color: #D0D0D0; }
+QLabel { color: #C8C8C8; font-size: 13px; }
+QLineEdit, QComboBox, QSpinBox {
+  min-height: 30px;
+  background-color: #252526;
+  color: #E0E0E0;
+  border: 1px solid #3C3C3C;
+  border-radius: 4px;
+  padding: 0 8px;
+}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+  border: 1px solid #0E639C;
+}
+QComboBox::drop-down {
+  border-left: 1px solid #3C3C3C;
+  width: 20px;
+}
+QComboBox::down-arrow {
+  image: url(:/Ticon/Icons/spin_down_silver.svg);
+  width: 10px;
+  height: 10px;
+}
+QPushButton {
+  min-height: 30px;
+  background-color: #2D2D30;
+  color: #E0E0E0;
+  border: 1px solid #3C3C3C;
+  border-radius: 4px;
+  padding: 0 10px;
+}
+QPushButton:hover { background-color: #3A3A3D; }
+QPushButton:pressed { background-color: #45454A; }</string>
+		</property>
 		<layout class="QVBoxLayout" name="verticalLayout">
 			<property name="sizeConstraint">
 				<enum>QLayout::SetDefaultConstraint</enum>
+			</property>
+			<property name="spacing">
+				<number>8</number>
+			</property>
+			<property name="leftMargin">
+				<number>10</number>
+			</property>
+			<property name="topMargin">
+				<number>10</number>
+			</property>
+			<property name="rightMargin">
+				<number>10</number>
+			</property>
+			<property name="bottomMargin">
+				<number>10</number>
 			</property>
 			<item>
 				<widget class="QLabel" name="source">
@@ -46,14 +95,20 @@
 				</widget>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1,0">
+				<layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>种子点生成方式</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
@@ -99,24 +154,23 @@
 							</item>
 						</widget>
 					</item>
-					<item>
-						<widget class="QLabel" name="label_10">
-							<property name="text">
-								<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-							</property>
-						</widget>
-					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_10" stretch="1,1">
+				<layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label_16">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>流线宽度</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
@@ -126,134 +180,135 @@
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1,1,0">
+				<layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label_2">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>矢量选择</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
 						<widget class="QComboBox" name="comboBox"/>
 					</item>
-					<item>
-						<widget class="QLabel" name="label_13">
-							<property name="text">
-								<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-							</property>
-						</widget>
-					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,1,0">
+				<layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label_3">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>种子点数量</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
 						<widget class="QLineEdit" name="numOfSeedLineEdit"/>
 					</item>
-					<item>
-						<widget class="QLabel" name="label_5">
-							<property name="text">
-								<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-							</property>
-						</widget>
-					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_6" stretch="1,1,0">
+				<layout class="QHBoxLayout" name="horizontalLayout_6" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label_4">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>流线最大长度</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
 						<widget class="QLineEdit" name="lengthOfStreamLine"/>
 					</item>
-					<item>
-						<widget class="QLabel" name="label_7">
-							<property name="text">
-								<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-							</property>
-						</widget>
-					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_5" stretch="1,1,0">
+				<layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label_8">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>流线终止速度</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
 						<widget class="QLineEdit" name="terminalSpeed"/>
 					</item>
-					<item>
-						<widget class="QLabel" name="label_9">
-							<property name="text">
-								<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-							</property>
-						</widget>
-					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_3" stretch="1,1,0">
+				<layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
 					<item>
 						<widget class="QLabel" name="label_6">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>流线迭代步长</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
 						<widget class="QLineEdit" name="lengthOfStep"/>
 					</item>
-					<item>
-						<widget class="QLabel" name="label_12">
-							<property name="text">
-								<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-							</property>
-						</widget>
-					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,1,0,0">
+				<layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1,0,0">
 					<item>
 						<widget class="QLabel" name="label_11">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>最大迭代次数</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
@@ -273,7 +328,7 @@
 						<widget class="QPushButton" name="refreshBtn">
 							<property name="icon">
 								<iconset resource="../iGameQtMainWindow.qrc">
-									<normaloff>:/Ticon/Icons/refresh.png</normaloff>:/Ticon/Icons/refresh.png
+									<normaloff>:/Ticon/Icons/loop_silver.svg</normaloff>:/Ticon/Icons/loop_silver.svg
 								</iconset>
 							</property>
 							<property name="iconSize">
@@ -287,55 +342,97 @@
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_8" stretch="1,1,1,1">
+				<layout class="QHBoxLayout" name="horizontalLayout_8" stretch="0,1,1,1">
 					<item>
 						<widget class="QLabel" name="label_14">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>种子线起点</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="startX"/>
+						<widget class="QLineEdit" name="startX">
+							<property name="placeholderText">
+								<string>X</string>
+							</property>
+						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="startY"/>
+						<widget class="QLineEdit" name="startY">
+							<property name="placeholderText">
+								<string>Y</string>
+							</property>
+						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="startZ"/>
+						<widget class="QLineEdit" name="startZ">
+							<property name="placeholderText">
+								<string>Z</string>
+							</property>
+						</widget>
 					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_9" stretch="1,1,1,1">
+				<layout class="QHBoxLayout" name="horizontalLayout_9" stretch="0,1,1,1">
 					<item>
 						<widget class="QLabel" name="label_15">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>种子线终点</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="endX"/>
+						<widget class="QLineEdit" name="endX">
+							<property name="placeholderText">
+								<string>X</string>
+							</property>
+						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="endY"/>
+						<widget class="QLineEdit" name="endY">
+							<property name="placeholderText">
+								<string>Y</string>
+							</property>
+						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="endZ"/>
+						<widget class="QLineEdit" name="endZ">
+							<property name="placeholderText">
+								<string>Z</string>
+							</property>
+						</widget>
 					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_11">
+				<layout class="QHBoxLayout" name="horizontalLayout_11" stretch="0,1,1,1">
 					<item>
 						<widget class="QLabel" name="label_17">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="font">
 								<font>
 									<pointsize>8</pointsize>
@@ -344,28 +441,49 @@
 							<property name="text">
 								<string>均匀分布点数</string>
 							</property>
+							<property name="alignment">
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+							</property>
 						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="splitX"/>
+						<widget class="QLineEdit" name="splitX">
+							<property name="placeholderText">
+								<string>X</string>
+							</property>
+						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="splitY"/>
+						<widget class="QLineEdit" name="splitY">
+							<property name="placeholderText">
+								<string>Y</string>
+							</property>
+						</widget>
 					</item>
 					<item>
-						<widget class="QLineEdit" name="splitZ"/>
+						<widget class="QLineEdit" name="splitZ">
+							<property name="placeholderText">
+								<string>Z</string>
+							</property>
+						</widget>
 					</item>
 				</layout>
 			</item>
 			<item>
-				<layout class="QHBoxLayout" name="horizontalLayout_12" stretch="1,1,1,1">
+				<layout class="QHBoxLayout" name="horizontalLayout_12" stretch="0,1,0,1">
 					<item>
 						<widget class="QLabel" name="label_18">
+							<property name="minimumSize">
+								<size>
+									<width>96</width>
+									<height>0</height>
+								</size>
+							</property>
 							<property name="text">
 								<string>簇数</string>
 							</property>
 							<property name="alignment">
-								<set>Qt::AlignCenter</set>
+								<set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
 							</property>
 						</widget>
 					</item>

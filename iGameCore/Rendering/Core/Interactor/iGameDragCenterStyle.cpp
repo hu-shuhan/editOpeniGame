@@ -130,7 +130,7 @@ float DragCenterStyle::CalculateAdaptiveSpeed() {
 bool DragCenterStyle::IsMouseOverAxes(const igm::vec2& mousePos) {
     if (!m_AxesModel || !m_Camera || !m_Scene) return false;
 
-    // 方法1：基于距离的拾取（较简单）
+    // 基于距离的拾取（较简单）
     // 将坐标轴中心投影到屏幕空间，计算与鼠标的距离
 
     // 获取坐标轴的世界位置

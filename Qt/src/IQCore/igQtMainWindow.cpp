@@ -46,6 +46,7 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
+#include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -58,6 +59,7 @@
 #include <QWidgetAction>
 #include <QPushButton>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QScrollArea>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
@@ -88,12 +90,139 @@
 #include <QApplication>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
+#include <QStyle>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
+namespace {
+const char* kGlobalSpinBoxDarkQss = R"(
+QSpinBox, QDoubleSpinBox {
+    background-color: #252526;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    padding: 4px 24px 4px 8px;
+    selection-background-color: #094771;
+}
+QSpinBox:hover, QDoubleSpinBox:hover {
+    border: 1px solid #4A4A4A;
+}
+QSpinBox:focus, QDoubleSpinBox:focus {
+    border: 1px solid #0E639C;
+}
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 18px;
+    border-left: 1px solid #3C3C3C;
+    border-top-right-radius: 4px;
+    background-color: #2D2D30;
+}
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 18px;
+    border-left: 1px solid #3C3C3C;
+    border-top: 1px solid #3C3C3C;
+    border-bottom-right-radius: 4px;
+    background-color: #2D2D30;
+}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #3A3A3D;
+}
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {
+    background-color: #45454A;
+}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url(:/Ticon/Icons/spin_up_silver.svg);
+    width: 9px;
+    height: 9px;
+}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
+    width: 9px;
+    height: 9px;
+}
+QComboBox::drop-down {
+    border-left: 1px solid #3C3C3C;
+    width: 20px;
+}
+QComboBox::down-arrow {
+    image: url(:/Ticon/Icons/spin_down_silver.svg);
+    width: 10px;
+    height: 10px;
+}
+QComboBox QAbstractItemView {
+    background-color: #252526;
+    color: #CCCCCC;
+    border: 1px solid #3C3C3C;
+    outline: 0;
+    selection-background-color: #3A3A3A;
+    selection-color: #FFFFFF;
+}
+QScrollBar:vertical {
+    background-color: #1B1B1B;
+    border: none;
+    width: 12px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
+    min-height: 20px;
+}
+QScrollBar::handle:vertical:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background-color: #242424;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar:horizontal {
+    background-color: #1B1B1B;
+    border: none;
+    height: 12px;
+    margin: 0;
+}
+QScrollBar::handle:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
+    border: 1px solid #7C7C7C;
+    border-radius: 6px;
+    min-width: 20px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ABABAB, stop:0.5 #CBCBCB, stop:1 #A5A5A5);
+}
+QScrollBar::handle:horizontal:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #8B8B8B, stop:0.5 #A9A9A9, stop:1 #858585);
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background-color: #242424;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+)";
+}
+
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
+    qApp->setStyleSheet(qApp->styleSheet() + QString::fromUtf8(kGlobalSpinBoxDarkQss));
     // 设置窗口标题为iGameVis
     this->setWindowTitle("iGameVis");
     // 使用无边框窗口并自定义标题栏
@@ -139,24 +268,7 @@ void igQtMainWindow::initCustomTitleBar() {
     m_titleBar->setObjectName("CustomTitleBar");
     // 调高标题栏整体高度
     m_titleBar->setFixedHeight(72);
-    m_titleBar->setStyleSheet(
-            "QWidget#CustomTitleBar {"
-            "  background-color: #181818;"
-            "  border-bottom: 1px solid #181818;"
-            "}"
-            "QPushButton {"
-            "  border: none;"
-            "  padding: 0 10px;"
-            "  color: #dddddd;"
-            "}"
-            "QPushButton:hover {"
-            "  background-color: #444444;"
-            "}"
-            "QPushButton#CloseButton:hover {"
-            "  background-color: #d9534f;"
-            "  color: white;"
-            "}"
-    );
+    // 标题栏 QSS 见 iGameQtMainWindow.ui 中 MainWindow.styleSheet（QWidget#CustomTitleBar 等）
 
     // 垂直布局：第一行标题栏，第二行菜单栏
     auto* mainLayout = new QVBoxLayout(m_titleBar);
@@ -177,24 +289,32 @@ void igQtMainWindow::initCustomTitleBar() {
     iconLabel->setScaledContents(true);
     topLayout->addWidget(iconLabel);
 
-    // 标题
+    // 标题（样式见 .ui 中 QLabel#CustomTitleLabel）
     m_titleLabel = new QLabel(topRow);
+    m_titleLabel->setObjectName(QStringLiteral("CustomTitleLabel"));
     m_titleLabel->setText(this->windowTitle());
-    m_titleLabel->setStyleSheet("QLabel { color: #dddddd; font-size: 11pt; }");
     topLayout->addWidget(m_titleLabel, 1);
 
-    // 按钮区域
+    // 按钮区域（尺寸与 Windows 标题栏按钮比例相近：较宽、易点）
     m_btnMinimize = new QPushButton(topRow);
-    m_btnMaximize = new QPushButton("□", topRow);
-    m_btnClose = new QPushButton("×", topRow);
-    m_btnClose->setObjectName("CloseButton");
+    m_btnMinimize->setObjectName(QStringLiteral("MinimizeButton"));
+    m_btnMaximize = new QPushButton(topRow);
+    m_btnMaximize->setObjectName(QStringLiteral("MaximizeButton"));
+    m_btnClose = new QPushButton(QStringLiteral("×"), topRow);
+    m_btnClose->setObjectName(QStringLiteral("CloseButton"));
 
-    // 按钮高度也稍微调大，和标题栏更匹配
-    m_btnMinimize->setFixedSize(30, 28);
-    m_btnMaximize->setFixedSize(30, 28);
-    m_btnClose->setFixedSize(36, 28);
-    m_btnMinimize->setIcon(QIcon(":/Ticon/Icons/window_minimize_white.svg"));
+    const QSize captionBtnSize(46, 30);
+    m_btnMinimize->setFixedSize(captionBtnSize);
+    m_btnMaximize->setFixedSize(captionBtnSize);
+    m_btnClose->setFixedSize(captionBtnSize);
+
+    m_btnMinimize->setIcon(QIcon(QStringLiteral(":/Ticon/Icons/window_minimize_white.svg")));
     m_btnMinimize->setIconSize(QSize(12, 12));
+    m_btnMaximize->setIconSize(QSize(12, 12));
+    m_btnMaximize->setText(QString());
+    m_btnMaximize->setFlat(true);
+    m_btnMinimize->setFlat(true);
+    m_btnClose->setFlat(true);
 
     topLayout->addWidget(m_btnMinimize, 0);
     topLayout->addWidget(m_btnMaximize, 0);
@@ -207,11 +327,6 @@ void igQtMainWindow::initCustomTitleBar() {
     if (ui->menuBar) {
         ui->menuBar->setParent(m_titleBar);
         ui->menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        ui->menuBar->setStyleSheet(
-            "QMenuBar { background: #181818; color: #dddddd; }"
-            "QMenuBar::item { background: transparent; padding: 0 8px; }"
-            "QMenuBar::item:selected { background: #444444; }"
-        );
         mainLayout->addWidget(ui->menuBar, 0);
     }
 
@@ -397,7 +512,10 @@ void igQtMainWindow::toggleMaximizeRestore() {
 
 void igQtMainWindow::updateMaximizeButtonIcon() {
     if (!m_btnMaximize) return;
-    m_btnMaximize->setText(isMaximized() ? QStringLiteral("❐") : QStringLiteral("□"));
+    m_btnMaximize->setIcon(QIcon(isMaximized() ? QStringLiteral(":/Ticon/Icons/window_restore_white.svg")
+                                               : QStringLiteral(":/Ticon/Icons/window_maximize_white.svg")));
+    m_btnMaximize->setIconSize(isMaximized() ? QSize(15, 15) : QSize(12, 12));
+    m_btnMaximize->setText(QString());
 }
 
 void igQtMainWindow::resizeEvent(QResizeEvent* event) {
@@ -538,41 +656,30 @@ void igQtMainWindow::initAllUnDefinedComponents() {
         dock->setWidget(makeWidgetScrollable(content, dock));
     };
 
-    // 创建左侧自定义“数据面板”，用 QTabWidget 替代 QDockWidget 自带 tab 样式
+    // 左侧「工具面板」：QTabWidget 内按需加入各面板；下方 Properties 常驻
     m_leftFieldDock = new QDockWidget(this);
     m_leftFieldDock->setObjectName("LeftFieldDock");
-    m_leftFieldDock->setWindowTitle("数据面板");
+    m_leftFieldDock->setWindowTitle(QStringLiteral("工具面板"));
     m_leftFieldDock->setAllowedAreas(Qt::LeftDockWidgetArea);
     m_leftFieldDock->setFeatures(QDockWidget::DockWidgetClosable);
     m_leftFieldTabs = new QTabWidget(m_leftFieldDock);
     m_leftFieldTabs->setObjectName("LeftFieldTabs");
     m_leftFieldTabs->setTabPosition(QTabWidget::North);
     m_leftFieldTabs->setDocumentMode(true);
+    m_leftFieldTabs->setTabsClosable(true);
+    connect(m_leftFieldTabs, &QTabWidget::tabCloseRequested, this, &igQtMainWindow::onLeftToolTabCloseRequested);
     m_leftFieldDock->setWidget(m_leftFieldTabs);
     this->addDockWidget(Qt::LeftDockWidgetArea, m_leftFieldDock);
 
-    // 启动时一次性把四个主要 Field 面板放进自定义 Tab 中，避免运行时 reparent 导致崩溃
-    auto moveDockContentToCustomTab = [&](QDockWidget* dock, QWidget* content, const QString& title) {
-        if (!dock || !content || !m_leftFieldTabs) return;
-        dock->setWidget(nullptr);
-        this->removeDockWidget(dock);
-        dock->hide();
-        auto* scrollContent = makeWidgetScrollable(content, m_leftFieldTabs);
-        m_leftFieldTabs->addTab(scrollContent, title);
-    };
-    moveDockContentToCustomTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"));
-    moveDockContentToCustomTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"));
-    moveDockContentToCustomTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"));
-    moveDockContentToCustomTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"));
-    m_leftFieldTabs->setCurrentIndex(0);
-    m_leftFieldDock->show();
-
-    // 属性窗口停靠在左侧，图层树悬浮在OpenGL渲染窗口右下角
+    // 属性窗口停靠在左侧（常驻），图层树悬浮在 OpenGL 右下角
     this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
-    // 上方是自定义“数据面板”，下方是单独的 Properties，形成垂直布局
+    // 上方为工具 Tab，下方为 Properties
     this->splitDockWidget(m_leftFieldDock,
                           modelTreeWidget->getPropertiesDock(),
                           Qt::Vertical);
+    modelTreeWidget->getPropertiesDock()->show();
+    // 无 Tab 时不占工具区（仅 Properties 可见）
+    m_leftFieldDock->hide();
     // 将其他 dockwidget 以 SelectionField 为基准组织成上方的 tab 组
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ParallelCoordinatesField);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableCorrelationField);
@@ -582,7 +689,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_QualityDetection);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_EditMode);
     this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
-    this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
+    // 轮廓提取 / 网格切面 / 结构形变 改由左侧「工具面板」Tab 按需打开，不再叠在 Selection 组
 
     // 左侧扩展面板统一采用可滚动内容，避免 dock 过多时撑高主窗口
     makeDockWidgetScrollable(ui->dockWidget_SelectionField);
@@ -600,10 +707,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
-            this->resizeDocks({m_leftFieldDock}, {320}, Qt::Horizontal);
-        }
-        if (m_leftFieldDock && modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
-            this->resizeDocks({m_leftFieldDock, modelTreeWidget->getPropertiesDock()}, {3, 2}, Qt::Vertical);
+            const int curW = m_leftFieldDock->width();
+            const int targetW = qMax(curW + 60, 360); // 比默认稍宽一点
+            this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
         }
     });
 
@@ -616,6 +722,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
 
     SliceDockWidget = new QDockWidget(this);
+    SliceDockWidget->setObjectName("dockWidget_Slice");
     SliceDockWidget->setWindowTitle("网格切割");
     SliceWidget = new igQtModelClipWidget(nullptr);
     SliceWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -623,13 +730,15 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
+    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+    makeDockWidgetScrollable(SliceDockWidget);
     SliceDockWidget->hide();
 
     DeformationDockWidget = new QDockWidget(this);
     DeformationDockWidget->setWindowTitle("结构形变");
     DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
     DeformationDockWidget->setWidget(DeformationWidget);
-    DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+    DeformationDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     DeformationDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
@@ -879,7 +988,7 @@ void igQtMainWindow::initAllComponents() {
         QString path =
                 QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
         igQtScreenShotOptionDialog dialog(this);
-        dialog.setWindowTitle("Save ScreenShot Option.");
+        dialog.setDialogTitle(QStringLiteral("Save Screenshot option"));
         int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
         int ratio_pixel = rendererWidget->devicePixelRatio();
         int width = 1920, height = 1080;
@@ -892,33 +1001,9 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->resize(width, height);
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
-        QMessageBox resultBox(this);
-        resultBox.setIcon(QMessageBox::Information);
-        resultBox.setWindowTitle("截图结果");
-        resultBox.setStandardButtons(QMessageBox::Ok);
-        resultBox.setStyleSheet(
-                "QMessageBox { background-color: #1E1E1E; color: #EAEAEA; }"
-                "QMessageBox QLabel { color: #D8D8D8; }"
-                "QMessageBox QLabel { color: #D8D8D8; }");
-        if (auto *okBtn = resultBox.button(QMessageBox::Ok)) {
-            okBtn->setStyleSheet(
-                    "QPushButton {"
-                    " background-color: #2A2A2A;"
-                    " color: #EAEAEA;"
-                    " border: 1px solid #3A3A3A;"
-                    " border-radius: 4px;"
-                    " min-width: 72px;"
-                    " padding: 6px 12px;"
-                    "}"
-                    "QPushButton:hover { background-color: #3A3A3A; }"
-                    "QPushButton:pressed { background-color: #252526; }");
-        }
-        if (saved_image.save(path, "BMP")) {
-            resultBox.setText("保存成功");
-        } else {
-            resultBox.setText("保存失败");
-        }
-        resultBox.exec();
+        const bool savedOk = saved_image.save(path, "BMP");
+        showDarkFramelessMessage(QStringLiteral("截图结果"),
+                                 savedOk ? QStringLiteral("保存成功") : QStringLiteral("保存失败"), savedOk);
     });
 
     connect(ui->action_SaveAnimation, &QAction::triggered, this, [&]() { ui->widget_Animation->saveAnimation(); });
@@ -977,17 +1062,10 @@ void igQtMainWindow::initAllComponents() {
         }
     });
 
-    connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
-        DeformationDockWidget->show();
-    });
-    connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_FlowField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_FlowField->updateVectorNameList();
-    });
+    connect(ui->action_StrucDeformation, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Deformation); });
+    connect(ui->action_StreamLine, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Flow); });
 
 
     initAllDockWidgetConnectWithAction();
@@ -1008,12 +1086,84 @@ void igQtMainWindow::updateVortexMetricsLabelPos()
     vortexMetricsLabel->raise();
 }
 
+void igQtMainWindow::showDarkFramelessMessage(const QString& title, const QString& text, bool useInformationIcon) {
+    QMessageBox msgBox(this);
+    msgBox.setWindowFlags((msgBox.windowFlags() | Qt::FramelessWindowHint) & ~Qt::WindowContextHelpButtonHint);
+    msgBox.setIcon(QMessageBox::NoIcon);
+    const QStyle::StandardPixmap which =
+            useInformationIcon ? QStyle::SP_MessageBoxInformation : QStyle::SP_MessageBoxWarning;
+    QPixmap iconPixmap = style()->standardIcon(which).pixmap(30, 30);
+    {
+        QPainter painter(&iconPixmap);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
+        painter.fillRect(iconPixmap.rect(), QColor(0, 0, 0, 75));
+    }
+    msgBox.setIconPixmap(iconPixmap);
+    msgBox.setWindowTitle(title);
+    msgBox.setText(text);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    msgBox.setMinimumSize(460, 200);
+    msgBox.setStyleSheet(
+            "QMessageBox {"
+            "  background-color: #232323;"
+            "  border: 1px solid #5A5A5A;"
+            "  border-radius: 8px;"
+            "}"
+            "QMessageBox QLabel {"
+            "  color: #C9C9C9;"
+            "  background: transparent;"
+            "  border: none;"
+            "}"
+            "QMessageBox QPushButton {"
+            "  min-width: 64px;"
+            "  padding: 3px 9px;"
+            "  color: #ECECEC;"
+            "  background-color: #5A6066;"
+            "  border: 1px solid #747C84;"
+            "  border-radius: 4px;"
+            "}"
+            "QMessageBox QPushButton:hover {"
+            "  background-color: #666D74;"
+            "}"
+            "QMessageBox QPushButton:pressed {"
+            "  background-color: #4A5056;"
+            "}"
+    );
+    if (QPushButton* okBtn = qobject_cast<QPushButton*>(msgBox.button(QMessageBox::Ok))) {
+        okBtn->setStyleSheet(
+                "QPushButton {"
+                "  min-width: 64px;"
+                "  padding: 3px 9px;"
+                "  color: #ECECEC;"
+                "  background-color: #5A6066;"
+                "  border: 1px solid #747C84;"
+                "  border-radius: 4px;"
+                "}"
+                "QPushButton:hover { background-color: #666D74; }"
+                "QPushButton:pressed { background-color: #4A5056; }"
+        );
+    }
+    msgBox.exec();
+}
+
 void igQtMainWindow::initAllFilters() {
+    /* Data Processing 前两档：略窄于默认 filter 宽度，并关闭参数区滚动条（内容较少无需滚动） */
+    auto tuneMeshSimplifyFilterDialog = [](igQtFilterDialogDockWidget* d) {
+        constexpr int kDialogWidth = 252;
+        d->setFixedWidth(kDialogWidth);
+        if (auto* sa = d->findChild<QScrollArea*>(QStringLiteral("scrollArea"))) {
+            sa->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            sa->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        }
+    };
+
     QMenu* mesh_processing = ui->menu_filters->addMenu("Data Processing");
     connect(mesh_processing->addAction("Surface Simplification"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("表面网格简化"));
         int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
         int preserveId =
                 dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
@@ -1021,6 +1171,7 @@ void igQtMainWindow::initAllFilters() {
                                             "true");
         int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
                                            "false");
+        tuneMeshSimplifyFilterDialog(dialog);
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             bool ok;
@@ -1033,7 +1184,7 @@ void igQtMainWindow::initAllFilters() {
 
             if (!ok) {
                 result = QString("网格简化算法只支持表面网格");
-                QMessageBox::information(this, "非表面网格", result);
+                showDarkFramelessMessage(QStringLiteral("非表面网格"), result);
                 dialog->close();
                 return;
             }
@@ -1129,7 +1280,8 @@ void igQtMainWindow::initAllFilters() {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("快速表面简化"));
         int reductionId =
                 dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Reduction (0..1)", "0.5");
         int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
@@ -1139,6 +1291,7 @@ void igQtMainWindow::initAllFilters() {
         //int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
         //                                    "true");
 
+        tuneMeshSimplifyFilterDialog(dialog);
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             bool ok;
@@ -1279,7 +1432,7 @@ void igQtMainWindow::initAllFilters() {
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
     QAction* gradient = view->addAction("ComputeGradient");
-    connect(gradient, &QAction::triggered, this, [&](bool checked) {
+    connect(gradient, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1306,13 +1459,13 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
 
         }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
-    connect(laplacian, &QAction::triggered, this, [&](bool checked) {
+    connect(laplacian, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1339,12 +1492,12 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
     QAction* curvature = view->addAction("ComputeCurvature");
-    connect(curvature, &QAction::triggered, this, [&](bool checked) {
+    connect(curvature, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         CurvatureFilter::Pointer filter = CurvatureFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1371,12 +1524,12 @@ void igQtMainWindow::initAllFilters() {
         }
         else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
     QAction* vortex = view->addAction("ComputeVorticity");
-    connect(vortex, &QAction::triggered, this, [&](bool checked) {
+    connect(vortex, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1403,12 +1556,12 @@ void igQtMainWindow::initAllFilters() {
             }
         }else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
     QAction* vortexPrection = view->addAction("PredictVortex");
-    connect(vortexPrection, &QAction::triggered, this, [&](bool checked) {
+    connect(vortexPrection, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexDetection::Pointer filter = VortexDetection::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1506,7 +1659,7 @@ void igQtMainWindow::initAllFilters() {
             // }
         }else {
             std::string message = filter->GetMessage();
-            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 
@@ -1547,38 +1700,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->widget_SearchInfo->setCurrentModelData(dataObject);
     });
 
-    // 左侧主数据面板使用自定义 QTabWidget：点击菜单时切换到对应 Tab
-    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_ScalarField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-    });
-    connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_VectorField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_VectorField->updateVectorNameList();
-    });
-    connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_VectorField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_VectorField->updateVectorNameList();
-    });
-    connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_TensorField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_TensorField->InitTensorWidget();
-    });
+    connect(ui->action_Scalar, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
+    connect(ui->action_Vector, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
+    connect(ui->action_Glyph, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
+    connect(ui->action_Tensor, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Tensor); });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -1601,22 +1730,16 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         if (model == nullptr) return;
 
         // 使用动态属性存储对话框指针    // 匿名命名空间，只在当前cpp文件可见
-        static QDialog* dialog = nullptr;
+        static igQtChromeFramelessDialog* dialog = nullptr;
         static igQtVariableCorrelationWidget* widget = nullptr;
 
         if (!dialog) {
-            dialog = new QDialog(this);
-            dialog->setWindowTitle("变量相关性分析");
-            //dialog->setAttribute(Qt::WA_DeleteOnClose);
-            dialog->setModal(false);
-            // 设置对话框深色背景，与变量相关性控件风格一致
-            dialog->setStyleSheet("QDialog { background-color: #2b2b2b; }");
+            dialog = new igQtChromeFramelessDialog(this);
+            dialog->setDialogTitle(QStringLiteral("变量相关性分析"));
 
-            widget = new igQtVariableCorrelationWidget(dialog);
+            widget = new igQtVariableCorrelationWidget(dialog->contentHost());
             widget->GetUi()->splitter->setSizes({200, 300, 400});
-            QVBoxLayout* layout = new QVBoxLayout(dialog);
-            layout->addWidget(widget);
-            dialog->setLayout(layout);
+            dialog->setContentWidget(widget);
             dialog->resize(900, 500);
             connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
                 // 使用sender()获取信号发送者
@@ -1647,7 +1770,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_VariableDensity, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        showAndRaiseDock(ui->dockWidget_VariableDensityField);
+        openLeftToolPanel(LeftToolPanelId::VariableDensity);
         ui->widget_VariableDensityField->SetModel(model);
     });
 
@@ -1659,7 +1782,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     auto DataChangeFunc = [&](igQtMainWindow* mainWindow) {
         auto model = mainWindow->rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        showAndRaiseDock(mainWindow->ui->dockWidget_DataChangeField);
+        mainWindow->openLeftToolPanel(LeftToolPanelId::DataChange);
         mainWindow->ui->widget_DataChangeField->InitRadialStyle(
                 mainWindow->rendererWidget->GetScene()->GetInteractor());
         auto name = mainWindow->rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
@@ -1693,14 +1816,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
             [&]() { rendererWidget->update(); });
-    connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
-        if (!m_leftFieldDock || !m_leftFieldTabs) return;
-        m_leftFieldDock->show();
-        m_leftFieldDock->raise();
-        int idx = m_leftFieldTabs->indexOf(ui->widget_FlowField);
-        if (idx >= 0) m_leftFieldTabs->setCurrentIndex(idx);
-        ui->widget_FlowField->updateVectorNameList();
-    });
+    connect(ui->action_FlowField, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Flow); });
 
 //    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
 //        ui->dockWidget_FlowField->show();
@@ -1714,8 +1831,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
-    connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool checked) {
-        showAndRaiseDock(ui->dockWidget_ContourExtract);
+    connect(ui->action_ContourExtract, &QAction::triggered, this, [this](bool) {
+        openLeftToolPanel(LeftToolPanelId::ContourExtract);
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) return;
         auto CurrentModel = scene->GetCurrentModel();
@@ -1859,7 +1976,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("盒子切割（美观）"));
         int x_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_min(0..1)", "0.0");
         int y_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_min(0..1)", "0.0");
         int z_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_min(0..1)", "0.0");
@@ -1921,7 +2039,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("平面切割（美观）"));
         int origin_x_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_x(0..1)", "0.5");
         int origin_y_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_y(0..1)", "0.5");
         int origin_z_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_z(0..1)", "0.5");
@@ -1965,25 +2084,20 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         });
     });
 
-    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) { return; }
+    connect(ui->action_slice, &QAction::triggered, this, [this](bool) {
+        const int sid = static_cast<int>(LeftToolPanelId::Slice);
+        const int existing = m_leftToolTabByPanel[static_cast<size_t>(sid)];
+        if (existing >= 0 && m_leftFieldDock && m_leftFieldDock->isVisible() && m_leftFieldTabs &&
+            m_leftFieldTabs->currentIndex() == existing) {
+            return;
+        }
+        openLeftToolPanel(LeftToolPanelId::Slice);
+        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
-        //if (!rendererWidget->getInteractor()->IsBase()) {
-        //    rendererWidget->getInteractor()->RequestBasicStyle();
-        //    return;
-        //}
-        if (SliceDockWidget->isHidden() == false) { return; }
-        SliceDockWidget->show();
         SliceWidget->SetOriginDataObject(obj);
-
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter3D(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
-
-        //if (rendererWidget->GetScene()->GetInteractor()) {
-        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
-        //}
-
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
@@ -1998,12 +2112,182 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             return;
         }
     });
-    connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked) {
-        if (checked) DeformationDockWidget->show();
+    connect(ui->action_deformation, &QAction::triggered, this, [this](bool checked) {
+        if (checked)
+            openLeftToolPanel(LeftToolPanelId::Deformation);
         else
-            DeformationDockWidget->hide();
+            closeLeftToolPanel(LeftToolPanelId::Deformation);
     });
 }
+
+QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
+    switch (id) {
+    case LeftToolPanelId::Scalar: return ui->dockWidget_ScalarField;
+    case LeftToolPanelId::Vector: return ui->dockWidget_VectorField;
+    case LeftToolPanelId::Tensor: return ui->dockWidget_TensorField;
+    case LeftToolPanelId::Flow: return ui->dockWidget_FlowField;
+    case LeftToolPanelId::ContourExtract: return ui->dockWidget_ContourExtract;
+    case LeftToolPanelId::Slice: return SliceDockWidget;
+    case LeftToolPanelId::Deformation: return DeformationDockWidget;
+    case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
+    case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
+    case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
+    case LeftToolPanelId::Count: return nullptr;
+    }
+    return nullptr;
+}
+
+QWidget* igQtMainWindow::wrapContentInScrollArea(QWidget* content, QWidget* parent, bool centerFlowField) {
+    if (!content) return nullptr;
+    if (qobject_cast<QScrollArea*>(content)) return content;
+    content->setMinimumHeight(0);
+    content->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    auto* scroll = new QScrollArea(parent);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setWidget(content);
+    if (centerFlowField) scroll->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    return scroll;
+}
+
+void igQtMainWindow::applyLeftToolStackVerticalSplit() {
+    if (!m_leftFieldDock || !modelTreeWidget) return;
+    QDockWidget* props = modelTreeWidget->getPropertiesDock();
+    if (!props || !m_leftFieldDock->isVisible()) return;
+    // 工具面板 : Properties = 1:1（事件循环跑完后再调，否则常不生效）
+    resizeDocks({m_leftFieldDock, props}, {1, 1}, Qt::Vertical);
+}
+
+void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
+                                              bool centerFlowField) {
+    const int pid = static_cast<int>(id);
+    if (!m_leftFieldTabs || !m_leftFieldDock || !inner) return;
+    if (m_leftToolTabByPanel[static_cast<size_t>(pid)] >= 0) {
+        const int t = m_leftToolTabByPanel[static_cast<size_t>(pid)];
+        if (t < m_leftFieldTabs->count()) m_leftFieldTabs->setCurrentIndex(t);
+        m_leftFieldDock->show();
+        m_leftFieldDock->raise();
+        return;
+    }
+    if (shell) {
+        QWidget* top = shell->widget();
+        if (top == inner) {
+            shell->setWidget(nullptr);
+            removeDockWidget(shell);
+            shell->hide();
+        } else if (auto* sa = qobject_cast<QScrollArea*>(top)) {
+            if (sa->widget() == inner) {
+                sa->takeWidget();
+                shell->setWidget(nullptr);
+                delete sa;
+                removeDockWidget(shell);
+                shell->hide();
+            }
+        }
+    }
+    const bool firstTabInStack = (m_leftFieldTabs->count() == 0);
+    QWidget* page = wrapContentInScrollArea(inner, m_leftFieldTabs, centerFlowField);
+    const int idx = m_leftFieldTabs->addTab(page, title);
+    m_leftToolTabByPanel[static_cast<size_t>(pid)] = idx;
+    m_leftFieldDock->show();
+    m_leftFieldDock->raise();
+    m_leftFieldTabs->setCurrentIndex(idx);
+    if (firstTabInStack) {
+        QTimer::singleShot(0, this, [this]() { applyLeftToolStackVerticalSplit(); });
+    }
+}
+
+void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
+    switch (id) {
+    case LeftToolPanelId::Scalar:
+        relocateContentToLeftTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"), id, false);
+        break;
+    case LeftToolPanelId::Vector:
+        relocateContentToLeftTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"), id, false);
+        ui->widget_VectorField->updateVectorNameList();
+        break;
+    case LeftToolPanelId::Tensor:
+        relocateContentToLeftTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"), id, false);
+        ui->widget_TensorField->InitTensorWidget();
+        break;
+    case LeftToolPanelId::Flow:
+        relocateContentToLeftTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"), id, true);
+        ui->widget_FlowField->updateVectorNameList();
+        break;
+    case LeftToolPanelId::ContourExtract:
+        relocateContentToLeftTab(ui->dockWidget_ContourExtract, ui->widget_ContourExtract, QStringLiteral("轮廓提取"), id, false);
+        break;
+    case LeftToolPanelId::Slice:
+        relocateContentToLeftTab(SliceDockWidget, SliceWidget, QStringLiteral("网格切面"), id, false);
+        break;
+    case LeftToolPanelId::Deformation:
+        relocateContentToLeftTab(DeformationDockWidget, DeformationWidget, QStringLiteral("结构形变"), id, false);
+        break;
+    case LeftToolPanelId::Selection:
+        relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"), id, false);
+        break;
+    case LeftToolPanelId::VariableDensity:
+        relocateContentToLeftTab(ui->dockWidget_VariableDensityField, ui->widget_VariableDensityField,
+                                 QStringLiteral("变量数据密度"), id, false);
+        break;
+    case LeftToolPanelId::DataChange:
+        relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
+                                 false);
+        break;
+    case LeftToolPanelId::Count:
+        break;
+    }
+}
+
+void igQtMainWindow::onLeftToolTabCloseRequested(int index) {
+    if (index < 0) return;
+    for (size_t i = 0; i < m_leftToolTabByPanel.size(); ++i) {
+        if (m_leftToolTabByPanel[i] == index) {
+            closeLeftToolPanel(static_cast<LeftToolPanelId>(i));
+            return;
+        }
+    }
+}
+
+void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
+    const int pid = static_cast<int>(id);
+    if (!m_leftFieldTabs) return;
+    int idx = m_leftToolTabByPanel[static_cast<size_t>(pid)];
+    if (idx < 0 || idx >= m_leftFieldTabs->count()) return;
+
+    QWidget* page = m_leftFieldTabs->widget(idx);
+    auto* scroll = qobject_cast<QScrollArea*>(page);
+    QWidget* inner = scroll ? scroll->takeWidget() : nullptr;
+    if (scroll) scroll->deleteLater();
+
+    QDockWidget* shell = shellDockForLeftPanel(id);
+    if (shell && inner) {
+        shell->setWidget(inner);
+        if (id == LeftToolPanelId::Deformation)
+            addDockWidget(Qt::RightDockWidgetArea, shell);
+        else
+            addDockWidget(Qt::LeftDockWidgetArea, shell);
+        shell->hide();
+    }
+
+    m_leftFieldTabs->removeTab(idx);
+    m_leftToolTabByPanel[static_cast<size_t>(pid)] = -1;
+    for (size_t i = 0; i < m_leftToolTabByPanel.size(); ++i) {
+        int& t = m_leftToolTabByPanel[i];
+        if (t == idx) t = -1;
+        else if (t > idx) --t;
+    }
+    if (id == LeftToolPanelId::Slice && rendererWidget && rendererWidget->getInteractor() &&
+        !rendererWidget->getInteractor()->IsBasicStyle()) {
+        rendererWidget->getInteractor()->RequestBasicStyle();
+    }
+    if (id == LeftToolPanelId::Deformation && ui->action_deformation) ui->action_deformation->setChecked(false);
+    if (id == LeftToolPanelId::Selection && ui->action_SelectView) ui->action_SelectView->setChecked(false);
+    if (m_leftFieldTabs->count() == 0 && m_leftFieldDock) m_leftFieldDock->hide();
+}
+
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
     // ui->modelTreeView, &igQtModelListView::InsertModel);
@@ -2247,7 +2531,8 @@ void igQtMainWindow::initAllMySignalConnections() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("盒子切割"));
         int x_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_min(0..1)", "0.0");
         int y_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_min(0..1)", "0.0");
         int z_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_min(0..1)", "0.0");
@@ -2305,7 +2590,8 @@ void igQtMainWindow::initAllMySignalConnections() {
         auto center = (box.min + box.max) * 0.5;
         auto size = box.max - box.min;
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("平面切割"));
         int origin_x_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_x(0..1)", "0.5");
         int origin_y_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_y(0..1)", "0.5");
         int origin_z_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_z(0..1)", "0.5");
@@ -2397,15 +2683,13 @@ void igQtMainWindow::initAllSources() {
 }
 
 void igQtMainWindow::initAllInteractor() {
-    connect(ui->action_SelectView, &QAction::triggered, this, [&](bool checked) {
-        if (checked && !ui->dockWidget_SelectionField->isVisible()) {
-            ui->dockWidget_SelectionField->show();
-            ui->dockWidget_SelectionField->raise(); // 切换到该 tab
-            if (ui->dockWidget_SelectionField->widget())
-                ui->dockWidget_SelectionField->widget()->setFocus(Qt::OtherFocusReason);
+    connect(ui->action_SelectView, &QAction::triggered, this, [this](bool checked) {
+        if (checked) {
+            openLeftToolPanel(LeftToolPanelId::Selection);
+            if (ui->widget_SelectionField) ui->widget_SelectionField->setFocus(Qt::OtherFocusReason);
+        } else {
+            closeLeftToolPanel(LeftToolPanelId::Selection);
         }
-        else if (!checked && ui->dockWidget_SelectionField->isVisible())
-            ui->dockWidget_SelectionField->hide();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
         if (!iGame::SelectionParameter::Instance().GetInSelection()) {
@@ -2695,7 +2979,9 @@ void igQtMainWindow::initAllInteractor() {
         rendererWidget->update();
     });
 
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [&]() {
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [this]() {
+        if (m_leftToolTabByPanel[static_cast<size_t>(LeftToolPanelId::Selection)] >= 0)
+            closeLeftToolPanel(LeftToolPanelId::Selection);
         ui->action_SelectView->setChecked(false);
         auto scene = rendererWidget->GetScene();
         SelectionParameter::Instance().SetHaveBox(false);

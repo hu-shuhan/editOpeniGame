@@ -49,7 +49,6 @@ private:
     void EndRangeChoose();
     void StartRangeChoose(const QPoint& pos);
     void MoveRangeChooseEndPoint(const QPoint& pos);
-    void DrawRangeChooseRect();
     bool m_RangeChooseOn{};
     QPoint m_RangeChooseStartPoint;
     QPoint m_RangeChooseEndPoint;
@@ -79,7 +78,7 @@ private:
     void GenerateSecondDensityImage();
     void GenerateSecondChoosedDensityImage();
     void GenerateBackgroundColor();
-    void Draw();
+    void _PaintPlotOnDrawWidget(QPainter& painter);
     void SetDensityColor();
     void SetChoosedDensityColor();
     void SetVariableNameLabel();
@@ -104,10 +103,10 @@ private:
     void _CalculatePaintDrawFrame(QRect& bigDrawFrame, QRect& smallDrawFrame);
     void _CalculateFrameCenterCut(const QRect& frame, QRect& leftFrame, QRect& rightFrame, QRect& topFrame,
                                   QRect& bottomFrame);
-    void _DrawCoordinateRect(const QRect& range);
-    void _DrawCenterLine(const QRect& range);
-    void _DrawBackground(const QRect& range);
-    void _DrawImages(const QRect& range);
+    void _DrawCoordinateRect(QPainter& painter, const QRect& range);
+    void _DrawCenterLine(QPainter& painter, const QRect& range);
+    void _DrawBackground(QPainter& painter, const QRect& range);
+    void _DrawImages(QPainter& painter, const QRect& range);
     void _DrawDensityRect(int density, int maxDensity, int copyIndex, int copyNum,
                           const std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>& color, int alpha,
                           const QRect& drawFrame, std::shared_ptr<QPainter> painter);

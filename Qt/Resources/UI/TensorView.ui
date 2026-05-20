@@ -38,6 +38,9 @@
        <property name="spacing">
         <number>8</number>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
        <property name="leftMargin">
         <number>8</number>
        </property>
@@ -51,9 +54,9 @@
         <number>8</number>
        </property>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="1,3">
+        <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,1">
          <property name="spacing">
-          <number>6</number>
+          <number>4</number>
          </property>
          <property name="rightMargin">
           <number>0</number>
@@ -61,15 +64,21 @@
          <item>
           <widget class="QLabel" name="label_10">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>90</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="maximumSize">
             <size>
-             <width>100</width>
-             <height>20</height>
+             <width>90</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="text">
@@ -83,25 +92,19 @@
          <item>
           <widget class="QComboBox" name="TensorInfoComboBox">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
            </property>
           </widget>
          </item>
         </layout>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="2,5,1">
+        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1,0">
          <property name="spacing">
-          <number>6</number>
+          <number>4</number>
          </property>
          <property name="rightMargin">
           <number>0</number>
@@ -109,21 +112,21 @@
          <item>
           <widget class="QLabel" name="label_2">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
            <property name="minimumSize">
             <size>
-             <width>0</width>
+             <width>90</width>
              <height>0</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>100</width>
-             <height>20</height>
+             <width>90</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="text">
@@ -136,11 +139,11 @@
          </item>
          <item>
           <widget class="QComboBox" name="GlyphTypeComboBox">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <item>
             <property name="text">
@@ -159,35 +162,54 @@
         </layout>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="1,3">
+        <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
+         <property name="spacing">
+          <number>4</number>
+         </property>
          <item>
           <widget class="QLabel" name="label_ColorFrom">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>90</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="maximumSize">
             <size>
-             <width>100</width>
-             <height>20</height>
+             <width>90</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="text">
             <string>颜色来源</string>
            </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="ScalarInfoComboBox"/>
+          <widget class="QComboBox" name="ScalarInfoComboBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,5,2">
+        <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1,0">
          <property name="spacing">
-          <number>6</number>
+          <number>4</number>
          </property>
          <property name="rightMargin">
           <number>0</number>
@@ -195,15 +217,21 @@
          <item>
           <widget class="QLabel" name="label_ScaleData">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>90</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="maximumSize">
             <size>
-             <width>100</width>
-             <height>20</height>
+             <width>90</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="text">
@@ -217,16 +245,10 @@
          <item>
           <widget class="QSlider" name="horizontalSlider_ScaleSlider">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>20</height>
-            </size>
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
@@ -234,32 +256,76 @@
           </widget>
          </item>
          <item>
-          <widget class="QLineEdit" name="lineEdit_TensorScale"/>
+          <widget class="QLineEdit" name="lineEdit_TensorScale">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>72</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>88</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1,0,1">
          <property name="spacing">
-          <number>6</number>
+          <number>4</number>
          </property>
          <item>
+          <spacer name="horizontalSpacerLeft">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>20</height>
+            </size>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Expanding</enum>
+           </property>
+          </spacer>
+         </item>
+         <item>
           <widget class="QPushButton" name="btn_GenerateVector">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
            <property name="text">
             <string>矩阵特征生成矢量场</string>
            </property>
           </widget>
          </item>
          <item>
-          <spacer name="horizontalSpacer">
+          <spacer name="horizontalSpacerRight">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>0</width>
              <height>20</height>
             </size>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Expanding</enum>
            </property>
           </spacer>
          </item>
