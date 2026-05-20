@@ -458,10 +458,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     m_OriginalStream->DeepCopy(m_ResultObject);
 }
 void igQtStreamTracerWidget::Simplifier() {
-    if (!haveDraw || !m_StreamBase || !m_StreamBase->streamFilter) {
-        std::cout << "[Simplify] Please generate streamlines first\n";
-        return;
-    }
+    if (!haveDraw || !m_StreamBase || !m_StreamBase->streamFilter) return;
 
     auto original = m_StreamBase->streamFilter->GetOutput();
     if (!original) return;
@@ -470,12 +467,9 @@ void igQtStreamTracerWidget::Simplifier() {
     simp->SetInput(original);
     simp->SetCurvBins(40);
     simp->SetNumClusters(ui->clusterSpin->value());
-    //simp->SetPerCluster(ui->perClusterSpin->value());
     simp->SetTotalTarget(ui->perClusterSpin->value());
-    if (!simp->Execute()) {
-        std::cout << "[Simplify] Execute failed\n";
-        return;
-    }
+
+    if (!simp->Execute()) return;
     auto out = simp->GetOutput();
     if (!out) return;
 
@@ -484,9 +478,17 @@ void igQtStreamTracerWidget::Simplifier() {
     m_ResultObject->SetCells(out->GetCells(), out->GetCellTypes());
     m_ResultObject->SetAttributeSet(out->GetAttributeSet());
     m_ResultObject->SetShellRenderingOption(false);
-    m_ResultObject->ViewCloudPicture(scene, 0);
     m_ResultObject->SetLineWidth(widthOfStreamLine);
-    m_ResultObject->ConvertToDrawableData();
 
+    // ÓÃ ClusterLabel ×ÅÉ«
+    auto outAttr = out->GetAttributeSet();
+    int clusterIdx = outAttr->GetAttributeIndex("ClusterLabel");
+    if (clusterIdx >= 0) {
+        m_ResultObject->ViewCloudPicture(scene, clusterIdx);
+    } else {
+        m_ResultObject->ViewCloudPicture(scene, 0);
+    }
+
+    m_ResultObject->ConvertToDrawableData();
     Q_EMIT UpdateStreamObject(m_ResultObject);
 }

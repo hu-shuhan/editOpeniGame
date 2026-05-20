@@ -1,5 +1,6 @@
 #include "iGameStreamlineSimplifier.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -122,7 +123,6 @@ bool StreamlineSimplifier::ExtractStreamlines() {
 
     return !m_Streamlines.empty();
 }
-
 // --------------------------------------------------------------------------
 void StreamlineSimplifier::ComputeHistograms() {
     const int B = m_CurvBins; 
@@ -187,21 +187,131 @@ void StreamlineSimplifier::BuildDistanceMatrix() {
         m_D.clear();
         return;
     }
-
     m_D.assign(N * (N - 1) / 2, 0.f);
-    const int B = m_CurvBins;
+
+    struct CurveFeatures {
+        float bendRatio = 1.f;
+        float maxTurn = 0.f;
+        float topKMeanTurn = 0.f;
+        float midRegionTurn = 0.f;
+        float curvedSegmentRatio = 0.f;
+    };
+
+    const float eps = 1e-8f;
+    const float turnThreshold = 8.f * 3.14159265358979f / 180.f;
+    const int DIM = 5;
+    const std::array<float, DIM> weights = {0.10f, 0.35f, 0.25f, 0.20f, 0.10f};
+
+    std::vector<CurveFeatures> rawFeat(N);
+    for (size_t i = 0; i < N; ++i) {
+        const auto& pts = m_Streamlines[i].points;
+        if (pts.size() < 2) continue;
+
+        float arcLength = 0.f;
+        std::vector<Vector3f> dirs;
+        dirs.reserve(pts.size() - 1);
+
+        for (size_t p = 1; p < pts.size(); ++p) {
+            Vector3f e = pts[p] - pts[p - 1];
+            float len = e.norm();
+            if (len <= eps) continue;
+            arcLength += len;
+            dirs.push_back(e / len);
+        }
+
+        if (arcLength <= eps || dirs.empty()) continue;
+
+        const float chordLength = (pts.back() - pts.front()).norm();
+        rawFeat[i].bendRatio = arcLength / std::max(chordLength, eps);
+
+        std::vector<float> turns;
+        turns.reserve(dirs.size() > 1 ? dirs.size() - 1 : 0);
+        for (size_t d = 1; d < dirs.size(); ++d) {
+            float dot = dirs[d][0] * dirs[d - 1][0] + dirs[d][1] * dirs[d - 1][1] + dirs[d][2] * dirs[d - 1][2];
+            dot = std::max(-1.f, std::min(1.f, dot));
+            float turn = std::acos(dot);
+            turns.push_back(turn);
+            rawFeat[i].maxTurn = std::max(rawFeat[i].maxTurn, turn);
+        }
+
+        if (turns.empty()) continue;
+
+        std::vector<float> sortedTurns = turns;
+        std::sort(sortedTurns.begin(), sortedTurns.end(), std::greater<float>());
+        const size_t topCount = std::max<size_t>(1, (sortedTurns.size() + 4) / 5);
+        float topSum = 0.f;
+        for (size_t t = 0; t < topCount; ++t) topSum += sortedTurns[t];
+        rawFeat[i].topKMeanTurn = topSum / static_cast<float>(topCount);
+
+        const size_t midBegin = turns.size() / 4;
+        const size_t midEnd = std::max(midBegin + 1, (turns.size() * 3) / 4);
+        float midSum = 0.f;
+        size_t midCount = 0;
+        for (size_t t = midBegin; t < midEnd && t < turns.size(); ++t) {
+            midSum += turns[t];
+            ++midCount;
+        }
+        rawFeat[i].midRegionTurn = (midCount > 0) ? (midSum / static_cast<float>(midCount)) : 0.f;
+
+        int curvedCount = 0;
+        for (float turn : turns) {
+            if (turn > turnThreshold) ++curvedCount;
+        }
+        rawFeat[i].curvedSegmentRatio = curvedCount / static_cast<float>(turns.size());
+    }
+
+    std::vector<std::array<float, DIM>> feat(N);
+    std::array<float, DIM> fmin, fmax;
+    fmin.fill(std::numeric_limits<float>::max());
+    fmax.fill(std::numeric_limits<float>::lowest());
 
     for (size_t i = 0; i < N; ++i) {
-        const auto& ci = m_Streamlines[i].cdfCurv;
-        for (size_t j = i + 1; j < N; ++j) {
-            const auto& cj = m_Streamlines[j].cdfCurv;
-            float d = 0.f;
-            for (int b = 0; b < B; ++b) d += std::fabs(ci[b] - cj[b]);
-            m_D[TriIdx(i, j, N)] = d;
+        feat[i] = {rawFeat[i].bendRatio,
+                   rawFeat[i].maxTurn,
+                   rawFeat[i].topKMeanTurn,
+                   rawFeat[i].midRegionTurn,
+                   rawFeat[i].curvedSegmentRatio};
+        for (int d = 0; d < DIM; ++d) {
+            fmin[d] = std::min(fmin[d], feat[i][d]);
+            fmax[d] = std::max(fmax[d], feat[i][d]);
         }
     }
-}
 
+    for (size_t i = 0; i < N; ++i) {
+        for (int d = 0; d < DIM; ++d) {
+            float range = fmax[d] - fmin[d];
+            feat[i][d] = (range > 1e-12f) ? (feat[i][d] - fmin[d]) / range : 0.f;
+        }
+    }
+
+    for (size_t i = 0; i < N; ++i) {
+        for (size_t j = i + 1; j < N; ++j) {
+            float featureDistance = 0.f;
+            for (int k = 0; k < DIM; ++k) {
+                featureDistance += weights[k] * std::fabs(feat[i][k] - feat[j][k]);
+            }
+
+            float curvatureDistance = 0.f;
+            const auto& ci = m_Streamlines[i].cdfCurv;
+            const auto& cj = m_Streamlines[j].cdfCurv;
+            const int B = static_cast<int>(std::min(ci.size(), cj.size()));
+            if (B > 0) {
+                for (int b = 0; b < B; ++b) curvatureDistance += std::fabs(ci[b] - cj[b]);
+                curvatureDistance /= static_cast<float>(B);
+            }
+
+            m_D[TriIdx(i, j, N)] = 0.95f * featureDistance + 0.05f * curvatureDistance;
+        }
+    }
+
+    float dMin = *std::min_element(m_D.begin(), m_D.end());
+    float dMax = *std::max_element(m_D.begin(), m_D.end());
+    std::vector<float> sorted = m_D;
+    std::sort(sorted.begin(), sorted.end());
+    float dMedian = sorted[sorted.size() / 2];
+    std::cout << "[Simplifier] Feature distance: min=" << dMin << " median=" << dMedian << " max=" << dMax
+              << " (local-bend-driven)\n";
+}
 // --------------------------------------------------------------------------
 //void StreamlineSimplifier::ClusterAverage() {
 //    const size_t N = m_Streamlines.size();
@@ -405,16 +515,14 @@ void StreamlineSimplifier::BuildOutputMesh() {
     velArr->SetDimension(3);
     velArr->SetName("Velocity");
 
-    auto idArr = IntArray::New();
-    idArr->SetDimension(1);
-    idArr->SetName("StreamlineId");
+    auto clusterArr = FloatArray::New();
+    clusterArr->SetDimension(1);
+    clusterArr->SetName("ClusterLabel");
 
     mesh->SetShellRenderingOption(false);
 
     igIndex g = 0;
-    int newSid = 0;
     for (int id: m_SelectedIds) {
-        if (id < 0 || id >= (int) m_Streamlines.size()) continue; 
         const auto& sl = m_Streamlines[id];
         if (sl.points.size() < 2) continue;
 
@@ -422,21 +530,21 @@ void StreamlineSimplifier::BuildOutputMesh() {
         for (size_t i = 0; i < sl.points.size(); ++i) {
             points->AddPoint(Point(sl.points[i][0], sl.points[i][1], sl.points[i][2]));
             velArr->AddElement3(sl.velocities[i][0], sl.velocities[i][1], sl.velocities[i][2]);
+            // ClusterLabel 是点属性，每个点标记所属簇
+            clusterArr->AddValue((float) sl.clusterId);
             g++;
         }
         for (size_t i = 0; i + 1 < sl.points.size(); ++i) {
             int tem[2] = {(int) (start + i), (int) (start + i + 1)};
             cells->AddCellIds(tem, 2);
             types->AddValue(IG_LINE);
-            idArr->AddValue(newSid);
         }
-        newSid++;
     }
 
     mesh->SetPoints(points);
     mesh->SetCells(cells, types);
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velArr);
-    attrSet->AddAttribute(IG_SCALAR, IG_CELL, idArr);
+    attrSet->AddAttribute(IG_SCALAR, IG_POINT, clusterArr);
     mesh->SetAttributeSet(attrSet);
     mesh->SetName("SimplifiedStreamlines");
 
