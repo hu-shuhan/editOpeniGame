@@ -1717,6 +1717,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
     //############# HIDE SOMETHING ST #############
     ui->action_ParallelCoordinates->setVisible(false);
+    ui->action_SearchInfo->setVisible(false);
     //############# HIDE SOMETHING ED #############
 
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
