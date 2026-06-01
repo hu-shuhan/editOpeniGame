@@ -35,7 +35,7 @@
             </sizepolicy>
            </property>
            <property name="text">
-            <string>Clip</string>
+            <string>裁剪</string>
            </property>
           </widget>
          </item>
@@ -48,7 +48,7 @@
             </sizepolicy>
            </property>
            <property name="text">
-            <string>Slice</string>
+            <string>切面</string>
            </property>
           </widget>
          </item>
@@ -79,7 +79,7 @@
          <item>
           <widget class="QCheckBox" name="checkBox_Crinkle">
            <property name="text">
-            <string>Crinkle</string>
+            <string>锯齿显示</string>
            </property>
           </widget>
          </item>

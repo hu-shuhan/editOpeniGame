@@ -48,29 +48,29 @@ void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::P
     switch (obj->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
             auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
-            createPropertyLabel(formLayout, "Type", "Surface Mesh");
-            createPropertyLabel(formLayout, "# of Faces", QString::number(mesh->GetNumberOfFaces()));
-            createPropertyLabel(formLayout, "# of Points", QString::number(mesh->GetNumberOfPoints()));
+            createPropertyLabel(formLayout, QStringLiteral("类型"), QStringLiteral("表面网格"));
+            createPropertyLabel(formLayout, QStringLiteral("面数"), QString::number(mesh->GetNumberOfFaces()));
+            createPropertyLabel(formLayout, QStringLiteral("点数"), QString::number(mesh->GetNumberOfPoints()));
         } break;
         case IG_VOLUME_MESH: {
             auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj);
-            createPropertyLabel(formLayout, "Type", "Volume Mesh");
-            createPropertyLabel(formLayout, "# of Volumes", QString::number(mesh->GetNumberOfVolumes()));
-            createPropertyLabel(formLayout, "# of Points", QString::number(mesh->GetNumberOfPoints()));
+            createPropertyLabel(formLayout, QStringLiteral("类型"), QStringLiteral("体网格"));
+            createPropertyLabel(formLayout, QStringLiteral("体单元数"), QString::number(mesh->GetNumberOfVolumes()));
+            createPropertyLabel(formLayout, QStringLiteral("点数"), QString::number(mesh->GetNumberOfPoints()));
         } break;
         case IG_STRUCTURED_MESH: {
             auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj);
             auto size = mesh->GetDimensionSize();
-            createPropertyLabel(formLayout, "Type", "Structured Mesh");
-            createPropertyLabel(formLayout, "# of Dimesion X ", QString::number(size[0]));
-            createPropertyLabel(formLayout, "# of Dimesion Y ", QString::number(size[1]));
-            createPropertyLabel(formLayout, "# of Dimesion Z ", QString::number(size[2]));
+            createPropertyLabel(formLayout, QStringLiteral("类型"), QStringLiteral("结构化网格"));
+            createPropertyLabel(formLayout, QStringLiteral("X 维度"), QString::number(size[0]));
+            createPropertyLabel(formLayout, QStringLiteral("Y 维度"), QString::number(size[1]));
+            createPropertyLabel(formLayout, QStringLiteral("Z 维度"), QString::number(size[2]));
         } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
-            createPropertyLabel(formLayout, "Type", "Unstructured Mesh");
-            createPropertyLabel(formLayout, "# of Cells", QString::number(mesh->GetNumberOfCells()));
-            createPropertyLabel(formLayout, "# of Points", QString::number(mesh->GetNumberOfPoints()));
+            createPropertyLabel(formLayout, QStringLiteral("类型"), QStringLiteral("非结构化网格"));
+            createPropertyLabel(formLayout, QStringLiteral("单元数"), QString::number(mesh->GetNumberOfCells()));
+            createPropertyLabel(formLayout, QStringLiteral("点数"), QString::number(mesh->GetNumberOfPoints()));
         } break;
         default:
             break;
@@ -130,7 +130,7 @@ void igQtModelInformationWidget::updateInformationFrame() {
     }
 
 
-    frameLayout->addWidget(createLabel("File Properties"));
+    frameLayout->addWidget(createLabel(QStringLiteral("文件属性")));
 
 
 
@@ -141,12 +141,12 @@ void igQtModelInformationWidget::updateInformationFrame() {
     filePropForm->setHorizontalSpacing(10);
     filePropForm->setVerticalSpacing(6);
     filePropForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    createPropertyLabel(filePropForm, "Name", pathForLabelWrap(fileName));
-    createPropertyLabel(filePropForm, "Path", pathForLabelWrap(directory));
+    createPropertyLabel(filePropForm, QStringLiteral("名称"), pathForLabelWrap(fileName));
+    createPropertyLabel(filePropForm, QStringLiteral("路径"), pathForLabelWrap(directory));
     frameLayout->addWidget(filePropWidget);
 
     // 数据统计
-    frameLayout->addWidget(createLabel("Data Statistics"));
+    frameLayout->addWidget(createLabel(QStringLiteral("数据统计")));
     frameLayout->addWidget(createSeparator());
     QWidget* statWidget = new QWidget(this->informationFrame);
     QFormLayout* statForm = new QFormLayout(statWidget);
@@ -155,8 +155,8 @@ void igQtModelInformationWidget::updateInformationFrame() {
     statForm->setVerticalSpacing(6);
     statForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
     if (obj->HasSubDataObject()) {
-        createPropertyLabel(statForm, "Type", "Multiblock Mesh");
-        createPropertyLabel(statForm, "# of blocks", QString::number(obj->GetNumberOfSubDataObjects()));
+        createPropertyLabel(statForm, QStringLiteral("类型"), QStringLiteral("多块网格"));
+        createPropertyLabel(statForm, QStringLiteral("块数"), QString::number(obj->GetNumberOfSubDataObjects()));
     } else {
         CreateDataObjectLayoutInfo(obj, statForm);
     }
@@ -168,17 +168,17 @@ void igQtModelInformationWidget::updateInformationFrame() {
         memorySize /= 1024;
         index++;
     }
-    createPropertyLabel(statForm, "Memory", QString::number(memorySize) + dw[index]);
+    createPropertyLabel(statForm, QStringLiteral("内存占用"), QString::number(memorySize) + dw[index]);
     frameLayout->addWidget(statWidget);
 
     // 处理边界框（并入表单布局，保持与其它项一致对齐）
     iGame::BoundingBox bound = obj->GetBoundingBox();
-    const char* axisNames[3] = {"Bounds X", "Bounds Y", "Bounds Z"};
+    const QString axisNames[3] = {QStringLiteral("X 范围"), QStringLiteral("Y 范围"), QStringLiteral("Z 范围")};
     for (int i = 0; i < 3; i++) {
         const float min = bound.min[i];
         const float max = bound.max[i];
         const float delta = max - min;
-        const QString boundsValue = QString("%1 to %2  (delta: %3)")
+        const QString boundsValue = QStringLiteral("%1 至 %2  (差值: %3)")
                                             .arg(min, 0, 'f', 2)
                                             .arg(max, 0, 'f', 2)
                                             .arg(delta, 0, 'f', 2);

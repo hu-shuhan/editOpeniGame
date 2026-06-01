@@ -161,17 +161,17 @@
       <widget class="QComboBox" name="comboBox_2">
        <item>
         <property name="text">
-         <string>AllCell</string>
+         <string>全部单元</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>CellInRange</string>
+         <string>单元范围</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>EveryNth</string>
+         <string>间隔采样</string>
         </property>
        </item>
       </widget>
@@ -199,7 +199,7 @@
      <item>
       <widget class="QPushButton" name="DrawButton">
        <property name="text">
-        <string>绘制</string>
+        <string>执行</string>
        </property>
       </widget>
      </item>

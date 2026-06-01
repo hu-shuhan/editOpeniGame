@@ -1133,9 +1133,6 @@ QLabel#CustomTitleLabel {
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="action_ShowOrientationAxes"/>
-   <addaction name="action_ResetCameraView"/>
-  <!-- <addaction name="action_ContextPreserving"/> -->
    <addaction name="action_SelectView"/>
    <addaction name="action_drag_point"/>
    <addaction name="action_ChangeBackground"/>
@@ -1159,6 +1156,8 @@ QLabel#CustomTitleLabel {
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_ShowOrientationAxes"/>
+   <addaction name="action_ResetCameraView"/>
    <addaction name="action_UseOrthographic"/>
    <addaction name="action_setViewToIsometric"/>
    <addaction name="action_setViewToPositiveX"/>
@@ -1169,7 +1168,6 @@ QLabel#CustomTitleLabel {
    <addaction name="action_setViewToNegativeZ"/>
    <addaction name="action_rotateNinetyCounterClockwise"/>
    <addaction name="action_rotateNinetyClockwise"/>
-   <addaction name="action_IsShowColorBar"/>
    <addaction name="action_ShowCenter"/>
    <addaction name="action_PickCenter"/>
   </widget>
@@ -1468,6 +1466,7 @@ QLabel#CustomTitleLabel {
    <addaction name="action_ContourExtract"/>
    <addaction name="action_GenerateChart"/>
    <addaction name="action_VolumeRendering"/>
+   <addaction name="action_IsShowColorBar"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="minimumSize">

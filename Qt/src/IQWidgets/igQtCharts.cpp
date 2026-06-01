@@ -16,7 +16,7 @@
 igQtCharts::igQtCharts(QWidget* parent)
     : QDialog(parent), chart(new QChart()), chartView(new QChartView(chart)) {
 
-    this->setWindowTitle("Chart View");
+    this->setWindowTitle(QStringLiteral("图表视图"));
     this->resize(800, 600);
     this->setAttribute(Qt::WA_StyledBackground, true);
     this->setAttribute(Qt::WA_TranslucentBackground, true);
@@ -44,7 +44,7 @@ igQtCharts::igQtCharts(QWidget* parent)
     titleLayout->setContentsMargins(6, 4, 6, 4);
     titleLayout->setSpacing(6);
 
-    m_titleLabel = new QLabel("Chart View", m_titleBar);
+    m_titleLabel = new QLabel(QStringLiteral("图表视图"), m_titleBar);
     m_titleLabel->setObjectName("chartTitleLabel");
     m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
@@ -139,7 +139,7 @@ void igQtCharts::drawBarChart(iGame::ArrayObject::Pointer data) {
     // 创建X轴并将其附加到图表
     auto axisX = new QBarCategoryAxis();
     for (const QString& category: categories) { axisX->append(category); }
-    axisX->setTitleText("Value");
+    axisX->setTitleText(QStringLiteral("数值"));
     chart->addAxis(axisX, Qt::AlignBottom);
     series->attachAxis(axisX);
 
@@ -147,7 +147,7 @@ void igQtCharts::drawBarChart(iGame::ArrayObject::Pointer data) {
     auto axisY = new QValueAxis();
     int maxCount = *std::max_element(binCounts.begin(), binCounts.end());
     axisY->setRange(0, qRound(maxCount * 1.1)); // 确保Y轴的范围是整数
-    axisY->setTitleText("Count");
+    axisY->setTitleText(QStringLiteral("频次"));
     axisY->setTickCount(5);      // 设置Y轴的刻度数量
     axisY->setMinorTickCount(0); // 禁用次要刻度
     chart->addAxis(axisY, Qt::AlignLeft);
@@ -185,7 +185,7 @@ void igQtCharts::drawBarChart(iGame::ArrayObject::Pointer data) {
     chart->legend()->setVisible(true);
     chart->legend()->setAlignment(Qt::AlignTop);
     chart->legend()->setLabelColor(QColor("#D0D0D0"));
-    chart->setTitle("Data Distribution Histogram");
+    chart->setTitle(QStringLiteral("数据分布直方图"));
 }
 
 
@@ -209,7 +209,7 @@ void igQtCharts::drawLineChart(iGame::ArrayObject::Pointer m_data) {
     // 创建X轴
     QValueAxis* axisX = new QValueAxis();
     axisX->setRange(0, m_data->GetNumberOfValues() - 1);
-    axisX->setTitleText("Index");
+    axisX->setTitleText(QStringLiteral("索引"));
     chart->addAxis(axisX, Qt::AlignBottom);
     series->attachAxis(axisX);
 
@@ -226,12 +226,12 @@ void igQtCharts::drawLineChart(iGame::ArrayObject::Pointer m_data) {
     }
 
     axisY->setRange(minValue, maxValue);
-    axisY->setTitleText("Value");
+    axisY->setTitleText(QStringLiteral("数值"));
     chart->addAxis(axisY, Qt::AlignLeft);
     series->attachAxis(axisY);
 
     // 设置图表的标题
-    chart->setTitle("Data Line Chart");
+    chart->setTitle(QStringLiteral("数据折线图"));
 
     // 更新图表视图
     chartView->setChart(chart);

@@ -155,7 +155,7 @@
          <item>
           <widget class="QPushButton" name="btn_Apply">
            <property name="text">
-            <string>应用</string>
+            <string>执行</string>
            </property>
           </widget>
          </item>

@@ -146,7 +146,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     int totalWidth = parent ? parent->width() / 6 : 200;
 
     // 上半部分：圖層/模型樹 Dock（可單獨拖出懸浮）
-    m_treeDock = new QDockWidget(tr("Layer Dialog"), parent);
+    m_treeDock = new QDockWidget(QStringLiteral("模型树"), parent);
     m_treeDock->setObjectName("LayerTreeDock");
     m_treeDock->setWidget(modelTreeWidget);
     m_treeDock->setMinimumWidth(totalWidth);
@@ -162,7 +162,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     m_treeDock->setTitleBarWidget(treeTitle);
 
     //  Properties Dock（也可懸浮）
-    m_propertiesDock = new QDockWidget(tr("Properties"), parent);
+    m_propertiesDock = new QDockWidget(QStringLiteral("属性"), parent);
     m_propertiesDock->setObjectName("LayerPropertiesDock");
     m_propertiesDock->setWidget(tabWidget);
     m_propertiesDock->setMinimumWidth(totalWidth);
@@ -200,8 +200,8 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
         }
     });
 
-    tabWidget->addTab(ui->ModelInformationWidget, "Model Info");
-    tabWidget->addTab(ui->propertyWidget, "Model Properties");
+    tabWidget->addTab(ui->ModelInformationWidget, QStringLiteral("模型信息"));
+    tabWidget->addTab(ui->propertyWidget, QStringLiteral("模型属性"));
 
     // 根据总宽度调整列宽
     int col1Width = totalWidth * 0.4;
@@ -229,7 +229,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
 
     propertyWidget->removeProperty(objectGroup);
     objectGroup =
-            propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object properties"));
+            propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("对象属性"));
     propertyWidget->addProperty(objectGroup);
 
     // QtTreePropertyBrowser 内部用 QItemDelegate 绘制选中行，会使用 QPalette::Highlight（Windows 上常为蓝色）。
@@ -243,7 +243,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
         tw->setPalette(pal);
     }
 
-    prop_PointSize = propertyManager->addProperty(QVariant::Int, "Point Size");
+    prop_PointSize = propertyManager->addProperty(QVariant::Int, QStringLiteral("点大小"));
     prop_PointSize->setEnabled(false);
     prop_PointSize->setValue(0);
     objectGroup->addSubProperty(prop_PointSize);
@@ -251,7 +251,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     propertyManager->setAttribute(prop_PointSize, "maximum", 99);
     propertyManager->setAttribute(prop_PointSize, "singleStep", 1);
 
-    pror_LineWidth = propertyManager->addProperty(QVariant::Int, "Line Width");
+    pror_LineWidth = propertyManager->addProperty(QVariant::Int, QStringLiteral("线宽"));
     pror_LineWidth->setEnabled(false);
     pror_LineWidth->setValue(0);
     objectGroup->addSubProperty(pror_LineWidth);
@@ -259,7 +259,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     propertyManager->setAttribute(pror_LineWidth, "maximum", 10);
     propertyManager->setAttribute(pror_LineWidth, "singleStep", 1);
 
-    prop_Transparency = propertyManager->addProperty(QVariant::Double, "Transparency");
+    prop_Transparency = propertyManager->addProperty(QVariant::Double, QStringLiteral("透明度"));
     prop_Transparency->setEnabled(false);
     prop_Transparency->setValue(0);
     objectGroup->addSubProperty(prop_Transparency);

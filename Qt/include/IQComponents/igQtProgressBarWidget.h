@@ -17,7 +17,7 @@
 
 class IG_QT_MODULE_EXPORT igQtProgressBarWidget : public QWidget{
 public:
-    static constexpr const char* DEFAULT = "Ready for";
+    static constexpr const char* DEFAULT = "进度条";
     static constexpr const char* PROCESSING = "Processing ...";
     explicit igQtProgressBarWidget(QWidget *parent = nullptr);
 
