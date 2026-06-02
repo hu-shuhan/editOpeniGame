@@ -75,11 +75,6 @@
     </item>
     <item row="0" column="1" colspan="2">
      <widget class="QLabel" name="filterInfoLabel">
-      <property name="font">
-       <font>
-        <italic>true</italic>
-       </font>
-      </property>
       <property name="text">
        <string>Filter Description</string>
       </property>
@@ -127,7 +122,7 @@
           <enum>Qt::WheelFocus</enum>
          </property>
          <property name="text">
-          <string>Apply</string>
+          <string>执行</string>
          </property>
          <property name="autoDefault">
           <bool>false</bool>
@@ -140,13 +135,14 @@
        <item row="0" column="0">
         <widget class="QPushButton" name="closeButton">
          <property name="text">
-          <string>Close</string>
+          <string>关闭</string>
          </property>
         </widget>
        </item>
       </layout>
      </widget>
     </item>
+    <!-- Preview 暂未实现，先隐藏
     <item row="3" column="1">
      <widget class="QCheckBox" name="previewCheckBox">
       <property name="focusPolicy">
@@ -160,6 +156,7 @@
       </property>
      </widget>
     </item>
+    -->
    </layout>
   </widget>
  </widget>

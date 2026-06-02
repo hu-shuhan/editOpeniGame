@@ -150,7 +150,7 @@ void igQtChromeFramelessDialog::setDialogTitle(const QString& title) {
 void igQtChromeFramelessDialog::setContentWidget(QWidget* widget) {
     if (!m_contentLayout || !widget) return;
     if (widget->parentWidget() != m_contentHost) widget->setParent(m_contentHost);
-    m_contentLayout->addWidget(widget);
+    m_contentLayout->addWidget(widget, 1);
 }
 
 void igQtChromeFramelessDialog::setMaximizeEnabled(bool enabled) {

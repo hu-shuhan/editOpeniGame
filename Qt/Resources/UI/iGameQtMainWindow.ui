@@ -960,8 +960,10 @@ QLabel#CustomTitleLabel {
     <addaction name="action_SaveMeshAs"/>
     <addaction name="action_compress"/>
     <addaction name="action_SetThreadNum"/>
+    <!-- 传输测试暂未启用
     <addaction name="action_CS"/>
     <addaction name="action_C"/>
+    -->
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -2224,6 +2226,7 @@ QLabel#CustomTitleLabel {
     <string>启用体绘制</string>
    </property>
   </action>
+  <!-- 传输测试暂未启用
   <action name="action_CS">
    <property name="text">
     <string>传输测试(S)</string>
@@ -2234,6 +2237,7 @@ QLabel#CustomTitleLabel {
     <string>传输测试(C)</string>
    </property>
   </action>
+  -->
   <action name="action_SetThreadNum">
    <property name="text">
     <string>线程数设置</string>

@@ -11,6 +11,7 @@
 #include <ui_filterDialog.h>
 #include <IQCore/igQtExportModule.h>
 #include <qaction.h>
+#include <QCheckBox>
 #include <QLineEdit>
 #include <QComboBox>
 #include <functional>

@@ -1009,10 +1009,8 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_SaveAnimation, &QAction::triggered, this, [&]() { ui->widget_Animation->saveAnimation(); });
 
     connect(ui->action_SetThreadNum, &QAction::triggered, this, [&](bool checked) {
-        // 创建对话框
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        dialog->previousInFocusChain()->hide();
-        dialog->setFilterTitle("设置并行线程数");
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("设置并行线程数"));
         // 获取当前线程池的默认线程数
         int currentThreadCount = iGame::ThreadPool::GetDefaultThreadCount();
         int maxThreads = std::thread::hardware_concurrency();
@@ -1045,10 +1043,11 @@ void igQtMainWindow::initAllComponents() {
 				}*/
                 // 设置新的线程数
                 iGame::ThreadPool::SetDefaultThreadCount(newThreadCount);
-                QMessageBox::information(this, "成功", QString("并行线程数已设置为: %1").arg(newThreadCount));
+                showDarkFramelessMessage(QStringLiteral("成功"),
+                                         QStringLiteral("并行线程数已设置为: %1").arg(newThreadCount), true);
                 dialog->close();
             } else {
-                QMessageBox::warning(this, "错误", "请输入有效的线程数（大于0的整数）。");
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的线程数（大于0的整数）。"));
             }
         });
     });
