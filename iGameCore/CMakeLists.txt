@@ -119,9 +119,10 @@ if (${FFMPEG_FOUND})
     if (WIN32 AND FFMPEG_DLL_DIR)
         file(GLOB FFMPEG_DLLS "${FFMPEG_DLL_DIR}/*.dll")
         add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${FFMPEG_DLLS}
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
                 COMMENT "Copying FFMPEG DLLs to output folder")
     endif ()
 endif ()
@@ -166,9 +167,10 @@ if (ENABLE_GPSCUDA_MODULE)
 
     file(GLOB_RECURSE EXDLL ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
     add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${EXDLL}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     )
 endif ()
 
