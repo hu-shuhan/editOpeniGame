@@ -7,7 +7,9 @@ IGAME_NAMESPACE_BEGIN
 
 GLBuffer::GLBuffer() { m_Target = GL_NONE; }
 
-GLBuffer::~GLBuffer() {glDeleteBuffers(1, &m_Handle);}
+GLBuffer::~GLBuffer() {
+    if (m_Handle) glDeleteBuffers(1, &m_Handle);
+}
 
 void GLBuffer::CopySubData(const SmartPointer<GLBuffer> source,
                            const SmartPointer<GLBuffer> destination,
