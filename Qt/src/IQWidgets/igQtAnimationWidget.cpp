@@ -12,7 +12,7 @@
 #include <IQWidgets/igQtAnimationWidget.h>
 #include <QAbstractButton>
 #include <QFileDialog>
-#include <QMessageBox>
+#include <IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <Deformation/iGameStressDeformationFilter.h>
 
 /**
@@ -552,7 +552,8 @@ bool igQtAnimationWidget::saveAnimation() {
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
     if (currentScene->GetCurrentModel() == nullptr ||
         currentScene->GetCurrentModel()->GetDataObject()->GetTimeFrames()->GetArrays().empty()) {
-        QMessageBox::information(this, "", "请导入带时间帧的文件");
+        igQtShowDarkFramelessMessage(this, QStringLiteral("保存动画"),
+                                     QStringLiteral("请导入带时间帧的文件"), true);
         return false;
     }
     auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
@@ -572,7 +573,6 @@ bool igQtAnimationWidget::saveAnimation() {
                                          filters.join(";;"), &SelectedFilter);
 
     igQtVideoOptionDialog dialog(this);
-    dialog.setWindowTitle("Save Animation Option.");
     int oldwidth = rendererWidget->width(),
         oldheight = rendererWidget->height();
     int ratio_pixel = rendererWidget->devicePixelRatio();
@@ -655,9 +655,9 @@ bool igQtAnimationWidget::saveAnimation() {
             break;
     }
     if (sc) {
-        QMessageBox::information(this, "", "保存成功");
+        igQtShowDarkFramelessMessage(this, QStringLiteral("保存动画"), QStringLiteral("保存成功"), true);
     } else {
-        QMessageBox::information(this, "", "保存失败");
+        igQtShowDarkFramelessMessage(this, QStringLiteral("保存动画"), QStringLiteral("保存失败"));
     }
 #endif
 

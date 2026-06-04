@@ -116,6 +116,14 @@ if (${FFMPEG_FOUND})
     message("Find FFMPEG")
     target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+    if (WIN32 AND FFMPEG_DLL_DIR)
+        file(GLOB FFMPEG_DLLS "${FFMPEG_DLL_DIR}/*.dll")
+        add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${FFMPEG_DLLS}
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>
+                COMMENT "Copying FFMPEG DLLs to output folder")
+    endif ()
 endif ()
 
 if (${ENABLE_NASTRAN_MODULE})

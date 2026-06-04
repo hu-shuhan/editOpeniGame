@@ -75,6 +75,7 @@
 #include <iGameVolumeMesh.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
+#include <include/IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 #include <meshoptimizer.h>
@@ -1086,64 +1087,7 @@ void igQtMainWindow::updateVortexMetricsLabelPos()
 }
 
 void igQtMainWindow::showDarkFramelessMessage(const QString& title, const QString& text, bool useInformationIcon) {
-    QMessageBox msgBox(this);
-    msgBox.setWindowFlags((msgBox.windowFlags() | Qt::FramelessWindowHint) & ~Qt::WindowContextHelpButtonHint);
-    msgBox.setIcon(QMessageBox::NoIcon);
-    const QStyle::StandardPixmap which =
-            useInformationIcon ? QStyle::SP_MessageBoxInformation : QStyle::SP_MessageBoxWarning;
-    QPixmap iconPixmap = style()->standardIcon(which).pixmap(30, 30);
-    {
-        QPainter painter(&iconPixmap);
-        painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
-        painter.fillRect(iconPixmap.rect(), QColor(0, 0, 0, 75));
-    }
-    msgBox.setIconPixmap(iconPixmap);
-    msgBox.setWindowTitle(title);
-    msgBox.setText(text);
-    msgBox.setStandardButtons(QMessageBox::Ok);
-    msgBox.setDefaultButton(QMessageBox::Ok);
-    msgBox.setMinimumSize(460, 200);
-    msgBox.setStyleSheet(
-            "QMessageBox {"
-            "  background-color: #232323;"
-            "  border: 1px solid #5A5A5A;"
-            "  border-radius: 8px;"
-            "}"
-            "QMessageBox QLabel {"
-            "  color: #C9C9C9;"
-            "  background: transparent;"
-            "  border: none;"
-            "}"
-            "QMessageBox QPushButton {"
-            "  min-width: 64px;"
-            "  padding: 3px 9px;"
-            "  color: #ECECEC;"
-            "  background-color: #5A6066;"
-            "  border: 1px solid #747C84;"
-            "  border-radius: 4px;"
-            "}"
-            "QMessageBox QPushButton:hover {"
-            "  background-color: #666D74;"
-            "}"
-            "QMessageBox QPushButton:pressed {"
-            "  background-color: #4A5056;"
-            "}"
-    );
-    if (QPushButton* okBtn = qobject_cast<QPushButton*>(msgBox.button(QMessageBox::Ok))) {
-        okBtn->setStyleSheet(
-                "QPushButton {"
-                "  min-width: 64px;"
-                "  padding: 3px 9px;"
-                "  color: #ECECEC;"
-                "  background-color: #5A6066;"
-                "  border: 1px solid #747C84;"
-                "  border-radius: 4px;"
-                "}"
-                "QPushButton:hover { background-color: #666D74; }"
-                "QPushButton:pressed { background-color: #4A5056; }"
-        );
-    }
-    msgBox.exec();
+    igQtShowDarkFramelessMessage(this, title, text, useInformationIcon);
 }
 
 void igQtMainWindow::initAllFilters() {
