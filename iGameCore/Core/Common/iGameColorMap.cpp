@@ -125,6 +125,20 @@ void ColorMap::MapColor(float value, float rgb[3]) {
     int idx = 0;
     float st_v, fi_v, local_v;
     int ColorBarSize = this->GetColorBarSize();
+    if (ColorBarSize < 0) {
+        rgb[0] = 0.0f;
+        rgb[1] = 0.0f;
+        rgb[2] = 0.0f;
+        return;
+    }
+    if (value <= m_ColorRange->GetValue(0)) {
+        m_ColorBar->GetElement(0, rgb);
+        return;
+    }
+    if (value >= m_ColorRange->GetValue(ColorBarSize)) {
+        m_ColorBar->GetElement(ColorBarSize, rgb);
+        return;
+    }
     for (idx = 0; idx <= ColorBarSize; idx++) {
         if (value < m_ColorRange->GetValue(idx)) { break; }
     }
@@ -151,6 +165,12 @@ void ColorMap::MapColor(float value, float rgb[3]) {
     } else {
         m_ColorBar->GetElement(idx, finalRGB);
         fi_v = m_ColorRange->GetValue(idx);
+    }
+    if (fi_v == st_v) {
+        rgb[0] = finalRGB[0];
+        rgb[1] = finalRGB[1];
+        rgb[2] = finalRGB[2];
+        return;
     }
     local_v = (value - st_v) / (fi_v - st_v);
 

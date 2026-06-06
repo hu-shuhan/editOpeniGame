@@ -17,10 +17,12 @@
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameCenterAxesModel.h"
+#include "iGameColorBar2DActor.h"
 #include "iGameInteractor.h"
 #include "iGameLight.h"
 #include "iGameModel.h"
 #include "iGameShaderManager.h"
+#include "iGameTextOverlay2DActor.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -133,6 +135,9 @@ public:
      */
     void SetBackGround(int R, int G, int B);
 
+    void SetBackGroundGradient(int R1, int G1, int B1, int R2, int G2, int B2,
+                               int mode);
+
     /**
      * @brief 获取背景颜色。
      * @return 背景颜色RGB值。
@@ -150,6 +155,7 @@ public:
      * @return 交互器指针。
      */
     SmartPointer<Interactor> GetInteractor();
+    void Finalize();
 
     /**
      * @brief 重置相机视角到默认视图。
@@ -241,11 +247,24 @@ public:
      * @brief 切换中心坐标轴的显示状态
      */
     void ToggleCenterAxes();
+    void SetCenterAxesVisible(bool visible);
 
     /**
      * @brief 切换XYZ坐标轴的显示状态
      */
     void ToggleAxes();
+    void SetAxesVisible(bool visible);
+    bool GetAxesVisible() const;
+
+    void ToggleColorBar();
+    void SetColorBarVisible(bool visible);
+    bool GetColorBarVisible() const;
+    SmartPointer<ColorBar2DActor> GetColorBar2DActor() const;
+    void SetCornerAnnotationText(const std::string& text);
+    void SetCornerAnnotationPosition(float left, float top);
+    void SetCornerAnnotationAnchorToBottomRight(bool anchorToBottomRight);
+    void SetCornerAnnotationVisible(bool visible);
+    SmartPointer<TextOverlay2DActor> GetTextOverlay2DActor() const;
 
     /**
      * @brief 获取中心坐标轴模型
@@ -385,6 +404,7 @@ protected:
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
+    void ClearSceneFramebuffer(float depth, int width, int height);
 
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
     void UpdateCameraDataBlock();
@@ -407,6 +427,9 @@ protected:
     //Light> m_Light;
     bool m_AxesVisible{true};
     SmartPointer<Axes> m_Axes;
+    bool m_ColorBarVisible{false};
+    SmartPointer<ColorBar2DActor> m_ColorBar2DActor;
+    SmartPointer<TextOverlay2DActor> m_TextOverlay2DActor;
 
     SmartPointer<Interactor> m_Interactor;
 
@@ -417,6 +440,9 @@ protected:
             m_ModelRotate; //Rotation matrix passing through the origin //绕原点的旋转矩阵
     igm::mat4 m_ModelMatrix; //模型变换矩阵
     igm::vec3 m_BackgroundColor;
+    igm::vec3 m_BackgroundGradientColor;
+    bool m_BackgroundGradientEnabled = false;
+    int m_BackgroundGradientMode = 0;
 
     uint32_t m_VisibleModelsCount;    //可见模型数量
     igm::vec4 m_ModelsBoundingSphere; //场景包围球（中心坐标+半径）
@@ -498,6 +524,8 @@ protected:
     friend class PainterBase;
     friend class Painter2D;
     friend class Painter3D;
+    friend class ColorBar2DActor;
+    friend class TextOverlay2DActor;
 };
 
 IGAME_NAMESPACE_END

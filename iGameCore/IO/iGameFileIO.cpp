@@ -8,6 +8,7 @@
 #include "IGC/iGameIGCMTimeSeriesWriter.h"
 #include "IGC/iGameIGCMWriter.h"
 #include "IGC/iGameIGCReader.h"
+#include "IGC/iGameIGCReader.h"
 #include "IGC/iGameIGCWriter.h"
 #include "INP/iGameINPReader.h"
 #include "MESH/iGameMESHReader.h"
@@ -22,6 +23,7 @@
 #include "STL/iGameSTLWriter.h"
 #include "VTK XML/iGamePVDReader.h"
 #include "VTK XML/iGameVTMReader.h"
+#include "VTK XML/iGameVTPReader.h"
 #include "VTK XML/iGameVTSReader.h"
 #include "VTK XML/iGameVTUReader.h"
 #include "VTK/iGameVTKReader.h"
@@ -39,6 +41,9 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
     const char* fileEnd = file_name.data() + file_name.size();
     std::string FileSuffix;
     if (pos != nullptr) { FileSuffix = std::string(pos + 1, fileEnd); }
+    for (char& c: FileSuffix) {
+        if (c >= 'A' && c <= 'Z') { c = static_cast<char>(c - 'A' + 'a'); }
+    }
     if (FileSuffix == "vtk") {
         return VTK;
     } else if (FileSuffix == "igc") {
@@ -65,6 +70,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return VTS;
     } else if (FileSuffix == "vtu") {
         return VTU;
+    } else if (FileSuffix == "vtp") {
+        return VTP;
     } else if (FileSuffix == "vtm") {
         return VTM;
     } else if (FileSuffix == "e" || FileSuffix == "ex2" || FileSuffix == "EX2") {
@@ -115,6 +122,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "VTM";
         case VTU:
             return "VTU";
+        case VTP:
+            return "VTP";
         case CGNS:
             return "CGNS";
         case INP:
@@ -162,6 +171,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                 }
             }
         } else if (name[name.length() - 1] == '0') {
+        } else if (name[name.length() - 1] == '0') {
             isvector = true;
             int j = 1;
             for (j = 1; j < 3; j++) {
@@ -202,6 +212,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
             } else
                 Vector->SetName(name.substr(0, name.length() - 1));
             // Vector->SetName(name.substr(0, name.length() - 1));
+            // Vector->SetName(name.substr(0, name.length() - 1));
             Vector->SetDimension(3);
             Vector->Resize(attr.pointer->GetNumberOfElements());
             float* vector = Vector->RawPointer();
@@ -221,12 +232,18 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
             newDataRange->Resize(3 + 1);
             /* 将输入的x、y、z的维度标量范围直接更新成Vector的x、y、z维度的范围 */
             for (int j = 0; j < 3; j++) {
+            for (int j = 0; j < 3; j++) {
                 auto scalarData = Attrs->GetAttribute(i + j).GetDataRange();
+                newDataRange->SetElement(j + 1, scalarData->RawPointer() + 2);
                 newDataRange->SetElement(j + 1, scalarData->RawPointer() + 2);
             }
             /* 计算Vector 维度的Magnitude*/
             double maxMagnitude = 0, minMagnitude = DBL_MAX;
             for (int k = 0; k < Vector->GetNumberOfValues(); k += 3) {
+                double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1] +
+                                                vector[k + 2] * vector[k + 2]);
+                maxMagnitude = std::max(maxMagnitude, curMagnitude);
+                minMagnitude = std::min(minMagnitude, curMagnitude);
                 double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1] +
                                                 vector[k + 2] * vector[k + 2]);
                 maxMagnitude = std::max(maxMagnitude, curMagnitude);
@@ -240,6 +257,21 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
         }
     }
     return newAttrs;
+}
+
+static DataObject::Pointer FinalizeLoadedObject(DataObject::Pointer resObj, const std::string& objectName) {
+    if (resObj) {
+        if (!objectName.empty()) { resObj->SetName(objectName); }
+        if (resObj->GetAttributeSet()) {
+            resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet()));
+        }
+    }
+
+    if (auto* progress = ProgressObserver::Instance()) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
+    return resObj;
 }
 
 static DataObject::Pointer FinalizeLoadedObject(DataObject::Pointer resObj, const std::string& objectName) {
@@ -362,6 +394,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             resObj = reader->GetOutput();
             break;
         }
+        case iGame::FileIO::VTP: {
+            iGameVTPReader::Pointer reader = iGameVTPReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
 
         case iGame::FileIO::PVD: {
             iGamePVDReader::Pointer reader = iGamePVDReader::New();
@@ -398,6 +437,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
     std::filesystem::path pathObj(file_name);
     std::string baseName = pathObj.stem().string();
+    resObj = FinalizeLoadedObject(resObj, baseName);
     resObj = FinalizeLoadedObject(resObj, baseName);
 
     end = clock();
@@ -462,6 +502,7 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
             DataObject::Pointer rootObj = dataObject;
             if (dataObject) {
                 auto* parent = dataObject->FindParent();
+                if (parent && parent != dataObject.get()) { rootObj = DataObject::Pointer(parent); }
                 if (parent && parent != dataObject.get()) { rootObj = DataObject::Pointer(parent); }
             }
 

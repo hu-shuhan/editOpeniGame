@@ -35,7 +35,7 @@ layout(location = 4) in vec2 in_UV;
 layout(location = 0) out vec4 out_ScreenColor;
 
 // material parameters
-const vec3 albedo = vec3(1.0f, 0.0f, 0.0f);
+uniform vec3 inputColor;
 const float metallic = 0.0f;
 const float roughness = 0.5f;
 const float ao = 0.1f;
@@ -120,6 +120,7 @@ void main()
 
     // calculate reflectance at in_Normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)
+    vec3 albedo = inputColor;
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
 

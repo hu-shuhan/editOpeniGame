@@ -145,6 +145,7 @@ public:
     SmartPointer<DataObject> GetDataObject();
     void SetPainter3D(SmartPointer<Painter3D> p);
     SmartPointer<Painter3D> GetPainter3D();
+    void Finalize();
 
 protected:
     Interactor();

@@ -52,6 +52,7 @@ void ShaderManager::UpdateCameraBlock(SmartPointer<Camera> camera) {
     buffer.proj_view = camera->GetProjectionMatrix() * camera->GetViewMatrix();
 
     UpdateCameraBlock(buffer);
+    UpdateCameraBlock(buffer);
 }
 
 void ShaderManager::UpdateCameraBlock(CameraDataBuffer buffer) {
@@ -59,7 +60,12 @@ void ShaderManager::UpdateCameraBlock(CameraDataBuffer buffer) {
     m_WebCameraData = buffer;
     return;
 #else
+#ifdef __EMSCRIPTEN__
+    m_WebCameraData = buffer;
+    return;
+#else
     m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &buffer);
+#endif
 #endif
 }
 
@@ -78,6 +84,7 @@ void ShaderManager::UpdateObjectBlock(SmartPointer<DataObject> obj,
                                     static_cast<float>(box.diag() / 2)};
 
     UpdateObjectBlock(buffer);
+    UpdateObjectBlock(buffer);
 }
 
 void ShaderManager::UpdateObjectBlock(ObjectDataBuffer buffer) {
@@ -85,7 +92,12 @@ void ShaderManager::UpdateObjectBlock(ObjectDataBuffer buffer) {
     m_WebObjectData = buffer;
     return;
 #else
+#ifdef __EMSCRIPTEN__
+    m_WebObjectData = buffer;
+    return;
+#else
     m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &buffer);
+#endif
 #endif
 }
 
@@ -98,6 +110,7 @@ void ShaderManager::UpdateUBOBlock(SmartPointer<DataObject> obj) {
     buffer.useNormalSmooth = drawObject->IsUseNormalSmooth();
 
     UpdateUBOBlock(buffer);
+    UpdateUBOBlock(buffer);
 }
 
 void ShaderManager::UpdateUBOBlock(UniformBufferObjectBuffer buffer) {
@@ -105,7 +118,12 @@ void ShaderManager::UpdateUBOBlock(UniformBufferObjectBuffer buffer) {
     m_WebUboData = buffer;
     return;
 #else
+#ifdef __EMSCRIPTEN__
+    m_WebUboData = buffer;
+    return;
+#else
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &buffer);
+#endif
 #endif
 }
 
@@ -149,6 +167,9 @@ SmartPointer<GLBuffer> ShaderManager::GetCullDataBuffer() {
 }
 
 void ShaderManager::MapBufferBlock() {
+#ifdef __EMSCRIPTEN__
+    return;
+#endif
 #ifdef __EMSCRIPTEN__
     return;
 #endif
@@ -323,11 +344,17 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->SetName("SINGLEPASSWIREFRAME");
             sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
         } break;
-#ifdef IGAME_OPENGL_VERSION_460
+#if defined(IGAME_OPENGL_VERSION_460) || defined(__EMSCRIPTEN__)
         case ShaderType::TRANSPARENCYLINK: {
+#ifdef __EMSCRIPTEN__
+            SmartPointer<GLShader> vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/TransparencyLink.vert"),
+                    GL_VERTEX_SHADER);
+#else
             SmartPointer<GLShader> vertex_vert = GLShader::CreateShader(
                     std::string("./Resources/Shaders/Vertex.vert"),
                     GL_VERTEX_SHADER);
+#endif
 
             SmartPointer<GLShader> transparencyLink_frag =
                     GLShader::CreateShader(std::string("./Resources/Shaders/"
@@ -337,6 +364,8 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->SetName("TRANSPARENCYLINK");
             sp->AddShaders(vertex_vert, transparencyLink_frag);
         } break;
+#endif
+#ifdef IGAME_OPENGL_VERSION_460
         case ShaderType::TRANSPARENCYSORT: {
             SmartPointer<GLShader> fullScreenTriangle_vert =
                     GLShader::CreateShader(

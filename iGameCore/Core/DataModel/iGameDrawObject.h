@@ -101,6 +101,10 @@ public:
     void SetRenderWithMeshlet(bool val);
     bool GetRenderWithMeshlet() const;
 
+    // 默认颜色（当未启用颜色映射时使用）
+    void SetDefaultColor(const igm::vec3& color);
+    igm::vec3 GetDefaultColor() const;
+
 protected:
     // OpenGL资源管理
     void CreateDrawBuffer();
@@ -184,6 +188,7 @@ protected:
 
     float m_Transparency;            // 透明度
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
+    igm::vec3 m_DefaultColor;        // 默认颜色，范围 0.0-1.0
 
     friend class Model;
     friend class Scene;

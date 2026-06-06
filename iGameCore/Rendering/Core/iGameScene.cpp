@@ -4,8 +4,44 @@
 #include "iGameRenderingLogger.h"
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 
 IGAME_NAMESPACE_BEGIN
+
+#ifdef __EMSCRIPTEN__
+namespace
+{
+void ClearPendingGLErrors() {
+    while (glGetError() != GL_NO_ERROR) {}
+}
+
+const char* WebGLErrorName(GLenum error) {
+    switch (error) {
+        case GL_INVALID_ENUM:
+            return "INVALID_ENUM";
+        case GL_INVALID_VALUE:
+            return "INVALID_VALUE";
+        case GL_INVALID_OPERATION:
+            return "INVALID_OPERATION";
+        case GL_OUT_OF_MEMORY:
+            return "OUT_OF_MEMORY";
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            return "INVALID_FRAMEBUFFER_OPERATION";
+        default:
+            return "UNKNOWN_ERROR";
+    }
+}
+
+void CheckTransparentPassError(const char* step) {
+    GLenum err = GL_NO_ERROR;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        std::cerr << "TransparentPass GL error after " << step << ": "
+                  << WebGLErrorName(err) << " (" << err << ")" << std::endl;
+    }
+}
+} // namespace
+#endif
+
 Scene::Scene() {
     m_ModelPool = HandlePool<SmartPointer<Model>>::New();
     m_CurrentModelID = 0;
@@ -19,6 +55,10 @@ Scene::Scene() {
 
     m_Axes = Axes::New();
     m_Axes->SetScene(this);
+    m_ColorBar2DActor = ColorBar2DActor::New();
+    m_ColorBar2DActor->SetScene(this);
+    m_TextOverlay2DActor = TextOverlay2DActor::New();
+    m_TextOverlay2DActor->SetScene(this);
 
     m_Interactor = Interactor::New();
     m_FontManager = FontManager::New();
@@ -70,7 +110,46 @@ Scene::Scene() {
 }
 
 Scene::~Scene() {
+    std::cout << "[iGameDestroy] Scene::~Scene this=" << this << " finishInit=" << (m_FinishInit ? "true" : "false")
+              << '\n';
     if (m_FinishInit) { glDeleteQueries(2, m_TimeQueries); }
+}
+
+void Scene::Finalize() {
+    std::cout << "[iGameDestroy] Scene::Finalize this=" << this << '\n';
+    m_ModelPool = nullptr;
+    m_CurrentModelID = 0;
+    m_Interactor = nullptr;
+    m_Axes = nullptr;
+    m_ColorBar2DActor = nullptr;
+    m_TextOverlay2DActor = nullptr;
+    m_CenterAxesModel = nullptr;
+    m_Painter2D = nullptr;
+    m_Painter3D = nullptr;
+    m_FontManager = nullptr;
+    m_ShaderManager = nullptr;
+    m_EmptyVAO = nullptr;
+    m_Framebuffer = nullptr;
+    m_ColorTexture = nullptr;
+    m_DepthR32FTexture = nullptr;
+    m_DepthTexture = nullptr;
+    m_FramebufferBackup = nullptr;
+    m_ColorTextureBackup = nullptr;
+#ifdef GL_SUPPORT_MSAA
+    m_FramebufferMultisampled = nullptr;
+    m_ColorTextureMultisampled = nullptr;
+    m_DepthTextureMultisampled = nullptr;
+#endif
+    m_OITHeadPointerTexture = nullptr;
+    m_OITHeadPointerInitializer = nullptr;
+    m_OITAtomicCounterBuffer = nullptr;
+    m_OITLinkedListBuffer = nullptr;
+    m_OITLinkedListTexture = nullptr;
+    m_VolumeFramebuffer = nullptr;
+    m_VolumeColorTexture = nullptr;
+    m_VolumeDepthTexture = nullptr;
+    m_HzbTexture = nullptr;
+    m_Camera = nullptr;
 }
 
 void Scene::BindFramebuffer() const {
@@ -78,9 +157,15 @@ void Scene::BindFramebuffer() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
     #ifdef GL_SUPPORT_MSAA
+#ifdef __EMSCRIPTEN__
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#else
+    #ifdef GL_SUPPORT_MSAA
     m_FramebufferMultisampled->Bind();
     #else
+    #else
     m_Framebuffer->Bind();
+    #endif
     #endif
 #endif
 }
@@ -121,6 +206,7 @@ bool Scene::Initialize() {
 
     this->InitOpenGL();
 #ifndef IGAME_OPENGL_VERSION_GLES2
+#ifndef IGAME_OPENGL_VERSION_GLES2
     this->InitOIT();
 #endif
 #ifndef __EMSCRIPTEN__
@@ -139,6 +225,20 @@ bool Scene::Initialize() {
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
 
+    // Ensure shell rendering (shell extraction / simplification) is disabled
+    // for all existing models by default to avoid lazy shell build during
+    // interactive operations. This also keeps rendering stable across scales.
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (!model->GetDataObject()->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        if (!drawObject) { continue; }
+        drawObject->SetShellRenderingOption(false);
+        // Propagate to sub-objects to fully disable shell extraction chain
+        drawObject->ProcessSubDataObjects(&DrawObject::SetShellRenderingOption,
+                                          false);
+    }
+
     m_FinishInit = true;
     return true;
 }
@@ -150,6 +250,16 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     auto modelID = m_ModelPool->AllocateObject(model);
     m_CurrentModelID = modelID;
     ChangeModelVisibility(model, true);
+
+    // Disable shell rendering/simplification for newly added model and its
+    // sub-objects to keep rendering stable and avoid on-demand shell builds.
+    auto drawObject = DynamicCast<DrawObject>(obj);
+    if (drawObject) {
+        drawObject->SetShellRenderingOption(false);
+        drawObject->ProcessSubDataObjects(&DrawObject::SetShellRenderingOption,
+                                          false);
+    }
+
     Update();
     return modelID;
 }
@@ -250,10 +360,13 @@ SmartPointer<Model> Scene::GetModelById(int id) {
     return nullptr;
 }
 bool Scene::SetModelById(int id, SmartPointer<Model> model) {
+bool Scene::SetModelById(int id, SmartPointer<Model> model) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto modelID = it->first;
         if (modelID == id) {
+        if (modelID == id) {
             it->second = model;
+            return true;
             return true;
         }
     }
@@ -280,17 +393,31 @@ void Scene::ChangeModelVisibility(int modelID, bool visibility) {
 }
 
 void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
+    // Safely update DrawObject visibility (if drawable) and keep Model visibility
+    // in sync. Adjust visible models counter only when actual visibility changes.
     auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-    drawObject->SetVisibility(visibility);
 
-    if (visibility) {
-        m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 2 || m_VisibleModelsCount == 1) {
-            ResetCameraView(model->GetDataObject());
-            UpdateAxisSize();
-        } // CenterAxesModel is visible
-    } else {
-        m_VisibleModelsCount--;
+    // previous model-level visibility
+    const bool prevVisibility = model->GetVisibility();
+
+    // apply visibility to draw object if available
+    if (drawObject) { drawObject->SetVisibility(visibility); }
+
+    // ensure model-level visibility is updated to reflect draw object
+    model->SetVisibility(visibility);
+
+    // update visible models count only when visibility state changes
+    if (prevVisibility != visibility) {
+        if (visibility) {
+            m_VisibleModelsCount++;
+            if (m_VisibleModelsCount == 1 || m_VisibleModelsCount == 2) {
+                // if this is the first or second visible model, reset camera to include it
+                ResetCameraView(model->GetDataObject());
+                UpdateAxisSize();
+            }
+        } else {
+            if (m_VisibleModelsCount > 0) { m_VisibleModelsCount--; }
+        }
     }
 
     UpdateCameraClippingRange();
@@ -299,12 +426,27 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
 void Scene::SetBackGround(const Color& color) {
     auto c = ColorUtils::Map(color);
     m_BackgroundColor = c;
+    m_BackgroundGradientEnabled = false;
+    m_BackgroundGradientMode = 0;
     this->Modified();
 }
 
 void Scene::SetBackGround(int R, int G, int B) {
     auto c = ColorUtils::Map(R, G, B);
     m_BackgroundColor = c;
+    m_BackgroundGradientEnabled = false;
+    m_BackgroundGradientMode = 0;
+    this->Modified();
+}
+
+void Scene::SetBackGroundGradient(int R1, int G1, int B1, int R2, int G2,
+                                  int B2, int mode) {
+    mode = mode < 0 ? 0 : mode;
+    mode = mode > 2 ? 2 : mode;
+    m_BackgroundColor = ColorUtils::Map(R1, G1, B1);
+    m_BackgroundGradientColor = ColorUtils::Map(R2, G2, B2);
+    m_BackgroundGradientMode = mode;
+    m_BackgroundGradientEnabled = mode != 0;
     this->Modified();
 }
 
@@ -358,6 +500,11 @@ void Scene::SetSurfaceShadingMode(int mode) {
     m_SurfaceShadingMode = mode;
 }
 int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
+void Scene::SetSurfaceShadingMode(int mode) {
+    if (mode < 0 || mode > 1) { mode = 0; }
+    m_SurfaceShadingMode = mode;
+}
+int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
 
 void Scene::ChangeCameraType(Camera::Type type) {
     this->ResetCameraView();
@@ -381,7 +528,9 @@ SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
 
 void Scene::InitOpenGL() {
 #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
     if (!gladLoadGL()) { IGAME_RENDERING_ERROR("Failed to initialize GLAD"); }
+#endif
 #endif
 
     // log opengl info
@@ -412,6 +561,8 @@ void Scene::InitOpenGL() {
 
     // initilize shader
     m_ShaderManager->Initialize();
+    m_ColorBar2DActor->Initialize();
+    m_TextOverlay2DActor->Initialize();
 
     // init framebuffer
     ResizeFrameBuffer();
@@ -731,7 +882,9 @@ void Scene::Draw() {
         if (!ShouldRenderThisCall()) {
             // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
 #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
             RenderToSpecificFrame(defaultFramebuffer);
+#endif
 #endif
             return;
         }
@@ -742,17 +895,22 @@ void Scene::Draw() {
 
     // Start counting the rendering time consumption
 #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
+#endif
 #endif
 
     // render
     DrawFrame();
 #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
     RenderToSpecificFrame(defaultFramebuffer);
+#endif
 #endif
 
     // End counting the rendering time consumption
+#ifndef __EMSCRIPTEN__
 #ifndef __EMSCRIPTEN__
     glEndQuery(GL_TIME_ELAPSED);
     {
@@ -782,6 +940,7 @@ void Scene::Draw() {
         m_TimeQueryReady[curIdx] = true;
         m_TimeQueryIndex = 1 - curIdx;
     }
+#endif
 #endif
 
     // Record the end time of this frame
@@ -875,6 +1034,71 @@ void Scene::Resize(int width, int height, int pixelRatio) {
     ResizeFrameBuffer();
 }
 
+void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
+    glClearDepth(depth); // reversed-z: near=1.0, far=0.0
+
+    GLboolean wasScissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    GLint previousScissor[4] = {0, 0, 0, 0};
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+    glDisable(GL_SCISSOR_TEST);
+
+    if (!m_BackgroundGradientEnabled || m_BackgroundGradientMode == 0 ||
+        width <= 0 || height <= 0) {
+        glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
+                     m_BackgroundColor.b, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                GL_STENCIL_BUFFER_BIT);
+        if (wasScissorEnabled) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(previousScissor[0], previousScissor[1],
+                      previousScissor[2], previousScissor[3]);
+        }
+        return;
+    }
+
+    glClearColor(m_BackgroundGradientColor.r, m_BackgroundGradientColor.g,
+                 m_BackgroundGradientColor.b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    glEnable(GL_SCISSOR_TEST);
+    const int stripCount = 96;
+    const bool horizontal = m_BackgroundGradientMode == 2;
+    const int length = horizontal ? width : height;
+
+    for (int i = 0; i < stripCount; ++i) {
+        int start = (i * length) / stripCount;
+        int end = ((i + 1) * length) / stripCount;
+        if (end <= start) { continue; }
+
+        float t = stripCount > 1 ? static_cast<float>(i) /
+                                           static_cast<float>(stripCount - 1)
+                                 : 0.0f;
+        if (!horizontal) { t = 1.0f - t; }
+
+        float r = m_BackgroundColor.r * (1.0f - t) +
+                  m_BackgroundGradientColor.r * t;
+        float g = m_BackgroundColor.g * (1.0f - t) +
+                  m_BackgroundGradientColor.g * t;
+        float b = m_BackgroundColor.b * (1.0f - t) +
+                  m_BackgroundGradientColor.b * t;
+
+        glClearColor(r, g, b, 1.0f);
+        if (horizontal) {
+            glScissor(start, 0, end - start, height);
+        } else {
+            glScissor(0, start, width, end - start);
+        }
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    if (wasScissorEnabled) {
+        glScissor(previousScissor[0], previousScissor[1], previousScissor[2],
+                  previousScissor[3]);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
+}
+
 void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
@@ -887,22 +1111,16 @@ void Scene::DrawFrame() {
     // Update camera data block in GPU
     UpdateCameraDataBlock();
     {
-        auto ClearFramebuffer = [&](float depth = 0.0f) {
-            glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
-                         m_BackgroundColor.b, 1.0f);
-            glClearDepth(depth); // reversed-z: near=1.0, far=0.0
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
-                    GL_STENCIL_BUFFER_BIT);
-        };
-
         // Clear default framebuffer before rendering
         BindFramebuffer();
         ClearFramebuffer();
 
 #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
         m_VolumeFramebuffer->Bind();
-        ClearFramebuffer();
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
 
+    #ifdef GL_SUPPORT_MSAA
     #ifdef GL_SUPPORT_MSAA
         m_FramebufferMultisampled->Bind();
         ClearFramebuffer();
@@ -914,6 +1132,9 @@ void Scene::DrawFrame() {
 #ifdef IGAME_OPENGL_VERSION_330
         ShadowPass();
         ForwardPass();
+    #ifdef __EMSCRIPTEN__
+        TransparentPass();
+    #endif
 #else
         if (!m_EnableVolumeRendering) {
             ShadowPass();
@@ -926,10 +1147,15 @@ void Scene::DrawFrame() {
 
         // Draw painter 2d and axes
         BindFramebuffer();
+        BindFramebuffer();
         glViewport(0, 0, viewport.x, viewport.y);
         {
             // Draw painter 2D in the image top
             m_Painter2D->Draw();
+            if (m_ColorBarVisible && m_ColorBar2DActor) {
+                m_ColorBar2DActor->Draw();
+            }
+            if (m_TextOverlay2DActor) { m_TextOverlay2DActor->Draw(); }
 
             // Draw axes in bottom left
 #ifndef __EMSCRIPTEN__
@@ -1026,7 +1252,10 @@ void Scene::ForwardPass() {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         model->Draw();
-        model->GetPainter3D()->Draw();
+        if (model->GetVisibility()) {
+            auto& painter3Ds = model->GetAllPainter3Ds();
+            for (auto& painter: painter3Ds) { painter.second->Draw(); }
+        }
     }
 #elif IGAME_OPENGL_VERSION_460
     // normal mesh
@@ -1116,13 +1345,64 @@ void Scene::ForwardPass() {
     m_Painter3D->Draw();
 
 #ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
     ResolveFrameBuffer();
+#endif
 #endif
     GLCheckError();
 }
 
 void Scene::TransparentPass() {
-#ifdef IGAME_OPENGL_VERSION_460
+#ifdef __EMSCRIPTEN__
+    ClearPendingGLErrors();
+    BindFramebuffer();
+    CheckTransparentPassError("BindFramebuffer");
+
+    auto drawTransparentModels = [&](const char* stage) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+            auto model = it->second;
+            CheckTransparentPassError(stage);
+            model->DrawWithTransparency();
+            CheckTransparentPassError("DrawWithTransparency");
+        }
+    };
+
+    glEnable(GL_DEPTH_TEST);
+    CheckTransparentPassError("glEnable(GL_DEPTH_TEST)");
+    glDepthFunc(GL_GREATER);
+    CheckTransparentPassError("glDepthFunc(GL_GREATER)");
+
+    // WebGL fallback: first capture only the nearest transparent surface in
+    // the reversed-z depth buffer. This prevents dense meshes from blending
+    // many internal/back-facing layers and making small opacity values look
+    // much more opaque than requested.
+    glDisable(GL_BLEND);
+    CheckTransparentPassError("depth prepass glDisable(GL_BLEND)");
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    CheckTransparentPassError("depth prepass glColorMask false");
+    glDepthMask(GL_TRUE);
+    CheckTransparentPassError("depth prepass glDepthMask(GL_TRUE)");
+    drawTransparentModels("depth prepass before DrawWithTransparency");
+
+    glDepthMask(GL_FALSE);
+    CheckTransparentPassError("glDepthMask(GL_FALSE)");
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    CheckTransparentPassError("color pass glColorMask true");
+    glDepthFunc(GL_GEQUAL);
+    CheckTransparentPassError("color pass glDepthFunc(GL_GEQUAL)");
+    glEnable(GL_BLEND);
+    CheckTransparentPassError("glEnable(GL_BLEND)");
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    CheckTransparentPassError("glBlendFunc");
+    drawTransparentModels("color pass before DrawWithTransparency");
+
+    glDisable(GL_BLEND);
+    CheckTransparentPassError("glDisable(GL_BLEND)");
+    glDepthMask(GL_TRUE);
+    CheckTransparentPassError("glDepthMask(GL_TRUE)");
+    glDepthFunc(GL_GREATER);
+    CheckTransparentPassError("restore glDepthFunc(GL_GREATER)");
+#elif defined(IGAME_OPENGL_VERSION_460)
     // Bind framebuffer
     m_Framebuffer->Bind();
 
@@ -1452,7 +1732,63 @@ void Scene::ToggleCenterAxes() {
     m_CenterAxesVisible = !m_CenterAxesVisible;
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
 }
+void Scene::SetCenterAxesVisible(bool visible) {
+    m_CenterAxesVisible = visible;
+    if (m_CenterAxesModel) { m_CenterAxesModel->SetVisibility(visible); }
+    this->Modified();
+}
 void Scene::ToggleAxes() { m_AxesVisible = !m_AxesVisible; }
+void Scene::SetAxesVisible(bool visible) {
+    m_AxesVisible = visible;
+    this->Modified();
+}
+bool Scene::GetAxesVisible() const { return m_AxesVisible; }
+
+void Scene::ToggleColorBar() { SetColorBarVisible(!m_ColorBarVisible); }
+
+void Scene::SetColorBarVisible(bool visible) {
+    m_ColorBarVisible = visible;
+    if (m_ColorBar2DActor) { m_ColorBar2DActor->SetVisible(visible); }
+    this->Modified();
+}
+
+bool Scene::GetColorBarVisible() const { return m_ColorBarVisible; }
+
+SmartPointer<ColorBar2DActor> Scene::GetColorBar2DActor() const {
+    return m_ColorBar2DActor;
+}
+
+void Scene::SetCornerAnnotationText(const std::string& text) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetText(text);
+        this->Modified();
+    }
+}
+
+void Scene::SetCornerAnnotationPosition(float left, float top) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetPosition(left, top);
+        this->Modified();
+    }
+}
+
+void Scene::SetCornerAnnotationAnchorToBottomRight(bool anchorToBottomRight) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetAnchorToBottomRight(anchorToBottomRight);
+        this->Modified();
+    }
+}
+
+void Scene::SetCornerAnnotationVisible(bool visible) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetVisible(visible);
+        this->Modified();
+    }
+}
+
+SmartPointer<TextOverlay2DActor> Scene::GetTextOverlay2DActor() const {
+    return m_TextOverlay2DActor;
+}
 
 SmartPointer<CenterAxesModel> Scene::GetCenterAxesModel() const {
     return m_CenterAxesModel;

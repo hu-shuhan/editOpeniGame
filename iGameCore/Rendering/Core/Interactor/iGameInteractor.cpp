@@ -4,6 +4,8 @@
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
 
+#include <iostream>
+
 IGAME_NAMESPACE_BEGIN
 
 Interactor::Interactor() {
@@ -15,7 +17,19 @@ Interactor::Interactor() {
     m_DataObject = nullptr;
 }
 
-Interactor::~Interactor() {}
+Interactor::~Interactor() {
+    std::cout << "[iGameDestroy] Interactor::~Interactor this=" << this << '\n';
+}
+
+void Interactor::Finalize() {
+    std::cout << "[iGameDestroy] Interactor::Finalize this=" << this << '\n';
+    m_Internal = nullptr;
+    m_SpecialInternals.clear();
+    m_DataObject = nullptr;
+    m_Painter3D = nullptr;
+    m_Camera = nullptr;
+    m_Scene = nullptr;
+}
 
 void Interactor::Initialize(SmartPointer<Scene> scene) {
     if (scene) {

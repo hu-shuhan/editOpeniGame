@@ -11,17 +11,13 @@ using DecoderOutputType = GenericDecodeOutput<DataObject::Pointer>;
 bool IGCReader::Parsing() { return ParsingWithMemoryMapping(); }
 
 bool IGCReader::ParsingWithMemoryMapping() {
-    auto decoderInput =
-        DecodeInputMappedMemory::New(
-            this->FILESTART,
-            this->IS,
-            this->FILEEND,
-            this->m_FileSize);
+    auto decoderInput = DecodeInputMappedMemory::New(this->FILESTART, this->IS, this->FILEEND, this->m_FileSize);
 
     auto adapter = std::make_unique<MeshDecodeAdapterToDataObject>();
 
     auto decoder = MeshDecoderFilter<DecoderOutputType>::New();
     decoder->SetAdapter(std::move(adapter));
+    decoder->SetIGCLayout(m_IGCLayout);
     decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }
@@ -38,6 +34,7 @@ bool IGCReader::ParsingWithFilePath() {
 
     auto decoder = MeshDecoderFilter<DecoderOutputType>::New();
     decoder->SetAdapter(std::move(adapter));
+    decoder->SetIGCLayout(m_IGCLayout);
     decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }

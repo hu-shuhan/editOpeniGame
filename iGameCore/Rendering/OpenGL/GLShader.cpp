@@ -181,7 +181,29 @@ GLShaderProgram::~GLShaderProgram() {
     }
 }
 
-void GLShaderProgram::Use() const { glUseProgram(m_Handle); }
+void GLShaderProgram::Use() const {
+#ifdef __EMSCRIPTEN__
+    GLint linked = GL_FALSE;
+    glGetProgramiv(m_Handle, GL_LINK_STATUS, &linked);
+    if (linked != GL_TRUE) {
+        std::string infoLog;
+        infoLog.resize(BUFSIZ);
+        glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
+        std::cerr << "[GLShaderProgram::Use] Program '" << this->GetName()
+                  << "' is not linked. id=" << m_Handle
+                  << ", info=" << infoLog << std::endl;
+    }
+#endif
+    glUseProgram(m_Handle);
+#ifdef __EMSCRIPTEN__
+    GLenum err = GL_NO_ERROR;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        std::cerr << "[GLShaderProgram::Use] glUseProgram failed for '"
+                  << this->GetName() << "', id=" << m_Handle
+                  << ", error=" << err << std::endl;
+    }
+#endif
+}
 
 GLuint GLShaderProgram::ProgramID() const { return m_Handle; }
 
@@ -439,6 +461,24 @@ void GLShaderProgram::CheckCompileErrors() {
                 "'{}' linkage failed. Error: {}",
                 this->GetName(), infoLog);
     }
+#ifdef __EMSCRIPTEN__
+    else {
+        glValidateProgram(m_Handle);
+        GLint validated = GL_FALSE;
+        glGetProgramiv(m_Handle, GL_VALIDATE_STATUS, &validated);
+        if (validated != GL_TRUE) {
+            glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
+            std::cerr << "[GLShaderProgram::CheckCompileErrors] Shader program '"
+                      << this->GetName()
+                      << "' validation failed after link. id=" << m_Handle
+                      << ", info=" << infoLog << std::endl;
+        } else {
+            std::cout << "[GLShaderProgram::CheckCompileErrors] Shader program '"
+                      << this->GetName() << "' linked and validated. id="
+                      << m_Handle << std::endl;
+        }
+    }
+#endif
 }
 
 IGAME_NAMESPACE_END

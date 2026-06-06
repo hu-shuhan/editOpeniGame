@@ -9,6 +9,7 @@ ScalarsToColors::ScalarsToColors() {
     this->VectorComponent = 0;
     this->VectorSize = -1;
     this->VectorMode = ScalarsToColors::COMPONENT;
+    this->m_stable = false;
 
     // only used in this class, not used in subclasses
     this->InputRange[0] = 0.0;

@@ -4,6 +4,13 @@
 // 定义此宏启用单线程模式
 // #define IGAME_CODEC_SINGLE_THREAD
 
+// Emscripten builds without pthreads run on the browser main thread. In that
+// mode queued futures have no worker to consume them, so codec parallel loops
+// must execute inline.
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__) && !defined(IGAME_CODEC_SINGLE_THREAD)
+#define IGAME_CODEC_SINGLE_THREAD
+#endif
+
 #include "iGameThreadPool.h"
 #include <future>
 #include <vector>

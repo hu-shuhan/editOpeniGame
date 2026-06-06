@@ -4,6 +4,8 @@
 #include "iGameDataObject.h"
 #include "iGameObject.h"
 #include <cstddef>
+#include "iGameObject.h"
+#include <cstddef>
 
 IGAME_NAMESPACE_BEGIN
 class FileIO : public Object {
@@ -22,7 +24,22 @@ public:
         STEP,
         IGES,
         PVD,
+    I_OBJECT(FileIO);
+
+    enum FileType {
+        NONE = 0,
+        VTK,
+        IGC,
+        OBJ,
+        OFF,
+        MESH,
+        STL,
+        PLY,
+        STEP,
+        IGES,
+        PVD,
         VTU,
+        VTP,
         VTM,
         VTS,
         EX2,
@@ -31,7 +48,14 @@ public:
         ODB,
         CAS,
         BDF,
+        CGNS,
+        INP,
+        ODB,
+        CAS,
+        BDF,
         IGCM,
+        FILETYPE_COUNT
+    };
         FILETYPE_COUNT
     };
 
