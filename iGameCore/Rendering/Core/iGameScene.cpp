@@ -157,15 +157,9 @@ void Scene::BindFramebuffer() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
     #ifdef GL_SUPPORT_MSAA
-#ifdef __EMSCRIPTEN__
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#else
-    #ifdef GL_SUPPORT_MSAA
     m_FramebufferMultisampled->Bind();
     #else
-    #else
     m_Framebuffer->Bind();
-    #endif
     #endif
 #endif
 }
@@ -206,12 +200,9 @@ bool Scene::Initialize() {
 
     this->InitOpenGL();
 #ifndef IGAME_OPENGL_VERSION_GLES2
-#ifndef IGAME_OPENGL_VERSION_GLES2
     this->InitOIT();
 #endif
-#ifndef __EMSCRIPTEN__
     this->InitAxes();
-#endif
 
     this->ResetCameraView();
 
@@ -360,13 +351,10 @@ SmartPointer<Model> Scene::GetModelById(int id) {
     return nullptr;
 }
 bool Scene::SetModelById(int id, SmartPointer<Model> model) {
-bool Scene::SetModelById(int id, SmartPointer<Model> model) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto modelID = it->first;
         if (modelID == id) {
-        if (modelID == id) {
             it->second = model;
-            return true;
             return true;
         }
     }
@@ -500,11 +488,6 @@ void Scene::SetSurfaceShadingMode(int mode) {
     m_SurfaceShadingMode = mode;
 }
 int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
-void Scene::SetSurfaceShadingMode(int mode) {
-    if (mode < 0 || mode > 1) { mode = 0; }
-    m_SurfaceShadingMode = mode;
-}
-int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
 
 void Scene::ChangeCameraType(Camera::Type type) {
     this->ResetCameraView();
@@ -528,9 +511,7 @@ SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
 
 void Scene::InitOpenGL() {
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
     if (!gladLoadGL()) { IGAME_RENDERING_ERROR("Failed to initialize GLAD"); }
-#endif
 #endif
 
     // log opengl info
@@ -882,9 +863,7 @@ void Scene::Draw() {
         if (!ShouldRenderThisCall()) {
             // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
             RenderToSpecificFrame(defaultFramebuffer);
-#endif
 #endif
             return;
         }
@@ -895,22 +874,17 @@ void Scene::Draw() {
 
     // Start counting the rendering time consumption
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
-#endif
 #endif
 
     // render
     DrawFrame();
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
     RenderToSpecificFrame(defaultFramebuffer);
-#endif
 #endif
 
     // End counting the rendering time consumption
-#ifndef __EMSCRIPTEN__
 #ifndef __EMSCRIPTEN__
     glEndQuery(GL_TIME_ELAPSED);
     {
@@ -940,7 +914,6 @@ void Scene::Draw() {
         m_TimeQueryReady[curIdx] = true;
         m_TimeQueryIndex = 1 - curIdx;
     }
-#endif
 #endif
 
     // Record the end time of this frame
@@ -1113,17 +1086,15 @@ void Scene::DrawFrame() {
     {
         // Clear default framebuffer before rendering
         BindFramebuffer();
-        ClearFramebuffer();
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
 
-#ifndef __EMSCRIPTEN__
 #ifndef __EMSCRIPTEN__
         m_VolumeFramebuffer->Bind();
         ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
 
     #ifdef GL_SUPPORT_MSAA
-    #ifdef GL_SUPPORT_MSAA
         m_FramebufferMultisampled->Bind();
-        ClearFramebuffer();
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
     #endif
 #endif
 
@@ -1147,7 +1118,6 @@ void Scene::DrawFrame() {
 
         // Draw painter 2d and axes
         BindFramebuffer();
-        BindFramebuffer();
         glViewport(0, 0, viewport.x, viewport.y);
         {
             // Draw painter 2D in the image top
@@ -1158,13 +1128,11 @@ void Scene::DrawFrame() {
             if (m_TextOverlay2DActor) { m_TextOverlay2DActor->Draw(); }
 
             // Draw axes in bottom left
-#ifndef __EMSCRIPTEN__
             if (m_AxesVisible) {
                 int mx = std::max(viewport.x, viewport.y);
                 glViewport(0, 0, mx / 10, mx / 10);
                 m_Axes->Draw();
             }
-#endif
         }
     }
 }
@@ -1345,9 +1313,7 @@ void Scene::ForwardPass() {
     m_Painter3D->Draw();
 
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
     ResolveFrameBuffer();
-#endif
 #endif
     GLCheckError();
 }

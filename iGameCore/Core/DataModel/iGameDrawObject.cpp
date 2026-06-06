@@ -261,13 +261,8 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
 
         if (m_RenderableMesh.SurfaceMesh &&
             m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
-
-        if (m_RenderableMesh.SurfaceMesh &&
-            m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
             m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;
         }
-        if (m_RenderableMesh.SimplifiedMesh &&
-            m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
         if (m_RenderableMesh.SimplifiedMesh &&
             m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
             m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;
@@ -286,7 +281,6 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         m_AttributeIndex = -1;
         m_AttributeDimension = -1;
         m_UseColor = false;
-    } else if (GetAttributeSet()->GetNumberOfAttributes() > index) {
     } else if (GetAttributeSet()->GetNumberOfAttributes() > index) {
         m_AttributeIndex = index;
         m_AttributeDimension = dimension;
@@ -393,14 +387,10 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     } else {
         m_RenderableMesh.SurfaceMesh = DynamicCast<DrawObject>(dataObject);
         SyncRenderableState(m_RenderableMesh.SurfaceMesh);
-        SyncRenderableState(m_RenderableMesh.SurfaceMesh);
         // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
         m_Positions->Modified();
     }
 
-    // Build simplified mesh lazily in GetRenderableObject(true)
-    m_RenderableMesh.SimplifiedMesh = nullptr;
-    m_SimplifiedMeshBuildAttempted = false;
     // Build simplified mesh lazily in GetRenderableObject(true)
     m_RenderableMesh.SimplifiedMesh = nullptr;
     m_SimplifiedMeshBuildAttempted = false;
@@ -412,10 +402,6 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
     if (!m_ShellRendering) { return this; }
-
-    if (useSimplified && m_RenderableMesh.SimplifiedMesh == nullptr && !m_SimplifiedMeshBuildAttempted) {
-        BuildSimplifiedRenderableObject();
-    }
 
     if (useSimplified && m_RenderableMesh.SimplifiedMesh == nullptr && !m_SimplifiedMeshBuildAttempted) {
         BuildSimplifiedRenderableObject();
@@ -468,6 +454,7 @@ void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject
     renderableObject->m_AttributeDimension = this->m_AttributeDimension;
     renderableObject->m_UseColor = this->m_UseColor;
     renderableObject->m_ColorMapper = m_ColorMapper;
+    renderableObject->m_DefaultColor = this->m_DefaultColor;
     renderableObject->m_IsMainRenderableObject = false;
 }
 
@@ -532,7 +519,6 @@ void DrawObject::CreateDrawBuffer() {
         m_CellColorVBO->Target(GL_ARRAY_BUFFER);
 
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
         m_EdgeMaskBuffer->Create();
         m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
         // Allocate a minimal buffer with a single byte of data.
@@ -551,7 +537,6 @@ void DrawObject::CreateDrawBuffer() {
 
         m_CellEdgeMaskTexture->Create();
         m_CellEdgeMaskTexture->Buffer(GL_R8, m_CellEdgeMaskBuffer);
-#endif
 #endif
 
         //// set point drawing format
@@ -712,7 +697,6 @@ void DrawObject::SyncGpuBuffers() {
     }
 
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
     if (m_TriangleEdgeMasks->GetMTime() > m_EdgeMaskBuffer->GetMTime()) {
         GLAllocateGLBuffer(m_EdgeMaskBuffer, m_TriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
                            m_TriangleEdgeMasks->RawPointer());
@@ -720,7 +704,6 @@ void DrawObject::SyncGpuBuffers() {
 
         m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
     }
-#endif
 #endif
 
     if (m_CellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
@@ -740,7 +723,6 @@ void DrawObject::SyncGpuBuffers() {
     }
 
 #ifndef __EMSCRIPTEN__
-#ifndef __EMSCRIPTEN__
     if (m_CellTriangleEdgeMasks->GetMTime() > m_CellEdgeMaskBuffer->GetMTime()) {
         GLAllocateGLBuffer(m_CellEdgeMaskBuffer, m_CellTriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
                            m_CellTriangleEdgeMasks->RawPointer());
@@ -748,7 +730,6 @@ void DrawObject::SyncGpuBuffers() {
 
         m_CellEdgeMaskTexture->Buffer(GL_R8, m_CellEdgeMaskBuffer);
     }
-#endif
 #endif
 
     GLCheckError();

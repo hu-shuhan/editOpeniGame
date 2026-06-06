@@ -164,14 +164,6 @@ static void SetPointSizeIfSupported(float pointSize) {
 #endif
 }
 
-static void SetPointSizeIfSupported(float pointSize) {
-#ifndef __EMSCRIPTEN__
-    glPointSize(pointSize);
-#else
-    (void) pointSize;
-#endif
-}
-
 static void
 ForEachDrawObject(DataObject::Pointer root,
                   const std::function<void(DrawObject::Pointer)>& fn) {
@@ -269,17 +261,11 @@ void Model::Draw() {
 #ifdef __EMSCRIPTEN__
             m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
-#ifdef __EMSCRIPTEN__
-            m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
-#endif
 
             // 如果是样条对象，强制用红色绘制控制点
             if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
-#ifdef __EMSCRIPTEN__
-                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
-#endif
 #ifdef __EMSCRIPTEN__
                 m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
@@ -293,13 +279,9 @@ void Model::Draw() {
 #ifdef __EMSCRIPTEN__
                 m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
-#ifdef __EMSCRIPTEN__
-                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
-#endif
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            SetPointSizeIfSupported(renderableObject->m_PointSize);
             SetPointSizeIfSupported(renderableObject->m_PointSize);
 
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
@@ -317,7 +299,6 @@ void Model::Draw() {
         }
 
         // whether to use single-pass wireframe rendering
-#ifndef __EMSCRIPTEN__
 #ifndef __EMSCRIPTEN__
         if (viewStyle & IG_WIREFRAME && viewStyle & IG_SURFACE &&
             renderableObject->IsUseSinglePassWireframeRendering()) {
@@ -372,60 +353,7 @@ void Model::Draw() {
             bool hasCapturedDepthState = false;
 #endif
 
-#else
-        {
-#endif
-            bool combinedSurfaceWireframe =
-                    (viewStyle & IG_SURFACE) && (viewStyle & IG_WIREFRAME);
-
-#ifdef __EMSCRIPTEN__
-            GLint currentDepthFunc = GL_LESS;
-            GLint wireframeDepthFunc = GL_LESS;
-            GLboolean previousDepthMask = GL_TRUE;
-            GLboolean previousPolygonOffsetFill = GL_FALSE;
-            bool hasCapturedDepthState = false;
-#endif
-
             if (viewStyle & IG_SURFACE) {
-#ifdef __EMSCRIPTEN__
-                if (combinedSurfaceWireframe) {
-                    glGetIntegerv(GL_DEPTH_FUNC, &currentDepthFunc);
-                    glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
-                    previousPolygonOffsetFill =
-                            glIsEnabled(GL_POLYGON_OFFSET_FILL);
-                    hasCapturedDepthState = true;
-
-                    // Push filled surface slightly back to avoid depth fighting with wireframe.
-                    float polygonOffsetFactor = 1.0f;
-                    float polygonOffsetUnits = 1.0f;
-                    if (currentDepthFunc == GL_GREATER ||
-                        currentDepthFunc == GL_GEQUAL) {
-                        polygonOffsetFactor = -1.0f;
-                        polygonOffsetUnits = -1.0f;
-                    }
-
-                    wireframeDepthFunc = currentDepthFunc;
-                    if (currentDepthFunc == GL_GREATER) {
-                        wireframeDepthFunc = GL_GEQUAL;
-                    } else if (currentDepthFunc == GL_LESS) {
-                        wireframeDepthFunc = GL_LEQUAL;
-                    }
-
-                    glEnable(GL_POLYGON_OFFSET_FILL);
-                    glPolygonOffset(polygonOffsetFactor, polygonOffsetUnits);
-                }
-#endif
-#ifdef __EMSCRIPTEN__
-                SmartPointer<GLShaderProgram> shader;
-                if (m_Scene->GetSurfaceShadingMode() == 1) {
-                    shader =
-                            (useColor || colorWithCell)
-                                    ? m_Scene->GetShader(ShaderType::NOLIGHT)
-                                    : m_Scene->GetShader(ShaderType::PURECOLOR);
-                } else {
-                    shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
-                }
-#else
 #ifdef __EMSCRIPTEN__
                 if (combinedSurfaceWireframe) {
                     glGetIntegerv(GL_DEPTH_FUNC, &currentDepthFunc);
@@ -467,15 +395,14 @@ void Model::Draw() {
 #else
                 auto shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
 #endif
+                auto defaultColor = renderableObject->GetDefaultColor();
                 shader->Use();
 #ifdef __EMSCRIPTEN__
                 m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
-                if (m_Scene->GetSurfaceShadingMode() == 1 && !useColor &&
-                    !colorWithCell) {
-                    shader->SetUniform3f("inputColor",
-                                         igm::vec3{0.85f, 0.85f, 0.85f});
-                }
 #endif
+                if (!useColor && !colorWithCell) {
+                    shader->SetUniform3f("inputColor", defaultColor);
+                }
 
                 if (colorWithCell) {
                     renderableObject->m_CellVAO->DrawArrays(
@@ -499,24 +426,9 @@ void Model::Draw() {
                     }
                 }
 #endif
-
-#ifdef __EMSCRIPTEN__
-                if (combinedSurfaceWireframe) {
-                    if (!previousPolygonOffsetFill) {
-                        glDisable(GL_POLYGON_OFFSET_FILL);
-                    }
-                }
-#endif
             }
 
             if (viewStyle & IG_WIREFRAME) {
-#ifdef __EMSCRIPTEN__
-                if (combinedSurfaceWireframe) {
-                    glDepthMask(GL_FALSE);
-                    // Keep same depth direction but allow equal depth to reduce residual cracks.
-                    glDepthFunc(wireframeDepthFunc);
-                }
-#endif
 #ifdef __EMSCRIPTEN__
                 if (combinedSurfaceWireframe) {
                     glDepthMask(GL_FALSE);
@@ -530,17 +442,9 @@ void Model::Draw() {
 #ifdef __EMSCRIPTEN__
                     m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
-                    auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
-                    shader->Use();
-#ifdef __EMSCRIPTEN__
-                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
-#endif
                 } else {
                     auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                     shader->Use();
-#ifdef __EMSCRIPTEN__
-                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
-#endif
 #ifdef __EMSCRIPTEN__
                     m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
@@ -564,15 +468,6 @@ void Model::Draw() {
                                 1,
                         renderableObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
-
-#ifdef __EMSCRIPTEN__
-                if (combinedSurfaceWireframe) {
-                    if (hasCapturedDepthState) {
-                        glDepthMask(previousDepthMask);
-                        glDepthFunc(currentDepthFunc);
-                    }
-                }
-#endif
 
 #ifdef __EMSCRIPTEN__
                 if (combinedSurfaceWireframe) {
@@ -641,7 +536,6 @@ void Model::DrawWithTransparency() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            SetPointSizeIfSupported(renderableObject->m_PointSize);
             SetPointSizeIfSupported(renderableObject->m_PointSize);
 
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
@@ -820,7 +714,6 @@ void Model::DrawPhase1() {
             }
 
             SetPointSizeIfSupported(surfaceObject->m_PointSize);
-            SetPointSizeIfSupported(surfaceObject->m_PointSize);
 
             float u;
             surfaceObject->GetPointOffsetParameters(u);
@@ -956,7 +849,6 @@ void Model::DrawPhase1() {
             }
 
             SetPointSizeIfSupported(surfaceObject->m_PointSize);
-            SetPointSizeIfSupported(surfaceObject->m_PointSize);
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
@@ -1089,7 +981,6 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            SetPointSizeIfSupported(surfaceObject->m_PointSize);
             SetPointSizeIfSupported(surfaceObject->m_PointSize);
 
             float u;
@@ -1227,7 +1118,6 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            SetPointSizeIfSupported(surfaceObject->m_PointSize);
             SetPointSizeIfSupported(surfaceObject->m_PointSize);
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(

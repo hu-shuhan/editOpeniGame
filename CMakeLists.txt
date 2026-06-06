@@ -39,7 +39,7 @@ endif ()
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable iGameVis Core Module to install as lib or not." FORCE)
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable iGameVis Core Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable iGameVis Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 

@@ -7,8 +7,6 @@
 #include <QWidget>
 #include <QFrame>
 #include <QGridLayout>
-#include <QHBoxLayout>
-#include <QFormLayout>
 #include "iGameDataObject.h"
 class igQtModelInformationWidget : public QWidget {
 public:
@@ -20,11 +18,11 @@ public slots:
 private:
 	QLabel* createLabel(const QString& text);
 
-	void createPropertyLabel(QFormLayout* formLayout, const QString& name, const QString& value);
+	QLabel* createPropertyLabel(const QString& name, const QString& value);
 
 	QFrame* createSeparator();
 
-	void CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj, QFormLayout* formLayout);
+	void CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj);
 
 private:
 	QFrame* informationFrame;

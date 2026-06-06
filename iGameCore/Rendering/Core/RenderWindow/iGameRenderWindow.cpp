@@ -10,6 +10,7 @@
 #include "iGameScene.h"
 
 #include <GLFW/glfw3.h>
+#include <iostream>
 #ifdef __EMSCRIPTEN__
     #include <emscripten/html5_webgl.h>
 #endif
@@ -40,10 +41,6 @@ iGame::RenderWindow::RenderWindow() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif IGAME_OPENGL_VERSION_GLES2
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
 #elif IGAME_OPENGL_VERSION_460
     #ifdef IGAME_PLATFORM_WINDOWS
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -55,17 +52,11 @@ iGame::RenderWindow::RenderWindow() {
 #endif
     /* set glfw to core profile */
 #ifndef IGAME_OPENGL_VERSION_GLES2
-#ifndef IGAME_OPENGL_VERSION_GLES2
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#endif
 #endif
 
     m_Window = glfwCreateWindow(m_WindowWidth, m_WindowHeight, m_Title.c_str(),
                                 NULL, NULL);
-    if (m_Window == nullptr) {
-        std::cout << "GLFW NULLPTR\n";
-        return;
-    }
     if (m_Window == nullptr) {
         std::cout << "GLFW NULLPTR\n";
         return;
@@ -75,6 +66,8 @@ iGame::RenderWindow::RenderWindow() {
 #ifdef __EMSCRIPTEN__
     emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),
                                       "OES_vertex_array_object");
+    emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),
+                                      "OES_element_index_uint");
 #endif
     /* set user pointer to use object in GLFW recall function. */
     glfwSetWindowUserPointer(m_Window, this);
@@ -152,7 +145,13 @@ iGame::RenderWindow::RenderWindow() {
 }
 
 iGame::RenderWindow::~RenderWindow() {
-    if (m_Window != nullptr) { glfwDestroyWindow(m_Window); }
+    std::cout << "[iGameDestroy] RenderWindow::~RenderWindow this=" << this << " window=" << m_Window << '\n';
+    if (m_Window != nullptr) {
+        glfwDestroyWindow(m_Window);
+        m_Window = nullptr;
+    }
+    m_Scene = nullptr;
+    m_Interactor = nullptr;
 }
 
 void iGame::RenderWindow::RenderOneFrame() {
@@ -166,12 +165,11 @@ void iGame::RenderWindow::RenderOneFrame() {
 void iGame::RenderWindow::Show() {
     if (m_Window == nullptr) return;
     while (!glfwWindowShouldClose(m_Window)) { RenderOneFrame(); }
-    if (m_Window == nullptr) return;
-    while (!glfwWindowShouldClose(m_Window)) { RenderOneFrame(); }
 }
 
 void iGame::RenderWindow::SetScene(iGame::Scene* _scene) {
-    if (m_Window == nullptr || _scene == nullptr) return;
+    m_Scene = _scene;
+    if (m_Window == nullptr || m_Scene == nullptr) return;
     glfwMakeContextCurrent(m_Window);
     m_Scene->Initialize();
     ResizeScene();
@@ -185,12 +183,10 @@ void iGame::RenderWindow::SetInteractor(iGame::Interactor* _interactor) {
 
 void iGame::RenderWindow::ResizeScene() {
     if (m_Window == nullptr) return;
-    if (m_Window == nullptr) return;
     glfwMakeContextCurrent(m_Window);
     glfwGetWindowSize(m_Window, &m_WindowWidth, &m_WindowHeight);
     int frameBufferWidth, frameBufferHeight;
     glfwGetFramebufferSize(m_Window, &frameBufferWidth, &frameBufferHeight);
-    if (m_Scene == nullptr || m_WindowWidth == 0) return;
     if (m_Scene == nullptr || m_WindowWidth == 0) return;
     int pixelRatio = frameBufferWidth / m_WindowWidth;
     m_Scene->Resize(m_WindowWidth, m_WindowHeight, pixelRatio);
@@ -198,20 +194,17 @@ void iGame::RenderWindow::ResizeScene() {
 
 void iGame::RenderWindow::SetSize(int width, int height) {
     if (m_Window == nullptr) return;
-    if (m_Window == nullptr) return;
     glfwSetWindowSize(m_Window, width, height);
     ResizeScene();
 }
 
 void iGame::RenderWindow::SetTitle(const char* title) {
     if (m_Window == nullptr) return;
-    if (m_Window == nullptr) return;
     m_Title = title;
     glfwSetWindowTitle(m_Window, m_Title.c_str());
 }
 
 void iGame::RenderWindow::SetTitle(const std::string& title) {
-    if (m_Window == nullptr) return;
     if (m_Window == nullptr) return;
     m_Title = title;
     glfwSetWindowTitle(m_Window, m_Title.c_str());

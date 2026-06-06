@@ -1,5 +1,6 @@
 import argparse
 import mimetypes
+import re
 from pathlib import Path
 from typing import List
 
@@ -8,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-SUPPORTED_EXTENSIONS = {".vtk", ".vtu"}
+SUPPORTED_EXTENSIONS = {".vtk", ".vtu", ".igc"}
 
 
 class ModelItem(BaseModel):
@@ -85,6 +86,50 @@ def build_app(model_root: Path, allow_origins: List[str]) -> FastAPI:
             "Cache-Control": "no-store",
         }
         return FileResponse(path=file_path, media_type=media_type, filename=file_path.name, headers=headers)
+    
+    @app.get("/api/series/{series_id}/manifest")
+    def get_series_manifest(series_id: str) -> dict:
+        if series_id != "comp":
+            raise HTTPException(status_code=404, detail="Series not found")
+
+        frames = collect_series_frames(model_root, series_id)
+        if not frames:
+            raise HTTPException(status_code=404, detail="Series contains no frames")
+
+        return {
+            "name": series_id,
+            "frames": [
+                {
+                    "index": index,
+                    "time": float(index),
+                    "name": path.name,
+                    "url": f"/api/series/{series_id}/frame/{index}",
+                }
+                for index, path in enumerate(frames)
+            ],
+        }
+
+
+    @app.get("/api/series/{series_id}/frame/{frame_index}")
+    def get_series_frame(series_id: str, frame_index: int) -> FileResponse:
+        if series_id != "comp":
+            raise HTTPException(status_code=404, detail="Series not found")
+
+        frames = collect_series_frames(model_root, series_id)
+        if frame_index < 0 or frame_index >= len(frames):
+            raise HTTPException(status_code=404, detail="Frame not found")
+
+        frame_path = frames[frame_index]
+        return FileResponse(
+            path=frame_path,
+            media_type="application/octet-stream",
+            filename=frame_path.name,
+            headers={
+                "X-Model-Name": frame_path.name,
+                "X-Model-Format": "igc",
+                "Cache-Control": "no-store",
+            },
+        )
 
     return app
 
@@ -101,6 +146,19 @@ def parse_args() -> argparse.Namespace:
         help="CORS allowed origin, repeatable (default: *)",
     )
     return parser.parse_args()
+
+def natural_sort_key(path: Path):
+    return [
+        int(part) if part.isdigit() else part.lower()
+        for part in re.split(r"(\d+)", path.name)
+    ]
+
+
+def collect_series_frames(model_root: Path, prefix: str):
+    return sorted(
+        model_root.glob(f"{prefix}_*.igc"),
+        key=natural_sort_key,
+    )
 
 
 def main() -> None:

@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>iGame wasm vtk demo</title>
+    <title>iGameVis Version.Web</title>
     <style>
         :root {
             --bg: #f4f7fb;
@@ -45,7 +45,7 @@
         }
 
         #canvas {
-            width: 100%;
+            width: 60%;
             height: 540px;
             border: 1px solid var(--line);
             border-radius: 10px;
@@ -54,11 +54,33 @@
             display: block;
         }
 
+        .viewer-shell {
+            position: relative;
+            margin-top: 14px;
+        }
+
+        .viewer-shell #canvas {
+            margin-top: 0;
+        }
+
         .row {
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
             align-items: center;
+        }
+
+        .build-marker {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 0 12px;
+            padding: 6px 10px;
+            border: 1px solid #a7f3d0;
+            border-radius: 6px;
+            background: #ecfdf5;
+            color: #047857;
+            font-size: 13px;
+            font-weight: 600;
         }
 
         button {
@@ -69,29 +91,67 @@
             padding: 10px 14px;
             cursor: pointer;
         }
+
+        details.color-map-panel {
+            margin-top: 14px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fbfdff;
+            overflow: hidden;
+        }
+
+        details.color-map-panel>summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 600;
+            color: var(--text);
+            background: linear-gradient(180deg, #f7fbff, #eef5fc);
+            border-bottom: 1px solid var(--line);
+        }
+
+        details.color-map-panel>summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .color-map-body {
+            padding: 14px;
+        }
     </style>
 </head>
 
 <body>
     <div class="wrap">
         <div class="card">
-            <h2>iGame wasm vtk demo</h2>
+            <h2>iGameVis Version.Web</h2>
+            <div class="build-marker">Build marker: vtp-loader-2026-05-22-step12</div>
             <div class="row">
-                <input id="vtkFile" type="file" accept=".vtk,.vtu" />
+                <input id="vtkFile" type="file" accept=".vtk,.vtu,.vtp,.igc,.igcm,.zip" />
+                <label>IGC Layout</label>
+                <button id="btnLoadIgc32" type="button">Load IGC 32-bit</button>
+                <button id="btnLoadIgc64" type="button">Load IGC 64-bit</button>
+                <button id="btnLoadFromServer" type="button">Load From Server</button>
+                <button id="btnRaiseTestError" type="button">Raise Test Error</button>
                 <label>Import</label>
                 <select id="importMode">
                     <option value="append" selected>Append</option>
                     <option value="replace">Replace</option>
                 </select>
                 <button id="btnReset" type="button">Reset Camera</button>
+                <label>Camera Type</label>
+                <select id="cameraType">
+                    <option value="0" selected>Perspective</option>
+                    <option value="1">Orthographic</option>
+                </select>
+                <button id="btnApplyCameraType" type="button">Apply Camera Type</button>
             </div>
             <div class="row" style="margin-top: 10px;">
-                <label>Remote API</label>
-                <input id="apiBaseUrl" type="text" style="min-width: 280px;" placeholder="http://<server-ip>" />
-                <button id="btnUseCurrentOrigin" type="button">Use Current Origin</button>
-                <button id="btnFetchRemoteModels" type="button">Fetch Remote Models</button>
-                <select id="remoteModelList" style="min-width: 320px;"></select>
-                <button id="btnLoadRemoteModel" type="button">Load Remote</button>
+                <label>IGC Time Series</label>
+                <button id="btnLoadIgcSeries" type="button">Load comp Series</button>
+                <button id="btnPreviousIgcFrame" type="button">Previous Frame</button>
+                <button id="btnNextIgcFrame" type="button">Next Frame</button>
+                <button id="btnPlayIgcSeries" type="button">Play</button>
+                <span id="igcSeriesStatus" style="font-size: 13px; color: #4b5563;">Not loaded</span>
             </div>
             <div class="row" style="margin-top: 10px;">
                 <label>Models</label>
@@ -101,8 +161,40 @@
                 <button id="btnToggleModelVisibility" type="button">Toggle Visible</button>
                 <button id="btnRemoveModel" type="button">Remove</button>
                 <button id="btnRemoveAllModels" type="button">Remove All</button>
+                <button id="btnClearViewer" type="button">Clear Viewer</button>
             </div>
             <div class="row" style="margin-top: 10px;">
+                <label>Lifecycle</label>
+                <button id="btnDestroyViewer" type="button">Destroy Viewer</button>
+                <button id="btnReinitViewer" type="button">Destroy + Init</button>
+                <span id="lifecycleStatus" style="font-size: 13px; color: #4b5563;">Ready</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Selection</label>
+                <button id="btnSelectionBrowse" type="button">Browse</button>
+                <button id="btnSelectionPoint" type="button">Point</button>
+                <button id="btnSelectionFace" type="button">Face</button>
+                <button id="btnClearSelection" type="button">Clear Selection</button>
+                <button id="btnReadSelection" type="button">Read Selection</button>
+                <span id="selectionResult" style="font-size: 13px; color: #4b5563;">Mode: Browse</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Camera Views</label>
+                <button id="btnViewXPlus" type="button">X+</button>
+                <button id="btnViewXMinus" type="button">X-</button>
+                <button id="btnViewYPlus" type="button">Y+</button>
+                <button id="btnViewYMinus" type="button">Y-</button>
+                <button id="btnViewZPlus" type="button">Z+</button>
+                <button id="btnViewZMinus" type="button">Z-</button>
+                <button id="btnViewIso" type="button">Iso</button>
+                <button id="btnZoomIn" type="button">Zoom In</button>
+                <button id="btnZoomOut" type="button">Zoom Out</button>
+                <label><input id="axesVisible" type="checkbox" checked /> Axes</label>
+                <label><input id="colorBarVisible" type="checkbox" checked /> ColorBar</label>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Model ID</label>
+                <input id="viewStyleModelId" type="number" min="0" step="1" value="0" style="width: 120px;" />
                 <label>View</label>
                 <select id="viewStyle">
                     <option value="1">Points</option>
@@ -112,6 +204,8 @@
                     <option value="7">Points + Wireframe + Surface</option>
                 </select>
                 <button id="btnApplyView" type="button">Apply View</button>
+                <button id="btnReadView" type="button">Read Current View</button>
+                <span id="viewStyleText" style="font-size: 13px; color: #4b5563;"></span>
 
                 <label>Shading</label>
                 <select id="shadingMode">
@@ -123,6 +217,36 @@
                 <label>Background</label>
                 <input id="bgColor" type="color" value="#222222" />
                 <button id="btnApplyBg" type="button">Apply Background</button>
+
+                <label>Default Color</label>
+                <input id="defaultColor" type="color" value="#d9d9d9" />
+                <button id="btnApplyDefaultColor" type="button">Apply Default Color</button>
+                <button id="btnReadDefaultColor" type="button">Read Default Color</button>
+                <span style="font-size: 12px; color: #6b7280;">仅在未开启颜色映射时生效</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Opacity</label>
+                <input id="actorOpacity" type="range" min="0.05" max="1" step="0.05" value="1" />
+                <span id="actorOpacityText" style="font-size: 13px; color: #4b5563;">1.00</span>
+                <button id="btnApplyOpacity" type="button">Apply Opacity</button>
+                <button id="btnReadOpacity" type="button">Read Opacity</button>
+                <label>Solid Color</label>
+                <input id="solidColor" type="color" value="#d9d9d9" />
+                <button id="btnApplySolidColor" type="button">Apply Solid Color</button>
+                <button id="btnReadSolidColor" type="button">Read Solid Color</button>
+                <label>Gradient</label>
+                <input id="bgColor2" type="color" value="#0b0f14" />
+                <select id="bgGradient">
+                    <option value="solid" selected>Solid</option>
+                    <option value="vertical">Vertical</option>
+                    <option value="horizontal">Horizontal</option>
+                </select>
+                <button id="btnApplyGradientBg" type="button">Apply Gradient Example</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Corner Annotation</label>
+                <input id="annotationText" type="text" value="iGameVis WASM" style="min-width: 260px;" />
+                <button id="btnApplyAnnotation" type="button">Apply Annotation</button>
             </div>
             <div class="row" style="margin-top: 10px;">
                 <label>Scalar</label>
@@ -142,14 +266,63 @@
                 </select>
                 <button id="btnApplyScalar" type="button">Apply Scalar</button>
             </div>
+
+            <details class="color-map-panel">
+                <summary>ColorMap 编辑器</summary>
+                <div class="color-map-body">
+                    <div class="row" style="margin-bottom: 6px;">
+                        <button id="color_btnDefault" type="button">示例节点</button>
+                        <button id="color_btnAdd" type="button">添加节点</button>
+                        <button id="color_btnApply" type="button">应用到 WASM</button>
+                        <button id="color_btnGet" type="button">读取 WASM 映射</button>
+                    </div>
+                    <div id="color_nodes" style="margin-bottom:8px;"></div>
+                    <canvas id="color_canvas" width="420" height="40"
+                        style="border:1px solid var(--line); display:block; margin-bottom:8px;"></canvas>
+                    <div id="color_jsonOut"
+                        style="width:420px; height:120px; white-space:pre-wrap; overflow:auto; border:1px solid #eee; padding:6px; background:#fafafa;">
+                        {}</div>
+                </div>
+            </details>
+            <div
+                style="margin-top:12px; border:1px solid var(--line); border-radius:8px; padding:12px; background:#fbfdff;">
+                <h3 style="margin:0 0 8px 0; font-size:15px;">Range API Verification</h3>
+                <div style="margin-bottom:8px;">
+                    <label>Scalar Name</label>
+                    <input id="rangeScalar" type="text" value="Temperature" style="margin-left:8px;" />
+                </div>
+                <div class="row" style="margin-bottom:8px;">
+                    <input id="rangeComponent" type="number" step="1" value="0" aria-label="component"
+                        style="width:120px;" />
+                    <input id="rangeMin" type="number" step="0.1" value="0" aria-label="min" style="width:120px;" />
+                    <input id="rangeMax" type="number" step="0.1" value="100" aria-label="max" style="width:120px;" />
+                </div>
+                <div class="row">
+                    <button id="rangeApply" type="button">Apply Range API</button>
+                    <button id="rangeRead" type="button">Read Back JSON</button>
+                    <button id="rangeDebugSequence" type="button">Debug 0-1/0-100/0-1</button>
+                </div>
+            </div>
             <div id="log">Waiting for wasm...</div>
-            <canvas id="canvas"></canvas>
+            <div id="viewerShell" class="viewer-shell">
+                <canvas id="canvas"></canvas>
+            </div>
         </div>
     </div>
 
     <script>
-        const log = (msg) => { document.getElementById('log').textContent = msg; };
+        const log = (msg) => {
+            const logElement = document.getElementById('log');
+            if (!logElement) return;
+            const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logElement.textContent = logElement.textContent === 'Waiting for wasm...'
+                ? line
+                : `${logElement.textContent}\n${line}`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(line);
+        };
         let renderLoopStarted = false;
+        let viewerDestroyed = false;
 
         const eventType = {
             MousePress: 0,
@@ -163,6 +336,27 @@
             LeftButton: 1,
             RightButton: 2,
             MiddleButton: 4,
+        };
+
+        const wasmColorApi = {
+            setDefaultColor(api, modelId, r, g, b) {
+                return api.setModelDefaultColor(modelId, r, g, b);
+            },
+            getDefaultColor(api, modelId) {
+                return api.getModelDefaultColor(modelId);
+            },
+            setSolidColor(api, modelId, r, g, b) {
+                return api.setSolidColor(modelId, r, g, b);
+            },
+            getSolidColor(api, modelId) {
+                return api.getSolidColor(modelId);
+            },
+            applyHexToPicker(hex, pickerId = 'defaultColor') {
+                const picker = document.getElementById(pickerId);
+                if (picker) {
+                    picker.value = hex;
+                }
+            },
         };
 
         const drawStyle = {
@@ -197,6 +391,22 @@
             };
         };
 
+        const syncCanvasSize = (canvas, api) => {
+            if (!canvas || !api || typeof api.setSize !== 'function') {
+                return false;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const width = Math.max(1, Math.round(rect.width || canvas.clientWidth || canvas.width || 1));
+            const height = Math.max(1, Math.round(rect.height || canvas.clientHeight || canvas.height || 1));
+            const ok = api.setSize(width, height);
+            if (ok !== 1) {
+                log(`setSize failed width=${width} height=${height}`);
+                return false;
+            }
+            return true;
+        };
+
         window.onerror = function (message, source, lineno, colno) {
             log(`window error: ${message} @ ${source}:${lineno}:${colno}`);
         };
@@ -212,72 +422,268 @@
                 log(`wasm abort: ${what}`);
             },
             onRuntimeInitialized() {
+                const api = Module.iGameWeb;
+                if (!api) {
+                    log('init exception: Module.iGameWeb is unavailable');
+                    return;
+                }
+
                 try {
-                    log('runtime initialized, calling igw_init...');
-                    const initOk = Module.ccall('igw_init', 'number', [], []);
+                    log('runtime initialized, calling iGameWeb.init...');
+                    const initOk = api.init();
+                    viewerDestroyed = !initOk;
                     log(initOk ? 'wasm initialized' : 'init failed');
+                    log(`initial lastError=${api.getLastErrorJson ? api.getLastErrorJson() : 'n/a'}`);
                 } catch (err) {
                     log(`init exception: ${err && err.stack ? err.stack : err}`);
                     return;
                 }
 
+                const canvas = Module.canvas || document.getElementById('canvas');
+                if (!canvas) {
+                    log('canvas unavailable after wasm init');
+                    return;
+                }
+
+                const applyCanvasSize = () => {
+                    if (viewerDestroyed) {
+                        return;
+                    }
+                    try {
+                        syncCanvasSize(canvas, api);
+                        if (api.renderFrame) {
+                            api.renderFrame();
+                        }
+                    } catch (err) {
+                        log(`canvas resize exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                applyCanvasSize();
+                window.addEventListener('resize', applyCanvasSize);
+
+                // Manual log system test helper: callable from HTML handlers and browser console.
+                window.raiseWasmTestError = (detail = 'manual wasm test error from html', code = -999) => {
+                    try {
+                        const status = api.raiseTestError(String(detail), Number(code));
+                        const lastError = api.getLastErrorJson();
+                        const msg = `raiseTestError status=${status}, lastError=${lastError}`;
+                        log(msg);
+                        console.error(msg);
+                        return status;
+                    } catch (err) {
+                        const errMsg = `raiseTestError exception: ${err && err.stack ? err.stack : err}`;
+                        log(errMsg);
+                        console.error(errMsg);
+                        return 0;
+                    }
+                };
+
+                document.getElementById('btnRaiseTestError').addEventListener('click', () => {
+                    window.raiseWasmTestError();
+                });
+
                 document.getElementById('btnReset').addEventListener('click', () => {
                     try {
-                        Module.ccall('igw_reset_camera', null, [], []);
+                        api.resetCamera();
                     } catch (err) {
                         log(`reset exception: ${err && err.stack ? err.stack : err}`);
                     }
                 });
 
+                document.getElementById('btnApplyCameraType').addEventListener('click', () => {
+                    try {
+                        const type = parseInt(document.getElementById('cameraType').value, 10);
+                        const ok = api.setCameraType(type);
+                        if (ok !== 1) {
+                            log('apply camera type failed');
+                            return;
+                        }
+                        if (api.renderFrame) {
+                            api.renderFrame();
+                        }
+                        log('apply camera type success');
+                    } catch (err) {
+                        log(`apply camera type exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
                 document.getElementById('btnApplyView').addEventListener('click', () => {
                     try {
+                        const modelId = parseInt(document.getElementById('viewStyleModelId').value, 10);
+                        if (!Number.isFinite(modelId)) {
+                            log('apply view style failed: invalid model id');
+                            return;
+                        }
                         const styleMask = parseInt(document.getElementById('viewStyle').value, 10);
-                        const ok = Module.ccall('igw_set_view_style', 'number', ['number'], [styleMask]);
+                        const ok = api.setViewStyle(modelId, styleMask);
                         if (!ok) log('apply view style failed');
                     } catch (err) {
                         log(`apply view exception: ${err && err.stack ? err.stack : err}`);
                     }
                 });
 
+                document.getElementById('btnReadView').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('read view failed: no model selected');
+                            return;
+                        }
+                        const styleMask = api.getViewStyle(modelId);
+                        if (styleMask < 0) {
+                            log('read view failed');
+                            return;
+                        }
+                        const viewText = document.getElementById('viewStyleText');
+                        if (viewText) {
+                            viewText.textContent = `Current style mask: ${styleMask}`;
+                        }
+                        log(`current view style=${styleMask}`);
+                    } catch (err) {
+                        log(`read view exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
                 document.getElementById('btnApplyShading').addEventListener('click', () => {
                     try {
                         const mode = parseInt(document.getElementById('shadingMode').value, 10);
-                        const ok = Module.ccall('igw_set_surface_shading_mode', 'number', ['number'], [mode]);
+                        const ok = api.setSurfaceShadingMode(mode);
                         if (!ok) log('apply shading failed');
                     } catch (err) {
                         log(`apply shading exception: ${err && err.stack ? err.stack : err}`);
                     }
                 });
 
-                document.getElementById('btnApplyBg').addEventListener('click', () => {
+                document.getElementById('btnApplyBg').addEventListener('click', async () => {
                     try {
                         const hex = document.getElementById('bgColor').value || '#222222';
-                        const r = parseInt(hex.slice(1, 3), 16);
-                        const g = parseInt(hex.slice(3, 5), 16);
-                        const b = parseInt(hex.slice(5, 7), 16);
-                        const ok = Module.ccall(
-                            'igw_set_background_color',
-                            'number',
-                            ['number', 'number', 'number'],
-                            [r, g, b]
-                        );
+                        const rgb = hexToRgb01(hex);
+                        const ok = await callViewerMethod('setBackgroundColor', rgb[0], rgb[1], rgb[2]);
                         if (!ok) log('apply background color failed');
                     } catch (err) {
                         log(`apply background exception: ${err && err.stack ? err.stack : err}`);
                     }
                 });
 
+                document.getElementById('btnApplyDefaultColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply default color failed: no model selected');
+                            return;
+                        }
+                        const hex = document.getElementById('defaultColor').value || '#d9d9d9';
+                        const rgb = hexToRgb01(hex);
+                        const ok = wasmColorApi.setDefaultColor(api, modelId, rgb[0], rgb[1], rgb[2]);
+                        if (!ok) {
+                            log(`apply default color failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        api.renderFrame();
+                        log(`default color updated for model #${modelId}`);
+                    } catch (err) {
+                        log(`apply default color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnReadDefaultColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('read default color failed: no model selected');
+                            return;
+                        }
+
+                        const raw = wasmColorApi.getDefaultColor(api, modelId);
+                        const parsed = raw ? JSON.parse(raw) : null;
+                        if (!parsed || !Number.isFinite(parsed.r) || !Number.isFinite(parsed.g) || !Number.isFinite(parsed.b)) {
+                            log(`read default color failed: invalid response ${raw}`);
+                            return;
+                        }
+
+                        const hex = rgb01ToHex(parsed.r, parsed.g, parsed.b);
+                        wasmColorApi.applyHexToPicker(hex);
+                        log(`default color read for model #${modelId}: ${raw}`);
+                    } catch (err) {
+                        log(`read default color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplySolidColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply solid color failed: no model selected');
+                            return;
+                        }
+                        const hex = document.getElementById('solidColor').value || '#d9d9d9';
+                        const rgb = hexToRgb01(hex);
+                        const ok = wasmColorApi.setSolidColor(api, modelId, rgb[0], rgb[1], rgb[2]);
+                        if (!ok) {
+                            log(`apply solid color failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        api.renderFrame();
+                        log(`solid color updated for model #${modelId}`);
+                    } catch (err) {
+                        log(`apply solid color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnReadSolidColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('read solid color failed: no model selected');
+                            return;
+                        }
+
+                        const raw = wasmColorApi.getSolidColor(api, modelId);
+                        const parsed = raw ? JSON.parse(raw) : null;
+                        if (!parsed || !Number.isFinite(parsed.r) || !Number.isFinite(parsed.g) || !Number.isFinite(parsed.b)) {
+                            log(`read solid color failed: invalid response ${raw}`);
+                            return;
+                        }
+
+                        const hex = rgb01ToHex(parsed.r, parsed.g, parsed.b);
+                        wasmColorApi.applyHexToPicker(hex, 'solidColor');
+                        log(`solid color read for model #${modelId}: ${raw}`);
+                    } catch (err) {
+                        log(`read solid color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
                 document.getElementById('btnApplyScalar').addEventListener('click', () => {
                     try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply scalar failed: no model selected');
+                            return;
+                        }
+                        const scalarSelect = document.getElementById('scalarSelect');
+                        const selected = scalarSelect.options[scalarSelect.selectedIndex];
+                        if (selected && selected.value === 'solid') {
+                            const hex = document.getElementById('solidColor').value || '#d9d9d9';
+                            const rgb = hexToRgb01(hex);
+                            const solidOk = wasmColorApi.setSolidColor(api, modelId, rgb[0], rgb[1], rgb[2]);
+                            if (!solidOk) {
+                                log(`apply solid mode failed: ${api.getLastErrorJson()}`);
+                                return;
+                            }
+                            const status = api.setColorMapByName(modelId, 'Solid', -1, [], []);
+                            if (status !== 1) {
+                                log(`apply solid mode failed: ${api.getLastErrorJson()}`);
+                                return;
+                            }
+                            api.renderFrame();
+                            log(`apply solid mode ok: modelId=${modelId}`);
+                            return;
+                        }
                         const attributeIndex = parseInt(document.getElementById('scalarSelect').value, 10);
                         const dimension = parseInt(document.getElementById('scalarDimSelect').value, 10);
                         const attachment = parseInt(document.getElementById('scalarAttachment').value, 10);
-                        const status = Module.ccall(
-                            'igw_set_scalar_field',
-                            'number',
-                            ['number', 'number', 'number'],
-                            [attributeIndex, dimension, attachment]
-                        );
+                        const status = api.setScalarField(attributeIndex, dimension, attachment);
                         if (status !== 1) {
                             const messageByCode = {
                                 '-1': 'apply scalar failed: no active model',
@@ -287,6 +693,11 @@
                                 '-5': 'apply scalar failed: invalid dimension',
                             };
                             log(messageByCode[String(status)] || `apply scalar failed: code=${status}`);
+                        } else {
+                            log(`apply scalar ok: attributeIndex=${attributeIndex} dimension=${dimension} attachment=${attachment}`);
+                            if (api.getColorMapJson) {
+                                log(`colorbar snapshot after scalar: ${api.getColorMapJson()}`);
+                            }
                         }
                     } catch (err) {
                         log(`apply scalar exception: ${err && err.stack ? err.stack : err}`);
@@ -314,7 +725,7 @@
 
                 const refreshScalarList = () => {
                     try {
-                        const raw = Module.ccall('igw_get_attribute_list_json', 'string', [], []);
+                        const raw = api.getAttributeListJson();
                         const list = raw ? JSON.parse(raw) : [];
                         const scalarSelect = document.getElementById('scalarSelect');
                         const attachmentSelect = document.getElementById('scalarAttachment');
@@ -327,7 +738,13 @@
                         noneOption.selected = true;
                         scalarSelect.appendChild(noneOption);
 
+                        const solidOption = document.createElement('option');
+                        solidOption.value = 'solid';
+                        solidOption.textContent = 'Solid';
+                        scalarSelect.appendChild(solidOption);
+
                         for (const item of list) {
+                            if (item.name === 'Solid') continue;
                             const option = document.createElement('option');
                             option.value = String(item.index);
                             const attachment = item.attachment === dataAttachment.Point
@@ -346,6 +763,11 @@
                                 buildDimensionOptions(0);
                                 return;
                             }
+                            if (selected.value === 'solid') {
+                                attachmentSelect.value = String(dataAttachment.Any);
+                                buildDimensionOptions(0);
+                                return;
+                            }
                             const att = selected.dataset.attachment;
                             if (att === String(dataAttachment.Point) || att === String(dataAttachment.Cell)) {
                                 attachmentSelect.value = att;
@@ -356,6 +778,7 @@
                         const selected = scalarSelect.options[scalarSelect.selectedIndex];
                         buildDimensionOptions(
                             selected && selected.value !== '-1'
+                                && selected.value !== 'solid'
                                 ? parseInt(selected.dataset.dimension || '0', 10)
                                 : 0
                         );
@@ -371,9 +794,211 @@
                     return Number.isFinite(value) ? value : null;
                 };
 
+                const hexToRgbByte = (hex) => {
+                    const value = String(hex || '#000000').replace('#', '');
+                    return {
+                        r: parseInt(value.slice(0, 2), 16) || 0,
+                        g: parseInt(value.slice(2, 4), 16) || 0,
+                        b: parseInt(value.slice(4, 6), 16) || 0,
+                    };
+                };
+
+                window.iGameViewerApi = {
+                    async render() { api.renderFrame(); },
+                    async destroyViewer() {
+                        const status = api.destroy();
+                        if (status > 0) {
+                            viewerDestroyed = true;
+                            renderLoopStarted = false;
+                            const lifecycleStatus = document.getElementById('lifecycleStatus');
+                            if (lifecycleStatus) lifecycleStatus.textContent = 'Destroyed';
+                            const modelSelect = document.getElementById('modelList');
+                            if (modelSelect) {
+                                modelSelect.innerHTML = '';
+                                const option = document.createElement('option');
+                                option.value = '';
+                                option.textContent = 'Viewer destroyed';
+                                modelSelect.appendChild(option);
+                            }
+                        }
+                        return status;
+                    },
+                    async reinitializeViewer() {
+                        const destroyStatus = api.destroy();
+                        if (destroyStatus <= 0) {
+                            return destroyStatus;
+                        }
+                        viewerDestroyed = true;
+                        renderLoopStarted = false;
+
+                        const initStatus = api.init();
+                        if (initStatus > 0) {
+                            viewerDestroyed = false;
+                            syncCanvasSize(canvas, api);
+                            if (api.renderFrame) api.renderFrame();
+                            const lifecycleStatus = document.getElementById('lifecycleStatus');
+                            if (lifecycleStatus) lifecycleStatus.textContent = 'Ready';
+                            refreshModelList();
+                        }
+                        return initStatus;
+                    },
+                    async clearViewer() { return api.clearViewer ? api.clearViewer() : api.removeAllModels(); },
+                    async clear() { return api.clear ? api.clear() : this.clearViewer(); },
+                    async setSelectionMode(mode) { return api.setSelectionMode(mode); },
+                    async getSelectionMode() { return api.getSelectionMode(); },
+                    async getSelection(modelId) { return JSON.parse(api.getSelectionJson(modelId)); },
+                    async clearSelection(modelId) { return api.clearSelection(modelId); },
+                    async resize(width, height) { return api.setSize(width, height); },
+                    async setCameraType(type) { return api.setCameraType(type === 'orthographic' ? 1 : 0); },
+                    async resetCamera() { api.resetCamera(); },
+                    async viewXPlus() { return api.viewXPlus(); },
+                    async viewXMinus() { return api.viewXMinus(); },
+                    async viewYPlus() { return api.viewYPlus(); },
+                    async viewYMinus() { return api.viewYMinus(); },
+                    async viewZPlus() { return api.viewZPlus(); },
+                    async viewZMinus() { return api.viewZMinus(); },
+                    async viewIsometric() { return api.viewIsometric(); },
+                    async toggleAxes(visible) { return api.toggleAxes(Boolean(visible)); },
+                    async toggleColorBar(visible) { return api.toggleColorBar(Boolean(visible)); },
+                    async setActorRepresentation(uuid, repr) { return api.setViewStyle(Number(uuid), Number(repr)); },
+                    async getActorRepresentation(uuid) { return api.getViewStyle(Number(uuid)); },
+                    async setActorColor(uuid, color) {
+                        const rgb = hexToRgb01(color);
+                        return api.setModelDefaultColor(Number(uuid), rgb[0], rgb[1], rgb[2]);
+                    },
+                    async getActorColor(uuid) { return api.getModelDefaultColor(Number(uuid)); },
+                    async setActorSolidColor(uuid, color) {
+                        const rgb = hexToRgb01(color);
+                        return api.setSolidColor(Number(uuid), rgb[0], rgb[1], rgb[2]);
+                    },
+                    async getActorSolidColor(uuid) { return api.getSolidColor(Number(uuid)); },
+                    async setActorOpacity(uuid, opacity) { return api.setActorOpacity(Number(uuid), Number(opacity)); },
+                    async getActorOpacity(uuid) { return api.getActorOpacity(Number(uuid)); },
+                    async toggleActor(uuid, visible) { return api.setModelVisibility(Number(uuid), Boolean(visible)); },
+                    async actorIds(visible) {
+                        const list = JSON.parse(api.getModelListJson() || '[]');
+                        return list
+                            .filter((item) => visible === undefined || item.visible === Boolean(visible))
+                            .map((item) => String(item.modelId));
+                    },
+                    async setCornerAnnotationText(text) {
+                        return api.setCornerAnnotationText(String(text || ''));
+                    },
+                    async setCornerAnnotationPosition(left, top) {
+                        return api.setCornerAnnotationPosition(Number(left), Number(top));
+                    },
+                    async setSceneBackgroundGradientColor(color1, color2, mode) {
+                        const rgb1 = hexToRgb01(color1);
+                        const rgb2 = hexToRgb01(color2 || color1);
+                        if (mode === 0 || !api.setSceneBackgroundGradientColor) {
+                            return api.setSceneBackgroundColor(rgb1[0], rgb1[1], rgb1[2]);
+                        }
+                        return api.setSceneBackgroundGradientColor(
+                            rgb1[0], rgb1[1], rgb1[2],
+                            rgb2[0], rgb2[1], rgb2[2],
+                            mode
+                        );
+                    },
+                    async setBackgroundColor(color1, color2 = color1, gradient = 'solid') {
+                        const modeMap = { solid: 0, vertical: 1, horizontal: 2 };
+                        const mode = modeMap[gradient] || 0;
+                        return this.setSceneBackgroundGradientColor(color1, color2, mode);
+                    },
+                    async zoom(factor) { return api.zoom(Number(factor)); },
+                };
+                api.setCornerAnnotationText(document.getElementById('annotationText').value || '');
+                api.setCornerAnnotationPosition(12, 10);
+                if (api.setCornerAnnotationAnchorToBottomRight) {
+                    api.setCornerAnnotationAnchorToBottomRight(true);
+                }
+
+                const callViewerMethod = async (name, ...args) => {
+                    try {
+                        log(`call ${name}(${args.map((value) => JSON.stringify(value)).join(', ')})`);
+                        const status = await window.iGameViewerApi[name](...args);
+                        log(`${name} => ${JSON.stringify(status)}`);
+                        if (api.getLastErrorJson) {
+                            log(`lastError after ${name}: ${api.getLastErrorJson()}`);
+                        }
+                        if (!viewerDestroyed && api.renderFrame) api.renderFrame();
+                        return status;
+                    } catch (err) {
+                        log(`${name} exception: ${err && err.stack ? err.stack : err}`);
+                        return 0;
+                    }
+                };
+
+                document.getElementById('btnDestroyViewer').addEventListener('click', async () => {
+                    const status = await callViewerMethod('destroyViewer');
+                    log(`destroy releases scene/window/interactor globals => ${status}`);
+                });
+                document.getElementById('btnReinitViewer').addEventListener('click', async () => {
+                    const status = await callViewerMethod('reinitializeViewer');
+                    log(`destroy + init => ${status}`);
+                });
+                document.getElementById('btnViewXPlus').addEventListener('click', () => callViewerMethod('viewXPlus'));
+                document.getElementById('btnViewXMinus').addEventListener('click', () => callViewerMethod('viewXMinus'));
+                document.getElementById('btnViewYPlus').addEventListener('click', () => callViewerMethod('viewYPlus'));
+                document.getElementById('btnViewYMinus').addEventListener('click', () => callViewerMethod('viewYMinus'));
+                document.getElementById('btnViewZPlus').addEventListener('click', () => callViewerMethod('viewZPlus'));
+                document.getElementById('btnViewZMinus').addEventListener('click', () => callViewerMethod('viewZMinus'));
+                document.getElementById('btnViewIso').addEventListener('click', () => callViewerMethod('viewIsometric'));
+                document.getElementById('btnZoomIn').addEventListener('click', () => callViewerMethod('zoom', 1.25));
+                document.getElementById('btnZoomOut').addEventListener('click', () => callViewerMethod('zoom', 0.8));
+                document.getElementById('axesVisible').addEventListener('change', (event) => {
+                    callViewerMethod('toggleAxes', event.target.checked);
+                });
+                document.getElementById('colorBarVisible').addEventListener('change', async (event) => {
+                    log(`colorBarVisible changed => ${event.target.checked}`);
+                    await callViewerMethod('toggleColorBar', event.target.checked);
+                    if (api.getColorMapJson) {
+                        log(`colorMap snapshot after toggle: ${api.getColorMapJson()}`);
+                    }
+                });
+
+                document.getElementById('actorOpacity').addEventListener('input', (event) => {
+                    document.getElementById('actorOpacityText').textContent = Number(event.target.value).toFixed(2);
+                });
+
+                document.getElementById('btnApplyOpacity').addEventListener('click', () => {
+                    const modelId = getSelectedModelId();
+                    if (modelId === null) {
+                        log('apply opacity failed: no model selected');
+                        return;
+                    }
+                    const opacity = parseFloat(document.getElementById('actorOpacity').value);
+                    callViewerMethod('setActorOpacity', modelId, opacity);
+                });
+
+                document.getElementById('btnReadOpacity').addEventListener('click', async () => {
+                    const modelId = getSelectedModelId();
+                    if (modelId === null) {
+                        log('read opacity failed: no model selected');
+                        return;
+                    }
+                    const opacity = await callViewerMethod('getActorOpacity', modelId);
+                    if (opacity >= 0) {
+                        document.getElementById('actorOpacity').value = String(opacity);
+                        document.getElementById('actorOpacityText').textContent = Number(opacity).toFixed(2);
+                        log(`opacity read for model #${modelId}: ${Number(opacity).toFixed(2)}`);
+                    }
+                });
+
+                document.getElementById('btnApplyGradientBg').addEventListener('click', () => {
+                    const color1 = document.getElementById('bgColor').value || '#222222';
+                    const color2 = document.getElementById('bgColor2').value || color1;
+                    const gradient = document.getElementById('bgGradient').value || 'solid';
+                    callViewerMethod('setBackgroundColor', color1, color2, gradient);
+                });
+
+                document.getElementById('btnApplyAnnotation').addEventListener('click', () => {
+                    const text = document.getElementById('annotationText').value || '';
+                    callViewerMethod('setCornerAnnotationText', text);
+                });
+
                 const refreshModelList = () => {
                     try {
-                        const raw = Module.ccall('igw_get_model_list_json', 'string', [], []);
+                        const raw = api.getModelListJson();
                         const list = raw ? JSON.parse(raw) : [];
                         const modelSelect = document.getElementById('modelList');
                         const previous = modelSelect.value;
@@ -416,6 +1041,58 @@
 
                 document.getElementById('btnRefreshModels').addEventListener('click', refreshModelList);
 
+                const selectionModeName = (mode) => mode === 1 ? 'Point' : mode === 2 ? 'Face' : 'Browse';
+                const updateSelectionResult = (message) => {
+                    document.getElementById('selectionResult').textContent = message;
+                };
+                const readSelection = () => {
+                    const modelId = getSelectedModelId();
+                    if (modelId === null) {
+                        updateSelectionResult(`Mode: ${selectionModeName(api.getSelectionMode())}; no model selected`);
+                        return null;
+                    }
+                    const json = api.getSelectionJson(modelId);
+                    updateSelectionResult(`Mode: ${selectionModeName(api.getSelectionMode())}; ${json}`);
+                    return json;
+                };
+                const setSelectionMode = (mode) => {
+                    const ok = api.setSelectionMode(mode);
+                    if (!ok) {
+                        log(`set selection mode failed: ${api.getLastErrorJson()}`);
+                        return;
+                    }
+                    updateSelectionResult(`Mode: ${selectionModeName(api.getSelectionMode())}`);
+                    log(`selection mode => ${selectionModeName(mode)}`);
+                };
+
+                document.getElementById('btnSelectionBrowse').addEventListener('click', () => setSelectionMode(0));
+                document.getElementById('btnSelectionPoint').addEventListener('click', () => setSelectionMode(1));
+                document.getElementById('btnSelectionFace').addEventListener('click', () => setSelectionMode(2));
+                document.getElementById('btnReadSelection').addEventListener('click', () => {
+                    try {
+                        const json = readSelection();
+                        if (json !== null) log(`selection => ${json}`);
+                    } catch (err) {
+                        log(`read selection exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+                document.getElementById('btnClearSelection').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('clear selection failed: no model selected');
+                            return;
+                        }
+                        if (!api.clearSelection(modelId)) {
+                            log(`clear selection failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        readSelection();
+                    } catch (err) {
+                        log(`clear selection exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
                 document.getElementById('btnSetActiveModel').addEventListener('click', () => {
                     try {
                         const modelId = getSelectedModelId();
@@ -423,7 +1100,7 @@
                             log('set active failed: no model selected');
                             return;
                         }
-                        const ok = Module.ccall('igw_set_active_model', 'number', ['number'], [modelId]);
+                        const ok = api.setActiveModel(modelId);
                         if (!ok) {
                             log('set active failed');
                             return;
@@ -446,7 +1123,7 @@
                         const selected = modelSelect.options[modelSelect.selectedIndex];
                         const currentVisible = selected && selected.dataset.visible === 'true';
                         const nextVisible = currentVisible ? 0 : 1;
-                        const ok = Module.ccall('igw_set_model_visibility', 'number', ['number', 'number'], [modelId, nextVisible]);
+                        const ok = api.setModelVisibility(modelId, nextVisible !== 0);
                         if (!ok) {
                             log('toggle visibility failed');
                             return;
@@ -464,7 +1141,7 @@
                             log('remove failed: no model selected');
                             return;
                         }
-                        const ok = Module.ccall('igw_remove_model', 'number', ['number'], [modelId]);
+                        const ok = api.removeModel(modelId);
                         if (!ok) {
                             log('remove model failed');
                             return;
@@ -478,7 +1155,7 @@
 
                 document.getElementById('btnRemoveAllModels').addEventListener('click', () => {
                     try {
-                        const ok = Module.ccall('igw_remove_all_models', 'number', [], []);
+                        const ok = api.removeAllModels();
                         if (!ok) {
                             log('remove all models failed');
                             return;
@@ -490,153 +1167,203 @@
                     }
                 });
 
+                document.getElementById('btnClearViewer').addEventListener('click', async () => {
+                    const ok = await callViewerMethod('clearViewer');
+                    if (!ok) {
+                        log('clear viewer failed');
+                        return;
+                    }
+                    refreshModelList();
+                    refreshScalarList();
+                    log('viewer cleared');
+                });
+
                 document.getElementById('btnRefreshScalarList').addEventListener('click', refreshScalarList);
                 refreshModelList();
 
-                const startRenderLoopIfNeeded = () => {
-                    if (renderLoopStarted) return;
-                    renderLoopStarted = true;
-                    const loop = () => {
-                        try {
-                            Module.ccall('igw_render_frame', null, [], []);
-                        } catch (err) {
-                            log(`render exception: ${err && err.stack ? err.stack : err}`);
-                            renderLoopStarted = false;
-                            return;
-                        }
-                        requestAnimationFrame(loop);
+                // ---------------- ColorMap 编辑器逻辑 ----------------
+                const colorNodesEl = document.getElementById('color_nodes');
+                const colorCanvas = document.getElementById('color_canvas');
+                const colorCtx = colorCanvas.getContext('2d');
+                const colorJsonOut = document.getElementById('color_jsonOut');
+
+                function hexToRgb01(hex) {
+                    if (hex.startsWith('#')) hex = hex.slice(1);
+                    const bigint = parseInt(hex, 16);
+                    const r = (bigint >> 16) & 255;
+                    const g = (bigint >> 8) & 255;
+                    const b = bigint & 255;
+                    return [r / 255, g / 255, b / 255];
+                }
+                function rgb01ToHex(r, g, b) {
+                    const toHex = v => {
+                        const n = Math.round(Math.max(0, Math.min(1, v)) * 255);
+                        return ('0' + n.toString(16)).slice(-2);
                     };
-                    requestAnimationFrame(loop);
-                };
+                    return '#' + toHex(r) + toHex(g) + toHex(b);
+                }
 
-                const loadModelFromBytes = (bytes, fileName, replaceExisting) => {
-                    const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-                    const ptr = Module._malloc(data.length);
-                    Module.HEAPU8.set(data, ptr);
+                function addColorNode(hex = '#000000', pos = 0.0) {
+                    const div = document.createElement('div');
+                    div.className = 'color-node';
+                    div.style.display = 'flex';
+                    div.style.gap = '8px';
+                    div.style.alignItems = 'center';
+                    div.style.marginBottom = '6px';
+                    div.innerHTML = `<input type="color" class="color" value="${hex}"/>` +
+                        `<input type="number" class="pos" min="0" max="1" step="0.001" value="${pos}" style="width:80px;"/>` +
+                        `<button class="remove">删除</button>`;
+                    colorNodesEl.appendChild(div);
+                    div.querySelector('.remove').onclick = () => { div.remove(); renderColorEditor(); };
+                    div.querySelector('.color').oninput = renderColorEditor;
+                    div.querySelector('.pos').oninput = renderColorEditor;
+                    renderColorEditor();
+                }
 
-                    let ok = 0;
+                function clearColorNodes() { colorNodesEl.innerHTML = ''; }
+
+                function readColorNodes() {
+                    const rows = Array.from(colorNodesEl.querySelectorAll('.color-node'));
+                    const items = rows.map(r => {
+                        const hex = r.querySelector('.color').value;
+                        const pos = parseFloat(r.querySelector('.pos').value) || 0.0;
+                        return { hex, pos };
+                    });
+                    items.sort((a, b) => a.pos - b.pos);
+                    return items;
+                }
+
+                function renderColorEditor() {
+                    const items = readColorNodes();
+                    if (items.length === 0) { colorCtx.clearRect(0, 0, colorCanvas.width, colorCanvas.height); return; }
+                    const grad = colorCtx.createLinearGradient(0, 0, colorCanvas.width, 0);
+                    const min = items[0].pos, max = items[items.length - 1].pos;
+                    const range = Math.max(1e-6, max - min);
+                    items.forEach(it => {
+                        const rgb = hexToRgb01(it.hex);
+                        const color = `rgb(${Math.round(rgb[0] * 255)},${Math.round(rgb[1] * 255)},${Math.round(rgb[2] * 255)})`;
+                        const t = (it.pos - min) / range;
+                        grad.addColorStop(t, color);
+                    });
+                    colorCtx.fillStyle = grad;
+                    colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
+                    colorCtx.fillStyle = '#000';
+                    items.forEach(it => {
+                        const t = (it.pos - min) / range; const x = Math.round(t * colorCanvas.width);
+                        colorCtx.fillRect(x - 1, 0, 2, colorCanvas.height);
+                    });
+                }
+
+                document.getElementById('color_btnAdd').addEventListener('click', () => addColorNode('#ffffff', 1.0));
+                document.getElementById('color_btnDefault').addEventListener('click', () => { clearColorNodes(); addColorNode('#000000', 0.0); addColorNode('#ff0000', 0.5); addColorNode('#ffffff', 1.0); });
+
+                document.getElementById('color_btnApply').addEventListener('click', () => {
+                    const items = readColorNodes();
+                    if (items.length === 0) { alert('请至少添加一个节点'); return; }
+                    const colors_flat = [];
+                    const ranges = [];
+                    for (const it of items) { const rgb = hexToRgb01(it.hex); colors_flat.push(rgb[0], rgb[1], rgb[2]); ranges.push(it.pos); }
                     try {
-                        const lowerName = (fileName || '').toLowerCase();
-                        const isVTU = lowerName.endsWith('.vtu');
-                        const targetFunc = isVTU ? 'igw_load_vtu_from_mem_ex' : 'igw_load_vtk_from_mem_ex';
-                        const fallbackName = isVTU ? 'Imported VTU' : 'Imported VTK';
-                        ok = Module.ccall(
-                            targetFunc,
-                            'number',
-                            ['number', 'number', 'string', 'number'],
-                            [ptr, data.length, fileName || fallbackName, replaceExisting]
-                        );
-                    } catch (err) {
-                        log(`load exception: ${err && err.stack ? err.stack : err}`);
-                    } finally {
-                        Module._free(ptr);
-                    }
-
-                    if (!ok) {
-                        log('load model failed (.vtk/.vtu)');
-                        return false;
-                    }
-
-                    log('model loaded, start rendering');
-                    refreshModelList();
-                    refreshScalarList();
-                    startRenderLoopIfNeeded();
-                    return true;
-                };
-
-                const apiInput = document.getElementById('apiBaseUrl');
-                apiInput.value = window.location.origin;
-
-                const getApiBaseUrl = () => {
-                    const base = (apiInput.value || '').trim();
-                    return base || window.location.origin;
-                };
-
-                const remoteModelList = document.getElementById('remoteModelList');
-
-                const setRemoteModelListPlaceholder = (message) => {
-                    remoteModelList.innerHTML = '';
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.textContent = message;
-                    remoteModelList.appendChild(option);
-                };
-
-                const fetchRemoteModelList = async () => {
-                    const base = getApiBaseUrl();
-                    setRemoteModelListPlaceholder('Loading remote models...');
-                    try {
-                        const response = await fetch(`${base}/api/models`);
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-                        const payload = await response.json();
-                        const items = Array.isArray(payload) ? payload : (payload.items || []);
-                        remoteModelList.innerHTML = '';
-
-                        if (!Array.isArray(items) || items.length === 0) {
-                            setRemoteModelListPlaceholder('No remote model found');
-                            return;
-                        }
-
-                        for (const item of items) {
-                            const option = document.createElement('option');
-                            option.value = item.id;
-                            const sizeMB = Number(item.sizeBytes || 0) / (1024 * 1024);
-                            const prettySize = Number.isFinite(sizeMB) ? `${sizeMB.toFixed(2)} MB` : 'unknown';
-                            option.textContent = `${item.id} (${item.format || 'unknown'}, ${prettySize})`;
-                            option.dataset.format = item.format || '';
-                            option.dataset.name = item.name || item.id;
-                            remoteModelList.appendChild(option);
-                        }
-                        log(`remote model list loaded: ${items.length}`);
-                    } catch (err) {
-                        setRemoteModelListPlaceholder('Fetch remote models failed');
-                        log(`fetch remote models exception: ${err && err.stack ? err.stack : err}`);
-                    }
-                };
-
-                const loadRemoteModel = async () => {
-                    const selected = remoteModelList.options[remoteModelList.selectedIndex];
-                    if (!selected || !selected.value) {
-                        log('load remote failed: no remote model selected');
-                        return;
-                    }
-
-                    const base = getApiBaseUrl();
-                    const mode = document.getElementById('importMode').value;
-                    const replaceExisting = mode === 'replace' ? 1 : 0;
-                    const modelId = selected.value;
-
-                    try {
-                        const response = await fetch(`${base}/api/models/${encodeURIComponent(modelId)}/file`);
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-
-                        const serverName = response.headers.get('X-Model-Name') || modelId;
-                        const content = new Uint8Array(await response.arrayBuffer());
-                        const ok = loadModelFromBytes(content, serverName, replaceExisting);
-                        if (ok) {
-                            log(`remote model loaded: ${serverName}`);
-                        }
-                    } catch (err) {
-                        log(`load remote exception: ${err && err.stack ? err.stack : err}`);
-                    }
-                };
-
-                document.getElementById('btnUseCurrentOrigin').addEventListener('click', () => {
-                    apiInput.value = window.location.origin;
+                        const ok = api.setColorMap(colors_flat, ranges);
+                        log(`setColorMap => ${ok}`);
+                        log(`lastError after setColorMap: ${api.getLastErrorJson ? api.getLastErrorJson() : 'n/a'}`);
+                        if (ok > 0) { if (api.renderFrame) api.renderFrame(); }
+                        else { alert('setColorMap 返回错误，查看控制台'); }
+                    } catch (e) { console.error('setColorMap err', e); alert('调用 setColorMap 出错'); }
                 });
-                document.getElementById('btnFetchRemoteModels').addEventListener('click', fetchRemoteModelList);
-                document.getElementById('btnLoadRemoteModel').addEventListener('click', loadRemoteModel);
-                setRemoteModelListPlaceholder('Click "Fetch Remote Models"');
 
-                const canvas = document.getElementById('canvas');
+                document.getElementById('color_btnGet').addEventListener('click', () => {
+                    try {
+                        const json = api.getColorMapJson();
+                        log(`getColorMapJson => ${json}`);
+                        colorJsonOut.textContent = json;
+                        try {
+                            const parsed = JSON.parse(json);
+                            if (parsed.colors && parsed.ranges) {
+                                clearColorNodes();
+                                for (let i = 0; i < parsed.colors.length; i++) {
+                                    const c = parsed.colors[i]; const r = parsed.ranges[i]; const hex = rgb01ToHex(c[0], c[1], c[2]); addColorNode(hex, r);
+                                }
+                            }
+                        } catch (e) { }
+                    } catch (e) { console.error('getColorMapJson err', e); alert('getColorMapJson 出错'); }
+                });
+
+                // init default
+                document.getElementById('color_btnDefault').click();
+                // ---------------- end ColorMap 编辑器 ----------------
+
+                // Range API Verification handlers
+                try {
+                    const rangeApplyEl = document.getElementById('rangeApply');
+                    if (rangeApplyEl) {
+                        rangeApplyEl.addEventListener('click', () => {
+                            try {
+                                const modelId = getSelectedModelId();
+                                if (modelId === null) {
+                                    log('apply range api failed: no model selected');
+                                    return;
+                                }
+                                const scalarName = String(document.getElementById('rangeScalar').value || 'Temperature');
+                                const component = Number(document.getElementById('rangeComponent').value);
+                                const minValue = Number(document.getElementById('rangeMin').value);
+                                const maxValue = Number(document.getElementById('rangeMax').value);
+                                const status = api.setColorMapByNameRange(modelId, scalarName, component, minValue, maxValue);
+                                if (status !== 1) {
+                                    log(`apply range api failed: ${api.getLastErrorJson()}`);
+                                    return;
+                                }
+                                if (api.renderFrame) api.renderFrame();
+                                log(`apply range api ok: modelId=${modelId} name=${scalarName} component=${component} range=[${minValue}, ${maxValue}]`);
+                            } catch (err) {
+                                log(`apply range api exception: ${err && err.stack ? err.stack : err}`);
+                            }
+                        });
+                    }
+
+                    const rangeReadEl = document.getElementById('rangeRead');
+                    if (rangeReadEl) {
+                        rangeReadEl.addEventListener('click', () => {
+                            try {
+                                const json = api.getColorMapJson();
+                                log(`range api read back => ${json}`);
+                            } catch (err) {
+                                log(`range api read back exception: ${err && err.stack ? err.stack : err}`);
+                            }
+                        });
+                    }
+
+                    const rangeDebugEl = document.getElementById('rangeDebugSequence');
+                    if (rangeDebugEl) {
+                        rangeDebugEl.addEventListener('click', () => {
+                            try {
+                                const modelId = getSelectedModelId();
+                                if (modelId === null) {
+                                    log('debug range sequence failed: no model selected');
+                                    return;
+                                }
+                                const scalarName = String(document.getElementById('rangeScalar').value || 'Temperature');
+                                const component = Number(document.getElementById('rangeComponent').value);
+                                const json = api.debugColorMapRangeSequence(modelId, scalarName, component, 0, 1, 0, 100, 0, 1);
+                                if (api.renderFrame) api.renderFrame();
+                                log(`debug range sequence => ${json}`);
+                            } catch (err) {
+                                log(`debug range sequence exception: ${err && err.stack ? err.stack : err}`);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    log(`attach range handlers failed: ${e && e.stack ? e.stack : e}`);
+                }
+
                 canvas.style.touchAction = 'none';
                 let activePointerId = null;
                 let activeButton = mouseButton.NoButton;
                 let rightDragLock = false;
+                let selectionPointer = false;
+                let selectionPressPos = null;
+                let selectionPointerMoved = false;
+                const selectionClickMoveThreshold = 5;
 
                 // Old-style handlers are kept as an extra guard for browsers that trigger
                 // context gestures before modern event listeners can fully suppress them.
@@ -670,6 +1397,9 @@
                     activePointerId = null;
                     activeButton = mouseButton.NoButton;
                     rightDragLock = false;
+                    selectionPointer = false;
+                    selectionPressPos = null;
+                    selectionPointerMoved = false;
                 };
 
                 const interceptOptions = { capture: true };
@@ -701,14 +1431,9 @@
                     }
                 }, interceptOptions);
 
-                const sendMouseEvent = (type, button, e, delta = 0) => {
-                    const pos = getCanvasPos(canvas, e);
-                    Module.ccall(
-                        'igw_send_mouse_event',
-                        null,
-                        ['number', 'number', 'number', 'number', 'number'],
-                        [type, button, pos.x, pos.y, delta]
-                    );
+                const sendMouseEvent = (type, button, e, delta = 0, overridePos = null) => {
+                    const pos = overridePos || getCanvasPos(canvas, e);
+                    api.sendMouseEvent(type, button, pos.x, pos.y, delta);
                 };
 
                 canvas.addEventListener('pointerdown', (e) => {
@@ -716,6 +1441,11 @@
                     try {
                         activePointerId = e.pointerId;
                         activeButton = mapPointerButtonToAction(e);
+                        selectionPointer = api.getSelectionMode() !== 0 && activeButton === mouseButton.LeftButton;
+                        if (selectionPointer) {
+                            selectionPressPos = getCanvasPos(canvas, e);
+                            activeButton = mouseButton.MiddleButton;
+                        }
                         rightDragLock = activeButton === mouseButton.RightButton;
                         canvas.setPointerCapture(e.pointerId);
                         sendMouseEvent(eventType.MousePress, activeButton, e, 0);
@@ -729,6 +1459,14 @@
                         suppressCanvasDefault(e);
                     }
                     try {
+                        if (selectionPointer && selectionPressPos) {
+                            const pos = getCanvasPos(canvas, e);
+                            const dx = pos.x - selectionPressPos.x;
+                            const dy = pos.y - selectionPressPos.y;
+                            if (Math.hypot(dx, dy) > selectionClickMoveThreshold) {
+                                selectionPointerMoved = true;
+                            }
+                        }
                         // Mouse move keeps C++ side mode unchanged; mode is decided at press/release.
                         sendMouseEvent(eventType.MouseMove, mouseButton.NoButton, e, 0);
                     } catch (err) {
@@ -743,7 +1481,11 @@
                             canvas.releasePointerCapture(e.pointerId);
                         }
                         const releaseButton = activeButton !== mouseButton.NoButton ? activeButton : mapPointerButtonToAction(e);
-                        sendMouseEvent(eventType.MouseRelease, releaseButton, e, 0);
+                        const releasePos = selectionPointer && !selectionPointerMoved ? selectionPressPos : null;
+                        sendMouseEvent(eventType.MouseRelease, releaseButton, e, 0, releasePos);
+                        if (selectionPointer && !selectionPointerMoved) {
+                            readSelection();
+                        }
                         clearInteractionState();
                     } catch (err) {
                         log(`pointer release exception: ${err && err.stack ? err.stack : err}`);
@@ -771,15 +1513,348 @@
                     const file = e.target.files && e.target.files[0];
                     if (!file) return;
 
-                    const mode = document.getElementById('importMode').value;
-                    const replaceExisting = mode === 'replace' ? 1 : 0;
                     const buf = await file.arrayBuffer();
-                    loadModelFromBytes(new Uint8Array(buf), file.name, replaceExisting);
+                    await loadModelBuffer(buf, file.name || 'Uploaded model');
+                });
+
+                const loadIgcBuffer = async (buf, sourceName, layoutName, loader) => {
+                    const data = new Uint8Array(buf);
+                    try {
+                        const mode = document.getElementById('importMode').value;
+                        const replaceExisting = mode === 'replace' ? 1 : 0;
+                        const fallbackName = layoutName === '32-bit' ? 'Imported IGC 32-bit' : 'Imported IGC 64-bit';
+                        const modelId = loader(data, sourceName || fallbackName, replaceExisting !== 0);
+                        if (!modelId) {
+                            throw new Error(`decode failed: ${api.getLastErrorJson()}`);
+                        }
+                        log(`IGC ${layoutName} load returned modelId=${modelId}`);
+                        refreshModelList();
+                        refreshScalarList();
+                        startRenderLoop();
+                        api.renderFrame();
+                        return true;
+                    } catch (err) {
+                        log(`IGC ${layoutName} exception: ${err && err.stack ? err.stack : err}`);
+                        return false;
+                    }
+                };
+
+                const loadSelectedIgcLayout = async (layoutName, loader) => {
+                    const fileInput = document.getElementById('vtkFile');
+                    const file = fileInput.files && fileInput.files[0];
+                    if (!file) {
+                        log(`Please choose an IGC file before loading the ${layoutName} layout.`);
+                        return false;
+                    }
+
+                    const normalized = String(file.name || '').toLowerCase();
+                    if (!normalized.endsWith('.igc')) {
+                        log(`The selected file is not an .igc file: ${file.name}`);
+                        return false;
+                    }
+
+                    const buf = await file.arrayBuffer();
+                    return loadIgcBuffer(buf, file.name || 'Uploaded IGC', layoutName, loader);
+                };
+
+                const startRenderLoop = () => {
+                    if (viewerDestroyed || renderLoopStarted) {
+                        return;
+                    }
+
+                    renderLoopStarted = true;
+                    const loop = () => {
+                        if (viewerDestroyed || !renderLoopStarted) {
+                            renderLoopStarted = false;
+                            return;
+                        }
+                        try {
+                            api.renderFrame();
+                        } catch (err) {
+                            log(`render exception: ${err && err.stack ? err.stack : err}`);
+                            renderLoopStarted = false;
+                            return;
+                        }
+                        requestAnimationFrame(loop);
+                    };
+                    requestAnimationFrame(loop);
+                };
+
+                const loadModelBuffer = async (buf, sourceName) => {
+                    const data = new Uint8Array(buf);
+                    const normalizeModelName = (value) => {
+                        const rawName = String(value || '');
+                        const withoutQuery = rawName.split(/[?#]/, 1)[0];
+                        const slashIndex = Math.max(withoutQuery.lastIndexOf('/'), withoutQuery.lastIndexOf('\\'));
+                        return slashIndex >= 0 ? withoutQuery.slice(slashIndex + 1) : withoutQuery;
+                    };
+
+                    const detectModelKind = () => {
+                        const normalizedName = normalizeModelName(sourceName).toLowerCase();
+                        if (normalizedName.endsWith('.zip')) return 'zip';
+                        if (normalizedName.endsWith('.igcm')) return 'igcm';
+                        if (normalizedName.endsWith('.igc')) return 'igc';
+                        if (normalizedName.endsWith('.vtp')) return 'vtp';
+                        if (normalizedName.endsWith('.vtu')) return 'vtu';
+                        if (normalizedName.endsWith('.vtk')) return 'vtk';
+
+                        if (data.byteLength >= 4) {
+                            const magic = Array.from(data.subarray(0, 4));
+                            if (magic[0] === 0x50 && magic[1] === 0x4b) {
+                                return 'zip';
+                            }
+                        }
+
+                        const previewLength = Math.min(data.byteLength, 2048);
+                        const previewText = new TextDecoder('utf-8', { fatal: false }).decode(data.subarray(0, previewLength));
+                        if (previewText.includes('<IGCManifest')) return 'igcm';
+                        if (previewText.includes('type="PolyData"') || previewText.includes('<PolyData')) return 'vtp';
+                        if (previewText.includes('type="UnstructuredGrid"') || previewText.includes('<UnstructuredGrid')) return 'vtu';
+                        return 'vtk';
+                    };
+
+                    let loadedResult = 0;
+                    let modelKind = 'vtk';
+                    try {
+                        const mode = document.getElementById('importMode').value;
+                        const replaceExisting = mode === 'replace' ? 1 : 0;
+                        modelKind = detectModelKind();
+                        const fallbackName = modelKind === 'zip'
+                            ? 'Imported ZIP'
+                            : (modelKind === 'igcm'
+                                ? 'Imported IGCM'
+                                : (modelKind === 'igc'
+                                    ? 'Imported IGC'
+                                    : (modelKind === 'vtp' ? 'Imported VTP' : (modelKind === 'vtu' ? 'Imported VTU' : 'Imported VTK'))));
+
+                        if (modelKind === 'zip') {
+                            loadedResult = api.loadZipFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else if (modelKind === 'igcm') {
+                            log('IGCM references external IGC files; please upload it as a ZIP package with its referenced .igc files.');
+                            loadedResult = 0;
+                        } else if (modelKind === 'igc') {
+                            loadedResult = api.loadIgcLegacy64FromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else if (modelKind === 'vtp') {
+                            loadedResult = api.loadVtpFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else if (modelKind === 'vtu') {
+                            loadedResult = api.loadVtuFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else {
+                            loadedResult = api.loadVtkFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        }
+                    } catch (err) {
+                        log(`load exception: ${err && err.stack ? err.stack : err}`);
+                    }
+
+                    if (!loadedResult) {
+                        log('load model failed (.vtk/.vtu/.vtp/.igc/.igcm package .zip)');
+                        return false;
+                    }
+
+                    if (modelKind === 'zip') {
+                        log(`load returned loadedCount=${loadedResult}`);
+                    } else {
+                        log(`load returned modelId=${loadedResult}`);
+                    }
+                    log('model loaded, start rendering');
+                    refreshModelList();
+                    refreshScalarList();
+                    startRenderLoop();
+                    return true;
+                };
+
+                const igcSeries = {
+                    frames: [],
+                    currentIndex: -1,
+                    playing: false,
+                    playTimer: null,
+                    requestController: null,
+                    requestSerial: 0,
+                };
+
+                const setIgcSeriesStatus = (text) => {
+                    document.getElementById('igcSeriesStatus').textContent = text;
+                };
+
+                const stopIgcSeries = () => {
+                    igcSeries.playing = false;
+                    if (igcSeries.playTimer !== null) {
+                        clearTimeout(igcSeries.playTimer);
+                        igcSeries.playTimer = null;
+                    }
+                    document.getElementById('btnPlayIgcSeries').textContent = 'Play';
+                };
+
+                const requestIgcSeriesManifest = async () => {
+                    const response = await fetch('/api/series/comp/manifest', { cache: 'no-store' });
+                    if (!response.ok) {
+                        throw new Error(`manifest request failed: HTTP ${response.status}`);
+                    }
+                    const manifest = await response.json();
+                    if (!manifest || !Array.isArray(manifest.frames) || manifest.frames.length === 0) {
+                        throw new Error('manifest contains no frames');
+                    }
+                    igcSeries.frames = manifest.frames.slice().sort((lhs, rhs) => lhs.index - rhs.index);
+                    return igcSeries.frames;
+                };
+
+                const showIgcSeriesFrame = async (requestedIndex) => {
+                    if (igcSeries.frames.length === 0) {
+                        await requestIgcSeriesManifest();
+                    }
+                    const frameCount = igcSeries.frames.length;
+                    const index = (requestedIndex + frameCount) % frameCount;
+                    const frame = igcSeries.frames[index];
+                    const requestSerial = ++igcSeries.requestSerial;
+
+                    if (igcSeries.requestController) {
+                        igcSeries.requestController.abort();
+                    }
+                    igcSeries.requestController = new AbortController();
+
+                    try {
+                        // This low-memory demo intentionally releases the previous decoded model first.
+                        api.removeAllModels();
+                        refreshModelList();
+                        refreshScalarList();
+                        setIgcSeriesStatus(`Loading ${frame.name}...`);
+                        log(`IGC series requesting frame ${index + 1}/${frameCount}: ${frame.name}`);
+
+                        const response = await fetch(frame.url, {
+                            cache: 'no-store',
+                            signal: igcSeries.requestController.signal,
+                        });
+                        if (!response.ok) {
+                            throw new Error(`frame request failed: HTTP ${response.status}`);
+                        }
+                        const bytes = new Uint8Array(await response.arrayBuffer());
+                        if (requestSerial !== igcSeries.requestSerial) {
+                            return false;
+                        }
+
+                        const modelId = api.loadIgcLegacy64FromMemEx(bytes, frame.name, false);
+                        if (!modelId) {
+                            throw new Error(`decode failed: ${api.getLastErrorJson()}`);
+                        }
+                        log(`IGC frame load returned modelId=${modelId}`);
+                        startRenderLoop();
+                        api.renderFrame();
+                        igcSeries.currentIndex = index;
+                        refreshModelList();
+                        refreshScalarList();
+                        setIgcSeriesStatus(`Frame ${index + 1}/${frameCount}: ${frame.name}`);
+                        log(`IGC series displayed frame ${index + 1}/${frameCount}: ${frame.name}`);
+                        return true;
+                    } catch (err) {
+                        if (err && err.name === 'AbortError') {
+                            return false;
+                        }
+                        stopIgcSeries();
+                        setIgcSeriesStatus('Load failed');
+                        log(`IGC series exception: ${err && err.stack ? err.stack : err}`);
+                        return false;
+                    }
+                };
+
+                const scheduleNextIgcFrame = () => {
+                    if (!igcSeries.playing) return;
+                    igcSeries.playTimer = setTimeout(async () => {
+                        const nextIndex = igcSeries.currentIndex < 0 ? 0 : igcSeries.currentIndex + 1;
+                        await showIgcSeriesFrame(nextIndex);
+                        scheduleNextIgcFrame();
+                    }, 1000);
+                };
+
+                document.getElementById('btnLoadIgcSeries').addEventListener('click', async () => {
+                    try {
+                        stopIgcSeries();
+                        await requestIgcSeriesManifest();
+                        log(`IGC series manifest loaded: ${igcSeries.frames.map((frame) => frame.name).join(', ')}`);
+                        await showIgcSeriesFrame(0);
+                    } catch (err) {
+                        setIgcSeriesStatus('Manifest failed');
+                        log(`IGC manifest exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnPreviousIgcFrame').addEventListener('click', async () => {
+                    stopIgcSeries();
+                    await showIgcSeriesFrame(igcSeries.currentIndex <= 0 ? igcSeries.frames.length - 1 : igcSeries.currentIndex - 1);
+                });
+
+                document.getElementById('btnNextIgcFrame').addEventListener('click', async () => {
+                    stopIgcSeries();
+                    await showIgcSeriesFrame(igcSeries.currentIndex + 1);
+                });
+
+                document.getElementById('btnPlayIgcSeries').addEventListener('click', async () => {
+                    if (igcSeries.playing) {
+                        stopIgcSeries();
+                        return;
+                    }
+                    if (igcSeries.currentIndex < 0) {
+                        await showIgcSeriesFrame(0);
+                    }
+                    igcSeries.playing = true;
+                    document.getElementById('btnPlayIgcSeries').textContent = 'Pause';
+                    scheduleNextIgcFrame();
+                });
+
+                document.getElementById('btnLoadFromServer').addEventListener('click', async () => {
+                    try {
+                        log('Fetching remote model list...');
+                        // 1. 先获取模型列表
+                        const listResp = await fetch('/api/models');
+                        if (!listResp.ok) {
+                            log(`Failed to fetch model list: HTTP ${listResp.status}`);
+                            return;
+                        }
+                        const listData = await listResp.json();
+                        const items = listData.items || [];
+                        if (items.length === 0) {
+                            log('No models available on server');
+                            return;
+                        }
+
+                        // 2. 简单起见，直接加载第一个模型（你可以改为让用户在下拉框中选择）
+                        const model = items[0];
+                        log(`Loading remote model: ${model.name} (${model.id})`);
+
+                        const fileResp = await fetch(`/api/models/${encodeURIComponent(model.id)}/file`);
+                        if (!fileResp.ok) {
+                            log(`Failed to download model file: HTTP ${fileResp.status}`);
+                            return;
+                        }
+
+                        const sourceName = fileResp.headers.get('X-Model-Name') || model.name;
+                        const buf = await fileResp.arrayBuffer();
+                        await loadModelBuffer(buf, sourceName);
+                    } catch (err) {
+                        log(`remote model load exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnLoadIgc32').addEventListener('click', async () => {
+                    await loadSelectedIgcLayout('32-bit', (data, sourceName, replaceExisting) =>
+                        api.loadIgcLegacy32FromMemEx(data, sourceName, replaceExisting));
+                });
+
+                document.getElementById('btnLoadIgc64').addEventListener('click', async () => {
+                    await loadSelectedIgcLayout('64-bit', (data, sourceName, replaceExisting) =>
+                        api.loadIgcLegacy64FromMemEx(data, sourceName, replaceExisting));
                 });
             }
         };
     </script>
-    <script src="iGameWasmDemo.js"></script>
+    <script>
+        var Module = Module || {};
+        Module.locateFile = function (path, prefix) {
+            if (path.endsWith('.wasm')) {
+                return '@IGAME_WASM_WASM_NAME@';
+            }
+            return prefix + path;
+        };
+    </script>
+    <script src="@IGAME_WASM_JS_NAME@"></script>
 </body>
 
 </html>

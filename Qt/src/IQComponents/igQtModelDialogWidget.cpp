@@ -10,7 +10,6 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScreen>
-#include <QHeaderView>
 #include <iGameSceneManager.h>
 #include <qaction.h>
 #include <qdebug.h>
@@ -212,10 +211,6 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     modelTreeWidget->setIndentation(10);
     modelTreeWidget->setAlternatingRowColors(true);
     modelTreeWidget->setUniformRowHeights(true);
-    // 修复：首行图标显示被裁剪（行高小于图标高度时会只显示上半截）
-    modelTreeWidget->setIconSize(QSize(20, 24));
-    modelTreeWidget->setStyleSheet(modelTreeWidget->styleSheet() +
-                                   QStringLiteral("QTreeView::item{height:28px;}"));
 
 
     propertyWidget->setHeaderVisible(false);

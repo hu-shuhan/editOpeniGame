@@ -87,11 +87,6 @@
          <string>多尺度混合模式(极小)</string>
         </property>
        </item>
-       <item>
-        <property name="text">
-         <string>均匀模式</string>
-        </property>
-       </item>
       </widget>
      </item>
      <item>
@@ -278,7 +273,7 @@
        </property>
        <property name="icon">
         <iconset resource="../iGameQtMainWindow.qrc">
-         <normaloff>:/Ticon/Icons/Chart-1.png</normaloff>:/Ticon/Icons/Chart-1.png</iconset>
+         <normaloff>:/Ticon/Icons/check.png</normaloff>:/Ticon/Icons/check.png</iconset>
        </property>
       </widget>
      </item>
@@ -344,34 +339,6 @@
      </item>
      <item>
       <widget class="QLineEdit" name="endZ"/>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_11">
-     <item>
-      <widget class="QLabel" name="label_17">
-       <property name="font">
-        <font>
-         <pointsize>8</pointsize>
-        </font>
-       </property>
-       <property name="text">
-        <string>均匀分布点数</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::AutoText</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="splitX"/>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="splitY"/>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="splitZ"/>
      </item>
     </layout>
    </item>

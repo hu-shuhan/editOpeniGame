@@ -6,95 +6,6 @@
 
 IGAME_NAMESPACE_BEGIN
 
-#ifdef __EMSCRIPTEN__
-namespace
-{
-std::string GetWebShaderFallback(const std::string& fileName) {
-    if (fileName == "Vertex.vert") {
-        return R"(precision highp float;
-attribute vec3 in_Position;
-attribute vec3 in_Color;
-attribute vec3 in_Normal;
-attribute vec2 in_UV;
-
-uniform mat4 uView;
-uniform mat4 uProj;
-uniform mat4 uModel;
-uniform mat4 uNormal;
-uniform int uUseColor;
-
-varying vec3 in_MCPosition;
-varying vec3 in_VCPosition;
-varying vec3 in_ColorV;
-varying vec3 in_NormalV;
-varying vec2 in_UVV;
-
-void main() {
-    vec4 mc = uModel * vec4(in_Position, 1.0);
-    vec4 vc = uView * mc;
-    gl_Position = uProj * vc;
-    gl_PointSize = 3.0;
-
-    in_MCPosition = mc.xyz;
-    in_VCPosition = vc.xyz;
-    in_ColorV = (uUseColor == 1) ? in_Color : vec3(0.86, 0.88, 0.92);
-    in_NormalV = mat3(uNormal) * in_Normal;
-    in_UVV = in_UV;
-}
-)";
-    }
-
-    if (fileName == "BlinnPhong.frag") {
-        return R"(precision mediump float;
-precision mediump int;
-
-varying vec3 in_ColorV;
-varying vec3 in_NormalV;
-
-void main() {
-    vec3 n = normalize(in_NormalV);
-    vec3 l1 = normalize(vec3(0.35, 0.65, 0.70));
-    vec3 l2 = normalize(vec3(-0.55, -0.15, 0.82));
-
-    float d1 = max(dot(n, l1), 0.0);
-    float d2 = max(dot(n, l2), 0.0);
-
-    vec3 base = in_ColorV;
-    vec3 color = base * (0.22 + 0.78 * d1 + 0.28 * d2);
-
-    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
-}
-)";
-    }
-
-    if (fileName == "NoLight.frag") {
-        return R"(precision mediump float;
-varying vec3 in_MCPosition;
-varying vec3 in_VCPosition;
-varying vec3 in_ColorV;
-varying vec3 in_NormalV;
-varying vec2 in_UVV;
-
-void main() {
-    gl_FragColor = vec4(in_ColorV, 1.0);
-}
-)";
-    }
-
-    if (fileName == "PureColor.frag") {
-        return R"(precision mediump float;
-uniform vec3 inputColor;
-void main() {
-    gl_FragColor = vec4(inputColor, 1.0);
-}
-)";
-    }
-
-    return std::string();
-}
-} // namespace
-#endif
-
 GLShader::GLShader() {}
 
 GLShader::~GLShader() {
@@ -142,13 +53,6 @@ void GLShader::CheckCompileErrors() {
 }
 
 std::string GLShader::ReadFile(const char* file_path) {
-#ifdef __EMSCRIPTEN__
-    const std::string fileName =
-            std::filesystem::path(file_path).filename().string();
-    std::string fallback = GetWebShaderFallback(fileName);
-    if (!fallback.empty()) { return fallback; }
-#endif
-
     std::ifstream file(file_path, std::ios::in | std::ios::binary);
     if (file) {
         std::string contents;

@@ -52,7 +52,6 @@ void ShaderManager::UpdateCameraBlock(SmartPointer<Camera> camera) {
     buffer.proj_view = camera->GetProjectionMatrix() * camera->GetViewMatrix();
 
     UpdateCameraBlock(buffer);
-    UpdateCameraBlock(buffer);
 }
 
 void ShaderManager::UpdateCameraBlock(CameraDataBuffer buffer) {
@@ -60,12 +59,7 @@ void ShaderManager::UpdateCameraBlock(CameraDataBuffer buffer) {
     m_WebCameraData = buffer;
     return;
 #else
-#ifdef __EMSCRIPTEN__
-    m_WebCameraData = buffer;
-    return;
-#else
     m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &buffer);
-#endif
 #endif
 }
 
@@ -84,7 +78,6 @@ void ShaderManager::UpdateObjectBlock(SmartPointer<DataObject> obj,
                                     static_cast<float>(box.diag() / 2)};
 
     UpdateObjectBlock(buffer);
-    UpdateObjectBlock(buffer);
 }
 
 void ShaderManager::UpdateObjectBlock(ObjectDataBuffer buffer) {
@@ -92,12 +85,7 @@ void ShaderManager::UpdateObjectBlock(ObjectDataBuffer buffer) {
     m_WebObjectData = buffer;
     return;
 #else
-#ifdef __EMSCRIPTEN__
-    m_WebObjectData = buffer;
-    return;
-#else
     m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &buffer);
-#endif
 #endif
 }
 
@@ -110,7 +98,6 @@ void ShaderManager::UpdateUBOBlock(SmartPointer<DataObject> obj) {
     buffer.useNormalSmooth = drawObject->IsUseNormalSmooth();
 
     UpdateUBOBlock(buffer);
-    UpdateUBOBlock(buffer);
 }
 
 void ShaderManager::UpdateUBOBlock(UniformBufferObjectBuffer buffer) {
@@ -118,12 +105,7 @@ void ShaderManager::UpdateUBOBlock(UniformBufferObjectBuffer buffer) {
     m_WebUboData = buffer;
     return;
 #else
-#ifdef __EMSCRIPTEN__
-    m_WebUboData = buffer;
-    return;
-#else
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &buffer);
-#endif
 #endif
 }
 
@@ -167,9 +149,6 @@ SmartPointer<GLBuffer> ShaderManager::GetCullDataBuffer() {
 }
 
 void ShaderManager::MapBufferBlock() {
-#ifdef __EMSCRIPTEN__
-    return;
-#endif
 #ifdef __EMSCRIPTEN__
     return;
 #endif
@@ -261,6 +240,8 @@ void ShaderManager::ApplyWebFallbackUniforms(
     shader->SetUniform3f("uViewPos", m_WebCameraData.camera_position);
     shader->SetUniformi("uIsOrtho", m_WebCameraData.isOrtho);
     shader->SetUniformi("uUseColor", m_WebUboData.useColor);
+    shader->SetUniformi("uUseNormalSmooth", m_WebUboData.useNormalSmooth);
+    shader->SetUniformf("uTransparent", m_WebObjectData.transparent);
 }
 #endif
 

@@ -22,18 +22,9 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->endY, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
     connect(ui->endZ, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
 
-    connect(ui->splitX, SIGNAL(textChanged(const QString&)), this, SLOT(changeSplit()));
-    connect(ui->splitY, SIGNAL(textChanged(const QString&)), this, SLOT(changeSplit()));
-    connect(ui->splitZ, SIGNAL(textChanged(const QString&)), this, SLOT(changeSplit()));
-
-
     ui->endX->setText("0");
     ui->endY->setText("0");
     ui->endZ->setText("0");
-
-    ui->splitX->setText("6");
-    ui->splitY->setText("6");
-    ui->splitZ->setText("6");
 
     connect(ui->terminalSpeed, SIGNAL(textChanged(const QString&)), this, SLOT(changeterminalSpeed()));
 
@@ -83,62 +74,65 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
             p = p->parentWidget();
         }
 
-        if (dock && !dock->isFloating()) { return; }
+        if (dock && !dock->isFloating()) {
+            return;
+        }
     }
     QWidget::showEvent(event);
     if (isExisted) {
-        auto scene = SceneManager::Instance()->GetCurrentScene();
-        Selection->Start = startP;
-        Selection->End = endP;
-        Selection->SetSelectionCallBackEvent(
-                [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
-                    if (itemType == IG_CHANGE) {
-                        startP = Selection->Start;
-                        endP = Selection->End;
-                        auto temStart = startP;
-                        auto temEnd = endP;
-                        ui->startX->setText(QString::number(temStart[0]));
-                        ui->startY->setText(QString::number(temStart[1]));
-                        ui->startZ->setText(QString::number(temStart[2]));
-                        ui->endX->setText(QString::number(temEnd[0]));
-                        ui->endY->setText(QString::number(temEnd[1]));
-                        ui->endZ->setText(QString::number(temEnd[2]));
-                    }
-                },
-                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+            auto scene = SceneManager::Instance()->GetCurrentScene();
+            Selection->Start = startP;
+            Selection->End = endP;
+            Selection->SetSelectionCallBackEvent(
+                    [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
+                        if (itemType == IG_CHANGE) {
+                            startP = Selection->Start;
+                            endP = Selection->End;
+                            auto temStart = startP;
+                            auto temEnd = endP;
+                            ui->startX->setText(QString::number(temStart[0]));
+                            ui->startY->setText(QString::number(temStart[1]));
+                            ui->startZ->setText(QString::number(temStart[2]));
+                            ui->endX->setText(QString::number(temEnd[0]));
+                            ui->endY->setText(QString::number(temEnd[1]));
+                            ui->endZ->setText(QString::number(temEnd[2]));
+                        }
+                    },
+                    std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
-        scene->GetInteractor()->SetDataObject(m_DataObject);
-        scene->GetInteractor()->SetPainter3D(Painter);
+            scene->GetInteractor()->SetDataObject(m_DataObject);
+            scene->GetInteractor()->SetPainter3D(Painter);
 
-        scene->GetInteractor()->RequestStreamLineStyle(Selection);
-    }
-    std::cout << first << std::endl;
-    if (first) {
-        std::cout << "do link" << std::endl;
-        m_StreamBase = iGame::StreamBase::New();
-        m_StreamBase->DrawObject::AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-            haveDraw = false;
-            first = true;
-            std::cout << "change first" << first << std::endl;
-            this->hide();
-        });
-        auto sceneManager = iGame::SceneManager::Instance();
-        auto scene = sceneManager->GetCurrentScene();
-        if (!scene) return;
-        auto currentModel = scene->GetCurrentModel();
-        if (!currentModel) return;
-        auto obj = currentModel->GetDataObject();
-        if (!obj) return;
-        iGame::VolumeMesh::Pointer mesh;
-        if (iGame::DynamicCast<UnstructuredMesh>(obj))
-            mesh = iGame::DynamicCast<UnstructuredMesh>(obj)->TransferToVolumeMesh();
-        else if (DynamicCast<VolumeMesh>(obj))
-            mesh = DynamicCast<VolumeMesh>(obj);
-        if (!mesh) return;
-        first = false;
-    }
-    std::cout << "show" << std::endl;
-    updateVectorNameList();
+            scene->GetInteractor()->RequestStreamLineStyle(Selection);
+        }
+        std::cout << first << std::endl;
+        if (first) {
+            std::cout << "do link" << std::endl;
+            m_StreamBase = iGame::StreamBase::New();
+            m_StreamBase->DrawObject::AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+                haveDraw = false;
+                first = true;
+                std::cout << "change first" << first << std::endl;
+                this->hide();
+            });
+            auto sceneManager = iGame::SceneManager::Instance();
+            auto scene = sceneManager->GetCurrentScene();
+            if (!scene) return;
+            auto currentModel = scene->GetCurrentModel();
+            if (!currentModel) return;
+            auto obj = currentModel->GetDataObject();
+            if (!obj) return;
+            iGame::VolumeMesh::Pointer mesh;
+            if (iGame::DynamicCast<UnstructuredMesh>(obj))
+                mesh = iGame::DynamicCast<UnstructuredMesh>(obj)->TransferToVolumeMesh();
+            else if (DynamicCast<VolumeMesh>(obj))
+                mesh = DynamicCast<VolumeMesh>(obj);
+            if (!mesh) return;
+            first = false;
+        }
+        std::cout << "show" << std::endl;
+        updateVectorNameList();
+    
 }
 void igQtStreamTracerWidget::changeControl() {
     control = ui->control_comboBox->currentIndex();
@@ -160,11 +154,6 @@ void igQtStreamTracerWidget::changeStart() {
         scene->Update();
     }
     //std::cout << "current seeds=" << numOfSeeds << std::endl;
-}
-void igQtStreamTracerWidget::changeSplit() {
-    splitX = ui->splitX->text().toInt();
-    splitY = ui->splitY->text().toInt();
-    splitZ = ui->splitZ->text().toInt();
 }
 void igQtStreamTracerWidget::changeEnd() {
     endP = Vector3f(ui->endX->text().toFloat(), ui->endY->text().toFloat(), ui->endZ->text().toFloat());
@@ -323,12 +312,15 @@ void igQtStreamTracerWidget::generateStreamline() {
 
     std::cout << vectorName << std::endl;
     std::vector<Vector3f> seeds;
-    if (!streamtracer->GetMesh()) { return; }
+    if (!streamtracer->GetMesh()) { return;
+    }
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
         auto Smodel = streamtracer->GetModel();
-        if (!Smodel) { Smodel = model; }
+        if (!Smodel) {
+            Smodel= model;
+        }
         Q_EMIT SetUseBox(Smodel);
         emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
@@ -364,12 +356,6 @@ void igQtStreamTracerWidget::generateStreamline() {
         auto temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
         //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         for (auto seed: temSeeds) { seeds.emplace_back(seed); }
-    } else if (control == 5) {
-        auto Smodel = streamtracer->GetModel();
-        if (!Smodel) { Smodel = model; }
-        seeds = streamtracer->computeSubBlockCenters(streamtracer->GetMesh()->GetBoundingBox().min,
-                                                     streamtracer->GetMesh()->GetBoundingBox().max, splitX, splitY,
-                                                     splitZ);
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
@@ -411,7 +397,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         m_ResultObject->ConvertToDrawableData();
 
-        // m_ResultObject->ViewCloudPicture(scene, 0);
+       // m_ResultObject->ViewCloudPicture(scene, 0);
 
         Q_EMIT UpdateStreamObject(m_ResultObject);
     }

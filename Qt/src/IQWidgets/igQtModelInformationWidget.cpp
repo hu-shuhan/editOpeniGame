@@ -15,36 +15,33 @@ igQtModelInformationWidget::igQtModelInformationWidget(QWidget* parent) : QWidge
     mainLayout->addWidget(this->informationFrame);
 }
 
-void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj, QFormLayout* formLayout) {
-    if (!formLayout) {
-        return;
-    }
+void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj) {
     switch (obj->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
             auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
-            createPropertyLabel(formLayout, "Type", "Surface Mesh");
-            createPropertyLabel(formLayout, "# of Faces", QString::number(mesh->GetNumberOfFaces()));
-            createPropertyLabel(formLayout, "# of Points", QString::number(mesh->GetNumberOfPoints()));
+            frameLayout->addWidget(createPropertyLabel("Type", "Surface Mesh"));
+            frameLayout->addWidget(createPropertyLabel("# of Faces", QString::number(mesh->GetNumberOfFaces())));
+            frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
         } break;
         case IG_VOLUME_MESH: {
             auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj);
-            createPropertyLabel(formLayout, "Type", "Volume Mesh");
-            createPropertyLabel(formLayout, "# of Volumes", QString::number(mesh->GetNumberOfVolumes()));
-            createPropertyLabel(formLayout, "# of Points", QString::number(mesh->GetNumberOfPoints()));
+            frameLayout->addWidget(createPropertyLabel("Type", "Volume Mesh"));
+            frameLayout->addWidget(createPropertyLabel("# of Volumes", QString::number(mesh->GetNumberOfVolumes())));
+            frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
         } break;
         case IG_STRUCTURED_MESH: {
             auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj);
             auto size = mesh->GetDimensionSize();
-            createPropertyLabel(formLayout, "Type", "Structured Mesh");
-            createPropertyLabel(formLayout, "# of Dimesion X ", QString::number(size[0]));
-            createPropertyLabel(formLayout, "# of Dimesion Y ", QString::number(size[1]));
-            createPropertyLabel(formLayout, "# of Dimesion Z ", QString::number(size[2]));
+            frameLayout->addWidget(createPropertyLabel("Type", "Structured Mesh"));
+            frameLayout->addWidget(createPropertyLabel("# of Dimesion X ", QString::number(size[0])));
+            frameLayout->addWidget(createPropertyLabel("# of Dimesion Y ", QString::number(size[1])));
+            frameLayout->addWidget(createPropertyLabel("# of Dimesion Z ", QString::number(size[2])));
         } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
-            createPropertyLabel(formLayout, "Type", "Unstructured Mesh");
-            createPropertyLabel(formLayout, "# of Cells", QString::number(mesh->GetNumberOfCells()));
-            createPropertyLabel(formLayout, "# of Points", QString::number(mesh->GetNumberOfPoints()));
+            frameLayout->addWidget(createPropertyLabel("Type", "Unstructured Mesh"));
+            frameLayout->addWidget(createPropertyLabel("# of Cells", QString::number(mesh->GetNumberOfCells())));
+            frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
         } break;
         default:
             break;
@@ -105,30 +102,17 @@ void igQtModelInformationWidget::updateInformationFrame() {
 
 
     frameLayout->addWidget(createSeparator());
-    QWidget* filePropWidget = new QWidget(this->informationFrame);
-    QFormLayout* filePropForm = new QFormLayout(filePropWidget);
-    filePropForm->setContentsMargins(0, 0, 0, 0);
-    filePropForm->setHorizontalSpacing(10);
-    filePropForm->setVerticalSpacing(6);
-    filePropForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    createPropertyLabel(filePropForm, "Name", fileName);
-    createPropertyLabel(filePropForm, "Path", directory);
-    frameLayout->addWidget(filePropWidget);
+    frameLayout->addWidget(createPropertyLabel("Name", fileName));
+    frameLayout->addWidget(createPropertyLabel("Path", directory));
 
     // 数据统计
     frameLayout->addWidget(createLabel("Data Statistics"));
     frameLayout->addWidget(createSeparator());
-    QWidget* statWidget = new QWidget(this->informationFrame);
-    QFormLayout* statForm = new QFormLayout(statWidget);
-    statForm->setContentsMargins(0, 0, 0, 0);
-    statForm->setHorizontalSpacing(10);
-    statForm->setVerticalSpacing(6);
-    statForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
     if (obj->HasSubDataObject()) {
-        createPropertyLabel(statForm, "Type", "Multiblock Mesh");
-        createPropertyLabel(statForm, "# of blocks", QString::number(obj->GetNumberOfSubDataObjects()));
+        frameLayout->addWidget(createPropertyLabel("Type", "Multiblock Mesh"));
+        frameLayout->addWidget(createPropertyLabel("# of blocks", QString::number(obj->GetNumberOfSubDataObjects())));
     } else {
-        CreateDataObjectLayoutInfo(obj, statForm);
+        CreateDataObjectLayoutInfo(obj);
     }
 
     IGsize memorySize = obj->GetRealMemorySize();
@@ -138,21 +122,27 @@ void igQtModelInformationWidget::updateInformationFrame() {
         memorySize /= 1024;
         index++;
     }
-    createPropertyLabel(statForm, "Memory", QString::number(memorySize) + dw[index]);
-    frameLayout->addWidget(statWidget);
+    frameLayout->addWidget(createPropertyLabel("Memory", QString::number(memorySize) + dw[index]));
 
-    // 处理边界框（并入表单布局，保持与其它项一致对齐）
+    // 处理边界框
+    std::string str;
     iGame::BoundingBox bound = obj->GetBoundingBox();
-    const char* axisNames[3] = {"Bounds X", "Bounds Y", "Bounds Z"};
     for (int i = 0; i < 3; i++) {
-        const float min = bound.min[i];
-        const float max = bound.max[i];
-        const float delta = max - min;
-        const QString boundsValue = QString("%1 to %2  (delta: %3)")
-                                            .arg(min, 0, 'f', 2)
-                                            .arg(max, 0, 'f', 2)
-                                            .arg(delta, 0, 'f', 2);
-        createPropertyLabel(statForm, axisNames[i], boundsValue);
+        float min = bound.min[i];
+        float max = bound.max[i];
+
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(2);
+        if (i == 0) {
+            stream << "Bounds " << std::setw(8) << min << " to " << std::setw(8) << max << " delta: " << std::setw(8)
+                   << (max - min);
+        } else {
+            stream << "      " << std::setw(8) << min << " to " << std::setw(8) << max << " delta: " << std::setw(8)
+                   << (max - min);
+        }
+        str = stream.str();
+        QLabel* label = new QLabel(QString::fromStdString(str));
+        frameLayout->addWidget(label);
     }
 
 
@@ -160,7 +150,7 @@ void igQtModelInformationWidget::updateInformationFrame() {
     this->setUpdatesEnabled(true);
     this->updateGeometry();
     // 修改布局
-    frameLayout->blockSignals(false);
+    frameLayout->blockSignals(true);
 }
 
 QLabel* igQtModelInformationWidget::createLabel(const QString& text) {
@@ -176,18 +166,13 @@ QLabel* igQtModelInformationWidget::createLabel(const QString& text) {
     return label;
 }
 
-void igQtModelInformationWidget::createPropertyLabel(QFormLayout* formLayout, const QString& name, const QString& value) {
-    QLabel* nameLabel = new QLabel(name + ":");
-    nameLabel->setAlignment(Qt::AlignCenter);
-    nameLabel->setMinimumWidth(120);
-    nameLabel->setStyleSheet("QLabel { font-size: 14px; color: #C8C8C8; }");
-
-    QLabel* valueLabel = new QLabel(value);
-    valueLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    valueLabel->setWordWrap(false);
-    valueLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    valueLabel->setStyleSheet("QLabel { font-size: 14px; color: #FFFFFF; }");
-    formLayout->addRow(nameLabel, valueLabel);
+QLabel* igQtModelInformationWidget::createPropertyLabel(const QString& name, const QString& value) {
+    QLabel* label = new QLabel(QString("%1: %2").arg(name, value));
+    label->setWordWrap(false);                                            // 禁用换行
+    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);   // 允许水平压缩
+    // 僅固定字體大小，字體家族沿用全局（與樹狀列表 bunny 一致）
+    label->setStyleSheet("QLabel { font-size: 14px; }");
+    return label;
 }
 QFrame* igQtModelInformationWidget::createSeparator() {
     QFrame* line = new QFrame();

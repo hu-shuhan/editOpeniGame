@@ -33,7 +33,6 @@ public slots:
     void changemaxSteps();
     void changeStart();
     void changeEnd();
-    void changeSplit();
     void changeterminalSpeed();
     void Pressed();
     void Released();
@@ -58,9 +57,6 @@ private:
     int numOfSeeds;
     iGame::Vector3f startP;
     iGame::Vector3f endP;
-    int splitX;
-    int splitY;
-    int splitZ;
     int control;
     float proportion;
     float lengthOfStreamLine;

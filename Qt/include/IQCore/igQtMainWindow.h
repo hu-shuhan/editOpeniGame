@@ -17,7 +17,6 @@
 #endif
 #include <IQCore/igQtExportModule.h>
 #include <QtWidgets/QMainWindow>
-#include <QResizeEvent>
 #undef QT_NO_OPENGL
 
 class igQtModelDrawWidget;
@@ -114,12 +113,10 @@ private:
     void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
                                       QAction* insertBefore = nullptr);
     void addToolbarTitle(QToolBar* toolbar, const QString& title);
-    void relayoutToolbarWrappers();
     void initCustomTitleBar();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
-    void resizeEvent(QResizeEvent* event) override;
     int streamTreeIndex = -1;
 };
 

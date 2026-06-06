@@ -6,14 +6,6 @@
 #include <QIntValidator>
 
 igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget *parent) : QDialog(parent) {
-    setStyleSheet(
-            "QDialog { background-color: #1E1E1E; color: #EAEAEA; }"
-            "QLabel { color: #D8D8D8; }"
-            "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 4px; }"
-            "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 6px 12px; }"
-            "QPushButton:hover { background-color: #3A3A3A; }"
-            "QPushButton:pressed { background-color: #252526; }");
-
     QVBoxLayout *layout = new QVBoxLayout(this);
     QHBoxLayout* hlay_0 = new QHBoxLayout();
     QHBoxLayout* hlay_1 = new QHBoxLayout();
