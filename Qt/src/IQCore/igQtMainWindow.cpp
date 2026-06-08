@@ -121,6 +121,24 @@ ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
     return metrics;
 }
 
+int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
+    int iconSize = 52;
+    if (availableWidth <= 1366) {
+        iconSize = 32;
+    } else if (availableWidth <= 1600) {
+        iconSize = 36;
+    } else if (availableWidth <= 1920) {
+        iconSize = 40;
+    } else if (availableWidth <= 2560) {
+        iconSize = 46;
+    } else if (availableWidth <= 2880) {
+        iconSize = 50;
+    }
+
+    const qreal scale = qMax<qreal>(1.0, dpiScale);
+    return qBound(24, static_cast<int>(qRound(static_cast<qreal>(iconSize) / scale)), 52);
+}
+
 const char* kGlobalSpinBoxDarkQss = R"(
 QSpinBox, QDoubleSpinBox {
     background-color: #252526;
@@ -3302,26 +3320,15 @@ void igQtMainWindow::UpdateIcons()
         screen = QGuiApplication::primaryScreen();
     }
 
-    const qreal dpiScale = screen ? qMax<qreal>(1.0, screen->devicePixelRatio()) : 1.0;
+    const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
     const int availableWidth = screen ? screen->availableGeometry().width() : this->width();
-
-    int iconSize = 44; // 基準大小
-    if (availableWidth <= 1366) {
-        iconSize = 32;
-    } else if (availableWidth <= 1600) {
-        iconSize = 36;
-    } else if (availableWidth <= 1920) {
-        iconSize = 40;
-    }
-
-    // 在高 DPI 螢幕上進一步收斂，避免實際物理像素過大造成佈局擁擠。
-    iconSize = qBound(24, static_cast<int>(iconSize / dpiScale), 44);
+    const int iconSize = resolveToolbarIconSize(availableWidth, dpiScale);
 
     for (QToolBar* tb : this->findChildren<QToolBar*>()) {
         if (tb->objectName().startsWith("wrapper_"))
             continue;
         tb->setIconSize(QSize(iconSize, iconSize));
-        tb->setMinimumHeight(iconSize + 8);
+        tb->setMinimumHeight(iconSize + qMax(6, iconSize / 6));
     }
 
 
