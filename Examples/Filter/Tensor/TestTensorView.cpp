@@ -6,7 +6,7 @@
  * @brief   TestTensor's brief
  */
 
-#include <TensorViewFilter/iGameTensorFilter.h>
+#include <Filters/TensorView/iGameTensorFilter.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
@@ -50,7 +50,7 @@ int main() {
     m_TensorFilter->SetGlyphScale(0.02);
 
     if (m_TensorFilter->Execute()) {
-        auto res = DynamicCast<DrawObject>(m_TensorFilter->GetOutput());
+        auto res = iGame::DynamicCast<iGame::DrawObject>(m_TensorFilter->GetOutput());
         scene->AddModel(res);
         int num = res->GetAttributeSet()->GetNumberOfAttributes();
         if (num > 0) {
