@@ -203,11 +203,18 @@ void PainterBase::Draw() {
     for (const auto& pair: m_VAOs) {
         float penWidth = pair.first;
 
-        m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+        auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+        shader->Use();
+#ifdef __EMSCRIPTEN__
+        // Web shaders use explicit uniforms instead of UBO blocks.
+        m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
 
         // draw points & lines
 #ifdef __EMSCRIPTEN__
         glDepthRangef(0.000001f, 1.0f);
+        // Overlay helpers (slice plane, bbox, pick points) must stay visible on WebGL.
+        glDisable(GL_DEPTH_TEST);
 #else
         glDepthRange(0.000001, 1);
 #endif
@@ -223,6 +230,7 @@ void PainterBase::Draw() {
                                            GL_UNSIGNED_INT);
         }
 #ifdef __EMSCRIPTEN__
+        glEnable(GL_DEPTH_TEST);
         glDepthRangef(0.0f, 1.0f);
 #else
         glDepthRange(0, 1);

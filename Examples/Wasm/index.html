@@ -179,6 +179,29 @@
                 <span id="selectionResult" style="font-size: 13px; color: #4b5563;">Mode: Browse</span>
             </div>
             <div class="row" style="margin-top: 10px;">
+                <label>Mesh Slice</label>
+                <button id="btnEnterSlicing" type="button">Enter Slicing</button>
+                <button id="btnExitSlicing" type="button">Exit Slicing</button>
+                <button id="btnExecuteSlice" type="button">Execute</button>
+                <button id="btnApplyClipPlane" type="button">Apply Plane</button>
+                <label><input id="sliceModeSlice" name="sliceOperationMode" type="radio" value="0" checked /> Slice</label>
+                <label><input id="sliceModeClip" name="sliceOperationMode" type="radio" value="1" /> Clip</label>
+                <label><input id="slicePreview" type="checkbox" /> Preview</label>
+                <label><input id="sliceCrinkle" type="checkbox" /> Crinkle</label>
+                <label><input id="sliceInvert" type="checkbox" checked /> Invert</label>
+            </div>
+            <div class="row" style="margin-top: 8px;">
+                <label>Origin</label>
+                <input id="clipOriginX" type="text" value="0" style="width: 72px;" />
+                <input id="clipOriginY" type="text" value="0" style="width: 72px;" />
+                <input id="clipOriginZ" type="text" value="0" style="width: 72px;" />
+                <label>Normal</label>
+                <input id="clipNormalX" type="text" value="1" style="width: 72px;" />
+                <input id="clipNormalY" type="text" value="0" style="width: 72px;" />
+                <input id="clipNormalZ" type="text" value="0" style="width: 72px;" />
+                <span id="sliceStatus" style="font-size: 13px; color: #4b5563;">Slice: inactive</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
                 <label>Camera Views</label>
                 <button id="btnViewXPlus" type="button">X+</button>
                 <button id="btnViewXMinus" type="button">X-</button>
@@ -1093,6 +1116,120 @@
                     }
                 });
 
+                const parseClipPlaneFields = () => ({
+                    ox: Number(document.getElementById('clipOriginX').value),
+                    oy: Number(document.getElementById('clipOriginY').value),
+                    oz: Number(document.getElementById('clipOriginZ').value),
+                    nx: Number(document.getElementById('clipNormalX').value),
+                    ny: Number(document.getElementById('clipNormalY').value),
+                    nz: Number(document.getElementById('clipNormalZ').value),
+                });
+
+                const writeClipPlaneFields = (plane) => {
+                    if (!plane) return;
+                    document.getElementById('clipOriginX').value = String(plane.origin?.[0] ?? 0);
+                    document.getElementById('clipOriginY').value = String(plane.origin?.[1] ?? 0);
+                    document.getElementById('clipOriginZ').value = String(plane.origin?.[2] ?? 0);
+                    document.getElementById('clipNormalX').value = String(plane.normal?.[0] ?? 1);
+                    document.getElementById('clipNormalY').value = String(plane.normal?.[1] ?? 0);
+                    document.getElementById('clipNormalZ').value = String(plane.normal?.[2] ?? 0);
+                };
+
+                const readClipPlaneFromWasm = () => {
+                    if (!api.getClipPlaneJson) return null;
+                    try {
+                        return JSON.parse(api.getClipPlaneJson());
+                    } catch (err) {
+                        log(`read clip plane exception: ${err && err.stack ? err.stack : err}`);
+                        return null;
+                    }
+                };
+
+                const updateSliceStatus = (message) => {
+                    document.getElementById('sliceStatus').textContent = message;
+                };
+
+                const syncSliceOptionsToWasm = () => {
+                    const mode = document.getElementById('sliceModeClip').checked ? 1 : 0;
+                    api.setSliceOperationMode(mode);
+                    api.setSlicingPreview(document.getElementById('slicePreview').checked);
+                    api.setSliceCrinkle(document.getElementById('sliceCrinkle').checked);
+                    api.setSliceInvert(document.getElementById('sliceInvert').checked);
+                };
+
+                const applyClipPlaneFromFields = () => {
+                    const p = parseClipPlaneFields();
+                    const ok = api.setClipPlane(p.ox, p.oy, p.oz, p.nx, p.ny, p.nz);
+                    if (ok !== 1) {
+                        log(`set clip plane failed: ${api.getLastErrorJson()}`);
+                        return false;
+                    }
+                    if (api.renderFrame) api.renderFrame();
+                    return true;
+                };
+
+                const executeSliceNow = () => {
+                    syncSliceOptionsToWasm();
+                    const resultModelId = api.executeSlice();
+                    if (!resultModelId) {
+                        log(`execute slice failed: ${api.getLastErrorJson()}`);
+                        updateSliceStatus('Slice: execute failed');
+                        return 0;
+                    }
+                    refreshModelList();
+                    startRenderLoop();
+                    updateSliceStatus(`Slice: result modelId=${resultModelId}`);
+                    log(`slice result modelId=${resultModelId}`);
+                    return resultModelId;
+                };
+
+                const enterSlicingMode = () => {
+                    try {
+                        syncSliceOptionsToWasm();
+                        let modelId = getSelectedModelId();
+                        if (modelId === null && api.getSliceSourceModelId) {
+                            modelId = api.getSliceSourceModelId();
+                        }
+                        const ok = api.enterSlicingMode(modelId ?? 0);
+                        if (ok !== 1) {
+                            log(`enter slicing failed: ${api.getLastErrorJson()}`);
+                            updateSliceStatus('Slice: enter failed');
+                            return;
+                        }
+                        writeClipPlaneFields(readClipPlaneFromWasm());
+                        startRenderLoop();
+                        if (api.renderFrame) api.renderFrame();
+                        updateSliceStatus(`Slice: active source=${api.getSliceSourceModelId()}`);
+                        log(`slicing mode active source=${api.getSliceSourceModelId()} plane=${api.getClipPlaneJson()}`);
+                    } catch (err) {
+                        log(`enter slicing exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                const exitSlicingMode = () => {
+                    try {
+                        api.exitSlicingMode();
+                        updateSliceStatus('Slice: inactive');
+                        if (api.renderFrame) api.renderFrame();
+                        log('slicing mode exited');
+                    } catch (err) {
+                        log(`exit slicing exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                document.getElementById('btnEnterSlicing').addEventListener('click', enterSlicingMode);
+                document.getElementById('btnExitSlicing').addEventListener('click', exitSlicingMode);
+                document.getElementById('btnApplyClipPlane').addEventListener('click', () => {
+                    if (applyClipPlaneFromFields()) {
+                        writeClipPlaneFields(readClipPlaneFromWasm());
+                        updateSliceStatus('Slice: plane applied');
+                    }
+                });
+                document.getElementById('btnExecuteSlice').addEventListener('click', executeSliceNow);
+                ['sliceModeSlice', 'sliceModeClip', 'slicePreview', 'sliceCrinkle', 'sliceInvert'].forEach((id) => {
+                    document.getElementById(id).addEventListener('change', syncSliceOptionsToWasm);
+                });
+
                 document.getElementById('btnSetActiveModel').addEventListener('click', () => {
                     try {
                         const modelId = getSelectedModelId();
@@ -1434,6 +1571,9 @@
                 const sendMouseEvent = (type, button, e, delta = 0, overridePos = null) => {
                     const pos = overridePos || getCanvasPos(canvas, e);
                     api.sendMouseEvent(type, button, pos.x, pos.y, delta);
+                    if (api.isSlicingMode && api.isSlicingMode()) {
+                        if (api.renderFrame) api.renderFrame();
+                    }
                 };
 
                 canvas.addEventListener('pointerdown', (e) => {
@@ -1485,6 +1625,10 @@
                         sendMouseEvent(eventType.MouseRelease, releaseButton, e, 0, releasePos);
                         if (selectionPointer && !selectionPointerMoved) {
                             readSelection();
+                        }
+                        if (api.isSlicingMode && api.isSlicingMode()) {
+                            writeClipPlaneFields(readClipPlaneFromWasm());
+                            updateSliceStatus(`Slice: active source=${api.getSliceSourceModelId()}`);
                         }
                         clearInteractionState();
                     } catch (err) {

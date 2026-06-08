@@ -1,3 +1,4 @@
+#include "Clip/iGameClipFilter.h"
 #include "iGameDrawObject.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
@@ -10,6 +11,7 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
+#include "Slice/iGameSliceFilter.h"
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -40,6 +42,13 @@ iGame::Interactor::Pointer g_interactor;
 IGuint g_activeModelId = 0;
 bool g_debugEnabled = true;
 int g_selectionMode = 0;
+bool g_slicingActive = false;
+int g_sliceSourceModelId = 0;
+int g_sliceResultModelId = 0;
+int g_sliceOperationMode = 0; // 0 = slice, 1 = clip
+bool g_sliceCrinkle = false;
+bool g_sliceInvert = true;
+iGame::ClipSelection::Pointer g_clipSelection;
 
 struct WebErrorState {
     int code = 0;
@@ -73,6 +82,9 @@ long long GetUnixTimestampSeconds();
 void ForEachDrawObjectInTree(const iGame::DataObject::Pointer& root,
                              const std::function<void(iGame::DrawObject::Pointer)>& fn);
 bool RebindCurrentSelectionMode(const char* funcName);
+void ExitSlicingModeInternal(bool restoreBasicStyle);
+bool BindSlicingMode(int modelId, const char* funcName);
+int ExecuteSliceOperation(const char* funcName);
 
 igm::vec3 ClampColor01(float r, float g, float b) {
     if (!std::isfinite(r)) r = 0.0f;
@@ -761,7 +773,285 @@ iGame::Model::Pointer GetActiveModel() {
     return g_scene->GetCurrentModel();
 }
 
+iGame::ClipSelection::Pointer EnsureClipSelection() {
+    if (g_clipSelection == nullptr) {
+        g_clipSelection = iGame::ClipSelection::New();
+        g_clipSelection->Preview = false;
+        g_clipSelection->SetSelectionCallBackEvent(
+                [](IGenum itemType, const std::vector<igIndex>&, iGame::Selection::Operate) {
+                    if (itemType != IG_CHANGE || !g_slicingActive) { return; }
+                    if (g_clipSelection != nullptr && g_clipSelection->Preview) {
+                        ExecuteSliceOperation("ClipSelectionPreview");
+                    }
+                },
+                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    }
+    return g_clipSelection;
+}
+
+void ExitSlicingModeInternal(bool restoreBasicStyle) {
+    if (!g_slicingActive) { return; }
+    g_slicingActive = false;
+    g_sliceSourceModelId = 0;
+    if (restoreBasicStyle && g_interactor != nullptr) {
+        iGame::SelectionParameter::Instance().SetInSelection(false);
+        g_interactor->RequestBasicStyle();
+    }
+}
+
+bool BindSlicingMode(int modelId, const char* funcName) {
+    EnsureScene();
+    if (g_interactor == nullptr || g_scene == nullptr) {
+        FailWithError(0, funcName, "scene or interactor is null");
+        return false;
+    }
+
+    auto model = g_scene->GetModelById(modelId);
+    if (model == nullptr) {
+        return FailWithError(0, funcName, "model not found id=" + std::to_string(modelId));
+    }
+
+    auto obj = model->GetDataObject();
+    if (obj == nullptr) {
+        return FailWithError(0, funcName, "model data object is null id=" + std::to_string(modelId));
+    }
+
+    g_selectionMode = 0;
+    iGame::SelectionParameter::Instance().SetInSelection(false);
+
+    auto clipSelection = EnsureClipSelection();
+    auto painter = model->GetPainter3D();
+    if (painter == nullptr) {
+        return FailWithError(0, funcName, "model painter is null id=" + std::to_string(modelId));
+    }
+    painter->SetTotallyHide(false);
+    g_interactor->SetDataObject(obj);
+    g_interactor->SetPainter3D(painter);
+    g_interactor->RequestSlicingStyle(clipSelection);
+
+    g_slicingActive = true;
+    g_sliceSourceModelId = modelId;
+    g_activeModelId = static_cast<IGuint>(modelId);
+    g_scene->SetCurrentModel(modelId);
+    if (g_interactor != nullptr && !g_interactor->IsBasicStyle()) {
+        g_scene->Update();
+    } else {
+        return FailWithError(0, funcName, "RequestSlicingStyle did not activate slicing interactor");
+    }
+    ClearLastError();
+    return true;
+}
+
+std::string GetClipPlaneJson() {
+    if (g_clipSelection == nullptr) {
+        return "{\"origin\":[0,0,0],\"normal\":[1,0,0]}";
+    }
+    std::ostringstream out;
+    out << std::setprecision(9);
+    out << "{\"origin\":[" << g_clipSelection->PlanePoint[0] << "," << g_clipSelection->PlanePoint[1] << ","
+        << g_clipSelection->PlanePoint[2] << "],\"normal\":[" << g_clipSelection->PlaneNormal[0] << ","
+        << g_clipSelection->PlaneNormal[1] << "," << g_clipSelection->PlaneNormal[2] << "]}";
+    return out.str();
+}
+
+int SetClipPlane(float ox, float oy, float oz, float nx, float ny, float nz) {
+    if (!g_slicingActive) {
+        return FailWithError(0, "SetClipPlane", "slicing mode is not active");
+    }
+    if (!std::isfinite(ox) || !std::isfinite(oy) || !std::isfinite(oz) || !std::isfinite(nx) ||
+        !std::isfinite(ny) || !std::isfinite(nz)) {
+        return FailWithError(0, "SetClipPlane", "plane values must be finite");
+    }
+    const float length2 = nx * nx + ny * ny + nz * nz;
+    if (length2 <= 1e-12f) {
+        return FailWithError(0, "SetClipPlane", "plane normal must be non-zero");
+    }
+
+    auto clipSelection = EnsureClipSelection();
+    clipSelection->PlanePoint = iGame::Vector3d{ox, oy, oz};
+    clipSelection->PlaneNormal = iGame::Vector3d{nx, ny, nz};
+    clipSelection->UpdatePlane();
+    if (g_scene != nullptr) { g_scene->Update(); }
+    ClearLastError();
+    return 1;
+}
+
+int SetSlicingPreview(bool enabled) {
+    auto clipSelection = EnsureClipSelection();
+    clipSelection->Preview = enabled;
+    ClearLastError();
+    return 1;
+}
+
+int SetSliceOperationMode(int mode) {
+    if (mode < 0 || mode > 1) {
+        return FailWithError(0, "SetSliceOperationMode", "mode must be 0(slice) or 1(clip)");
+    }
+    g_sliceOperationMode = mode;
+    ClearLastError();
+    return 1;
+}
+
+int SetSliceCrinkle(bool enabled) {
+    g_sliceCrinkle = enabled;
+    ClearLastError();
+    return 1;
+}
+
+int SetSliceInvert(bool enabled) {
+    g_sliceInvert = enabled;
+    ClearLastError();
+    return 1;
+}
+
+static bool ApplySliceOrClipToInput(iGame::DataObject::Pointer input, iGame::UnstructuredMesh::Pointer result,
+                                    double origin[3], double normal[3]) {
+    if (input == nullptr || result == nullptr) { return false; }
+
+    if (g_sliceOperationMode == 0) {
+        auto slicer = iGame::SliceFilter::New();
+        slicer->SetInput(input);
+        slicer->SetPlane(origin, normal);
+        slicer->SetCrinkle(g_sliceCrinkle);
+        if (!slicer->Execute()) { return false; }
+        auto out = slicer->GetSliceMesh();
+        if (out == nullptr) { return false; }
+        result->SetPoints(out->GetPoints());
+        result->SetCells(out->GetCells(), out->GetCellTypes());
+        result->SetAttributeSet(out->GetAttributeSet());
+        return true;
+    }
+
+    auto clipper = iGame::ClipFilter::New();
+    clipper->SetInput(input);
+    clipper->SetPlane(origin, normal);
+    clipper->SetCrinkle(g_sliceCrinkle);
+    clipper->SetInvert(g_sliceInvert);
+    if (!clipper->Execute()) { return false; }
+    auto out = clipper->GetClipMesh();
+    if (out == nullptr) { return false; }
+    result->SetPoints(out->GetPoints());
+    result->SetCells(out->GetCells(), out->GetCellTypes());
+    result->SetAttributeSet(out->GetAttributeSet());
+    return true;
+}
+
+int ExecuteSliceOperation(const char* funcName) {
+    EnsureScene();
+    if (!g_slicingActive || g_sliceSourceModelId <= 0) {
+        return FailWithError(0, funcName, "slicing mode is not active");
+    }
+    if (g_clipSelection == nullptr) {
+        return FailWithError(0, funcName, "clip selection is null");
+    }
+
+    auto sourceModel = g_scene->GetModelById(g_sliceSourceModelId);
+    if (sourceModel == nullptr) {
+        return FailWithError(0, funcName, "source model not found id=" + std::to_string(g_sliceSourceModelId));
+    }
+    auto sourceObject = sourceModel->GetDataObject();
+    if (sourceObject == nullptr) {
+        return FailWithError(0, funcName, "source data object is null");
+    }
+
+    double origin[3] = {g_clipSelection->PlanePoint[0], g_clipSelection->PlanePoint[1],
+                        g_clipSelection->PlanePoint[2]};
+    double normal[3] = {g_clipSelection->PlaneNormal[0], g_clipSelection->PlaneNormal[1],
+                        g_clipSelection->PlaneNormal[2]};
+
+    auto resultMesh = iGame::UnstructuredMesh::New();
+    const std::string suffix = g_sliceOperationMode == 0 ? "_Slice" : "_Clip";
+    const WebModelMeta* sourceMeta = FindModelMetaConst(static_cast<IGuint>(g_sliceSourceModelId));
+    const std::string sourceName = sourceMeta != nullptr ? sourceMeta->name : ("model_" + std::to_string(g_sliceSourceModelId));
+    resultMesh->SetName(sourceName + suffix);
+    if (sourceObject->GetAttributeSet() != nullptr) {
+        resultMesh->SetAttributeSet(sourceObject->GetAttributeSet());
+    }
+
+    bool ok = false;
+    if (sourceObject->HasSubDataObject()) {
+        resultMesh->ClearSubDataObject();
+        for (auto it = sourceObject->SubDataObjectIteratorBegin(); it != sourceObject->SubDataObjectIteratorEnd(); ++it) {
+            auto childObject = it->second;
+            if (childObject == nullptr) { continue; }
+            auto childResult = iGame::UnstructuredMesh::New();
+            if (!ApplySliceOrClipToInput(childObject, childResult, origin, normal)) { continue; }
+            resultMesh->AddSubDataObject(childResult);
+        }
+        ok = resultMesh->GetNumberOfSubDataObjects() > 0;
+    } else {
+        ok = ApplySliceOrClipToInput(sourceObject, resultMesh, origin, normal);
+    }
+
+    if (!ok) {
+        return FailWithError(0, funcName, "slice/clip filter produced no output");
+    }
+
+    auto sourceDraw = iGame::DynamicCast<iGame::DrawObject>(sourceObject);
+    resultMesh->SetViewStyle(sourceDraw != nullptr ? sourceDraw->GetViewStyle() : 4u);
+    resultMesh->ConvertToDrawableData();
+    if (sourceDraw != nullptr && sourceDraw->GetColorMapper() != nullptr) {
+        resultMesh->SetColorMapper(sourceDraw->GetColorMapper());
+    }
+
+    if (g_sliceResultModelId > 0) {
+        g_scene->RemoveModel(static_cast<IGuint>(g_sliceResultModelId));
+        g_modelRegistry.erase(static_cast<IGuint>(g_sliceResultModelId));
+        g_sliceResultModelId = 0;
+    }
+
+    const IGuint resultModelId = g_scene->AddModel(resultMesh);
+    if (resultModelId == 0) {
+        return FailWithError(0, funcName, "failed to add slice result model");
+    }
+
+    WebModelMeta meta;
+    meta.id = resultModelId;
+    meta.name = resultMesh->GetName();
+    meta.visible = true;
+    meta.sourceType = g_sliceOperationMode == 0 ? "slice-result" : "clip-result";
+    meta.loadTime = GetUnixTimestampSeconds();
+    auto drawObj = iGame::DynamicCast<iGame::DrawObject>(resultMesh);
+    meta.solidColor = drawObj != nullptr ? drawObj->GetDefaultColor() : igm::vec3{0.85f, 0.85f, 0.85f};
+    meta.solidEnabled = false;
+    g_modelRegistry[resultModelId] = meta;
+    g_sliceResultModelId = static_cast<int>(resultModelId);
+
+    g_scene->Update();
+    ClearLastError();
+    return static_cast<int>(resultModelId);
+}
+
+int EnterSlicingMode(int modelId) {
+    EnsureScene();
+    if (modelId <= 0) {
+        const auto active = GetActiveModel();
+        if (active == nullptr) {
+            return FailWithError(0, "EnterSlicingMode", "no active model and modelId is invalid");
+        }
+        modelId = static_cast<int>(g_activeModelId);
+    }
+    if (!BindSlicingMode(modelId, "EnterSlicingMode")) { return 0; }
+    return 1;
+}
+
+int ExitSlicingMode() {
+    ExitSlicingModeInternal(true);
+    if (g_scene != nullptr) { g_scene->Update(); }
+    ClearLastError();
+    return 1;
+}
+
+int IsSlicingMode() { return g_slicingActive ? 1 : 0; }
+
+int GetSliceSourceModelId() { return g_sliceSourceModelId; }
+
+int GetSliceResultModelId() { return g_sliceResultModelId; }
+
 bool BindSelectionMode(int mode, const char* funcName, bool allowMissingModel) {
+    if (g_slicingActive && mode != 0) {
+        ExitSlicingModeInternal(false);
+    }
     if (g_interactor == nullptr || g_scene == nullptr) {
         FailWithError(0, funcName, "scene or interactor is null");
         return false;
@@ -938,6 +1228,18 @@ struct API {
     static int clear();
     static int setSelectionMode(int mode);
     static int getSelectionMode();
+    static int enterSlicingMode(int modelId);
+    static int exitSlicingMode();
+    static int isSlicingMode();
+    static int getSliceSourceModelId();
+    static int getSliceResultModelId();
+    static std::string getClipPlaneJson();
+    static int setClipPlane(float ox, float oy, float oz, float nx, float ny, float nz);
+    static int setSlicingPreview(bool enabled);
+    static int setSliceOperationMode(int mode);
+    static int setSliceCrinkle(bool enabled);
+    static int setSliceInvert(bool enabled);
+    static int executeSlice();
     static std::string getSelectionJson(int modelId);
     static int clearSelection(int modelId);
     static int setViewStyle(int styleMask);
@@ -1436,6 +1738,9 @@ int SetSelectionMode(int mode) {
     EnsureScene();
     if (mode < 0 || mode > 2) {
         return FailWithError(0, "SetSelectionMode", "unknown selection mode=" + std::to_string(mode));
+    }
+    if (mode != 0 && g_slicingActive) {
+        ExitSlicingModeInternal(false);
     }
     if (!BindSelectionMode(mode, "SetSelectionMode", false)) return 0;
     g_selectionMode = mode;
@@ -2831,6 +3136,10 @@ int iGameWeb::API::destroy() {
     g_modelRegistry.clear();
     g_activeModelId = 0;
     g_selectionMode = 0;
+    g_slicingActive = false;
+    g_sliceSourceModelId = 0;
+    g_sliceResultModelId = 0;
+    g_clipSelection = nullptr;
     if (g_window != nullptr) {
         g_window->SetInteractor(nullptr);
         g_window->SetScene(nullptr);
@@ -3158,6 +3467,36 @@ int iGameWeb::API::setSelectionMode(int mode) {
 }
 
 int iGameWeb::API::getSelectionMode() { return iGameWeb::GetSelectionMode(); }
+
+int iGameWeb::API::enterSlicingMode(int modelId) { return EnterSlicingMode(modelId); }
+
+int iGameWeb::API::exitSlicingMode() { return ExitSlicingMode(); }
+
+int iGameWeb::API::isSlicingMode() { return IsSlicingMode(); }
+
+int iGameWeb::API::getSliceSourceModelId() { return GetSliceSourceModelId(); }
+
+int iGameWeb::API::getSliceResultModelId() { return GetSliceResultModelId(); }
+
+std::string iGameWeb::API::getClipPlaneJson() { return GetClipPlaneJson(); }
+
+int iGameWeb::API::setClipPlane(float ox, float oy, float oz, float nx, float ny, float nz) {
+    return SetClipPlane(ox, oy, oz, nx, ny, nz);
+}
+
+int iGameWeb::API::setSlicingPreview(bool enabled) { return SetSlicingPreview(enabled); }
+
+int iGameWeb::API::setSliceOperationMode(int mode) { return SetSliceOperationMode(mode); }
+
+int iGameWeb::API::setSliceCrinkle(bool enabled) { return SetSliceCrinkle(enabled); }
+
+int iGameWeb::API::setSliceInvert(bool enabled) { return SetSliceInvert(enabled); }
+
+int iGameWeb::API::executeSlice() {
+    const int ret = ExecuteSliceOperation("API.executeSlice");
+    if (ret > 0) { RenderFrame(); }
+    return ret;
+}
 
 std::string iGameWeb::API::getSelectionJson(int modelId) {
     DebugLog("INFO", "API.getSelectionJson called modelId=" + std::to_string(modelId));
@@ -3595,6 +3934,18 @@ EMSCRIPTEN_BINDINGS(iGameWeb_bindings) {
             .class_function("clear", &iGameWeb::API::clear)
             .class_function("setSelectionMode", &iGameWeb::API::setSelectionMode)
             .class_function("getSelectionMode", &iGameWeb::API::getSelectionMode)
+            .class_function("enterSlicingMode", &iGameWeb::API::enterSlicingMode)
+            .class_function("exitSlicingMode", &iGameWeb::API::exitSlicingMode)
+            .class_function("isSlicingMode", &iGameWeb::API::isSlicingMode)
+            .class_function("getSliceSourceModelId", &iGameWeb::API::getSliceSourceModelId)
+            .class_function("getSliceResultModelId", &iGameWeb::API::getSliceResultModelId)
+            .class_function("getClipPlaneJson", &iGameWeb::API::getClipPlaneJson)
+            .class_function("setClipPlane", &iGameWeb::API::setClipPlane)
+            .class_function("setSlicingPreview", &iGameWeb::API::setSlicingPreview)
+            .class_function("setSliceOperationMode", &iGameWeb::API::setSliceOperationMode)
+            .class_function("setSliceCrinkle", &iGameWeb::API::setSliceCrinkle)
+            .class_function("setSliceInvert", &iGameWeb::API::setSliceInvert)
+            .class_function("executeSlice", &iGameWeb::API::executeSlice)
             .class_function("getSelectionJson", &iGameWeb::API::getSelectionJson)
             .class_function("clearSelection", &iGameWeb::API::clearSelection)
             .class_function("setViewStyle", static_cast<int (*)(int)>(&iGameWeb::API::setViewStyle))
