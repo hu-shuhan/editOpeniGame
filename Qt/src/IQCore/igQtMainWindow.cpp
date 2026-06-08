@@ -92,11 +92,35 @@
 #include <QPropertyAnimation>
 #include <QEasingCurve>
 #include <QStyle>
+#include <QFontMetrics>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
 namespace {
+struct ToolbarSpacingMetrics {
+    int btnGap;
+    int edgeMargin;
+    int buttonPadding;
+    int verticalGap;
+    int bottomMargin;
+    int groupGap;
+    int rowGap;
+};
+
+ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
+    iconSize = qMax(24, iconSize);
+    ToolbarSpacingMetrics metrics;
+    metrics.btnGap = qMax(2, iconSize / 12);
+    metrics.edgeMargin = qMax(1, iconSize / 22);
+    metrics.buttonPadding = qMax(1, iconSize / 20);
+    metrics.verticalGap = qMax(4, iconSize / 5);
+    metrics.bottomMargin = qMax(8, iconSize / 3);
+    metrics.groupGap = qMax(6, iconSize / 6);
+    metrics.rowGap = qMax(2, iconSize / 8);
+    return metrics;
+}
+
 const char* kGlobalSpinBoxDarkQss = R"(
 QSpinBox, QDoubleSpinBox {
     background-color: #252526;
@@ -3068,11 +3092,11 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
     // 2. 创建容器和布局（原逻辑保留，微调尺寸计算）
     QWidget* container = new QWidget(toolbar);
     QGridLayout* grid = new QGridLayout(container);
-    const int gridSpacing = 6;
+    QSize iconSize = toolbar->iconSize();
+    const int gridSpacing = qMax(4, iconSize.height() / 6);
     grid->setSpacing(gridSpacing);
     grid->setContentsMargins(0, 0, 0, 0);
 
-    QSize iconSize = toolbar->iconSize();
     // 两行视图按钮比默认更大，提升可见性和点击性
     const int targetIcon = qMax(20, static_cast<int>(iconSize.height() * 0.65));
     const int rowHeight = targetIcon + 8;
@@ -3130,9 +3154,14 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     QSize iconSize = toolbar->iconSize();
     if (iconSize.width() <= 0)
         iconSize = QSize(60, 60);
+    const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize.width());
     Qt::ToolButtonStyle btnStyle = toolbar->toolButtonStyle();
     const QList<QAction*> actions = toolbar->actions();
-    const int totalH = iconSize.height() + 52;  // 單行顯示，留出標題高度和下方邊距（約12pt）
+
+    QFont titleFont(QStringLiteral("PingFang SC"));
+    titleFont.setPointSize(10);
+    const int titleTextH = QFontMetrics(titleFont).height();
+    const int totalH = iconSize.height() + spacing.verticalGap + titleTextH + spacing.bottomMargin;
 
     QWidget* container = new QWidget(this);
     container->setObjectName("toolbarContainer_" + toolbar->objectName());
@@ -3143,8 +3172,8 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     QWidget* topRow = new QWidget(container);
     topRow->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     QHBoxLayout* hLayout = new QHBoxLayout(topRow);
-    hLayout->setContentsMargins(1, 0, 1, 0);
-    hLayout->setSpacing(1);
+    hLayout->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin, 0);
+    hLayout->setSpacing(spacing.btnGap);
     hLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
     for (QAction* act : actions) {
@@ -3173,8 +3202,8 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
         b->setIconSize(iconSize);
         b->setToolButtonStyle(btnStyle);
         b->setAutoRaise(true);
-        const int buttonPadding = qMax(1, iconSize.width() / 20);
-        b->setMinimumSize(iconSize.width() + 2 * buttonPadding, iconSize.height() + 2 * buttonPadding);
+        b->setMinimumSize(iconSize.width() + 2 * spacing.buttonPadding,
+                          iconSize.height() + 2 * spacing.buttonPadding);
         b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         b->setStyleSheet(
                 "QToolButton { border: none; margin: 0; padding: 1px; }"
@@ -3189,13 +3218,14 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
 
     // 垂直布局逻辑（不变）
     QVBoxLayout* vLayout = new QVBoxLayout(container);
-    vLayout->setContentsMargins(2, 0, 2, 16);  // 增加下边距到约12pt，让标题文字与下方边界有距离
-    vLayout->setSpacing(8);  // 增加间距
+    vLayout->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin, spacing.bottomMargin);
+    vLayout->setSpacing(spacing.verticalGap);
     vLayout->setSizeConstraint(QLayout::SetFixedSize);
     vLayout->addWidget(topRow, 1);
 
     QLabel* titleLabel = new QLabel(title, container);
     titleLabel->setObjectName("toolbarTitle_" + toolbar->objectName());
+    titleLabel->setFont(titleFont);
     titleLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     titleLabel->setStyleSheet(
             "QLabel { color: #6B6B6B; font-size: 10pt; padding: 0; "
@@ -3213,7 +3243,7 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     QWidgetAction* wrapperAction = new QWidgetAction(wrapper);
     wrapperAction->setDefaultWidget(container);
     wrapper->addAction(wrapperAction);
-    wrapper->setMinimumWidth(container->sizeHint().width() + 8);
+    wrapper->setMinimumWidth(container->sizeHint().width() + spacing.btnGap * 2);
 
     this->addToolBar(area, wrapper);
 }
@@ -3240,16 +3270,26 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     }
 
     const int availableWidth = qMax(320, this->width() - 40);
-    const int gap = 6;
+    int iconSize = 44;
+    if (ui->toolBar_meshfile && ui->toolBar_meshfile->iconSize().width() > 0)
+        iconSize = ui->toolBar_meshfile->iconSize().width();
+    const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize);
+    const int gap = spacing.groupGap;
+    const int rowGap = spacing.rowGap;
     int usedWidth = 0;
 
     for (QToolBar* tb : wrappers) {
         if (!tb) continue;
         const int needWidth = qMax(tb->minimumWidth(), tb->sizeHint().width());
+        bool startsNewRow = false;
         if (usedWidth > 0 && (usedWidth + needWidth) > availableWidth) {
             this->insertToolBarBreak(tb);
+            startsNewRow = true;
             usedWidth = 0;
         }
+        tb->setStyleSheet(QStringLiteral("#%1 { margin-top: %2px; border: none; }")
+                                  .arg(tb->objectName())
+                                  .arg(startsNewRow ? rowGap : 0));
         usedWidth += needWidth + gap;
     }
 }
