@@ -23,7 +23,7 @@ int main() {
     } else {
         std::cout << "Read ERROR!\n";
     }
-    auto m_StreamBase = iGame::iGameStreamBase::New();
+    auto m_StreamBase = iGame::StreamBase::New();
     auto currentModel = scene->GetCurrentModel();
     if (!currentModel) {
         std::cout << "haven''t model" << std::endl;
@@ -55,10 +55,10 @@ int main() {
     auto streamtracer = m_StreamBase->streamFilter;
     streamtracer->initStreamTracer(_obj);
     //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
-    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max;//包围盒区域
-    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
-    Vector3f centerMax=(boundMax-boundMin)/5+boundMin;//模拟被选中重点区域
-    auto seeds=streamtracer->getAllSubBlockCenters(boundMax,boundMin,centerMax,boundMin,2,4);//4，6为划分子块的数量
+    iGame::Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max;//包围盒区域
+    iGame::Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+    iGame::Vector3f centerMax=(boundMax-boundMin)/5+boundMin;//模拟被选中重点区域
+    auto seeds=streamtracer->getAllSubBlockCenters(boundMax,boundMin,centerMax,boundMin,2,4,2,2,4,2);//4，6为划分子块的数量
    // auto seeds=streamtracer->seedPCoordGenerate(boundMax,boundMin,1000);//均匀生成1000个种子点
     float lengthOfStreamLine=5;
     float lengthOfStep=0.3;
@@ -70,7 +70,7 @@ int main() {
     m_StreamBase->SetUpdate(true);
     auto output= streamtracer->GetOutput();//这就是输出的流线数据
     scene->AddModel(m_StreamBase);
-    DynamicCast<iGame::DrawObject>(m_StreamBase)->AddViewStyle(IG_WIREFRAME);
+    iGame::DynamicCast<iGame::DrawObject>(m_StreamBase)->AddViewStyle(IG_WIREFRAME);
     //Set the original model to be invisible
     scene->ChangeModelVisibility(1, false);
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
