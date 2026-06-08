@@ -139,6 +139,16 @@ int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
     return qBound(24, static_cast<int>(qRound(static_cast<qreal>(iconSize) / scale)), 52);
 }
 
+int resolveToolbarIconSizeForWidget(const QWidget* widget) {
+    QScreen* screen = widget ? widget->screen() : nullptr;
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
+    const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
+    const int availableWidth = screen ? screen->availableGeometry().width() : (widget ? widget->width() : 1920);
+    return resolveToolbarIconSize(availableWidth, dpiScale);
+}
+
 const char* kGlobalSpinBoxDarkQss = R"(
 QSpinBox, QDoubleSpinBox {
     background-color: #252526;
@@ -3288,9 +3298,7 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     }
 
     const int availableWidth = qMax(320, this->width() - 40);
-    int iconSize = 44;
-    if (ui->toolBar_meshfile && ui->toolBar_meshfile->iconSize().width() > 0)
-        iconSize = ui->toolBar_meshfile->iconSize().width();
+    const int iconSize = resolveToolbarIconSizeForWidget(this);
     const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize);
     const int gap = spacing.groupGap;
     const int rowGap = spacing.rowGap;
@@ -3315,14 +3323,7 @@ void igQtMainWindow::relayoutToolbarWrappers() {
 void igQtMainWindow::UpdateIcons()
 {
     // 依螢幕寬度與 DPI 動態縮放，避免高縮放或低解析度下 toolbar 後段按鈕被擠壓。
-    QScreen* screen = this->screen();
-    if (!screen) {
-        screen = QGuiApplication::primaryScreen();
-    }
-
-    const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
-    const int availableWidth = screen ? screen->availableGeometry().width() : this->width();
-    const int iconSize = resolveToolbarIconSize(availableWidth, dpiScale);
+    const int iconSize = resolveToolbarIconSizeForWidget(this);
 
     for (QToolBar* tb : this->findChildren<QToolBar*>()) {
         if (tb->objectName().startsWith("wrapper_"))
