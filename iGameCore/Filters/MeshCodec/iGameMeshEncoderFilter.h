@@ -33,6 +33,28 @@ struct CodecPayloadSet {
     }
 };
 
+struct EncodeOrderRemaps {
+    std::vector<unsigned int> pointIdRemap;
+    std::vector<unsigned int> topCellIdsRemap;
+    std::vector<unsigned int> bottomCellIdRemap;
+
+    void Clear() {
+        pointIdRemap.clear();
+        topCellIdsRemap.clear();
+        bottomCellIdRemap.clear();
+    }
+};
+
+struct MeshEncodeTrace {
+    EncodeOrderRemaps orderRemaps;
+    bool hasOrderRemaps = false;
+
+    void Clear() {
+        orderRemaps.Clear();
+        hasOrderRemaps = false;
+    }
+};
+
 template<typename EncodeOutputType>
 class MeshEncoderFilter final : public MeshCodec {
 public:
@@ -54,7 +76,13 @@ public:
         m_hasCustomAdapter = true;
     }
 
+    void SetEncodeTrace(MeshEncodeTrace* trace) {
+        m_EncodeTrace = trace;
+    }
+
     bool Execute() override {
+        if (m_EncodeTrace) { m_EncodeTrace->Clear(); }
+
         // 无论编码成功/失败，都清理进度文本，避免 UI 文案残留
         struct ProgressTextResetGuard {
             ProgressObserver* observer{};
@@ -88,6 +116,12 @@ public:
 
         this->GeomEncoder(raw.geom, pointIdRemap);
         this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+        if (m_EncodeTrace) {
+            m_EncodeTrace->orderRemaps.pointIdRemap = pointIdRemap;
+            m_EncodeTrace->orderRemaps.topCellIdsRemap = topCellIdsRemap;
+            m_EncodeTrace->orderRemaps.bottomCellIdRemap = bottomCellIdRemap;
+            m_EncodeTrace->hasOrderRemaps = true;
+        }
         this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
         this->ParamsEncoder(raw.param);
 
@@ -160,6 +194,7 @@ private:
     bool m_showReport{};
     int m_compressLevel{};
     std::vector<std::pair<std::string, std::string>> m_report;
+    MeshEncodeTrace* m_EncodeTrace = nullptr;
 
 
     // region caller

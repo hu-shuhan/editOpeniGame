@@ -23,6 +23,10 @@ public:
         return {};
     }
 
+    void SetEncodeTrace(MeshEncodeTrace* trace) {
+        m_EncodeTrace = trace;
+    }
+
 protected:
     IGCWriter() = default;
     ~IGCWriter() override = default;
@@ -32,6 +36,7 @@ private:
     CodecControlParams m_CodecParams;
 
     MeshEncoderFilter<EncodeOutputBinaryArray>::Pointer m_encoder;
+    MeshEncodeTrace* m_EncodeTrace = nullptr;
 
     // helper methods
     bool EncodeData();

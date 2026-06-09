@@ -62,6 +62,7 @@ add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selecti
 add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDecoder.cpp")
 add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestEncoder.cpp")
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestSimplification.cpp")
+add_executable(testLosslessEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestLosslessEncode.cpp")
 
 add_executable(testConvertPolyhedralCells "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertPolyhedralCells.cpp")
 add_executable(testConvertToPointCloud "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToPointCloud.cpp")
@@ -146,9 +147,15 @@ target_link_libraries(testGetClosestCellsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGE
 target_link_libraries(testGetPointsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testGetCellsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
+<<<<<<< HEAD
 target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+=======
+target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testLosslessEncode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testConvertPolyhedralCells PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testConvertToPointCloud PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)

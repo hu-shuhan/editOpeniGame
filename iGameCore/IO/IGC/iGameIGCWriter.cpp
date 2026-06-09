@@ -21,6 +21,7 @@ bool IGCWriter::EncodeData()
 {
     m_encoder = EncoderType::New();
     m_encoder->SetInput(0, m_DataObject);
+    m_encoder->SetEncodeTrace(m_EncodeTrace);
 
     if (m_hasCodecParams) {
         m_encoder->SetCodecControlParams(m_CodecParams);
