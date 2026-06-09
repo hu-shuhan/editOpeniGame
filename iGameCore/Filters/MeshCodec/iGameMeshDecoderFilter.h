@@ -2,6 +2,7 @@
 #define MeshDecoder_h
 
 
+#include "MeshCodec/Archive/iGameCodecBinaryInputArchive.h"
 #include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
 #include "MeshCodec/DecodeInput/iGameIDecodeInput.h"
 #include "MeshCodec/DecodeOutput/iGameIDecodeOutput.h"
@@ -14,6 +15,7 @@
 #include "iGameMacro.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
@@ -24,6 +26,7 @@ class MeshDecoderFilter final : public MeshCodec {
 public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
+    static constexpr uint32_t SupportedParamVersion = 1;
 
     MeshDecoderFilter() {
         this->SetNumberOfInputs(1);
@@ -46,7 +49,9 @@ public:
         m_DecompressProgress = 0.0f;
 
         PayloadBuffer buf;
-        while (m_DecoderInput->ReadPayload(&buf)) { ProcessPayload(buf); }
+        while (m_DecoderInput->ReadPayload(&buf)) {
+            if (!ProcessPayload(buf)) { return false; }
+        }
 
         // 将 adapter 的输出设置到 DecodeOutput
         if (m_DecoderAdapter) {
@@ -81,16 +86,40 @@ private:
     // progress record
     float m_DecompressProgress = 0.0f;
 
+    bool ValidateCodecParams() const {
+        switch (this->m_codecParams.meshType) {
+            case IG_POINT_SET:
+            case IG_SURFACE_MESH:
+            case IG_VOLUME_MESH:
+            case IG_STRUCTURED_MESH:
+            case IG_UNSTRUCTURED_MESH:
+                break;
+            default:
+                return false;
+        }
+
+        if (this->m_codecParams.geomParams.valueSize != sizeof(float)) { return false; }
+        if (this->m_codecParams.geomParams.dimension != 3) { return false; }
+
+        for (const auto& attr : this->m_codecParams.attrParams) {
+            if (attr.dimension <= 0) { return false; }
+            if (attr.valueSize != sizeof(float) && attr.valueSize != sizeof(double)) { return false; }
+            if (attr.attachmentType != IG_POINT && attr.attachmentType != IG_CELL) { return false; }
+        }
+
+        return true;
+    }
+
     // region caller
-    void ProcessPayload(PayloadBuffer& buf) {
+    bool ProcessPayload(PayloadBuffer& buf) {
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        MeshCodecZSTD().Decompress(bufDecompressed, buf);
+        if (!MeshCodecZSTD().Decompress(bufDecompressed, buf)) { return false; }
 
         switch (type) {
             case PayloadType::kParameterSet: {
-                this->ParamsDecoder(bufDecompressed);
+                if (!this->ParamsDecoder(bufDecompressed)) { return false; }
                 if (m_DecoderAdapter) {
                     m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
                 }
@@ -101,7 +130,7 @@ private:
                 break;
             }
             case PayloadType::kAttributeBrick: {
-                this->AttrDecoder(bufDecompressed);
+                if (!this->AttrDecoder(bufDecompressed)) { return false; }
                 break;
             }
             case PayloadType::kTopologyBrick: {
@@ -111,36 +140,42 @@ private:
             default:
                 break;
         }
+        return true;
     }
     // endregion
 
     // region main decoders
-    void ParamsDecoder(PayloadBuffer& buf) {
-        IGsize staticSize = sizeof(StorageParamsWoAttr);
+    bool ParamsDecoder(PayloadBuffer& buf) {
+        if (buf.size() < sizeof(CodecStorageHeader)) {
+            IGAME_CORE_ERROR("Invalid IGC parameter payload");
+            return false;
+        }
 
-        // 读取静态数据
-        StorageParamsWoAttr paramsWoAttr{};
-        std::memcpy(&paramsWoAttr, buf.data(), staticSize);
-
-        this->m_codecParams.meshType = paramsWoAttr.meshType;
-        this->m_codecParams.structuredMeshParams = paramsWoAttr.structuredMeshParams;
-
-        this->m_codecParams.geomParams = paramsWoAttr.geomParams;
-        this->m_codecParams.topoParams = paramsWoAttr.topoParams;
-
-        this->m_codecParams.attrCount = paramsWoAttr.attrCount;
-
-        // 读取动态数据
-        this->m_codecParams.attrParams.resize(paramsWoAttr.attrCount);
-        IGsize dynamicSize = paramsWoAttr.attrCount * sizeof(AttrStorageParams);
+        CodecStorageHeader header{};
+        std::memcpy(&header, buf.data(), sizeof(CodecStorageHeader));
+        if (header.version != SupportedParamVersion) {
+            IGAME_CORE_ERROR("Unsupported IGC parameter version {}. Please update or regenerate this file", header.version);
+            return false;
+        }
 
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);
 
-        std::memcpy(this->m_codecParams.attrParams.data(), buf.data() + staticSize, dynamicSize);
+        std::vector<uint8_t> data(buf.size() - sizeof(CodecStorageHeader));
+        if (!data.empty()) {
+            std::memcpy(data.data(), buf.data() + sizeof(CodecStorageHeader), data.size());
+        }
+        CodecBinaryInputArchive ar(data);
+        this->m_codecParams.Archive(ar);
+
+        if (!ValidateCodecParams()) {
+            IGAME_CORE_ERROR("Invalid IGC parameter payload");
+            return false;
+        }
 
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);
+        return true;
     }
 
     void GeomDecoder(PayloadBuffer& buf) {
@@ -161,7 +196,7 @@ private:
         this->m_DecoderAdapter->SetPointBuffer(decodedFloat);
     }
 
-    void AttrDecoder(PayloadBuffer& buf) {
+    bool AttrDecoder(PayloadBuffer& buf) {
         std::vector<unsigned char> uCharBuffer(buf.size());
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
 
@@ -195,15 +230,11 @@ private:
                 );
 
                 // 提取属性名
-                const char* nameStart = params.name;
-                const char* nameEnd = std::find(nameStart, nameStart + sizeof(params.name), '\0');
-                const std::string attributeName(nameStart, nameEnd);
-
                 const IGsize valueCount = params.elementCount * params.dimension;
 
                 // 构建 AttributeBuffer
                 AttributeBuffer attr;
-                attr.name = attributeName;
+                attr.name = params.name;
                 attr.type = params.type;
                 attr.attachmentType = params.attachmentType;
                 attr.dimension = params.dimension;
@@ -240,6 +271,7 @@ private:
         for (const auto& attr : attrBuffers) {
             this->m_DecoderAdapter->AddAttribute(attr);
         }
+        return true;
     }
 
     void TopoDecoder(PayloadBuffer& buf) {

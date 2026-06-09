@@ -3,6 +3,7 @@
 
 #include "iGameMacro.h"
 #include "iGameType.h"
+#include <string>
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
@@ -32,6 +33,15 @@ struct FloatStorageParams {
 	IGsize valueSize = sizeof(float);  // 单个分量尺寸（字节）
 	IGsize elementCount = 0;           // 元素数量
 	int dimension = 0;                 // 维度
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(lossyMode);
+		ar.Process(errorMode);
+		ar.Process(valueSize);
+		ar.Process(elementCount);
+		ar.Process(dimension);
+	}
 };
 
 // 几何数据存储参数
@@ -39,10 +49,19 @@ struct GeomStorageParams : FloatStorageParams {};
 
 // 属性数据存储参数
 struct AttrStorageParams : FloatStorageParams {
-	char name[256] = {};               // 名称
+	std::string name = {};             // 名称
 	IGenum type = 0;                   // 类型 IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
 	IGenum attachmentType = 0;         // 附着类型 IG_POINT, IG_CELL
 	IGsize binaryCount = 0;            // 在二进制流中的长度
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		FloatStorageParams::Archive(ar);
+		ar.Process(name);
+		ar.Process(type);
+		ar.Process(attachmentType);
+		ar.Process(binaryCount);
+	}
 };
 
 // 拓扑参数
@@ -62,25 +81,55 @@ struct TopoStorageParameters {
 	int bottomCellBufferPadding = 0;
 
 	IGsize cellTypeBinaryCount = 0;
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(isSecondaryIndex);
+		ar.Process(fixedCellSize);
+		ar.Process(topCellBufferBinaryCount);
+		ar.Process(topCellSizeBinaryCount);
+		ar.Process(topCellBufferSize);
+		ar.Process(topCellBufferPadding);
+		ar.Process(bottomCellBufferBinaryCount);
+		ar.Process(bottomCellSizeBinaryCount);
+		ar.Process(bottomCellBufferSize);
+		ar.Process(bottomCellBufferPadding);
+		ar.Process(cellTypeBinaryCount);
+	}
 };
 
 // 结构化网格参数
 struct StructuredMeshStorageParameters {
 	int axisSize[3] = {0, 0, 0};
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(axisSize);
+	}
 };
 
-// 不含属性的存储参数（用于二进制写入的固定大小部分）
-struct StorageParamsWoAttr {
+struct CodecStorageHeader {
+	uint32_t version = 1;              // 参数块版本
+	bool attrUseCrossDependency = false;
+	uint8_t reserved[3] = {0, 0, 0};
+};
+
+// 完整的存储参数
+struct CodecStorageParams {
 	int meshType = 0;                  // 网格类型
 	StructuredMeshStorageParameters structuredMeshParams;
 	GeomStorageParams geomParams;
 	TopoStorageParameters topoParams;
-	int attrCount = 0;                 // 属性数量
-};
-
-// 完整的存储参数
-struct CodecStorageParams : StorageParamsWoAttr {
 	std::vector<AttrStorageParams> attrParams;
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(meshType);
+		ar.Process(structuredMeshParams);
+		ar.Process(geomParams);
+		ar.Process(topoParams);
+		ar.Process(attrParams);
+	}
 };
 
 // =====================================================================================

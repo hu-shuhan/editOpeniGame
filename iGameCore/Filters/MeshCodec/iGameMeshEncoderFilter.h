@@ -1,6 +1,7 @@
 #ifndef MeshEncoder_h
 #define MeshEncoder_h
 
+#include "MeshCodec/Archive/iGameCodecBinaryOutputArchive.h"
 #include "MeshCodec/EncodeAdapter/iGameMeshEncodeAdapterFromDataObject.h"
 #include "MeshCodec/EncodeOutput/iGameEncodeOutputBinaryArray.h"
 #include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
@@ -400,9 +401,7 @@ private:
             AttributeSet::Attribute attr = allAttrs->GetElement(dataIndex);
             AttrStorageParams attrParams;
 
-            std::memset(attrParams.name, '\0', sizeof(attrParams.name));
-            attr.pointer->GetName().copy(attrParams.name, sizeof(attrParams.name) - 1); // 保留一位给\0
-
+            attrParams.name = attr.pointer->GetName();
             attrParams.dimension = attr.pointer->GetDimension();
             attrParams.type = attr.type;
             attrParams.attachmentType = attr.attachmentType;
@@ -411,25 +410,24 @@ private:
 
             this->m_codecParams.attrParams.push_back(attrParams);
         }
-        this->m_codecParams.attrCount = this->m_codecParams.attrParams.size();
     }
 
     // endregion
 
     // region main encoders
     void ParamsEncoder(PayloadBuffer& payload) {
-        const auto paramsWoAttr = static_cast<StorageParamsWoAttr>(this->m_codecParams);
-        constexpr IGsize staticSize = sizeof(StorageParamsWoAttr);
-        const IGsize dynamicSize = this->m_codecParams.attrParams.size() * sizeof(AttrStorageParams);
-
-        payload.resize(staticSize + dynamicSize);
-
-        // 写入静态数据
-        std::memcpy(payload.data(), &paramsWoAttr, staticSize);
+        CodecStorageHeader header{};
+        header.version = 1;
         UpdateProgress(0.7);
-        // 写入动态数据
-        if (!this->m_codecParams.attrParams.empty()) {
-            std::memcpy(payload.data() + staticSize, this->m_codecParams.attrParams.data(), dynamicSize);
+
+        std::vector<uint8_t> data;
+        CodecBinaryOutputArchive ar(data);
+        this->m_codecParams.Archive(ar);
+
+        payload.resize(sizeof(CodecStorageHeader) + data.size());
+        std::memcpy(payload.data(), &header, sizeof(CodecStorageHeader));
+        if (!data.empty()) {
+            std::memcpy(payload.data() + sizeof(CodecStorageHeader), data.data(), data.size());
         }
         UpdateProgress(0.8);
     }
