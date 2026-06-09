@@ -70,7 +70,7 @@ DrawObject::DrawObject() {
     m_UseColor = false;
     m_UseNormalSmooth = false;
     m_ColorWithCell = false;
-    m_PointSize = 1.0f;
+    m_PointSize = 3.0f;
     m_LineWidth = 1.0f;
     m_CellPositionSize = 0;
 
