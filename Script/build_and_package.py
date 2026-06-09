@@ -138,6 +138,13 @@ def main():
                 "-DCMAKE_CXX_COMPILER=/usr/bin/g++-13"
             ]
         })
+        build_configs.append({
+            "name": "cmake-autobuild-release-gcc15",
+            "cmake_opts": [
+                "-DCMAKE_C_COMPILER=/usr/bin/gcc-15",
+                "-DCMAKE_CXX_COMPILER=/usr/bin/g++-15"
+            ]
+        })
     elif sys.platform == "win32":
         print("--- Detected Windows platform. Configuring MSVC build. ---")
         build_configs.append({"name": "cmake-autobuild-msvc", "cmake_opts": []})
