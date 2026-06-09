@@ -121,6 +121,34 @@ ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
     return metrics;
 }
 
+int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
+    int iconSize = 52;
+    if (availableWidth <= 1366) {
+        iconSize = 32;
+    } else if (availableWidth <= 1600) {
+        iconSize = 36;
+    } else if (availableWidth <= 1920) {
+        iconSize = 40;
+    } else if (availableWidth <= 2560) {
+        iconSize = 46;
+    } else if (availableWidth <= 2880) {
+        iconSize = 50;
+    }
+
+    const qreal scale = qMax<qreal>(1.0, dpiScale);
+    return qBound(24, static_cast<int>(qRound(static_cast<qreal>(iconSize) / scale)), 52);
+}
+
+int resolveToolbarIconSizeForWidget(const QWidget* widget) {
+    QScreen* screen = widget ? widget->screen() : nullptr;
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
+    const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
+    const int availableWidth = screen ? screen->availableGeometry().width() : (widget ? widget->width() : 1920);
+    return resolveToolbarIconSize(availableWidth, dpiScale);
+}
+
 const char* kGlobalSpinBoxDarkQss = R"(
 QSpinBox, QDoubleSpinBox {
     background-color: #252526;
@@ -3270,9 +3298,7 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     }
 
     const int availableWidth = qMax(320, this->width() - 40);
-    int iconSize = 44;
-    if (ui->toolBar_meshfile && ui->toolBar_meshfile->iconSize().width() > 0)
-        iconSize = ui->toolBar_meshfile->iconSize().width();
+    const int iconSize = resolveToolbarIconSizeForWidget(this);
     const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize);
     const int gap = spacing.groupGap;
     const int rowGap = spacing.rowGap;
@@ -3297,31 +3323,13 @@ void igQtMainWindow::relayoutToolbarWrappers() {
 void igQtMainWindow::UpdateIcons()
 {
     // 依螢幕寬度與 DPI 動態縮放，避免高縮放或低解析度下 toolbar 後段按鈕被擠壓。
-    QScreen* screen = this->screen();
-    if (!screen) {
-        screen = QGuiApplication::primaryScreen();
-    }
-
-    const qreal dpiScale = screen ? qMax<qreal>(1.0, screen->devicePixelRatio()) : 1.0;
-    const int availableWidth = screen ? screen->availableGeometry().width() : this->width();
-
-    int iconSize = 44; // 基準大小
-    if (availableWidth <= 1366) {
-        iconSize = 32;
-    } else if (availableWidth <= 1600) {
-        iconSize = 36;
-    } else if (availableWidth <= 1920) {
-        iconSize = 40;
-    }
-
-    // 在高 DPI 螢幕上進一步收斂，避免實際物理像素過大造成佈局擁擠。
-    iconSize = qBound(24, static_cast<int>(iconSize / dpiScale), 44);
+    const int iconSize = resolveToolbarIconSizeForWidget(this);
 
     for (QToolBar* tb : this->findChildren<QToolBar*>()) {
         if (tb->objectName().startsWith("wrapper_"))
             continue;
         tb->setIconSize(QSize(iconSize, iconSize));
-        tb->setMinimumHeight(iconSize + 8);
+        tb->setMinimumHeight(iconSize + qMax(6, iconSize / 6));
     }
 
 
