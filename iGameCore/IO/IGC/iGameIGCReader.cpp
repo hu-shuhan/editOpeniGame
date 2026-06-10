@@ -17,7 +17,6 @@ bool IGCReader::ParsingWithMemoryMapping() {
 
     auto decoder = MeshDecoderFilter<DecoderOutputType>::New();
     decoder->SetAdapter(std::move(adapter));
-    decoder->SetIGCLayout(m_IGCLayout);
     decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }
@@ -34,7 +33,6 @@ bool IGCReader::ParsingWithFilePath() {
 
     auto decoder = MeshDecoderFilter<DecoderOutputType>::New();
     decoder->SetAdapter(std::move(adapter));
-    decoder->SetIGCLayout(m_IGCLayout);
     decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }

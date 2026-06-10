@@ -417,7 +417,7 @@ private:
     // region main encoders
     void ParamsEncoder(PayloadBuffer& payload) {
         CodecStorageHeader header{};
-        header.version = 1;
+        header.version = CodecStorageParamVersion;
         UpdateProgress(0.7);
 
         std::vector<uint8_t> data;

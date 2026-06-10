@@ -42,7 +42,6 @@ public:
     static DataObject::Pointer ReadVTUFromMemory(const void* data, size_t size);
     static DataObject::Pointer ReadVTPFromMemory(const void* data, size_t size);
     static DataObject::Pointer ReadIGCFromMemory(const void* data, size_t size);
-    static DataObject::Pointer ReadIGCFromMemory(const void* data, size_t size, IGCLayout layout);
     static bool WriteFile(const std::string& file_name, DataObject::Pointer);
     static IGenum GetFileType(const std::string& file_name);
     static std::string GetFileTypeAsString(IGenum type);

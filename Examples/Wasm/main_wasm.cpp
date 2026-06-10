@@ -1,4 +1,10 @@
 #include "Clip/iGameClipFilter.h"
+#include "MeshCodec/Archive/iGameCodecBinaryInputArchive.h"
+#include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
+#include "MeshCodec/DecodeInput/iGameDecodeInputBinaryArray.h"
+#include "MeshCodec/DecodeOutput/iGameGenericDecodeOutput.h"
+#include "MeshCodec/iGameMeshDecoderFilter.h"
+#include "Slice/iGameSliceFilter.h"
 #include "iGameDrawObject.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
@@ -11,7 +17,6 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
-#include "Slice/iGameSliceFilter.h"
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -271,6 +276,17 @@ std::string FormatVec3(const iGame::Vector3d& v) {
     return "(" + std::to_string(v[0]) + ", " + std::to_string(v[1]) + ", " + std::to_string(v[2]) + ")";
 }
 
+std::string FormatBytePrefix(const std::string& bytes, size_t maxBytes = 16) {
+    std::ostringstream out;
+    out << std::hex << std::setfill('0');
+    const size_t count = std::min(maxBytes, bytes.size());
+    for (size_t i = 0; i < count; ++i) {
+        if (i > 0) { out << ' '; }
+        out << std::setw(2) << static_cast<unsigned int>(static_cast<unsigned char>(bytes[i]));
+    }
+    return out.str();
+}
+
 std::string DescribeDataObjectType(IGenum type) {
     switch (type) {
         case IG_DATA_OBJECT:
@@ -318,6 +334,59 @@ void LogVtuSummary(const iGame::DataObject::Pointer& dataObj, const std::string&
                              " attrs(total=" + std::to_string(totalAttrCount) +
                              ", point=" + std::to_string(pointAttrCount) + ", cell=" + std::to_string(cellAttrCount) +
                              ")" + " bbox[min=" + FormatVec3(bbox.min) + ", max=" + FormatVec3(bbox.max) + "]");
+}
+
+void LogIgcSummary(const iGame::DataObject::Pointer& dataObj, const std::string& sourceName) {
+    if (dataObj == nullptr) {
+        DebugLog("INFO", "IGC summary skipped: data object is null");
+        return;
+    }
+
+    const auto typeName = DescribeDataObjectType(dataObj->GetDataObjectType());
+    const auto pointSet = iGame::DynamicCast<iGame::PointSet>(dataObj);
+    const auto unstructuredMesh = iGame::DynamicCast<iGame::UnstructuredMesh>(dataObj);
+    const IGsize pointCount =
+            (pointSet != nullptr && pointSet->GetPoints() != nullptr) ? pointSet->GetPoints()->GetNumberOfPoints() : 0;
+    const IGsize cellCount = unstructuredMesh != nullptr ? unstructuredMesh->GetNumberOfCells() : 0;
+
+    size_t totalAttrCount = 0;
+    auto attributeSet = dataObj->GetAttributeSet();
+    if (attributeSet != nullptr) { totalAttrCount = attributeSet->GetNumberOfAttributes(); }
+
+    const auto& bbox = dataObj->GetBoundingBox();
+    DebugLog("INFO", "IGC summary sourceName=" + sourceName + " type=" + typeName +
+                             " points=" + std::to_string(pointCount) + " cells=" + std::to_string(cellCount) +
+                             " attrs(total=" + std::to_string(totalAttrCount) + ")" + " bbox[min=" +
+                             FormatVec3(bbox.min) + ", max=" + FormatVec3(bbox.max) + "]");
+}
+
+iGame::DataObject::Pointer ReadIgcWithCodecArchive(const std::string& bytes) {
+    using DecoderOutputType = iGame::GenericDecodeOutput<iGame::DataObject::Pointer>;
+
+    DebugLog("INFO", "ReadIgcWithCodecArchive begin bytes=" + std::to_string(bytes.size()) +
+                             " prefix=" + FormatBytePrefix(bytes));
+
+    auto decoderInput = iGame::DecodeInputBinaryArray::New(reinterpret_cast<const unsigned char*>(bytes.data()),
+                                                           static_cast<size_t>(bytes.size()));
+    auto adapter = std::make_unique<iGame::MeshDecodeAdapterToDataObject>();
+
+    auto decoder = iGame::MeshDecoderFilter<DecoderOutputType>::New();
+    decoder->SetAdapter(std::move(adapter));
+    decoder->SetInput(0, decoderInput);
+    if (!decoder->Execute()) {
+        DebugLog("ERROR", "ReadIgcWithCodecArchive decoder Execute returned false");
+        return nullptr;
+    }
+
+    auto output = iGame::DynamicCast<DecoderOutputType>(decoder->GetOutput());
+    if (output == nullptr) {
+        DebugLog("ERROR", "ReadIgcWithCodecArchive decoder output cast returned null");
+        return nullptr;
+    }
+
+    auto dataObj = output->GetOutput();
+    DebugLog("INFO", "ReadIgcWithCodecArchive end dataObj=" + std::string(dataObj != nullptr ? "valid" : "null"));
+    return dataObj;
 }
 
 struct ZipEntryInfo {
@@ -734,6 +803,13 @@ void RemoveAllUserModels() {
 
 int AddModelFromDataObject(iGame::SmartPointer<iGame::DataObject> dataObj, const char* sourceName, bool replaceExisting,
                            const char* sourceType) {
+    DebugLog("INFO", "AddModelFromDataObject begin sourceName=" +
+                             std::string((sourceName != nullptr && sourceName[0] != '\0') ? sourceName : "<empty>") +
+                             " sourceType=" +
+                             std::string((sourceType != nullptr && sourceType[0] != '\0') ? sourceType : "<empty>") +
+                             " replaceExisting=" + (replaceExisting ? "true" : "false") +
+                             " dataObj=" + (dataObj != nullptr ? "valid" : "null") +
+                             " scene=" + (g_scene != nullptr ? "ready" : "null"));
     if (dataObj == nullptr || g_scene == nullptr) {
         return FailWithError(0, "AddModelFromDataObject", "dataObj or scene is null");
     }
@@ -807,9 +883,7 @@ bool BindSlicingMode(int modelId, const char* funcName) {
     }
 
     auto model = g_scene->GetModelById(modelId);
-    if (model == nullptr) {
-        return FailWithError(0, funcName, "model not found id=" + std::to_string(modelId));
-    }
+    if (model == nullptr) { return FailWithError(0, funcName, "model not found id=" + std::to_string(modelId)); }
 
     auto obj = model->GetDataObject();
     if (obj == nullptr) {
@@ -843,9 +917,7 @@ bool BindSlicingMode(int modelId, const char* funcName) {
 }
 
 std::string GetClipPlaneJson() {
-    if (g_clipSelection == nullptr) {
-        return "{\"origin\":[0,0,0],\"normal\":[1,0,0]}";
-    }
+    if (g_clipSelection == nullptr) { return "{\"origin\":[0,0,0],\"normal\":[1,0,0]}"; }
     std::ostringstream out;
     out << std::setprecision(9);
     out << "{\"origin\":[" << g_clipSelection->PlanePoint[0] << "," << g_clipSelection->PlanePoint[1] << ","
@@ -855,17 +927,13 @@ std::string GetClipPlaneJson() {
 }
 
 int SetClipPlane(float ox, float oy, float oz, float nx, float ny, float nz) {
-    if (!g_slicingActive) {
-        return FailWithError(0, "SetClipPlane", "slicing mode is not active");
-    }
-    if (!std::isfinite(ox) || !std::isfinite(oy) || !std::isfinite(oz) || !std::isfinite(nx) ||
-        !std::isfinite(ny) || !std::isfinite(nz)) {
+    if (!g_slicingActive) { return FailWithError(0, "SetClipPlane", "slicing mode is not active"); }
+    if (!std::isfinite(ox) || !std::isfinite(oy) || !std::isfinite(oz) || !std::isfinite(nx) || !std::isfinite(ny) ||
+        !std::isfinite(nz)) {
         return FailWithError(0, "SetClipPlane", "plane values must be finite");
     }
     const float length2 = nx * nx + ny * ny + nz * nz;
-    if (length2 <= 1e-12f) {
-        return FailWithError(0, "SetClipPlane", "plane normal must be non-zero");
-    }
+    if (length2 <= 1e-12f) { return FailWithError(0, "SetClipPlane", "plane normal must be non-zero"); }
 
     auto clipSelection = EnsureClipSelection();
     clipSelection->PlanePoint = iGame::Vector3d{ox, oy, oz};
@@ -884,9 +952,7 @@ int SetSlicingPreview(bool enabled) {
 }
 
 int SetSliceOperationMode(int mode) {
-    if (mode < 0 || mode > 1) {
-        return FailWithError(0, "SetSliceOperationMode", "mode must be 0(slice) or 1(clip)");
-    }
+    if (mode < 0 || mode > 1) { return FailWithError(0, "SetSliceOperationMode", "mode must be 0(slice) or 1(clip)"); }
     g_sliceOperationMode = mode;
     ClearLastError();
     return 1;
@@ -941,37 +1007,32 @@ int ExecuteSliceOperation(const char* funcName) {
     if (!g_slicingActive || g_sliceSourceModelId <= 0) {
         return FailWithError(0, funcName, "slicing mode is not active");
     }
-    if (g_clipSelection == nullptr) {
-        return FailWithError(0, funcName, "clip selection is null");
-    }
+    if (g_clipSelection == nullptr) { return FailWithError(0, funcName, "clip selection is null"); }
 
     auto sourceModel = g_scene->GetModelById(g_sliceSourceModelId);
     if (sourceModel == nullptr) {
         return FailWithError(0, funcName, "source model not found id=" + std::to_string(g_sliceSourceModelId));
     }
     auto sourceObject = sourceModel->GetDataObject();
-    if (sourceObject == nullptr) {
-        return FailWithError(0, funcName, "source data object is null");
-    }
+    if (sourceObject == nullptr) { return FailWithError(0, funcName, "source data object is null"); }
 
-    double origin[3] = {g_clipSelection->PlanePoint[0], g_clipSelection->PlanePoint[1],
-                        g_clipSelection->PlanePoint[2]};
+    double origin[3] = {g_clipSelection->PlanePoint[0], g_clipSelection->PlanePoint[1], g_clipSelection->PlanePoint[2]};
     double normal[3] = {g_clipSelection->PlaneNormal[0], g_clipSelection->PlaneNormal[1],
                         g_clipSelection->PlaneNormal[2]};
 
     auto resultMesh = iGame::UnstructuredMesh::New();
     const std::string suffix = g_sliceOperationMode == 0 ? "_Slice" : "_Clip";
     const WebModelMeta* sourceMeta = FindModelMetaConst(static_cast<IGuint>(g_sliceSourceModelId));
-    const std::string sourceName = sourceMeta != nullptr ? sourceMeta->name : ("model_" + std::to_string(g_sliceSourceModelId));
+    const std::string sourceName =
+            sourceMeta != nullptr ? sourceMeta->name : ("model_" + std::to_string(g_sliceSourceModelId));
     resultMesh->SetName(sourceName + suffix);
-    if (sourceObject->GetAttributeSet() != nullptr) {
-        resultMesh->SetAttributeSet(sourceObject->GetAttributeSet());
-    }
+    if (sourceObject->GetAttributeSet() != nullptr) { resultMesh->SetAttributeSet(sourceObject->GetAttributeSet()); }
 
     bool ok = false;
     if (sourceObject->HasSubDataObject()) {
         resultMesh->ClearSubDataObject();
-        for (auto it = sourceObject->SubDataObjectIteratorBegin(); it != sourceObject->SubDataObjectIteratorEnd(); ++it) {
+        for (auto it = sourceObject->SubDataObjectIteratorBegin(); it != sourceObject->SubDataObjectIteratorEnd();
+             ++it) {
             auto childObject = it->second;
             if (childObject == nullptr) { continue; }
             auto childResult = iGame::UnstructuredMesh::New();
@@ -983,9 +1044,7 @@ int ExecuteSliceOperation(const char* funcName) {
         ok = ApplySliceOrClipToInput(sourceObject, resultMesh, origin, normal);
     }
 
-    if (!ok) {
-        return FailWithError(0, funcName, "slice/clip filter produced no output");
-    }
+    if (!ok) { return FailWithError(0, funcName, "slice/clip filter produced no output"); }
 
     auto sourceDraw = iGame::DynamicCast<iGame::DrawObject>(sourceObject);
     resultMesh->SetViewStyle(sourceDraw != nullptr ? sourceDraw->GetViewStyle() : 4u);
@@ -1001,9 +1060,7 @@ int ExecuteSliceOperation(const char* funcName) {
     }
 
     const IGuint resultModelId = g_scene->AddModel(resultMesh);
-    if (resultModelId == 0) {
-        return FailWithError(0, funcName, "failed to add slice result model");
-    }
+    if (resultModelId == 0) { return FailWithError(0, funcName, "failed to add slice result model"); }
 
     WebModelMeta meta;
     meta.id = resultModelId;
@@ -1049,9 +1106,7 @@ int GetSliceSourceModelId() { return g_sliceSourceModelId; }
 int GetSliceResultModelId() { return g_sliceResultModelId; }
 
 bool BindSelectionMode(int mode, const char* funcName, bool allowMissingModel) {
-    if (g_slicingActive && mode != 0) {
-        ExitSlicingModeInternal(false);
-    }
+    if (g_slicingActive && mode != 0) { ExitSlicingModeInternal(false); }
     if (g_interactor == nullptr || g_scene == nullptr) {
         FailWithError(0, funcName, "scene or interactor is null");
         return false;
@@ -1115,9 +1170,7 @@ bool BindSelectionMode(int mode, const char* funcName, bool allowMissingModel) {
     return true;
 }
 
-bool RebindCurrentSelectionMode(const char* funcName) {
-    return BindSelectionMode(g_selectionMode, funcName, true);
-}
+bool RebindCurrentSelectionMode(const char* funcName) { return BindSelectionMode(g_selectionMode, funcName, true); }
 
 bool ReadFloatVectorFromJsArrayLike(const val& input, std::vector<float>& output, const char* funcName) {
     try {
@@ -1140,6 +1193,8 @@ bool ReadBytesFromJsValue(const val& input, std::string& output, const char* fun
     try {
         if (input.typeOf().as<std::string>() == "string") {
             output = input.as<std::string>();
+            DebugLog("INFO", std::string(funcName) + " ReadBytesFromJsValue string bytes=" +
+                                     std::to_string(output.size()) + " prefix=" + FormatBytePrefix(output));
             return true;
         }
 
@@ -1147,6 +1202,7 @@ bool ReadBytesFromJsValue(const val& input, std::string& output, const char* fun
         if (input["buffer"].isUndefined()) { byteSource = val::global("Uint8Array").new_(input); }
 
         const size_t byteLength = byteSource["byteLength"].as<size_t>();
+        DebugLog("INFO", std::string(funcName) + " ReadBytesFromJsValue byteLength=" + std::to_string(byteLength));
         if (byteLength > output.max_size() || byteLength > MAX_SAFE_INPUT_BYTES) {
             FailWithError(0, funcName, "input byte buffer is too large to fit in wasm memory");
             return false;
@@ -1160,6 +1216,8 @@ bool ReadBytesFromJsValue(const val& input, std::string& output, const char* fun
             val target = val(typed_memory_view(static_cast<size_t>(byteLength),
                                                reinterpret_cast<unsigned char*>(output.data())));
             target.call<void>("set", byteSource);
+            DebugLog("INFO", std::string(funcName) + " ReadBytesFromJsValue copied bytes=" +
+                                     std::to_string(output.size()) + " prefix=" + FormatBytePrefix(output));
             return true;
         }
 
@@ -1183,6 +1241,8 @@ bool ReadBytesFromJsValue(const val& input, std::string& output, const char* fun
             offset += thisChunk;
             remaining -= thisChunk;
         }
+        DebugLog("INFO", std::string(funcName) + " ReadBytesFromJsValue copied chunked bytes=" +
+                                 std::to_string(output.size()) + " prefix=" + FormatBytePrefix(output));
         return true;
     } catch (...) {
         FailWithError(0, funcName, "failed to convert JS bytes to wasm byte buffer");
@@ -1210,14 +1270,10 @@ struct API {
     static int loadVtuFromMem(const val& bytes);
     static int loadVtpFromMem(const val& bytes);
     static int loadIgcFromMem(const val& bytes);
-    static int loadIgcLegacy32FromMem(const val& bytes);
-    static int loadIgcLegacy64FromMem(const val& bytes);
     static int loadVtkFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static int loadVtuFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static int loadVtpFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static int loadIgcFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
-    static int loadIgcLegacy32FromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
-    static int loadIgcLegacy64FromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static int loadZipFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static std::string getModelListJson();
     static int setActiveModel(int modelId);
@@ -1399,37 +1455,12 @@ int LoadIgcFromMem(const std::string& bytes) {
 
     EnsureScene();
 
-    auto dataObj =
-            iGame::FileIO::ReadIGCFromMemory(bytes.data(), static_cast<size_t>(bytes.size()), iGame::IGCLayout::Native);
-    if (dataObj == nullptr) return FailWithError(0, "LoadIgcFromMem", "ReadIGCFromMemory returned null");
+    auto dataObj = ReadIgcWithCodecArchive(bytes);
+    if (dataObj == nullptr) return FailWithError(0, "LoadIgcFromMem", "CodecBinaryInputArchive decode returned null");
+
+    LogIgcSummary(dataObj, "memory-igc");
 
     return AddModelFromDataObject(dataObj, "Imported IGC", false, "memory-igc");
-}
-
-int LoadIgcLegacy32FromMem(const std::string& bytes) {
-    DebugLog("INFO", "LoadIgcLegacy32FromMem called bytes=" + std::to_string(bytes.size()));
-    if (bytes.empty()) return FailWithError(0, "LoadIgcLegacy32FromMem", "empty input bytes");
-
-    EnsureScene();
-
-    auto dataObj = iGame::FileIO::ReadIGCFromMemory(bytes.data(), static_cast<size_t>(bytes.size()),
-                                                    iGame::IGCLayout::Legacy32);
-    if (dataObj == nullptr) return FailWithError(0, "LoadIgcLegacy32FromMem", "ReadIGCFromMemory returned null");
-
-    return AddModelFromDataObject(dataObj, "Imported IGC", false, "memory-igc-legacy32");
-}
-
-int LoadIgcLegacy64FromMem(const std::string& bytes) {
-    DebugLog("INFO", "LoadIgcLegacy64FromMem called bytes=" + std::to_string(bytes.size()));
-    if (bytes.empty()) return FailWithError(0, "LoadIgcLegacy64FromMem", "empty input bytes");
-
-    EnsureScene();
-
-    auto dataObj = iGame::FileIO::ReadIGCFromMemory(bytes.data(), static_cast<size_t>(bytes.size()),
-                                                    iGame::IGCLayout::Legacy64);
-    if (dataObj == nullptr) return FailWithError(0, "LoadIgcLegacy64FromMem", "ReadIGCFromMemory returned null");
-
-    return AddModelFromDataObject(dataObj, "Imported IGC", false, "memory-igc-legacy64");
 }
 
 int LoadVtkFromMemEx(const std::string& bytes, const std::string& sourceName, bool replaceExisting) {
@@ -1480,39 +1511,12 @@ int LoadIgcFromMemEx(const std::string& bytes, const std::string& sourceName, bo
 
     EnsureScene();
 
-    auto dataObj =
-            iGame::FileIO::ReadIGCFromMemory(bytes.data(), static_cast<size_t>(bytes.size()), iGame::IGCLayout::Native);
-    if (dataObj == nullptr) return FailWithError(0, "LoadIgcFromMemEx", "ReadIGCFromMemory returned null");
+    auto dataObj = ReadIgcWithCodecArchive(bytes);
+    if (dataObj == nullptr) return FailWithError(0, "LoadIgcFromMemEx", "CodecBinaryInputArchive decode returned null");
+
+    LogIgcSummary(dataObj, sourceName);
 
     return AddModelFromDataObject(dataObj, sourceName.c_str(), replaceExisting, "memory-igc");
-}
-
-int LoadIgcLegacy32FromMemEx(const std::string& bytes, const std::string& sourceName, bool replaceExisting) {
-    DebugLog("INFO", "LoadIgcLegacy32FromMemEx called bytes=" + std::to_string(bytes.size()) +
-                             " sourceName=" + sourceName + " replaceExisting=" + (replaceExisting ? "true" : "false"));
-    if (bytes.empty()) return FailWithError(0, "LoadIgcLegacy32FromMemEx", "empty input bytes");
-
-    EnsureScene();
-
-    auto dataObj = iGame::FileIO::ReadIGCFromMemory(bytes.data(), static_cast<size_t>(bytes.size()),
-                                                    iGame::IGCLayout::Legacy32);
-    if (dataObj == nullptr) return FailWithError(0, "LoadIgcLegacy32FromMemEx", "ReadIGCFromMemory returned null");
-
-    return AddModelFromDataObject(dataObj, sourceName.c_str(), replaceExisting, "memory-igc-legacy32");
-}
-
-int LoadIgcLegacy64FromMemEx(const std::string& bytes, const std::string& sourceName, bool replaceExisting) {
-    DebugLog("INFO", "LoadIgcLegacy64FromMemEx called bytes=" + std::to_string(bytes.size()) +
-                             " sourceName=" + sourceName + " replaceExisting=" + (replaceExisting ? "true" : "false"));
-    if (bytes.empty()) return FailWithError(0, "LoadIgcLegacy64FromMemEx", "empty input bytes");
-
-    EnsureScene();
-
-    auto dataObj = iGame::FileIO::ReadIGCFromMemory(bytes.data(), static_cast<size_t>(bytes.size()),
-                                                    iGame::IGCLayout::Legacy64);
-    if (dataObj == nullptr) return FailWithError(0, "LoadIgcLegacy64FromMemEx", "ReadIGCFromMemory returned null");
-
-    return AddModelFromDataObject(dataObj, sourceName.c_str(), replaceExisting, "memory-igc-legacy64");
 }
 
 int LoadIgcmFromFileEx(const std::string& filePath, const std::string& sourceName, bool replaceExisting) {
@@ -1739,9 +1743,7 @@ int SetSelectionMode(int mode) {
     if (mode < 0 || mode > 2) {
         return FailWithError(0, "SetSelectionMode", "unknown selection mode=" + std::to_string(mode));
     }
-    if (mode != 0 && g_slicingActive) {
-        ExitSlicingModeInternal(false);
-    }
+    if (mode != 0 && g_slicingActive) { ExitSlicingModeInternal(false); }
     if (!BindSelectionMode(mode, "SetSelectionMode", false)) return 0;
     g_selectionMode = mode;
     g_scene->Update();
@@ -3129,9 +3131,7 @@ int iGameWeb::API::init() {
 
 int iGameWeb::API::destroy() {
     DebugLog("INFO", "API.destroy called");
-    if (g_scene != nullptr) {
-        RemoveAllUserModels();
-    }
+    if (g_scene != nullptr) { RemoveAllUserModels(); }
 
     g_modelRegistry.clear();
     g_activeModelId = 0;
@@ -3148,9 +3148,7 @@ int iGameWeb::API::destroy() {
         g_scene->SetInteractor(nullptr);
         g_scene->Finalize();
     }
-    if (g_interactor != nullptr) {
-        g_interactor->Finalize();
-    }
+    if (g_interactor != nullptr) { g_interactor->Finalize(); }
     g_interactor = nullptr;
     g_window = nullptr;
     g_scene = nullptr;
@@ -3174,8 +3172,8 @@ std::string iGameWeb::API::stressLifecycleVtu(const val& bytes, int iterations) 
     std::string errorJson = "{}";
 
     for (int i = 0; i < requested; ++i) {
-        DebugLog("INFO", "API.stressLifecycleVtu iteration begin " + std::to_string(i + 1) + "/" +
-                                 std::to_string(requested));
+        DebugLog("INFO",
+                 "API.stressLifecycleVtu iteration begin " + std::to_string(i + 1) + "/" + std::to_string(requested));
 
         if (iGameWeb::Init() <= 0) {
             failedIteration = i + 1;
@@ -3296,30 +3294,6 @@ int iGameWeb::API::loadIgcFromMem(const val& bytes) {
     return ret;
 }
 
-int iGameWeb::API::loadIgcLegacy32FromMem(const val& bytes) {
-    DebugLog("INFO", "API.loadIgcLegacy32FromMem called");
-    std::string byteBuffer;
-    if (!ReadBytesFromJsValue(bytes, byteBuffer, "API.loadIgcLegacy32FromMem")) { return 0; }
-    int ret = iGameWeb::LoadIgcLegacy32FromMem(byteBuffer);
-    if (ret > 0) DebugLog("INFO", "API.loadIgcLegacy32FromMem success");
-    else
-        DebugLog("ERROR", "API.loadIgcLegacy32FromMem failed code=" + std::to_string(g_lastError.code) +
-                                  " detail=" + g_lastError.detail);
-    return ret;
-}
-
-int iGameWeb::API::loadIgcLegacy64FromMem(const val& bytes) {
-    DebugLog("INFO", "API.loadIgcLegacy64FromMem called");
-    std::string byteBuffer;
-    if (!ReadBytesFromJsValue(bytes, byteBuffer, "API.loadIgcLegacy64FromMem")) { return 0; }
-    int ret = iGameWeb::LoadIgcLegacy64FromMem(byteBuffer);
-    if (ret > 0) DebugLog("INFO", "API.loadIgcLegacy64FromMem success");
-    else
-        DebugLog("ERROR", "API.loadIgcLegacy64FromMem failed code=" + std::to_string(g_lastError.code) +
-                                  " detail=" + g_lastError.detail);
-    return ret;
-}
-
 int iGameWeb::API::loadVtkFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting) {
     DebugLog("INFO", "API.loadVtkFromMemEx called sourceName=" + sourceName);
     std::string byteBuffer;
@@ -3364,30 +3338,6 @@ int iGameWeb::API::loadIgcFromMemEx(const val& bytes, const std::string& sourceN
     if (ret > 0) DebugLog("INFO", "API.loadIgcFromMemEx success");
     else
         DebugLog("ERROR", "API.loadIgcFromMemEx failed code=" + std::to_string(g_lastError.code) +
-                                  " detail=" + g_lastError.detail);
-    return ret;
-}
-
-int iGameWeb::API::loadIgcLegacy32FromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting) {
-    DebugLog("INFO", "API.loadIgcLegacy32FromMemEx called sourceName=" + sourceName);
-    std::string byteBuffer;
-    if (!ReadBytesFromJsValue(bytes, byteBuffer, "API.loadIgcLegacy32FromMemEx")) { return 0; }
-    int ret = iGameWeb::LoadIgcLegacy32FromMemEx(byteBuffer, sourceName, replaceExisting);
-    if (ret > 0) DebugLog("INFO", "API.loadIgcLegacy32FromMemEx success");
-    else
-        DebugLog("ERROR", "API.loadIgcLegacy32FromMemEx failed code=" + std::to_string(g_lastError.code) +
-                                  " detail=" + g_lastError.detail);
-    return ret;
-}
-
-int iGameWeb::API::loadIgcLegacy64FromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting) {
-    DebugLog("INFO", "API.loadIgcLegacy64FromMemEx called sourceName=" + sourceName);
-    std::string byteBuffer;
-    if (!ReadBytesFromJsValue(bytes, byteBuffer, "API.loadIgcLegacy64FromMemEx")) { return 0; }
-    int ret = iGameWeb::LoadIgcLegacy64FromMemEx(byteBuffer, sourceName, replaceExisting);
-    if (ret > 0) DebugLog("INFO", "API.loadIgcLegacy64FromMemEx success");
-    else
-        DebugLog("ERROR", "API.loadIgcLegacy64FromMemEx failed code=" + std::to_string(g_lastError.code) +
                                   " detail=" + g_lastError.detail);
     return ret;
 }
@@ -3916,14 +3866,10 @@ EMSCRIPTEN_BINDINGS(iGameWeb_bindings) {
             .class_function("loadVtuFromMem", &iGameWeb::API::loadVtuFromMem)
             .class_function("loadVtpFromMem", &iGameWeb::API::loadVtpFromMem)
             .class_function("loadIgcFromMem", &iGameWeb::API::loadIgcFromMem)
-            .class_function("loadIgcLegacy32FromMem", &iGameWeb::API::loadIgcLegacy32FromMem)
-            .class_function("loadIgcLegacy64FromMem", &iGameWeb::API::loadIgcLegacy64FromMem)
             .class_function("loadVtkFromMemEx", &iGameWeb::API::loadVtkFromMemEx)
             .class_function("loadVtuFromMemEx", &iGameWeb::API::loadVtuFromMemEx)
             .class_function("loadVtpFromMemEx", &iGameWeb::API::loadVtpFromMemEx)
             .class_function("loadIgcFromMemEx", &iGameWeb::API::loadIgcFromMemEx)
-            .class_function("loadIgcLegacy32FromMemEx", &iGameWeb::API::loadIgcLegacy32FromMemEx)
-            .class_function("loadIgcLegacy64FromMemEx", &iGameWeb::API::loadIgcLegacy64FromMemEx)
             .class_function("loadZipFromMemEx", &iGameWeb::API::loadZipFromMemEx)
             .class_function("getModelListJson", &iGameWeb::API::getModelListJson)
             .class_function("setActiveModel", &iGameWeb::API::setActiveModel)

@@ -127,9 +127,6 @@
             <div class="build-marker">Build marker: vtp-loader-2026-05-22-step12</div>
             <div class="row">
                 <input id="vtkFile" type="file" accept=".vtk,.vtu,.vtp,.igc,.igcm,.zip" />
-                <label>IGC Layout</label>
-                <button id="btnLoadIgc32" type="button">Load IGC 32-bit</button>
-                <button id="btnLoadIgc64" type="button">Load IGC 64-bit</button>
                 <button id="btnLoadFromServer" type="button">Load From Server</button>
                 <button id="btnRaiseTestError" type="button">Raise Test Error</button>
                 <label>Import</label>
@@ -1661,46 +1658,6 @@
                     await loadModelBuffer(buf, file.name || 'Uploaded model');
                 });
 
-                const loadIgcBuffer = async (buf, sourceName, layoutName, loader) => {
-                    const data = new Uint8Array(buf);
-                    try {
-                        const mode = document.getElementById('importMode').value;
-                        const replaceExisting = mode === 'replace' ? 1 : 0;
-                        const fallbackName = layoutName === '32-bit' ? 'Imported IGC 32-bit' : 'Imported IGC 64-bit';
-                        const modelId = loader(data, sourceName || fallbackName, replaceExisting !== 0);
-                        if (!modelId) {
-                            throw new Error(`decode failed: ${api.getLastErrorJson()}`);
-                        }
-                        log(`IGC ${layoutName} load returned modelId=${modelId}`);
-                        refreshModelList();
-                        refreshScalarList();
-                        startRenderLoop();
-                        api.renderFrame();
-                        return true;
-                    } catch (err) {
-                        log(`IGC ${layoutName} exception: ${err && err.stack ? err.stack : err}`);
-                        return false;
-                    }
-                };
-
-                const loadSelectedIgcLayout = async (layoutName, loader) => {
-                    const fileInput = document.getElementById('vtkFile');
-                    const file = fileInput.files && fileInput.files[0];
-                    if (!file) {
-                        log(`Please choose an IGC file before loading the ${layoutName} layout.`);
-                        return false;
-                    }
-
-                    const normalized = String(file.name || '').toLowerCase();
-                    if (!normalized.endsWith('.igc')) {
-                        log(`The selected file is not an .igc file: ${file.name}`);
-                        return false;
-                    }
-
-                    const buf = await file.arrayBuffer();
-                    return loadIgcBuffer(buf, file.name || 'Uploaded IGC', layoutName, loader);
-                };
-
                 const startRenderLoop = () => {
                     if (viewerDestroyed || renderLoopStarted) {
                         return;
@@ -1777,7 +1734,7 @@
                             log('IGCM references external IGC files; please upload it as a ZIP package with its referenced .igc files.');
                             loadedResult = 0;
                         } else if (modelKind === 'igc') {
-                            loadedResult = api.loadIgcLegacy64FromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                            loadedResult = api.loadIgcFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
                         } else if (modelKind === 'vtp') {
                             loadedResult = api.loadVtpFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
                         } else if (modelKind === 'vtu') {
@@ -1875,7 +1832,7 @@
                             return false;
                         }
 
-                        const modelId = api.loadIgcLegacy64FromMemEx(bytes, frame.name, false);
+                        const modelId = api.loadIgcFromMemEx(bytes, frame.name, false);
                         if (!modelId) {
                             throw new Error(`decode failed: ${api.getLastErrorJson()}`);
                         }
@@ -1977,15 +1934,6 @@
                     }
                 });
 
-                document.getElementById('btnLoadIgc32').addEventListener('click', async () => {
-                    await loadSelectedIgcLayout('32-bit', (data, sourceName, replaceExisting) =>
-                        api.loadIgcLegacy32FromMemEx(data, sourceName, replaceExisting));
-                });
-
-                document.getElementById('btnLoadIgc64').addEventListener('click', async () => {
-                    await loadSelectedIgcLayout('64-bit', (data, sourceName, replaceExisting) =>
-                        api.loadIgcLegacy64FromMemEx(data, sourceName, replaceExisting));
-                });
             }
         };
     </script>

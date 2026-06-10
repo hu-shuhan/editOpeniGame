@@ -459,15 +459,10 @@ DataObject::Pointer FileIO::ReadVTPFromMemory(const void* data, size_t size) {
 }
 
 DataObject::Pointer FileIO::ReadIGCFromMemory(const void* data, size_t size) {
-    return ReadIGCFromMemory(data, size, IGCLayout::Native);
-}
-
-DataObject::Pointer FileIO::ReadIGCFromMemory(const void* data, size_t size, IGCLayout layout) {
     if (data == nullptr || size == 0) return nullptr;
 
     IGCReader::Pointer reader = IGCReader::New();
     reader->SetMemoryBuffer(data, size);
-    reader->SetIGCLayout(layout);
     if (!reader->Execute()) { return nullptr; }
 
     auto result = reader->GetOutput();

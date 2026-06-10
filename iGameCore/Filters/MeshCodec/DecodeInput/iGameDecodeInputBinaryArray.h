@@ -24,7 +24,12 @@ public:
     }
 
     bool Initialize() override {
-        if (m_Data == nullptr || m_Size == 0) { return false; }
+        IGAME_CORE_INFO("[IGC][DecodeInputBinaryArray] Initialize data={} size={}",
+                        m_Data != nullptr ? "valid" : "null", m_Size);
+        if (m_Data == nullptr || m_Size == 0) {
+            IGAME_CORE_ERROR("[IGC][DecodeInputBinaryArray] Initialize failed: empty input");
+            return false;
+        }
         m_Offset = 0;
         return true;
     }
@@ -32,10 +37,13 @@ public:
     bool ReadPayload(PayloadBuffer* buf) override {
         buf->resize(0);
 
+        const size_t payloadBegin = m_Offset;
         uint32_t length = 0;
         if (!ReadPayloadHeader(m_Data, m_Size, m_Offset, buf, length)) { return false; }
         if (!ReadPayloadData(m_Data, m_Size, m_Offset, buf, length)) { return false; }
 
+        IGAME_CORE_INFO("[IGC][DecodeInputBinaryArray] ReadPayload begin={} type={} length={} next={}/{}",
+                        payloadBegin, static_cast<int>(buf->type), length, m_Offset, m_Size);
         return true;
     }
 
@@ -49,7 +57,15 @@ private:
 
     bool ReadPayloadHeader(const unsigned char* data, size_t dataSize, size_t& offset, PayloadBuffer* buf,
                        uint32_t& outLength) {
-        if (offset + 5 > dataSize) { return false; }
+        if (offset + 5 > dataSize) {
+            if (offset == dataSize) {
+                IGAME_CORE_INFO("[IGC][DecodeInputBinaryArray] Reached end of stream at offset={}", offset);
+            } else {
+                IGAME_CORE_ERROR("[IGC][DecodeInputBinaryArray] Truncated payload header offset={} size={}", offset,
+                                 dataSize);
+            }
+            return false;
+        }
 
         buf->type = static_cast<PayloadType>(data[offset++]);
 
@@ -64,7 +80,11 @@ private:
 
     bool ReadPayloadData(const unsigned char* data, size_t dataSize, size_t& offset, PayloadBuffer* buf,
                          uint32_t length) {
-        if (offset + length > dataSize) { return false; }
+        if (offset + length > dataSize) {
+            IGAME_CORE_ERROR("[IGC][DecodeInputBinaryArray] Truncated payload data offset={} length={} size={}",
+                             offset, length, dataSize);
+            return false;
+        }
 
         buf->resize(length);
         if (length > 0) {
