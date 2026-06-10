@@ -5,6 +5,8 @@
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
 #include "iGameMacro.h"
 #include <functional>
+#include <limits>
+#include <type_traits>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -18,6 +20,10 @@ public:
 		const FloatControlParams& controlParams
 		)
 	{
+		static_assert((std::is_same_v<T, float> && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559) ||
+		              (std::is_same_v<T, double> && sizeof(double) == 8 && std::numeric_limits<double>::is_iec559),
+		              "MeshFloatCodec requires IEEE-754 float32 or float64");
+
 		const IGsize elementCount = storageParams.elementCount;
 		const int dimension = storageParams.dimension;
 		IGsize valueCount = elementCount * dimension;
@@ -206,6 +212,10 @@ public:
 		const std::vector<unsigned char>& source,
 		const FloatStorageParams& floatParams)
 	{
+		static_assert((std::is_same_v<T, float> && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559) ||
+		              (std::is_same_v<T, double> && sizeof(double) == 8 && std::numeric_limits<double>::is_iec559),
+		              "MeshFloatCodec requires IEEE-754 float32 or float64");
+
 		const IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 		dest.resize(valueCount);
 
