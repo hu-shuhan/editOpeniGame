@@ -15,7 +15,9 @@
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
+#include <exception>
 #include <filesystem>
+#include <limits>
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
@@ -115,28 +117,33 @@ public:
 
         CodecPayloadSet raw, compressed;
 
-        this->GeomEncoder(raw.geom, pointIdRemap);
-        this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
-        if (m_EncodeTrace) {
-            m_EncodeTrace->orderRemaps.pointIdRemap = pointIdRemap;
-            m_EncodeTrace->orderRemaps.topCellIdsRemap = topCellIdsRemap;
-            m_EncodeTrace->orderRemaps.bottomCellIdRemap = bottomCellIdRemap;
-            m_EncodeTrace->hasOrderRemaps = true;
+        try {
+            this->GeomEncoder(raw.geom, pointIdRemap);
+            this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+            if (m_EncodeTrace) {
+                m_EncodeTrace->orderRemaps.pointIdRemap = pointIdRemap;
+                m_EncodeTrace->orderRemaps.topCellIdsRemap = topCellIdsRemap;
+                m_EncodeTrace->orderRemaps.bottomCellIdRemap = bottomCellIdRemap;
+                m_EncodeTrace->hasOrderRemaps = true;
+            }
+            this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+            this->ParamsEncoder(raw.param);
+
+            // 释放 remap 内存
+            { std::vector<unsigned int>().swap(pointIdRemap); }
+            { std::vector<unsigned int>().swap(topCellIdsRemap); }
+            { std::vector<unsigned int>().swap(bottomCellIdRemap); }
+
+            CompressPayloads(raw, compressed);
+            raw.Release();
+
+            WritePayloads(compressed);
+
+            FinalizeEncoding();
+        } catch (const std::exception& e) {
+            IGAME_CORE_ERROR("Failed to encode IGC mesh payload: {}", e.what());
+            return false;
         }
-        this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
-        this->ParamsEncoder(raw.param);
-
-        // 释放 remap 内存
-        { std::vector<unsigned int>().swap(pointIdRemap); }
-        { std::vector<unsigned int>().swap(topCellIdsRemap); }
-        { std::vector<unsigned int>().swap(bottomCellIdRemap); }
-
-        CompressPayloads(raw, compressed);
-        raw.Release();
-
-        WritePayloads(compressed);
-
-        FinalizeEncoding();
 
         return true;
     }
@@ -415,19 +422,66 @@ private:
     // endregion
 
     // region main encoders
+    template<typename T>
+    static bool Exceeds32BitSize(T value) {
+        return static_cast<uint64_t>(value) > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max());
+    }
+
+    bool Requires64BitSize() const {
+        const auto& params = this->m_codecParams;
+        if (static_cast<uint64_t>(params.attrParams.size()) >
+            static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())) {
+            return true;
+        }
+
+        if (Exceeds32BitSize(params.geomParams.valueSize) ||
+            Exceeds32BitSize(params.geomParams.elementCount)) {
+            return true;
+        }
+
+        const auto& topo = params.topoParams;
+        if (Exceeds32BitSize(topo.topCellBufferBinaryCount) ||
+            Exceeds32BitSize(topo.topCellSizeBinaryCount) ||
+            Exceeds32BitSize(topo.topCellBufferSize) ||
+            Exceeds32BitSize(topo.bottomCellBufferBinaryCount) ||
+            Exceeds32BitSize(topo.bottomCellSizeBinaryCount) ||
+            Exceeds32BitSize(topo.bottomCellBufferSize) ||
+            Exceeds32BitSize(topo.cellTypeBinaryCount)) {
+            return true;
+        }
+
+        for (const auto& attr : params.attrParams) {
+            if (Exceeds32BitSize(attr.valueSize) ||
+                Exceeds32BitSize(attr.elementCount) ||
+                Exceeds32BitSize(attr.binaryCount) ||
+                Exceeds32BitSize(attr.name.size())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void ParamsEncoder(PayloadBuffer& payload) {
         CodecStorageHeader header{};
-        header.version = 1;
+        header.version = 2;
+        header.SetRequires64BitSize(Requires64BitSize());
         UpdateProgress(0.7);
+
+        std::vector<uint8_t> headerData;
+        CodecBinaryOutputArchive headerAr(headerData);
+        header.Archive(headerAr);
 
         std::vector<uint8_t> data;
         CodecBinaryOutputArchive ar(data);
         this->m_codecParams.Archive(ar);
 
-        payload.resize(sizeof(CodecStorageHeader) + data.size());
-        std::memcpy(payload.data(), &header, sizeof(CodecStorageHeader));
+        payload.resize(headerData.size() + data.size());
+        if (!headerData.empty()) {
+            std::memcpy(payload.data(), headerData.data(), headerData.size());
+        }
         if (!data.empty()) {
-            std::memcpy(payload.data() + sizeof(CodecStorageHeader), data.data(), data.size());
+            std::memcpy(payload.data() + headerData.size(), data.data(), data.size());
         }
         UpdateProgress(0.8);
     }

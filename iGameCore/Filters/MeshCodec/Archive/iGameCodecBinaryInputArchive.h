@@ -1,10 +1,13 @@
 #ifndef IGAMEVIS_IGAMECODECBINARYINPUTARCHIVE_H
 #define IGAMEVIS_IGAMECODECBINARYINPUTARCHIVE_H
 
+#include "MeshCodec/Archive/iGameCodecBinaryTypeTraits.h"
 #include "iGameICodecArchive.h"
 #include "iGameMacro.h"
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -13,79 +16,56 @@ IGAME_NAMESPACE_BEGIN
 
 class CodecBinaryInputArchive final : public ICodecArchive<CodecBinaryInputArchive> {
 public:
-    explicit CodecBinaryInputArchive(std::vector<uint8_t>& data) : m_Data(data), m_Cursor(0) {}
+    explicit CodecBinaryInputArchive(const std::vector<uint8_t>& data) : m_Reader(data) {}
 
-    //region POD 类型处理 -----------------------------------
     template<typename T>
-    std::enable_if_t<std::is_trivially_copyable_v<T>, void>
+    std::enable_if_t<
+        CodecBinaryTypeTraits<T>::Supported &&
+        !ICodecArchive<CodecBinaryInputArchive>::template HasArchiveMethod<T, CodecBinaryInputArchive>::value,
+        void>
     Process(T& target) {
-        std::memcpy(&target, m_Data.data() + m_Cursor, sizeof(T));
-        m_Cursor += sizeof(T);
+        CodecBinaryTypeTraits<T>::Read(m_Reader, target);
     }
 
     template<typename T>
-    std::enable_if_t<std::is_trivially_copyable_v<T>, void>
-    Process(std::vector<T>& target) {
-        uint64_t size;
-        Process(size);
-        target.resize(size);
-        if (size > 0) {
-            std::memcpy(target.data(), m_Data.data() + m_Cursor, size * sizeof(T));
-            m_Cursor += size * sizeof(T);
-        }
-    }
-
-    template<typename T, std::size_t N>
-    std::enable_if_t<std::is_trivially_copyable_v<T>, void>
-    Process(T (&target)[N]) {
-        std::memcpy(target, m_Data.data() + m_Cursor, N * sizeof(T));
-        m_Cursor += N * sizeof(T);
-    }
-    //endregion -----------------------------------
-
-    //region std::string 处理 -----------------------------------
-    void Process(std::string& target) {
-        uint64_t size;
-        Process(size);
-        target.resize(size);
-        std::memcpy(target.data(), m_Data.data() + m_Cursor, size);
-        m_Cursor += size;
-    }
-    //endregion -----------------------------------
-
-    //region 非 POD 类型处理 -----------------------------------
-    template<typename T>
-    std::enable_if_t<!std::is_trivially_copyable_v<T>, void>
+    std::enable_if_t<
+        ICodecArchive<CodecBinaryInputArchive>::template HasArchiveMethod<T, CodecBinaryInputArchive>::value,
+        void>
     Process(T& target) {
         target.Archive(*this);
     }
 
-    template<typename T>
-    std::enable_if_t<!std::is_trivially_copyable_v<T>, void>
-    Process(std::vector<T>& target) {
-        uint64_t size;
+    void Process(std::string& target) {
+        uint64_t size = 0;
         Process(size);
-        target.resize(size);
-        for (auto& item : target) {
-            Process(item);
+        if (size > static_cast<uint64_t>(target.max_size())) {
+            throw std::runtime_error("String size is out of range for this platform");
         }
+        target.resize(static_cast<size_t>(size));
+        m_Reader.ReadBytes(reinterpret_cast<uint8_t*>(target.data()), static_cast<size_t>(size));
+    }
+
+    template<typename T>
+    void Process(std::vector<T>& target) {
+        uint64_t size = 0;
+        Process(size);
+        if (size > static_cast<uint64_t>(target.max_size())) {
+            throw std::runtime_error("Vector size is out of range for this platform");
+        }
+        target.resize(static_cast<size_t>(size));
+        for (auto& item : target) { Process(item); }
     }
 
     template<typename T, std::size_t N>
-    std::enable_if_t<!std::is_trivially_copyable_v<T>, void>
-    Process(T (&target)[N]) {
-        for (auto& item : target) {
-            Process(item);
-        }
+    void Process(T (&target)[N]) {
+        for (auto& item : target) { Process(item); }
     }
-    //endregion -----------------------------------
 
-    size_t GetCursor() const { return m_Cursor; }
-    void SetCursor(size_t cursor) { m_Cursor = cursor; }
+    size_t GetCursor() const { return m_Reader.Cursor(); }
+    void SetCursor(size_t cursor) { m_Reader.SetCursor(cursor); }
 
 private:
-    std::vector<uint8_t>& m_Data;
-    size_t m_Cursor;
+    CodecBinaryFormatReader m_Reader;
 };
 
 IGAME_NAMESPACE_END

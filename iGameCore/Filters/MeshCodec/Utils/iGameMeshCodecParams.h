@@ -109,9 +109,30 @@ struct StructuredMeshStorageParameters {
 };
 
 struct CodecStorageHeader {
-	uint32_t version = 1;              // 参数块版本
+	uint32_t version = 2;              // 参数块版本
 	bool attrUseCrossDependency = false;
 	uint8_t reserved[3] = {0, 0, 0};
+
+	static constexpr uint8_t kRequires64BitSize = 1u << 0;
+
+	void SetRequires64BitSize(bool value) {
+		if (value) {
+			reserved[0] = static_cast<uint8_t>(reserved[0] | kRequires64BitSize);
+		} else {
+			reserved[0] = static_cast<uint8_t>(reserved[0] & ~kRequires64BitSize);
+		}
+	}
+
+	[[nodiscard]] bool Requires64BitSize() const {
+		return (reserved[0] & kRequires64BitSize) != 0;
+	}
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(version);
+		ar.Process(attrUseCrossDependency);
+		ar.Process(reserved);
+	}
 };
 
 // 完整的存储参数

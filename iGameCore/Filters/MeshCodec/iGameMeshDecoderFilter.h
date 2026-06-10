@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
@@ -26,7 +27,7 @@ class MeshDecoderFilter final : public MeshCodec {
 public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
-    static constexpr uint32_t SupportedParamVersion = 1;
+    static constexpr uint32_t SupportedParamVersion = 2;
 
     MeshDecoderFilter() {
         this->SetNumberOfInputs(1);
@@ -146,27 +147,51 @@ private:
 
     // region main decoders
     bool ParamsDecoder(PayloadBuffer& buf) {
-        if (buf.size() < sizeof(CodecStorageHeader)) {
+        constexpr size_t kCodecStorageHeaderBinarySize = sizeof(uint32_t) + sizeof(uint8_t) + 3 * sizeof(uint8_t);
+        if (buf.size() < kCodecStorageHeaderBinarySize) {
             IGAME_CORE_ERROR("Invalid IGC parameter payload");
             return false;
         }
 
         CodecStorageHeader header{};
-        std::memcpy(&header, buf.data(), sizeof(CodecStorageHeader));
+        std::vector<uint8_t> headerData(kCodecStorageHeaderBinarySize);
+        std::memcpy(headerData.data(), buf.data(), headerData.size());
+
+        try {
+            CodecBinaryInputArchive headerAr(headerData);
+            header.Archive(headerAr);
+        } catch (const std::exception& e) {
+            IGAME_CORE_ERROR("Invalid IGC parameter header: {}", e.what());
+            return false;
+        }
+
         if (header.version != SupportedParamVersion) {
             IGAME_CORE_ERROR("Unsupported IGC parameter version {}. Please update or regenerate this file", header.version);
             return false;
         }
 
+        if constexpr (sizeof(std::size_t) < sizeof(uint64_t)) {
+            if (header.Requires64BitSize()) {
+                IGAME_CORE_ERROR("IGC parameter payload requires a 64-bit platform");
+                return false;
+            }
+        }
+
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);
 
-        std::vector<uint8_t> data(buf.size() - sizeof(CodecStorageHeader));
+        std::vector<uint8_t> data(buf.size() - kCodecStorageHeaderBinarySize);
         if (!data.empty()) {
-            std::memcpy(data.data(), buf.data() + sizeof(CodecStorageHeader), data.size());
+            std::memcpy(data.data(), buf.data() + kCodecStorageHeaderBinarySize, data.size());
         }
-        CodecBinaryInputArchive ar(data);
-        this->m_codecParams.Archive(ar);
+
+        try {
+            CodecBinaryInputArchive ar(data);
+            this->m_codecParams.Archive(ar);
+        } catch (const std::exception& e) {
+            IGAME_CORE_ERROR("Invalid IGC parameter payload: {}", e.what());
+            return false;
+        }
 
         if (!ValidateCodecParams()) {
             IGAME_CORE_ERROR("Invalid IGC parameter payload");
