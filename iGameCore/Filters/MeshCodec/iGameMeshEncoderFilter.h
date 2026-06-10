@@ -422,44 +422,8 @@ private:
     // endregion
 
     // region main encoders
-    template<typename T>
-    static bool Exceeds32BitSize(T value) {
-        return static_cast<uint64_t>(value) > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max());
-    }
-
     bool Requires64BitSize() const {
-        const auto& params = this->m_codecParams;
-        if (static_cast<uint64_t>(params.attrParams.size()) >
-            static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())) {
-            return true;
-        }
-
-        if (Exceeds32BitSize(params.geomParams.valueSize) ||
-            Exceeds32BitSize(params.geomParams.elementCount)) {
-            return true;
-        }
-
-        const auto& topo = params.topoParams;
-        if (Exceeds32BitSize(topo.topCellBufferBinaryCount) ||
-            Exceeds32BitSize(topo.topCellSizeBinaryCount) ||
-            Exceeds32BitSize(topo.topCellBufferSize) ||
-            Exceeds32BitSize(topo.bottomCellBufferBinaryCount) ||
-            Exceeds32BitSize(topo.bottomCellSizeBinaryCount) ||
-            Exceeds32BitSize(topo.bottomCellBufferSize) ||
-            Exceeds32BitSize(topo.cellTypeBinaryCount)) {
-            return true;
-        }
-
-        for (const auto& attr : params.attrParams) {
-            if (Exceeds32BitSize(attr.valueSize) ||
-                Exceeds32BitSize(attr.elementCount) ||
-                Exceeds32BitSize(attr.binaryCount) ||
-                Exceeds32BitSize(attr.name.size())) {
-                return true;
-            }
-        }
-
-        return false;
+        return CodecStorageParamSizeLimits::ParamsExceed32Bit(this->m_codecParams);
     }
 
     void ParamsEncoder(PayloadBuffer& payload) {

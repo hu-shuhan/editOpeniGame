@@ -3,6 +3,7 @@
 
 #include "iGameMacro.h"
 #include "iGameType.h"
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -150,6 +151,71 @@ struct CodecStorageParams {
 		ar.Process(geomParams);
 		ar.Process(topoParams);
 		ar.Process(attrParams);
+	}
+};
+
+struct CodecStorageParamSizeLimits {
+	static constexpr uint64_t k32BitMax = std::numeric_limits<uint32_t>::max();
+
+	static bool AddWillOverflow(IGsize a, IGsize b) {
+		return b > std::numeric_limits<IGsize>::max() - a;
+	}
+
+	static bool MulWillOverflow(IGsize a, IGsize b) {
+		return b != 0 && a > std::numeric_limits<IGsize>::max() / b;
+	}
+
+	static bool Exceeds32BitValue(uint64_t value) {
+		return value > k32BitMax;
+	}
+
+	static bool SignedExceeds32Bit(int value) {
+		return value < 0 || static_cast<uint64_t>(value) > k32BitMax;
+	}
+
+	static bool AddExceeds32Bit(IGsize a, IGsize b) {
+		return AddWillOverflow(a, b) || Exceeds32BitValue(static_cast<uint64_t>(a + b));
+	}
+
+	static bool MulExceeds32Bit(IGsize a, IGsize b) {
+		return MulWillOverflow(a, b) || Exceeds32BitValue(static_cast<uint64_t>(a * b));
+	}
+
+	static bool FloatParamsExceed32Bit(const FloatStorageParams& params) {
+		return params.dimension < 0 ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.valueSize)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.elementCount)) ||
+		       SignedExceeds32Bit(params.dimension) ||
+		       MulExceeds32Bit(params.elementCount, static_cast<IGsize>(params.dimension));
+	}
+
+	static bool TopoParamsExceed32Bit(const TopoStorageParameters& params) {
+		if (params.topCellBufferPadding < 0 || params.bottomCellBufferPadding < 0) { return true; }
+		return Exceeds32BitValue(static_cast<uint64_t>(params.topCellBufferBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.topCellSizeBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.topCellBufferSize)) ||
+		       SignedExceeds32Bit(params.topCellBufferPadding) ||
+		       AddExceeds32Bit(params.topCellBufferSize, static_cast<IGsize>(params.topCellBufferPadding)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.bottomCellBufferBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.bottomCellSizeBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.bottomCellBufferSize)) ||
+		       SignedExceeds32Bit(params.bottomCellBufferPadding) ||
+		       AddExceeds32Bit(params.bottomCellBufferSize, static_cast<IGsize>(params.bottomCellBufferPadding)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.cellTypeBinaryCount));
+	}
+
+	static bool ParamsExceed32Bit(const CodecStorageParams& params) {
+		if (Exceeds32BitValue(static_cast<uint64_t>(params.attrParams.size()))) { return true; }
+		if (FloatParamsExceed32Bit(params.geomParams)) { return true; }
+		if (TopoParamsExceed32Bit(params.topoParams)) { return true; }
+		for (const auto& attr : params.attrParams) {
+			if (FloatParamsExceed32Bit(attr) ||
+			    Exceeds32BitValue(static_cast<uint64_t>(attr.binaryCount)) ||
+			    Exceeds32BitValue(static_cast<uint64_t>(attr.name.size()))) {
+				return true;
+			}
+		}
+		return false;
 	}
 };
 
