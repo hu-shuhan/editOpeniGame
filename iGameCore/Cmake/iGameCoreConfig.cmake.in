@@ -149,13 +149,22 @@ if(@ENABLE_CGNS_MODULE@)
     )
     list(APPEND IGAMEVIS_CORE_LIB_LIST
         cgns
+        hdf5
         libhdf5
+        aec
         libaec
+        hdf5_hl
         libhdf5_hl
+        hdf5_tools
         libhdf5_tools
+        z
+        zlib
         libzlib
+        sz
         libsz
+        @IGAMEVIS_PACKAGED_EXTRA_LIBS@
     )
+    list(REMOVE_DUPLICATES IGAMEVIS_CORE_LIB_LIST)
 endif()
 
 #----------------------------------------------
