@@ -3,6 +3,7 @@
 
 #include "iGameMacro.h"
 #include "zstd.h"
+#include <limits>
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
@@ -54,6 +55,10 @@ public:
 
         const unsigned long long frameSize = ZSTD_getFrameContentSize(source.data(), source.size());
         if (frameSize == ZSTD_CONTENTSIZE_ERROR || frameSize == ZSTD_CONTENTSIZE_UNKNOWN) {
+            dest.clear();
+            return false;
+        }
+        if (frameSize > static_cast<unsigned long long>(std::numeric_limits<size_t>::max())) {
             dest.clear();
             return false;
         }
