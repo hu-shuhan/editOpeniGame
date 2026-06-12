@@ -1,24 +1,3 @@
-set(IGAMEVIS_PACKAGED_EXTRA_LIBS)
-
-function(igamevis_record_packaged_library lib_path)
-    if (NOT lib_path OR NOT EXISTS "${lib_path}")
-        return()
-    endif()
-
-    get_filename_component(_lib_name "${lib_path}" NAME_WE)
-    if (_lib_name MATCHES "^lib(.+)$")
-        set(_find_name "${CMAKE_MATCH_1}")
-    else()
-        set(_find_name "${_lib_name}")
-    endif()
-
-    install(FILES "${lib_path}" DESTINATION lib/ThirdParty)
-    set(IGAMEVIS_PACKAGED_EXTRA_LIBS
-        ${IGAMEVIS_PACKAGED_EXTRA_LIBS}
-        ${_find_name}
-        PARENT_SCOPE)
-endfunction()
-
 if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     install(TARGETS ${MODULE_NAME}
             EXPORT ${MODULE_NAME}Targets
@@ -53,28 +32,14 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                 message(STATUS "HDF5 library directory: ${HDF5_LIB_DIR}")
             endif ()
 
-            set(hdf5_static_libs)
-            foreach (_hdf5_var HDF5_LIBRARIES HDF5_HL_LIBRARIES)
-                foreach (_hdf5_lib IN LISTS ${_hdf5_var})
-                    if (IS_ABSOLUTE "${_hdf5_lib}" AND EXISTS "${_hdf5_lib}")
-                        list(APPEND hdf5_static_libs "${_hdf5_lib}")
-                    endif ()
-                endforeach ()
-            endforeach ()
-
-            file(GLOB hdf5_sibling_static_libs
+            file(GLOB hdf5_static_libs
                     "${HDF5_LIB_DIR}/libhdf5*.a"
                     "${HDF5_LIB_DIR}/libhdf5_hl*.a"
-                    "${HDF5_LIB_DIR}/libaec*.a"
-                    "${HDF5_LIB_DIR}/libsz*.a"
-                    "${HDF5_LIB_DIR}/libz*.a"
             )
-            list(APPEND hdf5_static_libs ${hdf5_sibling_static_libs})
-            list(REMOVE_DUPLICATES hdf5_static_libs)
             foreach (lib ${hdf5_static_libs})
                 if (EXISTS ${lib})
                     message(STATUS "Installing static library: ${lib}")
-                    igamevis_record_packaged_library("${lib}")
+                    install(FILES ${lib} DESTINATION lib/ThirdParty)
                 endif ()
             endforeach ()
 
@@ -319,7 +284,6 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
 
     # 生成和安装 ${MODULE_NAME}Config.cmake 文件
-    list(REMOVE_DUPLICATES IGAMEVIS_PACKAGED_EXTRA_LIBS)
     configure_file(Cmake/iGameCoreConfig.cmake.in
             "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake" @ONLY)
     install(FILES
