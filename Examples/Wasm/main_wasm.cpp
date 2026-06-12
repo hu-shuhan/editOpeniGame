@@ -356,8 +356,8 @@ void LogIgcSummary(const iGame::DataObject::Pointer& dataObj, const std::string&
     const auto& bbox = dataObj->GetBoundingBox();
     DebugLog("INFO", "IGC summary sourceName=" + sourceName + " type=" + typeName +
                              " points=" + std::to_string(pointCount) + " cells=" + std::to_string(cellCount) +
-                             " attrs(total=" + std::to_string(totalAttrCount) + ")" + " bbox[min=" +
-                             FormatVec3(bbox.min) + ", max=" + FormatVec3(bbox.max) + "]");
+                             " attrs(total=" + std::to_string(totalAttrCount) + ")" +
+                             " bbox[min=" + FormatVec3(bbox.min) + ", max=" + FormatVec3(bbox.max) + "]");
 }
 
 iGame::DataObject::Pointer ReadIgcWithCodecArchive(const std::string& bytes) {
@@ -1921,6 +1921,7 @@ int SetScalarField(int attributeIndex, int dimension, int dataLocation) {
     }
 
     auto attr = attrs->GetElement(attributeIndex);
+    const std::string scalarTitle = attr.pointer != nullptr ? attr.pointer->GetName() : "";
     if (attr.isDeleted || attr.pointer == nullptr) {
         return FailWithError(-3, "SetScalarField",
                              "attribute is deleted or null index=" + std::to_string(attributeIndex));
@@ -1949,6 +1950,7 @@ int SetScalarField(int attributeIndex, int dimension, int dataLocation) {
         auto colorBar = g_scene->GetColorBar2DActor();
         if (colorBar != nullptr) {
             colorBar->SetColorMapper(drawObj->GetColorMapper());
+            colorBar->SetTitle(dimension >= 0 ? scalarTitle + "[" + std::to_string(dimension) + "]" : scalarTitle);
             g_scene->SetColorBarVisible(true);
         }
     }
@@ -2210,6 +2212,7 @@ int SetColorMapByName(int modelId, const std::string& scalarName, int dimension,
         auto colorBar = g_scene->GetColorBar2DActor();
         if (colorBar != nullptr) {
             colorBar->SetColorMapper(mapper);
+            colorBar->SetTitle(dimension >= 0 ? scalarName + "[" + std::to_string(dimension) + "]" : scalarName);
             g_scene->SetColorBarVisible(true);
         }
         g_scene->Update();
@@ -2293,6 +2296,7 @@ int SetColorMapByNameRange(int modelId, const std::string& scalarName, int dimen
         auto colorBar = g_scene->GetColorBar2DActor();
         if (colorBar != nullptr) {
             colorBar->SetColorMapper(mapper);
+            colorBar->SetTitle(dimension >= 0 ? scalarName + "[" + std::to_string(dimension) + "]" : scalarName);
             g_scene->SetColorBarVisible(true);
         }
         g_scene->Update();
