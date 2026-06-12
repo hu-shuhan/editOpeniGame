@@ -47,75 +47,28 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                     DESTINATION lib/ThirdParty)
         else ()
             find_package(HDF5 REQUIRED)
-            set(_hdf5_search_dirs)
             if (HDF5_LIBRARIES)
                 list(GET HDF5_LIBRARIES 0 first_lib)
-                if (IS_ABSOLUTE "${first_lib}")
-                    get_filename_component(HDF5_LIB_DIR ${first_lib} DIRECTORY)
-                    list(APPEND _hdf5_search_dirs "${HDF5_LIB_DIR}")
-                    get_filename_component(_hdf5_parent_lib_dir "${HDF5_LIB_DIR}" DIRECTORY)
-                    list(APPEND _hdf5_search_dirs "${_hdf5_parent_lib_dir}")
-                    message(STATUS "HDF5 library directory: ${HDF5_LIB_DIR}")
-                endif ()
+                get_filename_component(HDF5_LIB_DIR ${first_lib} DIRECTORY)
+                message(STATUS "HDF5 library directory: ${HDF5_LIB_DIR}")
             endif ()
 
             set(hdf5_static_libs)
-            list(APPEND _hdf5_search_dirs ${HDF5_LIBRARY_DIRS})
-            if (CMAKE_LIBRARY_ARCHITECTURE)
-                list(APPEND _hdf5_search_dirs
-                        "/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}"
-                        "/usr/local/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
-            endif ()
-            list(APPEND _hdf5_search_dirs /usr/lib /usr/local/lib)
-            list(REMOVE_DUPLICATES _hdf5_search_dirs)
-
-            set(_old_cmake_find_library_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
-            set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
             foreach (_hdf5_var HDF5_LIBRARIES HDF5_HL_LIBRARIES)
                 foreach (_hdf5_lib IN LISTS ${_hdf5_var})
                     if (IS_ABSOLUTE "${_hdf5_lib}" AND EXISTS "${_hdf5_lib}")
                         list(APPEND hdf5_static_libs "${_hdf5_lib}")
-                    else ()
-                        unset(_resolved_hdf5_lib CACHE)
-                        find_library(_resolved_hdf5_lib
-                                NAMES ${_hdf5_lib}
-                                HINTS ${_hdf5_search_dirs}
-                                NO_DEFAULT_PATH)
-                        if (NOT _resolved_hdf5_lib)
-                            find_library(_resolved_hdf5_lib NAMES ${_hdf5_lib})
-                        endif ()
-                        if (_resolved_hdf5_lib)
-                            list(APPEND hdf5_static_libs "${_resolved_hdf5_lib}")
-                        endif ()
                     endif ()
                 endforeach ()
             endforeach ()
 
-            foreach (_hdf5_name
-                    hdf5_serial hdf5_serial_hl hdf5_serial_cpp hdf5_serial_tools
-                    hdf5 hdf5_hl hdf5_cpp hdf5_tools
-                    aec sz z zlib)
-                unset(_resolved_hdf5_lib CACHE)
-                find_library(_resolved_hdf5_lib
-                        NAMES ${_hdf5_name}
-                        HINTS ${_hdf5_search_dirs}
-                        NO_DEFAULT_PATH)
-                if (_resolved_hdf5_lib)
-                    list(APPEND hdf5_static_libs "${_resolved_hdf5_lib}")
-                endif ()
-            endforeach ()
-            set(CMAKE_FIND_LIBRARY_SUFFIXES ${_old_cmake_find_library_suffixes})
-
             file(GLOB hdf5_sibling_static_libs
+                    "${HDF5_LIB_DIR}/libhdf5*.a"
+                    "${HDF5_LIB_DIR}/libhdf5_hl*.a"
+                    "${HDF5_LIB_DIR}/libaec*.a"
+                    "${HDF5_LIB_DIR}/libsz*.a"
+                    "${HDF5_LIB_DIR}/libz*.a"
             )
-            foreach (_hdf5_search_dir ${_hdf5_search_dirs})
-                file(GLOB _hdf5_static_libs_in_dir
-                        "${_hdf5_search_dir}/libhdf5*.a"
-                        "${_hdf5_search_dir}/libaec*.a"
-                        "${_hdf5_search_dir}/libsz*.a"
-                        "${_hdf5_search_dir}/libz*.a")
-                list(APPEND hdf5_sibling_static_libs ${_hdf5_static_libs_in_dir})
-            endforeach ()
             list(APPEND hdf5_static_libs ${hdf5_sibling_static_libs})
             list(REMOVE_DUPLICATES hdf5_static_libs)
             foreach (lib ${hdf5_static_libs})
