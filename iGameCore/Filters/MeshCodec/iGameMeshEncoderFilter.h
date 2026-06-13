@@ -91,6 +91,7 @@ public:
 
     bool Execute() override {
         if (m_EncodeTrace) { m_EncodeTrace->Clear(); }
+        ReleaseRunState();
 
         // 无论编码成功/失败，都清理进度文本，避免 UI 文案残留
         struct ProgressTextResetGuard {
@@ -100,6 +101,14 @@ public:
                 observer->UpdateText("");
             }
         } resetTextGuard{m_ProgressObserver};
+
+        struct RunStateResetGuard {
+            MeshEncoderFilter* self{};
+            bool success = false;
+            ~RunStateResetGuard() noexcept {
+                if (!success && self) { self->ReleaseRunState(); }
+            }
+        } runStateGuard{this};
 
         // 统一在入口处做类型校验：不支持则直接返回 false，避免 assert 终止进程
         const auto inputObj = GetInput(0);
@@ -146,6 +155,8 @@ public:
             WritePayloads(compressed);
 
             FinalizeEncoding();
+            ReleaseTransientRunState();
+            runStateGuard.success = true;
         } catch (const std::exception& e) {
             IGAME_CORE_ERROR("Failed to encode IGC mesh payload: {}", e.what());
             return false;
@@ -211,6 +222,27 @@ private:
     std::vector<std::pair<std::string, std::string>> m_report;
     MeshEncodeTrace* m_EncodeTrace = nullptr;
 
+    void ReleaseRunState() {
+        SetOutput(0, nullptr);
+        m_DataObj = nullptr;
+        m_EncoderOutput = nullptr;
+        if (!m_hasCustomAdapter) { m_EncoderAdapter.reset(); }
+        m_geomControlParams = FloatControlParams{};
+        std::vector<FloatControlParams>().swap(m_attrControlParams);
+        std::vector<int>().swap(m_attrSourceIndices);
+        m_codecParams = CodecStorageParams{};
+        std::vector<std::pair<std::string, std::string>>().swap(m_report);
+    }
+
+    void ReleaseTransientRunState() {
+        m_DataObj = nullptr;
+        m_EncoderOutput = nullptr;
+        if (!m_hasCustomAdapter) { m_EncoderAdapter.reset(); }
+        m_geomControlParams = FloatControlParams{};
+        std::vector<FloatControlParams>().swap(m_attrControlParams);
+        std::vector<int>().swap(m_attrSourceIndices);
+        m_codecParams = CodecStorageParams{};
+    }
 
     // region caller
     bool InitializeEncoder() {
