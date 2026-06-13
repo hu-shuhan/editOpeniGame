@@ -276,8 +276,27 @@ private:
     void WritePayloads(const CodecPayloadSet& compressed) {
         WriteBuf(compressed.param);
         WriteBuf(compressed.geom);
-        WriteBuf(compressed.topo);
-        WriteBuf(compressed.attr);
+        if (ShouldWriteTopologyPayload(compressed.topo)) {
+            WriteBuf(compressed.topo);
+        }
+        if (ShouldWriteAttributePayload(compressed.attr)) {
+            WriteBuf(compressed.attr);
+        }
+    }
+
+    bool ShouldWriteTopologyPayload(const PayloadBuffer& payload) const {
+        if (!payload.empty()) {
+            return true;
+        }
+        return this->m_codecParams.meshType != IG_POINT_SET &&
+               this->m_codecParams.meshType != IG_STRUCTURED_MESH;
+    }
+
+    bool ShouldWriteAttributePayload(const PayloadBuffer& payload) const {
+        if (!payload.empty()) {
+            return true;
+        }
+        return !this->m_codecParams.attrParams.empty();
     }
 
     void FinalizeEncoding() {
@@ -591,19 +610,7 @@ private:
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
 
-        // 点云特殊处理
-        if (this->m_codecParams.meshType == IG_POINT_SET) {
-            this->m_codecParams.topoParams.isSecondaryIndex = false;
-            this->m_codecParams.topoParams.fixedCellSize = -1;
-        } else {
-            this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
-            this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
-        }
-
-        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
-            std::memcpy(&this->m_codecParams.structuredMeshParams.axisSize,
-                        DynamicCast<StructuredMesh>(this->m_DataObj)->GetDimensionSize(), 3 * sizeof(int));
-        }
+        InitTopologyParams();
 
         // 顶点坐标
         this->m_codecParams.geomParams.valueSize = sizeof(float); // float
@@ -681,6 +688,33 @@ private:
             this->m_codecParams.attrParams.push_back(attrParams);
             this->m_attrSourceIndices.push_back(dataIndex);
         }
+    }
+
+    void InitTopologyParams() {
+        if (this->m_codecParams.meshType == IG_POINT_SET) {
+            this->m_codecParams.topoParams.isSecondaryIndex = false;
+            this->m_codecParams.topoParams.fixedCellSize = -1;
+            return;
+        }
+
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            this->m_codecParams.topoParams.isSecondaryIndex = false;
+            this->m_codecParams.topoParams.fixedCellSize = -1;
+            this->m_codecParams.topoParams.topCellBufferSize = 0;
+            this->m_codecParams.topoParams.topCellBufferBinaryCount = 0;
+            this->m_codecParams.topoParams.topCellSizeBinaryCount = 0;
+            this->m_codecParams.topoParams.cellTypeBinaryCount = 0;
+
+            const auto structuredMesh = DynamicCast<StructuredMesh>(this->m_DataObj);
+            if (structuredMesh) {
+                std::memcpy(&this->m_codecParams.structuredMeshParams.axisSize,
+                            structuredMesh->GetDimensionSize(), 3 * sizeof(int));
+            }
+            return;
+        }
+
+        this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
+        this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
     }
 
     // endregion

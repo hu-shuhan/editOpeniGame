@@ -236,6 +236,29 @@ private:
         }
     }
 
+    bool ValidateStructuredMeshParams() const {
+        if (this->m_codecParams.meshType != IG_STRUCTURED_MESH) {
+            return true;
+        }
+
+        const int* axisSize = this->m_codecParams.structuredMeshParams.axisSize;
+        if (axisSize[0] <= 0 || axisSize[1] <= 0 || axisSize[2] < 0) {
+            return false;
+        }
+
+        const IGsize axisX = static_cast<IGsize>(axisSize[0]);
+        const IGsize axisY = static_cast<IGsize>(axisSize[1]);
+        const IGsize axisZ = static_cast<IGsize>(axisSize[2] <= 1 ? 1 : axisSize[2]);
+        if (MulWillOverflow(axisX, axisY)) {
+            return false;
+        }
+        const IGsize xy = axisX * axisY;
+        if (MulWillOverflow(xy, axisZ)) {
+            return false;
+        }
+        return xy * axisZ == this->m_codecParams.geomParams.elementCount;
+    }
+
     bool ValidateCodecParams() const {
         switch (this->m_codecParams.meshType) {
             case IG_POINT_SET:
@@ -257,6 +280,7 @@ private:
         if constexpr (sizeof(std::size_t) < sizeof(uint64_t)) {
             if (CodecStorageParamSizeLimits::ParamsExceed32Bit(this->m_codecParams)) { return false; }
         }
+        if (!ValidateStructuredMeshParams()) { return false; }
 
         IGsize attrBinaryTotal = 0;
         for (const auto& attr : this->m_codecParams.attrParams) {
@@ -275,14 +299,19 @@ private:
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        if (!MeshCodecZSTD().Decompress(bufDecompressed, buf)) { return false; }
+        if (buf.empty()) {
+            // 兼容旧文件中的空可选载荷
+            if (!CanAcceptEmptyPayload(type)) {
+                return false;
+            }
+        } else if (!MeshCodecZSTD().Decompress(bufDecompressed, buf)) {
+            return false;
+        }
 
         switch (type) {
             case PayloadType::kParameterSet: {
                 if (!this->ParamsDecoder(bufDecompressed)) { return false; }
-                if (m_DecoderAdapter) {
-                    m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
-                }
+                ApplyDecodedMeshParams();
                 break;
             }
             case PayloadType::kGeometryBrick: {
@@ -301,6 +330,28 @@ private:
                 break;
         }
         return true;
+    }
+
+    void ApplyDecodedMeshParams() {
+        if (!m_DecoderAdapter) {
+            return;
+        }
+        m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            m_DecoderAdapter->SetStructuredMeshDimension(
+                this->m_codecParams.structuredMeshParams.axisSize);
+        }
+    }
+
+    bool CanAcceptEmptyPayload(PayloadType type) const {
+        if (type == PayloadType::kTopologyBrick) {
+            return this->m_codecParams.meshType == IG_POINT_SET ||
+                   this->m_codecParams.meshType == IG_STRUCTURED_MESH;
+        }
+        if (type == PayloadType::kAttributeBrick) {
+            return this->m_codecParams.attrParams.empty();
+        }
+        return false;
     }
     // endregion
 
