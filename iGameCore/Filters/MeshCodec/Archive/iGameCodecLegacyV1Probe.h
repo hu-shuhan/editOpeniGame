@@ -340,9 +340,7 @@ private:
         IGsize attrBinaryTotal = 0;
         for (const auto& attr : params.attrParams) {
             if (attr.dimension <= 0) { return fail("Legacy v1 attribute dimension is invalid"); }
-            if (attr.valueSize != sizeof(float) && attr.valueSize != sizeof(double)) {
-                return fail("Legacy v1 attribute value size is invalid");
-            }
+            if (attr.valueSize == 0) { return fail("Legacy v1 attribute value size is invalid"); }
             if (attr.type < IG_SCALAR || attr.type >= IG_ATTRIBUTE_COUNT) {
                 return fail("Legacy v1 attribute type is invalid");
             }

@@ -4,6 +4,7 @@
 #include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
 #include "iGameMacro.h"
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <type_traits>
@@ -227,6 +228,92 @@ public:
 			source.data(),
 			source.size()
 		);
+	}
+
+	template<typename T>
+	static bool FloatEncoderComponentSeries(
+		std::vector<unsigned char>& dest,
+		std::vector<T>& source,
+		const FloatStorageParams& storageParams,
+		const FloatControlParams& controlParams,
+		std::vector<IGsize>& componentBinaryCounts)
+	{
+		static_assert((std::is_same_v<T, float> && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559) ||
+		              (std::is_same_v<T, double> && sizeof(double) == 8 && std::numeric_limits<double>::is_iec559),
+		              "MeshFloatCodec requires IEEE-754 float32 or float64");
+
+		if (storageParams.dimension <= 0) { return false; }
+		if (source.size() != static_cast<size_t>(storageParams.elementCount) *
+		                     static_cast<size_t>(storageParams.dimension)) {
+			return false;
+		}
+
+		dest.clear();
+		componentBinaryCounts.clear();
+		FloatStorageParams componentParams = storageParams;
+		componentParams.dimension = 1;
+
+		for (int comp = 0; comp < storageParams.dimension; ++comp) {
+			std::vector<T> componentValues(storageParams.elementCount);
+			for (IGsize element = 0; element < storageParams.elementCount; ++element) {
+				componentValues[element] = source[element * storageParams.dimension + comp];
+			}
+
+			std::vector<unsigned char> componentEncoded;
+			FloatEncoder(componentEncoded, componentValues, componentParams, controlParams);
+			componentBinaryCounts.push_back(static_cast<IGsize>(componentEncoded.size()));
+			dest.insert(dest.end(), componentEncoded.begin(), componentEncoded.end());
+
+			for (IGsize element = 0; element < storageParams.elementCount; ++element) {
+				source[element * storageParams.dimension + comp] = componentValues[element];
+			}
+		}
+
+		return true;
+	}
+
+	template<typename T>
+	static bool FloatDecoderComponentSeries(
+		std::vector<T>& dest,
+		const std::vector<unsigned char>& source,
+		const FloatStorageParams& storageParams,
+		const std::vector<IGsize>& componentBinaryCounts)
+	{
+		static_assert((std::is_same_v<T, float> && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559) ||
+		              (std::is_same_v<T, double> && sizeof(double) == 8 && std::numeric_limits<double>::is_iec559),
+		              "MeshFloatCodec requires IEEE-754 float32 or float64");
+
+		if (storageParams.dimension <= 0) { return false; }
+		if (componentBinaryCounts.size() != static_cast<size_t>(storageParams.dimension)) { return false; }
+
+		dest.assign(static_cast<size_t>(storageParams.elementCount) *
+		            static_cast<size_t>(storageParams.dimension), T{});
+
+		FloatStorageParams componentParams = storageParams;
+		componentParams.dimension = 1;
+
+		IGsize cursor = 0;
+		for (int comp = 0; comp < storageParams.dimension; ++comp) {
+			const IGsize componentSize = componentBinaryCounts[comp];
+			if (componentSize > static_cast<IGsize>(source.size()) ||
+			    cursor > static_cast<IGsize>(source.size()) - componentSize) {
+				return false;
+			}
+
+			std::vector<unsigned char> componentBytes(
+				source.begin() + static_cast<std::ptrdiff_t>(cursor),
+				source.begin() + static_cast<std::ptrdiff_t>(cursor + componentSize));
+			std::vector<T> componentValues;
+			FloatDecoder(componentValues, componentBytes, componentParams);
+			if (componentValues.size() != static_cast<size_t>(storageParams.elementCount)) { return false; }
+
+			for (IGsize element = 0; element < storageParams.elementCount; ++element) {
+				dest[element * storageParams.dimension + comp] = componentValues[element];
+			}
+			cursor += componentSize;
+		}
+
+		return cursor == static_cast<IGsize>(source.size());
 	}
 };
 
