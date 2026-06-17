@@ -6,9 +6,40 @@
 
 #include "Meshleter/iGameSurfaceMeshMeshleter.h"
 
+#ifdef __EMSCRIPTEN__
+    #include <chrono>
+    #include <iomanip>
+    #include <iostream>
+    #include <sstream>
+#endif
+
 #include <utility>
 
 IGAME_NAMESPACE_BEGIN
+#ifdef __EMSCRIPTEN__
+namespace
+{
+using RenderTimingClock = std::chrono::steady_clock;
+constexpr int kRenderTimingDrawObjectLogLimit = 10;
+int g_renderTimingDrawObjectLogCount = 0;
+
+std::string RenderTimingMs(RenderTimingClock::duration duration) {
+    const double ms = std::chrono::duration<double, std::milli>(duration).count();
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(2) << ms << " ms";
+    return out.str();
+}
+
+bool ShouldLogRenderTimingDrawObject() {
+    if (g_renderTimingDrawObjectLogCount >= kRenderTimingDrawObjectLogLimit) {
+        return false;
+    }
+    ++g_renderTimingDrawObjectLogCount;
+    return true;
+}
+} // namespace
+#endif
+
 DrawObject::DrawObject() {
     m_AutoUpdateDrawData = true;
     m_RenderableMesh.SurfaceMesh = nullptr;
@@ -622,13 +653,36 @@ void DrawObject::CreateDrawBuffer() {
 }
 
 void DrawObject::SyncGpuBuffers() {
+#ifdef __EMSCRIPTEN__
+    const auto syncStart = RenderTimingClock::now();
+#endif
     // 多子块文件只需要处理子块
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::SyncGpuBuffers);
+#ifdef __EMSCRIPTEN__
+        const auto syncEnd = RenderTimingClock::now();
+        if (syncEnd - syncStart > std::chrono::milliseconds(1) && ShouldLogRenderTimingDrawObject()) {
+            std::cout << "[iGameWeb][INFO] [Render timing drawobject] object=" << this
+                      << " kind=composite subObjects=true sync-total=" << RenderTimingMs(syncEnd - syncStart) << '\n';
+        }
+#endif
         return;
     }
 
-    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
+#ifdef __EMSCRIPTEN__
+    const bool wasDirtyBeforeConvert = m_ReConvertToDrawableData;
+    auto convertStart = syncStart;
+    auto convertEnd = syncStart;
+#endif
+    if (m_AutoUpdateDrawData) {
+#ifdef __EMSCRIPTEN__
+        convertStart = RenderTimingClock::now();
+#endif
+        ConvertToDrawableData();
+#ifdef __EMSCRIPTEN__
+        convertEnd = RenderTimingClock::now();
+#endif
+    }
 
     // 处理其抽壳后的表面网格
     if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SyncGpuBuffers(); }
@@ -733,6 +787,21 @@ void DrawObject::SyncGpuBuffers() {
 #endif
 
     GLCheckError();
+#ifdef __EMSCRIPTEN__
+    const auto syncEnd = RenderTimingClock::now();
+    if ((wasDirtyBeforeConvert || syncEnd - syncStart > std::chrono::milliseconds(1)) &&
+        ShouldLogRenderTimingDrawObject()) {
+        std::cout << "[iGameWeb][INFO] [Render timing drawobject] object=" << this
+                  << " type=" << this->GetDataObjectType()
+                  << " dirty-before=" << (wasDirtyBeforeConvert ? "true" : "false")
+                  << " auto-update=" << (m_AutoUpdateDrawData ? "true" : "false")
+                  << " convert=" << RenderTimingMs(convertEnd - convertStart)
+                  << " sync-total=" << RenderTimingMs(syncEnd - syncStart)
+                  << " positions=" << m_Positions->GetNumberOfElements()
+                  << " triangles=" << m_TriangleIndices->GetNumberOfValues()
+                  << " lines=" << m_LineIndices->GetNumberOfValues() << '\n';
+    }
+#endif
 }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {

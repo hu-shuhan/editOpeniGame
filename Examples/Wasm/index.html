@@ -124,7 +124,7 @@
     <div class="wrap">
         <div class="card">
             <h2>iGameVis Version.Web</h2>
-            <div class="build-marker">Build marker: vtp-loader-2026-05-22-step12</div>
+            <div class="build-marker">Build marker: 2026-06-13_V1</div>
             <div class="row">
                 <input id="vtkFile" type="file" accept=".vtk,.vtu,.vtp,.igc,.igcm,.zip" />
                 <button id="btnLoadFromServer" type="button">Load From Server</button>
@@ -181,7 +181,8 @@
                 <button id="btnExitSlicing" type="button">Exit Slicing</button>
                 <button id="btnExecuteSlice" type="button">Execute</button>
                 <button id="btnApplyClipPlane" type="button">Apply Plane</button>
-                <label><input id="sliceModeSlice" name="sliceOperationMode" type="radio" value="0" checked /> Slice</label>
+                <label><input id="sliceModeSlice" name="sliceOperationMode" type="radio" value="0" checked />
+                    Slice</label>
                 <label><input id="sliceModeClip" name="sliceOperationMode" type="radio" value="1" /> Clip</label>
                 <label><input id="slicePreview" type="checkbox" /> Preview</label>
                 <label><input id="sliceCrinkle" type="checkbox" /> Crinkle</label>
@@ -343,6 +344,81 @@
         };
         let renderLoopStarted = false;
         let viewerDestroyed = false;
+        const interactionRenderStats = {
+            active: false,
+            type: '',
+            samples: [],
+            startedAt: 0,
+            wheelTimer: null,
+
+            begin(type) {
+                if (this.active && this.type === type) {
+                    return;
+                }
+                if (this.active) {
+                    this.end('switch');
+                }
+                if (this.wheelTimer !== null) {
+                    clearTimeout(this.wheelTimer);
+                    this.wheelTimer = null;
+                }
+                this.active = true;
+                this.type = type;
+                this.samples = [];
+                this.startedAt = performance.now();
+            },
+
+            record(ms) {
+                if (!this.active || !Number.isFinite(ms)) {
+                    return;
+                }
+                this.samples.push(ms);
+            },
+
+            end(reason) {
+                if (!this.active) {
+                    return;
+                }
+                if (this.wheelTimer !== null) {
+                    clearTimeout(this.wheelTimer);
+                    this.wheelTimer = null;
+                }
+
+                const type = this.type;
+                const samples = this.samples.slice();
+                this.active = false;
+                this.type = '';
+                this.samples = [];
+                this.startedAt = 0;
+
+                if (samples.length === 0) {
+                    return;
+                }
+
+                samples.sort((a, b) => a - b);
+                const sum = samples.reduce((acc, value) => acc + value, 0);
+                const percentile = (p) => {
+                    const index = Math.min(samples.length - 1, Math.floor((samples.length - 1) * p));
+                    return samples[index];
+                };
+                const over16 = samples.filter((value) => value > 16.7).length;
+                const over33 = samples.filter((value) => value > 33.3).length;
+                const avg = sum / samples.length;
+                const max = samples[samples.length - 1];
+
+                log(`[Render timing interaction] type=${type} frames=${samples.length} avg=${avg.toFixed(2)} ms p50=${percentile(0.5).toFixed(2)} ms p95=${percentile(0.95).toFixed(2)} ms max=${max.toFixed(2)} ms over16.7=${over16} over33.3=${over33}`);
+            },
+
+            endWheelSoon() {
+                if (this.wheelTimer !== null) {
+                    clearTimeout(this.wheelTimer);
+                }
+                this.wheelTimer = setTimeout(() => {
+                    this.wheelTimer = null;
+                    this.end('wheel-idle');
+                }, 300);
+            },
+        };
 
         const eventType = {
             MousePress: 0,
@@ -1557,10 +1633,12 @@
                 window.addEventListener('pointerup', suppressWindowDefaultIfNeeded, interceptOptions);
                 window.addEventListener('wheel', suppressWindowDefaultIfNeeded, wheelInterceptOptions);
                 window.addEventListener('blur', () => {
+                    interactionRenderStats.end('window-blur');
                     clearInteractionState();
                 }, interceptOptions);
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState !== 'visible') {
+                        interactionRenderStats.end('document-hidden');
                         clearInteractionState();
                     }
                 }, interceptOptions);
@@ -1585,6 +1663,9 @@
                         }
                         rightDragLock = activeButton === mouseButton.RightButton;
                         canvas.setPointerCapture(e.pointerId);
+                        if (activeButton !== mouseButton.NoButton) {
+                            interactionRenderStats.begin('drag');
+                        }
                         sendMouseEvent(eventType.MousePress, activeButton, e, 0);
                     } catch (err) {
                         log(`pointer down exception: ${err && err.stack ? err.stack : err}`);
@@ -1627,9 +1708,11 @@
                             writeClipPlaneFields(readClipPlaneFromWasm());
                             updateSliceStatus(`Slice: active source=${api.getSliceSourceModelId()}`);
                         }
+                        interactionRenderStats.end('mouse-up');
                         clearInteractionState();
                     } catch (err) {
                         log(`pointer release exception: ${err && err.stack ? err.stack : err}`);
+                        interactionRenderStats.end('mouse-up-error');
                         clearInteractionState();
                     }
                 };
@@ -1637,16 +1720,20 @@
                 canvas.addEventListener('pointerup', handlePointerRelease, interceptOptions);
                 canvas.addEventListener('pointercancel', handlePointerRelease, interceptOptions);
                 canvas.addEventListener('lostpointercapture', () => {
+                    interactionRenderStats.end('lost-pointer-capture');
                     clearInteractionState();
                 }, interceptOptions);
 
                 canvas.addEventListener('wheel', (e) => {
                     suppressCanvasDefault(e);
                     try {
+                        interactionRenderStats.begin('wheel');
                         const delta = e.deltaY < 0 ? 120 : -120;
                         sendMouseEvent(eventType.Wheel, mouseButton.NoButton, e, delta);
+                        interactionRenderStats.endWheelSoon();
                     } catch (err) {
                         log(`wheel exception: ${err && err.stack ? err.stack : err}`);
+                        interactionRenderStats.end('wheel-error');
                     }
                 }, wheelInterceptOptions);
 
@@ -1670,7 +1757,10 @@
                             return;
                         }
                         try {
+                            const frameStart = performance.now();
                             api.renderFrame();
+                            const frameMs = performance.now() - frameStart;
+                            interactionRenderStats.record(frameMs);
                         } catch (err) {
                             log(`render exception: ${err && err.stack ? err.stack : err}`);
                             renderLoopStarted = false;
@@ -1716,6 +1806,9 @@
 
                     let loadedResult = 0;
                     let modelKind = 'vtk';
+                    let igcTimingStart = 0;
+                    let igcTimingAfterLoad = 0;
+                    let shouldReportIgcTiming = false;
                     try {
                         const mode = document.getElementById('importMode').value;
                         const replaceExisting = mode === 'replace' ? 1 : 0;
@@ -1734,7 +1827,11 @@
                             log('IGCM references external IGC files; please upload it as a ZIP package with its referenced .igc files.');
                             loadedResult = 0;
                         } else if (modelKind === 'igc') {
+                            log('IGC is a compact format that may not support all VTK features; for best compatibility, please upload as ZIP package with .igc files.');
+                            shouldReportIgcTiming = true;
+                            igcTimingStart = performance.now();
                             loadedResult = api.loadIgcFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                            igcTimingAfterLoad = performance.now();
                         } else if (modelKind === 'vtp') {
                             loadedResult = api.loadVtpFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
                         } else if (modelKind === 'vtu') {
@@ -1759,6 +1856,15 @@
                     log('model loaded, start rendering');
                     refreshModelList();
                     refreshScalarList();
+                    if (shouldReportIgcTiming) {
+                        const renderStart = performance.now();
+                        api.renderFrame();
+                        const renderEnd = performance.now();
+                        log(`[IGC timing] renderFrame=${(renderEnd - renderStart).toFixed(2)} ms`);
+                        await new Promise((resolve) => requestAnimationFrame(resolve));
+                        const igcTimingAfterRender = performance.now();
+                        log(`[IGC timing] load/decode/add=${(igcTimingAfterLoad - igcTimingStart).toFixed(2)} ms, load-to-render=${(igcTimingAfterRender - igcTimingStart).toFixed(2)} ms`);
+                    }
                     startRenderLoop();
                     return true;
                 };

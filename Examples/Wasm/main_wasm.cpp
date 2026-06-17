@@ -20,6 +20,7 @@
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -30,12 +31,14 @@
 #include <fstream>
 #include <functional>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include <zlib.h>
+#include <zstd.h>
 
 using namespace emscripten;
 
@@ -53,6 +56,8 @@ int g_sliceResultModelId = 0;
 int g_sliceOperationMode = 0; // 0 = slice, 1 = clip
 bool g_sliceCrinkle = false;
 bool g_sliceInvert = true;
+int g_renderTimingFrameIndex = 0;
+int g_renderTimingFramesRemaining = 0;
 iGame::ClipSelection::Pointer g_clipSelection;
 
 struct WebErrorState {
@@ -242,6 +247,15 @@ void DebugLog(const char* level, const std::string& msg) {
     std::cout << "[iGameWeb][" << level << "] " << msg << '\n';
 }
 
+using Clock = std::chrono::steady_clock;
+std::string Ms(Clock::duration duration) {
+    const double ms = std::chrono::duration<double, std::milli>(duration).count();
+
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(2) << ms << " ms";
+    return out.str();
+}
+
 void SetLastError(int code, const char* func, const std::string& detail) {
     g_lastError.code = code;
     g_lastError.func = (func != nullptr) ? func : "unknown";
@@ -285,6 +299,297 @@ std::string FormatBytePrefix(const std::string& bytes, size_t maxBytes = 16) {
         out << std::setw(2) << static_cast<unsigned int>(static_cast<unsigned char>(bytes[i]));
     }
     return out.str();
+}
+
+const char* IgcPayloadTypeName(iGame::PayloadType type) {
+    switch (type) {
+        case iGame::PayloadType::kParameterSet:
+            return "ParameterSet";
+        case iGame::PayloadType::kGeometryBrick:
+            return "GeometryBrick";
+        case iGame::PayloadType::kAttributeBrick:
+            return "AttributeBrick";
+        case iGame::PayloadType::kTopologyBrick:
+            return "TopologyBrick";
+        case iGame::PayloadType::kCompressedBrick:
+            return "CompressedBrick";
+        default:
+            return "Unknown";
+    }
+}
+
+uint32_t ReadIgcPayloadLength(const std::string& bytes, size_t offset) {
+    return (static_cast<uint32_t>(static_cast<unsigned char>(bytes[offset + 1])) << 24) |
+           (static_cast<uint32_t>(static_cast<unsigned char>(bytes[offset + 2])) << 16) |
+           (static_cast<uint32_t>(static_cast<unsigned char>(bytes[offset + 3])) << 8) |
+           static_cast<uint32_t>(static_cast<unsigned char>(bytes[offset + 4]));
+}
+
+bool DecompressIgcPayload(const unsigned char* compressed, size_t compressedSize, std::vector<uint8_t>& decompressed,
+                          std::string& error) {
+    const auto decompressedSize = ZSTD_getFrameContentSize(compressed, compressedSize);
+    if (decompressedSize == ZSTD_CONTENTSIZE_ERROR) {
+        error = "not a zstd frame";
+        return false;
+    }
+    if (decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN) {
+        error = "unknown zstd decompressed size";
+        return false;
+    }
+    if (decompressedSize > static_cast<unsigned long long>(std::numeric_limits<size_t>::max())) {
+        error = "zstd decompressed size exceeds size_t";
+        return false;
+    }
+
+    decompressed.assign(static_cast<size_t>(decompressedSize), 0);
+    const auto actualSize = ZSTD_decompress(decompressed.data(), decompressed.size(), compressed, compressedSize);
+    if (ZSTD_isError(actualSize)) {
+        error = ZSTD_getErrorName(actualSize);
+        decompressed.clear();
+        return false;
+    }
+    if (actualSize != decompressed.size()) {
+        error = "zstd decompressed size mismatch actual=" + std::to_string(actualSize) +
+                " expected=" + std::to_string(decompressed.size());
+        decompressed.clear();
+        return false;
+    }
+    return true;
+}
+
+void LogIgcCodecStoragePlatformInfo() {
+    DebugLog("INFO", "[IGC][ByteStream] parameter platform sizeof(size_t)=" + std::to_string(sizeof(std::size_t)) +
+                             " sizeof(IGsize)=" + std::to_string(sizeof(IGsize)) + " sizeof(IGenum)=" +
+                             std::to_string(sizeof(IGenum)) + " meshTypes=[pointSet=" + std::to_string(IG_POINT_SET) +
+                             ",surface=" + std::to_string(IG_SURFACE_MESH) + ",volume=" +
+                             std::to_string(IG_VOLUME_MESH) + ",unstructured=" + std::to_string(IG_UNSTRUCTURED_MESH) +
+                             ",structured=" + std::to_string(IG_STRUCTURED_MESH) +
+                             "] attrTypes=[scalar=" + std::to_string(IG_SCALAR) +
+                             ",attrCount=" + std::to_string(IG_ATTRIBUTE_COUNT) + ",point=" + std::to_string(IG_POINT) +
+                             ",cell=" + std::to_string(IG_CELL) + ",midPoint=" + std::to_string(IG_MID_POINT) + "]");
+}
+
+bool LogIgcCodecStorageParamsValidation(const iGame::CodecStorageParams& params) {
+    switch (params.meshType) {
+        case IG_POINT_SET:
+        case IG_SURFACE_MESH:
+        case IG_VOLUME_MESH:
+        case IG_STRUCTURED_MESH:
+        case IG_UNSTRUCTURED_MESH:
+            break;
+        default:
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: invalid meshType value=" +
+                                      std::to_string(params.meshType));
+            return false;
+    }
+
+    if (params.geomParams.valueSize != sizeof(float)) {
+        DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: geom valueSize invalid value=" +
+                                  std::to_string(params.geomParams.valueSize) +
+                                  " expected=" + std::to_string(sizeof(float)));
+        return false;
+    }
+    if (params.geomParams.dimension != 3) {
+        DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: geom dimension invalid value=" +
+                                  std::to_string(params.geomParams.dimension));
+        return false;
+    }
+    if (params.geomParams.dimension < 0 ||
+        (params.geomParams.dimension != 0 &&
+         params.geomParams.elementCount >
+                 std::numeric_limits<IGsize>::max() / static_cast<IGsize>(params.geomParams.dimension))) {
+        DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: geom elementCount*dimension overflow "
+                          "elementCount=" +
+                                  std::to_string(params.geomParams.elementCount) +
+                                  " dimension=" + std::to_string(params.geomParams.dimension));
+        return false;
+    }
+    if constexpr (sizeof(std::size_t) < sizeof(uint64_t)) {
+        if (iGame::CodecStorageParamSizeLimits::ParamsExceed32Bit(params)) {
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: params exceed 32-bit platform limit");
+            return false;
+        }
+    }
+
+    IGsize attrBinaryTotal = 0;
+    for (size_t index = 0; index < params.attrParams.size(); ++index) {
+        const auto& attr = params.attrParams[index];
+        if (attr.dimension <= 0) {
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: attr[" + std::to_string(index) +
+                                      "] dimension invalid value=" + std::to_string(attr.dimension) +
+                                      " name=" + attr.name);
+            return false;
+        }
+        if (attr.valueSize != sizeof(float) && attr.valueSize != sizeof(double)) {
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: attr[" + std::to_string(index) +
+                                      "] valueSize invalid value=" + std::to_string(attr.valueSize) +
+                                      " name=" + attr.name);
+            return false;
+        }
+        if (attr.type < IG_SCALAR || attr.type >= IG_ATTRIBUTE_COUNT) {
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: attr[" + std::to_string(index) +
+                                      "] type invalid value=" + std::to_string(attr.type) + " name=" + attr.name);
+            return false;
+        }
+        if (attr.attachmentType < IG_POINT || attr.attachmentType > IG_MID_POINT) {
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: attr[" + std::to_string(index) +
+                                      "] attachmentType invalid value=" + std::to_string(attr.attachmentType) +
+                                      " name=" + attr.name);
+            return false;
+        }
+        if (attr.dimension < 0 ||
+            (attr.dimension != 0 &&
+             attr.elementCount > std::numeric_limits<IGsize>::max() / static_cast<IGsize>(attr.dimension))) {
+            DebugLog("ERROR",
+                     "[IGC][ByteStream] parameter validation failed: attr[" + std::to_string(index) +
+                             "] elementCount*dimension overflow elementCount=" + std::to_string(attr.elementCount) +
+                             " dimension=" + std::to_string(attr.dimension) + " name=" + attr.name);
+            return false;
+        }
+        if (attr.binaryCount > std::numeric_limits<IGsize>::max() - attrBinaryTotal) {
+            DebugLog("ERROR", "[IGC][ByteStream] parameter validation failed: attr binaryCount overflow index=" +
+                                      std::to_string(index) + " total=" + std::to_string(attrBinaryTotal) +
+                                      " binaryCount=" + std::to_string(attr.binaryCount) + " name=" + attr.name);
+            return false;
+        }
+        attrBinaryTotal += attr.binaryCount;
+    }
+
+    DebugLog("INFO", "[IGC][ByteStream] parameter validation ok attrBinaryTotal=" + std::to_string(attrBinaryTotal));
+    return true;
+}
+
+void LogIgcCodecStorageParamsInfo(const std::vector<uint8_t>& parameters, size_t headerSize) {
+    if (parameters.size() < headerSize) { return; }
+
+    try {
+        std::vector<uint8_t> data(parameters.begin() + static_cast<std::ptrdiff_t>(headerSize), parameters.end());
+        iGame::CodecStorageParams params{};
+        iGame::CodecBinaryInputArchive archive(data);
+        params.Archive(archive);
+
+        DebugLog("INFO", "[IGC][ByteStream] parameter storage meshType=" + std::to_string(params.meshType) +
+                                 " structuredAxis=[" + std::to_string(params.structuredMeshParams.axisSize[0]) + "," +
+                                 std::to_string(params.structuredMeshParams.axisSize[1]) + "," +
+                                 std::to_string(params.structuredMeshParams.axisSize[2]) +
+                                 "] geom(valueSize=" + std::to_string(params.geomParams.valueSize) +
+                                 ",elementCount=" + std::to_string(params.geomParams.elementCount) +
+                                 ",dimension=" + std::to_string(params.geomParams.dimension) + ") topo(secondary=" +
+                                 std::string(params.topoParams.isSecondaryIndex ? "true" : "false") +
+                                 ",fixedCellSize=" + std::to_string(params.topoParams.fixedCellSize) +
+                                 ",topBufferBytes=" + std::to_string(params.topoParams.topCellBufferBinaryCount) +
+                                 ",topSizeBytes=" + std::to_string(params.topoParams.topCellSizeBinaryCount) +
+                                 ",topBufferSize=" + std::to_string(params.topoParams.topCellBufferSize) +
+                                 ",topPadding=" + std::to_string(params.topoParams.topCellBufferPadding) +
+                                 ",bottomBufferBytes=" + std::to_string(params.topoParams.bottomCellBufferBinaryCount) +
+                                 ",bottomSizeBytes=" + std::to_string(params.topoParams.bottomCellSizeBinaryCount) +
+                                 ",bottomBufferSize=" + std::to_string(params.topoParams.bottomCellBufferSize) +
+                                 ",bottomPadding=" + std::to_string(params.topoParams.bottomCellBufferPadding) +
+                                 ",cellTypeBytes=" + std::to_string(params.topoParams.cellTypeBinaryCount) +
+                                 ") attrCount=" + std::to_string(params.attrParams.size()));
+
+        for (size_t index = 0; index < params.attrParams.size(); ++index) {
+            const auto& attr = params.attrParams[index];
+            DebugLog("INFO", "[IGC][ByteStream] parameter attr[" + std::to_string(index) + "] name=" + attr.name +
+                                     " lossyMode=" + std::to_string(static_cast<int>(attr.lossyMode)) +
+                                     " errorMode=" + std::to_string(static_cast<int>(attr.errorMode)) +
+                                     " valueSize=" + std::to_string(attr.valueSize) +
+                                     " elementCount=" + std::to_string(attr.elementCount) + " dimension=" +
+                                     std::to_string(attr.dimension) + " type=" + std::to_string(attr.type) +
+                                     " attachmentType=" + std::to_string(attr.attachmentType) +
+                                     " binaryCount=" + std::to_string(attr.binaryCount));
+        }
+
+        LogIgcCodecStorageParamsValidation(params);
+    } catch (const std::exception& error) {
+        DebugLog("ERROR", std::string("[IGC][ByteStream] parameter storage parse failed: ") + error.what());
+    } catch (...) { DebugLog("ERROR", "[IGC][ByteStream] parameter storage parse failed: unknown error"); }
+}
+
+void LogIgcParameterHeaderInfo(const std::vector<uint8_t>& parameters) {
+    constexpr size_t kCodecStorageHeaderBinarySize = sizeof(uint32_t) + sizeof(uint8_t) + 3 * sizeof(uint8_t);
+    if (parameters.size() < kCodecStorageHeaderBinarySize) {
+        DebugLog("INFO",
+                 "[IGC][ByteStream] parameter header missing decompressedBytes=" + std::to_string(parameters.size()));
+        return;
+    }
+
+    try {
+        std::vector<uint8_t> headerData(parameters.begin(), parameters.begin() + kCodecStorageHeaderBinarySize);
+        iGame::CodecStorageHeader header{};
+        iGame::CodecBinaryInputArchive archive(headerData);
+        header.Archive(archive);
+        DebugLog("INFO",
+                 "[IGC][ByteStream] parameter header version=" + std::to_string(header.version) +
+                         " attrUseCrossDependency=" + std::string(header.attrUseCrossDependency ? "true" : "false") +
+                         " requires64BitSize=" + std::string(header.Requires64BitSize() ? "true" : "false") +
+                         " reserved=[" + std::to_string(header.reserved[0]) + "," + std::to_string(header.reserved[1]) +
+                         "," + std::to_string(header.reserved[2]) + "]");
+        LogIgcCodecStoragePlatformInfo();
+        LogIgcCodecStorageParamsInfo(parameters, kCodecStorageHeaderBinarySize);
+    } catch (const std::exception& error) {
+        DebugLog("ERROR", std::string("[IGC][ByteStream] parameter header parse failed: ") + error.what());
+    } catch (...) { DebugLog("ERROR", "[IGC][ByteStream] parameter header parse failed: unknown error"); }
+}
+
+void LogIgcByteStreamFormat(const std::string& bytes, const std::string& sourceName) {
+    constexpr size_t kPayloadHeaderSize = 5;
+    DebugLog("INFO", "[IGC][ByteStream] sourceName=" + sourceName + " totalBytes=" + std::to_string(bytes.size()) +
+                             " prefix16=[" + FormatBytePrefix(bytes, 16) + "]");
+
+    size_t offset = 0;
+    size_t payloadIndex = 0;
+    while (offset < bytes.size()) {
+        if (bytes.size() - offset < kPayloadHeaderSize) {
+            DebugLog("ERROR", "[IGC][ByteStream] payload[" + std::to_string(payloadIndex) +
+                                      "] truncated header offset=" + std::to_string(offset) +
+                                      " remaining=" + std::to_string(bytes.size() - offset));
+            return;
+        }
+
+        const auto rawType = static_cast<unsigned char>(bytes[offset]);
+        const auto type = static_cast<iGame::PayloadType>(rawType);
+        const auto compressedSize = ReadIgcPayloadLength(bytes, offset);
+        const auto payloadOffset = offset + kPayloadHeaderSize;
+        if (compressedSize > bytes.size() - payloadOffset) {
+            DebugLog("ERROR", "[IGC][ByteStream] payload[" + std::to_string(payloadIndex) +
+                                      "] type=" + std::to_string(static_cast<unsigned int>(rawType)) + "(" +
+                                      IgcPayloadTypeName(type) + ") offset=" + std::to_string(offset) +
+                                      " compressedBytes=" + std::to_string(compressedSize) +
+                                      " exceeds remaining=" + std::to_string(bytes.size() - payloadOffset));
+            return;
+        }
+
+        const auto* payload = reinterpret_cast<const unsigned char*>(bytes.data() + payloadOffset);
+        const auto frameContentSize = ZSTD_getFrameContentSize(payload, compressedSize);
+        const bool hasKnownDecompressedSize =
+                frameContentSize != ZSTD_CONTENTSIZE_ERROR && frameContentSize != ZSTD_CONTENTSIZE_UNKNOWN &&
+                frameContentSize <= static_cast<unsigned long long>(std::numeric_limits<size_t>::max());
+
+        DebugLog("INFO",
+                 "[IGC][ByteStream] payload[" + std::to_string(payloadIndex) + "] type=" +
+                         std::to_string(static_cast<unsigned int>(rawType)) + "(" + IgcPayloadTypeName(type) +
+                         ") headerOffset=" + std::to_string(offset) + " dataOffset=" + std::to_string(payloadOffset) +
+                         " compressedBytes=" + std::to_string(compressedSize) + " decompressedBytes=" +
+                         std::to_string(hasKnownDecompressedSize ? static_cast<unsigned long long>(frameContentSize)
+                                                                 : 0ULL) +
+                         " nextOffset=" + std::to_string(payloadOffset + compressedSize));
+
+        if (type == iGame::PayloadType::kParameterSet) {
+            std::vector<uint8_t> parameters;
+            std::string error;
+            if (DecompressIgcPayload(payload, compressedSize, parameters, error)) {
+                LogIgcParameterHeaderInfo(parameters);
+            } else {
+                DebugLog("ERROR", "[IGC][ByteStream] parameter payload decompress failed: " + error);
+            }
+        }
+
+        offset = payloadOffset + compressedSize;
+        ++payloadIndex;
+    }
+
+    DebugLog("INFO", "[IGC][ByteStream] payloadCount=" + std::to_string(payloadIndex));
 }
 
 std::string DescribeDataObjectType(IGenum type) {
@@ -835,6 +1140,8 @@ int AddModelFromDataObject(iGame::SmartPointer<iGame::DataObject> dataObj, const
     g_scene->SetCurrentModel(static_cast<int>(modelId));
     RebindCurrentSelectionMode("AddModelFromDataObject");
     g_scene->ResetCameraView();
+    g_renderTimingFrameIndex = 0;
+    g_renderTimingFramesRemaining = 2;
     ClearLastError();
     DebugLog("INFO", "AddModelFromDataObject success modelId=" + std::to_string(modelId));
     return static_cast<int>(modelId);
@@ -1274,6 +1581,7 @@ struct API {
     static int loadVtuFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static int loadVtpFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static int loadIgcFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
+    static int debugIgcByteStream(const val& bytes, const std::string& sourceName);
     static int loadZipFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting);
     static std::string getModelListJson();
     static int setActiveModel(int modelId);
@@ -1455,6 +1763,8 @@ int LoadIgcFromMem(const std::string& bytes) {
 
     EnsureScene();
 
+    LogIgcByteStreamFormat(bytes, "memory-igc");
+
     auto dataObj = ReadIgcWithCodecArchive(bytes);
     if (dataObj == nullptr) return FailWithError(0, "LoadIgcFromMem", "CodecBinaryInputArchive decode returned null");
 
@@ -1504,19 +1814,60 @@ int LoadVtpFromMemEx(const std::string& bytes, const std::string& sourceName, bo
     return AddModelFromDataObject(dataObj, sourceName.c_str(), replaceExisting, "memory-vtp");
 }
 
+int DebugIgcByteStreamBytes(const std::string& bytes, const std::string& sourceName) {
+    const std::string debugSourceName = sourceName.empty() ? "debug-memory-igc" : sourceName;
+
+    DebugLog("INFO",
+             "DebugIgcByteStreamBytes called bytes=" + std::to_string(bytes.size()) + " sourceName=" + debugSourceName);
+
+    LogIgcByteStreamFormat(bytes, debugSourceName);
+
+    ClearLastError();
+    DebugLog("INFO", "DebugIgcByteStreamBytes success");
+    return 1;
+}
+
+int iGameWeb::API::debugIgcByteStream(const val& bytes, const std::string& sourceName) {
+    const std::string debugSourceName = sourceName.empty() ? "debug-memory-igc" : sourceName;
+
+    DebugLog("INFO", "API.debugIgcByteStream called sourceName=" + debugSourceName);
+
+    std::string byteBuffer;
+    if (!ReadBytesFromJsValue(bytes, byteBuffer, "API.debugIgcByteStream")) {
+        DebugLog("ERROR", "API.debugIgcByteStream failed while reading JS bytes code=" +
+                                  std::to_string(g_lastError.code) + " detail=" + g_lastError.detail);
+        return 0;
+    }
+
+    DebugLog("INFO", "API.debugIgcByteStream copied bytes=" + std::to_string(byteBuffer.size()) +
+                             " sourceName=" + debugSourceName);
+
+    return DebugIgcByteStreamBytes(byteBuffer, debugSourceName);
+}
+
 int LoadIgcFromMemEx(const std::string& bytes, const std::string& sourceName, bool replaceExisting) {
     DebugLog("INFO", "LoadIgcFromMemEx called bytes=" + std::to_string(bytes.size()) + " sourceName=" + sourceName +
                              " replaceExisting=" + (replaceExisting ? "true" : "false"));
     if (bytes.empty()) return FailWithError(0, "LoadIgcFromMemEx", "empty input bytes");
 
     EnsureScene();
+    //DebugIgcByteStreamBytes(bytes, sourceName);
 
+    auto t0 = std::chrono::steady_clock::now();
     auto dataObj = ReadIgcWithCodecArchive(bytes);
+    auto t1 = std::chrono::steady_clock::now();
+
     if (dataObj == nullptr) return FailWithError(0, "LoadIgcFromMemEx", "CodecBinaryInputArchive decode returned null");
 
     LogIgcSummary(dataObj, sourceName);
+    auto t2 = std::chrono::steady_clock::now();
 
-    return AddModelFromDataObject(dataObj, sourceName.c_str(), replaceExisting, "memory-igc");
+    int modelId = AddModelFromDataObject(dataObj, sourceName.c_str(), replaceExisting, "memory-igc");
+    auto t3 = std::chrono::steady_clock::now();
+
+    DebugLog("INFO", "[IGC timing cpp core] decode=" + Ms(t1 - t0) + " summary=" + Ms(t2 - t1) +
+                             " add-model=" + Ms(t3 - t2) + " total=" + Ms(t3 - t0));
+    return modelId;
 }
 
 int LoadIgcmFromFileEx(const std::string& filePath, const std::string& sourceName, bool replaceExisting) {
@@ -2873,6 +3224,8 @@ std::string DebugColorMapRangeSequence(int modelId, const std::string& scalarNam
 
 void RenderFrame() {
     if (g_window == nullptr) return;
+    const bool recordRenderTiming = g_renderTimingFramesRemaining > 0;
+    const auto renderStart = Clock::now();
 
     struct SolidColorRestore {
         std::vector<std::pair<iGame::DrawObject::Pointer, igm::vec3>> overrides;
@@ -2896,6 +3249,15 @@ void RenderFrame() {
     }
 
     g_window->RenderOneFrame();
+
+    if (recordRenderTiming) {
+        const auto renderEnd = Clock::now();
+        ++g_renderTimingFrameIndex;
+        --g_renderTimingFramesRemaining;
+        DebugLog("INFO", "[Render timing cpp] frame=" + std::to_string(g_renderTimingFrameIndex) +
+                                 (g_renderTimingFrameIndex == 1 ? " phase=first-after-load" : " phase=second-after-load") +
+                                 " renderFrame=" + Ms(renderEnd - renderStart));
+    }
 }
 
 void ResetCamera() {
@@ -3336,9 +3698,14 @@ int iGameWeb::API::loadVtpFromMemEx(const val& bytes, const std::string& sourceN
 
 int iGameWeb::API::loadIgcFromMemEx(const val& bytes, const std::string& sourceName, bool replaceExisting) {
     DebugLog("INFO", "API.loadIgcFromMemEx called sourceName=" + sourceName);
+    auto t0 = std::chrono::steady_clock::now();
     std::string byteBuffer;
     if (!ReadBytesFromJsValue(bytes, byteBuffer, "API.loadIgcFromMemEx")) { return 0; }
+    auto t1 = std::chrono::steady_clock::now();
     int ret = iGameWeb::LoadIgcFromMemEx(byteBuffer, sourceName, replaceExisting);
+    auto t2 = std::chrono::steady_clock::now();
+
+    DebugLog("INFO", "[IGC timing cpp] js-to-wasm-copy=" + Ms(t1 - t0) + " load-core=" + Ms(t2 - t1));
     if (ret > 0) DebugLog("INFO", "API.loadIgcFromMemEx success");
     else
         DebugLog("ERROR", "API.loadIgcFromMemEx failed code=" + std::to_string(g_lastError.code) +
@@ -3874,6 +4241,7 @@ EMSCRIPTEN_BINDINGS(iGameWeb_bindings) {
             .class_function("loadVtuFromMemEx", &iGameWeb::API::loadVtuFromMemEx)
             .class_function("loadVtpFromMemEx", &iGameWeb::API::loadVtpFromMemEx)
             .class_function("loadIgcFromMemEx", &iGameWeb::API::loadIgcFromMemEx)
+            .class_function("debugIgcByteStream", &iGameWeb::API::debugIgcByteStream)
             .class_function("loadZipFromMemEx", &iGameWeb::API::loadZipFromMemEx)
             .class_function("getModelListJson", &iGameWeb::API::getModelListJson)
             .class_function("setActiveModel", &iGameWeb::API::setActiveModel)
