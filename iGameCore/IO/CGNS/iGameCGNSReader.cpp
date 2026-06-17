@@ -2,7 +2,23 @@
 #include "iGameCGNSReader.h"
 #include "Log/iGameLogger.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
+#include <cmath>
 IGAME_NAMESPACE_BEGIN
+
+template<typename ArrayType>
+static void ReportCgnsFieldInf(const char* fieldName, int index_base, int index_zone, int index_sol, int index_field,
+                               const ArrayType& array) {
+    if (!array) { return; }
+    const auto* values = array->RawPointer();
+    for (IGsize i = 0; i < array->GetNumberOfValues(); ++i) {
+        if (std::isinf(values[i])) {
+            IGAME_CORE_WARN("CGNS field '{}' contains Inf at value index {} (base {}, zone {}, solution {}, field {}); continuing read",
+                            fieldName, i, index_base, index_zone, index_sol, index_field);
+            return;
+        }
+    }
+}
+
 iGameCGNSReader::iGameCGNSReader() {
     this->SetNumberOfOutputs(1);
 }
@@ -568,6 +584,10 @@ void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone,
                         solutionArray_2->Resize(arrayNum);
                         result = cg_field_read(index_file, index_base, index_zone, index_sol, fieldname, dataType,
                                                range_min, range_max, solutionArray_2->RawPointer());
+                        if (CG_OK == result) {
+                            ReportCgnsFieldInf(fieldname, index_base, index_zone, index_sol, index_field,
+                                               solutionArray_2);
+                        }
                         solutionArray = solutionArray_2;
                         break;
                     }
@@ -576,6 +596,10 @@ void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone,
                         solutionArray_2->Resize(arrayNum);
                         result = cg_field_read(index_file, index_base, index_zone, index_sol, fieldname, dataType,
                                                range_min, range_max, solutionArray_2->RawPointer());
+                        if (CG_OK == result) {
+                            ReportCgnsFieldInf(fieldname, index_base, index_zone, index_sol, index_field,
+                                               solutionArray_2);
+                        }
                         solutionArray = solutionArray_2;
                         break;
                     }

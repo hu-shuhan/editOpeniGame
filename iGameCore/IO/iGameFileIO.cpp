@@ -204,15 +204,31 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
         if (!isvector) {
             newAttrs->AddAttribute(attr.type, attr.attachmentType, attr.pointer, attr.dataRange);
         } else {
-            FloatArray::Pointer Vector = FloatArray::New();
-            if (name[name.length() - 2] == '_') {
-                Vector->SetName(name.substr(0, name.length() - 2));
-            } else
-                Vector->SetName(name.substr(0, name.length() - 1));
-            // Vector->SetName(name.substr(0, name.length() - 1));
-            Vector->SetDimension(3);
-            Vector->Resize(attr.pointer->GetNumberOfElements());
-            float* vector = Vector->RawPointer();
+            const std::string vectorName = name[name.length() - 2] == '_'
+                                               ? name.substr(0, name.length() - 2)
+                                               : name.substr(0, name.length() - 1);
+            bool useDoubleVector = false;
+            for (int j = 0; j < 3; j++) {
+                if (Attrs->GetAttribute(i + j).pointer->GetArrayTypedSize() == sizeof(double)) {
+                    useDoubleVector = true;
+                    break;
+                }
+            }
+
+            ArrayObject::Pointer Vector;
+            if (useDoubleVector) {
+                DoubleArray::Pointer doubleVector = DoubleArray::New();
+                doubleVector->SetName(vectorName);
+                doubleVector->SetDimension(3);
+                doubleVector->Resize(attr.pointer->GetNumberOfElements());
+                Vector = doubleVector;
+            } else {
+                FloatArray::Pointer floatVector = FloatArray::New();
+                floatVector->SetName(vectorName);
+                floatVector->SetDimension(3);
+                floatVector->Resize(attr.pointer->GetNumberOfElements());
+                Vector = floatVector;
+            }
             igIndex index = 0;
             int j = 0;
             for (j = 0; j < 3; j++) {
@@ -220,7 +236,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                 index = j;
                 int k = 0;
                 for (k = 0; k < attr.pointer->GetNumberOfElements(); k++) {
-                    vector[index] = scalarData->GetValue(k);
+                    Vector->SetValue(index, scalarData->GetValue(k));
                     index += 3;
                 }
             }
@@ -235,8 +251,10 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
             /* 计算Vector 维度的Magnitude*/
             double maxMagnitude = 0, minMagnitude = DBL_MAX;
             for (int k = 0; k < Vector->GetNumberOfValues(); k += 3) {
-                double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1] +
-                                                vector[k + 2] * vector[k + 2]);
+                const double x = Vector->GetValue(k + 0);
+                const double y = Vector->GetValue(k + 1);
+                const double z = Vector->GetValue(k + 2);
+                double curMagnitude = std::sqrt(x * x + y * y + z * z);
                 maxMagnitude = std::max(maxMagnitude, curMagnitude);
                 minMagnitude = std::min(minMagnitude, curMagnitude);
             }

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <exception>
 #include <limits>
@@ -287,6 +288,11 @@ private:
         // 用于暂存所有线程产生的属性数据
         std::vector<AttributeBuffer> attrBuffers(this->m_codecParams.attrParams.size());
         std::atomic_bool attrDecodeFailed{false};
+        auto containsInf = [](const auto& values) {
+            return std::any_of(values.begin(), values.end(), [](auto value) {
+                return std::isinf(value);
+            });
+        };
 
         // 进度控制
         CodecProgressParallelFor(this, 0,
@@ -327,6 +333,10 @@ private:
                         attrDecodeFailed.store(true);
                         return;
                     }
+                    if (containsInf(floats)) {
+                        IGAME_CORE_WARN("IGC attribute '{}' at index {} contains Inf; continuing decode",
+                                        params.name, i);
+                    }
                     attr.floatData = std::move(floats);
                 } else if (params.valueSize == sizeof(double)) {
                     std::vector<double> doubles;
@@ -335,6 +345,10 @@ private:
                     if (doubles.size() != valueCount) {
                         attrDecodeFailed.store(true);
                         return;
+                    }
+                    if (containsInf(doubles)) {
+                        IGAME_CORE_WARN("IGC attribute '{}' at index {} contains Inf; continuing decode",
+                                        params.name, i);
                     }
                     attr.doubleData = std::move(doubles);
                 }
