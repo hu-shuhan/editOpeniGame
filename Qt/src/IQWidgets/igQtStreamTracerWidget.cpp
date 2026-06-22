@@ -1,4 +1,4 @@
-#include "StreamView/iGameStreamlineSimplifier.h"
+ï»¿#include "StreamView/iGameStreamlineSimplifier.h"
 #include "iGameSelection.h"
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameBoxStyle.h>
@@ -499,7 +499,7 @@ void igQtStreamTracerWidget::Simplifier() {
     m_ResultObject->SetShellRenderingOption(false);
     m_ResultObject->SetLineWidth(widthOfStreamLine);
 
-    // ÓÃ ClusterLabel ×ÅÉ«
+    // ç”¨ ClusterLabel ç€è‰²
     auto outAttr = out->GetAttributeSet();
     int clusterIdx = outAttr->GetAttributeIndex("ClusterLabel");
     if (clusterIdx >= 0) {

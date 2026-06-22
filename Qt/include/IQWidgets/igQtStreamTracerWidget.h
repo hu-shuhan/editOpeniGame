@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <ui_igStreamTracer.h>
 //#include <iGameManager.h>
 #include <QHideEvent>
@@ -93,7 +93,7 @@ private:
     bool first = true;
     int p1;
     int p2;
-    //Ìí¼ÓÒ»¸ö³ÉÔ±±äÁ¿À´±£´æÔ­Ê¼µÄÁ÷ÏßÊı¾İ£¬ÒÔ±ãÔÚË¢ĞÂÊ±Ê¹ÓÃ
+    //æ·»åŠ ä¸€ä¸ªæˆå‘˜å˜é‡æ¥ä¿å­˜åŸå§‹çš„æµçº¿æ•°æ®ï¼Œä»¥ä¾¿åœ¨åˆ·æ–°æ—¶ä½¿ç”¨
     iGame::UnstructuredMesh::Pointer m_OriginalStream;
 
     void ensureStreamBase();

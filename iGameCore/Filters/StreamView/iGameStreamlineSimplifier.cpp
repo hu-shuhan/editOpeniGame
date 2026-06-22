@@ -1,4 +1,4 @@
-#include "iGameStreamlineSimplifier.h"
+ï»¿#include "iGameStreamlineSimplifier.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,7 +10,7 @@ namespace iGame
 {
 
 static inline size_t TriIdx(size_t i, size_t j, size_t N) {
-    // ÒªÇó i < j
+    // è¦æ±‚ i < j
     return i * N - (i * (i + 1)) / 2 + (j - i - 1);
 }
 
@@ -49,13 +49,13 @@ bool StreamlineSimplifier::ExtractStreamlines() {
         std::cout << "[Simplifier] Missing Velocity or StreamlineId attribute\n";
         return false;
     }
-    auto velArr = velAttr.pointer; // IG_POINT,Ã¿µãÒ»¸ö 3D ÏòÁ¿
-    auto idArr = idAttr.pointer;   // IG_CELL,Ã¿ cell Ò»¸ö int
+    auto velArr = velAttr.pointer; // IG_POINT,æ¯ç‚¹ä¸€ä¸ª 3D å‘é‡
+    auto idArr = idAttr.pointer;   // IG_CELL,æ¯ cell ä¸€ä¸ª int
 
     const IGsize numCells = cells->GetNumberOfCells();
     if (numCells == 0) return false;
 
-    // 1) ÕÒ×î´ó streamline id
+    // 1) æ‰¾æœ€å¤§ streamline id
     int maxId = -1;
     for (IGsize c = 0; c < numCells; ++c) {
         int id = static_cast<int>(idArr->GetValue(c));
@@ -64,7 +64,7 @@ bool StreamlineSimplifier::ExtractStreamlines() {
     if (maxId < 0) return false;
     m_Streamlines.assign(maxId + 1, {});
 
-    // 2) °ÑÃ¿¸ö LINE µÄÁ½¸ö¶Ëµã push µ½¶ÔÓ¦Á÷Ïß
+    // 2) æŠŠæ¯ä¸ª LINE çš„ä¸¤ä¸ªç«¯ç‚¹ push åˆ°å¯¹åº”æµçº¿
     for (IGsize c = 0; c < numCells; ++c) {
         if (types->GetValue(c) != IG_LINE) continue;
 
@@ -77,23 +77,23 @@ bool StreamlineSimplifier::ExtractStreamlines() {
         auto& sl = m_Streamlines[sid];
 
         for (int k = 0; k < 2; ++k) {
-            auto p = points->GetPoint(ids[k]); // ¼ÙÉè¿É [0..2] ·ÃÎÊ
+            auto p = points->GetPoint(ids[k]); // å‡è®¾å¯ [0..2] è®¿é—®
             sl.points.emplace_back(p[0], p[1], p[2]);
 
             float v[3] = {0, 0, 0};
-            velArr->GetElement(ids[k], v); // ¼ÙÉè:¿½±´µ½ float[3]
+            velArr->GetElement(ids[k], v); // å‡è®¾:æ‹·è´åˆ° float[3]
             sl.velocities.emplace_back(v[0], v[1], v[2]);
-            // ¡ü¡ü¡ü
+            // â†‘â†‘â†‘
         }
 
     }
 
-    // ÏÈÈ¥µôµãÊıÌ«ÉÙµÄ
+    // å…ˆå»æ‰ç‚¹æ•°å¤ªå°‘çš„
     m_Streamlines.erase(std::remove_if(m_Streamlines.begin(), m_Streamlines.end(),
                                        [](const StreamlineData& s) { return s.points.size() < 3; }),
                         m_Streamlines.end());
 
-    // ËãÃ¿ÌõÁ÷Ïß»¡³¤
+    // ç®—æ¯æ¡æµçº¿å¼§é•¿
     auto arcLength = [](const StreamlineData& s) -> float {
         float L = 0.f;
         for (size_t i = 1; i < s.points.size(); ++i) L += (s.points[i] - s.points[i - 1]).norm();
@@ -103,7 +103,7 @@ bool StreamlineSimplifier::ExtractStreamlines() {
     std::vector<float> lens(m_Streamlines.size());
     for (size_t i = 0; i < m_Streamlines.size(); ++i) lens[i] = arcLength(m_Streamlines[i]);
 
-    // ÓÃÖĞÎ»ÊıµÄ 30% ×÷Îª×Ô¶¯ãĞÖµ,¶ÌÓÚ´ËµÄÖ±½Ó¶ªÆú
+    // ç”¨ä¸­ä½æ•°çš„ 30% ä½œä¸ºè‡ªåŠ¨é˜ˆå€¼,çŸ­äºæ­¤çš„ç›´æ¥ä¸¢å¼ƒ
     std::vector<float> sorted = lens;
     std::sort(sorted.begin(), sorted.end());
     float median = sorted[sorted.size() / 2];
@@ -112,7 +112,7 @@ bool StreamlineSimplifier::ExtractStreamlines() {
     std::cout << "[Simplifier] Length: min=" << sorted.front() << " median=" << median << " max=" << sorted.back()
               << " cutoff=" << minLen << "\n";
 
-    // ¹ıÂË
+    // è¿‡æ»¤
     std::vector<StreamlineData> filtered;
     for (size_t i = 0; i < m_Streamlines.size(); ++i) {
         if (lens[i] >= minLen) filtered.push_back(std::move(m_Streamlines[i]));
@@ -139,7 +139,7 @@ void StreamlineSimplifier::ComputeHistograms() {
 
         if (n < 3) continue;
 
-        // Ç°Ïòµ¥Î»ÏòÁ¿
+        // å‰å‘å•ä½å‘é‡
         std::vector<Vector3f> a_unit(n - 1);
         for (int i = 0; i < n - 1; ++i) {
             Vector3f e = pts[i + 1] - pts[i];
@@ -147,7 +147,7 @@ void StreamlineSimplifier::ComputeHistograms() {
             a_unit[i] = (len > eps) ? e / len : Vector3f(0, 0, 0);
         }
 
-        // ÀëÉ¢ÇúÂÊ = arccos(a_unit[i] ¡¤ a_unit[i-1])£¬·¶Î§ [0, ¦Ğ)
+        // ç¦»æ•£æ›²ç‡ = arccos(a_unit[i] Â· a_unit[i-1])ï¼ŒèŒƒå›´ [0, Ï€)
         std::vector<float> curvatures;
         curvatures.reserve(a_unit.size() - 1);
         for (int i = 1; i < (int) a_unit.size(); ++i) {
@@ -157,7 +157,7 @@ void StreamlineSimplifier::ComputeHistograms() {
             curvatures.push_back(std::acos(d));
         }
 
-        // ·Ö bin: [0, ¦Ğ) ¡ú B ¸ö bin
+        // åˆ† bin: [0, Ï€) â†’ B ä¸ª bin
         for (float k: curvatures) {
             int b = (int) (k / PI * B);
             if (b >= B) b = B - 1;
@@ -165,7 +165,7 @@ void StreamlineSimplifier::ComputeHistograms() {
             sl.histCurv[b] += 1.f;
         }
 
-        // ¹éÒ»»¯
+        // å½’ä¸€åŒ–
         float total = 0.f;
         for (float v: sl.histCurv) total += v;
         if (total > eps)
@@ -322,7 +322,7 @@ void StreamlineSimplifier::BuildDistanceMatrix() {
 //        return;
 //    }
 //
-//    // dense ¾àÀë¾ØÕó(·½±ã¸üĞÂ)
+//    // dense è·ç¦»çŸ©é˜µ(æ–¹ä¾¿æ›´æ–°)
 //    std::vector<std::vector<float>> M(N, std::vector<float>(N, 0.f));
 //    for (size_t i = 0; i < N; ++i)
 //        for (size_t j = i + 1; j < N; ++j) M[i][j] = M[j][i] = m_D[TriIdx(i, j, N)];
@@ -362,7 +362,7 @@ void StreamlineSimplifier::BuildDistanceMatrix() {
 //        numActive--;
 //    }
 //
-//    // ÖØĞÂ±àºÅÎª 0..K-1
+//    // é‡æ–°ç¼–å·ä¸º 0..K-1
 //    std::unordered_map<int, int> remap;
 //    int next = 0;
 //    for (size_t i = 0; i < N; ++i) {
@@ -433,7 +433,7 @@ void StreamlineSimplifier::ClusterAverage() {
 void StreamlineSimplifier::SampleRepresentatives() {
     m_SelectedIds.clear();
 
-    // °´´Ø·ÖÍ°
+    // æŒ‰ç°‡åˆ†æ¡¶
     int K = 0;
     for (auto& sl: m_Streamlines) K = std::max(K, sl.clusterId + 1);
     if (K == 0) return;
@@ -445,7 +445,7 @@ void StreamlineSimplifier::SampleRepresentatives() {
     int baseQuota = m_TotalTarget / K;
     int remainder = m_TotalTarget % K;
 
-    // µÚÒ»ÂÖ£ºĞ¡´ØÈ«Ñ¡£¬¼ÇÂ¼¶àÓàÅä¶î
+    // ç¬¬ä¸€è½®ï¼šå°ç°‡å…¨é€‰ï¼Œè®°å½•å¤šä½™é…é¢
     std::vector<int> quota(K, 0);
     int deficit = 0;
     std::vector<bool> isLarge(K, false);
@@ -453,7 +453,7 @@ void StreamlineSimplifier::SampleRepresentatives() {
     for (int k = 0; k < K; ++k) {
         int q = baseQuota + (k < remainder ? 1 : 0);
         if ((int) buckets[k].size() <= q) {
-            quota[k] = (int) buckets[k].size(); // È«Ñ¡
+            quota[k] = (int) buckets[k].size(); // å…¨é€‰
             deficit += q - (int) buckets[k].size();
         } else {
             quota[k] = q;
@@ -461,7 +461,7 @@ void StreamlineSimplifier::SampleRepresentatives() {
         }
     }
 
-    // µÚ¶şÂÖ£º°Ñ deficit ·ÖÅä¸ø´ó´Ø
+    // ç¬¬äºŒè½®ï¼šæŠŠ deficit åˆ†é…ç»™å¤§ç°‡
     std::vector<int> largeClusters;
     for (int k = 0; k < K; ++k)
         if (isLarge[k]) largeClusters.push_back(k);
@@ -476,20 +476,20 @@ void StreamlineSimplifier::SampleRepresentatives() {
         }
     }
 
-// Ã¿´ØµÈ¼ä¸ô²ÉÑù
+// æ¯ç°‡ç­‰é—´éš”é‡‡æ ·
     for (int k = 0; k < K; ++k) {
         const auto& members = buckets[k];
         int q = quota[k];
         if (q <= 0 || members.empty()) continue;
 
         if (q >= (int) members.size()) {
-            // È«Ñ¡
+            // å…¨é€‰
             for (int id: members) m_SelectedIds.push_back(id);
         } else if (q == 1) {
-            // Ö»È¡ 1 ÌõÊ±£¬ÌôÖĞ¼äÄÇÌõ×÷Îª´ú±í£¬±ÜÃâ q-1 == 0 ³ıÁã
+            // åªå– 1 æ¡æ—¶ï¼ŒæŒ‘ä¸­é—´é‚£æ¡ä½œä¸ºä»£è¡¨ï¼Œé¿å… q-1 == 0 é™¤é›¶
             m_SelectedIds.push_back(members[members.size() / 2]);
         } else {
-            // linspace µÈ¼ä¸ôÈ¡
+            // linspace ç­‰é—´éš”å–
             for (int i = 0; i < q; ++i) {
                 int idx = (int) std::round((double) i * (members.size() - 1) / (q - 1));
                 m_SelectedIds.push_back(members[idx]);
@@ -530,7 +530,7 @@ void StreamlineSimplifier::BuildOutputMesh() {
         for (size_t i = 0; i < sl.points.size(); ++i) {
             points->AddPoint(Point(sl.points[i][0], sl.points[i][1], sl.points[i][2]));
             velArr->AddElement3(sl.velocities[i][0], sl.velocities[i][1], sl.velocities[i][2]);
-            // ClusterLabel ÊÇµãÊôĞÔ£¬Ã¿¸öµã±ê¼ÇËùÊô´Ø
+            // ClusterLabel æ˜¯ç‚¹å±æ€§ï¼Œæ¯ä¸ªç‚¹æ ‡è®°æ‰€å±ç°‡
             clusterArr->AddValue((float) sl.clusterId);
             g++;
         }

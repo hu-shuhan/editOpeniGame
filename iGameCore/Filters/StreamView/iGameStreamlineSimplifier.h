@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <iGameAttributeSet.h>
 #include <iGameUnstructuredMesh.h>
 #include <vector>
@@ -40,7 +40,7 @@ private:
     UnstructuredMesh::Pointer m_Input;
     UnstructuredMesh::Pointer m_Output;
     std::vector<StreamlineData> m_Streamlines;
-    std::vector<float> m_D; // ÉÏÈý½Ç
+    std::vector<float> m_D; // ä¸Šä¸‰è§’
     std::vector<int> m_SelectedIds;
 
     int m_CurvBins = 40;
