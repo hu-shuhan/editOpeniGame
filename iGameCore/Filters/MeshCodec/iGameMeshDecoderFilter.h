@@ -2,18 +2,25 @@
 #define MeshDecoder_h
 
 
+#include "MeshCodec/Archive/iGameCodecBinaryInputArchive.h"
+#include "MeshCodec/Archive/iGameCodecLegacyV1Probe.h"
 #include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
 #include "MeshCodec/DecodeInput/iGameIDecodeInput.h"
 #include "MeshCodec/DecodeOutput/iGameIDecodeOutput.h"
 #include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
 #include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
 #include "MeshCodec/SubCodec/iGameMeshIndexCodec.h"
+#include "MeshCodec/SubCodec/iGameMeshIntegerCodec.h"
 #include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
 #include "MeshCodec/iGameMeshCodec.h"
 #include "iGameMacro.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <limits>
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
@@ -24,6 +31,8 @@ class MeshDecoderFilter final : public MeshCodec {
 public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
+    static constexpr uint32_t SupportedParamVersion = 3;
+    static constexpr uint32_t LegacyParamVersion = 1;
 
     MeshDecoderFilter() {
         this->SetNumberOfInputs(1);
@@ -32,6 +41,8 @@ public:
     }
 
     bool Execute() override {
+        ReleaseRunState();
+
         // 无论解码成功/失败，都清理进度文本，避免 UI 文案残留
         struct ProgressTextResetGuard {
             ProgressObserver* observer{};
@@ -41,12 +52,22 @@ public:
             }
         } resetTextGuard{m_ProgressObserver};
 
+        struct RunStateResetGuard {
+            MeshDecoderFilter* self{};
+            bool success = false;
+            ~RunStateResetGuard() noexcept {
+                if (!success && self) { self->ReleaseRunState(); }
+            }
+        } runStateGuard{this};
+
         if (!InitializeInputs()) { return false; }
 
         m_DecompressProgress = 0.0f;
 
         PayloadBuffer buf;
-        while (m_DecoderInput->ReadPayload(&buf)) { ProcessPayload(buf); }
+        while (m_DecoderInput->ReadPayload(&buf)) {
+            if (!ProcessPayload(buf)) { return false; }
+        }
 
         // 将 adapter 的输出设置到 DecodeOutput
         if (m_DecoderAdapter) {
@@ -54,6 +75,7 @@ public:
         }
 
         SetOutput(0, m_DecoderOutput);
+        ReleaseTransientRunState();
         UpdateProgress(1.0);
 
         // 解码结束后复位进度条，避免停留在 100%
@@ -65,6 +87,7 @@ public:
             m_ProgressObserver->UpdateProgress(0.0);
             m_ProgressObserver->UpdateText("");
         }
+        runStateGuard.success = true;
         return true;
     }
 
@@ -80,70 +103,362 @@ private:
 
     // progress record
     float m_DecompressProgress = 0.0f;
+    uint32_t m_ParamVersion = 0;
+
+    void ReleaseRunState() {
+        SetOutput(0, nullptr);
+        m_DecoderInput = nullptr;
+        m_codecParams = CodecStorageParams{};
+        m_ParamVersion = 0;
+        if (m_DecoderOutput) { m_DecoderOutput->SetOutput(OutputType{}); }
+        if (m_DecoderAdapter) { m_DecoderAdapter->ResetOutput(); }
+    }
+
+    void ReleaseTransientRunState() {
+        m_DecoderInput = nullptr;
+        m_codecParams = CodecStorageParams{};
+        m_ParamVersion = 0;
+        if (m_DecoderAdapter) { m_DecoderAdapter->ResetOutput(); }
+    }
+
+    static bool MulWillOverflow(IGsize a, IGsize b) {
+        return b != 0 && a > std::numeric_limits<IGsize>::max() / b;
+    }
+
+    static bool AddWillOverflow(IGsize a, IGsize b) {
+        return b > std::numeric_limits<IGsize>::max() - a;
+    }
+
+    static bool IsSupportedAttributeType(IGenum type) {
+        return type >= IG_SCALAR && type < IG_ATTRIBUTE_COUNT;
+    }
+
+    static bool IsSupportedAttributeAttachment(IGenum attachmentType) {
+        return attachmentType == IG_POINT || attachmentType == IG_CELL;
+    }
+
+    static bool IsFloatAttributeArray(IGenum arrayType) {
+        return arrayType == IG_FloatArray || arrayType == IG_DoubleArray;
+    }
+
+    static bool IsSupportedIntegerAttributeArray(IGenum arrayType) {
+        switch (arrayType) {
+            case IG_CharArray:
+            case IG_UnsignedCharArray:
+            case IG_ShortArray:
+            case IG_UnsignedShortArray:
+            case IG_IntArray:
+            case IG_UnsignedIntArray:
+            case IG_LongLongArray:
+            case IG_UnsignedLongLongArray:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    static bool IsSignedIntegerAttributeArray(IGenum arrayType) {
+        switch (arrayType) {
+            case IG_CharArray:
+                return std::numeric_limits<char>::is_signed;
+            case IG_ShortArray:
+            case IG_IntArray:
+            case IG_LongLongArray:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    static uint8_t IntegerBitWidth(IGenum arrayType) {
+        switch (arrayType) {
+            case IG_CharArray:
+                return static_cast<uint8_t>(sizeof(char) * 8u);
+            case IG_UnsignedCharArray:
+                return static_cast<uint8_t>(sizeof(unsigned char) * 8u);
+            case IG_ShortArray:
+                return static_cast<uint8_t>(sizeof(short) * 8u);
+            case IG_UnsignedShortArray:
+                return static_cast<uint8_t>(sizeof(unsigned short) * 8u);
+            case IG_IntArray:
+                return static_cast<uint8_t>(sizeof(int) * 8u);
+            case IG_UnsignedIntArray:
+                return static_cast<uint8_t>(sizeof(unsigned int) * 8u);
+            case IG_LongLongArray:
+                return static_cast<uint8_t>(sizeof(long long) * 8u);
+            case IG_UnsignedLongLongArray:
+                return static_cast<uint8_t>(sizeof(unsigned long long) * 8u);
+            default:
+                return 0;
+        }
+    }
+
+    static bool SumComponentBinaryCounts(const AttrStorageParams& attr, IGsize& sum) {
+        sum = 0;
+        for (const IGsize count : attr.componentBinaryCounts) {
+            if (AddWillOverflow(sum, count)) { return false; }
+            sum += count;
+        }
+        return true;
+    }
+
+    bool ValidateLegacyAttrParams(const AttrStorageParams& attr, IGsize& attrBinaryTotal) const {
+        if (attr.dimension <= 0) { return false; }
+        if (attr.valueSize == 0) { return false; }
+        if (!IsSupportedAttributeType(attr.type)) { return false; }
+        if (attr.attachmentType < IG_POINT || attr.attachmentType > IG_MID_POINT) { return false; }
+        if (MulWillOverflow(attr.elementCount, static_cast<IGsize>(attr.dimension))) { return false; }
+        if (AddWillOverflow(attrBinaryTotal, attr.binaryCount)) { return false; }
+        attrBinaryTotal += attr.binaryCount;
+        return true;
+    }
+
+    bool ValidateV3AttrParams(const AttrStorageParams& attr, IGsize& attrBinaryTotal) const {
+        if (attr.dimension <= 0) { return false; }
+        if (!IsSupportedAttributeType(attr.type)) { return false; }
+        if (!IsSupportedAttributeAttachment(attr.attachmentType)) { return false; }
+        if (MulWillOverflow(attr.elementCount, static_cast<IGsize>(attr.dimension))) { return false; }
+        if (AddWillOverflow(attrBinaryTotal, attr.binaryCount)) { return false; }
+        attrBinaryTotal += attr.binaryCount;
+
+        if (attr.attrCodec == AttrCodec::FloatMeshopt) {
+            if (attr.attrLayout != AttrLayout::ComponentSeries) { return true; }
+            if (!IsFloatAttributeArray(attr.arrayType)) { return true; }
+            if (attr.arrayType == IG_FloatArray && attr.valueSize != sizeof(float)) { return false; }
+            if (attr.arrayType == IG_DoubleArray && attr.valueSize != sizeof(double)) { return false; }
+            if (attr.componentBinaryCounts.size() != static_cast<size_t>(attr.dimension)) { return false; }
+            IGsize componentTotal = 0;
+            if (!SumComponentBinaryCounts(attr, componentTotal)) { return false; }
+            return componentTotal == attr.binaryCount;
+        }
+
+        if (attr.attrCodec == AttrCodec::IntegerDeltaRleVarint) {
+            if (attr.attrLayout != AttrLayout::ComponentSeries) { return true; }
+            if (!IsSupportedIntegerAttributeArray(attr.arrayType)) { return true; }
+            const uint8_t bitWidth = IntegerBitWidth(attr.arrayType);
+            if (bitWidth == 0 || attr.integerBitWidth != bitWidth) { return false; }
+            if (attr.valueSize != static_cast<IGsize>(bitWidth / 8u)) { return false; }
+            if (attr.integerSigned != IsSignedIntegerAttributeArray(attr.arrayType)) { return false; }
+            return true;
+        }
+
+        return true;
+    }
+
+    void NormalizeLegacyAttrParams() {
+        for (auto& attr : this->m_codecParams.attrParams) {
+            attr.componentBinaryCounts.clear();
+            attr.integerBitWidth = 0;
+            attr.integerSigned = false;
+            attr.attrLayout = AttrLayout::InterleavedRecord;
+            if (attr.valueSize == sizeof(float)) {
+                attr.arrayType = IG_FloatArray;
+                attr.attrCodec = AttrCodec::FloatMeshopt;
+            } else if (attr.valueSize == sizeof(double)) {
+                attr.arrayType = IG_DoubleArray;
+                attr.attrCodec = AttrCodec::FloatMeshopt;
+            } else {
+                attr.arrayType = IG_ARRAY_OBJECT;
+                attr.attrCodec = AttrCodec::Unsupported;
+            }
+        }
+    }
+
+    bool ValidateStructuredMeshParams() const {
+        if (this->m_codecParams.meshType != IG_STRUCTURED_MESH) {
+            return true;
+        }
+
+        const int* axisSize = this->m_codecParams.structuredMeshParams.axisSize;
+        if (axisSize[0] <= 0 || axisSize[1] <= 0 || axisSize[2] < 0) {
+            return false;
+        }
+
+        const IGsize axisX = static_cast<IGsize>(axisSize[0]);
+        const IGsize axisY = static_cast<IGsize>(axisSize[1]);
+        const IGsize axisZ = static_cast<IGsize>(axisSize[2] <= 1 ? 1 : axisSize[2]);
+        if (MulWillOverflow(axisX, axisY)) {
+            return false;
+        }
+        const IGsize xy = axisX * axisY;
+        if (MulWillOverflow(xy, axisZ)) {
+            return false;
+        }
+        return xy * axisZ == this->m_codecParams.geomParams.elementCount;
+    }
+
+    bool ValidateCodecParams() const {
+        switch (this->m_codecParams.meshType) {
+            case IG_POINT_SET:
+            case IG_SURFACE_MESH:
+            case IG_VOLUME_MESH:
+            case IG_STRUCTURED_MESH:
+            case IG_UNSTRUCTURED_MESH:
+                break;
+            default:
+                return false;
+        }
+
+        if (this->m_codecParams.geomParams.valueSize != sizeof(float)) { return false; }
+        if (this->m_codecParams.geomParams.dimension != 3) { return false; }
+        if (MulWillOverflow(this->m_codecParams.geomParams.elementCount,
+                            static_cast<IGsize>(this->m_codecParams.geomParams.dimension))) {
+            return false;
+        }
+        if constexpr (sizeof(std::size_t) < sizeof(uint64_t)) {
+            if (CodecStorageParamSizeLimits::ParamsExceed32Bit(this->m_codecParams)) { return false; }
+        }
+        if (!ValidateStructuredMeshParams()) { return false; }
+
+        IGsize attrBinaryTotal = 0;
+        for (const auto& attr : this->m_codecParams.attrParams) {
+            if (m_ParamVersion == LegacyParamVersion) {
+                if (!ValidateLegacyAttrParams(attr, attrBinaryTotal)) { return false; }
+            } else {
+                if (!ValidateV3AttrParams(attr, attrBinaryTotal)) { return false; }
+            }
+        }
+
+        return true;
+    }
 
     // region caller
-    void ProcessPayload(PayloadBuffer& buf) {
+    bool ProcessPayload(PayloadBuffer& buf) {
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        MeshCodecZSTD().Decompress(bufDecompressed, buf);
+        if (buf.empty()) {
+            // 兼容旧文件中的空可选载荷
+            if (!CanAcceptEmptyPayload(type)) {
+                return false;
+            }
+        } else if (!MeshCodecZSTD().Decompress(bufDecompressed, buf)) {
+            return false;
+        }
 
         switch (type) {
             case PayloadType::kParameterSet: {
-                this->ParamsDecoder(bufDecompressed);
-                if (m_DecoderAdapter) {
-                    m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
-                }
+                if (!this->ParamsDecoder(bufDecompressed)) { return false; }
+                ApplyDecodedMeshParams();
                 break;
             }
             case PayloadType::kGeometryBrick: {
-                this->GeomDecoder(bufDecompressed);
+                if (!this->GeomDecoder(bufDecompressed)) { return false; }
                 break;
             }
             case PayloadType::kAttributeBrick: {
-                this->AttrDecoder(bufDecompressed);
+                if (!this->AttrDecoder(bufDecompressed)) { return false; }
                 break;
             }
             case PayloadType::kTopologyBrick: {
-                this->TopoDecoder(bufDecompressed);
+                if (!this->TopoDecoder(bufDecompressed)) { return false; }
                 break;
             }
             default:
                 break;
         }
+        return true;
+    }
+
+    void ApplyDecodedMeshParams() {
+        if (!m_DecoderAdapter) {
+            return;
+        }
+        m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            m_DecoderAdapter->SetStructuredMeshDimension(
+                this->m_codecParams.structuredMeshParams.axisSize);
+        }
+    }
+
+    bool CanAcceptEmptyPayload(PayloadType type) const {
+        if (type == PayloadType::kTopologyBrick) {
+            return this->m_codecParams.meshType == IG_POINT_SET ||
+                   this->m_codecParams.meshType == IG_STRUCTURED_MESH;
+        }
+        if (type == PayloadType::kAttributeBrick) {
+            return this->m_codecParams.attrParams.empty();
+        }
+        return false;
     }
     // endregion
 
     // region main decoders
-    void ParamsDecoder(PayloadBuffer& buf) {
-        IGsize staticSize = sizeof(StorageParamsWoAttr);
+    bool ParamsDecoder(PayloadBuffer& buf) {
+        constexpr size_t kCodecStorageHeaderBinarySize = sizeof(uint32_t) + sizeof(uint8_t) + 3 * sizeof(uint8_t);
+        if (buf.size() < kCodecStorageHeaderBinarySize) {
+            IGAME_CORE_ERROR("Invalid IGC parameter payload");
+            return false;
+        }
 
-        // 读取静态数据
-        StorageParamsWoAttr paramsWoAttr{};
-        std::memcpy(&paramsWoAttr, buf.data(), staticSize);
+        CodecStorageHeader header{};
+        std::vector<uint8_t> headerData(kCodecStorageHeaderBinarySize);
+        std::memcpy(headerData.data(), buf.data(), headerData.size());
 
-        this->m_codecParams.meshType = paramsWoAttr.meshType;
-        this->m_codecParams.structuredMeshParams = paramsWoAttr.structuredMeshParams;
+        try {
+            CodecBinaryInputArchive headerAr(headerData);
+            header.Archive(headerAr);
+        } catch (const std::exception& e) {
+            IGAME_CORE_ERROR("Invalid IGC parameter header: {}", e.what());
+            return false;
+        }
 
-        this->m_codecParams.geomParams = paramsWoAttr.geomParams;
-        this->m_codecParams.topoParams = paramsWoAttr.topoParams;
+        if (header.version == 2) {
+            IGAME_CORE_ERROR("IGC parameter version 2 is not supported. Please regenerate this file as version 3");
+            return false;
+        }
 
-        this->m_codecParams.attrCount = paramsWoAttr.attrCount;
+        if (header.version != SupportedParamVersion && header.version != LegacyParamVersion) {
+            IGAME_CORE_ERROR("Unsupported IGC parameter version {}. Please update or regenerate this file", header.version);
+            return false;
+        }
 
-        // 读取动态数据
-        this->m_codecParams.attrParams.resize(paramsWoAttr.attrCount);
-        IGsize dynamicSize = paramsWoAttr.attrCount * sizeof(AttrStorageParams);
+        m_ParamVersion = header.version;
+
+        if constexpr (sizeof(std::size_t) < sizeof(uint64_t)) {
+            if (header.Requires64BitSize()) {
+                IGAME_CORE_ERROR("IGC parameter payload requires a 64-bit platform");
+                return false;
+            }
+        }
 
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);
 
-        std::memcpy(this->m_codecParams.attrParams.data(), buf.data() + staticSize, dynamicSize);
+        std::vector<uint8_t> data(buf.size() - kCodecStorageHeaderBinarySize);
+        if (!data.empty()) {
+            std::memcpy(data.data(), buf.data() + kCodecStorageHeaderBinarySize, data.size());
+        }
+
+        if (header.version == LegacyParamVersion) {
+            IGAME_CORE_WARN("Reading legacy IGC parameter version 1. Please prefer version 3 IGC data when possible");
+            std::string error;
+            if (!CodecLegacyV1Probe::Decode(data, this->m_codecParams, &error)) {
+                IGAME_CORE_ERROR("Invalid legacy IGC parameter payload: {}", error);
+                return false;
+            }
+            NormalizeLegacyAttrParams();
+        } else {
+            try {
+                CodecBinaryInputArchive ar(data);
+                this->m_codecParams.Archive(ar);
+            } catch (const std::exception& e) {
+                IGAME_CORE_ERROR("Invalid IGC parameter payload: {}", e.what());
+                return false;
+            }
+        }
+
+        if (!ValidateCodecParams()) {
+            IGAME_CORE_ERROR("Invalid IGC parameter payload");
+            return false;
+        }
 
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);
+        return true;
     }
 
-    void GeomDecoder(PayloadBuffer& buf) {
+    bool GeomDecoder(PayloadBuffer& buf) {
         std::vector<unsigned char> uCharBuffer(buf.size());
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
 
@@ -154,14 +469,62 @@ private:
         std::vector<float> decodedFloat(bufferSize);
 
         MeshFloatCodec::FloatDecoder(decodedFloat, uCharBuffer, this->m_codecParams.geomParams);
+        if (decodedFloat.size() != bufferSize) {
+            IGAME_CORE_ERROR("Invalid IGC geometry payload");
+            return false;
+        }
 
         m_DecompressProgress += 0.15;
         UpdateProgress(m_DecompressProgress);
 
         this->m_DecoderAdapter->SetPointBuffer(decodedFloat);
+        return true;
     }
 
-    void AttrDecoder(PayloadBuffer& buf) {
+    template<typename ValueType>
+    static bool DecodeIntegerAttribute(
+            AttributeBuffer& attr,
+            const std::vector<unsigned char>& inputBuffer,
+            const AttrStorageParams& params) {
+        std::vector<ValueType> values;
+        if (!MeshIntegerCodec::Decode<ValueType>(values, inputBuffer, params.elementCount, params.dimension)) {
+            return false;
+        }
+
+        attr.rawData.resize(values.size() * sizeof(ValueType));
+        if (!values.empty()) {
+            std::memcpy(attr.rawData.data(), values.data(), attr.rawData.size());
+        }
+        return true;
+    }
+
+    static bool DecodeIntegerAttributeByType(
+            AttributeBuffer& attr,
+            const std::vector<unsigned char>& inputBuffer,
+            const AttrStorageParams& params) {
+        switch (params.arrayType) {
+            case IG_CharArray:
+                return DecodeIntegerAttribute<char>(attr, inputBuffer, params);
+            case IG_UnsignedCharArray:
+                return DecodeIntegerAttribute<unsigned char>(attr, inputBuffer, params);
+            case IG_ShortArray:
+                return DecodeIntegerAttribute<short>(attr, inputBuffer, params);
+            case IG_UnsignedShortArray:
+                return DecodeIntegerAttribute<unsigned short>(attr, inputBuffer, params);
+            case IG_IntArray:
+                return DecodeIntegerAttribute<int>(attr, inputBuffer, params);
+            case IG_UnsignedIntArray:
+                return DecodeIntegerAttribute<unsigned int>(attr, inputBuffer, params);
+            case IG_LongLongArray:
+                return DecodeIntegerAttribute<long long>(attr, inputBuffer, params);
+            case IG_UnsignedLongLongArray:
+                return DecodeIntegerAttribute<unsigned long long>(attr, inputBuffer, params);
+            default:
+                return false;
+        }
+    }
+
+    bool AttrDecoder(PayloadBuffer& buf) {
         std::vector<unsigned char> uCharBuffer(buf.size());
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
 
@@ -169,68 +532,121 @@ private:
         std::vector<IGsize> binaryCursorOffsets(this->m_codecParams.attrParams.size() + 1);
         binaryCursorOffsets[0] = 0;
         for (size_t i = 0; i < this->m_codecParams.attrParams.size(); i++) {
+            if (this->m_codecParams.attrParams[i].binaryCount >
+                static_cast<IGsize>(std::numeric_limits<size_t>::max())) {
+                IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                return false;
+            }
             binaryCursorOffsets[i + 1] = binaryCursorOffsets[i] + this->m_codecParams.attrParams[i].binaryCount;
+            if (binaryCursorOffsets[i + 1] < binaryCursorOffsets[i] ||
+                binaryCursorOffsets[i + 1] > static_cast<IGsize>(uCharBuffer.size())) {
+                IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                return false;
+            }
+        }
+        if (binaryCursorOffsets.back() != static_cast<IGsize>(uCharBuffer.size())) {
+            IGAME_CORE_ERROR("Invalid IGC attribute payload");
+            return false;
         }
 
-        // 用于暂存所有线程产生的属性数据
         std::vector<AttributeBuffer> attrBuffers(this->m_codecParams.attrParams.size());
 
-        // 进度控制
-        CodecProgressParallelFor(this, 0,
-                            static_cast<int>(this->m_codecParams.attrParams.size()),
-                            m_DecompressProgress, m_DecompressProgress + 0.2f,
-                            [&](int start, int end) -> void {
-            for (int i = start; i < end; i++) {
-                auto& params = this->m_codecParams.attrParams[i];
+        for (size_t i = 0; i < this->m_codecParams.attrParams.size(); ++i) {
+            auto& params = this->m_codecParams.attrParams[i];
+            if (params.dimension <= 0 || params.elementCount == 0) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: invalid dimension or element count", params.name);
+                continue;
+            }
 
-                // 参数有效性检查
-                if (params.dimension <= 0 || params.elementCount <= 0) {
+            std::vector<unsigned char> inputBuffer(
+                uCharBuffer.begin() + binaryCursorOffsets[i],
+                uCharBuffer.begin() + binaryCursorOffsets[i + 1]
+            );
+
+            const IGsize valueCount = params.elementCount * params.dimension;
+
+            AttributeBuffer attr;
+            attr.name = params.name;
+            attr.type = params.type;
+            attr.attachmentType = params.attachmentType;
+            attr.dimension = params.dimension;
+            attr.valueSize = static_cast<int>(params.valueSize);
+            attr.arrayType = params.arrayType;
+            attr.attrCodec = params.attrCodec;
+
+            bool decodeOk = false;
+            if (params.attrCodec == AttrCodec::Unsupported) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute codec", params.name);
+                continue;
+            }
+
+            if (params.attrCodec == AttrCodec::FloatMeshopt) {
+                const bool legacyInterleaved =
+                        m_ParamVersion == LegacyParamVersion &&
+                        params.attrLayout == AttrLayout::InterleavedRecord;
+                const bool componentSeries = params.attrLayout == AttrLayout::ComponentSeries;
+                if (!legacyInterleaved && !componentSeries) {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute layout", params.name);
                     continue;
                 }
-
-                // 使用预先计算的位置获取当前属性的二进制数据
-                std::vector<unsigned char> inputBuffer(
-                    uCharBuffer.begin() + binaryCursorOffsets[i],
-                    uCharBuffer.begin() + binaryCursorOffsets[i + 1]
-                );
-
-                // 提取属性名
-                const char* nameStart = params.name;
-                const char* nameEnd = std::find(nameStart, nameStart + sizeof(params.name), '\0');
-                const std::string attributeName(nameStart, nameEnd);
-
-                const IGsize valueCount = params.elementCount * params.dimension;
-
-                // 构建 AttributeBuffer
-                AttributeBuffer attr;
-                attr.name = attributeName;
-                attr.type = params.type;
-                attr.attachmentType = params.attachmentType;
-                attr.dimension = params.dimension;
-                attr.valueSize = params.valueSize;
-
-                if (params.valueSize == sizeof(float)) {
+                if (params.arrayType == IG_FloatArray) {
                     std::vector<float> floats;
-                    MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
-                    // 解码结果大小验证
-                    if (floats.size() != valueCount) {
-                        continue;
+                    if (legacyInterleaved) {
+                        MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
+                        decodeOk = true;
+                    } else if (componentSeries) {
+                        decodeOk = MeshFloatCodec::FloatDecoderComponentSeries(
+                                floats, inputBuffer, params, params.componentBinaryCounts);
+                    }
+                    if (!decodeOk || floats.size() != static_cast<size_t>(valueCount)) {
+                        IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                        return false;
                     }
                     attr.floatData = std::move(floats);
-                } else if (params.valueSize == sizeof(double)) {
+                } else if (params.arrayType == IG_DoubleArray) {
                     std::vector<double> doubles;
-                    MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
-                    // 解码结果大小验证
-                    if (doubles.size() != valueCount) {
-                        continue;
+                    if (legacyInterleaved) {
+                        MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
+                        decodeOk = true;
+                    } else if (componentSeries) {
+                        decodeOk = MeshFloatCodec::FloatDecoderComponentSeries(
+                                doubles, inputBuffer, params, params.componentBinaryCounts);
+                    }
+                    if (!decodeOk || doubles.size() != static_cast<size_t>(valueCount)) {
+                        IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                        return false;
                     }
                     attr.doubleData = std::move(doubles);
+                } else {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported float array type {}", params.name, params.arrayType);
+                    continue;
                 }
-
-                // 保存解码结果
-                attrBuffers[i] = std::move(attr);
+            } else if (params.attrCodec == AttrCodec::IntegerDeltaRleVarint) {
+                if (params.attrLayout != AttrLayout::ComponentSeries) {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported integer attribute layout", params.name);
+                    continue;
+                }
+                if (!IsSupportedIntegerAttributeArray(params.arrayType)) {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported integer array type {}", params.name, params.arrayType);
+                    continue;
+                }
+                decodeOk = DecodeIntegerAttributeByType(attr, inputBuffer, params);
+                if (!decodeOk || attr.rawData.size() != static_cast<size_t>(valueCount) * static_cast<size_t>(params.valueSize)) {
+                    IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                    return false;
+                }
+            } else {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute codec", params.name);
+                continue;
             }
-        });
+
+            attr.valid = true;
+            attrBuffers[i] = std::move(attr);
+            if (!this->m_codecParams.attrParams.empty()) {
+                UpdateProgress(m_DecompressProgress + 0.2f * (static_cast<float>(i + 1) /
+                                                              static_cast<float>(this->m_codecParams.attrParams.size())));
+            }
+        }
 
         // 更新最终进度
         m_DecompressProgress += 0.2;
@@ -240,14 +656,15 @@ private:
         for (const auto& attr : attrBuffers) {
             this->m_DecoderAdapter->AddAttribute(attr);
         }
+        return true;
     }
 
-    void TopoDecoder(PayloadBuffer& buf) {
+    bool TopoDecoder(PayloadBuffer& buf) {
         if (this->m_codecParams.meshType == IG_POINT_SET) {
             // 点云没有拓扑结构，直接更新进度并返回
             m_DecompressProgress += 0.2;
             UpdateProgress(m_DecompressProgress);
-            return;
+            return true;
         }
 
         // 结构化网格：不需要解码cell连接关系，通过axisSize自动生成
@@ -256,13 +673,43 @@ private:
 
             m_DecompressProgress += 0.2;
             UpdateProgress(m_DecompressProgress);
-            return;
+            return true;
         }
 
         std::vector<unsigned char> inputTopo(buf.size());
         std::memcpy(inputTopo.data(), buf.data(), buf.size());
 
         int inputCursor = 0;
+        const auto& topoParams = this->m_codecParams.topoParams;
+        const IGsize topoPayloadSize = static_cast<IGsize>(inputTopo.size());
+        const IGsize maxInt = static_cast<IGsize>(std::numeric_limits<int>::max());
+        if (topoParams.topCellBufferBinaryCount > maxInt ||
+            topoParams.topCellSizeBinaryCount > maxInt ||
+            topoParams.bottomCellBufferBinaryCount > maxInt ||
+            topoParams.bottomCellSizeBinaryCount > maxInt ||
+            topoParams.cellTypeBinaryCount > maxInt) {
+            IGAME_CORE_ERROR("Invalid IGC topology payload");
+            return false;
+        }
+        IGsize expectedTopoBytes = 0;
+        const IGsize topoParts[] = {
+            topoParams.topCellBufferBinaryCount,
+            topoParams.topCellSizeBinaryCount,
+            topoParams.bottomCellBufferBinaryCount,
+            topoParams.bottomCellSizeBinaryCount,
+            topoParams.cellTypeBinaryCount,
+        };
+        for (IGsize part : topoParts) {
+            if (AddWillOverflow(expectedTopoBytes, part)) {
+                IGAME_CORE_ERROR("Invalid IGC topology payload");
+                return false;
+            }
+            expectedTopoBytes += part;
+        }
+        if (expectedTopoBytes > topoPayloadSize) {
+            IGAME_CORE_ERROR("Invalid IGC topology payload");
+            return false;
+        }
 
         if (this->m_codecParams.topoParams.isSecondaryIndex) {
             std::vector<unsigned int> volume2facesIndex;
@@ -358,6 +805,11 @@ private:
 
         m_DecompressProgress += 0.2;
         UpdateProgress(m_DecompressProgress);
+        if (inputCursor != static_cast<int>(inputTopo.size())) {
+            IGAME_CORE_ERROR("Invalid IGC topology payload");
+            return false;
+        }
+        return true;
     }
     // endregion
 

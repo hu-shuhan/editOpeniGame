@@ -1,5 +1,6 @@
 #include "iGameSceneManager.h"
 #include <IQWidgets/igQtScalarViewWidget.h>
+#include <QRegExpValidator>
 #include <sstream>
 #include <iomanip>
 //#include <iGameManager.h>
@@ -11,12 +12,6 @@
 igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 	: QWidget(parent), ui(new Ui::ScalarView) {
 	ui->setupUi(this);
-	ui->label_Scalar->hide();
-	ui->scalarInfoComboBox->hide();
-	ui->scalarItemComboBox->hide();
-	ui->label_Data->hide();
-	ui->DataInfoCombox->hide();
-	ui->DataItemCombox->hide();
     this->setMinimumWidth(350);
 	SetCustomScaleRangeWidget = new QWidget;
 	SetCustomScaleRangeUi = new Ui::SetCustomScaleRange;

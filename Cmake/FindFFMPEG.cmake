@@ -1,9 +1,12 @@
 # - Find FFMPEG SDK library
 # Find the FFMPEG SDK includes and library
+set(_FFMPEG_ROOT "${CMAKE_CURRENT_LIST_DIR}/../ThirdParty/FFMPEG")
+
 find_path(FFMPEG_PRIVATE_INCLUDE_DIR
         NAMES
         libavcodec
         PATHS
+        "${_FFMPEG_ROOT}/include"
         /usr/local/include/x86_64-linux-gnu
         /usr/local/include
         /usr/include
@@ -16,6 +19,7 @@ if (WIN32)
             NAMES
             avcodec.lib
             PATHS
+            "${_FFMPEG_ROOT}/lib"
             "D:/dev/FFMPEG/lib"
             "D:/iGameVis/FFMPEG/lib"
     )
@@ -35,6 +39,7 @@ find_path(FFMPEG_DLL_DIR
         NAMES
         avcodec-61.dll
         PATHS
+        "${_FFMPEG_ROOT}/bin"
         "D:/dev/FFMPEG/bin"
         "D:/iGameVis/FFMPEG/bin"
 )

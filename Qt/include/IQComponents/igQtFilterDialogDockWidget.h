@@ -11,14 +11,20 @@
 #include <ui_filterDialog.h>
 #include <IQCore/igQtExportModule.h>
 #include <qaction.h>
+#include <QCheckBox>
 #include <QLineEdit>
 #include <QComboBox>
 #include <functional>
 
+class QResizeEvent;
+class QShowEvent;
+
 class IG_QT_MODULE_EXPORT igQtFilterDialogDockWidget : public QDockWidget {
     Q_OBJECT
 public:
-    igQtFilterDialogDockWidget(QWidget* parent = Q_NULLPTR);
+    /// When \p framelessWhenFloating is true, floating windows use no system frame and a custom title bar
+    /// (same pattern as igQtModelDialogWidget layer docks). \p allowedAreas in filterDialog.ui is already NoDockWidgetArea.
+    explicit igQtFilterDialogDockWidget(QWidget* parent = Q_NULLPTR, bool framelessWhenFloating = false);
     ~igQtFilterDialogDockWidget() override;
 
     enum WidgetType{ 
@@ -109,9 +115,17 @@ public:
     void setApplyFunctor(Functor&& functor, Args&&... args) {
         applyFunctor = std::bind(functor, args...);
     }
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+
 private:
+    void applyFramelessForFloating(bool floating);
+    void updateFramelessRoundedMask();
     int addParameter(QLabel* label, QWidget* value);
-private:
+    QWidget* m_customFrameTitleBar = nullptr;
+    bool m_framelessWhenFloating = false;
     Ui::FilterDockDialog* ui;
     QGridLayout* gridLayout;
 

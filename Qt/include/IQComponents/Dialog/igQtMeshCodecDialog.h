@@ -9,13 +9,13 @@
 #include "iGamePointSet.h"
 #include "iGameSmartPointer.h"
 #include <QDebug>
-#include <QDialog>
 #include <QDoubleValidator>
 #include <QGridLayout>
 #include <QListWidgetItem>
 #include <QMap>
 #include <QMessageBox>
 #include <QVector>
+#include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <QtCharts/QAreaSeries>
 #include <QtCharts/QBarCategoryAxis>
 #include <QtCharts/QBarSeries>
@@ -86,7 +86,7 @@ Q_DECLARE_METATYPE(UIDataItem*)
 
 QT_CHARTS_USE_NAMESPACE
 
-class igQtMeshCodecDialog : public QDialog {
+class igQtMeshCodecDialog : public igQtChromeFramelessDialog {
     Q_OBJECT
 public:
     igQtMeshCodecDialog(QWidget* parent = Q_NULLPTR, iGame::DataObject::Pointer obj = nullptr);
@@ -124,6 +124,7 @@ protected:
 
 private:
     Ui::MeshCodecDialog* ui;
+    QWidget* m_bodyWidget = nullptr;
     // 用于 UI 侧做统计/参数推导的“代表性叶子块”（多块/多帧时通常只取第一个叶子块）
     iGame::DataObject::Pointer m_uiSampleLeafObj;
     // 用于最终写文件的“源数据对象”（可能是 multiblock/time series 的根对象）

@@ -15,7 +15,7 @@ int main() {
     }
     iGame::DrawObject::Pointer currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
     /* 切换到不同帧，最终可视化具体帧的矢量场*/
-    currentDrawObject->GetTimeFrames()->EnableCache();
+    currentDrawObject->GetTimeFrames()->EnableCache(1000);
     std::cout << "Total Time nums : " << currentDrawObject->GetTimeFrames()->GetTimeNum() << std::endl;
     currentDrawObject->UpdateAnimation(8);
     //    currentDrawObject->UpdateAnimation(10);

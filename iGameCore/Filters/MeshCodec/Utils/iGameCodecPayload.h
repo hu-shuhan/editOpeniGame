@@ -2,6 +2,7 @@
 #define iGameCodecPayload_h
 
 #include "iGameMacro.h"
+#include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "iGameType.h"
 
 #include <string>
@@ -34,9 +35,13 @@ struct AttributeBuffer {
     IGenum attachmentType;
     int dimension;
     int valueSize;         // sizeof(float) 或 sizeof(double)
+    IGenum arrayType = IG_ARRAY_OBJECT;
+    AttrCodec attrCodec = AttrCodec::Unsupported;
+    bool valid = false;
 
     std::vector<float> floatData;
     std::vector<double> doubleData;
+    std::vector<unsigned char> rawData;
 
     [[nodiscard]] bool isFloat() const { return valueSize == sizeof(float); }
 };

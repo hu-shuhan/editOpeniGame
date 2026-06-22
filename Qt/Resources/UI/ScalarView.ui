@@ -35,179 +35,259 @@
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <property name="leftMargin">
+        <number>8</number>
+       </property>
+       <property name="topMargin">
+        <number>8</number>
+       </property>
+       <property name="rightMargin">
+        <number>8</number>
+       </property>
+       <property name="bottomMargin">
+        <number>8</number>
+       </property>
        <item>
         <layout class="QVBoxLayout" name="verticalLayout">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <!-- 颜色映射控制区域 -->
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="1,3,2">
-           <item>
-            <widget class="QLabel" name="label_Scalar">
-             <property name="text">
-              <string>数据来源</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QComboBox" name="scalarInfoComboBox"/>
-           </item>
-           <item>
-            <widget class="QComboBox" name="scalarItemComboBox"/>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,3,2">
-           <item>
-            <widget class="QLabel" name="label_Data">
-             <property name="text">
-              <string>特征数据</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QComboBox" name="DataInfoCombox"/>
-           </item>
-           <item>
-            <widget class="QComboBox" name="DataItemCombox"/>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <widget class="Line" name="line">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+          <widget class="QGroupBox" name="groupBox_ColorMapping">
+           <property name="title">
+            <string>颜色映射</string>
            </property>
+           <property name="styleSheet">
+            <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_ColorMapping">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <property name="leftMargin">
+             <number>10</number>
+            </property>
+            <property name="topMargin">
+             <number>10</number>
+            </property>
+            <property name="rightMargin">
+             <number>10</number>
+            </property>
+            <property name="bottomMargin">
+             <number>10</number>
+            </property>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,0,0,0">
+              <property name="spacing">
+               <number>6</number>
+              </property>
+              <item>
+               <widget class="QPushButton" name="btn_EditColorMap">
+                <property name="text">
+                <string>颜色映射</string>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 4px 8px; }
+QPushButton:hover { background-color: #3C3C3C; }
+QPushButton:pressed { background-color: #4A4A4A; }</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btn_RescaleRange">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="contextMenuPolicy">
+                 <enum>Qt::CustomContextMenu</enum>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Rescale Range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>false</bool>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>:/Ticon/Icons/ResetScaleRange.png</normaloff>:/Ticon/Icons/ResetScaleRange.png</iconset>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 4px; }
+QPushButton:hover { background-color: #3C3C3C; }
+QPushButton:pressed { background-color: #4A4A4A; }</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btn_SetRange">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="contextMenuPolicy">
+                 <enum>Qt::NoContextMenu</enum>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set Range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>:/Ticon/Icons/SetScaleRange.png</normaloff>:/Ticon/Icons/SetScaleRange.png</iconset>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 4px; }
+QPushButton:hover { background-color: #3C3C3C; }
+QPushButton:pressed { background-color: #4A4A4A; }</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btn_IsShowColorLegend">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show/Hide color legend&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>:/Ticon/Icons/ScalarBar.png</normaloff>:/Ticon/Icons/ScalarBar.png</iconset>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 4px; }
+QPushButton:hover { background-color: #3C3C3C; }
+QPushButton:pressed { background-color: #4A4A4A; }</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="igQtDataRangeSlider" name="widget_DataRangeSlider" native="true">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>50</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QWidget { background-color: #252526; }</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
+         
+         <!-- 云图类型选择区域 -->
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0,0,0">
-           <item>
-            <widget class="QPushButton" name="btn_EditColorMap">
-             <property name="text">
-              <string>Edit Color Map</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btn_RescaleRange">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="contextMenuPolicy">
-              <enum>Qt::CustomContextMenu</enum>
-             </property>
-             <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Rescale
-                                                            Range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;
-                                                        </string>
-             </property>
-             <property name="autoFillBackground">
-              <bool>false</bool>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>:/Ticon/Icons/ResetScaleRange.png</normaloff>:/Ticon/Icons/ResetScaleRange.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btn_SetRange">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="contextMenuPolicy">
-              <enum>Qt::NoContextMenu</enum>
-             </property>
-             <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set Range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>:/Ticon/Icons/SetScaleRange.png</normaloff>:/Ticon/Icons/SetScaleRange.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btn_IsShowColorLegend">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show/Hide
-                                                            color
-                                                            legend&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;
-                                                        </string>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>:/Ticon/Icons/ScalarBar.png</normaloff>:/Ticon/Icons/ScalarBar.png</iconset>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <widget class="igQtDataRangeSlider" name="widget_DataRangeSlider" native="true">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>50</height>
-            </size>
+          <widget class="QGroupBox" name="groupBox_CloudType">
+           <property name="title">
+            <string>云图类型</string>
            </property>
+           <property name="styleSheet">
+            <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <property name="leftMargin">
+             <number>10</number>
+            </property>
+            <property name="topMargin">
+             <number>10</number>
+            </property>
+            <property name="rightMargin">
+             <number>10</number>
+            </property>
+            <property name="bottomMargin">
+             <number>10</number>
+            </property>
+            <item>
+             <widget class="QRadioButton" name="radioButton_Liner">
+              <property name="text">
+               <string>连续云图</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QRadioButton { font-size: 14px; color: #CCCCCC; }</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioButton_Step">
+              <property name="text">
+               <string>区间云图</string>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QRadioButton { font-size: 14px; color: #CCCCCC; }</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
+         
+         <!-- 标量信息展示区域 -->
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_3">
-           <item>
-            <widget class="QRadioButton" name="radioButton_Liner">
-             <property name="text">
-              <string>连续云图</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="radioButton_Step">
-             <property name="text">
-              <string>区间云图</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <widget class="QLabel" name="labelScalarInfo">
-           <property name="text">
-            <string/>
+          <widget class="QGroupBox" name="groupBox_ScalarInfo">
+           <property name="title">
+            <string>标量信息</string>
            </property>
-           <property name="alignment">
-            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+           <property name="styleSheet">
+            <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
            </property>
+           <layout class="QVBoxLayout" name="verticalLayout_ScalarInfo">
+            <property name="leftMargin">
+             <number>10</number>
+            </property>
+            <property name="topMargin">
+             <number>10</number>
+            </property>
+            <property name="rightMargin">
+             <number>10</number>
+            </property>
+            <property name="bottomMargin">
+             <number>10</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="labelScalarInfo">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QLabel { font-size: 14px; color: #FFFFFF; }</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
         </layout>

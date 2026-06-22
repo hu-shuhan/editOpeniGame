@@ -1,6 +1,8 @@
 ﻿#include <IQWidgets/igQtVariableDensityWidget.h>
 #include "ui_igQtVariableDensityWidget.h"
 #include <QElapsedTimer>
+#include <QEvent>
+#include <QColor>
 #include <QLinearGradient>
 #include <QTransform>
 #include <QList>
@@ -48,88 +50,6 @@ static QRect InsetRectByBoundaryRatio(const QRect& rect, double boundaryRatio) {
     int newHeight = std::max(0, height - 2 * insetYInt);
 
     return QRect(newLeft, newTop, newWidth, newHeight);
-}
-
-static int DistanceSquared(const std::tuple<int, int, int>& color1, const std::tuple<int, int, int>& color2) {
-    int r1 = std::get<0>(color1);
-    int g1 = std::get<1>(color1);
-    int b1 = std::get<2>(color1);
-    int r2 = std::get<0>(color2);
-    int g2 = std::get<1>(color2);
-    int b2 = std::get<2>(color2);
-    int dr = r1 - r2;
-    int dg = g1 - g2;
-    int db = b1 - b2;
-    return dr * dr + dg * dg + db * db;
-}
-
-static int MinDistanceSquared(const std::tuple<int, int, int>& bg,
-                              const std::vector<std::tuple<int, int, int>>& colors) {
-    int minDistSq = std::numeric_limits<int>::max();
-    for (const auto& obj: colors) {
-        int distSq = DistanceSquared(bg, obj);
-        if (distSq < minDistSq) {
-            minDistSq = distSq;
-            if (minDistSq == 0) break;
-        }
-    }
-    return minDistSq;
-}
-
-static std::tuple<int, int, int> CalculateBackgroundColor(const std::vector<std::tuple<int, int, int>>& colors) {
-    if (colors.empty()) { return std::make_tuple(255, 255, 255); }
-
-    const int step1 = 16;
-    int bestMinDistSq = -1;
-    std::tuple<int, int, int> bestBg;
-
-    for (int r = 0; r <= 255; r += step1) {
-        for (int g = 0; g <= 255; g += step1) {
-            for (int b = 0; b <= 255; b += step1) {
-                auto bg = std::make_tuple(r, g, b);
-                int minDistSq = MinDistanceSquared(bg, colors);
-                if (minDistSq > bestMinDistSq) {
-                    bestMinDistSq = minDistSq;
-                    bestBg = bg;
-                }
-            }
-        }
-    }
-
-    int r0 = std::get<0>(bestBg);
-    int g0 = std::get<1>(bestBg);
-    int b0 = std::get<2>(bestBg);
-    int r_start = std::max(0, r0 - step1);
-    int r_end = std::min(255, r0 + step1);
-    int g_start = std::max(0, g0 - step1);
-    int g_end = std::min(255, g0 + step1);
-    int b_start = std::max(0, b0 - step1);
-    int b_end = std::min(255, b0 + step1);
-
-    bestMinDistSq = -1;
-    for (int r = r_start; r <= r_end; ++r) {
-        for (int g = g_start; g <= g_end; ++g) {
-            for (int b = b_start; b <= b_end; ++b) {
-                auto bg = std::make_tuple(r, g, b);
-                int minDistSq = MinDistanceSquared(bg, colors);
-                if (minDistSq > bestMinDistSq) {
-                    bestMinDistSq = minDistSq;
-                    bestBg = bg;
-                }
-            }
-        }
-    }
-
-    return bestBg;
-}
-
-static std::tuple<int, int, int> CalculateBackgroundColor(FloatArray::Pointer colorBar) {
-    std::vector<std::tuple<int, int, int>> colors;
-    for (int i = 0; i < colorBar->GetNumberOfElements(); i++) {
-        colors.push_back({colorBar->GetElementValue(i, 0) * 255, colorBar->GetElementValue(i, 1) * 255,
-                          colorBar->GetElementValue(i, 2) * 255});
-    }
-    return VariableDensityData::ChangeSaturation(CalculateBackgroundColor(colors), 85);
 }
 
 static double CalculateValueByPos(int pos, int minPos, int maxPos, double minValue, double maxValue) {
@@ -328,15 +248,6 @@ void igQtVariableDensityWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
     update();
 }
 
-void igQtVariableDensityWidget::DrawRangeChooseRect() {
-    if (!m_RangeChooseOn) return;
-    if (!m_RangeChoosing) return;
-    QPainter painter(this);
-    painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
-}
-
 void igQtVariableDensityWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
 
 void igQtVariableDensityWidget::mousePressEvent(QMouseEvent* event) {
@@ -350,9 +261,7 @@ void igQtVariableDensityWidget::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void igQtVariableDensityWidget::paintEvent(QPaintEvent* QPE) {
-    if (m_CurrentModelDataIndex < 0 || m_VariableDensityDatas.size() <= m_CurrentModelDataIndex) return;
-    Draw();
-    DrawRangeChooseRect();
+    QWidget::paintEvent(QPE);
 }
 
 void igQtVariableDensityWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -361,10 +270,26 @@ void igQtVariableDensityWidget::mouseMoveEvent(QMouseEvent* event) {
 }
 
 bool igQtVariableDensityWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched != ui->drawWidget) return QWidget::eventFilter(watched, event);
+
+    if (event->type() == QEvent::Paint) {
+        QPainter painter(ui->drawWidget);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        _PaintPlotOnDrawWidget(painter);
+        return true;
+    }
+    if (event->type() == QEvent::MouseButtonPress) {
+        auto* mouseEvent = static_cast<QMouseEvent*>(event);
+        StartRangeChoose(ui->drawWidget->mapTo(this, mouseEvent->pos()));
+        return false;
+    }
+    if (event->type() == QEvent::MouseButtonRelease) {
+        EndRangeChoose();
+        return false;
+    }
     if (event->type() == QEvent::MouseMove) {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-
-        QPoint parentPos = static_cast<QWidget*>(watched)->mapTo(this, mouseEvent->pos());
+        QPoint parentPos = ui->drawWidget->mapTo(this, mouseEvent->pos());
         handleMouseMove(parentPos);
         return true;
     }
@@ -520,26 +445,28 @@ void igQtVariableDensityWidget::GenerateSecondChoosedDensityImage() {
 }
 
 void igQtVariableDensityWidget::GenerateBackgroundColor() {
-    //########################### White ###########################
-    m_BackgroundColor = {242, 242, 242};
-    return;
-    //########################### White ###########################
-    if (m_CurrentModelDataIndex < 0 || m_VariableDensityDatas.size() <= m_CurrentModelDataIndex) {
-        m_BackgroundColor = {255, 255, 255};
-        return;
-    }
-    auto colorMap = m_Mesh->GetColorMapper();
-    auto colorBar = colorMap->GetColorBar();
-    m_BackgroundColor = CalculateBackgroundColor(colorBar);
+    // 与路径图/变量相关性等深色面板一致；原 colorBar 自适应逻辑被早退屏蔽，此处统一深色底
+    m_BackgroundColor = {0x2b, 0x2b, 0x2b};
 }
 
-void igQtVariableDensityWidget::Draw() {
-    QRect bigDrawFrame, smallDrawFrame;
-    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
-    _DrawBackground(bigDrawFrame);
-    _DrawCoordinateRect(smallDrawFrame);
-    _DrawImages(smallDrawFrame);
-    _DrawCenterLine(smallDrawFrame);
+void igQtVariableDensityWidget::_PaintPlotOnDrawWidget(QPainter& painter) {
+    const QRect plotRect = ui->drawWidget->rect();
+    if (m_CurrentModelDataIndex < 0 || m_VariableDensityDatas.size() <= m_CurrentModelDataIndex) {
+        painter.fillRect(plotRect, QColor(0x2b, 0x2b, 0x2b));
+        return;
+    }
+    QRect smallDrawFrame = InsetRectByBoundaryRatio(plotRect, boundaryRatio);
+    _DrawBackground(painter, plotRect);
+    _DrawCoordinateRect(painter, smallDrawFrame);
+    _DrawImages(painter, smallDrawFrame);
+    _DrawCenterLine(painter, smallDrawFrame);
+    if (m_RangeChooseOn && m_RangeChoosing) {
+        QPoint a = ui->drawWidget->mapFrom(this, m_RangeChooseStartPoint);
+        QPoint b = ui->drawWidget->mapFrom(this, m_RangeChooseEndPoint);
+        painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRect(QRect(a, b).normalized());
+    }
 }
 
 void igQtVariableDensityWidget::SetDensityColor() {
@@ -705,16 +632,14 @@ void igQtVariableDensityWidget::_CalculateFrameCenterCut(const QRect& frame, QRe
     bottomFrame = QRect(QPoint(frame.left(), centerY), QPoint(frame.right(), frame.bottom()));
 }
 
-void igQtVariableDensityWidget::_DrawCoordinateRect(const QRect& range) {
-    QPainter painter(this);
-    painter.setPen(QPen(QColorConstants::White, 1));
+void igQtVariableDensityWidget::_DrawCoordinateRect(QPainter& painter, const QRect& range) {
+    painter.setPen(QPen(QColor(0xa8, 0xa8, 0xa8), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(range);
 }
 
-void igQtVariableDensityWidget::_DrawCenterLine(const QRect& range) {
-    QPainter painter(this);
-    painter.setPen(QPen(QColorConstants::White, 1));
+void igQtVariableDensityWidget::_DrawCenterLine(QPainter& painter, const QRect& range) {
+    painter.setPen(QPen(QColor(0xa8, 0xa8, 0xa8), 1));
     painter.setBrush(Qt::NoBrush);
     if (m_ImageShowDirection == ImageShowDirection::Vertical)
         painter.drawLine(QPoint(range.center().x(), range.bottom()), QPoint(range.center().x(), range.top()));
@@ -722,17 +647,16 @@ void igQtVariableDensityWidget::_DrawCenterLine(const QRect& range) {
         painter.drawLine(QPoint(range.left(), range.center().y()), QPoint(range.right(), range.center().y()));
 }
 
-void igQtVariableDensityWidget::_DrawBackground(const QRect& range) {
-    QPainter painter(this);
+void igQtVariableDensityWidget::_DrawBackground(QPainter& painter, const QRect& range) {
     QBrush brush;
     brush.setColor(QColor(get<0>(m_BackgroundColor), get<1>(m_BackgroundColor), get<2>(m_BackgroundColor)));
     brush.setStyle(Qt::SolidPattern);
     painter.setBrush(brush);
+    painter.setPen(Qt::NoPen);
     painter.drawRect(range);
 }
 
-void igQtVariableDensityWidget::_DrawImages(const QRect& range) {
-    QPainter painter(this);
+void igQtVariableDensityWidget::_DrawImages(QPainter& painter, const QRect& range) {
     QRect leftRange, rightRange, topRange, bottomRange;
     _CalculateFrameCenterCut(range, leftRange, rightRange, topRange, bottomRange);
     if (m_ImageShowDirection == ImageShowDirection::Vertical) {

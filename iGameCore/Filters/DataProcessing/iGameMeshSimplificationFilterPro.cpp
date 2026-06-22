@@ -820,7 +820,7 @@ void TriMeshInternalSimplifier::FillAttributeQuadrics() {
         int_t faceId = i / 3;
 
         Quadric Q;
-        Gradient G[128];
+        Gradient* G = new Gradient[AttributeCount];
         ComputeAttributeQuadient(faceId, Q, G);
 
         AttributeQuadrics[i0] += Q;
@@ -832,6 +832,7 @@ void TriMeshInternalSimplifier::FillAttributeQuadrics() {
             AttributeGradients[i1 * AttributeCount + k] += G[k];
             AttributeGradients[i2 * AttributeCount + k] += G[k];
         }
+        delete[] G;
     }
 }
 

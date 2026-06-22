@@ -15,7 +15,7 @@ int main() {
     auto obj = iGame::FileIO::ReadFile(fileName);
 
     // If model is not triangle mesh, this will occur error
-    auto filter = iGame::Simplification::New();
+    auto filter = iGame::MeshSimplificationFilter::New();
     filter->SetTargetReduction(0.5);
     filter->SetInput(obj);
     filter->Execute();

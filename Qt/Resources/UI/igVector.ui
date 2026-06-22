@@ -140,6 +140,12 @@
     <layout class="QHBoxLayout" name="horizontalLayout_9">
      <item>
       <widget class="QLabel" name="label_7">
+      <property name="minimumSize">
+       <size>
+        <width>72</width>
+        <height>0</height>
+       </size>
+      </property>
        <property name="text">
         <string>模式参数</string>
        </property>
@@ -155,17 +161,17 @@
       <widget class="QComboBox" name="comboBox_2">
        <item>
         <property name="text">
-         <string>AllCell</string>
+         <string>全部单元</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>CellInRange</string>
+         <string>单元范围</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>EveryNth</string>
+         <string>间隔采样</string>
         </property>
        </item>
       </widget>
@@ -173,9 +179,15 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,3,0">
+    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1,0">
      <item>
       <widget class="QLabel" name="label_6">
+      <property name="minimumSize">
+       <size>
+        <width>72</width>
+        <height>0</height>
+       </size>
+      </property>
        <property name="text">
         <string>数据来源</string>
        </property>
@@ -187,7 +199,7 @@
      <item>
       <widget class="QPushButton" name="DrawButton">
        <property name="text">
-        <string>绘制</string>
+        <string>执行</string>
        </property>
       </widget>
      </item>

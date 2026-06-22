@@ -1,18 +1,18 @@
 #pragma once
 
+#include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <IQCore/igQtExportModule.h>
-#include <QDialog>
 
+class QLineEdit;
 
-class QLineEdit ;
-class IG_QT_MODULE_EXPORT igQtScreenShotOptionDialog : public QDialog{
+class IG_QT_MODULE_EXPORT igQtScreenShotOptionDialog : public igQtChromeFramelessDialog {
     Q_OBJECT
 public:
-    igQtScreenShotOptionDialog(QWidget *parent = nullptr);
+    explicit igQtScreenShotOptionDialog(QWidget* parent = nullptr);
 
     std::pair<int, int> getInput();
 
 protected:
-
-    QLineEdit* m_WidthLineEdit, *m_HeightLineEdit;
+    QLineEdit* m_WidthLineEdit{nullptr};
+    QLineEdit* m_HeightLineEdit{nullptr};
 };

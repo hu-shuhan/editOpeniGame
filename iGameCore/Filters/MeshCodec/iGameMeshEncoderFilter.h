@@ -1,11 +1,13 @@
 #ifndef MeshEncoder_h
 #define MeshEncoder_h
 
+#include "MeshCodec/Archive/iGameCodecBinaryOutputArchive.h"
 #include "MeshCodec/EncodeAdapter/iGameMeshEncodeAdapterFromDataObject.h"
 #include "MeshCodec/EncodeOutput/iGameEncodeOutputBinaryArray.h"
 #include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
 #include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
 #include "MeshCodec/SubCodec/iGameMeshIndexCodec.h"
+#include "MeshCodec/SubCodec/iGameMeshIntegerCodec.h"
 #include "MeshCodec/Utils/iGameCodecPayload.h"
 #include "MeshCodec/Utils/iGameMeshCodecAdjacency.h"
 #include "MeshCodec/Utils/iGameMeshCodecParams.h"
@@ -14,8 +16,15 @@
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
+#include <algorithm>
+#include <atomic>
+#include <cstring>
+#include <exception>
 #include <filesystem>
+#include <limits>
 #include <memory>
+#include <stdexcept>
+#include <type_traits>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -30,6 +39,28 @@ struct CodecPayloadSet {
         PayloadBuffer().swap(topo);
         PayloadBuffer().swap(attr);
         PayloadBuffer().swap(param);
+    }
+};
+
+struct EncodeOrderRemaps {
+    std::vector<unsigned int> pointIdRemap;
+    std::vector<unsigned int> topCellIdsRemap;
+    std::vector<unsigned int> bottomCellIdRemap;
+
+    void Clear() {
+        pointIdRemap.clear();
+        topCellIdsRemap.clear();
+        bottomCellIdRemap.clear();
+    }
+};
+
+struct MeshEncodeTrace {
+    EncodeOrderRemaps orderRemaps;
+    bool hasOrderRemaps = false;
+
+    void Clear() {
+        orderRemaps.Clear();
+        hasOrderRemaps = false;
     }
 };
 
@@ -54,7 +85,14 @@ public:
         m_hasCustomAdapter = true;
     }
 
+    void SetEncodeTrace(MeshEncodeTrace* trace) {
+        m_EncodeTrace = trace;
+    }
+
     bool Execute() override {
+        if (m_EncodeTrace) { m_EncodeTrace->Clear(); }
+        ReleaseRunState();
+
         // 无论编码成功/失败，都清理进度文本，避免 UI 文案残留
         struct ProgressTextResetGuard {
             ProgressObserver* observer{};
@@ -63,6 +101,14 @@ public:
                 observer->UpdateText("");
             }
         } resetTextGuard{m_ProgressObserver};
+
+        struct RunStateResetGuard {
+            MeshEncoderFilter* self{};
+            bool success = false;
+            ~RunStateResetGuard() noexcept {
+                if (!success && self) { self->ReleaseRunState(); }
+            }
+        } runStateGuard{this};
 
         // 统一在入口处做类型校验：不支持则直接返回 false，避免 assert 终止进程
         const auto inputObj = GetInput(0);
@@ -86,22 +132,35 @@ public:
 
         CodecPayloadSet raw, compressed;
 
-        this->GeomEncoder(raw.geom, pointIdRemap);
-        this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
-        this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
-        this->ParamsEncoder(raw.param);
+        try {
+            this->GeomEncoder(raw.geom, pointIdRemap);
+            this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+            if (m_EncodeTrace) {
+                m_EncodeTrace->orderRemaps.pointIdRemap = pointIdRemap;
+                m_EncodeTrace->orderRemaps.topCellIdsRemap = topCellIdsRemap;
+                m_EncodeTrace->orderRemaps.bottomCellIdRemap = bottomCellIdRemap;
+                m_EncodeTrace->hasOrderRemaps = true;
+            }
+            this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+            this->ParamsEncoder(raw.param);
 
-        // 释放 remap 内存
-        { std::vector<unsigned int>().swap(pointIdRemap); }
-        { std::vector<unsigned int>().swap(topCellIdsRemap); }
-        { std::vector<unsigned int>().swap(bottomCellIdRemap); }
+            // 释放 remap 内存
+            { std::vector<unsigned int>().swap(pointIdRemap); }
+            { std::vector<unsigned int>().swap(topCellIdsRemap); }
+            { std::vector<unsigned int>().swap(bottomCellIdRemap); }
 
-        CompressPayloads(raw, compressed);
-        raw.Release();
+            CompressPayloads(raw, compressed);
+            raw.Release();
 
-        WritePayloads(compressed);
+            WritePayloads(compressed);
 
-        FinalizeEncoding();
+            FinalizeEncoding();
+            ReleaseTransientRunState();
+            runStateGuard.success = true;
+        } catch (const std::exception& e) {
+            IGAME_CORE_ERROR("Failed to encode IGC mesh payload: {}", e.what());
+            return false;
+        }
 
         return true;
     }
@@ -152,6 +211,7 @@ private:
     // params
     FloatControlParams m_geomControlParams;
     std::vector<FloatControlParams> m_attrControlParams;
+    std::vector<int> m_attrSourceIndices;
     CodecControlParams m_CodecControlParams;
     bool m_hasCodecControlParams = false;
 
@@ -160,7 +220,29 @@ private:
     bool m_showReport{};
     int m_compressLevel{};
     std::vector<std::pair<std::string, std::string>> m_report;
+    MeshEncodeTrace* m_EncodeTrace = nullptr;
 
+    void ReleaseRunState() {
+        SetOutput(0, nullptr);
+        m_DataObj = nullptr;
+        m_EncoderOutput = nullptr;
+        if (!m_hasCustomAdapter) { m_EncoderAdapter.reset(); }
+        m_geomControlParams = FloatControlParams{};
+        std::vector<FloatControlParams>().swap(m_attrControlParams);
+        std::vector<int>().swap(m_attrSourceIndices);
+        m_codecParams = CodecStorageParams{};
+        std::vector<std::pair<std::string, std::string>>().swap(m_report);
+    }
+
+    void ReleaseTransientRunState() {
+        m_DataObj = nullptr;
+        m_EncoderOutput = nullptr;
+        if (!m_hasCustomAdapter) { m_EncoderAdapter.reset(); }
+        m_geomControlParams = FloatControlParams{};
+        std::vector<FloatControlParams>().swap(m_attrControlParams);
+        std::vector<int>().swap(m_attrSourceIndices);
+        m_codecParams = CodecStorageParams{};
+    }
 
     // region caller
     bool InitializeEncoder() {
@@ -226,8 +308,27 @@ private:
     void WritePayloads(const CodecPayloadSet& compressed) {
         WriteBuf(compressed.param);
         WriteBuf(compressed.geom);
-        WriteBuf(compressed.topo);
-        WriteBuf(compressed.attr);
+        if (ShouldWriteTopologyPayload(compressed.topo)) {
+            WriteBuf(compressed.topo);
+        }
+        if (ShouldWriteAttributePayload(compressed.attr)) {
+            WriteBuf(compressed.attr);
+        }
+    }
+
+    bool ShouldWriteTopologyPayload(const PayloadBuffer& payload) const {
+        if (!payload.empty()) {
+            return true;
+        }
+        return this->m_codecParams.meshType != IG_POINT_SET &&
+               this->m_codecParams.meshType != IG_STRUCTURED_MESH;
+    }
+
+    bool ShouldWriteAttributePayload(const PayloadBuffer& payload) const {
+        if (!payload.empty()) {
+            return true;
+        }
+        return !this->m_codecParams.attrParams.empty();
     }
 
     void FinalizeEncoding() {
@@ -318,6 +419,185 @@ private:
 
     // endregion
 
+    static bool IsSupportedAttributeType(IGenum type) {
+        return type >= IG_SCALAR && type < IG_ATTRIBUTE_COUNT;
+    }
+
+    static bool IsSupportedAttributeAttachment(IGenum attachmentType) {
+        return attachmentType == IG_POINT || attachmentType == IG_CELL;
+    }
+
+    static bool IsFloatAttributeArray(IGenum arrayType) {
+        return arrayType == IG_FloatArray || arrayType == IG_DoubleArray;
+    }
+
+    static bool IsSupportedIntegerAttributeArray(IGenum arrayType) {
+        switch (arrayType) {
+            case IG_CharArray:
+            case IG_UnsignedCharArray:
+            case IG_ShortArray:
+            case IG_UnsignedShortArray:
+            case IG_IntArray:
+            case IG_UnsignedIntArray:
+            case IG_LongLongArray:
+            case IG_UnsignedLongLongArray:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    static bool IsSignedIntegerAttributeArray(IGenum arrayType) {
+        switch (arrayType) {
+            case IG_CharArray:
+                return std::numeric_limits<char>::is_signed;
+            case IG_ShortArray:
+            case IG_IntArray:
+            case IG_LongLongArray:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    static uint8_t IntegerBitWidth(IGenum arrayType) {
+        switch (arrayType) {
+            case IG_CharArray:
+                return static_cast<uint8_t>(sizeof(char) * 8u);
+            case IG_UnsignedCharArray:
+                return static_cast<uint8_t>(sizeof(unsigned char) * 8u);
+            case IG_ShortArray:
+                return static_cast<uint8_t>(sizeof(short) * 8u);
+            case IG_UnsignedShortArray:
+                return static_cast<uint8_t>(sizeof(unsigned short) * 8u);
+            case IG_IntArray:
+                return static_cast<uint8_t>(sizeof(int) * 8u);
+            case IG_UnsignedIntArray:
+                return static_cast<uint8_t>(sizeof(unsigned int) * 8u);
+            case IG_LongLongArray:
+                return static_cast<uint8_t>(sizeof(long long) * 8u);
+            case IG_UnsignedLongLongArray:
+                return static_cast<uint8_t>(sizeof(unsigned long long) * 8u);
+            default:
+                return 0;
+        }
+    }
+
+    static bool CanRepresentValueCount(IGsize elementCount, int dimension, size_t& valueCount) {
+        if (dimension <= 0) { return false; }
+        const auto elementCountSize = static_cast<uint64_t>(elementCount);
+        const auto dimensionSize = static_cast<uint64_t>(dimension);
+        if (dimensionSize != 0 &&
+            elementCountSize > static_cast<uint64_t>(std::numeric_limits<size_t>::max()) / dimensionSize) {
+            return false;
+        }
+        valueCount = static_cast<size_t>(elementCountSize * dimensionSize);
+        return true;
+    }
+
+    IGsize GetExpectedAttributeElementCount(IGenum attachmentType) const {
+        if (attachmentType == IG_POINT) { return this->m_EncoderAdapter->GetNumberOfPoints(); }
+        if (attachmentType == IG_CELL) { return this->m_EncoderAdapter->GetNumberOfCells(); }
+        return 0;
+    }
+
+    template<typename ArrayType>
+    bool RemapTypedAttributeValues(
+            const ArrayObject::Pointer& attrArrayObject,
+            std::vector<typename ArrayType::VectorType::value_type>& remappedBuffer,
+            AttrStorageParams& params,
+            int attrIndex,
+            const std::vector<unsigned int>& pointRemap,
+            const std::vector<unsigned int>& topCellRemap) {
+        using ValueType = typename ArrayType::VectorType::value_type;
+        auto attrArray = DynamicCast<ArrayType>(attrArrayObject);
+        if (!attrArray) { return false; }
+
+        size_t valueCount = 0;
+        if (!CanRepresentValueCount(params.elementCount, params.dimension, valueCount)) { return false; }
+
+        const ValueType* source = attrArray->RawPointer();
+        remappedBuffer.assign(valueCount, ValueType{});
+
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            std::copy(source, source + valueCount, remappedBuffer.begin());
+            return true;
+        }
+
+        const auto& remapArray = params.attachmentType == IG_POINT ? pointRemap : topCellRemap;
+        if (remapArray.size() != static_cast<size_t>(params.elementCount)) { return false; }
+
+        const bool hasKeyFlags =
+                attrIndex >= 0 &&
+                static_cast<size_t>(attrIndex) < m_attrControlParams.size() &&
+                m_attrControlParams[attrIndex].isKeyElement.size() == static_cast<size_t>(params.elementCount);
+        std::vector<bool> remappedIsKey(remapArray.size(), false);
+
+        for (size_t element = 0; element < remapArray.size(); ++element) {
+            const size_t remapIndex = static_cast<size_t>(remapArray[element]);
+            if (remapIndex >= remapArray.size()) { return false; }
+            if (hasKeyFlags && m_attrControlParams[attrIndex].isKeyElement[element]) {
+                remappedIsKey[remapIndex] = true;
+            }
+            for (int comp = 0; comp < params.dimension; ++comp) {
+                remappedBuffer[remapIndex * static_cast<size_t>(params.dimension) + static_cast<size_t>(comp)] =
+                        source[element * static_cast<size_t>(params.dimension) + static_cast<size_t>(comp)];
+            }
+        }
+
+        if (hasKeyFlags) {
+            m_attrControlParams[attrIndex].isKeyElement = std::move(remappedIsKey);
+        }
+        return true;
+    }
+
+    template<typename ArrayType>
+    bool EncodeIntegerAttribute(
+            const ArrayObject::Pointer& attrArrayObject,
+            std::vector<unsigned char>& encoded,
+            AttrStorageParams& params,
+            int attrIndex,
+            const std::vector<unsigned int>& pointRemap,
+            const std::vector<unsigned int>& topCellRemap) {
+        using ValueType = typename ArrayType::VectorType::value_type;
+        std::vector<ValueType> remappedBuffer;
+        if (!RemapTypedAttributeValues<ArrayType>(
+                    attrArrayObject, remappedBuffer, params, attrIndex, pointRemap, topCellRemap)) {
+            return false;
+        }
+        return MeshIntegerCodec::Encode<ValueType>(encoded, remappedBuffer, params.elementCount, params.dimension);
+    }
+
+    bool EncodeIntegerAttributeByType(
+            IGenum arrayType,
+            const ArrayObject::Pointer& attrArrayObject,
+            std::vector<unsigned char>& encoded,
+            AttrStorageParams& params,
+            int attrIndex,
+            const std::vector<unsigned int>& pointRemap,
+            const std::vector<unsigned int>& topCellRemap) {
+        switch (arrayType) {
+            case IG_CharArray:
+                return EncodeIntegerAttribute<CharArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_UnsignedCharArray:
+                return EncodeIntegerAttribute<UnsignedCharArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_ShortArray:
+                return EncodeIntegerAttribute<ShortArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_UnsignedShortArray:
+                return EncodeIntegerAttribute<UnsignedShortArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_IntArray:
+                return EncodeIntegerAttribute<IntArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_UnsignedIntArray:
+                return EncodeIntegerAttribute<UnsignedIntArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_LongLongArray:
+                return EncodeIntegerAttribute<LongLongArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            case IG_UnsignedLongLongArray:
+                return EncodeIntegerAttribute<UnsignedLongLongArray>(attrArrayObject, encoded, params, attrIndex, pointRemap, topCellRemap);
+            default:
+                return false;
+        }
+    }
+
     // region params control
     void LoadCodecControlParams(const CodecControlParams& codecParams) {
         m_showReport = codecParams.showReport;
@@ -329,30 +609,40 @@ private:
         m_codecParams.geomParams.errorMode = codecParams.geomControl.errorMode;
 
         // 加载属性控制参数
-        m_attrControlParams = codecParams.attrControl;
+        auto makeDefaultControlParams = [](IGsize elementCount) -> FloatControlParams {
+            FloatControlParams p;
+            p.globalQuantizeLevel = 0;
+            p.criticalQuantizeLevel = 0;
+            p.normalQuantizeLevel = 0;
+            p.isKeyElement = std::vector<bool>(elementCount, false);
+            return p;
+        };
+
+        m_attrControlParams.clear();
+        m_attrControlParams.reserve(m_codecParams.attrParams.size());
+        for (size_t i = 0; i < m_codecParams.attrParams.size(); ++i) {
+            const int sourceIndex = i < m_attrSourceIndices.size() ? m_attrSourceIndices[i] : -1;
+            if (sourceIndex >= 0 && static_cast<size_t>(sourceIndex) < codecParams.attrControl.size()) {
+                m_attrControlParams.push_back(codecParams.attrControl[sourceIndex]);
+            } else {
+                m_attrControlParams.push_back(makeDefaultControlParams(m_codecParams.attrParams[i].elementCount));
+            }
+        }
+
         // 将各属性的 errorMode 同步到存储参数
-        for (size_t i = 0; i < codecParams.attrControl.size() && i < m_codecParams.attrParams.size(); ++i) {
-            m_codecParams.attrParams[i].errorMode = codecParams.attrControl[i].errorMode;
+        for (size_t i = 0; i < m_attrControlParams.size() && i < m_codecParams.attrParams.size(); ++i) {
+            m_codecParams.attrParams[i].errorMode = m_attrControlParams[i].errorMode;
         }
     }
 
     void InitEncoderParams() {
+        this->m_codecParams = CodecStorageParams{};
+        this->m_attrSourceIndices.clear();
+
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
 
-        // 点云特殊处理
-        if (this->m_codecParams.meshType == IG_POINT_SET) {
-            this->m_codecParams.topoParams.isSecondaryIndex = false;
-            this->m_codecParams.topoParams.fixedCellSize = -1;
-        } else {
-            this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
-            this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
-        }
-
-        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
-            std::memcpy(&this->m_codecParams.structuredMeshParams.axisSize,
-                        DynamicCast<StructuredMesh>(this->m_DataObj)->GetDimensionSize(), 3 * sizeof(int));
-        }
+        InitTopologyParams();
 
         // 顶点坐标
         this->m_codecParams.geomParams.valueSize = sizeof(float); // float
@@ -363,38 +653,129 @@ private:
         const auto allAttrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         for (int dataIndex = 0; dataIndex < allAttrs->GetNumberOfElements(); dataIndex++) {
             AttributeSet::Attribute attr = allAttrs->GetElement(dataIndex);
+            if (!attr.pointer) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: null array", dataIndex);
+                continue;
+            }
+
             AttrStorageParams attrParams;
 
-            std::memset(attrParams.name, '\0', sizeof(attrParams.name));
-            attr.pointer->GetName().copy(attrParams.name, sizeof(attrParams.name) - 1); // 保留一位给\0
-
+            attrParams.name = attr.pointer->GetName();
             attrParams.dimension = attr.pointer->GetDimension();
             attrParams.type = attr.type;
             attrParams.attachmentType = attr.attachmentType;
             attrParams.valueSize = attr.pointer->GetArrayTypedSize();
             attrParams.elementCount = attr.pointer->GetNumberOfElements();
+            attrParams.arrayType = attr.pointer->GetArrayType();
+            attrParams.attrLayout = AttrLayout::ComponentSeries;
+            attrParams.componentBinaryCounts.clear();
+
+            if (attrParams.dimension <= 0 || attrParams.elementCount == 0) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: invalid dimension or element count", attrParams.name);
+                continue;
+            }
+            if (!IsSupportedAttributeType(attrParams.type)) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute type {}", attrParams.name, attrParams.type);
+                continue;
+            }
+            if (!IsSupportedAttributeAttachment(attrParams.attachmentType)) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attachment type {}", attrParams.name, attrParams.attachmentType);
+                continue;
+            }
+            if (attrParams.elementCount != GetExpectedAttributeElementCount(attrParams.attachmentType)) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: element count does not match attachment", attrParams.name);
+                continue;
+            }
+
+            if (attrParams.arrayType == IG_FloatArray) {
+                if (attrParams.valueSize != sizeof(float)) {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: float array has invalid value size", attrParams.name);
+                    continue;
+                }
+                attrParams.attrCodec = AttrCodec::FloatMeshopt;
+                attrParams.integerBitWidth = 0;
+                attrParams.integerSigned = false;
+            } else if (attrParams.arrayType == IG_DoubleArray) {
+                if (attrParams.valueSize != sizeof(double)) {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: double array has invalid value size", attrParams.name);
+                    continue;
+                }
+                attrParams.attrCodec = AttrCodec::FloatMeshopt;
+                attrParams.integerBitWidth = 0;
+                attrParams.integerSigned = false;
+            } else if (IsSupportedIntegerAttributeArray(attrParams.arrayType)) {
+                const uint8_t bitWidth = IntegerBitWidth(attrParams.arrayType);
+                if (bitWidth == 0 || attrParams.valueSize != static_cast<IGsize>(bitWidth / 8u)) {
+                    IGAME_CORE_WARN("Skipping IGC attribute {}: integer array has invalid value size", attrParams.name);
+                    continue;
+                }
+                attrParams.attrCodec = AttrCodec::IntegerDeltaRleVarint;
+                attrParams.integerBitWidth = bitWidth;
+                attrParams.integerSigned = IsSignedIntegerAttributeArray(attrParams.arrayType);
+            } else {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported array type {}", attrParams.name, attrParams.arrayType);
+                continue;
+            }
 
             this->m_codecParams.attrParams.push_back(attrParams);
+            this->m_attrSourceIndices.push_back(dataIndex);
         }
-        this->m_codecParams.attrCount = this->m_codecParams.attrParams.size();
+    }
+
+    void InitTopologyParams() {
+        if (this->m_codecParams.meshType == IG_POINT_SET) {
+            this->m_codecParams.topoParams.isSecondaryIndex = false;
+            this->m_codecParams.topoParams.fixedCellSize = -1;
+            return;
+        }
+
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            this->m_codecParams.topoParams.isSecondaryIndex = false;
+            this->m_codecParams.topoParams.fixedCellSize = -1;
+            this->m_codecParams.topoParams.topCellBufferSize = 0;
+            this->m_codecParams.topoParams.topCellBufferBinaryCount = 0;
+            this->m_codecParams.topoParams.topCellSizeBinaryCount = 0;
+            this->m_codecParams.topoParams.cellTypeBinaryCount = 0;
+
+            const auto structuredMesh = DynamicCast<StructuredMesh>(this->m_DataObj);
+            if (structuredMesh) {
+                std::memcpy(&this->m_codecParams.structuredMeshParams.axisSize,
+                            structuredMesh->GetDimensionSize(), 3 * sizeof(int));
+            }
+            return;
+        }
+
+        this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
+        this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
     }
 
     // endregion
 
     // region main encoders
+    bool Requires64BitSize() const {
+        return CodecStorageParamSizeLimits::ParamsExceed32Bit(this->m_codecParams);
+    }
+
     void ParamsEncoder(PayloadBuffer& payload) {
-        const auto paramsWoAttr = static_cast<StorageParamsWoAttr>(this->m_codecParams);
-        constexpr IGsize staticSize = sizeof(StorageParamsWoAttr);
-        const IGsize dynamicSize = this->m_codecParams.attrParams.size() * sizeof(AttrStorageParams);
-
-        payload.resize(staticSize + dynamicSize);
-
-        // 写入静态数据
-        std::memcpy(payload.data(), &paramsWoAttr, staticSize);
+        CodecStorageHeader header{};
+        header.version = 3;
+        header.SetRequires64BitSize(Requires64BitSize());
         UpdateProgress(0.7);
-        // 写入动态数据
-        if (!this->m_codecParams.attrParams.empty()) {
-            std::memcpy(payload.data() + staticSize, this->m_codecParams.attrParams.data(), dynamicSize);
+
+        std::vector<uint8_t> headerData;
+        CodecBinaryOutputArchive headerAr(headerData);
+        header.Archive(headerAr);
+
+        std::vector<uint8_t> data;
+        CodecBinaryOutputArchive ar(data);
+        this->m_codecParams.Archive(ar);
+
+        payload.resize(headerData.size() + data.size());
+        if (!headerData.empty()) {
+            std::memcpy(payload.data(), headerData.data(), headerData.size());
+        }
+        if (!data.empty()) {
+            std::memcpy(payload.data() + headerData.size(), data.data(), data.size());
         }
         UpdateProgress(0.8);
     }
@@ -461,109 +842,81 @@ private:
 
     void AttrEncoder(PayloadBuffer& payload, const std::vector<unsigned int>& pointRemap,
                      const std::vector<unsigned int>& topCellRemap, const std::vector<unsigned int>& bottomCellRemap) {
+        (void)bottomCellRemap;
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
-        std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
+        std::vector<std::vector<unsigned char>> encodedAttrs(this->m_codecParams.attrParams.size());
 
-        auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrStorageParams& params, int attrIndex) {
-            if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
-                // 结构化网格：不需要重映射，直接复制原始数据
-                size_t valueCount = params.dimension * params.elementCount;
-                remappedBuffer.resize(valueCount);
-
-                CodecThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
-                    for (int j = start; j < end; j++) {
-                        for (int k = 0; k < params.dimension; k++) {
-                            remappedBuffer[j * params.dimension + k] = attrArray->GetValue(j * params.dimension + k);
-                        }
-                    }
-                });
-                // isKeyElement保持不变，不需要重映射
-            } else {
-                // 非结构化网格：需要重映射
-                const auto& remapArray = params.attachmentType == IG_POINT ? pointRemap : topCellRemap;
-                size_t valueCount = params.dimension * remapArray.size();
-                remappedBuffer.resize(valueCount);
-
-                size_t remappedElementCount = remapArray.size();
-                std::vector<bool> remappedIskey(remappedElementCount, false);
-
-                CodecThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
-                    for (int j = start; j < end; j++) {
-                        igIndex remapIndex = remapArray[j];
-
-                        // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                        if (m_attrControlParams[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
-
-                        for (int k = 0; k < params.dimension; k++) {
-                            remappedBuffer[remapIndex * params.dimension + k] =
-                                    attrArray->GetValue(j * params.dimension + k);
-                        }
-                    }
-                });
-
-                // 用 remap 后的 iskey 替换原始的 iskey
-                m_attrControlParams[attrIndex].isKeyElement = std::move(remappedIskey);
+        for (size_t i = 0; i < this->m_codecParams.attrParams.size(); ++i) {
+            if (i >= this->m_attrSourceIndices.size()) {
+                throw std::runtime_error("IGC attribute source index is missing");
             }
-        };
 
-        std::mutex reportMutex;
-        CodecProgressParallelFor(this, 0,
-                            static_cast<int>(this->m_codecParams.attrParams.size()),
-                            0.4f, 0.6f,
-                            [&](int start, int end) -> void {
-            for (int i = start; i < end; i++) {
-                AttributeSet::Attribute& attr = attrs->GetElement(i);
-                auto& attrParams = this->m_codecParams.attrParams[i];
-                auto& controlParams = this->m_attrControlParams[i];
+            AttributeSet::Attribute& attr = attrs->GetElement(this->m_attrSourceIndices[i]);
+            auto& attrParams = this->m_codecParams.attrParams[i];
+            auto& controlParams = this->m_attrControlParams[i];
+            std::vector<unsigned char> encoded;
 
-                // 部署remap
-                std::vector<float> remappedFloatAttrBuffer;
-                std::vector<double> remappedDoubleAttrBuffer;
-
-                if (attrParams.valueSize == sizeof(float)) {
-                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
-                    remapAttributeValues(attr.pointer, remappedFloatAttrBuffer, attrParams, i);
-                } else {
-                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
-                    remapAttributeValues(attr.pointer, remappedDoubleAttrBuffer, attrParams, i);
-                }
-
-                // 编码
-                std::vector<unsigned char> encoded;
-
-                if (attrParams.valueSize == sizeof(float)) {
+            if (attrParams.attrCodec == AttrCodec::FloatMeshopt) {
+                attrParams.componentBinaryCounts.clear();
+                if (attrParams.arrayType == IG_FloatArray) {
+                    std::vector<float> remappedFloatAttrBuffer;
+                    if (!RemapTypedAttributeValues<FloatArray>(
+                                attr.pointer, remappedFloatAttrBuffer, attrParams, static_cast<int>(i),
+                                pointRemap, topCellRemap)) {
+                        throw std::runtime_error("Failed to remap IGC float attribute");
+                    }
                     std::vector<float> preserve = remappedFloatAttrBuffer;
-                    MeshFloatCodec::FloatEncoder(encoded, remappedFloatAttrBuffer, attrParams, controlParams);
-
-                    {
-                        std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, controlParams,
-                                       attr.pointer->GetName());
+                    if (!MeshFloatCodec::FloatEncoderComponentSeries(
+                                encoded, remappedFloatAttrBuffer, attrParams, controlParams,
+                                attrParams.componentBinaryCounts)) {
+                        throw std::runtime_error("Failed to encode IGC float attribute");
                     }
-                } else if (attrParams.valueSize == sizeof(double)) {
+                    AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, controlParams,
+                                   attr.pointer->GetName());
+                } else if (attrParams.arrayType == IG_DoubleArray) {
+                    std::vector<double> remappedDoubleAttrBuffer;
+                    if (!RemapTypedAttributeValues<DoubleArray>(
+                                attr.pointer, remappedDoubleAttrBuffer, attrParams, static_cast<int>(i),
+                                pointRemap, topCellRemap)) {
+                        throw std::runtime_error("Failed to remap IGC double attribute");
+                    }
                     std::vector<double> preserve = remappedDoubleAttrBuffer;
-                    MeshFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, controlParams);
-
-                    {
-                        std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, controlParams,
-                                       attr.pointer->GetName());
+                    if (!MeshFloatCodec::FloatEncoderComponentSeries(
+                                encoded, remappedDoubleAttrBuffer, attrParams, controlParams,
+                                attrParams.componentBinaryCounts)) {
+                        throw std::runtime_error("Failed to encode IGC double attribute");
                     }
+                    AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, controlParams,
+                                   attr.pointer->GetName());
+                } else {
+                    throw std::runtime_error("Unsupported IGC float attribute array type");
                 }
-
-                // 只靠count就足以读取
-                attrParams.binaryCount = encoded.size() * sizeof(uint8_t);
-                outFloats[i] = encoded;
+            } else if (attrParams.attrCodec == AttrCodec::IntegerDeltaRleVarint) {
+                attrParams.componentBinaryCounts.clear();
+                if (!EncodeIntegerAttributeByType(
+                            attrParams.arrayType, attr.pointer, encoded, attrParams, static_cast<int>(i),
+                            pointRemap, topCellRemap)) {
+                    throw std::runtime_error("Failed to encode IGC integer attribute");
+                }
+            } else {
+                throw std::runtime_error("Unsupported IGC attribute codec");
             }
-        });
+
+            attrParams.binaryCount = encoded.size() * sizeof(uint8_t);
+            encodedAttrs[i] = std::move(encoded);
+            if (!this->m_codecParams.attrParams.empty()) {
+                UpdateProgress(0.4f + 0.2f * (static_cast<float>(i + 1) /
+                                              static_cast<float>(this->m_codecParams.attrParams.size())));
+            }
+        }
 
         UpdateProgress(0.6);
 
         size_t currentPayloadCursor = 0;
         for (int i = 0; i < this->m_codecParams.attrParams.size(); i++) {
-            payload.resize(currentPayloadCursor + outFloats[i].size());
-            std::memcpy(payload.data() + currentPayloadCursor, outFloats[i].data(), outFloats[i].size());
-            currentPayloadCursor += outFloats[i].size();
+            payload.resize(currentPayloadCursor + encodedAttrs[i].size());
+            std::memcpy(payload.data() + currentPayloadCursor, encodedAttrs[i].data(), encodedAttrs[i].size());
+            currentPayloadCursor += encodedAttrs[i].size();
         }
     }
 

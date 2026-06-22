@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MeshCodecDialog</class>
- <widget class="QDialog" name="MeshCodecDialog">
+ <widget class="QWidget" name="MeshCodecDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -10,10 +10,7 @@
     <height>700</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>压缩</string>
-  </property>
-  <layout class="QVBoxLayout" name="verticalLayout_main">
+  <layout class="QVBoxLayout" name="verticalLayout_main" stretch="0,1">
    <property name="spacing">
     <number>10</number>
    </property>
@@ -38,11 +35,6 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
-       </property>
-       <property name="font">
-        <font>
-         <italic>true</italic>
-        </font>
        </property>
        <property name="text">
         <string>压缩说明</string>
@@ -87,9 +79,9 @@
    <item>
     <widget class="QWidget" name="rightContainer" native="true">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
        <horstretch>3</horstretch>
-       <verstretch>0</verstretch>
+       <verstretch>1</verstretch>
       </sizepolicy>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_right">
@@ -110,7 +102,7 @@
         <property name="title">
          <string/>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout_4">
+        <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0,1,0">
          <item>
           <widget class="QGroupBox" name="groupbox_compressSetting">
            <property name="title">

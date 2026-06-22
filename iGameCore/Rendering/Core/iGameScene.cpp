@@ -27,7 +27,7 @@ Scene::Scene() {
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
     // m_BackgroundColor = {0.247f, 0.247f, 0.247f};
-    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
+    m_BackgroundColor = {0.1333f, 0.1333f, 0.1333f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
@@ -124,13 +124,12 @@ bool Scene::Initialize() {
     // 添加中心坐标轴到模型池
     m_CenterAxesModel->AddViewStyle(
             IG_WIREFRAME);                   // 添加线框视图样式（默认不显示线）
-    m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
+    //m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
     m_CenterAxesModel->ConvertToDrawableData(); // 初始化几何数据
     m_CenterAxesModel->SyncGpuBuffers();        // 上传GPU数据
     this->AddModel(m_CenterAxesModel);          // 加入模型池
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
-
     m_FinishInit = true;
     return true;
 }
@@ -1009,7 +1008,8 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (!drawObject->IsAlwaysOnTop()) { model->Draw(); }
+        //if (!drawObject->IsAlwaysOnTop()) { model->Draw(); }
+        model->Draw();
 
         // draw painter(since painter does not support transparency)
         if (drawObject->GetVisibility()) {
@@ -1025,7 +1025,9 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->IsAlwaysOnTop()) { model->Draw(); }
+        if (drawObject->IsAlwaysOnTop()) { 
+            model->Draw(); 
+        }
     }
     glEnable(GL_DEPTH_TEST);
 

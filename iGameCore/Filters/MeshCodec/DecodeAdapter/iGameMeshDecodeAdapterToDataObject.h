@@ -8,6 +8,7 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
+#include <cstring>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -16,7 +17,13 @@ class MeshDecodeAdapterToDataObject final : public IMeshDecodeAdapter<DataObject
 public:
     MeshDecodeAdapterToDataObject() = default;
 
+    void ResetOutput() override {
+        m_DataObj = nullptr;
+        m_MeshType = IG_NONE;
+    }
+
     void SetMeshType(IGenum meshType) override {
+        ResetOutput();
         m_MeshType = meshType;
         switch (m_MeshType)
         {
@@ -62,7 +69,10 @@ public:
 
     void AddAttribute(const AttributeBuffer& attr) override
     {
-        if (attr.isFloat()) {
+        if (!attr.valid) { return; }
+        if (attr.attrCodec == AttrCodec::IntegerDeltaRleVarint) {
+            AddIntegerAttribute(attr);
+        } else if (attr.isFloat()) {
             if (attr.floatData.empty()) return;
             FloatArray::Pointer arr = FloatArray::New();
             arr->SetDimension(attr.dimension);
@@ -81,6 +91,55 @@ public:
         }
     }
 
+private:
+    template<typename ArrayType>
+    void AddTypedIntegerAttribute(const AttributeBuffer& attr)
+    {
+        using ValueType = typename ArrayType::VectorType::value_type;
+        if (attr.dimension <= 0) { return; }
+        if (attr.rawData.empty() || attr.rawData.size() % sizeof(ValueType) != 0) { return; }
+
+        auto arr = ArrayType::New();
+        arr->SetDimension(attr.dimension);
+        arr->SetName(attr.name);
+        arr->Resize(static_cast<int>(attr.rawData.size() / sizeof(ValueType) / attr.dimension));
+        std::memcpy(arr->RawPointer(), attr.rawData.data(), attr.rawData.size());
+        this->m_DataObj->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, arr);
+    }
+
+    void AddIntegerAttribute(const AttributeBuffer& attr)
+    {
+        switch (attr.arrayType) {
+            case IG_CharArray:
+                AddTypedIntegerAttribute<CharArray>(attr);
+                break;
+            case IG_UnsignedCharArray:
+                AddTypedIntegerAttribute<UnsignedCharArray>(attr);
+                break;
+            case IG_ShortArray:
+                AddTypedIntegerAttribute<ShortArray>(attr);
+                break;
+            case IG_UnsignedShortArray:
+                AddTypedIntegerAttribute<UnsignedShortArray>(attr);
+                break;
+            case IG_IntArray:
+                AddTypedIntegerAttribute<IntArray>(attr);
+                break;
+            case IG_UnsignedIntArray:
+                AddTypedIntegerAttribute<UnsignedIntArray>(attr);
+                break;
+            case IG_LongLongArray:
+                AddTypedIntegerAttribute<LongLongArray>(attr);
+                break;
+            case IG_UnsignedLongLongArray:
+                AddTypedIntegerAttribute<UnsignedLongLongArray>(attr);
+                break;
+            default:
+                break;
+        }
+    }
+
+public:
     void AddSameTypePolyCells(std::vector<uint32_t>& ids, const std::vector<uint32_t>& cellSizes) override
     {
         CellArray::Pointer ca = CellArray::New();
@@ -262,7 +321,7 @@ public:
 
 private:
     DataObject::Pointer m_DataObj;
-    IGenum m_MeshType;
+    IGenum m_MeshType = IG_NONE;
 
     void SetStructuredCellArray(CellArray::Pointer cells, int dimension)
     {

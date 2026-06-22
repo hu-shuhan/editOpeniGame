@@ -3,6 +3,9 @@
 
 #include "iGameMacro.h"
 #include "iGameType.h"
+#include <cstdint>
+#include <limits>
+#include <string>
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
@@ -21,6 +24,17 @@ enum class QuantizeMode {
 	KeyArea    // 分区量化
 };
 
+enum class AttrCodec {
+	FloatMeshopt = 0,
+	IntegerDeltaRleVarint = 1,
+	Unsupported = 255
+};
+
+enum class AttrLayout {
+	InterleavedRecord = 0,
+	ComponentSeries = 1
+};
+
 // =====================================================================================
 // 存储参数（写入编码文件，用于解码）
 // =====================================================================================
@@ -32,6 +46,15 @@ struct FloatStorageParams {
 	IGsize valueSize = sizeof(float);  // 单个分量尺寸（字节）
 	IGsize elementCount = 0;           // 元素数量
 	int dimension = 0;                 // 维度
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(lossyMode);
+		ar.Process(errorMode);
+		ar.Process(valueSize);
+		ar.Process(elementCount);
+		ar.Process(dimension);
+	}
 };
 
 // 几何数据存储参数
@@ -39,10 +62,31 @@ struct GeomStorageParams : FloatStorageParams {};
 
 // 属性数据存储参数
 struct AttrStorageParams : FloatStorageParams {
-	char name[256] = {};               // 名称
+	std::string name = {};             // 名称
 	IGenum type = 0;                   // 类型 IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
 	IGenum attachmentType = 0;         // 附着类型 IG_POINT, IG_CELL
 	IGsize binaryCount = 0;            // 在二进制流中的长度
+	IGenum arrayType = IG_ARRAY_OBJECT;
+	AttrCodec attrCodec = AttrCodec::FloatMeshopt;
+	AttrLayout attrLayout = AttrLayout::InterleavedRecord;
+	uint8_t integerBitWidth = 0;
+	bool integerSigned = false;
+	std::vector<IGsize> componentBinaryCounts;
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		FloatStorageParams::Archive(ar);
+		ar.Process(name);
+		ar.Process(type);
+		ar.Process(attachmentType);
+		ar.Process(binaryCount);
+		ar.Process(arrayType);
+		ar.Process(attrCodec);
+		ar.Process(attrLayout);
+		ar.Process(integerBitWidth);
+		ar.Process(integerSigned);
+		ar.Process(componentBinaryCounts);
+	}
 };
 
 // 拓扑参数
@@ -62,25 +106,145 @@ struct TopoStorageParameters {
 	int bottomCellBufferPadding = 0;
 
 	IGsize cellTypeBinaryCount = 0;
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(isSecondaryIndex);
+		ar.Process(fixedCellSize);
+		ar.Process(topCellBufferBinaryCount);
+		ar.Process(topCellSizeBinaryCount);
+		ar.Process(topCellBufferSize);
+		ar.Process(topCellBufferPadding);
+		ar.Process(bottomCellBufferBinaryCount);
+		ar.Process(bottomCellSizeBinaryCount);
+		ar.Process(bottomCellBufferSize);
+		ar.Process(bottomCellBufferPadding);
+		ar.Process(cellTypeBinaryCount);
+	}
 };
 
 // 结构化网格参数
 struct StructuredMeshStorageParameters {
 	int axisSize[3] = {0, 0, 0};
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(axisSize);
+	}
 };
 
-// 不含属性的存储参数（用于二进制写入的固定大小部分）
-struct StorageParamsWoAttr {
+struct CodecStorageHeader {
+	uint32_t version = 3;              // 参数块版本
+	bool attrUseCrossDependency = false;
+	uint8_t reserved[3] = {0, 0, 0};
+
+	static constexpr uint8_t kRequires64BitSize = 1u << 0;
+
+	void SetRequires64BitSize(bool value) {
+		if (value) {
+			reserved[0] = static_cast<uint8_t>(reserved[0] | kRequires64BitSize);
+		} else {
+			reserved[0] = static_cast<uint8_t>(reserved[0] & ~kRequires64BitSize);
+		}
+	}
+
+	[[nodiscard]] bool Requires64BitSize() const {
+		return (reserved[0] & kRequires64BitSize) != 0;
+	}
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(version);
+		ar.Process(attrUseCrossDependency);
+		ar.Process(reserved);
+	}
+};
+
+// 完整的存储参数
+struct CodecStorageParams {
 	int meshType = 0;                  // 网格类型
 	StructuredMeshStorageParameters structuredMeshParams;
 	GeomStorageParams geomParams;
 	TopoStorageParameters topoParams;
-	int attrCount = 0;                 // 属性数量
+	std::vector<AttrStorageParams> attrParams;
+
+	template<typename Ar>
+	void Archive(Ar& ar) {
+		ar.Process(meshType);
+		ar.Process(structuredMeshParams);
+		ar.Process(geomParams);
+		ar.Process(topoParams);
+		ar.Process(attrParams);
+	}
 };
 
-// 完整的存储参数
-struct CodecStorageParams : StorageParamsWoAttr {
-	std::vector<AttrStorageParams> attrParams;
+struct CodecStorageParamSizeLimits {
+	static constexpr uint64_t k32BitMax = std::numeric_limits<uint32_t>::max();
+
+	static bool AddWillOverflow(IGsize a, IGsize b) {
+		return b > std::numeric_limits<IGsize>::max() - a;
+	}
+
+	static bool MulWillOverflow(IGsize a, IGsize b) {
+		return b != 0 && a > std::numeric_limits<IGsize>::max() / b;
+	}
+
+	static bool Exceeds32BitValue(uint64_t value) {
+		return value > k32BitMax;
+	}
+
+	static bool SignedExceeds32Bit(int value) {
+		return value < 0 || static_cast<uint64_t>(value) > k32BitMax;
+	}
+
+	static bool AddExceeds32Bit(IGsize a, IGsize b) {
+		return AddWillOverflow(a, b) || Exceeds32BitValue(static_cast<uint64_t>(a + b));
+	}
+
+	static bool MulExceeds32Bit(IGsize a, IGsize b) {
+		return MulWillOverflow(a, b) || Exceeds32BitValue(static_cast<uint64_t>(a * b));
+	}
+
+	static bool FloatParamsExceed32Bit(const FloatStorageParams& params) {
+		return params.dimension < 0 ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.valueSize)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.elementCount)) ||
+		       SignedExceeds32Bit(params.dimension) ||
+		       MulExceeds32Bit(params.elementCount, static_cast<IGsize>(params.dimension));
+	}
+
+	static bool TopoParamsExceed32Bit(const TopoStorageParameters& params) {
+		if (params.topCellBufferPadding < 0 || params.bottomCellBufferPadding < 0) { return true; }
+		return Exceeds32BitValue(static_cast<uint64_t>(params.topCellBufferBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.topCellSizeBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.topCellBufferSize)) ||
+		       SignedExceeds32Bit(params.topCellBufferPadding) ||
+		       AddExceeds32Bit(params.topCellBufferSize, static_cast<IGsize>(params.topCellBufferPadding)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.bottomCellBufferBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.bottomCellSizeBinaryCount)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.bottomCellBufferSize)) ||
+		       SignedExceeds32Bit(params.bottomCellBufferPadding) ||
+		       AddExceeds32Bit(params.bottomCellBufferSize, static_cast<IGsize>(params.bottomCellBufferPadding)) ||
+		       Exceeds32BitValue(static_cast<uint64_t>(params.cellTypeBinaryCount));
+	}
+
+	static bool ParamsExceed32Bit(const CodecStorageParams& params) {
+		if (Exceeds32BitValue(static_cast<uint64_t>(params.attrParams.size()))) { return true; }
+		if (FloatParamsExceed32Bit(params.geomParams)) { return true; }
+		if (TopoParamsExceed32Bit(params.topoParams)) { return true; }
+		for (const auto& attr : params.attrParams) {
+			if (FloatParamsExceed32Bit(attr) ||
+			    Exceeds32BitValue(static_cast<uint64_t>(attr.binaryCount)) ||
+			    Exceeds32BitValue(static_cast<uint64_t>(attr.name.size())) ||
+			    Exceeds32BitValue(static_cast<uint64_t>(attr.componentBinaryCounts.size()))) {
+				return true;
+			}
+			for (const auto count : attr.componentBinaryCounts) {
+				if (Exceeds32BitValue(static_cast<uint64_t>(count))) { return true; }
+			}
+		}
+		return false;
+	}
 };
 
 // =====================================================================================

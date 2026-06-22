@@ -1,101 +1,76 @@
-/**
- * @class   igQtSearchInfoWidget
- * @brief   igQtSearchInfoWidget's brief
- */
-
 #pragma once
-#include <ui_SearchInfo.h>
-#include <iGameVector.h>
-//namespace iGame {
-//	class iGameIntArray;
-//	class iGameFloatArray;
-//}
 
-class igQtSearchInfoWidget : public QWidget {
+#include <QWidget>
+#include <QTableWidget>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QList>
+#include <QMap>
+#include <QVariant>
+#include <QString>
 
-	Q_OBJECT
+// 前向声明
+class QDockWidget;
+
+namespace Ui {
+class igQtSearchInfo;
+}
+
+class igQtSearchInfoWidget : public QWidget
+{
+    Q_OBJECT
 
 public:
-	igQtSearchInfoWidget(QWidget* parent = nullptr);
-	enum  ElementType {
-		POINT,
-		TRIANGEL,
-		QUAD,
-		POLYON,
-		TETRA,
-		HEXAHEDRON,
-		PRISM,
-		PYRAMID,
-		ELEMTTYPESUM,
-		CELL,
-		ELEMENTTYPE
-	};
-	enum ElementItem {
-		ID,
-		SCALAR,
-		POSITION,
-		ELEMENTITEM
-	};
-	enum SearchWay {
-		IS,
-		ISINRANGE,
-		ISBIGGER,
-		ISSMALLER,
-		ISMIN,
-		ISMAX,
-		ISNEARSTTO,
-		SEARCHWAY
-	};
-public slots:
-	void updateDataProducer();
-	void updateElementType();
-	void updateElementItem();
-	void updateSearchWay();
-	void updateLineEdit();
-	void updateValuesData();
-	SearchWay getSearchWay(QString);
-	ElementItem getElementItem(QString);
-	ElementType getElementType(QString);
-	void searchData();
-	void reset();
-	void clear();
-	void searchDataWithId();
-	void searchDataWithPosition();
-	void resetPageInfo();
-	void updateShowedDataStartAndEnd();
-	void updateDataToTable();
-	void updateDataToTableWithPointType();
-	void updateDataToTableWithCellType();
+    explicit igQtSearchInfoWidget(QWidget *parent = nullptr);
+    ~igQtSearchInfoWidget();
 
-	void searchDataWithFramePlane();
-	void searchDataWithRay(iGame::Vector3f startPoint, iGame::Vector3f dir);
-	void drawSearchedPoint();
-signals:
-	//void showSearchedPoint(iGame::iGameFloatArray*);
-	void showSearchedEdge();
-	void showSearchedFace();
-	void showSearchedVolume();
-protected:
+    // 初始化dockwidget
+    static QDockWidget* createDockWidget(QWidget* parent);
+
+    // 设置当前模型数据
+    void setCurrentModelData(void* modelData);
+
+    // 刷新属性列表
+    void refreshProperties();
+
+private slots:
+    // 查询按钮点击槽函数
+    void onQueryButtonClicked();
+
+    // 刷新数据
+    void refreshData();
 
 private:
-	Ui::SearchInfo* ui;
-	int dataProducerIndex = 0;
-	ElementType elementType = POINT;
-	ElementItem elementItem = ID;
-	SearchWay searchWay = IS;
-
-	int tmpDataProducerIndex = 0;
-	ElementType tmpElementType = POINT;
-	ElementItem tmpElementItem = ID;
-	SearchWay tmpSearchWay = IS;
-
-	float value[3] = { 0 };
-	float epsilon = 0.0f;
-	//iGame::iGameIntArray* searchedDataIdInfo = nullptr;
-	int pageNum = 0;
-	int pageIndex = 0;
-	int dataNumPerPage = 50;
-	int dataSt = 0;
-	int dataEd = 100;
-
+    Ui::igQtSearchInfo *ui;
+    
+    // 当前模型数据
+    void* m_currentModelData;
+    
+    // 存储所有数据用于查询
+    QList<QMap<QString, QVariant>> m_allData;
+    
+    // 属性信息
+    QList<QString> m_attributeNames;
+    QList<QString> m_attributeTypes;
+    QList<int> m_attributeDimensions;
+    QList<int> m_attributeAttachmentTypes;
+    
+    // 当前选择的数据类型 (0: 点数据, 1: 面数据)
+    int m_currentDataType;
+    
+    // 初始化UI
+    void initUI();
+    
+    // 初始化信号槽连接
+    void initConnections();
+    
+    // 读取模型数据
+    void readModelData();
+    
+    // 执行查询
+    void executeQuery();
+    
+    // 填充结果表格
+    void populateResultsTable(const QList<QMap<QString, QVariant>>& results);
 };

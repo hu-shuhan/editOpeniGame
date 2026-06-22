@@ -1352,7 +1352,10 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
     const int W = grid_tensor.size(2);
     torch::Tensor prob_cropped = prob_full.index(
             {0, 0, torch::indexing::Slice(0, D), torch::indexing::Slice(0, H), torch::indexing::Slice(0, W)});
-    if (prob_cropped.device().is_cuda()) { prob_cropped = prob_cropped.to(torch::kCPU, /*non_blocking=*/true); }
+
+
+    
+    if (prob_cropped.device().is_cuda()) { prob_cropped = prob_cropped.to(torch::kCPU, /*non_blocking=*/false); }
     return prob_cropped; // [D,H,W]
 }
 
@@ -1924,6 +1927,15 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         std::cout << "[RUNTIME] Moving model to CUDA device" << std::endl;
         model.to(torch::kCUDA);
     }
+    model.eval();
+    // 验证 eval 真的生效了
+    bool training_mode = false;
+    for (const auto& param: model.named_parameters()) {
+        // 检查不出来 training 状态，换另一种方式
+    }
+    // 直接检查：
+    std::cout << "[DEBUG] model.is_training() = " << model.is_training() << std::endl;
+
     auto t0 = std::chrono::high_resolution_clock::now();
     Eigen::Vector3f min_pos_eigen(min_pos[0], min_pos[1], min_pos[2]);
     Eigen::Vector3f max_pos_eigen(max_pos[0], max_pos[1], max_pos[2]);

@@ -33,7 +33,10 @@ signals:
 	void DrawTensorGlyphs(DataObject::Pointer);
 	void UpdateTensorGlyphs(DataObject::Pointer);
 	void UpdateAttributes(DataObject::Pointer);
+
 private:
+	void bindTensorManagerDeleteObserver();
+	void handleTensorManagerDeleted();
 	Ui::TensorView* ui;
 	iGameTensorBase* m_Manager=nullptr;
 	DataObject* m_DataObject=nullptr;

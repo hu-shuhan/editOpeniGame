@@ -24,17 +24,18 @@
         <file>Icons/ShowOrientationAxes.png</file>
         <file>Icons/Slice.png</file>
         <file>Icons/StreamTracer.png</file>
-        <file>Icons/VcrBack.svg</file>
-        <file>Icons/VcrFirst.svg</file>
-        <file>Icons/VcrForward.svg</file>
-        <file>Icons/VcrLast.svg</file>
-        <file>Icons/VcrPlay.svg</file>
-        <file>Icons/VcrReverse.svg</file>
-        <file>Icons/VcrPause.svg</file>
-        <file>Icons/VcrLoop.svg</file>
+        <file>Icons/VcrBack.png</file>
+        <file>Icons/VcrFirst.png</file>
+        <file>Icons/skip-previous.png</file>
+        <file>Icons/VcrLast.png</file>
+        <file>Icons/VcrPlay.png</file>
+        <file>Icons/VcrReverse.png</file>
+        <file>Icons/VcrPause.png</file>
+        <file>Icons/VcrDisabledLoop.png</file>
         <file>Icons/VolumeRendering.png</file>
         <file>Icons/animation_save_vcr.png</file>
         <file>Icons/Chart.png</file>
+        <file>Icons/Chart-1.png</file>
         <file>Icons/check.png</file>
         <file>Icons/clear.png</file>
         <file>Icons/Contourline.png</file>
@@ -58,6 +59,17 @@
         <file>Icons/select/point.png</file>
         <file>Icons/Open.png</file>
         <file>Icons/refresh.png</file>
+        <file>Icons/dock_close_white.svg</file>
+        <file>Icons/tab_close_muted.svg</file>
+        <file>Icons/tab_close_muted_hover.svg</file>
+        <file>Icons/window_minimize_white.svg</file>
+        <file>Icons/window_maximize_white.svg</file>
+        <file>Icons/window_restore_white.svg</file>
+        <file>Icons/spin_up_silver.svg</file>
+        <file>Icons/spin_down_silver.svg</file>
+        <file>Icons/loop_silver.svg</file>
+        <file>Icons/tree_arrow_right_silver.svg</file>
+        <file>Icons/tree_arrow_down_silver.svg</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>

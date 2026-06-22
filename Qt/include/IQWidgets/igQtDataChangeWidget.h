@@ -69,7 +69,6 @@ private:
     void EndRangeChoose();
     void StartRangeChoose(const QPoint& pos);
     void MoveRangeChooseEndPoint(const QPoint& pos);
-    void DrawRangeChooseRect();
     bool m_RangeChooseOn{};
     QPoint m_RangeChooseStartPoint;
     QPoint m_RangeChooseEndPoint;
@@ -113,7 +112,7 @@ private:
     void ClearChoosedData();
     void GenerateDataChangeDatas();
     void SetRadialData();//temp used by button
-    void Draw();
+    void _PaintPlotOnDrawWidget(QPainter& painter);
 
 private:
     /* sub */
@@ -150,9 +149,9 @@ private:
                                      CtxPresObjData_Main* theData);
     void _DrawPoint(double minValue, double maxValue, double minDistance, double maxDistance, double value,
                     double distance, std::shared_ptr<QPainter> painter, const QRect& drawFrame);
-    void _DrawBackground(const QRect& range);
-    void _DrawCoordinateRect(const QRect& range);
-    void _DrawImages(const QRect& range);
+    void _DrawBackground(QPainter& painter, const QRect& range);
+    void _DrawCoordinateRect(QPainter& painter, const QRect& range);
+    void _DrawImages(QPainter& painter, const QRect& range);
 
 private:
     void SetSelectionCallback();

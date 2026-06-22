@@ -78,14 +78,14 @@
      <item>
       <widget class="QRadioButton" name="radioButton_Uniform">
        <property name="text">
-        <string>Uniform</string>
+        <string>均匀</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QRadioButton" name="radioButton_Nonuniform">
        <property name="text">
-        <string>Non-Uniform</string>
+        <string>非均匀</string>
        </property>
       </widget>
      </item>
@@ -96,7 +96,7 @@
      <item>
       <widget class="QLabel" name="label_Uniform">
        <property name="text">
-        <string>Value:</string>
+        <string>数值:</string>
        </property>
       </widget>
      </item>
@@ -144,29 +144,11 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="1,0,1">
-     <item>
-      <widget class="QLabel" name="label_3">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pushButton_exec">
-       <property name="text">
-        <string>应用</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    <widget class="QPushButton" name="pushButton_exec">
+     <property name="text">
+      <string>执行</string>
+     </property>
+    </widget>
    </item>
    <item>
     <spacer name="verticalSpacer">

@@ -22,7 +22,7 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h")
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h" "Filters/StreamView/iGameStreamlineSimplifier.h" "Filters/StreamView/iGameStreamlineSimplifier.cpp")
 endif ()
 
 if (UNIX AND NOT APPLE)
@@ -93,10 +93,10 @@ if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
     # On Windows we still allow user to specify HDF5_DIR; on Linux CGNS already set up HDF5
-    if (WIN32)
-        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-        find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
-    endif ()
+    #if (WIN32)
+       # set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        #find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
+    #endif ()
 endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
@@ -116,6 +116,15 @@ if (${FFMPEG_FOUND})
     message("Find FFMPEG")
     target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+    if (WIN32 AND FFMPEG_DLL_DIR)
+        file(GLOB FFMPEG_DLLS "${FFMPEG_DLL_DIR}/*.dll")
+        add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${FFMPEG_DLLS}
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                COMMENT "Copying FFMPEG DLLs to output folder")
+    endif ()
 endif ()
 
 if (${ENABLE_NASTRAN_MODULE})
@@ -158,9 +167,10 @@ if (ENABLE_GPSCUDA_MODULE)
 
     file(GLOB_RECURSE EXDLL ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
     add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${EXDLL}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     )
 endif ()
 

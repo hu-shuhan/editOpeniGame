@@ -1,4 +1,7 @@
 #include "IQComponents/Dialog/igQtMeshCodecDialog.h"
+#include <QBrush>
+#include <QColor>
+#include <QPen>
 #include <QTimer>
 #include <QScreen>
 #include <limits>
@@ -6,6 +9,81 @@
 #include <iostream>
 #include <algorithm>
 #include <filesystem>
+
+namespace {
+constexpr QColor kChartPlotBg(0x25, 0x25, 0x26);
+constexpr QColor kChartLabelColor(0xD8, 0xD8, 0xD8);
+constexpr QColor kChartGridColor(0x3A, 0x3A, 0x3A);
+constexpr QColor kChartAxisLine(0x5A, 0x5A, 0x5A);
+constexpr QColor kChartSeriesFill(0xC0, 0xC0, 0xC0);
+constexpr QColor kChartSeriesBorder(0xA0, 0xA0, 0xA0);
+
+void StyleChartAxes(QValueAxis* axisX, QValueAxis* axisY)
+{
+    if (axisX) {
+        axisX->setLabelsColor(kChartLabelColor);
+        axisX->setGridLineColor(kChartGridColor);
+        axisX->setLinePenColor(kChartAxisLine);
+    }
+    if (axisY) {
+        axisY->setLabelsColor(kChartLabelColor);
+        axisY->setGridLineColor(kChartGridColor);
+        axisY->setLinePenColor(kChartAxisLine);
+    }
+}
+
+void ApplyDarkChartShell(QChart* chart)
+{
+    if (!chart) return;
+    chart->setBackgroundVisible(true);
+    chart->setBackgroundBrush(QBrush(Qt::transparent));
+    chart->setPlotAreaBackgroundVisible(true);
+    chart->setPlotAreaBackgroundBrush(QBrush(kChartPlotBg));
+    chart->setPlotAreaBackgroundPen(QPen(kChartGridColor, 1));
+    if (chart->legend()) chart->legend()->setVisible(false);
+}
+
+void ApplyKeyAreaDarkStyle(QGroupBox* groupBox, QChartView* chartView, QWidget* checkBoxContainer)
+{
+    if (groupBox) {
+        groupBox->setAttribute(Qt::WA_StyledBackground, true);
+        groupBox->setStyleSheet(
+            "QGroupBox#groupbox_dataDistGroup {"
+            "  background-color: #252526;"
+            "  border: 1px solid #3A3A3A;"
+            "  border-radius: 4px;"
+            "  color: #D8D8D8;"
+            "  margin-top: 8px;"
+            "  padding-top: 8px;"
+            "}"
+            "QGroupBox#groupbox_dataDistGroup::title {"
+            "  subcontrol-origin: margin;"
+            "  left: 8px;"
+            "  padding: 0 4px;"
+            "  color: #D8D8D8;"
+            "}");
+    }
+    if (chartView) {
+        chartView->setAttribute(Qt::WA_StyledBackground, true);
+        chartView->setStyleSheet("background-color: #252526; border: none;");
+    }
+    if (checkBoxContainer) {
+        checkBoxContainer->setAttribute(Qt::WA_StyledBackground, true);
+        checkBoxContainer->setStyleSheet(
+            "QWidget#checkBoxContainer { background-color: transparent; }"
+            "QCheckBox { color: #D8D8D8; spacing: 4px; }"
+            "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 2px; }"
+            "QCheckBox::indicator:unchecked {"
+            "  background-color: #2A2A2A;"
+            "  border: 1px solid #5A5A5A;"
+            "}"
+            "QCheckBox::indicator:checked {"
+            "  background-color: #569CD6;"
+            "  border: 1px solid #569CD6;"
+            "}");
+    }
+}
+} // namespace
 
 static iGame::PointSet::Pointer FindFirstLeafPointSet(iGame::DataObject::Pointer obj) {
     if (!obj) {
@@ -24,12 +102,37 @@ static iGame::PointSet::Pointer FindFirstLeafPointSet(iGame::DataObject::Pointer
 }
 
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
-    QDialog(parent),
+    igQtChromeFramelessDialog(parent),
     ui(new Ui::MeshCodecDialog),
     m_uiSampleLeafObj(nullptr),
     m_exportSourceObj(obj)
 {
-    ui->setupUi(this);
+    setDialogTitle(QStringLiteral("压缩"));
+    setModal(true);
+    resize(1100, 760);
+    setMinimumSize(900, 620);
+
+    m_bodyWidget = new QWidget(contentHost());
+    m_bodyWidget->setObjectName(QStringLiteral("MeshCodecDialogBody"));
+    m_bodyWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_bodyWidget->setAttribute(Qt::WA_StyledBackground, true);
+    m_bodyWidget->setStyleSheet(
+        "QWidget#MeshCodecDialogBody { background-color: transparent; color: #EAEAEA; }"
+        "QLabel { color: #D8D8D8; }"
+        "QGroupBox { color: #D8D8D8; border: 1px solid #3A3A3A; border-radius: 4px; margin-top: 8px; padding-top: 8px; }"
+        "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }"
+        "QLineEdit, QComboBox { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 3px 6px; border-radius: 3px; }"
+        "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 6px 12px; border-radius: 4px; }"
+        "QPushButton:hover { background-color: #3A3A3A; }"
+        "QPushButton:pressed { background-color: #252526; }"
+        "QCheckBox, QRadioButton { color: #D8D8D8; }"
+        "QGroupBox#groupbox_dataDistGroup { background-color: #252526; border: 1px solid #3A3A3A; }"
+        "QTableWidget { background-color: #2A2A2A; color: #EAEAEA; gridline-color: #3A3A3A; }"
+        "QHeaderView::section { background-color: #333333; color: #EAEAEA; border: 1px solid #3A3A3A; }");
+
+    ui->setupUi(m_bodyWidget);
+    setContentWidget(m_bodyWidget);
+    QMetaObject::connectSlotsByName(this);
 
     m_isMultiBlock = (m_exportSourceObj && m_exportSourceObj->HasSubDataObject());
 
@@ -38,7 +141,7 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
         m_uiSampleLeafObj = FindFirstLeafPointSet(m_exportSourceObj);
         if (!m_uiSampleLeafObj) {
             QMessageBox::critical(this, "错误", "多块数据中未找到可压缩的叶子块（PointSet）！");
-            QTimer::singleShot(0, this, &QDialog::reject);
+            QTimer::singleShot(0, this, &igQtMeshCodecDialog::reject);
             return;
         }
     } else {
@@ -66,8 +169,13 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     // 显示压缩报告选项
     ui->checkbox_showReport->setVisible(true);
 
-    // 让对话框可根据内容自由收缩/展开
-    if (this->layout()) this->layout()->setSizeConstraint(QLayout::SetMinAndMaxSize);
+    // 内容区随窗口伸缩，仅保证最小高度满足控件
+    if (m_bodyWidget->layout()) m_bodyWidget->layout()->setSizeConstraint(QLayout::SetMinimumSize);
+    if (ui->rightContainer) ui->rightContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (ui->rightPanel) ui->rightPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (ui->verticalLayout_main) ui->verticalLayout_main->setStretch(1, 1);
+    if (ui->verticalLayout_4) ui->verticalLayout_4->setStretch(1, 1);
+    if (ui->label_intro) ui->label_intro->setWordWrap(true);
 
     InitDataItems();
     InitIntro();
@@ -365,7 +473,12 @@ void igQtMeshCodecDialog::InitHistogramView()
     m_chartView = new QChartView(ui->groupbox_dataDistGroup);
     m_chartView->setRenderHint(QPainter::Antialiasing);
     m_chartView->setMinimumHeight(220);
-    parentLayout->addWidget(m_chartView);
+    m_chartView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (auto* vlay = qobject_cast<QVBoxLayout*>(parentLayout)) {
+        vlay->addWidget(m_chartView, 1);
+    } else {
+        parentLayout->addWidget(m_chartView);
+    }
 
     // 创建悬浮的产生直方图按钮（作为chartView的子控件）
     m_refreshButton = new QPushButton(m_chartView);
@@ -407,10 +520,6 @@ void igQtMeshCodecDialog::InitHistogramView()
     m_checkBoxContainer = new QWidget(ui->groupbox_dataDistGroup);
     m_checkBoxContainer->setObjectName("checkBoxContainer");
     m_checkBoxContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    // 放大复选框指示器尺寸，使勾选更易于交互
-    m_checkBoxContainer->setStyleSheet(
-        "QCheckBox::indicator { width: 18px; height: 18px; }"
-    );
 
     QGridLayout* checkBoxLayout = new QGridLayout(m_checkBoxContainer);
     checkBoxLayout->setContentsMargins(75, 5, 40, 5);
@@ -430,6 +539,12 @@ void igQtMeshCodecDialog::InitHistogramView()
     }
 
     parentLayout->addWidget(m_checkBoxContainer);
+
+    ApplyKeyAreaDarkStyle(ui->groupbox_dataDistGroup, m_chartView, m_checkBoxContainer);
+
+    auto* emptyChart = new QChart();
+    ApplyDarkChartShell(emptyChart);
+    m_chartView->setChart(emptyChart);
 
     // 初始时隐藏复选框容器
     m_checkBoxContainer->setVisible(false);
@@ -488,8 +603,9 @@ void igQtMeshCodecDialog::onCheckBoxStateChanged(int binIndex, int state)
 
 void igQtMeshCodecDialog::ClearCurrentHistogram() {
     if (m_chartView) {
-        // 当前绑定的chart会被QChartView接管并删除
-        m_chartView->setChart(new QChart());
+        auto* chart = new QChart();
+        ApplyDarkChartShell(chart);
+        m_chartView->setChart(chart);
     }
 }
 
@@ -606,14 +722,14 @@ void igQtMeshCodecDialog::PositionRefreshButton()
 
 void igQtMeshCodecDialog::resizeEvent(QResizeEvent* event)
 {
-    QDialog::resizeEvent(event);
+    igQtChromeFramelessDialog::resizeEvent(event);
     // 窗口大小改变时重新定位按钮
     PositionRefreshButton();
 }
 
 void igQtMeshCodecDialog::showEvent(QShowEvent* event)
 {
-    QDialog::showEvent(event);
+    igQtChromeFramelessDialog::showEvent(event);
     // 窗口首次显示时定位按钮
     PositionRefreshButton();
 }
@@ -767,7 +883,7 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
         foreach(QAbstractAxis * axis, chart->axes()) {
             chart->removeAxis(axis);
         }
-        chart->legend()->setVisible(false);
+        ApplyDarkChartShell(chart);
         return;
     }
 
@@ -775,7 +891,6 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
     foreach(QAbstractAxis * axis, chart->axes()) {
         chart->removeAxis(axis);
     }
-    chart->legend()->setVisible(false);
 
     QValueAxis* axisX = new QValueAxis();
     QValueAxis* axisY = new QValueAxis();
@@ -797,6 +912,7 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
     axisY->setTickCount(5);
     axisY->setLabelFormat("%d");
     chart->addAxis(axisY, Qt::AlignLeft);
+    StyleChartAxes(axisX, axisY);
 
     for (size_t i = 0; i < yAxis.size(); i++) {
         QLineSeries* lowerLine = new QLineSeries();
@@ -812,18 +928,15 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
         barSeries->setLowerSeries(lowerLine);
         barSeries->setUpperSeries(upperLine);
 
-        barSeries->setColor(QColor(0, 114, 189));
-        barSeries->setBorderColor(QColor(0, 114, 189));
+        barSeries->setColor(kChartSeriesFill);
+        barSeries->setBorderColor(kChartSeriesBorder);
 
         chart->addSeries(barSeries);
         barSeries->attachAxis(axisX);
         barSeries->attachAxis(axisY);
     }
 
-    chart->setBackgroundVisible(false);
-    chart->setPlotAreaBackgroundVisible(true);
-    chart->setPlotAreaBackgroundBrush(QBrush(Qt::white));
-    chart->setPlotAreaBackgroundPen(Qt::NoPen);
+    ApplyDarkChartShell(chart);
 }
 
 void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std::vector<float>& xAxis, const std::vector<int>& yAxis)
@@ -834,7 +947,6 @@ void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std:
     foreach(QAbstractAxis * axis, chart->axes()) {
         chart->removeAxis(axis);
     }
-    chart->legend()->setVisible(false);
 
     QValueAxis* axisX = new QValueAxis();
     QValueAxis* axisY = new QValueAxis();
@@ -855,6 +967,7 @@ void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std:
     axisY->setTickCount(5);
     axisY->setLabelFormat("%d");
     chart->addAxis(axisY, Qt::AlignLeft);
+    StyleChartAxes(axisX, axisY);
 
     for (size_t i = 0; i < yAxis.size(); i++) {
         QLineSeries* lowerLine = new QLineSeries();
@@ -870,18 +983,15 @@ void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std:
         barSeries->setLowerSeries(lowerLine);
         barSeries->setUpperSeries(upperLine);
 
-        barSeries->setColor(QColor(0, 114, 189));
-        barSeries->setBorderColor(QColor(0, 114, 189));
+        barSeries->setColor(kChartSeriesFill);
+        barSeries->setBorderColor(kChartSeriesBorder);
 
         chart->addSeries(barSeries);
         barSeries->attachAxis(axisX);
         barSeries->attachAxis(axisY);
     }
 
-    chart->setBackgroundVisible(false);
-    chart->setPlotAreaBackgroundVisible(true);
-    chart->setPlotAreaBackgroundBrush(QBrush(Qt::white));
-    chart->setPlotAreaBackgroundPen(Qt::NoPen);
+    ApplyDarkChartShell(chart);
 }
 
 // 旧实现：均匀分箱，无需按 bin 宽度动态伸展
@@ -1194,15 +1304,20 @@ void igQtMeshCodecDialog::UpdateKeyAreaVisibility(bool show)
 
 void igQtMeshCodecDialog::RecomputeDialogSize()
 {
-    if (auto lay = this->layout()) {
-        lay->setSizeConstraint(QLayout::SetMinAndMaxSize);
+    if (!m_bodyWidget) return;
+    if (auto lay = m_bodyWidget->layout()) {
+        lay->setSizeConstraint(QLayout::SetMinimumSize);
         lay->invalidate();
         lay->activate();
     }
-    this->setMinimumHeight(0);
+
     QTimer::singleShot(0, this, [this]() {
-        this->adjustSize();
-        this->resize(this->width(), this->sizeHint().height());
+        const int needH = sizeHint().height();
+        setMinimumHeight(qMax(620, needH));
+        // 仅在当前高度不足以容纳内容时自动增高，不强制缩小用户已放大的窗口
+        if (height() < needH) {
+            resize(width(), needH);
+        }
     });
 }
 
