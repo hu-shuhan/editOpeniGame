@@ -1,4 +1,4 @@
-# iGameVis developer version
+# iGameVis release version
 
 ## File Import
 
