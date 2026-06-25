@@ -524,7 +524,9 @@ void Model::DrawWithTransparency() {
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
-            m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+            #ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+            #endif
             shader->SetUniformi("uUseLighting", 0);
             shader->SetUniformi("colorMode", 1);
 
@@ -532,7 +534,9 @@ void Model::DrawWithTransparency() {
             if (colorWithCell) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
-                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #endif
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
@@ -562,13 +566,17 @@ void Model::DrawWithTransparency() {
             if (useColor && !colorWithCell) {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
-                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #endif
                 shader->SetUniformi("uUseLighting", 0);
                 shader->SetUniformi("colorMode", 1);
             } else {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
-                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #endif
                 shader->SetUniformi("uUseLighting", 0);
                 shader->SetUniformi("colorMode", 2);
                 shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
@@ -586,7 +594,9 @@ void Model::DrawWithTransparency() {
         if (viewStyle & IG_SURFACE) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
-            m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+            #ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+            #endif
             shader->SetUniformi("uUseLighting",
                                 m_Scene->GetSurfaceShadingMode() == 1 ? 0 : 1);
             shader->SetUniform3f("inputColor",
@@ -720,6 +730,7 @@ void Model::DrawPhase1() {
 
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
+                
                         GL_POINTS, 0,
                         surfaceObject->m_Positions->GetNumberOfElements());
             } else {
