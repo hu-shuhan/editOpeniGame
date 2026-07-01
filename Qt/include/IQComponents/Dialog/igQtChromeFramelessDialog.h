@@ -49,6 +49,10 @@ private:
 #if !defined(Q_OS_WIN)
     Qt::Edges hitTestEdges(const QPoint& pos) const;
     static Qt::CursorShape cursorForEdges(Qt::Edges edges);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    void beginManualResize(Qt::Edges edges, const QPoint& globalPos);
+    void performManualResize(const QPoint& globalPos);
+#endif
 #endif
 
     QWidget* m_titleBar{nullptr};
@@ -64,4 +68,10 @@ private:
     bool m_dragging{false};
     QPoint m_dragOffset;
     bool m_maximizeEnabled{true};
+#if !defined(Q_OS_WIN) && QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    bool m_resizing{false};
+    Qt::Edges m_resizeEdges{};
+    QPoint m_resizeStartGlobalPos;
+    QRect m_resizeStartGeometry;
+#endif
 };
