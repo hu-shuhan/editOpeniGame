@@ -7,6 +7,7 @@
 #include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
+#include <unordered_map>
 #include <QMessageBox>
 #include<QDockWidget>
 class igQtStreamTracerWidget : public QWidget {
@@ -92,6 +93,8 @@ private:
     };
     bool first = true;
     int m_StreamlineCounter = 0; // 用于给每次生成的流线对象编号
+    // 每个流线对象的"原始未简化版本"缓存，使简化可反复调参
+    std::unordered_map<iGame::UnstructuredMesh*, iGame::UnstructuredMesh::Pointer> m_OriginalCache;
     int p1;
     int p2;
     
