@@ -63,6 +63,13 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             return;
         }
         auto numOfCells = mesh->GetNumberOfVolumes();
+        if (numOfCells <= 0) {
+            std::cout << "[StreamTracer] unsupported input: 0 volume cells (2D/surface data?). Aborting init."
+                      << std::endl;
+            SetMesh(nullptr);
+            meshId = -1;
+            return;
+        }
 
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
@@ -100,6 +107,13 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             return;
         }
         auto numOfCells = mesh->GetNumberOfVolumes();
+        if (numOfCells <= 0) {
+            std::cout << "[StreamTracer] unsupported input: 0 volume cells (2D/surface data?). Aborting init."
+                      << std::endl;
+            SetMesh(nullptr);
+            meshId = -1;
+            return;
+        }
 
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());

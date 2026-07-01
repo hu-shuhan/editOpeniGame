@@ -91,10 +91,13 @@ private:
             {},
     };
     bool first = true;
+    int m_StreamlineCounter = 0; // 用于给每次生成的流线对象编号
     int p1;
     int p2;
-    //添加一个成员变量来保存原始的流线数据，以便在刷新时使用
+    
     iGame::UnstructuredMesh::Pointer m_OriginalStream;
 
     void ensureStreamBase();
+    // 选取合适的源 Model：跳过流线结果对象、必须是含体单元的 VolumeMesh
+    iGame::Model::Pointer pickSourceModel();
 };
