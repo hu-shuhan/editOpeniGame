@@ -1,6 +1,8 @@
 ﻿#include "iGameAxes.h"
 #include "iGameScene.h"
 
+#include <iostream>
+
 IGAME_NAMESPACE_BEGIN
 
 Axes::Axes() {
@@ -16,6 +18,13 @@ Axes::Axes() {
     m_ShaftSize = 0.03f;
     m_ArrowSize = 0.06f;
     m_OriginSize = 0.05f;
+#ifdef __EMSCRIPTEN__
+    // The corner widget is only about 100 px wide in the web viewer.
+    // Slightly thicker geometry remains legible after canvas scaling.
+    m_ShaftSize = 0.045f;
+    m_ArrowSize = 0.09f;
+    m_OriginSize = 0.065f;
+#endif
 }
 
 Axes::~Axes() {}
@@ -76,6 +85,7 @@ void Axes::Initialize() {
                             vertices.data(), GL_STATIC_DRAW);
     m_ColorVBO->Allocate(colors.size() * sizeof(igm::vec3), colors.data(),
                          GL_STATIC_DRAW);
+    m_TriangleIndexCount = static_cast<int>(triangleIndices.size());
     m_TriangleEBO->Allocate(triangleIndices.size() * sizeof(uint32_t),
                             triangleIndices.data(), GL_STATIC_DRAW);
 
@@ -130,8 +140,14 @@ void Axes::Draw() {
     4.文字渲染：，切换到文字模式，分别渲染X YZ三个字符标签
     5.清理：恢复渲染状态*/
 
+    // Axes is a viewport overlay and must not inherit restrictive scene state.
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+
     // Use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
     glDepthFunc(GL_GREATER);
     glClearDepth(0.0f);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -172,7 +188,15 @@ void Axes::Draw() {
     {
         axesShader->SetUniformi("isDrawFont", 0);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        m_TriangleVAO->DrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT);
+        m_TriangleVAO->DrawElements(GL_TRIANGLES, m_TriangleIndexCount,
+                                    GL_UNSIGNED_INT);
+#ifdef __EMSCRIPTEN__
+        GLenum drawErr = GL_NO_ERROR;
+        while ((drawErr = glGetError()) != GL_NO_ERROR) {
+            std::clog << "[Axes] Geometry GL error=" << drawErr
+                      << " indexCount=" << m_TriangleIndexCount << std::endl;
+        }
+#endif
     }
 
     // draw axes font
@@ -188,6 +212,10 @@ void Axes::Draw() {
         igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};
         igm::vec3 green = igm::vec3{0.0f, 1.0f, 0.0f};
         igm::vec3 blue = igm::vec3{0.0f, 0.0f, 1.0f};
+
+        if (textureX == nullptr || textureY == nullptr || textureZ == nullptr) {
+            return;
+        }
 
         textureX->Active(GL_TEXTURE1);
         textureY->Active(GL_TEXTURE2);
@@ -230,6 +258,11 @@ void Axes::Update(const igm::mat4& mvp, const igm::ivec4& viewport) {
     std::vector<igm::vec4> texts = {igm::vec4{1.1, 0.1, -0.1, 1},
                                     igm::vec4{0.0, 1.3, 0.0, 1},
                                     igm::vec4{0.1, 0.0, 1.1, 1}};
+#ifdef __EMSCRIPTEN__
+    const float fontPixelSize = 12.0f;
+#else
+    const float fontPixelSize = 20.0f;
+#endif
 
     fontVertices.reserve(36);
     for (auto& text: texts) {
@@ -244,20 +277,20 @@ void Axes::Update(const igm::mat4& mvp, const igm::ivec4& viewport) {
                 fontVertices.push_back(tmpWc.z);
 
         // second point
-        dc.x = dc.x + 20;
+        dc.x = dc.x + fontPixelSize;
         DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);
 
         // third point
-        dc.x = dc.x - 20;
-        dc.y = dc.y + 20;
+        dc.x = dc.x - fontPixelSize;
+        dc.y = dc.y + fontPixelSize;
         DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);
 
         // fourth point
-        dc.x = dc.x + 20;
+        dc.x = dc.x + fontPixelSize;
         DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);

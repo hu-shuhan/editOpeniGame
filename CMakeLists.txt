@@ -22,6 +22,18 @@ option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
+option(ENABLE_WASM "Build WASM Target." OFF)
+
+set(IGAME_RENDER_BACKEND "DesktopGL" CACHE STRING "Rendering backend: DesktopGL or GLES2")
+set_property(CACHE IGAME_RENDER_BACKEND PROPERTY STRINGS DesktopGL GLES2)
+
+if (EMSCRIPTEN)
+    set(ENABLE_QT_MODULE OFF CACHE BOOL "Build GUI/Qt Module." FORCE)
+    if (NOT IGAME_RENDER_BACKEND STREQUAL "GLES2")
+        message(STATUS "EMSCRIPTEN detected: switch IGAME_RENDER_BACKEND to GLES2")
+        set(IGAME_RENDER_BACKEND "GLES2" CACHE STRING "Rendering backend: DesktopGL or GLES2" FORCE)
+    endif ()
+endif ()
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
@@ -139,4 +151,8 @@ endif ()
 # 导入example
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
+endif ()
+
+if (ENABLE_WASM)
+    add_subdirectory(Examples/Wasm)
 endif ()

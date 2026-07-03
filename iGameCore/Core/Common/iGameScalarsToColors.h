@@ -102,7 +102,12 @@ public:
     int GetVectorComponent() { return this->VectorComponent; };
     int GetVectorSize() { return this->VectorSize; };
 
-    void SetRangeStable(bool stable) { m_stable = stable; }
+    void SetRangeStable(bool stable) {
+        if (m_stable != stable) {
+            m_stable = stable;
+            this->Modified();
+        }
+    }
     bool GetStable() { return m_stable; }
 
     bool DeepCopy(const ScalarsToColors::Pointer other);

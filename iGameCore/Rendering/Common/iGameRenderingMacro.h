@@ -1,5 +1,7 @@
 #pragma once
 
+#include "iGameRenderingLogger.h"
+
 #ifdef IGAME_PLATFORM_WINDOWS
     #define GL_SUPPORT_MSAA
 #endif
@@ -55,9 +57,9 @@
                         error = "UNKNOWN_ERROR";                               \
                         break;                                                 \
                 }                                                              \
-                std::cerr << "OpenGL error: " << error << " (" << err << ")"   \
-                          << " in file " << __FILE__ << " at line "            \
-                          << __LINE__ << std::endl;                            \
+                IGAME_RENDERING_ERROR("OpenGL error: {} ({}) in file {} at "   \
+                                      "line {}",                               \
+                                      error, err, __FILE__, __LINE__);         \
             }                                                                  \
         }
 #else
@@ -86,9 +88,9 @@
                         error = "UNKNOWN_ERROR";                               \
                         break;                                                 \
                 }                                                              \
-                std::cerr << "OpenGL error: " << error << " (" << err << ")"   \
-                          << " in file " << __FILE__ << " at line "            \
-                          << __LINE__ << std::endl;                            \
+                IGAME_RENDERING_ERROR("OpenGL error: {} ({}) in file {} at "   \
+                                      "line {}",                               \
+                                      error, err, __FILE__, __LINE__);         \
             }                                                                  \
         }
 #endif

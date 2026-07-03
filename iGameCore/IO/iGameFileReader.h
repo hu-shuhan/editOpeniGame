@@ -33,6 +33,7 @@ public:
     bool Execute() override;
 
     void SetFilePath(const std::string& filePath);
+    void SetMemoryBuffer(const void* data, size_t size);
     std::string GetFilePath() const { return m_FilePath; }
     //封装了SetFilePath和Execute以及GetOutput
     DataObject::Pointer ReadFile(const std::string& filePath);
@@ -89,6 +90,10 @@ protected:
     std::string m_FileSuffix;
     FILE* file_;
     size_t m_FileSize;
+    const char* m_MemoryBuffer{nullptr};
+    size_t m_MemoryBufferSize{0};
+    bool m_UseMemoryBuffer{false};
+    bool m_OwnsBuffer{false};
 
 #ifdef PLATFORM_WINDOWS
     HANDLE m_File{nullptr};

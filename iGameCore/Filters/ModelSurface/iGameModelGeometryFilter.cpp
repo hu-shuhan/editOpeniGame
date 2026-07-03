@@ -3,7 +3,9 @@
 #include "Mutex/iGameAtomicMutex.h"
 #include "iGameThreadPool.h"
 #include <mutex>
+#ifndef __EMSCRIPTEN__
 #include <omp.h>
+#endif
 IGAME_NAMESPACE_BEGIN
 #define ArrayList std::vector<ArrayObject>
 ModelGeometryFilter::ModelGeometryFilter() {
@@ -468,7 +470,7 @@ struct ExtractCellBoundaries {
 
     void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints, Points::Pointer newPoints) {
         auto ids = Polygons->GetCellIdArray()->RawPointer();
-        IGsize num = Polygons->GetNumberOfCellIds();  // 使用实际填充的数据量，而不是 buffer 的大小
+        IGsize num = Polygons->GetNumberOfCellIds(); // 使用实际填充的数据量，而不是 buffer 的大小
         igIndex id = 0;
         igIndex oldId = 0;
         igIndex newId = 0;
@@ -1036,6 +1038,7 @@ struct ExtractUG : public ExtractCellBoundaries {
 int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                      SurfaceMesh::Pointer exc) {
     UnstructuredMesh::Pointer Mesh = DynamicCast<UnstructuredMesh>(input);
+    if (Mesh == nullptr) { return 0; }
     //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
     //                     << Mesh->GetNumberOfCells() << " cells.");
     bool isNot3D = true;
@@ -1055,6 +1058,7 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
     igIndex64 numCells = Mesh->GetNumberOfCells();
+    if (numCells <= 0) { return 0; }
     igIndex64 numInputPts = Mesh->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
     auto inPoints = Mesh->GetPoints();
@@ -1070,14 +1074,21 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     auto* extract =
             new ExtractUG(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
 
-    FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
-    std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+    int poolCount = this->MaxThreadSize > 0 ? this->MaxThreadSize : 1;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    poolCount = 1;
+#endif
+    FaceMemoryPool** FacePools = new FaceMemoryPool*[poolCount];
+    std::fill(FacePools, FacePools + poolCount, nullptr);
     auto func = [&](igIndex start, igIndex end, int i) -> void {
-        FacePools[i] = new FaceMemoryPool;
-        FacePools[i]->Initialize(Mesh->GetNumberOfPoints());
-        extract->Execute(start, end, FacePools[i]);
+        int poolId = (i >= 0 && i < poolCount) ? i : 0;
+        if (FacePools[poolId] == nullptr) {
+            FacePools[poolId] = new FaceMemoryPool;
+            FacePools[poolId]->Initialize(Mesh->GetNumberOfPoints());
+        }
+        extract->Execute(start, end, FacePools[poolId]);
     };
-    ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
+    ThreadPool::parallelFor(0, numCells, poolCount, func);
     std::vector<igIndex> f2c;
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
@@ -1096,7 +1107,7 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     f2c.swap(temp);
     delete extract;
     extract = nullptr;
-    for (int i = 0; i < MaxThreadSize; i++) {
+    for (int i = 0; i < poolCount; i++) {
         if (FacePools[i]) {
             delete FacePools[i];
             FacePools[i] = nullptr;

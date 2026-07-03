@@ -203,22 +203,36 @@ void PainterBase::Draw() {
     for (const auto& pair: m_VAOs) {
         float penWidth = pair.first;
 
-        m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+        auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+        shader->Use();
+#ifdef __EMSCRIPTEN__
+        // Web shaders use explicit uniforms instead of UBO blocks.
+        m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
 
         // draw points & lines
-        glad_glDepthRange(0.000001, 1);
+#ifdef __EMSCRIPTEN__
+        glDepthRangef(0.000001f, 1.0f);
+#else
+        glDepthRange(0.000001, 1);
+#endif
         {
-            glad_glPointSize(penWidth);
+            glPointSize(penWidth);
             m_VAOs[penWidth]->ElementBuffer(m_PointEBOs[penWidth]);
             m_VAOs[penWidth]->DrawElements(GL_POINTS, m_PointEBOSizes[penWidth],
                                            GL_UNSIGNED_INT);
 
-            glad_glLineWidth(penWidth);
+            glLineWidth(penWidth);
             m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
             m_VAOs[penWidth]->DrawElements(GL_LINES, m_LineEBOSizes[penWidth],
                                            GL_UNSIGNED_INT);
         }
-        glad_glDepthRange(0, 1);
+#ifdef __EMSCRIPTEN__
+        glEnable(GL_DEPTH_TEST);
+        glDepthRangef(0.0f, 1.0f);
+#else
+        glDepthRange(0, 1);
+#endif
 
         // draw triangle
         m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);

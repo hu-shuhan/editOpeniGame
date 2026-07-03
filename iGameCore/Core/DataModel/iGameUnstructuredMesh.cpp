@@ -1,5 +1,6 @@
 #include "iGameUnstructuredMesh.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
+#include <vector>
 IGAME_NAMESPACE_BEGIN
 void UnstructuredMesh::SetCells(CellArray::Pointer cell, UnsignedIntArray::Pointer type) {
     m_Cells = cell;
@@ -62,11 +63,11 @@ SurfaceMesh::Pointer UnstructuredMesh::TransferToSurfaceMesh() {
             break;
         }
     }
-    if (CouldTransfer == false) { 
-        std::cout<<"Could not transfer to SurfaceMesh, because there are non-surface cells."<<std::endl;
-        return nullptr; 
+    if (CouldTransfer == false) {
+        std::cout << "Could not transfer to SurfaceMesh, because there are non-surface cells." << std::endl;
+        return nullptr;
     } else {
-		std::cout<<"Transfer to SurfaceMesh successfully."<<std::endl;
+        std::cout << "Transfer to SurfaceMesh successfully." << std::endl;
     }
     SurfaceMesh::Pointer mesh = SurfaceMesh::New();
     mesh->SetName(this->GetName());
@@ -499,9 +500,35 @@ void UnstructuredMesh::ConvertToDrawableData() {
         auto triangleEdgeMasks = UnsignedCharArray::New();
         triangleEdgeMasks->SetDimension(1);
 
-        igIndex ids[IGAME_CELL_MAX_SIZE * 100]{};
+        int skippedInvalidCells = 0;
         for (int id = 0; id < GetNumberOfCells(); id++) {
-            int size = GetCellPointIds(id, ids);
+            int sizeHint = static_cast<int>(m_Cells->GetCellSize(id));
+            if (sizeHint <= 0) {
+                skippedInvalidCells++;
+                continue;
+            }
+
+            std::vector<igIndex> cellIds(sizeHint);
+            int size = GetCellPointIds(id, cellIds.data());
+            if (size <= 0) {
+                skippedInvalidCells++;
+                continue;
+            }
+
+            const igIndex* ids = cellIds.data();
+            bool hasInvalidPointId = false;
+            const IGsize pointCount = GetNumberOfPoints();
+            for (int i = 0; i < size; i++) {
+                if (ids[i] < 0 || static_cast<IGsize>(ids[i]) >= pointCount) {
+                    hasInvalidPointId = true;
+                    break;
+                }
+            }
+            if (hasInvalidPointId) {
+                skippedInvalidCells++;
+                continue;
+            }
+
             if (!m_Clipper->IsAllDisable()) {
                 bool visible = true;
                 for (int i = 0; i < size; i++) {
@@ -633,6 +660,9 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     break;
             }
         }
+        if (skippedInvalidCells > 0) {
+            igDebug("UnstructuredMesh::ConvertToDrawableData skipped invalid cells: {}", skippedInvalidCells);
+        }
         m_Positions = m_Points->ConvertToArray();
         m_Positions->Modified();
 
@@ -654,13 +684,13 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
 
     // Debug info
-//    if(m_AttributeIndex != -1){
-//        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-//
-//        std::cout << "Unstructured Mesh : " << this << " color Mapper : " << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
-//                  << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
-//                  << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
-//    }
+    //    if(m_AttributeIndex != -1){
+    //        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+    //
+    //        std::cout << "Unstructured Mesh : " << this << " color Mapper : " << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+    //                  << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+    //                  << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+    //    }
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
         if (m_AttributeIndex != -1) {
@@ -671,11 +701,11 @@ void UnstructuredMesh::ConvertToDrawableData() {
                 this->m_ColorMapper->SetVectorModeToComponent();
             }
 
-//            if(updateColorMapper){
-//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
-//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
-//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
-//            }
+            //            if(updateColorMapper){
+            //                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+            //                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+            //                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+            //            }
 
             // m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
             // m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
@@ -688,8 +718,6 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 }
             }
-
-
         }
     }
 
@@ -700,7 +728,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {
     /* 当pointMapper 外部更新（调整颜色映射的 Range）， 则不用调整ColorMap的范围*/
-    if (m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+    if (!m_ColorMapper->GetStable() && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
         // Configure color mapper range using provided attrRange if available; otherwise initialize from data
         double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
         double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;

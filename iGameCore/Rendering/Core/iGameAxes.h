@@ -85,6 +85,7 @@ protected:
     SmartPointer<GLBuffer> m_PositionVBO;
     SmartPointer<GLBuffer> m_ColorVBO;
     SmartPointer<GLBuffer> m_TriangleEBO;
+    int m_TriangleIndexCount{0};
 
     SmartPointer<GLVertexArray> m_FontVAO;
     SmartPointer<GLBuffer> m_TextureCoordVBO;

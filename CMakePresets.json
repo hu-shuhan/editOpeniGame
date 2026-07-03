@@ -1,0 +1,122 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 19,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "wasm-release",
+            "displayName": "Wasm Release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "toolchainFile": "${sourceDir}/ThirdParty/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "environment": {
+                "EM_CONFIG": "${sourceDir}/ThirdParty/emsdk/.emscripten",
+                "EMSDK": "${sourceDir}/ThirdParty/emsdk",
+                "EMSDK_PYTHON": "${sourceDir}/ThirdParty/emsdk/python/3.13.3_64bit/python.exe",
+                "EMSDK_NODE": "${sourceDir}/ThirdParty/emsdk/node/22.16.0_64bit/bin/node.exe"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "C:/Windows/ninja.exe",
+                "CMAKE_C_COMPILER": "${sourceDir}/ThirdParty/emsdk/upstream/emscripten/emcc.bat",
+                "CMAKE_CXX_COMPILER": "${sourceDir}/ThirdParty/emsdk/upstream/emscripten/em++.bat",
+                "ENABLE_QT_MODULE": "OFF",
+                "ENABLE_WASM": "ON",
+                "IGAME_RENDER_BACKEND": "GLES2",
+                "IGAME_WASM_MEMORY_PROFILE": "memory-4g"
+            }
+        },
+        {
+            "name": "wasm-debug",
+            "displayName": "Wasm Debug",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "toolchainFile": "${sourceDir}/ThirdParty/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "environment": {
+                "EM_CONFIG": "${sourceDir}/ThirdParty/emsdk/.emscripten",
+                "EMSDK": "${sourceDir}/ThirdParty/emsdk",
+                "EMSDK_PYTHON": "${sourceDir}/ThirdParty/emsdk/python/3.13.3_64bit/python.exe",
+                "EMSDK_NODE": "${sourceDir}/ThirdParty/emsdk/node/22.16.0_64bit/bin/node.exe"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_MAKE_PROGRAM": "C:/Windows/ninja.exe",
+                "CMAKE_C_COMPILER": "${sourceDir}/ThirdParty/emsdk/upstream/emscripten/emcc.bat",
+                "CMAKE_CXX_COMPILER": "${sourceDir}/ThirdParty/emsdk/upstream/emscripten/em++.bat",
+                "ENABLE_QT_MODULE": "OFF",
+                "ENABLE_WASM": "ON",
+                "IGAME_RENDER_BACKEND": "GLES2",
+                "IGAME_WASM_MEMORY_PROFILE": "memory-4g"
+            }
+        },
+        {
+            "name": "wasm-debug-memory4g",
+            "displayName": "Wasm Debug 4G",
+            "inherits": "wasm-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "IGAME_WASM_MEMORY_PROFILE": "memory-4g"
+            }
+        },
+        {
+            "name": "wasm-release-memory4g",
+            "displayName": "Wasm Release 4G",
+            "inherits": "wasm-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "IGAME_WASM_MEMORY_PROFILE": "memory-4g"
+            }
+        },
+        {
+            "name": "wasm-release-memory16g",
+            "displayName": "Wasm Release 16G",
+            "inherits": "wasm-release",
+            "cacheVariables": {
+                "IGAME_WASM_MEMORY_PROFILE": "memory-16g",
+                "CMAKE_C_FLAGS": "-sMEMORY64=1",
+                "CMAKE_CXX_FLAGS": "-sMEMORY64=1",
+                "CMAKE_EXE_LINKER_FLAGS": "-sMEMORY64=1"
+            }
+        },
+        {
+            "name": "wasm-debug-memory16g",
+            "displayName": "Wasm Debug 16G",
+            "inherits": "wasm-debug",
+            "cacheVariables": {
+                "IGAME_WASM_MEMORY_PROFILE": "memory-16g",
+                "CMAKE_C_FLAGS": "-sMEMORY64=1",
+                "CMAKE_CXX_FLAGS": "-sMEMORY64=1",
+                "CMAKE_EXE_LINKER_FLAGS": "-sMEMORY64=1"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "wasm-release",
+            "configurePreset": "wasm-release"
+        },
+        {
+            "name": "wasm-debug",
+            "configurePreset": "wasm-debug"
+        },
+        {
+            "name": "wasm-debug-memory4g",
+            "configurePreset": "wasm-debug-memory4g"
+        },
+        {
+            "name": "wasm-debug-memory16g",
+            "configurePreset": "wasm-debug-memory16g"
+        },
+        {
+            "name": "wasm-release-memory4g",
+            "configurePreset": "wasm-release-memory4g"
+        },
+        {
+            "name": "wasm-release-memory16g",
+            "configurePreset": "wasm-release-memory16g"
+        }
+    ]
+}

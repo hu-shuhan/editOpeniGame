@@ -6,9 +6,40 @@
 
 #include "Meshleter/iGameSurfaceMeshMeshleter.h"
 
+#ifdef __EMSCRIPTEN__
+    #include <chrono>
+    #include <iomanip>
+    #include <iostream>
+    #include <sstream>
+#endif
+
 #include <utility>
 
 IGAME_NAMESPACE_BEGIN
+#ifdef __EMSCRIPTEN__
+namespace
+{
+using RenderTimingClock = std::chrono::steady_clock;
+constexpr int kRenderTimingDrawObjectLogLimit = 10;
+int g_renderTimingDrawObjectLogCount = 0;
+
+std::string RenderTimingMs(RenderTimingClock::duration duration) {
+    const double ms = std::chrono::duration<double, std::milli>(duration).count();
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(2) << ms << " ms";
+    return out.str();
+}
+
+bool ShouldLogRenderTimingDrawObject() {
+    if (g_renderTimingDrawObjectLogCount >= kRenderTimingDrawObjectLogLimit) {
+        return false;
+    }
+    ++g_renderTimingDrawObjectLogCount;
+    return true;
+}
+} // namespace
+#endif
+
 DrawObject::DrawObject() {
     m_AutoUpdateDrawData = true;
     m_RenderableMesh.SurfaceMesh = nullptr;
@@ -84,7 +115,17 @@ DrawObject::DrawObject() {
     m_ReConvertToDrawableData = false;
 
     m_Clipper = iGameClipper::New();
+    m_DefaultColor = igm::vec3{0.85f, 0.85f, 0.85f};
 }
+
+void DrawObject::SetDefaultColor(const igm::vec3& color) {
+    m_DefaultColor = color;
+    // propagate to renderable meshes
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetDefaultColor(color); }
+    if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetDefaultColor(color); }
+}
+
+igm::vec3 DrawObject::GetDefaultColor() const { return m_DefaultColor; }
 
 void DrawObject::ConvertToDrawableData() {
     // 当多子块文件时，父节点为DrawObject，在这里处理子块
@@ -248,11 +289,13 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     if (index >= 0) {
         auto& parentAttr = this->GetAttributeSet()->GetAttribute(index);
         auto parentDataRange = parentAttr.GetDataRange();
-        
-        if (m_RenderableMesh.SurfaceMesh && m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
+
+        if (m_RenderableMesh.SurfaceMesh &&
+            m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
             m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;
         }
-        if (m_RenderableMesh.SimplifiedMesh && m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
+        if (m_RenderableMesh.SimplifiedMesh &&
+            m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
             m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;
         }
     }
@@ -269,7 +312,7 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         m_AttributeIndex = -1;
         m_AttributeDimension = -1;
         m_UseColor = false;
-    } else if (GetAttributeSet()->GetNumberOfAttributes()>index) {
+    } else if (GetAttributeSet()->GetNumberOfAttributes() > index) {
         m_AttributeIndex = index;
         m_AttributeDimension = dimension;
         m_UseColor = true;
@@ -374,45 +417,14 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
         m_RenderableMesh.SurfaceMesh = nullptr;
     } else {
         m_RenderableMesh.SurfaceMesh = DynamicCast<DrawObject>(dataObject);
-        m_RenderableMesh.SurfaceMesh->m_ViewStyle = this->m_ViewStyle;
-        m_RenderableMesh.SurfaceMesh->m_Visibility = this->m_Visibility;
-        m_RenderableMesh.SurfaceMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
-        m_RenderableMesh.SurfaceMesh->m_ColorWithCell = this->m_ColorWithCell;
-        m_RenderableMesh.SurfaceMesh->m_PointSize = this->m_PointSize;
-        m_RenderableMesh.SurfaceMesh->m_LineWidth = this->m_LineWidth;
-        m_RenderableMesh.SurfaceMesh->m_Transparency = this->m_Transparency;
-        m_RenderableMesh.SurfaceMesh->m_AttributeIndex = this->m_AttributeIndex;
-        m_RenderableMesh.SurfaceMesh->m_AttributeDimension = this->m_AttributeDimension;
-        m_RenderableMesh.SurfaceMesh->m_UseColor = this->m_UseColor;
+        SyncRenderableState(m_RenderableMesh.SurfaceMesh);
         // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
         m_Positions->Modified();
-        m_RenderableMesh.SurfaceMesh->m_ColorMapper = m_ColorMapper;
-        m_RenderableMesh.SurfaceMesh->m_IsMainRenderableObject = false;
     }
 
-    // simplify mesh
-    auto simplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    MeshSimplificationFilterPro::Pointer meshSimplifier = MeshSimplificationFilterPro::New();
-    meshSimplifier->SetInput(dataObject);
-    meshSimplifier->SetPreserveBoundary(true);
-    meshSimplifier->SetFreeze(false);
-    meshSimplifier->SetTransformToCellData(false);
-    meshSimplifier->SetTargetReduction(0.2);
-    if (meshSimplifier->Execute()) { simplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput()); }
-
-    m_RenderableMesh.SimplifiedMesh = simplifiedMesh;
-    m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
-    m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
-    m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
-    m_RenderableMesh.SimplifiedMesh->m_ColorWithCell = this->m_ColorWithCell;
-    m_RenderableMesh.SimplifiedMesh->m_PointSize = this->m_PointSize;
-    m_RenderableMesh.SimplifiedMesh->m_LineWidth = this->m_LineWidth;
-    m_RenderableMesh.SimplifiedMesh->m_Transparency = this->m_Transparency;
-    m_RenderableMesh.SimplifiedMesh->m_AttributeIndex = this->m_AttributeIndex;
-    m_RenderableMesh.SimplifiedMesh->m_AttributeDimension = this->m_AttributeDimension;
-    m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
-    m_RenderableMesh.SimplifiedMesh->m_ColorMapper = m_ColorMapper;
-    m_RenderableMesh.SimplifiedMesh->m_IsMainRenderableObject = false;
+    // Build simplified mesh lazily in GetRenderableObject(true)
+    m_RenderableMesh.SimplifiedMesh = nullptr;
+    m_SimplifiedMeshBuildAttempted = false;
 
     // 设置Meshleter
     m_RenderableMesh.mMeshleter = SurfaceMeshMeshleter::New();
@@ -422,9 +434,59 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
     if (!m_ShellRendering) { return this; }
 
+    if (useSimplified && m_RenderableMesh.SimplifiedMesh == nullptr && !m_SimplifiedMeshBuildAttempted) {
+        BuildSimplifiedRenderableObject();
+    }
+
     if (useSimplified && m_RenderableMesh.SimplifiedMesh != nullptr) { return m_RenderableMesh.SimplifiedMesh; }
     if (m_RenderableMesh.SurfaceMesh != nullptr) { return m_RenderableMesh.SurfaceMesh; }
     return this;
+}
+
+void DrawObject::BuildSimplifiedRenderableObject() {
+    m_SimplifiedMeshBuildAttempted = true;
+
+    DrawObject::Pointer sourceMesh = nullptr;
+    if (m_RenderableMesh.SurfaceMesh != nullptr) {
+        sourceMesh = m_RenderableMesh.SurfaceMesh;
+    } else if (this->GetDataObjectType() == IG_SURFACE_MESH) {
+        sourceMesh = this;
+    }
+
+    if (sourceMesh == nullptr) { return; }
+
+    auto simplifiedMesh = sourceMesh;
+    MeshSimplificationFilterPro::Pointer meshSimplifier = MeshSimplificationFilterPro::New();
+    meshSimplifier->SetInput(sourceMesh);
+    meshSimplifier->SetPreserveBoundary(true);
+    meshSimplifier->SetFreeze(false);
+    meshSimplifier->SetTransformToCellData(false);
+    meshSimplifier->SetTargetReduction(0.2);
+    if (meshSimplifier->Execute()) {
+        auto outputMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
+        if (outputMesh != nullptr) { simplifiedMesh = outputMesh; }
+    }
+
+    m_RenderableMesh.SimplifiedMesh = simplifiedMesh;
+    SyncRenderableState(m_RenderableMesh.SimplifiedMesh);
+}
+
+void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject) {
+    if (renderableObject == nullptr) { return; }
+
+    renderableObject->m_ViewStyle = this->m_ViewStyle;
+    renderableObject->m_Visibility = this->m_Visibility;
+    renderableObject->m_UseNormalSmooth = this->m_UseNormalSmooth;
+    renderableObject->m_ColorWithCell = this->m_ColorWithCell;
+    renderableObject->m_PointSize = this->m_PointSize;
+    renderableObject->m_LineWidth = this->m_LineWidth;
+    renderableObject->m_Transparency = this->m_Transparency;
+    renderableObject->m_AttributeIndex = this->m_AttributeIndex;
+    renderableObject->m_AttributeDimension = this->m_AttributeDimension;
+    renderableObject->m_UseColor = this->m_UseColor;
+    renderableObject->m_ColorMapper = m_ColorMapper;
+    renderableObject->m_DefaultColor = this->m_DefaultColor;
+    renderableObject->m_IsMainRenderableObject = false;
 }
 
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
@@ -487,6 +549,7 @@ void DrawObject::CreateDrawBuffer() {
         m_CellColorVBO->Create();
         m_CellColorVBO->Target(GL_ARRAY_BUFFER);
 
+#ifndef __EMSCRIPTEN__
         m_EdgeMaskBuffer->Create();
         m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
         // Allocate a minimal buffer with a single byte of data.
@@ -505,6 +568,7 @@ void DrawObject::CreateDrawBuffer() {
 
         m_CellEdgeMaskTexture->Create();
         m_CellEdgeMaskTexture->Buffer(GL_R8, m_CellEdgeMaskBuffer);
+#endif
 
         //// set point drawing format
         //{
@@ -589,13 +653,36 @@ void DrawObject::CreateDrawBuffer() {
 }
 
 void DrawObject::SyncGpuBuffers() {
+#ifdef __EMSCRIPTEN__
+    const auto syncStart = RenderTimingClock::now();
+#endif
     // 多子块文件只需要处理子块
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::SyncGpuBuffers);
+#ifdef __EMSCRIPTEN__
+        const auto syncEnd = RenderTimingClock::now();
+        if (syncEnd - syncStart > std::chrono::milliseconds(1) && ShouldLogRenderTimingDrawObject()) {
+            std::cout << "[iGameWeb][INFO] [Render timing drawobject] object=" << this
+                      << " kind=composite subObjects=true sync-total=" << RenderTimingMs(syncEnd - syncStart) << '\n';
+        }
+#endif
         return;
     }
 
-    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
+#ifdef __EMSCRIPTEN__
+    const bool wasDirtyBeforeConvert = m_ReConvertToDrawableData;
+    auto convertStart = syncStart;
+    auto convertEnd = syncStart;
+#endif
+    if (m_AutoUpdateDrawData) {
+#ifdef __EMSCRIPTEN__
+        convertStart = RenderTimingClock::now();
+#endif
+        ConvertToDrawableData();
+#ifdef __EMSCRIPTEN__
+        convertEnd = RenderTimingClock::now();
+#endif
+    }
 
     // 处理其抽壳后的表面网格
     if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SyncGpuBuffers(); }
@@ -663,6 +750,7 @@ void DrawObject::SyncGpuBuffers() {
         m_TriangleVAO->ElementBuffer(m_TriangleEBO);
     }
 
+#ifndef __EMSCRIPTEN__
     if (m_TriangleEdgeMasks->GetMTime() > m_EdgeMaskBuffer->GetMTime()) {
         GLAllocateGLBuffer(m_EdgeMaskBuffer, m_TriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
                            m_TriangleEdgeMasks->RawPointer());
@@ -670,6 +758,7 @@ void DrawObject::SyncGpuBuffers() {
 
         m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
     }
+#endif
 
     if (m_CellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_CellPositionVBO, m_CellPositions->GetNumberOfValues() * sizeof(float),
@@ -687,6 +776,7 @@ void DrawObject::SyncGpuBuffers() {
         SetColorBufferToVAO(m_CellVAO, m_CellColorVBO);
     }
 
+#ifndef __EMSCRIPTEN__
     if (m_CellTriangleEdgeMasks->GetMTime() > m_CellEdgeMaskBuffer->GetMTime()) {
         GLAllocateGLBuffer(m_CellEdgeMaskBuffer, m_CellTriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
                            m_CellTriangleEdgeMasks->RawPointer());
@@ -694,8 +784,24 @@ void DrawObject::SyncGpuBuffers() {
 
         m_CellEdgeMaskTexture->Buffer(GL_R8, m_CellEdgeMaskBuffer);
     }
+#endif
 
     GLCheckError();
+#ifdef __EMSCRIPTEN__
+    const auto syncEnd = RenderTimingClock::now();
+    if ((wasDirtyBeforeConvert || syncEnd - syncStart > std::chrono::milliseconds(1)) &&
+        ShouldLogRenderTimingDrawObject()) {
+        std::cout << "[iGameWeb][INFO] [Render timing drawobject] object=" << this
+                  << " type=" << this->GetDataObjectType()
+                  << " dirty-before=" << (wasDirtyBeforeConvert ? "true" : "false")
+                  << " auto-update=" << (m_AutoUpdateDrawData ? "true" : "false")
+                  << " convert=" << RenderTimingMs(convertEnd - convertStart)
+                  << " sync-total=" << RenderTimingMs(syncEnd - syncStart)
+                  << " positions=" << m_Positions->GetNumberOfElements()
+                  << " triangles=" << m_TriangleIndices->GetNumberOfValues()
+                  << " lines=" << m_LineIndices->GetNumberOfValues() << '\n';
+    }
+#endif
 }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {

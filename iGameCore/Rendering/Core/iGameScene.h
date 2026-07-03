@@ -17,10 +17,12 @@
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameCenterAxesModel.h"
+#include "iGameColorBar2DActor.h"
 #include "iGameInteractor.h"
 #include "iGameLight.h"
 #include "iGameModel.h"
 #include "iGameShaderManager.h"
+#include "iGameTextOverlay2DActor.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -134,6 +136,19 @@ public:
     void SetBackGround(int R, int G, int B);
 
     /**
+     * @brief 设置场景背景颜色渐变，三原色范围0~255。
+     * @param R1 起始颜色红色像素值。
+     * @param G1 起始颜色绿色像素值。
+     * @param B1 起始颜色蓝色像素值。
+     * @param R2 结束颜色红色像素值。
+     * @param G2 结束颜色绿色像素值。
+     * @param B2 结束颜色蓝色像素值。
+     * @param mode 渐变模式。
+     */
+    void SetBackGroundGradient(int R1, int G1, int B1, int R2, int G2, int B2,
+                               int mode);
+
+    /**
      * @brief 获取背景颜色。
      * @return 背景颜色RGB值。
      */
@@ -150,6 +165,10 @@ public:
      * @return 交互器指针。
      */
     SmartPointer<Interactor> GetInteractor();
+    /**
+     * @brief 释放场景资源。
+     */
+    void Finalize();
 
     /**
      * @brief 重置相机视角到默认视图。
@@ -163,6 +182,16 @@ public:
      * @return 相机指针。
      */
     SmartPointer<Camera> GetCamera();
+
+    /**
+     * @brief 设置表面着色模式，当前仅Web端支持。
+     * @param mode 着色模式。
+     */
+    void SetSurfaceShadingMode(int mode);
+    /**
+     * @brief 获取表面着色模式。
+     */
+    int GetSurfaceShadingMode() const;
 
     /**
      * @brief 更改相机类型。
@@ -236,11 +265,72 @@ public:
      * @brief 切换中心坐标轴的显示状态
      */
     void ToggleCenterAxes();
+    /**
+     * @brief 设置中心坐标轴的显示状态
+     * @param visible 是否显示中心坐标轴
+     */
+    void SetCenterAxesVisible(bool visible);
 
     /**
      * @brief 切换XYZ坐标轴的显示状态
      */
     void ToggleAxes();
+    /**
+     * @brief 设置XYZ坐标轴的显示状态
+     * @param visible 是否显示XYZ坐标轴
+     */
+    void SetAxesVisible(bool visible);
+    /**
+     * @brief 获取XYZ坐标轴的显示状态
+     * @return 是否显示XYZ坐标轴
+     */
+    bool GetAxesVisible() const;
+    
+    /**
+     * @brief 切换ColorBar的显示状态（仅Web端），桌面端ColorBar为Qt路径实现
+     * @return 是否显示ColorBar
+     */
+    void ToggleColorBar();
+    /**
+     * @brief 设置ColorBar的显示状态（仅Web端）
+     */
+    void SetColorBarVisible(bool visible);
+    /**
+     * @brief 获取ColorBar的显示状态（仅Web端）
+     * @return 是否显示ColorBar
+     */
+    bool GetColorBarVisible() const;
+    /**
+     * @brief 获取ColorBar2DActor对象（仅Web端）
+     * @return ColorBar2DActor对象的智能指针
+     */
+    SmartPointer<ColorBar2DActor> GetColorBar2DActor() const;
+    /**
+     * @brief 设置角标文本内容
+     * @param text 角标文本内容
+     */
+    void SetCornerAnnotationText(const std::string& text);
+    /**
+     * @brief 设置角标文本位置
+     * @param left 左上角X坐标
+     * @param top 左上角Y坐标
+     */
+    void SetCornerAnnotationPosition(float left, float top);
+    /**
+     * @brief 设置角标锚点位置
+     * @param anchorToBottomRight 是否锚定到底部右侧
+     */
+    void SetCornerAnnotationAnchorToBottomRight(bool anchorToBottomRight);
+    /**
+     * @brief 设置角标的可见性
+     * @param visible 是否可见
+     */
+    void SetCornerAnnotationVisible(bool visible);
+    /**
+     * @brief 获取TextOverlay2DActor对象的智能指针
+     * @return TextOverlay2DActor对象的智能指针
+     */
+    SmartPointer<TextOverlay2DActor> GetTextOverlay2DActor() const;
 
     /**
      * @brief 获取中心坐标轴模型
@@ -380,6 +470,7 @@ protected:
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
+    void ClearSceneFramebuffer(float depth, int width, int height);
 
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
     void UpdateCameraDataBlock();
@@ -402,6 +493,9 @@ protected:
     //Light> m_Light;
     bool m_AxesVisible {true};
     SmartPointer<Axes> m_Axes;
+    bool m_ColorBarVisible {false};
+    SmartPointer<ColorBar2DActor> m_ColorBar2DActor;
+    SmartPointer<TextOverlay2DActor> m_TextOverlay2DActor;
 
     SmartPointer<Interactor> m_Interactor;
 
@@ -412,6 +506,9 @@ protected:
             m_ModelRotate; //Rotation matrix passing through the origin //绕原点的旋转矩阵
     igm::mat4 m_ModelMatrix; //模型变换矩阵
     igm::vec3 m_BackgroundColor;
+    igm::vec3 m_BackgroundGradientColor;
+    bool m_BackgroundGradientEnabled = false;
+    int m_BackgroundGradientMode = 0;
 
     uint32_t m_VisibleModelsCount;    //可见模型数量
     igm::vec4 m_ModelsBoundingSphere; //场景包围球（中心坐标+半径）
@@ -482,6 +579,9 @@ protected:
     // 记录是否处于交互状态
     bool m_IsInteracting = false;
 
+    //表面着色模式
+    int m_SurfaceShadingMode = 0;
+
     friend class RenderWindow;
     friend class Model;
     friend class Axes;
@@ -491,6 +591,8 @@ protected:
     friend class PainterBase;
     friend class Painter2D;
     friend class Painter3D;
+    friend class ColorBar2DActor;
+    friend class TextOverlay2DActor;
 };
 
 IGAME_NAMESPACE_END

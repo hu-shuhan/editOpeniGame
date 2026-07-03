@@ -21,6 +21,7 @@ public:
     I_OBJECT(iGameXMLFileReader)
 public:
     void SetFilePath(const std::string& filePath);
+    void SetMemoryBuffer(const void* data, size_t size);
 
     bool Open();
     virtual bool CreateDataObject();
@@ -31,6 +32,9 @@ public:
 protected:
     std::string m_FilePath;
     std::string m_FileName;
+    const char* m_MemoryBuffer{nullptr};
+    size_t m_MemoryBufferSize{0};
+    bool m_UseMemoryBuffer{false};
 
     DataObject::Pointer m_Output;
     // tinyxml stuff

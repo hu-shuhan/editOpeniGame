@@ -376,12 +376,22 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor,
 {
     BasicStyle::Initialize(interactor);
     m_Selection = DynamicCast<ClipSelection>(s);
+    if (m_Selection == nullptr && s != nullptr) {
+        m_Selection = static_cast<ClipSelection*>(s.GetPointer());
+    }
     if (m_Selection == nullptr) return;
     m_Selection->SetUpdateFunction([this] { this->UpdatePlane(); });
+    if (m_Interactor != nullptr && m_Interactor->GetScene() != nullptr) {
+        m_Model = m_Interactor->GetScene()->GetCurrentModel();
+    }
     m_Selection->SetModel(m_Model.get());
 
     m_Painter3D = interactor->GetPainter3D();
     m_DataObject = interactor->GetDataObject();
+    if (m_Painter3D == nullptr || m_DataObject == nullptr) return;
+
+    m_Painter3D->SetTotallyHide(false);
+    m_Painter3D->SetPen(Pen::Style::SolidLine);
 
     auto& bbox = m_DataObject->GetBoundingBox();
     Vector3d p1 = bbox.min;

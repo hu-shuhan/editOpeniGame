@@ -17,7 +17,6 @@ target_include_directories(tinyXML2 PUBLIC
 )
 
 if(UNIX AND NOT APPLE)
-    set(CMAKE_CXX_FLAGS "-fPIC")
     set_property(TARGET tinyXML2 PROPERTY POSITION_INDEPENDENT_CODE ON)
 endif()
 

@@ -1,3 +1,4 @@
+#include "iGameVortexDetectionFilter.h"
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
 #include "StreamView/iGameStreamTracer.h"
@@ -6,27 +7,28 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameThreadPool.h"
 #include "iGameUnstructuredMesh.h"
-#include "iGameVortexDetectionFilter.h"
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#ifndef __EMSCRIPTEN__
 #include <omp.h>
+#endif
 // #include <semaphore>
 #include <string>
 #include <vector>
 
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
 
 class SimpleSemaphore {
 public:
     explicit SimpleSemaphore(int count) : count_(count) {}
     void acquire() {
         std::unique_lock<std::mutex> lock(m_);
-        cv_.wait(lock, [&]{ return count_ > 0; });
+        cv_.wait(lock, [&] { return count_ > 0; });
         --count_;
     }
     void release() {
@@ -34,6 +36,7 @@ public:
         ++count_;
         cv_.notify_one();
     }
+
 private:
     std::mutex m_;
     std::condition_variable cv_;
@@ -181,8 +184,8 @@ struct KDTree {
         }
     };
 
-    using Adaptor =
-            nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud, Dim, Index>;
+    using Adaptor = nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud,
+                                                        Dim, Index>;
 
     PointCloud cloud_;
     std::unique_ptr<Adaptor> index_;
@@ -211,7 +214,8 @@ struct KDTree {
 
     void build(size_t leaf_max_size = 32) {
         leaf_max_size_ = leaf_max_size;
-        index_ = std::make_unique<Adaptor>(Dim, cloud_, nanoflann::KDTreeSingleIndexAdaptorParams(static_cast<int>(leaf_max_size_)));
+        index_ = std::make_unique<Adaptor>(Dim, cloud_,
+                                           nanoflann::KDTreeSingleIndexAdaptorParams(static_cast<int>(leaf_max_size_)));
         index_->buildIndex();
     }
 
@@ -315,10 +319,10 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     Vector3f range = maxPosition - minPosition;
 
-    bool uniform = IsAxisAlignedUniformGrid(gridPoints,dims,origin,spacing,1e-10f);
+    bool uniform = IsAxisAlignedUniformGrid(gridPoints, dims, origin, spacing, 1e-10f);
     std::cout << "Is uniform grid: " << uniform << std::endl;
     int split = 4;
-    int nx,ny,nz;
+    int nx, ny, nz;
 
     if (!uniform) {
         const double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60.0);
@@ -395,7 +399,8 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
             const double Lm = buf[mid];
             return Lm * Lm * Lm;
         };
-        auto sum_cell_volume_parallel_fast = [&](const std::vector<Vector3f>& P, const std::vector<Volume*>& C) -> double {
+        auto sum_cell_volume_parallel_fast = [&](const std::vector<Vector3f>& P,
+                                                 const std::vector<Volume*>& C) -> double {
             double sumV = 0.0;
 #pragma omp parallel for schedule(dynamic, 1) reduction(+ : sumV)
             for (int i = 0; i < (int) C.size(); ++i) {
@@ -439,21 +444,20 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         }
 
         std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
-    }
-    else {
+    } else {
         split = 1;
         GetGridXYZCounts(gridPoints, nx, ny, nz);
         std::cout << "all-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
     }
 
-    int progress=10;
+    int progress = 10;
     UpdateProgress(progress * 0.01);
 
     std::string model_path = "./Resources/AI/model_1x64x64x64_1108_cuda.pt";
 
     auto [result_volume_11, global_step, predict_vals] =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split, nx, ny, nz, Mesh,
-                           Attributes, Index,uniform);
+                           Attributes, Index, uniform);
 
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
 
@@ -463,7 +467,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     for (const auto& p: gridPoints) { eigenPoints.emplace_back(p[0], p[1], p[2]); }
     // auto t_01 = std::chrono::high_resolution_clock::now();
     torch::Tensor smooth_vals =
-            knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 5,uniform);
+            knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 5, uniform);
     UpdateProgress(90 * 0.01);
     // auto t_02 = std::chrono::high_resolution_clock::now();
     // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
@@ -480,13 +484,9 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     std::vector<float> Predict(NumPoints);
     torch::Tensor t = smooth_vals;
-    if (t.is_cuda()) {
-        t = t.to(torch::kCPU);
-    }
+    if (t.is_cuda()) { t = t.to(torch::kCPU); }
     t = t.contiguous();
-    if (t.scalar_type() != torch::kFloat32) {
-        t = t.to(torch::kFloat32);
-    }
+    if (t.scalar_type() != torch::kFloat32) { t = t.to(torch::kFloat32); }
     const float* src = t.data_ptr<float>();
     std::memcpy(Predict.data(), src, sizeof(float) * NumPoints);
 
@@ -544,7 +544,7 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     const double total = static_cast<double>(TP + FP + TN + FN);
     const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
     const double precision = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FP));
-    const double recall    = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
+    const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
 
     std::cout << "\n================ Evaluation Metrics ================\n";
     std::cout << "Accuracy      : " << accuracy << "\n";
@@ -552,10 +552,9 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     std::cout << "Recall        : " << recall << "\n";
     std::cout << "===================================================\n";
 
-    m_Accuracy  = accuracy;
+    m_Accuracy = accuracy;
     m_Precision = precision;
-    m_Recall    = recall;
-
+    m_Recall = recall;
 }
 
 
@@ -1463,15 +1462,10 @@ inline int64_t suggest_chunk_size(int64_t M, int64_t D, int64_t H, int64_t W, bo
 }
 } // namespace
 
-torch::Tensor VortexDetection::knn_smooth_labels(
-    std::vector<float> data_val,
-    const torch::Tensor& prob_vol_1,
-    const Eigen::Vector3f& min_pos,
-    const Eigen::Vector3f& global_step,
-    const std::vector<Eigen::Vector3f>& query_points,
-    int k,
-    bool uniform)
-{
+torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, const torch::Tensor& prob_vol_1,
+                                                 const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
+                                                 const std::vector<Eigen::Vector3f>& query_points, int k,
+                                                 bool uniform) {
     torch::NoGradGuard no_grad;
 
     const int64_t D = prob_vol_1.size(0);
@@ -1483,7 +1477,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
     const torch::Device device = prefer_cuda ? prob_vol_1.device() : torch::kCPU;
     const bool use_fp16 = prefer_cuda;
 
-    torch::Tensor dv_host = torch::from_blob((void*)data_val.data(), {M}, torch::kFloat32);
+    torch::Tensor dv_host = torch::from_blob((void*) data_val.data(), {M}, torch::kFloat32);
     torch::Tensor dv = prefer_cuda ? dv_host.clone().to(device, true) : dv_host.clone();
 
     // thresholds
@@ -1491,9 +1485,9 @@ torch::Tensor VortexDetection::knn_smooth_labels(
     float thr46 = 0.f, thr93 = 0.f, thr25 = 0.f;
     if (pool.numel() > 0) {
         const int64_t n = pool.size(0);
-        const int64_t k48 = std::max<int64_t>(1, (int64_t)std::floor(0.46 * (n - 1)) + 1);
-        const int64_t k93 = std::max<int64_t>(1, (int64_t)std::floor(0.93 * (n - 1)) + 1);
-        const int64_t k25 = std::max<int64_t>(1, (int64_t)std::floor(0.25 * (n - 1)) + 1);
+        const int64_t k48 = std::max<int64_t>(1, (int64_t) std::floor(0.46 * (n - 1)) + 1);
+        const int64_t k93 = std::max<int64_t>(1, (int64_t) std::floor(0.93 * (n - 1)) + 1);
+        const int64_t k25 = std::max<int64_t>(1, (int64_t) std::floor(0.25 * (n - 1)) + 1);
         thr46 = std::get<0>(pool.kthvalue(k48)).item<float>();
         thr93 = std::get<0>(pool.kthvalue(k93)).item<float>();
         thr25 = std::get<0>(pool.kthvalue(k25)).item<float>();
@@ -1503,11 +1497,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
     if (prob_all.device() != device) prob_all = prob_all.to(device, true);
     prob_all = prob_all.contiguous().view({-1}).to(torch::kFloat32);
     const int64_t nprob = prob_all.numel();
-    const int64_t k60 = std::clamp<int64_t>(
-        static_cast<int64_t>(std::floor(0.999 * (nprob - 1))) + 1,
-        1,
-        nprob
-    );
+    const int64_t k60 = std::clamp<int64_t>(static_cast<int64_t>(std::floor(0.999 * (nprob - 1))) + 1, 1, nprob);
     float prob_med = std::get<0>(prob_all.kthvalue(k60)).item<float>();
     const float sx = global_step[0], sy = global_step[1], sz = global_step[2];
     const float inv_sx = (sx != 0.f) ? 1.f / sx : 0.f;
@@ -1527,12 +1517,10 @@ torch::Tensor VortexDetection::knn_smooth_labels(
         torch::Tensor vol5_h;
         if (use_fp16) vol5_h = vol5.to(torch::kHalf);
 
-        torch::Tensor min_t = torch::tensor({min_pos[0], min_pos[1], min_pos[2]},
-                                            torch::dtype(torch::kFloat32).device(device));
-        torch::Tensor inv_s = torch::tensor({inv_sx, inv_sy, inv_sz},
-                                            torch::dtype(torch::kFloat32).device(device));
-        torch::Tensor scale = torch::tensor({(W > 1) ? 2.f / float(W - 1) : 0.f,
-                                             (H > 1) ? 2.f / float(H - 1) : 0.f,
+        torch::Tensor min_t =
+                torch::tensor({min_pos[0], min_pos[1], min_pos[2]}, torch::dtype(torch::kFloat32).device(device));
+        torch::Tensor inv_s = torch::tensor({inv_sx, inv_sy, inv_sz}, torch::dtype(torch::kFloat32).device(device));
+        torch::Tensor scale = torch::tensor({(W > 1) ? 2.f / float(W - 1) : 0.f, (H > 1) ? 2.f / float(H - 1) : 0.f,
                                              (D > 1) ? 2.f / float(D - 1) : 0.f},
                                             torch::dtype(torch::kFloat32).device(device));
 
@@ -1565,8 +1553,8 @@ torch::Tensor VortexDetection::knn_smooth_labels(
             torch::Tensor sampled_chunk;
             if (use_fp16) {
                 auto grid_h = grid.to(torch::kHalf);
-                sampled_chunk = torch::nn::functional::grid_sample(vol5_h, grid_h, gs_opts)
-                                    .view({currN}).to(torch::kFloat32);
+                sampled_chunk =
+                        torch::nn::functional::grid_sample(vol5_h, grid_h, gs_opts).view({currN}).to(torch::kFloat32);
             } else {
                 sampled_chunk = torch::nn::functional::grid_sample(vol5, grid, gs_opts).view({currN});
             }
@@ -1576,7 +1564,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
             //              (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
             //              dv_chunk.ge(thr93) |
             //              sampled_chunk.ge(0.3f));
-            auto mask = (sampled_chunk.ge(prob_med)| dv_chunk.ge(thr93));
+            auto mask = (sampled_chunk.ge(prob_med) | dv_chunk.ge(thr93));
             cond_out.narrow(0, start, currN).copy_(mask.to(torch::kFloat32), prefer_cuda);
         }
     } else {
@@ -1612,7 +1600,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
             //              dv_chunk.ge(thr93) |
             //              sampled_chunk.ge(0.3f));
 
-            auto mask = (sampled_chunk.ge(prob_med)| dv_chunk.ge(thr93));
+            auto mask = (sampled_chunk.ge(prob_med) | dv_chunk.ge(thr93));
             cond_out.narrow(0, start, currN).copy_(mask.to(torch::kFloat32), prefer_cuda);
         }
     }
@@ -2013,7 +2001,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                                 continue;
                             }
                             float wsum = 0.f;
-                            #pragma unroll
+#pragma unroll
                             for (int l = 0; l < K; ++l) {
                                 const float wl = std::exp(-0.5f * nn_d2[l] * inv_sigma2);
                                 w[l] = wl;
@@ -2021,7 +2009,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                             }
                             const float inv_wsum = (wsum > 0.f) ? (1.f / wsum) : 0.f;
                             float vx = 0.f, vy = 0.f, vz = 0.f;
-                            #pragma unroll
+#pragma unroll
                             for (int l = 0; l < K; ++l) {
                                 const int idx = nn_idx[l];
                                 if (idx >= 0 && idx < velocities.rows()) {
@@ -2044,7 +2032,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             }
         };
         ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
-    }else {
+    } else {
         const int globalNx = dims[0];
         const int globalNy = dims[1];
         const int globalNz = dims[2];
@@ -2057,7 +2045,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
                 Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
                 sub_min += min_pos_eigen;
-                const Eigen::Vector3f sub_max   = sub_min + block_size;
+                const Eigen::Vector3f sub_max = sub_min + block_size;
                 const Eigen::Vector3f sub_range = sub_max - sub_min;
                 const Eigen::Vector3f now(std::max(1, nx - 1), std::max(1, ny - 1), std::max(1, nz - 1));
                 const Eigen::Vector3f step = sub_range.cwiseQuotient(now);
@@ -2235,13 +2223,8 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, float sigma) {
     return torch::exp(-0.5 * torch::pow(dists / sigma, 2));
 }
-bool VortexDetection::IsAxisAlignedUniformGrid(
-    const std::vector<Vector3f>& points,
-    Eigen::Vector3i& dims,
-    Eigen::Vector3f& origin,
-    Eigen::Vector3f& spacing,
-    float tol=1e-10f)
-{
+bool VortexDetection::IsAxisAlignedUniformGrid(const std::vector<Vector3f>& points, Eigen::Vector3i& dims,
+                                               Eigen::Vector3f& origin, Eigen::Vector3f& spacing, float tol = 1e-10f) {
     const int NumPoints = static_cast<int>(points.size());
     if (NumPoints == 0) return false;
 
@@ -2250,7 +2233,7 @@ bool VortexDetection::IsAxisAlignedUniformGrid(
     ys.reserve(NumPoints);
     zs.reserve(NumPoints);
 
-    for (const auto& p : points) {
+    for (const auto& p: points) {
         xs.push_back(p[0]);
         ys.push_back(p[1]);
         zs.push_back(p[2]);
@@ -2258,15 +2241,10 @@ bool VortexDetection::IsAxisAlignedUniformGrid(
 
     auto uniq_with_tol = [tol](std::vector<float>& v) {
         if (tol > 0.0f) {
-            for (auto& val : v) {
-                val = std::round(val / tol) * tol;
-            }
+            for (auto& val: v) { val = std::round(val / tol) * tol; }
         }
         std::sort(v.begin(), v.end());
-        auto new_end = std::unique(v.begin(), v.end(),
-                                   [tol](float a, float b) {
-                                       return std::fabs(a - b) <= tol;
-                                   });
+        auto new_end = std::unique(v.begin(), v.end(), [tol](float a, float b) { return std::fabs(a - b) <= tol; });
         v.erase(new_end, v.end());
     };
 
@@ -2278,9 +2256,7 @@ bool VortexDetection::IsAxisAlignedUniformGrid(
     const int ny = static_cast<int>(ys.size());
     const int nz = static_cast<int>(zs.size());
 
-    if (1LL * nx * ny * nz != NumPoints) {
-        return false;
-    }
+    if (1LL * nx * ny * nz != NumPoints) { return false; }
 
     auto is_uniform_axis = [tol](const std::vector<float>& v, float& d) -> bool {
         const int n = static_cast<int>(v.size());
@@ -2308,36 +2284,37 @@ bool VortexDetection::IsAxisAlignedUniformGrid(
     };
 
     float dx = 0.f, dy = 0.f, dz = 0.f;
-    if (!is_uniform_axis(xs, dx) ||
-        !is_uniform_axis(ys, dy) ||
-        !is_uniform_axis(zs, dz)) {
-        return false;
-    }
+    if (!is_uniform_axis(xs, dx) || !is_uniform_axis(ys, dy) || !is_uniform_axis(zs, dz)) { return false; }
 
-    dims    = Eigen::Vector3i(nx, ny, nz);
-    origin  = Eigen::Vector3f(xs.front(), ys.front(), zs.front());
+    dims = Eigen::Vector3i(nx, ny, nz);
+    origin = Eigen::Vector3f(xs.front(), ys.front(), zs.front());
     spacing = Eigen::Vector3f(dx, dy, dz);
 
     return true;
 }
 
-void VortexDetection::GetGridXYZCounts(const std::vector<Vector3f>& points,
-                      int& nx, int& ny, int& nz)
-{
+void VortexDetection::GetGridXYZCounts(const std::vector<Vector3f>& points, int& nx, int& ny, int& nz) {
     std::vector<float> xs, ys, zs;
     xs.reserve(points.size());
     ys.reserve(points.size());
     zs.reserve(points.size());
 
-    for (const auto& p : points) {
+    for (const auto& p: points) {
         xs.push_back(p[0]);
         ys.push_back(p[1]);
         zs.push_back(p[2]);
     }
-    auto uniq = [](std::vector<float>& v) { std::sort(v.begin(), v.end()); v.erase(std::unique(v.begin(), v.end()), v.end()); };
-    uniq(xs); uniq(ys); uniq(zs);
+    auto uniq = [](std::vector<float>& v) {
+        std::sort(v.begin(), v.end());
+        v.erase(std::unique(v.begin(), v.end()), v.end());
+    };
+    uniq(xs);
+    uniq(ys);
+    uniq(zs);
 
-    nx = xs.size(); ny = ys.size(); nz = zs.size();
+    nx = xs.size();
+    ny = ys.size();
+    nz = zs.size();
 }
 
 #endif

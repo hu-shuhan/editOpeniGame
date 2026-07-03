@@ -8,7 +8,9 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <cmath>
+#ifndef __EMSCRIPTEN__
 #include <omp.h>
+#endif
 #include <string>
 #if defined(LibTorch_ENABLE)
 // Temporarily save and undef Qt keyword macros that can conflict with external libraries (e.g., LibTorch/TBB)
@@ -100,7 +102,8 @@ public:
     std::tuple<torch::Tensor, Eigen::Vector3f, std::vector<float>>
     process_blocks(const std::vector<Vector3f>& gridPoints, const std::vector<Vector3f>& gridVelocities,
                    const Vector3f& min_pos, const Vector3f& max_pos, const std::string& model_path, int split, int nx,
-                   int ny, int nz, VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet, int curIndex,bool uniform);
+                   int ny, int nz, VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet, int curIndex,
+                   bool uniform);
 
     ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray, size_t PointNum);
 
@@ -108,11 +111,12 @@ public:
 
     torch::Tensor knn_smooth_labels(std::vector<float> data_val, const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                     const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                    const std::vector<Eigen::Vector3f>& query_points, int k = 8,bool uniform=false);
+                                    const std::vector<Eigen::Vector3f>& query_points, int k = 8, bool uniform = false);
 
     void EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict);
 
-    bool IsAxisAlignedUniformGrid(const std::vector<Vector3f>& points,Eigen::Vector3i& dims, Eigen::Vector3f& origin, Eigen::Vector3f& spacing, float tol);
+    bool IsAxisAlignedUniformGrid(const std::vector<Vector3f>& points, Eigen::Vector3i& dims, Eigen::Vector3f& origin,
+                                  Eigen::Vector3f& spacing, float tol);
     void GetGridXYZCounts(const std::vector<Vector3f>& points, int& nx, int& ny, int& nz);
 
 

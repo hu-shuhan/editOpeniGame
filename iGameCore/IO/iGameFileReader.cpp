@@ -11,6 +11,10 @@ FileReader::FileReader() {
     this->IS = nullptr;
     this->file_ = nullptr;
     this->m_FileSize = 0;
+    this->m_MemoryBuffer = nullptr;
+    this->m_MemoryBufferSize = 0;
+    this->m_UseMemoryBuffer = false;
+    this->m_OwnsBuffer = false;
 }
 DataObject::Pointer FileReader::ReadFile(const std::string& filePath) {
     SetFilePath(filePath);
@@ -72,7 +76,30 @@ bool FileReader::Execute() {
     return true;
 }
 
+void FileReader::SetFilePath(const std::string& filePath) {
+	this->m_FilePath = filePath;
+	this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+	this->m_UseMemoryBuffer = false;
+	igDebug("Reading file: " + filePath);
+}
+
+void FileReader::SetMemoryBuffer(const void* data, size_t size) {
+    this->m_MemoryBuffer = static_cast<const char*>(data);
+    this->m_MemoryBufferSize = size;
+    this->m_UseMemoryBuffer = (data != nullptr && size > 0);
+    this->m_OwnsBuffer = false;
+}
+
 bool FileReader::Open() {
+    if (m_UseMemoryBuffer) {
+        if (m_MemoryBuffer == nullptr || m_MemoryBufferSize == 0) { return false; }
+        m_FileSize = m_MemoryBufferSize;
+        FILESTART = const_cast<char*>(m_MemoryBuffer);
+        IS = FILESTART;
+        FILEEND = FILESTART + m_FileSize;
+        return true;
+    }
+
     if (m_FilePath.empty()) { return false; }
     bool isOpenOK = false;
 
@@ -104,6 +131,15 @@ bool FileReader::OpenWithFreadType() {
     if (m_FileSize == 0) {
         IGAME_CORE_ERROR("File size is 0.");
         fclose(file_);
+        #if defined(PLATFORM_WINDOWS) || defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+            if (m_OwnsBuffer && FILESTART) {
+                free(FILESTART);
+                FILESTART = nullptr;
+                IS = nullptr;
+                FILEEND = nullptr;
+                m_OwnsBuffer = false;
+            }
+        #endif
         return false;
     }
 
@@ -114,6 +150,7 @@ bool FileReader::OpenWithFreadType() {
         fclose(file_);
         return false;
     }
+    m_OwnsBuffer = true;
 
     size_t bytesRead = fread(FILESTART, 1, m_FileSize, file_);
     if (bytesRead != m_FileSize) {
@@ -203,6 +240,15 @@ bool FileReader::OpenWithLinuxOrMacSystem() {
     return true;
 }
 bool FileReader::Close() {
+#if defined(PLATFORM_WINDOWS) || defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+    if (m_OwnsBuffer && FILESTART) {
+        free(FILESTART);
+        FILESTART = nullptr;
+        IS = nullptr;
+        FILEEND = nullptr;
+        m_OwnsBuffer = false;
+    }
+#endif
 #ifdef PLATFORM_WINDOWS
     if (this->m_MapFile) {
         UnmapViewOfFile(this->IS);
@@ -639,12 +685,6 @@ ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, 
     free(type);
     this->UpdateReadProgress();
     return array;
-}
-
-void FileReader::SetFilePath(const std::string& filePath) {
-    this->m_FilePath = filePath;
-    this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
-    igDebug("Reading file: "+ filePath);
 }
 
 void FileReader::SkipNullData() {

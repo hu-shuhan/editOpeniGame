@@ -46,8 +46,8 @@ void GLShader::CheckCompileErrors() {
     if (!success) {
         glGetShaderInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
         IGAME_RENDERING_ERROR("[GLShader::CheckCompileErrors] Shader Name: '{}', "
-                         "Error: SHADER_COMPILATION_FAILED, Details: {}",
-                         this->GetName(), infoLog);
+                "Error: SHADER_COMPILATION_FAILED, Details: {}",
+                this->GetName(), infoLog);
     }
 }
 
@@ -63,8 +63,8 @@ std::string GLShader::ReadFile(const char* file_path) {
         return contents;
     } else {
         IGAME_RENDERING_ERROR("[GLShader::ReadFile] Failed to open file '{}', "
-                         "Shader Name: '{}'",
-                         file_path, this->GetName());
+                              "Shader Name: '{}'",
+                              file_path, this->GetName());
         return std::string();
     }
 }
@@ -91,6 +91,7 @@ GLuint GLShaderProgram::ProgramID() const { return m_Handle; }
 // SetUniform1
 void GLShaderProgram::SetUniformi(const char* name, int value) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform1i(uniform->Index(), value);
@@ -101,6 +102,7 @@ void GLShaderProgram::SetUniformi(const char* name, int value) const {
 
 void GLShaderProgram::SetUniformf(const char* name, float value) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform1f(uniform->Index(), value);
@@ -111,6 +113,7 @@ void GLShaderProgram::SetUniformf(const char* name, float value) const {
 
 void GLShaderProgram::SetUniformui(const char* name, unsigned int value) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform1ui(uniform->Index(), value);
@@ -123,6 +126,7 @@ void GLShaderProgram::SetUniformui(const char* name, unsigned int value) const {
 void GLShaderProgram::SetUniform2i(const char* name,
                                    const igm::ivec2& vec2) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform2i(uniform->Index(), vec2.x, vec2.y);
@@ -134,6 +138,7 @@ void GLShaderProgram::SetUniform2i(const char* name,
 void GLShaderProgram::SetUniform2f(const char* name,
                                    const igm::vec2& vec2) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform2f(uniform->Index(), vec2.x, vec2.y);
@@ -145,6 +150,7 @@ void GLShaderProgram::SetUniform2f(const char* name,
 void GLShaderProgram::SetUniform2ui(const char* name,
                                     const igm::uvec2& vec2) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform2ui(uniform->Index(), vec2.x, vec2.y);
@@ -157,6 +163,7 @@ void GLShaderProgram::SetUniform2ui(const char* name,
 void GLShaderProgram::SetUniform3i(const char* name,
                                    const igm::ivec3& vec3) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform3i(uniform->Index(), vec3.x, vec3.y, vec3.z);
@@ -168,6 +175,7 @@ void GLShaderProgram::SetUniform3i(const char* name,
 void GLShaderProgram::SetUniform3f(const char* name,
                                    const igm::vec3& vec3) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform3f(uniform->Index(), vec3.x, vec3.y, vec3.z);
@@ -179,6 +187,7 @@ void GLShaderProgram::SetUniform3f(const char* name,
 void GLShaderProgram::SetUniform3ui(const char* name,
                                     const igm::uvec3& vec3) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform3ui(uniform->Index(), vec3.x, vec3.y, vec3.z);
@@ -191,6 +200,7 @@ void GLShaderProgram::SetUniform3ui(const char* name,
 void GLShaderProgram::SetUniform4i(const char* name,
                                    const igm::ivec4& vec4) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform4i(uniform->Index(), vec4.x, vec4.y, vec4.z, vec4.w);
@@ -202,6 +212,7 @@ void GLShaderProgram::SetUniform4i(const char* name,
 void GLShaderProgram::SetUniform4f(const char* name,
                                    const igm::vec4& vec4) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform4f(uniform->Index(), vec4.x, vec4.y, vec4.z, vec4.w);
@@ -213,6 +224,7 @@ void GLShaderProgram::SetUniform4f(const char* name,
 void GLShaderProgram::SetUniform4ui(const char* name,
                                     const igm::uvec4& vec4) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniform4ui(uniform->Index(), vec4.x, vec4.y, vec4.z, vec4.w);
@@ -225,6 +237,7 @@ void GLShaderProgram::SetUniform4ui(const char* name,
 void GLShaderProgram::SetUniformMatrix3x3(const char* name,
                                           const igm::mat3& mat3) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniformMatrix3fv(uniform->Index(), 1, GL_FALSE, mat3.data());
@@ -237,6 +250,7 @@ void GLShaderProgram::SetUniformMatrix3x3(const char* name,
 void GLShaderProgram::SetUniformMatrix4x4(const char* name,
                                           const igm::mat4& mat4) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniformMatrix4fv(uniform->Index(), 1, GL_FALSE, mat4.data());
@@ -249,6 +263,7 @@ void GLShaderProgram::SetUniformMatrix4x4(const char* name,
 void GLShaderProgram::SetUniformMatrix4x4(const char* name, bool transpose,
                                           const igm::mat4& mat4) const {
     SmartPointer<GLUniform> uniform = GetUniformLocation(name);
+    if (uniform == nullptr) { return; }
 
 #ifdef IGAME_OPENGL_VERSION_330
     glUniformMatrix4fv(uniform->Index(), 1, transpose ? GL_TRUE : GL_FALSE,
@@ -262,11 +277,17 @@ void GLShaderProgram::SetUniformMatrix4x4(const char* name, bool transpose,
 void GLShaderProgram::MapUniformBlock(const char* uniformBlockName,
                                       uint32_t uniformBlockBinding,
                                       SmartPointer<GLBuffer> m_UBOBlock) {
+#ifdef __EMSCRIPTEN__
+    (void) uniformBlockName;
+    (void) uniformBlockBinding;
+    (void) m_UBOBlock;
+    return;
+#endif
     GLuint blockIndex = glGetUniformBlockIndex(m_Handle, uniformBlockName);
     if (blockIndex == GL_INVALID_INDEX) {
         IGAME_RENDERING_ERROR("[GLShaderProgram::MapUniformBlock] Shader '{}' does "
-                         "not contain the Uniform Block '{}'.",
-                         this->GetName(), uniformBlockName);
+                "not contain the Uniform Block '{}'.",
+                this->GetName(), uniformBlockName);
         return;
     }
     glUniformBlockBinding(m_Handle, blockIndex, uniformBlockBinding);
@@ -279,8 +300,8 @@ GLVertexAttribute GLShaderProgram::GetAttribLocation(const char* name) {
     int location = glGetAttribLocation(m_Handle, name);
     if (location == -1) {
         IGAME_RENDERING_ERROR("[GLShaderProgram::GetAttribLocation] Shader '{}' "
-                         "does not contain the attribute '{}' (location: -1).",
-                         this->GetName(), name);
+                "does not contain the attribute '{}' (location: -1).",
+                this->GetName(), name);
     }
 
     return GLVertexAttribute{static_cast<unsigned int>(location)};
@@ -290,9 +311,13 @@ SmartPointer<GLUniform>
 GLShaderProgram::GetUniformLocation(const char* name) const {
     int location = glGetUniformLocation(m_Handle, name);
     if (location == -1) {
+#ifdef __EMSCRIPTEN__
+        return nullptr;
+#else
         IGAME_RENDERING_ERROR("[GLShaderProgram::GetUniformLocation] Shader '{}' "
-                         "does not contain the uniform '{}' (location: -1).",
-                         this->GetName(), name);
+                "does not contain the uniform '{}' (location: -1).",
+                this->GetName(), name);
+#endif
     }
 
     SmartPointer<GLUniform> uniform = GLUniform::New();
@@ -310,9 +335,28 @@ void GLShaderProgram::CheckCompileErrors() {
     if (!success) {
         glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
         IGAME_RENDERING_ERROR("[GLShaderProgram::CheckCompileErrors] Shader program "
-                         "'{}' linkage failed. Error: {}",
-                         this->GetName(), infoLog);
+                "'{}' linkage failed. Error: {}",
+                this->GetName(), infoLog);
     }
+#ifdef __EMSCRIPTEN__
+    else {
+        glValidateProgram(m_Handle);
+        GLint validated = GL_FALSE;
+        glGetProgramiv(m_Handle, GL_VALIDATE_STATUS, &validated);
+        if (validated != GL_TRUE) {
+            glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
+            IGAME_RENDERING_ERROR(
+                    "[GLShaderProgram::CheckCompileErrors] Shader program "
+                    "'{}' validation failed after link. id={}, info={}",
+                    this->GetName(), m_Handle, infoLog);
+        } else {
+            IGAME_RENDERING_INFO(
+                    "[GLShaderProgram::CheckCompileErrors] Shader program "
+                    "'{}' linked and validated. id={}",
+                    this->GetName(), m_Handle);
+        }
+    }
+#endif
 }
 
 IGAME_NAMESPACE_END

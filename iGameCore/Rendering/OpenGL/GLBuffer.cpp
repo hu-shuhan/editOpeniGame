@@ -5,6 +5,15 @@
 
 IGAME_NAMESPACE_BEGIN
 
+#ifdef __EMSCRIPTEN__
+namespace
+{
+bool IsSupportedBufferTarget(GLenum target) {
+    return target == GL_ARRAY_BUFFER || target == GL_ELEMENT_ARRAY_BUFFER;
+}
+} // namespace
+#endif
+
 GLBuffer::GLBuffer() { m_Target = GL_NONE; }
 
 GLBuffer::~GLBuffer() {
@@ -30,6 +39,9 @@ void GLBuffer::CopySubData(const SmartPointer<GLBuffer> source,
 
 void GLBuffer::Allocate(size_t size, const void* data, GLenum usage) {
 #ifdef IGAME_OPENGL_VERSION_330
+    #ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+    #endif
     glBindBuffer(m_Target, m_Handle);
     glBufferData(m_Target, size, data, usage);
     glBindBuffer(m_Target, 0);
@@ -53,6 +65,9 @@ void GLBuffer::Storage(size_t size, const void* data, GLbitfield flags) {
 void* GLBuffer::MapRange(size_t offset, size_t length,
                          GLbitfield access) const {
 #ifdef IGAME_OPENGL_VERSION_330
+    #ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return nullptr; }
+    #endif
     glBindBuffer(m_Target, m_Handle);
     void* ptr = glMapBufferRange(m_Target, offset, length, access);
     glBindBuffer(m_Target, 0);
@@ -79,6 +94,9 @@ void* GLBuffer::MapRange(size_t offset, size_t length,
 
 void GLBuffer::SubData(size_t offset, size_t size, const void* data) const {
 #ifdef IGAME_OPENGL_VERSION_330
+    #ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+    #endif
     glBindBuffer(m_Target, m_Handle);
     glBufferSubData(m_Target, offset, size, data);
     glBindBuffer(m_Target, 0);
@@ -89,6 +107,9 @@ void GLBuffer::SubData(size_t offset, size_t size, const void* data) const {
 
 void GLBuffer::GetSubData(size_t offset, size_t size, void* data) const {
 #ifdef IGAME_OPENGL_VERSION_330
+    #ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+    #endif
     glBindBuffer(m_Target, m_Handle);
     glGetBufferSubData(m_Target, offset, size, data);
     glBindBuffer(m_Target, 0);
@@ -99,6 +120,9 @@ void GLBuffer::GetSubData(size_t offset, size_t size, void* data) const {
 
 void GLBuffer::Unmap() {
 #ifdef IGAME_OPENGL_VERSION_330
+    #ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+    #endif
     glBindBuffer(m_Target, m_Handle);
     if (!glUnmapBuffer(m_Target)) {
         glBindBuffer(m_Target, 0);
@@ -120,11 +144,24 @@ void GLBuffer::Unmap() {
 
 void GLBuffer::Target(GLenum target) { m_Target = target; }
 
-void GLBuffer::Bind() const { glBindBuffer(m_Target, m_Handle); }
+void GLBuffer::Bind() const {
+#ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+#endif
+    glBindBuffer(m_Target, m_Handle);
+}
 
-void GLBuffer::Release() const { glBindBuffer(m_Target, 0); }
+void GLBuffer::Release() const {
+#ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+#endif
+    glBindBuffer(m_Target, 0);
+}
 
 void GLBuffer::BindBase(unsigned index) const {
+#ifdef __EMSCRIPTEN__
+    if (!IsSupportedBufferTarget(m_Target)) { return; }
+#endif
     glBindBufferBase(m_Target, index, m_Handle);
 }
 
