@@ -184,13 +184,19 @@ bool igQtChromeFramelessDialog::isOnCaptionButton(const QPoint& dialogPos) const
 void igQtChromeFramelessDialog::mousePressEvent(QMouseEvent* event) {
 #if !defined(Q_OS_WIN)
     if (event->button() == Qt::LeftButton && !isMaximized()) {
-        if (QWindow* wh = windowHandle()) {
-            const Qt::Edges edges = hitTestEdges(event->pos());
-            if (edges != Qt::Edges()) {
+        const Qt::Edges edges = hitTestEdges(event->pos());
+        if (edges != Qt::Edges()) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+            if (QWindow* wh = windowHandle()) {
                 wh->startSystemResize(edges);
                 event->accept();
                 return;
             }
+#else
+            beginManualResize(edges, event->globalPos());
+            event->accept();
+            return;
+#endif
         }
     }
 #endif
@@ -216,6 +222,13 @@ void igQtChromeFramelessDialog::mousePressEvent(QMouseEvent* event) {
 }
 
 void igQtChromeFramelessDialog::mouseMoveEvent(QMouseEvent* event) {
+#if !defined(Q_OS_WIN) && QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    if (m_resizing && (event->buttons() & Qt::LeftButton)) {
+        performManualResize(event->globalPos());
+        event->accept();
+        return;
+    }
+#endif
     if (m_dragging && (event->buttons() & Qt::LeftButton)) {
         move(event->globalPos() - m_dragOffset);
         event->accept();
@@ -233,7 +246,12 @@ void igQtChromeFramelessDialog::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void igQtChromeFramelessDialog::mouseReleaseEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton) m_dragging = false;
+    if (event->button() == Qt::LeftButton) {
+        m_dragging = false;
+#if !defined(Q_OS_WIN) && QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+        m_resizing = false;
+#endif
+    }
     QDialog::mouseReleaseEvent(event);
 }
 
@@ -287,6 +305,52 @@ void igQtChromeFramelessDialog::toggleMaximizeRestore() {
     updateMaximizeButtonIcon();
     updateFrameMarginsForWindowState();
 }
+
+#if !defined(Q_OS_WIN) && QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+void igQtChromeFramelessDialog::beginManualResize(Qt::Edges edges, const QPoint& globalPos) {
+    m_resizing = true;
+    m_resizeEdges = edges;
+    m_resizeStartGlobalPos = globalPos;
+    m_resizeStartGeometry = frameGeometry();
+}
+
+void igQtChromeFramelessDialog::performManualResize(const QPoint& globalPos) {
+    const QPoint delta = globalPos - m_resizeStartGlobalPos;
+    QRect geo = m_resizeStartGeometry;
+
+    if (m_resizeEdges & Qt::LeftEdge) {
+        int newWidth = m_resizeStartGeometry.width() - delta.x();
+        int newLeft = m_resizeStartGeometry.left() + delta.x();
+        if (newWidth < minimumWidth()) {
+            newLeft = m_resizeStartGeometry.right() - minimumWidth() + 1;
+            newWidth = minimumWidth();
+        }
+        geo.setLeft(newLeft);
+        geo.setWidth(newWidth);
+    } else if (m_resizeEdges & Qt::RightEdge) {
+        int newWidth = m_resizeStartGeometry.width() + delta.x();
+        if (newWidth < minimumWidth()) newWidth = minimumWidth();
+        geo.setWidth(newWidth);
+    }
+
+    if (m_resizeEdges & Qt::TopEdge) {
+        int newHeight = m_resizeStartGeometry.height() - delta.y();
+        int newTop = m_resizeStartGeometry.top() + delta.y();
+        if (newHeight < minimumHeight()) {
+            newTop = m_resizeStartGeometry.bottom() - minimumHeight() + 1;
+            newHeight = minimumHeight();
+        }
+        geo.setTop(newTop);
+        geo.setHeight(newHeight);
+    } else if (m_resizeEdges & Qt::BottomEdge) {
+        int newHeight = m_resizeStartGeometry.height() + delta.y();
+        if (newHeight < minimumHeight()) newHeight = minimumHeight();
+        geo.setHeight(newHeight);
+    }
+
+    setGeometry(geo);
+}
+#endif
 
 #if !defined(Q_OS_WIN)
 Qt::Edges igQtChromeFramelessDialog::hitTestEdges(const QPoint& pos) const {

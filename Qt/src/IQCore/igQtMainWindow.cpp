@@ -1145,9 +1145,9 @@ void igQtMainWindow::showDarkFramelessMessage(const QString& title, const QStrin
 }
 
 void igQtMainWindow::initAllFilters() {
-    /* Data Processing 前两档：略窄于默认 filter 宽度，并关闭参数区滚动条（内容较少无需滚动） */
+    /* Data Processing 前两档：加宽以容纳较长参数标签，并关闭参数区滚动条（内容较少无需滚动） */
     auto tuneMeshSimplifyFilterDialog = [](igQtFilterDialogDockWidget* d) {
-        constexpr int kDialogWidth = 252;
+        constexpr int kDialogWidth = 360;
         d->setFixedWidth(kDialogWidth);
         if (auto* sa = d->findChild<QScrollArea*>(QStringLiteral("scrollArea"))) {
             sa->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -1161,12 +1161,12 @@ void igQtMainWindow::initAllFilters() {
 
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
         dialog->setFilterTitle(QStringLiteral("表面网格简化"));
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("简化比例 (0..1)"), "0.5");
         int preserveId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
-        int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("保留网格边界"), "true");
+        int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
                                             "true");
-        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
+        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("几何相似性度量"),
                                            "false");
         tuneMeshSimplifyFilterDialog(dialog);
         dialog->show();
@@ -1197,8 +1197,8 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
-                result = QString("执行出错");
-                QMessageBox::information(this, "执行出错", result);
+                result = QStringLiteral("执行出错");
+                showDarkFramelessMessage(QStringLiteral("执行出错"), result);
                 dialog->close();
                 return;
             }
@@ -1274,18 +1274,20 @@ void igQtMainWindow::initAllFilters() {
     });
 
     connect(mesh_processing->addAction(QStringLiteral("快速表面简化 (Fast Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        if (rendererWidget->GetScene() == nullptr
+            || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+            return;
+        }
 
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
         dialog->setFilterTitle(QStringLiteral("快速表面简化"));
         int reductionId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Reduction (0..1)", "0.5");
-        int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("目标简化比例 (0..1)"), "0.5");
+        int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("目标面数"), "0");
 
         int preserveId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
-        //int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("保留网格边界"), "true");
+        //int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
         //                                    "true");
 
         tuneMeshSimplifyFilterDialog(dialog);
@@ -1293,6 +1295,19 @@ void igQtMainWindow::initAllFilters() {
         dialog->setApplyFunctor([=, this]() {
             bool ok;
             QString result = "";
+
+            if (rendererWidget->GetScene() == nullptr
+                || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+                showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("请先加载并选择模型。"));
+                dialog->close();
+                return;
+            }
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            if (obj == nullptr) {
+                showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("当前模型没有可用数据。"));
+                dialog->close();
+                return;
+            }
 
             MeshSimplificationFilterPro::Pointer filter = MeshSimplificationFilterPro::New();
             filter->SetInput(obj);
@@ -1304,13 +1319,18 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
-                result = "算法执行错误";
-                QMessageBox::information(this, "执行出错", result);
+                result = QStringLiteral("算法执行错误");
+                showDarkFramelessMessage(QStringLiteral("执行出错"), result);
                 dialog->close();
                 return;
             }
 
             auto new_mesh = filter->GetOutput(0);
+            if (new_mesh == nullptr) {
+                showDarkFramelessMessage(QStringLiteral("执行出错"), QStringLiteral("算法未产生有效结果。"));
+                dialog->close();
+                return;
+            }
             modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
             rendererWidget->update();
             // QMessageBox::information(this, "执行成功", result);

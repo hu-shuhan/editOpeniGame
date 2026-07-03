@@ -1,1 +1,4 @@
 *.largefile filter=lfs diff=lfs merge=lfs -text
+test/FeatureExtraction[[:space:]]Test/*.vtk filter=lfs diff=lfs merge=lfs -text
+test/streamtest/*.vtk filter=lfs diff=lfs merge=lfs -text
+*.vtk filter=lfs diff=lfs merge=lfs -text
