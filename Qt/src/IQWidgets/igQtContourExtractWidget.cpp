@@ -1,11 +1,62 @@
 #include "IQWidgets/igQtContourExtractWidget.h"
-#include "ModelSurface/iGameModelGeometryFilter.h"
+#include "iGameCellType.h"
 #include "iGameScene.h"
 #include "iGameSceneManager.h"
 #include "iGameSmartPointer.h"
 
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
+
+namespace {
+
+int FindAttributeIndex(iGame::AttributeSet::Pointer attrSet, const std::string& name) {
+    if (!attrSet) { return -1; }
+    auto attrs = attrSet->GetAllAttributes();
+    for (int i = 0; i < attrs->GetNumberOfElements(); ++i) {
+        if (attrs->GetElement(i).pointer->GetName() == name) { return i; }
+    }
+    return -1;
+}
+
+void ApplyContourDisplayStyle(iGame::UnstructuredMesh::Pointer mesh) {
+    if (!mesh) { return; }
+    bool hasLine = false;
+    bool hasSurface = false;
+    for (IGsize i = 0; i < mesh->GetNumberOfCells(); ++i) {
+        switch (mesh->GetCellType(i)) {
+            case iGame::IG_LINE:
+            case iGame::IG_POLY_LINE:
+                hasLine = true;
+                break;
+            case iGame::IG_TRIANGLE:
+            case iGame::IG_QUAD:
+            case iGame::IG_POLYGON:
+                hasSurface = true;
+                break;
+            default:
+                break;
+        }
+    }
+    IGenum style = 0;
+    if (hasLine) { style |= IG_WIREFRAME; }
+    if (hasSurface) { style |= IG_SURFACE; }
+    if (style == 0) { style = IG_WIREFRAME | IG_SURFACE; }
+    mesh->SetViewStyle(style);
+}
+
+void FinalizeContourResult(iGame::UnstructuredMesh::Pointer mesh, iGame::DataObject::Pointer origin,
+                           iGame::Scene::Pointer scene, const std::string& scalarName, int scalarDimension) {
+    if (!mesh || !origin || !scene) { return; }
+    mesh->SetColorMapper(origin->GetColorMapper());
+    ApplyContourDisplayStyle(mesh);
+    const int attrIndex = FindAttributeIndex(mesh->GetAttributeSet(), scalarName);
+    mesh->ForceReConvertToDrawableData();
+    mesh->ConvertToDrawableData();
+    mesh->ViewCloudPicture(scene, attrIndex, scalarDimension);
+}
+
+} // namespace
+
 igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent) : QWidget(parent), ui(new Ui::ContourExtract) {
 
 
@@ -26,6 +77,7 @@ igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent) : QWidget(pa
 
 void igQtContourExtractWidget::InitScalarName() {
     ui->comboBox_ScalarIndex->clear();
+    if (!m_PointData) { return; }
     for (int i = 0; i < m_PointData->GetNumberOfElements(); i++) {
         auto array = m_PointData->GetElement(i).pointer;
         ui->comboBox_ScalarIndex->addItem(QString::fromStdString(array->GetName()));
@@ -35,6 +87,7 @@ void igQtContourExtractWidget::UpdateScalarName() {
     ui->comboBox_ScalarDimension->clear();
     this->m_ScalarName = ui->comboBox_ScalarIndex->currentText().toStdString();
     this->m_ScalarArray = nullptr;
+    if (!m_PointData) { return; }
     for (int i = 0; i < m_PointData->GetNumberOfElements(); i++) {
         auto array = m_PointData->GetElement(i).pointer;
         if (array->GetName() == m_ScalarName) {
@@ -58,6 +111,7 @@ void igQtContourExtractWidget::UpdateScalarName() {
 void igQtContourExtractWidget::UpdateScalarDimension() {
     this->m_ScalarDimension = ui->comboBox_ScalarDimension->currentIndex();
     ui->label_RangeInfo->clear();
+    if (!m_OriginDataObject || m_ScalarName.empty()) { return; }
     auto dataRange = this->m_OriginDataObject->GetAttributeSet()->GetAttribute(m_ScalarName).GetDataRange();
     if (dataRange) {
         double range[2] = {dataRange->GetValue(2 * m_ScalarDimension + 2),
@@ -73,29 +127,42 @@ void igQtContourExtractWidget::UpdateIsoValue() { this->m_IsoValue = ui->lineEdi
 
 
 void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
+    if (m_ResultMesh && m_ResultObserverTag) {
+        m_ResultMesh->RemoveObserver(m_ResultObserverTag);
+        m_ResultObserverTag = 0;
+    }
+
     this->m_OriginDataObject = m_d;
+    if (!m_OriginDataObject) { return; }
     this->m_PointData = m_OriginDataObject->GetAttributeSet()->GetAllPointAttributes();
     InitScalarName();
+    UpdateScalarName();
+    if (ui->comboBox_ScalarDimension->count() > 0) {
+        ui->comboBox_ScalarDimension->setCurrentIndex(0);
+    }
+    UpdateScalarDimension();
     m_Generated = false;
     m_Extracter = iGame::ContourFilter::New();
-    m_ResultMesh = iGame::SurfaceMesh::New();
+    m_ResultMesh = iGame::UnstructuredMesh::New();
     m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Contour");
     m_ResultMesh->SetAttributeSet(m_OriginDataObject->GetAttributeSet());
     // 场景/模型树移除轮廓结果时会 Invoke DeleteEvent；不应关闭工具面板或清空源网格，
     // 否则用户删除结果模型后无法在同一面板内再次执行提取。
-    m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void { m_Generated = false; });
+    m_ResultObserverTag = m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [this]() -> void {
+        m_Generated = false;
+        m_ResultObserverTag = 0;
+    });
 }
 
 void igQtContourExtractWidget::ContourExtract() {
     UpdateIsoValue();
-    if (m_ScalarArray == nullptr) { return; }
+    UpdateScalarName();
+    UpdateScalarDimension();
+    if (!m_OriginDataObject || !m_ResultMesh || m_ScalarArray == nullptr) { return; }
     if (!m_Extracter) { m_Extracter = iGame::ContourFilter::New(); }
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
-    auto oldAttributeDimension = m_ResultMesh->GetAttributeDimension();
+    if (!scene) { return; }
     m_ResultMesh->ClearSubDataObject();
-    // recover attribute
-    m_ResultMesh->ViewCloudPicture(scene, -1, -1);
 
     if (m_OriginDataObject->HasSubDataObject()) {
         for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
@@ -112,36 +179,31 @@ void igQtContourExtractWidget::ContourExtract() {
                     break;
                 }
             }
-            if (m_ScalarArray) {
-                m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
-                m_Extracter->Execute();
-                m_ResultMesh->AddSubDataObject(m_Extracter->GetOutput());
+            if (!m_ScalarArray) { continue; }
+            m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+            if (!m_Extracter->Execute()) { continue; }
+            auto out = m_Extracter->GetContourMesh();
+            if (out) {
+                out->SetColorMapper(m_OriginDataObject->GetColorMapper());
+                ApplyContourDisplayStyle(out);
+                m_ResultMesh->AddSubDataObject(out);
             }
         }
     } else {
         m_Extracter->SetInput(m_OriginDataObject);
         m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
-        m_Extracter->Execute();
+        if (!m_Extracter->Execute()) { return; }
         auto out = m_Extracter->GetContourMesh();
-        if (out) {
-            std::cout << out->GetNumberOfPoints() << " " << out->GetNumberOfCells() << '\n';
-            m_ResultMesh->SetPoints(out->GetPoints());
-            m_ResultMesh->SetFaces(out->GetCells());
-            m_ResultMesh->SetAttributeSet(out->GetAttributeSet());
-        }
+        if (!out || out->GetNumberOfCells() == 0) { return; }
+        m_ResultMesh->SetPoints(out->GetPoints());
+        m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());
+        m_ResultMesh->SetAttributeSet(out->GetAttributeSet());
     }
 
+    if (m_ResultMesh->GetNumberOfCells() == 0 && !m_ResultMesh->HasSubDataObject()) { return; }
 
-    m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
-    //m_Extracter->SetInput(m_OriginDataObject);
-    //m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
-    //m_Extracter->Execute();
-    //auto output = DynamicCast<iGame::UnstructuredMesh>(m_Extracter->GetOutput());
-
-    //m_ResultMesh->SetPoints(output->GetPoints());
-    //m_ResultMesh->SetFaces(output->GetCells());
-    //m_ResultMesh->SetAttributeSet(output->GetAttributeSet());
-    //m_ResultMesh->BuildEdges();
+    FinalizeContourResult(m_ResultMesh, m_OriginDataObject, scene, m_ScalarName, m_ScalarDimension);
+    scene->Update();
 
     if (m_Generated) {
         UpdateContourModel(m_ResultMesh);
