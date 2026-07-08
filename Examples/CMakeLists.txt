@@ -12,6 +12,7 @@ set(iGameCore_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-build-release/install/li
 
 find_package(iGameCore REQUIRED)
 find_package(HDF5 REQUIRED)
+find_package(FFMPEG)
 
 if (MSVC)
     add_compile_options(/utf-8)
@@ -77,7 +78,9 @@ add_executable(testNastranReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NastranReader.c
 add_executable(testCASReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/CASReader.cpp")
 
 add_executable(testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/TestAnimation.cpp")
-add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/SaveAnimation.cpp")
+if(FFMPEG_FOUND)
+    add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/SaveAnimation.cpp")
+endif()
 
 add_executable(testClip "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestClip.cpp")
 add_executable(testSlice "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestSlice.cpp")
@@ -169,7 +172,9 @@ target_link_libraries(testDeformation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::
 target_link_libraries(testDeformationCode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testContourLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
-target_link_libraries(testSaveAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+if(FFMPEG_FOUND)
+    target_link_libraries(testSaveAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+endif()
 target_link_libraries(testSplineReaderCPU PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testSplineReaderGPU PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testCGNS PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
@@ -192,6 +197,8 @@ target_link_libraries(testConvertToLagrangeUnstructuredMesh PUBLIC ${IGAMEVIS_CO
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
 target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
-target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
+if(FFMPEG_FOUND)
+    target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
+endif()
 target_compile_definitions(testSplineReaderGPU PUBLIC GPSCUDA_ENABLE)
 target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
