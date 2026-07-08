@@ -1,5 +1,6 @@
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "iGameSurfaceMeshMetricsFilter.h"
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -52,7 +53,7 @@ bool SurfaceMeshMetricsFilter::Execute() {
     igIndex faceNum = m_Faces->GetNumberOfCells(); //总面数
 
     DoubleArray::Pointer metricArray = DoubleArray::New();
-    metricArray->SetName("Metric" + m_Metric);
+    metricArray->SetName(std::string("Metric") + std::to_string(m_Metric));
 
     metricArray->SetDimension(1);
     metricArray->Reserve(faceNum);
