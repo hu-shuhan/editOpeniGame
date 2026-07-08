@@ -1,5 +1,6 @@
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "iGameSurfaceMeshMetricsFilter.h"
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -171,7 +172,12 @@ double SurfaceMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
 //计算顶点内角
 double SurfaceMeshMetricsFilter::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2) {
 
-    double cosa = (v1 - v0).norm() * (v2 - v0).norm();
+    Point e1 = v1 - v0;
+    Point e2 = v2 - v0;
+    double denom = e1.norm() * e2.norm();
+    if (denom < 1e-12) return 0.0;
+    double cosa = e1.dot(e2) / denom;
+    cosa = std::clamp(cosa, -1.0, 1.0);
     double angle = acos(cosa) * 180.0 / PI;
 
     return angle;
