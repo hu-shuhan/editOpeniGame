@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, CI-Test]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-core:
+    name: Core Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+
+    env:
+      CMAKE_OPTIONS: >-
+        -DENABLE_QT_MODULE=OFF
+        -DENABLE_GPSCUDA_MODULE=OFF
+        -DENABLE_LIBTORCH_MODULE=OFF
+        -DENABLE_CGNS_MODULE=OFF
+        -DENABLE_NASTRAN_MODULE=OFF
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            libgl1-mesa-dev \
+            libomp-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
+          fi
+
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            cmake --build build --parallel
+          else
+            cmake --build build --config Release --parallel
+          fi
+
+      - name: Install
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            cmake --build build --target install
+          else
+            cmake --build build --config Release --target install
+          fi

@@ -9,6 +9,8 @@
 /.vs/
 /.vscode/
 /.*/
+!/.github/
+!/.github/**
 /.trae/
 
 /*.rar
