@@ -1,3 +1,18 @@
 [submodule "ThirdParty/cgns"]
 	path = ThirdParty/cgns
 	url = https://github.com/CGNS/CGNS.git
+[submodule "ThirdParty/cereal"]
+	path = ThirdParty/cereal
+	url = https://github.com/USCiLab/cereal.git
+[submodule "ThirdParty/libpressio"]
+	path = ThirdParty/libpressio
+	url = https://github.com/robertu94/libpressio.git
+[submodule "ThirdParty/std_compat"]
+	path = ThirdParty/std_compat
+	url = https://github.com/robertu94/std_compat.git
+[submodule "ThirdParty/mio"]
+	path = ThirdParty/mio
+	url = https://github.com/mandreyel/mio.git
+[submodule "ThirdParty/SZ3"]
+	path = ThirdParty/SZ3
+	url = https://github.com/szcompressor/SZ3.git

@@ -1,0 +1,8 @@
+if (TARGET std_compat)
+    if (NOT TARGET std_compat::std_compat)
+        add_library(std_compat::std_compat ALIAS std_compat)
+    endif ()
+    set(std_compat_FOUND TRUE)
+else ()
+    find_package(std_compat CONFIG QUIET)
+endif ()

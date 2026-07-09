@@ -97,7 +97,15 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
 
     # 安装每个子目录下的头文件
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Core" DESTINATION include FILES_MATCHING PATTERN "*.h")
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty" DESTINATION include FILES_MATCHING PATTERN "*.h")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty" DESTINATION include
+            FILES_MATCHING
+            PATTERN "*.h"
+            PATTERN "*/cereal/*" EXCLUDE
+            PATTERN "*/libpressio/*" EXCLUDE
+            PATTERN "*/mio/*" EXCLUDE
+            PATTERN "*/SZ3/*" EXCLUDE
+            PATTERN "*/std_compat/*" EXCLUDE
+            PATTERN "*/zstd/*" EXCLUDE)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Filters" DESTINATION include FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/IO" DESTINATION include FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering" DESTINATION include FILES_MATCHING PATTERN "*.h")

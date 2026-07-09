@@ -1,3 +1,15 @@
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(BUILD_TESTING OFF CACHE BOOL "Build third-party tests." FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build third-party shared libraries." FORCE)
+
+macro(igame_add_noninstall_subdirectory directory)
+    set(IGAME_PREVIOUS_CMAKE_SKIP_INSTALL_RULES "${CMAKE_SKIP_INSTALL_RULES}")
+    set(CMAKE_SKIP_INSTALL_RULES TRUE)
+    add_subdirectory(${directory})
+    set(CMAKE_SKIP_INSTALL_RULES "${IGAME_PREVIOUS_CMAKE_SKIP_INSTALL_RULES}")
+    unset(IGAME_PREVIOUS_CMAKE_SKIP_INSTALL_RULES)
+endmacro()
+
 add_subdirectory(tinyXML2)
 add_subdirectory(glad)
 add_subdirectory(freetype-2.13.3)
@@ -9,7 +21,45 @@ add_subdirectory(spdlog)
 add_subdirectory(zlib)
 add_subdirectory(Python)
 add_subdirectory(nanoflann)
-add_subdirectory(zstd/build/cmake)
+igame_add_noninstall_subdirectory(zstd/build/cmake)
+igame_add_noninstall_subdirectory(mio)
+
+if (TARGET libzstd_static AND NOT TARGET PkgConfig::ZSTD)
+    add_library(PkgConfig::ZSTD ALIAS libzstd_static)
+endif ()
+set(SZ3_USE_BUNDLED_ZSTD OFF CACHE BOOL "Use pkg-config zstd for SZ3." FORCE)
+set(BUILD_SZ3_BINARY OFF CACHE BOOL "Build SZ3 command line tools." FORCE)
+set(BUILD_H5Z_FILTER OFF CACHE BOOL "Build the H5Z-SZ3 filter." FORCE)
+set(BUILD_MDZ OFF CACHE BOOL "Build MDZ tools." FORCE)
+set(BUILD_PARAVIEW_PLUGIN OFF CACHE BOOL "Build the SZ3 ParaView plugin." FORCE)
+igame_add_noninstall_subdirectory(SZ3)
+if (TARGET SZ3 AND NOT TARGET SZ3::SZ3)
+    add_library(SZ3::SZ3 ALIAS SZ3)
+endif ()
+set(LIBPRESSIO_HAS_SZ3 ON CACHE BOOL "Build the libpressio SZ3 plugin." FORCE)
+
+add_library(cereal INTERFACE)
+add_library(cereal::cereal ALIAS cereal)
+target_include_directories(cereal INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cereal/include>
+)
+
+igame_add_noninstall_subdirectory(std_compat)
+if (NOT TARGET std_compat::std_compat)
+    add_library(std_compat::std_compat ALIAS std_compat)
+endif ()
+if (TARGET std_compat)
+    set(IGAME_STDCOMPAT_BUILD_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/std_compat/include")
+    file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/std_compat/include/"
+            DESTINATION "${IGAME_STDCOMPAT_BUILD_INCLUDE_DIR}/std_compat")
+    target_include_directories(std_compat PUBLIC
+            $<BUILD_INTERFACE:${IGAME_STDCOMPAT_BUILD_INCLUDE_DIR}>)
+endif ()
+
+if (EMSCRIPTEN)
+    set(LIBPRESSIO_BUILD_MODE CORE CACHE STRING "Build the libpressio core plugin set for Wasm" FORCE)
+endif ()
+igame_add_noninstall_subdirectory(libpressio)
 
 if (ENABLE_CGNS_MODULE)
     # if you want to set cgns static build , please configure in CGNS directory's CMakeLists.txt
