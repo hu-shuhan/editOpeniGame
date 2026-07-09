@@ -25,6 +25,7 @@ jobs:
         -DENABLE_LIBTORCH_MODULE=OFF
         -DENABLE_CGNS_MODULE=OFF
         -DENABLE_NASTRAN_MODULE=OFF
+        -DGLFW_BUILD_WAYLAND=OFF
 
     steps:
       - name: Checkout
