@@ -120,12 +120,17 @@ if (${FFMPEG_FOUND})
     target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
     if (WIN32 AND FFMPEG_DLL_DIR)
+        if (ENABLE_QT_MODULE)
+            set(_IGAME_DLL_OUTPUT_TARGET ${PROJECT_NAME})
+        else ()
+            set(_IGAME_DLL_OUTPUT_TARGET ${MODULE_NAME})
+        endif ()
         file(GLOB FFMPEG_DLLS "${FFMPEG_DLL_DIR}/*.dll")
         add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${_IGAME_DLL_OUTPUT_TARGET}>"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${FFMPEG_DLLS}
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                "$<TARGET_FILE_DIR:${_IGAME_DLL_OUTPUT_TARGET}>"
                 COMMENT "Copying FFMPEG DLLs to output folder")
     endif ()
 endif ()
@@ -169,11 +174,16 @@ if (ENABLE_GPSCUDA_MODULE)
     )
 
     file(GLOB_RECURSE EXDLL ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
+    if (ENABLE_QT_MODULE)
+        set(_IGAME_DLL_OUTPUT_TARGET ${PROJECT_NAME})
+    else ()
+        set(_IGAME_DLL_OUTPUT_TARGET ${MODULE_NAME})
+    endif ()
     add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${_IGAME_DLL_OUTPUT_TARGET}>"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${EXDLL}
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+            "$<TARGET_FILE_DIR:${_IGAME_DLL_OUTPUT_TARGET}>"
     )
 endif ()
 
