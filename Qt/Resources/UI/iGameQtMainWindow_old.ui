@@ -82,7 +82,6 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
-    <addaction name="action_compress"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="action_SetThreadNum"/>
@@ -1386,16 +1385,6 @@
    </property>
    <property name="toolTip">
     <string>生成图表</string>
-   </property>
-  </action>
-  <action name="action_compress">
-   <property name="text">
-    <string>压缩</string>
-   </property>
-  </action>
-  <action name="action_uncompress">
-   <property name="text">
-    <string>解压缩</string>
    </property>
   </action>
   <action name="action_VolumeRendering">

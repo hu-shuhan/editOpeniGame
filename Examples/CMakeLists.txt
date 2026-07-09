@@ -42,6 +42,7 @@ add_executable(testSetVolumeRendering "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Set
 add_executable(testSetRenderingPressure "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetRenderingPressure.cpp")
 
 add_executable(testChangeRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestSubDataRangeChangeAndRecollect.cpp")
+add_executable(testAttributeViewUpdateBatching "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestAttributeViewUpdateBatching.cpp")
 
 add_executable(testVector "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVector.cpp")
 add_executable(testTimeVaryingVector "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestTimeVaryingVector.cpp")
@@ -66,10 +67,10 @@ add_executable(testGetClosestCellsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Sel
 add_executable(testGetPointsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetPointsInFrustum.cpp")
 add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetCellsInFrustum.cpp")
 
-add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDecoder.cpp")
-add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestEncoder.cpp")
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestSimplification.cpp")
-add_executable(testLosslessEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestLosslessEncode.cpp")
+add_executable(testDataCodecEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDataCodecEncode.cpp")
+add_executable(testDataCodecDecode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDataCodecDecode.cpp")
+add_executable(testScalarsToColorsRobustRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestScalarsToColorsRobustRange.cpp")
 
 add_executable(testConvertPolyhedralCells "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertPolyhedralCells.cpp")
 add_executable(testConvertToPointCloud "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToPointCloud.cpp")
@@ -130,6 +131,7 @@ target_link_libraries(testSetVolumeRendering PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS}
 target_link_libraries(testSetRenderingPressure PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
 target_link_libraries(testChangeRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+target_link_libraries(testAttributeViewUpdateBatching PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
 target_link_libraries(testVector PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testTimeVaryingVector PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
@@ -154,10 +156,14 @@ target_link_libraries(testGetClosestCellsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGE
 target_link_libraries(testGetPointsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testGetCellsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
-target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
-target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
-target_link_libraries(testLosslessEncode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+target_link_libraries(testDataCodecEncode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+target_link_libraries(testDataCodecDecode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+target_link_libraries(testScalarsToColorsRobustRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
+if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_link_options(testDataCodecEncode PRIVATE -fuse-ld=lld)
+    target_link_options(testDataCodecDecode PRIVATE -fuse-ld=lld)
+endif ()
 
 target_link_libraries(testConvertPolyhedralCells PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testConvertToPointCloud PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)

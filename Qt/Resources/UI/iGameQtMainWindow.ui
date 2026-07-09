@@ -958,7 +958,6 @@ QLabel#CustomTitleLabel {
     </widget>
     <addaction name="menu_RecentFiles"/>
     <addaction name="action_SaveMeshAs"/>
-    <addaction name="action_compress"/>
     <addaction name="action_SetThreadNum"/>
     <!-- 传输测试暂未启用
     <addaction name="action_CS"/>
@@ -2199,16 +2198,6 @@ QLabel#CustomTitleLabel {
    </property>
    <property name="toolTip">
     <string>生成图表</string>
-   </property>
-  </action>
-  <action name="action_compress">
-   <property name="text">
-    <string>压缩</string>
-   </property>
-  </action>
-  <action name="action_uncompress">
-   <property name="text">
-    <string>解压缩</string>
    </property>
   </action>
   <action name="action_VolumeRendering">

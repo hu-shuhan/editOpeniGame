@@ -5,7 +5,6 @@
 #include <thread>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <../IO/IGC/iGameIGCWriter.h>
 #include "iGameFileReader.h"
 #include <future>
 #pragma comment(lib, "ws2_32.lib")
