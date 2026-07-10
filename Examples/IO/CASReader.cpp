@@ -1,11 +1,9 @@
 #include <Fluent/iGameCASReader.h>
-#include <cstdlib>
-#include <filesystem>
-#include <iGameFileIO.h>
+#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
 #include <iGameScene.h>
 #include <iostream>
-namespace fs = std::filesystem;
+
 int main() {
     // std::string exePath = "../../ThirdParty/Python/pyFluentLib/cas_converter.exe";
     // std::string casPath = "./Models/room.cas";
@@ -29,24 +27,6 @@ int main() {
     casReader->SetFilePath(filePath);
     casReader->Execute();
     auto obj = casReader->GetOutput(0);
-    if (obj == nullptr) {
-        std::cout << "Read ERROR!\n";
-    } else {
-        scene->AddModel(obj);
-    }
-
-    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
-    window->SetSize(1920, 1080);
-    window->SetScene(scene);
-    auto interactor = iGame::Interactor::New();
-    interactor->Initialize(scene);
-    interactor->CreateDefaultStyle();
-    window->SetInteractor(interactor);
-    window->Show();
-    return 0;
-
-    auto scene = iGame::Scene::New();
-    auto obj = iGame::FileIO::ReadFile(outputFile.string());
     if (obj == nullptr) {
         std::cout << "Read ERROR!\n";
     } else {
