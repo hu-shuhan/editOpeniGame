@@ -54,10 +54,16 @@ jobs:
         shell: pwsh
         run: |
           $installer = "$env:RUNNER_TEMP\hdf5.msi"
-          $url = "https://support.hdfgroup.org/ftp/HDFreleases/HDF5/hdf5-1.12/hdf5-1.12.2/bin/windows/HDF5-1.12.2-win64.msi"
+          $url = "https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.6/hdf5-1.14.6-win-vs2022_cl.msi"
           Invoke-WebRequest -Uri $url -OutFile $installer
           Start-Process msiexec.exe -Wait -ArgumentList "/i `"$installer`" /qn ADDLOCAL=all"
-          echo "HDF5_DIR=C:/Program Files/HDF Group/HDF5/1.12.2/cmake" >> $env:GITHUB_ENV
+          $config = Get-ChildItem "C:\Program Files\HDF Group\HDF5" -Recurse -Filter HDF5Config.cmake -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $config) {
+            throw "HDF5Config.cmake not found after installing HDF5"
+          }
+          $hdf5Dir = $config.Directory.FullName -replace '\\', '/'
+          echo "HDF5_DIR=$hdf5Dir" >> $env:GITHUB_ENV
 
       - name: Configure
         shell: bash
