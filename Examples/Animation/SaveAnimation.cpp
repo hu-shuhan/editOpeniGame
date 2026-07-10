@@ -22,7 +22,7 @@ void PlayAnimation(iGame::DataObject::Pointer obj, iGame::Scene* scene, int keyf
 
     if (obj == nullptr || obj->GetTimeFrames()->GetArrays().empty()) return;
     iGame::DrawObject::Pointer currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
-    currentDrawObject->GetTimeFrames()->EnableCache();
+    currentDrawObject->GetTimeFrames()->EnableCache(1000);
     currentDrawObject->UpdateAnimation(keyframe_idx);
     if (obj->GetDeformationData()->GetEnableStatus()) {
         StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
