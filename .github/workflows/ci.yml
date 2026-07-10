@@ -25,6 +25,7 @@ jobs:
         -DENABLE_LIBTORCH_MODULE=OFF
         -DENABLE_CGNS_MODULE=OFF
         -DENABLE_NASTRAN_MODULE=OFF
+        -DEXAMPLE_COMPILE=ON
         -DGLFW_BUILD_WAYLAND=OFF
 
     steps:
@@ -44,7 +45,19 @@ jobs:
             libxinerama-dev \
             libxcursor-dev \
             libxi-dev \
-            libxkbcommon-dev
+            libxkbcommon-dev \
+            libhdf5-dev \
+            xvfb
+
+      - name: Install HDF5 (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = "$env:RUNNER_TEMP\hdf5.msi"
+          $url = "https://support.hdfgroup.org/ftp/HDFreleases/HDF5/hdf5-1.12/hdf5-1.12.2/bin/windows/HDF5-1.12.2-win64.msi"
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$installer`" /qn ADDLOCAL=all"
+          echo "HDF5_DIR=C:/Program Files/HDF Group/HDF5/1.12.2/cmake" >> $env:GITHUB_ENV
 
       - name: Configure
         shell: bash
@@ -71,4 +84,15 @@ jobs:
             cmake --build build --target install
           else
             cmake --build build --config Release --target install
+          fi
+
+      - name: Run Examples tests
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            cd build
+            ctest --output-on-failure --parallel 2
+          else
+            cd build
+            ctest -C Release --output-on-failure --parallel 2
           fi
