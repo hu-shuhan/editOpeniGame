@@ -27,10 +27,31 @@ jobs:
         -DENABLE_NASTRAN_MODULE=OFF
         -DEXAMPLE_COMPILE=ON
         -DGLFW_BUILD_WAYLAND=OFF
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPRESS: true
+      CCACHE_COMPRESSLEVEL: 6
+      CCACHE_MAXSIZE: 500M
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cache ccache
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', 'Cmake/**') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', 'Cmake/**', '.github/workflows/ci.yml') }}
+          restore-keys: |
+            build-${{ runner.os }}-
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -38,6 +59,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ninja-build \
+            ccache \
             libgl1-mesa-dev \
             libomp-dev \
             libx11-dev \
@@ -49,6 +71,13 @@ jobs:
             libhdf5-dev \
             xvfb
 
+      - name: Cache HDF5 (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/hdf5-root
+          key: hdf5-1.14.6-win-vs2022
+
       - name: Install HDF5 (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -56,28 +85,35 @@ jobs:
           $zip = "$env:RUNNER_TEMP\hdf5-outer.zip"
           $dest = "$env:RUNNER_TEMP\hdf5"
           $root = "$env:RUNNER_TEMP\hdf5-root"
-          $url = "https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.6/hdf5-1.14.6-win-vs2022_cl.zip"
-
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $dest -Force
-
-          # GitHub asset is a wrapper zip; the actual prebuilt binaries are nested inside.
-          $innerZip = Get-ChildItem $dest -Recurse -Filter "HDF5-*.zip" -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-          if (-not $innerZip) {
-            Get-ChildItem $dest -Recurse | Select-Object -First 30 | ForEach-Object { $_.FullName }
-            throw "Nested HDF5 binary zip not found in downloaded archive"
-          }
-
-          New-Item -ItemType Directory -Force -Path $root | Out-Null
-          Expand-Archive -Path $innerZip.FullName -DestinationPath $root -Force
 
           $config = Get-ChildItem $root -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -in @('HDF5Config.cmake', 'hdf5-config.cmake') } |
             Select-Object -First 1
+
           if (-not $config) {
-            Get-ChildItem $root -Recurse | Select-Object -First 30 | ForEach-Object { $_.FullName }
-            throw "HDF5 cmake config not found after extracting nested archive"
+            $url = "https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.6/hdf5-1.14.6-win-vs2022_cl.zip"
+
+            Invoke-WebRequest -Uri $url -OutFile $zip
+            Expand-Archive -Path $zip -DestinationPath $dest -Force
+
+            # GitHub asset is a wrapper zip; the actual prebuilt binaries are nested inside.
+            $innerZip = Get-ChildItem $dest -Recurse -Filter "HDF5-*.zip" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if (-not $innerZip) {
+              Get-ChildItem $dest -Recurse | Select-Object -First 30 | ForEach-Object { $_.FullName }
+              throw "Nested HDF5 binary zip not found in downloaded archive"
+            }
+
+            New-Item -ItemType Directory -Force -Path $root | Out-Null
+            Expand-Archive -Path $innerZip.FullName -DestinationPath $root -Force
+
+            $config = Get-ChildItem $root -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -in @('HDF5Config.cmake', 'hdf5-config.cmake') } |
+              Select-Object -First 1
+            if (-not $config) {
+              Get-ChildItem $root -Recurse | Select-Object -First 30 | ForEach-Object { $_.FullName }
+              throw "HDF5 cmake config not found after extracting nested archive"
+            }
           }
 
           $hdf5Dir = $config.Directory.FullName -replace '\\', '/'
@@ -94,7 +130,10 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
-            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              ${CMAKE_OPTIONS}
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
           fi
