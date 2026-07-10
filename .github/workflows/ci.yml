@@ -69,6 +69,14 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libhdf5-dev \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libswresample-dev \
+            libavfilter-dev \
+            libavdevice-dev \
+            libpostproc-dev \
             xvfb
 
       - name: Cache HDF5 (Windows)
