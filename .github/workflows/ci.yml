@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, CI-Test]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
