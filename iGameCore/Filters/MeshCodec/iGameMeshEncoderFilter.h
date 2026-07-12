@@ -557,11 +557,8 @@ private:
             }
         };
 
-        std::mutex reportMutex;
-        CodecProgressParallelFor(this, 0,
-                            static_cast<int>(this->m_codecParams.attrParams.size()),
-                            0.4f, 0.6f,
-                            [&](int start, int end) -> void {
+        const int attrCount = static_cast<int>(this->m_codecParams.attrParams.size());
+        auto encodeAttributes = [&](int start, int end) -> void {
             for (int i = start; i < end; i++) {
                 AttributeSet::Attribute& attr = attrs->GetElement(i);
                 auto& attrParams = this->m_codecParams.attrParams[i];
@@ -586,27 +583,28 @@ private:
                     std::vector<float> preserve = remappedFloatAttrBuffer;
                     MeshFloatCodec::FloatEncoder(encoded, remappedFloatAttrBuffer, attrParams, controlParams);
 
-                    {
-                        std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, controlParams,
-                                       attr.pointer->GetName());
-                    }
+                    AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, controlParams,
+                                   attr.pointer->GetName());
                 } else if (attrParams.valueSize == sizeof(double)) {
                     std::vector<double> preserve = remappedDoubleAttrBuffer;
                     MeshFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, controlParams);
 
-                    {
-                        std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, controlParams,
-                                       attr.pointer->GetName());
-                    }
+                    AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, controlParams,
+                                   attr.pointer->GetName());
                 }
 
                 // 只靠count就足以读取
                 attrParams.binaryCount = encoded.size() * sizeof(uint8_t);
-                outFloats[i] = encoded;
+                outFloats[i] = std::move(encoded);
+
+                if (attrCount > 0) {
+                    const float progress = 0.4f + 0.2f *
+                        (static_cast<float>(i + 1) / static_cast<float>(attrCount));
+                    UpdateProgress(progress);
+                }
             }
-        });
+        };
+        encodeAttributes(0, attrCount);
 
         UpdateProgress(0.6);
 
