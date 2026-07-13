@@ -13,6 +13,23 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if (-not [System.IO.Path]::IsPathRooted($BuildDir)) {
+    $root = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
+    $BuildDir = Join-Path $root $BuildDir
+}
+$BuildDir = (Resolve-Path -Path $BuildDir).Path
+
+$repoRoot = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { Split-Path $BuildDir -Parent }
+
+if (-not [System.IO.Path]::IsPathRooted($OutputZip)) {
+    $OutputZip = Join-Path $repoRoot $OutputZip
+}
+
+if (-not [System.IO.Path]::IsPathRooted($QtHome)) {
+    $qtRoot = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
+    $QtHome = Join-Path $qtRoot $QtHome
+}
+
 $exe = Get-ChildItem -Path $BuildDir -Recurse -Filter "iGameVis.exe" -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -match "\\Release\\" } |
     Select-Object -First 1
@@ -46,10 +63,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "windeployqt failed with exit code $LASTEXITCODE"
 }
 
-$ffmpegBin = Join-Path (Split-Path $BuildDir -Parent) "ThirdParty\FFMPEG\bin"
+$ffmpegBin = Join-Path $repoRoot "ThirdParty\FFMPEG\bin"
 if (Test-Path $ffmpegBin) {
-    Write-Host "Copying FFMPEG DLLs from $ffmpegBin"
-    Copy-Item -Path "$ffmpegBin\*.dll" -Destination $stageDir -Force -ErrorAction SilentlyContinue
+    $ffmpegDlls = Get-ChildItem -Path $ffmpegBin -Filter "*.dll" -ErrorAction SilentlyContinue
+    if ($ffmpegDlls) {
+        Write-Host "Copying FFMPEG DLLs from $ffmpegBin"
+        Copy-Item -Path $ffmpegDlls.FullName -Destination $stageDir -Force
+    }
 }
 
 $manifest = @"

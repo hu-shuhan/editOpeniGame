@@ -88,9 +88,9 @@ jobs:
       - name: Package portable zip
         shell: pwsh
         run: |
-          $zip = "iGameVis-Windows-x64.zip"
-          & "${{ github.workspace }}/Examples/ci/package_gui_windows.ps1" `
-            -BuildDir $env:BUILD_DIR `
+          $zip = Join-Path $env:GITHUB_WORKSPACE "iGameVis-Windows-x64.zip"
+          & "$env:GITHUB_WORKSPACE/Examples/ci/package_gui_windows.ps1" `
+            -BuildDir (Join-Path $env:GITHUB_WORKSPACE $env:BUILD_DIR) `
             -QtHome $env:QT_HOME `
             -OutputZip $zip
 
