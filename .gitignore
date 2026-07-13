@@ -1,7 +1,7 @@
 # Project exclude paths
 /cmake-build-*/
 /cmake-autobuild-*/
-/CMakeGPS/
+
 
 /.idea/
 /out/
