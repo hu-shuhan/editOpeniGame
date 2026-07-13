@@ -15,6 +15,7 @@
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
+#include "Log/iGameLogger.h"
 #include <exception>
 #include <filesystem>
 #include <limits>
@@ -97,20 +98,48 @@ public:
 
         // 统一在入口处做类型校验：不支持则直接返回 false，避免 assert 终止进程
         const auto inputObj = GetInput(0);
-        if (!inputObj) { return false; }
+        if (!inputObj) {
+            IGAME_CORE_ERROR("[MeshEncoder] Execute abort: input is null");
+            return false;
+        }
 
         const IGenum meshType = inputObj->GetDataObjectType();
+        const auto pointSet = DynamicCast<PointSet>(inputObj);
+        const int attrCount = inputObj->GetAttributeSet()
+            ? inputObj->GetAttributeSet()->GetNumberOfAttributes() : 0;
+        IGAME_CORE_INFO("[MeshEncoder] Execute begin type={} points={} attrs={}",
+                        static_cast<int>(meshType),
+                        pointSet ? pointSet->GetNumberOfPoints() : 0,
+                        attrCount);
         const bool supported =
             (meshType == IG_SURFACE_MESH || meshType == IG_VOLUME_MESH ||
              meshType == IG_STRUCTURED_MESH || meshType == IG_UNSTRUCTURED_MESH ||
              meshType == IG_POINT_SET);
-        if (!supported) { return false; }
+        if (!supported) {
+            IGAME_CORE_ERROR("[MeshEncoder] Execute abort: unsupported mesh type={}",
+                             static_cast<int>(meshType));
+            return false;
+        }
 
         // 编码器依赖 PointSet 接口（顶点/属性等）
-        if (!DynamicCast<PointSet>(inputObj)) { return false; }
-        if (meshType == IG_STRUCTURED_MESH && !DynamicCast<StructuredMesh>(inputObj)) { return false; }
+        if (!pointSet) {
+            IGAME_CORE_ERROR("[MeshEncoder] Execute abort: input is not a PointSet");
+            return false;
+        }
+        if (meshType == IG_STRUCTURED_MESH && !DynamicCast<StructuredMesh>(inputObj)) {
+            IGAME_CORE_ERROR("[MeshEncoder] Execute abort: structured mesh cast failed");
+            return false;
+        }
 
-        if (!InitializeEncoder()) { return false; }
+        if (!InitializeEncoder()) {
+            IGAME_CORE_ERROR("[MeshEncoder] Execute abort: InitializeEncoder failed");
+            return false;
+        }
+
+        IGAME_CORE_INFO("[MeshEncoder] InitializeEncoder done points={} cells={} attrs={}",
+                        m_EncoderAdapter->GetNumberOfPoints(),
+                        m_EncoderAdapter->GetNumberOfCells(),
+                        m_codecParams.attrParams.size());
 
         std::vector<unsigned int> pointIdRemap;
         std::vector<unsigned int> topCellIdsRemap, bottomCellIdRemap;
@@ -118,33 +147,59 @@ public:
         CodecPayloadSet raw, compressed;
 
         try {
+            IGAME_CORE_INFO("[MeshEncoder] stage=Geom begin");
             this->GeomEncoder(raw.geom, pointIdRemap);
+            IGAME_CORE_INFO("[MeshEncoder] stage=Geom end bytes={} remap={}",
+                            raw.geom.size(), pointIdRemap.size());
+
+            IGAME_CORE_INFO("[MeshEncoder] stage=Topo begin");
             this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+            IGAME_CORE_INFO("[MeshEncoder] stage=Topo end bytes={} topRemap={} bottomRemap={}",
+                            raw.topo.size(), topCellIdsRemap.size(), bottomCellIdRemap.size());
             if (m_EncodeTrace) {
                 m_EncodeTrace->orderRemaps.pointIdRemap = pointIdRemap;
                 m_EncodeTrace->orderRemaps.topCellIdsRemap = topCellIdsRemap;
                 m_EncodeTrace->orderRemaps.bottomCellIdRemap = bottomCellIdRemap;
                 m_EncodeTrace->hasOrderRemaps = true;
             }
+            IGAME_CORE_INFO("[MeshEncoder] stage=Attr begin attrs={}",
+                            m_codecParams.attrParams.size());
             this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+            IGAME_CORE_INFO("[MeshEncoder] stage=Attr end bytes={}", raw.attr.size());
+
+            IGAME_CORE_INFO("[MeshEncoder] stage=Params begin");
             this->ParamsEncoder(raw.param);
+            IGAME_CORE_INFO("[MeshEncoder] stage=Params end bytes={}", raw.param.size());
 
             // 释放 remap 内存
             { std::vector<unsigned int>().swap(pointIdRemap); }
             { std::vector<unsigned int>().swap(topCellIdsRemap); }
             { std::vector<unsigned int>().swap(bottomCellIdRemap); }
 
+            IGAME_CORE_INFO("[MeshEncoder] stage=Compress begin raw geom={} topo={} attr={} param={}",
+                            raw.geom.size(), raw.topo.size(), raw.attr.size(), raw.param.size());
             CompressPayloads(raw, compressed);
+            IGAME_CORE_INFO("[MeshEncoder] stage=Compress end compressed geom={} topo={} attr={} param={}",
+                            compressed.geom.size(), compressed.topo.size(),
+                            compressed.attr.size(), compressed.param.size());
             raw.Release();
 
+            IGAME_CORE_INFO("[MeshEncoder] stage=WritePayloads begin");
             WritePayloads(compressed);
+            IGAME_CORE_INFO("[MeshEncoder] stage=WritePayloads end outputBytes={}",
+                            m_EncoderOutput ? m_EncoderOutput->GetSize() : 0);
 
+            IGAME_CORE_INFO("[MeshEncoder] stage=Finalize begin");
             FinalizeEncoding();
+            IGAME_CORE_INFO("[MeshEncoder] stage=Finalize end outputBytes={}",
+                            m_EncoderOutput ? m_EncoderOutput->GetSize() : 0);
         } catch (const std::exception& e) {
             IGAME_CORE_ERROR("Failed to encode IGC mesh payload: {}", e.what());
             return false;
         }
 
+        IGAME_CORE_INFO("[MeshEncoder] Execute end success=true outputBytes={}",
+                        m_EncoderOutput ? m_EncoderOutput->GetSize() : 0);
         return true;
     }
 
@@ -230,6 +285,8 @@ private:
 
     void CompressPayloads(const CodecPayloadSet& raw, CodecPayloadSet& compressed) {
         const int numThreads = GetCodecThreadCount();
+        IGAME_CORE_INFO("[MeshEncoder] CompressPayloads begin poolThreads={} raw geom={} topo={} attr={} param={}",
+                        numThreads, raw.geom.size(), raw.topo.size(), raw.attr.size(), raw.param.size());
 
         std::vector<std::future<void>> result;
         auto tp = CodecThreadPool::Instance();
@@ -237,26 +294,34 @@ private:
 
         result.push_back(tp->Commit(
             [&]() -> void {
+                IGAME_CORE_DEBUG("[MeshEncoder] compress geom begin bytes={}", raw.geom.size());
                 MeshCodecZSTD(m_compressLevel, numThreads)
                     .Compress(compressed.geom, raw.geom);
+                IGAME_CORE_DEBUG("[MeshEncoder] compress geom end bytes={}", compressed.geom.size());
         }));
 
         result.push_back(tp->Commit(
             [&]() -> void {
+                IGAME_CORE_DEBUG("[MeshEncoder] compress topo begin bytes={}", raw.topo.size());
                 MeshCodecZSTD(m_compressLevel, numThreads)
                     .Compress(compressed.topo, raw.topo);
+                IGAME_CORE_DEBUG("[MeshEncoder] compress topo end bytes={}", compressed.topo.size());
         }));
 
         result.push_back(tp->Commit(
             [&]() -> void {
+                IGAME_CORE_DEBUG("[MeshEncoder] compress attr begin bytes={}", raw.attr.size());
                 MeshCodecZSTD(m_compressLevel, numThreads)
                     .Compress(compressed.attr, raw.attr);
+                IGAME_CORE_DEBUG("[MeshEncoder] compress attr end bytes={}", compressed.attr.size());
         }));
 
         result.push_back(tp->Commit(
             [&]() -> void {
+                IGAME_CORE_DEBUG("[MeshEncoder] compress param begin bytes={}", raw.param.size());
                 MeshCodecZSTD(m_compressLevel, numThreads)
                     .Compress(compressed.param, raw.param);
+                IGAME_CORE_DEBUG("[MeshEncoder] compress param end bytes={}", compressed.param.size());
         }));
 
         for (auto & i : result) {
@@ -264,9 +329,15 @@ private:
             progress += 0.04;
             UpdateProgress(progress);
         }
+        IGAME_CORE_INFO("[MeshEncoder] CompressPayloads end compressed geom={} topo={} attr={} param={}",
+                        compressed.geom.size(), compressed.topo.size(),
+                        compressed.attr.size(), compressed.param.size());
     }
 
     void WritePayloads(const CodecPayloadSet& compressed) {
+        IGAME_CORE_DEBUG("[MeshEncoder] WritePayloads sizes param={} geom={} topo={} attr={}",
+                         compressed.param.size(), compressed.geom.size(),
+                         compressed.topo.size(), compressed.attr.size());
         WriteBuf(compressed.param);
         WriteBuf(compressed.geom);
         WriteBuf(compressed.topo);
@@ -564,6 +635,15 @@ private:
                 auto& attrParams = this->m_codecParams.attrParams[i];
                 auto& controlParams = this->m_attrControlParams[i];
 
+                IGAME_CORE_INFO("[MeshEncoder] attr begin index={} name={} attachment={} valueSize={} dimension={} elements={} keyElements={}",
+                                i,
+                                attr.pointer->GetName(),
+                                static_cast<int>(attrParams.attachmentType),
+                                attrParams.valueSize,
+                                attrParams.dimension,
+                                attrParams.elementCount,
+                                controlParams.isKeyElement.size());
+
                 // 部署remap
                 std::vector<float> remappedFloatAttrBuffer;
                 std::vector<double> remappedDoubleAttrBuffer;
@@ -596,6 +676,12 @@ private:
                 // 只靠count就足以读取
                 attrParams.binaryCount = encoded.size() * sizeof(uint8_t);
                 outFloats[i] = std::move(encoded);
+
+                IGAME_CORE_INFO("[MeshEncoder] attr end index={} name={} remappedValues={} encodedBytes={}",
+                                i,
+                                attr.pointer->GetName(),
+                                attrParams.elementCount * attrParams.dimension,
+                                outFloats[i].size());
 
                 if (attrCount > 0) {
                     const float progress = 0.4f + 0.2f *
