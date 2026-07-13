@@ -48,17 +48,19 @@ flowchart TB
 1. **GUI**: `main.cpp` → `igQtMainWindow` → `igQtFileLoader::OpenFile()` → `FileIO::ReadFile()` → `Scene::AddModel()` → Dock widgets call Filters / DrawObject
 2. **Examples**: `Examples/<module>/main` → `FileIO::ReadFile()` → `Filter::New()->Execute()` → `Scene` → `RenderWindow::Show()`
 
-### Open-Source Metric Modules
+### 开源指标模块
 
-| Metric | Module | Documentation (ZH) | Documentation (EN) | Anchor Directory |
-|--------|--------|--------------------|----------------------|------------------|
-| 7.1 | High-order visualization | [README.md](iGameCore/Filters/Convert/README.md) | [README.en.md](iGameCore/Filters/Convert/README.en.md) | `iGameCore/Filters/Convert/` |
-| 10.1 | Intelligent visual analysis | [README.md](iGameCore/Filters/ParallelCoordinates/README.md) | [README.en.md](iGameCore/Filters/ParallelCoordinates/README.en.md) | `iGameCore/Filters/ParallelCoordinates/` |
-| 10.2 | Feature extraction | [README.md](iGameCore/Filters/FeatureExtraction/README.md) | [README.en.md](iGameCore/Filters/FeatureExtraction/README.en.md) | `iGameCore/Filters/FeatureExtraction/` |
-| 10.3 | Physics field visual interaction | [README.md](iGameCore/Filters/StreamView/README.md) | [README.en.md](iGameCore/Filters/StreamView/README.en.md) | `iGameCore/Filters/StreamView/` |
-| 11.2 | VTK/CGNS data interface | [README.md](iGameCore/IO/README.md) | [README.en.md](iGameCore/IO/README.en.md) | `iGameCore/IO/` |
-| 11.3 | Visualization outputs | [README.md](iGameCore/Core/DataModel/README.md) | [README.en.md](iGameCore/Core/DataModel/README.en.md) | `iGameCore/Core/DataModel/` |
-| 11.4 | CAE parallel visualization software | [README.md](iGameCore/README.md) | [README.en.md](iGameCore/README.en.md) | `iGameCore/` |
+完整文档见 **[doc/modules/](doc/modules/README.md)**。
+
+| 指标 | 模块 | 中文 | English |
+|------|------|------|---------|
+| 7.1 | 高阶可视化 | [README_7.1.md](doc/modules/README_7.1.md) | [README_7.1.en.md](doc/modules/README_7.1.en.md) |
+| 10.1 | 智能可视分析 | [README_10.1.md](doc/modules/README_10.1.md) | [README_10.1.en.md](doc/modules/README_10.1.en.md) |
+| 10.2 | 特征提取 | [README_10.2.md](doc/modules/README_10.2.md) | [README_10.2.en.md](doc/modules/README_10.2.en.md) |
+| 10.3 | 物理场特征可视交互 | [README_10.3.md](doc/modules/README_10.3.md) | [README_10.3.en.md](doc/modules/README_10.3.en.md) |
+| 11.2 | vtk/CGNS 数据接口 | [README_11.2.md](doc/modules/README_11.2.md) | [README_11.2.en.md](doc/modules/README_11.2.en.md) |
+| 11.3 | 场可视化输出 | [README_11.3.md](doc/modules/README_11.3.md) | [README_11.3.en.md](doc/modules/README_11.3.en.md) |
+| 11.4 | CAE 高精并行可视化软件 | [README_11.4.md](doc/modules/README_11.4.md) | [README_11.4.en.md](doc/modules/README_11.4.en.md) |
 
 ## File Import
 
@@ -66,7 +68,7 @@ File import cannot have Chinese path.
 
 ## Requirements
 
-- QT 5.14.2
+- QT 5.15.2（推荐 MSVC 2019 64-bit Kit；亦兼容 5.14.2）
 
 ## Install
 
