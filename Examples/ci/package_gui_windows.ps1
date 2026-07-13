@@ -52,6 +52,14 @@ New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
 Write-Host "Staging from $($exe.Directory.FullName)"
 Copy-Item -Path "$($exe.Directory.FullName)\*" -Destination $stageDir -Recurse -Force
 
+$resourcesDir = Join-Path $BuildDir "Resources"
+if (-not (Test-Path $resourcesDir)) {
+    throw "Resources directory not found: $resourcesDir (required for shaders and fonts)"
+}
+
+Write-Host "Copying Resources from $resourcesDir"
+Copy-Item -Path $resourcesDir -Destination (Join-Path $stageDir "Resources") -Recurse -Force
+
 $windeployqt = Join-Path $QtHome "5.15.2\msvc2019_64\bin\windeployqt.exe"
 if (-not (Test-Path $windeployqt)) {
     throw "windeployqt not found: $windeployqt"
@@ -69,8 +77,26 @@ if (Test-Path $ffmpegBin) {
     if ($ffmpegDlls) {
         Write-Host "Copying FFMPEG DLLs from $ffmpegBin"
         Copy-Item -Path $ffmpegDlls.FullName -Destination $stageDir -Force
+    } else {
+        Write-Warning "FFMPEG bin directory exists but contains no DLLs: $ffmpegBin"
+    }
+} else {
+    Write-Warning "FFMPEG bin directory not found; animation export may be unavailable"
+}
+
+$requiredFiles = @(
+    "iGameVis.exe",
+    "Resources\Shaders\Vertex.vert",
+    "Resources\Shaders\BlinnPhong.frag",
+    "Resources\Assests\Fonts\SourceHanSansCN-Normal.otf"
+)
+foreach ($relPath in $requiredFiles) {
+    $fullPath = Join-Path $stageDir $relPath
+    if (-not (Test-Path $fullPath)) {
+        throw "Required package file missing: $relPath"
     }
 }
+Write-Host "Validated required runtime files"
 
 $manifest = @"
 iGameVis Windows portable build
