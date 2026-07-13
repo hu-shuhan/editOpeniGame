@@ -1,0 +1,110 @@
+name: CD GUI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-gui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows-gui:
+    name: Windows Qt GUI
+    runs-on: windows-2022
+
+    env:
+      QT_HOME: C:/Qt
+      BUILD_DIR: build-gui
+      CMAKE_OPTIONS: >-
+        -DENABLE_QT_MODULE=ON
+        -DENABLE_GPSCUDA_MODULE=OFF
+        -DENABLE_LIBTORCH_MODULE=OFF
+        -DENABLE_CGNS_MODULE=OFF
+        -DENABLE_NASTRAN_MODULE=OFF
+        -DEXAMPLE_COMPILE=OFF
+        -DGLFW_BUILD_WAYLAND=OFF
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache Qt
+        uses: actions/cache@v4
+        id: qt-cache
+        with:
+          path: C:/Qt
+          key: qt-5.15.2-win64-msvc2019_64-charts-svg
+
+      - name: Install Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          pip install aqtinstall==3.1.18
+          aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 `
+            -O C:/Qt `
+            -m qtcharts qtsvg
+
+      - name: Verify Qt
+        shell: pwsh
+        run: |
+          $qmake = "$env:QT_HOME/5.15.2/msvc2019_64/bin/qmake.exe"
+          if (-not (Test-Path $qmake)) {
+            throw "Qt not found at $qmake"
+          }
+          & $qmake -v
+
+      - name: Cache GUI build
+        uses: actions/cache@v4
+        with:
+          path: build-gui
+          key: build-gui-windows-${{ hashFiles('**/CMakeLists.txt', 'Cmake/**', 'Qt/**', '.github/workflows/cd-gui.yml') }}
+          restore-keys: |
+            build-gui-windows-
+
+      - name: Configure
+        shell: bash
+        run: cmake -B build-gui -G "Visual Studio 17 2022" -A x64 ${CMAKE_OPTIONS}
+
+      - name: Build
+        shell: bash
+        run: cmake --build build-gui --config Release --parallel
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $zip = "iGameVis-Windows-x64.zip"
+          & "${{ github.workspace }}/Examples/ci/package_gui_windows.ps1" `
+            -BuildDir $env:BUILD_DIR `
+            -QtHome $env:QT_HOME `
+            -OutputZip $zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iGameVis-Windows-${{ github.sha }}
+          path: iGameVis-Windows-x64.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Job summary
+        shell: pwsh
+        run: |
+          $shortSha = "${{ github.sha }}".Substring(0, 7)
+          @"
+          ## iGameVis Windows GUI build
+
+          - Commit: ``$shortSha``
+          - Artifact: **iGameVis-Windows-${{ github.sha }}**
+
+          ### Download
+          1. Open this workflow run on GitHub Actions
+          2. Scroll to **Artifacts**
+          3. Download the zip, extract, and run ``iGameVis.exe``
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
