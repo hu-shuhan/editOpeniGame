@@ -40,7 +40,7 @@ jobs:
         id: qt-cache
         with:
           path: C:/Qt
-          key: qt-5.15.2-win64-msvc2019_64-charts-svg
+          key: qt-5.15.2-win64-msvc2019_64-charts-v2
 
       - name: Install Qt
         if: steps.qt-cache.outputs.cache-hit != 'true'
@@ -49,16 +49,25 @@ jobs:
           pip install aqtinstall==3.1.18
           aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 `
             -O C:/Qt `
-            -m qtcharts qtsvg
+            -m qtcharts
 
       - name: Verify Qt
         shell: pwsh
         run: |
-          $qmake = "$env:QT_HOME/5.15.2/msvc2019_64/bin/qmake.exe"
+          $qtRoot = "$env:QT_HOME/5.15.2/msvc2019_64"
+          $qmake = "$qtRoot/bin/qmake.exe"
           if (-not (Test-Path $qmake)) {
             throw "Qt not found at $qmake"
           }
           & $qmake -v
+
+          $required = @("Qt5Charts", "Qt5Svg")
+          foreach ($component in $required) {
+            $config = Join-Path $qtRoot "lib/cmake/$component/${component}Config.cmake"
+            if (-not (Test-Path $config)) {
+              throw "Missing Qt component: $component ($config)"
+            }
+          }
 
       - name: Cache GUI build
         uses: actions/cache@v4
