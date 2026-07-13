@@ -67,4 +67,5 @@ if (Test-Path $OutputZip) {
 Write-Host "Creating $OutputZip"
 Compress-Archive -Path "$stageDir\*" -DestinationPath $OutputZip -Force
 
-Write-Host "Package ready: $OutputZip ($(("{0:N2}" -f ((Get-Item $OutputZip).Length / 1MB)) MB)"
+$sizeMb = "{0:N2}" -f ((Get-Item $OutputZip).Length / 1MB)
+Write-Host "Package ready: $OutputZip ($sizeMb MB)"
