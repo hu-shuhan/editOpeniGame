@@ -253,13 +253,6 @@ if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
     endif()
 endif()
 
-# Inject AI model directory as a compile definition for runtime path resolution
-if(TARGET @MODULE_NAME@::@MODULE_NAME@)
-    target_compile_definitions(@MODULE_NAME@::@MODULE_NAME@ INTERFACE
-        IGAME_MODEL_DIR="${IGAMEVIS_INSTALL_DIR}/Resources/AI"
-    )
-endif()
-
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(@MODULE_NAME@
     REQUIRED_VARS

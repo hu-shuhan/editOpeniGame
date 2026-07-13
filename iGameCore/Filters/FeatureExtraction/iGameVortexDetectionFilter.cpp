@@ -270,41 +270,6 @@ struct BlockInfo {
     std::vector<int64_t> prediction;
 };
 
-// Resolve the model file path with multi-strategy fallback:
-//   1. Environment variable IGAME_MODEL_DIR (highest priority, no recompile needed)
-//   2. CMake compile definition IGAME_MODEL_DIR (injected via iGameCoreConfig.cmake)
-//   3. Relative fallback (backward compatible with dev layout)
-static std::string resolve_model_path() {
-    const char* model_filename = "model_1x64x64x64_1108_cuda.pt";
-
-    // 1. Environment variable override
-    if (const char* env = std::getenv("IGAME_MODEL_DIR")) {
-        auto p = std::filesystem::path(env) / model_filename;
-        if (std::filesystem::exists(p)) {
-            std::cout << "[MODEL] Using env IGAME_MODEL_DIR: " << p << std::endl;
-            return p.string();
-        }
-    }
-
-    // 2. CMake compile definition (injected at consumer's configure time)
-#ifdef IGAME_MODEL_DIR
-    {
-        auto p = std::filesystem::path(IGAME_MODEL_DIR) / model_filename;
-        if (std::filesystem::exists(p)) {
-            std::cout << "[MODEL] Using compiled path: " << p << std::endl;
-            return p.string();
-        }
-    }
-#endif
-
-    // 3. Fallback: relative to current working directory
-    {
-        auto p = std::filesystem::path("./Resources/AI") / model_filename;
-        std::cout << "[MODEL] Using fallback path: " << p << std::endl;
-        return p.string();
-    }
-}
-
 bool VortexDetection::DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
                                                      int Index, std::string name) {
     std::cout << "VortexDetection::DetectionVortex must in VolumeMesh!" << std::endl;
@@ -484,7 +449,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     int progress=10;
     UpdateProgress(progress * 0.01);
 
-    std::string model_path = resolve_model_path();
+    std::string model_path = "./Resources/AI/model_1x64x64x64_1108_cuda.pt";
 
     auto [result_volume_11, global_step, predict_vals] =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split, nx, ny, nz, Mesh,
@@ -1389,7 +1354,8 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
             {0, 0, torch::indexing::Slice(0, D), torch::indexing::Slice(0, H), torch::indexing::Slice(0, W)});
 
 
-        if (prob_cropped.device().is_cuda()) { prob_cropped = prob_cropped.to(torch::kCPU, /*non_blocking=*/false); }
+    
+    if (prob_cropped.device().is_cuda()) { prob_cropped = prob_cropped.to(torch::kCPU, /*non_blocking=*/false); }
     return prob_cropped; // [D,H,W]
 }
 
