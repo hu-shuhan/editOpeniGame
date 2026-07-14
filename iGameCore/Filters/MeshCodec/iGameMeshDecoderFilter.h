@@ -17,8 +17,6 @@
 #include "iGameMacro.h"
 
 #include <algorithm>
-#include <atomic>
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <exception>
@@ -552,26 +550,13 @@ private:
         }
 
         std::vector<AttributeBuffer> attrBuffers(this->m_codecParams.attrParams.size());
-        std::atomic_bool attrDecodeFailed{false};
-        auto containsInf = [](const auto& values) {
-            return std::any_of(values.begin(), values.end(), [](auto value) {
-                return std::isinf(value);
-            });
-        };
 
-        // 进度控制
-        CodecProgressParallelFor(this, 0,
-                            static_cast<int>(this->m_codecParams.attrParams.size()),
-                            m_DecompressProgress, m_DecompressProgress + 0.2f,
-                            [&](int start, int end) -> void {
-            for (int i = start; i < end; i++) {
-                if (attrDecodeFailed.load()) { return; }
-                auto& params = this->m_codecParams.attrParams[i];
-
-                // 参数有效性检查
-                if (params.dimension <= 0 || params.elementCount <= 0) {
-                    continue;
-                }
+        for (size_t i = 0; i < this->m_codecParams.attrParams.size(); ++i) {
+            auto& params = this->m_codecParams.attrParams[i];
+            if (params.dimension <= 0 || params.elementCount == 0) {
+                IGAME_CORE_WARN("Skipping IGC attribute {}: invalid dimension or element count", params.name);
+                continue;
+            }
 
             std::vector<unsigned char> inputBuffer(
                 uCharBuffer.begin() + binaryCursorOffsets[i],
@@ -606,28 +591,30 @@ private:
                 }
                 if (params.arrayType == IG_FloatArray) {
                     std::vector<float> floats;
-                    MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
-                    // 解码结果大小验证
-                    if (floats.size() != valueCount) {
-                        attrDecodeFailed.store(true);
-                        return;
+                    if (legacyInterleaved) {
+                        MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
+                        decodeOk = true;
+                    } else if (componentSeries) {
+                        decodeOk = MeshFloatCodec::FloatDecoderComponentSeries(
+                                floats, inputBuffer, params, params.componentBinaryCounts);
                     }
-                    if (containsInf(floats)) {
-                        IGAME_CORE_WARN("IGC attribute '{}' at index {} contains Inf; continuing decode",
-                                        params.name, i);
+                    if (!decodeOk || floats.size() != static_cast<size_t>(valueCount)) {
+                        IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                        return false;
                     }
                     attr.floatData = std::move(floats);
                 } else if (params.arrayType == IG_DoubleArray) {
                     std::vector<double> doubles;
-                    MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
-                    // 解码结果大小验证
-                    if (doubles.size() != valueCount) {
-                        attrDecodeFailed.store(true);
-                        return;
+                    if (legacyInterleaved) {
+                        MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
+                        decodeOk = true;
+                    } else if (componentSeries) {
+                        decodeOk = MeshFloatCodec::FloatDecoderComponentSeries(
+                                doubles, inputBuffer, params, params.componentBinaryCounts);
                     }
-                    if (containsInf(doubles)) {
-                        IGAME_CORE_WARN("IGC attribute '{}' at index {} contains Inf; continuing decode",
-                                        params.name, i);
+                    if (!decodeOk || doubles.size() != static_cast<size_t>(valueCount)) {
+                        IGAME_CORE_ERROR("Invalid IGC attribute payload");
+                        return false;
                     }
                     attr.doubleData = std::move(doubles);
                 } else {

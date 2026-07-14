@@ -255,8 +255,8 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                 const double y = Vector->GetValue(k + 1);
                 const double z = Vector->GetValue(k + 2);
                 double curMagnitude = std::sqrt(x * x + y * y + z * z);
-               maxMagnitude = std::max(maxMagnitude, curMagnitude);
-               minMagnitude = std::min(minMagnitude, curMagnitude);
+                maxMagnitude = std::max(maxMagnitude, curMagnitude);
+                minMagnitude = std::min(minMagnitude, curMagnitude);
             }
             newDataRange->SetValue(0, minMagnitude);
             newDataRange->SetValue(1, maxMagnitude);

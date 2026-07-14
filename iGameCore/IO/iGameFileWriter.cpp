@@ -1,5 +1,4 @@
 #include "iGameFileWriter.h"
-#include "Log/iGameLogger.h"
 
 #ifdef PLATFORM_WINDOWS
 #include <windows.h>
@@ -29,23 +28,16 @@ FileWriter::~FileWriter()
 }
 bool FileWriter::Execute()
 {
-    IGAME_CORE_INFO("[FileWriter] Execute begin");
 	this->m_DataObject = this->m_Inputs->GetElement(0);
 	if(!m_DataObject){
-		IGAME_CORE_ERROR("[FileWriter] Execute abort: input data object is null");
 		igDebug("could not write nullptr object!");
 		return false;
 	}
-	IGAME_CORE_INFO("[FileWriter] GenerateBuffers begin");
 	if (!GenerateBuffers()) {
-		IGAME_CORE_ERROR("[FileWriter] Execute abort: GenerateBuffers failed");
 		IGAME_CORE_ERROR("Could not generate buffer to load.");
 		return false;
 	}
-	IGAME_CORE_INFO("[FileWriter] GenerateBuffers end buffers={}", m_Buffers.size());
-	const bool ok = SaveBufferDataToFile();
-	IGAME_CORE_INFO("[FileWriter] Execute end success={}", ok);
-	return ok;
+	return SaveBufferDataToFile();
 
 }
 bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string filePath)
@@ -57,12 +49,8 @@ bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string fi
 
 bool FileWriter::SaveBufferDataToFile()
 {
-	IGAME_CORE_INFO("[FileWriter] SaveBufferDataToFile begin path={} buffers={}",
-	                m_FilePath, m_Buffers.size());
 	FILE* file = fopen(this->m_FilePath.c_str(), "wb");
 	if (file == NULL) {
-		IGAME_CORE_ERROR("[FileWriter] SaveBufferDataToFile abort: fopen failed path={}",
-                 m_FilePath);
 		perror("fopen failed");
 		return false;
 	}
@@ -84,8 +72,6 @@ bool FileWriter::SaveBufferDataToFile()
 	}
 	m_Buffers.clear();
 	fclose(file);
-	IGAME_CORE_INFO("[FileWriter] SaveBufferDataToFile end bytes={} success=true",
-                fileSize);
 	return true;
 //下面的是内存映射方式，效率没有fwrite高
 #ifdef PLATFORM_WINDOWS
