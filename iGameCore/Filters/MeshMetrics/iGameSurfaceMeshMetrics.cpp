@@ -171,6 +171,7 @@ double SurfaceMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
 }
 //计算顶点内角
 double SurfaceMeshMetricsFilter::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2) {
+
     Point e1 = v1 - v0;
     Point e2 = v2 - v0;
     double denom = e1.norm() * e2.norm();
