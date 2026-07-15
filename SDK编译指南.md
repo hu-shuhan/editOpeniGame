@@ -8,21 +8,89 @@ git clone -b stable-sdk --recursive https://gitcode.com/yanhekaiyuan/iGameVis.gi
 
 > 该命令会拉取带所有子模块的仓库代码（包含 CGNS，CGNS 作为 SDK 编译时的功能可选项）。
 
-## 2. 解压 libtorch
+## 2. 依赖安装(各依赖的获取详见附录)
 
-在 `ThirdParty` 文件夹下解压 libtorch，最终项目路径构成如下：
+### 2.1 libtorch路径
+在 `ThirdParty` 文件夹下解压 libtorch至iGameVis/ThirdParty/libtorch/Windows(or Linux)/Release(or Debug)/GPU，最终可能的项目路径构成如下：
 
 ```
 -iGameVis
     -iGameCore
-    -CmakeGPS
-    -Script
     -ThirdParty
         -libtorch
-        -cgns
+            -Windows
+                -Release
+                    -CPU
+                    -GPU
+                -Debug
+                    -CPU
+                    -GPU
+            -Linux
+                -Release
+                    -CPU
+                    -GPU
+                        -bin
+                        -include
+                        -lib
+                        -share
+                        -build-hash
+                        -build-version
+                -Debug
+                    -CPU
+                    -GPU
 ```
 
-## 3. 运行编译脚本
+### 2.2 Wayland依赖构建(仅Linux端)
+
+`wayland-scanner` 由 Ubuntu 的 `libwayland-bin` 软件包提供。
+
+安装：
+
+```
+sudo apt update
+sudo apt install \
+  pkg-config \
+  libwayland-bin \
+  libwayland-dev \
+  libxkbcommon-dev \
+  libx11-dev \
+  libxrandr-dev \
+  libxinerama-dev \
+  libxcursor-dev \
+  libxi-dev \
+  libxext-dev
+```
+
+检查版本：
+
+```
+wayland-scanner --version
+dpkg-query -W -f='${Package} ${Version}\n' libwayland-bin
+```
+
+## 3. 修改CGNS模块CMakeLists.txt（仅在拉取CGNS模块时需要）
+
+CGNS模块的期望路径为iGameVis\ThirdParty\cgns，路径构成如下：
+```
+-iGameVis
+	-iGameCore
+    -ThirdParty
+    	-cgns
+        	-CMakeLists.txt
+```
+修改CMakeLists.txt中的
+```
+ADD_CUSTOM_TARGET(uninstall
+	"${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+```
+为
+```
+ADD_CUSTOM_TARGET(cgns_uninstall
+	"${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+```
+解决uninstall的重名冲突
+
+## 4. 运行编译脚本
 
 在项目根目录执行：
 
@@ -33,6 +101,16 @@ python build_and_package.py --build-type Release
 
 通过 Python 脚本执行自动编译，相关参数可直接在 SDK 编译脚本 `.py` 文件中修改，也可通过命令行参数传递。
 
+可选编译命令：
+| GCC版本 | 参数 |
+|------|------|
+| GCC11 | `--gcc-versions 11` |
+| GCC13 | `--gcc-versions 13` |
+| GCC15 | `--gcc-versions 15` |
+
+多版本编译参数直接记为--gcc-versions [gcc_version1] [gcc_version2]
+如--gcc-versions 11 13即可同时编译两个版本，参数为空时默认全编译，即GCC11、13、15三个版本
+
 可选子模块命令：
 
 | 模块 | 参数 |
@@ -40,7 +118,7 @@ python build_and_package.py --build-type Release
 | CGNS | `--enable-cgns` |
 | libtorch | `--enable-libtorch` |
 
-## 4. SDK 产物
+## 5. SDK 产物
 
 SDK 产物会被脚本按编译使用的 gcc 版本放置于根目录的不同文件夹下，期望的结果如下：
 
@@ -65,7 +143,7 @@ SDK 产物会被脚本按编译使用的 gcc 版本放置于根目录的不同�
 
 - **硬件需求**：Nvidia 显卡
 - **相关依赖**：NVIDIA CUDA Toolkit 12.1（已测试稳定），请至少确保 `nvcc -V` 和 `nvidia-smi` 能正常输出
-- **路径设置**：请在官方网站下载对应版本的 libtorch 预编译包后，将 libtorch 放置到 `ThirdParty/libtorch/Windows(or Linux)/Release(or Debug)/GPU` 路径下
+- **路径设置**：请在官方网站(https://pytorch.org/get-started)下载对应版本的 libtorch 预编译包后，将 libtorch 放置到 `ThirdParty/libtorch/Windows(or Linux)/Release(or Debug)/GPU` 路径下
 
 ### libtorch 官方下载资源解压后的期望路径
 
