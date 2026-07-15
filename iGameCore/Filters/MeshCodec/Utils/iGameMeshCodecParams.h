@@ -3,7 +3,6 @@
 
 #include "iGameMacro.h"
 #include "iGameType.h"
-#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
@@ -22,17 +21,6 @@ enum class QuantizeMode {
 	None,      // 无损
 	Default,   // 全局量化
 	KeyArea    // 分区量化
-};
-
-enum class AttrCodec {
-	FloatMeshopt = 0,
-	IntegerDeltaRleVarint = 1,
-	Unsupported = 255
-};
-
-enum class AttrLayout {
-	InterleavedRecord = 0,
-	ComponentSeries = 1
 };
 
 // =====================================================================================
@@ -66,12 +54,6 @@ struct AttrStorageParams : FloatStorageParams {
 	IGenum type = 0;                   // 类型 IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
 	IGenum attachmentType = 0;         // 附着类型 IG_POINT, IG_CELL
 	IGsize binaryCount = 0;            // 在二进制流中的长度
-	IGenum arrayType = IG_ARRAY_OBJECT;
-	AttrCodec attrCodec = AttrCodec::FloatMeshopt;
-	AttrLayout attrLayout = AttrLayout::InterleavedRecord;
-	uint8_t integerBitWidth = 0;
-	bool integerSigned = false;
-	std::vector<IGsize> componentBinaryCounts;
 
 	template<typename Ar>
 	void Archive(Ar& ar) {
@@ -80,12 +62,6 @@ struct AttrStorageParams : FloatStorageParams {
 		ar.Process(type);
 		ar.Process(attachmentType);
 		ar.Process(binaryCount);
-		ar.Process(arrayType);
-		ar.Process(attrCodec);
-		ar.Process(attrLayout);
-		ar.Process(integerBitWidth);
-		ar.Process(integerSigned);
-		ar.Process(componentBinaryCounts);
 	}
 };
 
@@ -134,7 +110,7 @@ struct StructuredMeshStorageParameters {
 };
 
 struct CodecStorageHeader {
-	uint32_t version = 3;              // 参数块版本
+	uint32_t version = 2;              // 参数块版本
 	bool attrUseCrossDependency = false;
 	uint8_t reserved[3] = {0, 0, 0};
 
@@ -235,12 +211,8 @@ struct CodecStorageParamSizeLimits {
 		for (const auto& attr : params.attrParams) {
 			if (FloatParamsExceed32Bit(attr) ||
 			    Exceeds32BitValue(static_cast<uint64_t>(attr.binaryCount)) ||
-			    Exceeds32BitValue(static_cast<uint64_t>(attr.name.size())) ||
-			    Exceeds32BitValue(static_cast<uint64_t>(attr.componentBinaryCounts.size()))) {
+			    Exceeds32BitValue(static_cast<uint64_t>(attr.name.size()))) {
 				return true;
-			}
-			for (const auto count : attr.componentBinaryCounts) {
-				if (Exceeds32BitValue(static_cast<uint64_t>(count))) { return true; }
 			}
 		}
 		return false;

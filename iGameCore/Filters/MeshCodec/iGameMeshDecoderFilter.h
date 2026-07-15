@@ -10,15 +10,14 @@
 #include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
 #include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
 #include "MeshCodec/SubCodec/iGameMeshIndexCodec.h"
-#include "MeshCodec/SubCodec/iGameMeshIntegerCodec.h"
 #include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
 #include "MeshCodec/iGameMeshCodec.h"
 #include "iGameMacro.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
-#include <cstring>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -31,7 +30,7 @@ class MeshDecoderFilter final : public MeshCodec {
 public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
-    static constexpr uint32_t SupportedParamVersion = 3;
+    static constexpr uint32_t SupportedParamVersion = 2;
     static constexpr uint32_t LegacyParamVersion = 1;
 
     MeshDecoderFilter() {
@@ -91,7 +90,6 @@ private:
 
     // progress record
     float m_DecompressProgress = 0.0f;
-    uint32_t m_ParamVersion = 0;
 
     static bool MulWillOverflow(IGsize a, IGsize b) {
         return b != 0 && a > std::numeric_limits<IGsize>::max() / b;
@@ -99,141 +97,6 @@ private:
 
     static bool AddWillOverflow(IGsize a, IGsize b) {
         return b > std::numeric_limits<IGsize>::max() - a;
-    }
-
-    static bool IsSupportedAttributeType(IGenum type) {
-        return type >= IG_SCALAR && type < IG_ATTRIBUTE_COUNT;
-    }
-
-    static bool IsSupportedAttributeAttachment(IGenum attachmentType) {
-        return attachmentType == IG_POINT || attachmentType == IG_CELL;
-    }
-
-    static bool IsFloatAttributeArray(IGenum arrayType) {
-        return arrayType == IG_FloatArray || arrayType == IG_DoubleArray;
-    }
-
-    static bool IsSupportedIntegerAttributeArray(IGenum arrayType) {
-        switch (arrayType) {
-            case IG_CharArray:
-            case IG_UnsignedCharArray:
-            case IG_ShortArray:
-            case IG_UnsignedShortArray:
-            case IG_IntArray:
-            case IG_UnsignedIntArray:
-            case IG_LongLongArray:
-            case IG_UnsignedLongLongArray:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    static bool IsSignedIntegerAttributeArray(IGenum arrayType) {
-        switch (arrayType) {
-            case IG_CharArray:
-                return std::numeric_limits<char>::is_signed;
-            case IG_ShortArray:
-            case IG_IntArray:
-            case IG_LongLongArray:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    static uint8_t IntegerBitWidth(IGenum arrayType) {
-        switch (arrayType) {
-            case IG_CharArray:
-                return static_cast<uint8_t>(sizeof(char) * 8u);
-            case IG_UnsignedCharArray:
-                return static_cast<uint8_t>(sizeof(unsigned char) * 8u);
-            case IG_ShortArray:
-                return static_cast<uint8_t>(sizeof(short) * 8u);
-            case IG_UnsignedShortArray:
-                return static_cast<uint8_t>(sizeof(unsigned short) * 8u);
-            case IG_IntArray:
-                return static_cast<uint8_t>(sizeof(int) * 8u);
-            case IG_UnsignedIntArray:
-                return static_cast<uint8_t>(sizeof(unsigned int) * 8u);
-            case IG_LongLongArray:
-                return static_cast<uint8_t>(sizeof(long long) * 8u);
-            case IG_UnsignedLongLongArray:
-                return static_cast<uint8_t>(sizeof(unsigned long long) * 8u);
-            default:
-                return 0;
-        }
-    }
-
-    static bool SumComponentBinaryCounts(const AttrStorageParams& attr, IGsize& sum) {
-        sum = 0;
-        for (const IGsize count : attr.componentBinaryCounts) {
-            if (AddWillOverflow(sum, count)) { return false; }
-            sum += count;
-        }
-        return true;
-    }
-
-    bool ValidateLegacyAttrParams(const AttrStorageParams& attr, IGsize& attrBinaryTotal) const {
-        if (attr.dimension <= 0) { return false; }
-        if (attr.valueSize == 0) { return false; }
-        if (!IsSupportedAttributeType(attr.type)) { return false; }
-        if (attr.attachmentType < IG_POINT || attr.attachmentType > IG_MID_POINT) { return false; }
-        if (MulWillOverflow(attr.elementCount, static_cast<IGsize>(attr.dimension))) { return false; }
-        if (AddWillOverflow(attrBinaryTotal, attr.binaryCount)) { return false; }
-        attrBinaryTotal += attr.binaryCount;
-        return true;
-    }
-
-    bool ValidateV3AttrParams(const AttrStorageParams& attr, IGsize& attrBinaryTotal) const {
-        if (attr.dimension <= 0) { return false; }
-        if (!IsSupportedAttributeType(attr.type)) { return false; }
-        if (!IsSupportedAttributeAttachment(attr.attachmentType)) { return false; }
-        if (MulWillOverflow(attr.elementCount, static_cast<IGsize>(attr.dimension))) { return false; }
-        if (AddWillOverflow(attrBinaryTotal, attr.binaryCount)) { return false; }
-        attrBinaryTotal += attr.binaryCount;
-
-        if (attr.attrCodec == AttrCodec::FloatMeshopt) {
-            if (attr.attrLayout != AttrLayout::ComponentSeries) { return true; }
-            if (!IsFloatAttributeArray(attr.arrayType)) { return true; }
-            if (attr.arrayType == IG_FloatArray && attr.valueSize != sizeof(float)) { return false; }
-            if (attr.arrayType == IG_DoubleArray && attr.valueSize != sizeof(double)) { return false; }
-            if (attr.componentBinaryCounts.size() != static_cast<size_t>(attr.dimension)) { return false; }
-            IGsize componentTotal = 0;
-            if (!SumComponentBinaryCounts(attr, componentTotal)) { return false; }
-            return componentTotal == attr.binaryCount;
-        }
-
-        if (attr.attrCodec == AttrCodec::IntegerDeltaRleVarint) {
-            if (attr.attrLayout != AttrLayout::ComponentSeries) { return true; }
-            if (!IsSupportedIntegerAttributeArray(attr.arrayType)) { return true; }
-            const uint8_t bitWidth = IntegerBitWidth(attr.arrayType);
-            if (bitWidth == 0 || attr.integerBitWidth != bitWidth) { return false; }
-            if (attr.valueSize != static_cast<IGsize>(bitWidth / 8u)) { return false; }
-            if (attr.integerSigned != IsSignedIntegerAttributeArray(attr.arrayType)) { return false; }
-            return true;
-        }
-
-        return true;
-    }
-
-    void NormalizeLegacyAttrParams() {
-        for (auto& attr : this->m_codecParams.attrParams) {
-            attr.componentBinaryCounts.clear();
-            attr.integerBitWidth = 0;
-            attr.integerSigned = false;
-            attr.attrLayout = AttrLayout::InterleavedRecord;
-            if (attr.valueSize == sizeof(float)) {
-                attr.arrayType = IG_FloatArray;
-                attr.attrCodec = AttrCodec::FloatMeshopt;
-            } else if (attr.valueSize == sizeof(double)) {
-                attr.arrayType = IG_DoubleArray;
-                attr.attrCodec = AttrCodec::FloatMeshopt;
-            } else {
-                attr.arrayType = IG_ARRAY_OBJECT;
-                attr.attrCodec = AttrCodec::Unsupported;
-            }
-        }
     }
 
     bool ValidateCodecParams() const {
@@ -260,11 +123,13 @@ private:
 
         IGsize attrBinaryTotal = 0;
         for (const auto& attr : this->m_codecParams.attrParams) {
-            if (m_ParamVersion == LegacyParamVersion) {
-                if (!ValidateLegacyAttrParams(attr, attrBinaryTotal)) { return false; }
-            } else {
-                if (!ValidateV3AttrParams(attr, attrBinaryTotal)) { return false; }
-            }
+            if (attr.dimension <= 0) { return false; }
+            if (attr.valueSize != sizeof(float) && attr.valueSize != sizeof(double)) { return false; }
+            if (attr.type < IG_SCALAR || attr.type >= IG_ATTRIBUTE_COUNT) { return false; }
+            if (attr.attachmentType < IG_POINT || attr.attachmentType > IG_MID_POINT) { return false; }
+            if (MulWillOverflow(attr.elementCount, static_cast<IGsize>(attr.dimension))) { return false; }
+            if (AddWillOverflow(attrBinaryTotal, attr.binaryCount)) { return false; }
+            attrBinaryTotal += attr.binaryCount;
         }
 
         return true;
@@ -324,17 +189,10 @@ private:
             return false;
         }
 
-        if (header.version == 2) {
-            IGAME_CORE_ERROR("IGC parameter version 2 is not supported. Please regenerate this file as version 3");
-            return false;
-        }
-
         if (header.version != SupportedParamVersion && header.version != LegacyParamVersion) {
             IGAME_CORE_ERROR("Unsupported IGC parameter version {}. Please update or regenerate this file", header.version);
             return false;
         }
-
-        m_ParamVersion = header.version;
 
         if constexpr (sizeof(std::size_t) < sizeof(uint64_t)) {
             if (header.Requires64BitSize()) {
@@ -352,13 +210,12 @@ private:
         }
 
         if (header.version == LegacyParamVersion) {
-            IGAME_CORE_WARN("Reading legacy IGC parameter version 1. Please prefer version 3 IGC data when possible");
+            IGAME_CORE_WARN("Reading legacy IGC parameter version 1. Please prefer version 2 IGC data when possible");
             std::string error;
             if (!CodecLegacyV1Probe::Decode(data, this->m_codecParams, &error)) {
                 IGAME_CORE_ERROR("Invalid legacy IGC parameter payload: {}", error);
                 return false;
             }
-            NormalizeLegacyAttrParams();
         } else {
             try {
                 CodecBinaryInputArchive ar(data);
@@ -402,49 +259,6 @@ private:
         return true;
     }
 
-    template<typename ValueType>
-    static bool DecodeIntegerAttribute(
-            AttributeBuffer& attr,
-            const std::vector<unsigned char>& inputBuffer,
-            const AttrStorageParams& params) {
-        std::vector<ValueType> values;
-        if (!MeshIntegerCodec::Decode<ValueType>(values, inputBuffer, params.elementCount, params.dimension)) {
-            return false;
-        }
-
-        attr.rawData.resize(values.size() * sizeof(ValueType));
-        if (!values.empty()) {
-            std::memcpy(attr.rawData.data(), values.data(), attr.rawData.size());
-        }
-        return true;
-    }
-
-    static bool DecodeIntegerAttributeByType(
-            AttributeBuffer& attr,
-            const std::vector<unsigned char>& inputBuffer,
-            const AttrStorageParams& params) {
-        switch (params.arrayType) {
-            case IG_CharArray:
-                return DecodeIntegerAttribute<char>(attr, inputBuffer, params);
-            case IG_UnsignedCharArray:
-                return DecodeIntegerAttribute<unsigned char>(attr, inputBuffer, params);
-            case IG_ShortArray:
-                return DecodeIntegerAttribute<short>(attr, inputBuffer, params);
-            case IG_UnsignedShortArray:
-                return DecodeIntegerAttribute<unsigned short>(attr, inputBuffer, params);
-            case IG_IntArray:
-                return DecodeIntegerAttribute<int>(attr, inputBuffer, params);
-            case IG_UnsignedIntArray:
-                return DecodeIntegerAttribute<unsigned int>(attr, inputBuffer, params);
-            case IG_LongLongArray:
-                return DecodeIntegerAttribute<long long>(attr, inputBuffer, params);
-            case IG_UnsignedLongLongArray:
-                return DecodeIntegerAttribute<unsigned long long>(attr, inputBuffer, params);
-            default:
-                return false;
-        }
-    }
-
     bool AttrDecoder(PayloadBuffer& buf) {
         std::vector<unsigned char> uCharBuffer(buf.size());
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
@@ -470,108 +284,73 @@ private:
             return false;
         }
 
+        // 用于暂存所有线程产生的属性数据
         std::vector<AttributeBuffer> attrBuffers(this->m_codecParams.attrParams.size());
+        std::atomic_bool attrDecodeFailed{false};
 
-        for (size_t i = 0; i < this->m_codecParams.attrParams.size(); ++i) {
-            auto& params = this->m_codecParams.attrParams[i];
-            if (params.dimension <= 0 || params.elementCount == 0) {
-                IGAME_CORE_WARN("Skipping IGC attribute {}: invalid dimension or element count", params.name);
-                continue;
-            }
+        // 进度控制
+        CodecProgressParallelFor(this, 0,
+                            static_cast<int>(this->m_codecParams.attrParams.size()),
+                            m_DecompressProgress, m_DecompressProgress + 0.2f,
+                            [&](int start, int end) -> void {
+            for (int i = start; i < end; i++) {
+                if (attrDecodeFailed.load()) { return; }
+                auto& params = this->m_codecParams.attrParams[i];
 
-            std::vector<unsigned char> inputBuffer(
-                uCharBuffer.begin() + binaryCursorOffsets[i],
-                uCharBuffer.begin() + binaryCursorOffsets[i + 1]
-            );
-
-            const IGsize valueCount = params.elementCount * params.dimension;
-
-            AttributeBuffer attr;
-            attr.name = params.name;
-            attr.type = params.type;
-            attr.attachmentType = params.attachmentType;
-            attr.dimension = params.dimension;
-            attr.valueSize = static_cast<int>(params.valueSize);
-            attr.arrayType = params.arrayType;
-            attr.attrCodec = params.attrCodec;
-
-            bool decodeOk = false;
-            if (params.attrCodec == AttrCodec::Unsupported) {
-                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute codec", params.name);
-                continue;
-            }
-
-            if (params.attrCodec == AttrCodec::FloatMeshopt) {
-                const bool legacyInterleaved =
-                        m_ParamVersion == LegacyParamVersion &&
-                        params.attrLayout == AttrLayout::InterleavedRecord;
-                const bool componentSeries = params.attrLayout == AttrLayout::ComponentSeries;
-                if (!legacyInterleaved && !componentSeries) {
-                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute layout", params.name);
+                // 参数有效性检查
+                if (params.dimension <= 0 || params.elementCount <= 0) {
                     continue;
                 }
-                if (params.arrayType == IG_FloatArray) {
+
+                // 使用预先计算的位置获取当前属性的二进制数据
+                std::vector<unsigned char> inputBuffer(
+                    uCharBuffer.begin() + binaryCursorOffsets[i],
+                    uCharBuffer.begin() + binaryCursorOffsets[i + 1]
+                );
+
+                // 提取属性名
+                const IGsize valueCount = params.elementCount * params.dimension;
+
+                // 构建 AttributeBuffer
+                AttributeBuffer attr;
+                attr.name = params.name;
+                attr.type = params.type;
+                attr.attachmentType = params.attachmentType;
+                attr.dimension = params.dimension;
+                attr.valueSize = params.valueSize;
+
+                if (params.valueSize == sizeof(float)) {
                     std::vector<float> floats;
-                    if (legacyInterleaved) {
-                        MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
-                        decodeOk = true;
-                    } else if (componentSeries) {
-                        decodeOk = MeshFloatCodec::FloatDecoderComponentSeries(
-                                floats, inputBuffer, params, params.componentBinaryCounts);
-                    }
-                    if (!decodeOk || floats.size() != static_cast<size_t>(valueCount)) {
-                        IGAME_CORE_ERROR("Invalid IGC attribute payload");
-                        return false;
+                    MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
+                    // 解码结果大小验证
+                    if (floats.size() != valueCount) {
+                        attrDecodeFailed.store(true);
+                        return;
                     }
                     attr.floatData = std::move(floats);
-                } else if (params.arrayType == IG_DoubleArray) {
+                } else if (params.valueSize == sizeof(double)) {
                     std::vector<double> doubles;
-                    if (legacyInterleaved) {
-                        MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
-                        decodeOk = true;
-                    } else if (componentSeries) {
-                        decodeOk = MeshFloatCodec::FloatDecoderComponentSeries(
-                                doubles, inputBuffer, params, params.componentBinaryCounts);
-                    }
-                    if (!decodeOk || doubles.size() != static_cast<size_t>(valueCount)) {
-                        IGAME_CORE_ERROR("Invalid IGC attribute payload");
-                        return false;
+                    MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
+                    // 解码结果大小验证
+                    if (doubles.size() != valueCount) {
+                        attrDecodeFailed.store(true);
+                        return;
                     }
                     attr.doubleData = std::move(doubles);
-                } else {
-                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported float array type {}", params.name, params.arrayType);
-                    continue;
                 }
-            } else if (params.attrCodec == AttrCodec::IntegerDeltaRleVarint) {
-                if (params.attrLayout != AttrLayout::ComponentSeries) {
-                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported integer attribute layout", params.name);
-                    continue;
-                }
-                if (!IsSupportedIntegerAttributeArray(params.arrayType)) {
-                    IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported integer array type {}", params.name, params.arrayType);
-                    continue;
-                }
-                decodeOk = DecodeIntegerAttributeByType(attr, inputBuffer, params);
-                if (!decodeOk || attr.rawData.size() != static_cast<size_t>(valueCount) * static_cast<size_t>(params.valueSize)) {
-                    IGAME_CORE_ERROR("Invalid IGC attribute payload");
-                    return false;
-                }
-            } else {
-                IGAME_CORE_WARN("Skipping IGC attribute {}: unsupported attribute codec", params.name);
-                continue;
-            }
 
-            attr.valid = true;
-            attrBuffers[i] = std::move(attr);
-            if (!this->m_codecParams.attrParams.empty()) {
-                UpdateProgress(m_DecompressProgress + 0.2f * (static_cast<float>(i + 1) /
-                                                              static_cast<float>(this->m_codecParams.attrParams.size())));
+                // 保存解码结果
+                attrBuffers[i] = std::move(attr);
             }
-        }
+        });
 
         // 更新最终进度
         m_DecompressProgress += 0.2;
         UpdateProgress(m_DecompressProgress);
+        if (attrDecodeFailed.load()) {
+            IGAME_CORE_ERROR("Invalid IGC attribute payload");
+            return false;
+        }
 
         // 所有线程完成后，按顺序添加属性
         for (const auto& attr : attrBuffers) {
