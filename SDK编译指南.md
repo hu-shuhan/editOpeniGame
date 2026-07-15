@@ -22,7 +22,29 @@ git clone -b stable-sdk --recursive https://gitcode.com/yanhekaiyuan/iGameVis.gi
         -cgns
 ```
 
-## 3. 运行编译脚本
+## 3. 修改CGNS模块CMakeLists.txt（仅在拉取CGNS模块时需要）
+
+CGNS模块的期望路径为iGameVis\ThirdParty\cgns，路径构成如下：
+```
+-iGameVis
+	-iGameCore
+    -ThirdParty
+    	-cgns
+        	-CMakeLists.txt
+```
+修改CMakeLists.txt中的
+```
+ADD_CUSTOM_TARGET(uninstall
+	"${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+```
+为
+```
+ADD_CUSTOM_TARGET(cgns_uninstall
+	"${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+```
+解决uninstall的重名冲突
+
+## 4. 运行编译脚本
 
 在项目根目录执行：
 
@@ -40,7 +62,7 @@ python build_and_package.py --build-type Release
 | CGNS | `--enable-cgns` |
 | libtorch | `--enable-libtorch` |
 
-## 4. SDK 产物
+## 5. SDK 产物
 
 SDK 产物会被脚本按编译使用的 gcc 版本放置于根目录的不同文件夹下，期望的结果如下：
 
