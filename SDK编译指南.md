@@ -65,7 +65,7 @@ SDK 产物会被脚本按编译使用的 gcc 版本放置于根目录的不同�
 
 - **硬件需求**：Nvidia 显卡
 - **相关依赖**：NVIDIA CUDA Toolkit 12.1（已测试稳定），请至少确保 `nvcc -V` 和 `nvidia-smi` 能正常输出
-- **路径设置**：请在官方网站下载对应版本的 libtorch 预编译包后，将 libtorch 放置到 `ThirdParty/libtorch/Windows(or Linux)/Release(or Debug)/GPU` 路径下
+- **路径设置**：请在官方网站(https://pytorch.org/get-started)下载对应版本的 libtorch 预编译包后，将 libtorch 放置到 `ThirdParty/libtorch/Windows(or Linux)/Release(or Debug)/GPU` 路径下
 
 ### libtorch 官方下载资源解压后的期望路径
 
