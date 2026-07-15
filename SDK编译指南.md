@@ -8,7 +8,7 @@ git clone -b stable-sdk --recursive https://gitcode.com/yanhekaiyuan/iGameVis.gi
 
 > 该命令会拉取带所有子模块的仓库代码（包含 CGNS，CGNS 作为 SDK 编译时的功能可选项）。
 
-## 2. 解压 libtorch
+## 2. 解压 libtorch(libtorch的获取详见附录)
 
 在 `ThirdParty` 文件夹下解压 libtorch，最终项目路径构成如下：
 
