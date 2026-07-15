@@ -48,7 +48,17 @@ git clone -b stable-sdk --recursive https://gitcode.com/yanhekaiyuan/iGameVis.gi
 
 ```
 sudo apt update
-sudo apt install libwayland-bin libwayland-dev libxkbcommon-dev pkg-config
+sudo apt install \
+  pkg-config \
+  libwayland-bin \
+  libwayland-dev \
+  libxkbcommon-dev \
+  libx11-dev \
+  libxrandr-dev \
+  libxinerama-dev \
+  libxcursor-dev \
+  libxi-dev \
+  libxext-dev
 ```
 
 检查版本：
