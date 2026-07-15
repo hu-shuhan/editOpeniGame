@@ -41,8 +41,6 @@ public:
     }
 
     bool Execute() override {
-        ReleaseRunState();
-
         // 无论解码成功/失败，都清理进度文本，避免 UI 文案残留
         struct ProgressTextResetGuard {
             ProgressObserver* observer{};
@@ -51,14 +49,6 @@ public:
                 observer->UpdateText("");
             }
         } resetTextGuard{m_ProgressObserver};
-
-        struct RunStateResetGuard {
-            MeshDecoderFilter* self{};
-            bool success = false;
-            ~RunStateResetGuard() noexcept {
-                if (!success && self) { self->ReleaseRunState(); }
-            }
-        } runStateGuard{this};
 
         if (!InitializeInputs()) { return false; }
 
@@ -75,7 +65,6 @@ public:
         }
 
         SetOutput(0, m_DecoderOutput);
-        ReleaseTransientRunState();
         UpdateProgress(1.0);
 
         // 解码结束后复位进度条，避免停留在 100%
@@ -87,7 +76,6 @@ public:
             m_ProgressObserver->UpdateProgress(0.0);
             m_ProgressObserver->UpdateText("");
         }
-        runStateGuard.success = true;
         return true;
     }
 
@@ -104,22 +92,6 @@ private:
     // progress record
     float m_DecompressProgress = 0.0f;
     uint32_t m_ParamVersion = 0;
-
-    void ReleaseRunState() {
-        SetOutput(0, nullptr);
-        m_DecoderInput = nullptr;
-        m_codecParams = CodecStorageParams{};
-        m_ParamVersion = 0;
-        if (m_DecoderOutput) { m_DecoderOutput->SetOutput(OutputType{}); }
-        if (m_DecoderAdapter) { m_DecoderAdapter->ResetOutput(); }
-    }
-
-    void ReleaseTransientRunState() {
-        m_DecoderInput = nullptr;
-        m_codecParams = CodecStorageParams{};
-        m_ParamVersion = 0;
-        if (m_DecoderAdapter) { m_DecoderAdapter->ResetOutput(); }
-    }
 
     static bool MulWillOverflow(IGsize a, IGsize b) {
         return b != 0 && a > std::numeric_limits<IGsize>::max() / b;

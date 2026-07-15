@@ -17,13 +17,7 @@ class MeshDecodeAdapterToDataObject final : public IMeshDecodeAdapter<DataObject
 public:
     MeshDecodeAdapterToDataObject() = default;
 
-    void ResetOutput() override {
-        m_DataObj = nullptr;
-        m_MeshType = IG_NONE;
-    }
-
     void SetMeshType(IGenum meshType) override {
-        ResetOutput();
         m_MeshType = meshType;
         switch (m_MeshType)
         {
@@ -321,7 +315,7 @@ public:
 
 private:
     DataObject::Pointer m_DataObj;
-    IGenum m_MeshType = IG_NONE;
+    IGenum m_MeshType;
 
     void SetStructuredCellArray(CellArray::Pointer cells, int dimension)
     {

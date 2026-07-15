@@ -13,8 +13,6 @@ class IMeshDecodeAdapterBase
 public:
     virtual ~IMeshDecodeAdapterBase() = default;
 
-    virtual void ResetOutput() = 0;
-
     virtual void SetMeshType(IGenum meshType) = 0;
 
     virtual void SetPointBuffer(const std::vector<float>& input) = 0;
