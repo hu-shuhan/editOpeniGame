@@ -8,18 +8,54 @@ git clone -b stable-sdk --recursive https://gitcode.com/yanhekaiyuan/iGameVis.gi
 
 > 该命令会拉取带所有子模块的仓库代码（包含 CGNS，CGNS 作为 SDK 编译时的功能可选项）。
 
-## 2. 解压 libtorch(libtorch的获取详见附录)
+## 2. 依赖安装(各依赖的获取详见附录)
 
-在 `ThirdParty` 文件夹下解压 libtorch，最终项目路径构成如下：
+### 2.1 libtorch路径
+在 `ThirdParty` 文件夹下解压 libtorch至iGameVis/ThirdParty/libtorch/Windows(or Linux)/Release(or Debug)/GPU，最终可能的项目路径构成如下：
 
 ```
 -iGameVis
     -iGameCore
-    -CmakeGPS
-    -Script
     -ThirdParty
         -libtorch
-        -cgns
+            -Windows
+                -Release
+                    -CPU
+                    -GPU
+                -Debug
+                    -CPU
+                    -GPU
+            -Linux
+                -Release
+                    -CPU
+                    -GPU
+                        -bin
+                        -include
+                        -lib
+                        -share
+                        -build-hash
+                        -build-version
+                -Debug
+                    -CPU
+                    -GPU
+```
+
+### 2.2 Wayland依赖构建(仅Linux端)
+
+`wayland-scanner` 由 Ubuntu 的 `libwayland-bin` 软件包提供。
+
+安装：
+
+```
+sudo apt update
+sudo apt install libwayland-bin libwayland-dev libxkbcommon-dev pkg-config
+```
+
+检查版本：
+
+```
+wayland-scanner --version
+dpkg-query -W -f='${Package} ${Version}\n' libwayland-bin
 ```
 
 ## 3. 修改CGNS模块CMakeLists.txt（仅在拉取CGNS模块时需要）
@@ -54,6 +90,16 @@ python build_and_package.py --build-type Release
 ```
 
 通过 Python 脚本执行自动编译，相关参数可直接在 SDK 编译脚本 `.py` 文件中修改，也可通过命令行参数传递。
+
+可选编译命令：
+| GCC版本 | 参数 |
+|------|------|
+| GCC11 | `--gcc-versions 11` |
+| GCC13 | `--gcc-versions 13` |
+| GCC15 | `--gcc-versions 15` |
+
+多版本编译参数直接记为--gcc-versions [gcc_version1] [gcc_version2]
+如--gcc-versions 11 13即可同时编译两个版本，参数为空时默认全编译，即GCC11、13、15三个版本
 
 可选子模块命令：
 
