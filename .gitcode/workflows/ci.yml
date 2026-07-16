@@ -1,0 +1,83 @@
+# GitCode CI — verify configure / build / install / ctest on Linux.
+# Docs: https://docs.gitcode.com/docs/help/home/org_project/pipeline/pipeline-intro1/
+# After checkout, run commands from repo_workspace.
+
+name: CI
+
+on:
+  push:
+    branches: [main, stable-sdk]
+  workflow_dispatch:
+
+jobs:
+  build-core-linux:
+    name: Core Build (Linux)
+    runs-on: [ubuntu-latest, x64, medium]
+    steps:
+      - uses: checkout-action@0.0.1
+
+      - name: Install dependencies
+        run: |
+          cd repo_workspace
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates \
+            build-essential \
+            cmake \
+            ninja-build \
+            ccache \
+            git \
+            pkg-config \
+            libgl1-mesa-dev \
+            libomp-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libhdf5-dev \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libswresample-dev \
+            libavfilter-dev \
+            libavdevice-dev \
+            libpostproc-dev \
+            xvfb
+          cmake --version
+          ccache -z || true
+
+      - name: Configure
+        run: |
+          cd repo_workspace
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DENABLE_QT_MODULE=OFF \
+            -DENABLE_GPSCUDA_MODULE=OFF \
+            -DENABLE_LIBTORCH_MODULE=OFF \
+            -DENABLE_CGNS_MODULE=OFF \
+            -DENABLE_NASTRAN_MODULE=OFF \
+            -DEXAMPLE_COMPILE=ON \
+            -DGLFW_BUILD_WAYLAND=OFF
+
+      - name: Build
+        run: |
+          cd repo_workspace
+          cmake --build build --parallel
+
+      - name: Install
+        run: |
+          cd repo_workspace
+          cmake --build build --target install
+
+      - name: Run Examples tests
+        run: |
+          cd repo_workspace/build
+          xvfb-run -a ctest --output-on-failure --parallel 2
+
+      - name: ccache stats
+        if: always()
+        run: ccache -s || true
