@@ -1,0 +1,101 @@
+name: Mirror to GitCode
+
+on:
+  # Run only after the CI workflow completes successfully.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, stable-sdk]
+  # Manual sync: Actions -> Mirror to GitCode -> Run workflow
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to mirror (defaults to the selected ref)
+        required: false
+        type: string
+
+concurrency:
+  group: mirror-gitcode-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    name: Push to GitCode
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'
+      )
+
+    steps:
+      - name: Resolve branch and commit
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BRANCH="${{ inputs.branch }}"
+            if [ -z "$BRANCH" ]; then
+              BRANCH="${GITHUB_REF_NAME}"
+            fi
+            COMMIT="${GITHUB_SHA}"
+          else
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            COMMIT="${{ github.event.workflow_run.head_sha }}"
+          fi
+
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "Mirroring branch '$BRANCH' at commit '$COMMIT'"
+
+      - name: Checkout source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.commit }}
+          fetch-depth: 0
+
+      - name: Push to GitCode
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          GITCODE_USERNAME: ${{ vars.GITCODE_USERNAME || 'yanhekaiyuan' }}
+          GITCODE_REPO: https://gitcode.com/yanhekaiyuan/iGameVis.git
+          BRANCH: ${{ steps.meta.outputs.branch }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GITCODE_TOKEN:-}" ]; then
+            echo "::warning::GITCODE_TOKEN is not configured. Skipping GitCode mirror."
+            echo "Add a GitCode personal access token to repository secrets to enable auto-sync."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote remove gitcode 2>/dev/null || true
+          git remote add gitcode \
+            "https://${GITCODE_USERNAME}:${GITCODE_TOKEN}@gitcode.com/yanhekaiyuan/iGameVis.git"
+
+          git fetch gitcode "${BRANCH}" || true
+
+          if git show-ref --verify --quiet "refs/remotes/gitcode/${BRANCH}"; then
+            git push gitcode "HEAD:refs/heads/${BRANCH}" --force-with-lease=gitcode/${BRANCH}
+          else
+            git push gitcode "HEAD:refs/heads/${BRANCH}"
+          fi
+
+          echo "Synced ${BRANCH} -> gitcode/${BRANCH}"
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## GitCode mirror"
+            echo
+            echo "- Branch: \`${{ steps.meta.outputs.branch }}\`"
+            echo "- Commit: \`${{ steps.meta.outputs.commit }}\`"
+            echo "- Target: https://gitcode.com/yanhekaiyuan/iGameVis"
+          } >> "$GITHUB_STEP_SUMMARY"
