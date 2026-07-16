@@ -6,6 +6,7 @@
 #ifndef __EMSCRIPTEN__
 #include <omp.h>
 #endif
+#include <stdexcept>
 IGAME_NAMESPACE_BEGIN
 #define ArrayList std::vector<ArrayObject>
 ModelGeometryFilter::ModelGeometryFilter() {
@@ -275,18 +276,19 @@ using GPolygon = DynamicFace;
 
 class FaceMemoryPool {
 private:
-    igIndex NumberOfArrays;
-    igIndex ArrayLength;
-    igIndex NextArrayIndex;
-    igIndex NextFaceIndex;
+    static constexpr std::size_t BlockSize = 64ULL * 1024ULL * 1024ULL;
+    std::size_t NumberOfArrays;
+    std::size_t ArrayLength;
+    std::size_t NextArrayIndex;
+    std::size_t NextFaceIndex;
     unsigned char** Arrays;
-    inline static int SizeofFace(const int& numberOfPoints) {
-        static constexpr int fSize = sizeof(GFace);
-        static constexpr int sizeId = sizeof(igIndex);
+    inline static std::size_t SizeofFace(const int& numberOfPoints) {
+        static constexpr std::size_t fSize = sizeof(GFace);
+        static constexpr std::size_t sizeId = sizeof(igIndex);
         if (fSize % sizeId == 0) {
-            return static_cast<int>(fSize + numberOfPoints * sizeId);
+            return fSize + static_cast<std::size_t>(numberOfPoints) * sizeId;
         } else {
-            return static_cast<int>((fSize / sizeId + 1 + numberOfPoints) * sizeId);
+            return (fSize / sizeId + 1 + static_cast<std::size_t>(numberOfPoints)) * sizeId;
         }
     }
 
@@ -303,18 +305,12 @@ public:
         this->NextArrayIndex = 0;
         this->NextFaceIndex = 0;
         this->Arrays = new unsigned char*[this->NumberOfArrays];
-        for (auto i = 0; i < this->NumberOfArrays; i++) { this->Arrays[i] = nullptr; }
-        //用四边形初始化内存，防止频繁开空间
-        int quadSize = SizeofFace(4);
-        if (numberOfPoints < this->NumberOfArrays) {
-            this->ArrayLength = 50 * quadSize;
-        } else {
-            this->ArrayLength = (numberOfPoints / 2) * quadSize;
-        }
+        for (std::size_t i = 0; i < this->NumberOfArrays; i++) { this->Arrays[i] = nullptr; }
+        this->ArrayLength = BlockSize;
     }
 
     void Destroy() {
-        for (auto i = 0; i < this->NumberOfArrays; i++) {
+        for (std::size_t i = 0; i < this->NumberOfArrays; i++) {
             delete[] this->Arrays[i];
             this->Arrays[i] = nullptr;
         }
@@ -328,7 +324,10 @@ public:
 
     GFace* Allocate(const int& numberOfPoints) {
 
-        const int polySize = SizeofFace(numberOfPoints);
+        const std::size_t polySize = SizeofFace(numberOfPoints);
+        if (polySize > this->ArrayLength) {
+            throw std::length_error("Face size exceeds FaceMemoryPool block size");
+        }
         //std::cout << this->NextArrayIndex << " " << this->NextFaceIndex << '\n';
         if (this->NextFaceIndex + polySize > this->ArrayLength) {
             ++this->NextArrayIndex;
@@ -336,7 +335,7 @@ public:
         }
 
         if (this->NextArrayIndex >= this->NumberOfArrays) {
-            int idx, num;
+            std::size_t idx, num;
             unsigned char** newArrays;
             num = this->NumberOfArrays * 2;
             newArrays = new unsigned char*[num];
@@ -356,8 +355,8 @@ public:
         GFace* Face = reinterpret_cast<GFace*>(this->Arrays[this->NextArrayIndex] + this->NextFaceIndex);
         Face->NumberOfPoints = numberOfPoints;
 
-        static constexpr int fSize = sizeof(GFace);
-        static constexpr int sizeId = sizeof(igIndex);
+        static constexpr std::size_t fSize = sizeof(GFace);
+        static constexpr std::size_t sizeId = sizeof(igIndex);
         //字节对齐
         if (fSize % sizeId == 0) {
             Face->PointIds = (igIndex*) Face + fSize / sizeId;
@@ -717,13 +716,26 @@ int ModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, Surfac
             new ExtractVM(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
     FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
     std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+    std::exception_ptr workerException;
+    std::mutex workerExceptionMutex;
 
     auto func = [&](igIndex start, igIndex end, int i) -> void {
-        FacePools[i] = new FaceMemoryPool;
-        FacePools[i]->Initialize(Mesh->GetNumberOfPoints());
-        extract->Execute(start, end, FacePools[i]);
+        try {
+            FacePools[i] = new FaceMemoryPool;
+            FacePools[i]->Initialize(Mesh->GetNumberOfPoints());
+            extract->Execute(start, end, FacePools[i]);
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(workerExceptionMutex);
+            if (!workerException) { workerException = std::current_exception(); }
+        }
     };
     ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
+    if (workerException) {
+        delete extract;
+        for (int poolIndex = 0; poolIndex < MaxThreadSize; ++poolIndex) { delete FacePools[poolIndex]; }
+        delete[] FacePools;
+        std::rethrow_exception(workerException);
+    }
 
     std::vector<igIndex> f2c;
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
@@ -1080,15 +1092,28 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
 #endif
     FaceMemoryPool** FacePools = new FaceMemoryPool*[poolCount];
     std::fill(FacePools, FacePools + poolCount, nullptr);
+    std::exception_ptr workerException;
+    std::mutex workerExceptionMutex;
     auto func = [&](igIndex start, igIndex end, int i) -> void {
-        int poolId = (i >= 0 && i < poolCount) ? i : 0;
-        if (FacePools[poolId] == nullptr) {
-            FacePools[poolId] = new FaceMemoryPool;
-            FacePools[poolId]->Initialize(Mesh->GetNumberOfPoints());
+        try {
+            int poolId = (i >= 0 && i < poolCount) ? i : 0;
+            if (FacePools[poolId] == nullptr) {
+                FacePools[poolId] = new FaceMemoryPool;
+                FacePools[poolId]->Initialize(Mesh->GetNumberOfPoints());
+            }
+            extract->Execute(start, end, FacePools[poolId]);
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(workerExceptionMutex);
+            if (!workerException) { workerException = std::current_exception(); }
         }
-        extract->Execute(start, end, FacePools[poolId]);
     };
     ThreadPool::parallelFor(0, numCells, poolCount, func);
+    if (workerException) {
+        delete extract;
+        for (int poolIndex = 0; poolIndex < poolCount; ++poolIndex) { delete FacePools[poolIndex]; }
+        delete[] FacePools;
+        std::rethrow_exception(workerException);
+    }
     std::vector<igIndex> f2c;
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);

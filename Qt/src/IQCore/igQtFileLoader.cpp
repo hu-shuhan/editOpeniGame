@@ -17,9 +17,11 @@
 #include "Spline XML/iGameSplineReaderGPU.h"
 #endif
 #include "Abaqus/iGameODBReader.h"
+#if defined(_WIN32) || defined(_WIN64)
 #include "Client.h"
-#include "Nastran/iGameNastranReader.h"
 #include "Sever.h"
+#endif
+#include "Nastran/iGameNastranReader.h"
 #include "Spline XML/iGameSplineReaderCPU.h"
 
 #include <IQComponents/Dialog/igQtBasicListOptionDialog.h>
