@@ -74,9 +74,9 @@ flowchart TB
 
 ~~~shell
 # 不使用 ThirdParty 子模块
-git clone https://github.com/mky8812/editOpeniGame.git
+git clone https://github.com/hu-shuhan/editOpeniGame.git
 # 使用 ThirdParty 子模块（详见 .gitmodules）
-git clone --recurse-submodules https://github.com/mky8812/editOpeniGame.git
+git clone --recurse-submodules https://github.com/hu-shuhan/editOpeniGame.git
 ~~~
 
 ## 编译
