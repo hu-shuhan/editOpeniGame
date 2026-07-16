@@ -52,7 +52,7 @@ jobs:
           echo "Mirroring branch '$BRANCH' at commit '$COMMIT'"
 
       - name: Checkout source commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.meta.outputs.commit }}
           fetch-depth: 0
@@ -61,31 +61,29 @@ jobs:
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
           GITCODE_USERNAME: ${{ vars.GITCODE_USERNAME || 'yanhekaiyuan' }}
-          GITCODE_REPO: https://gitcode.com/yanhekaiyuan/iGameVis.git
           BRANCH: ${{ steps.meta.outputs.branch }}
         run: |
           set -euo pipefail
 
           if [ -z "${GITCODE_TOKEN:-}" ]; then
-            echo "::warning::GITCODE_TOKEN is not configured. Skipping GitCode mirror."
-            echo "Add a GitCode personal access token to repository secrets to enable auto-sync."
-            exit 0
+            echo "::error::GITCODE_TOKEN is not configured."
+            exit 1
           fi
+
+          # URL-encode credentials so special characters in the token don't break git.
+          ENC_USER=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['GITCODE_USERNAME'], safe=''))")
+          ENC_TOKEN=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['GITCODE_TOKEN'], safe=''))")
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git remote remove gitcode 2>/dev/null || true
           git remote add gitcode \
-            "https://${GITCODE_USERNAME}:${GITCODE_TOKEN}@gitcode.com/yanhekaiyuan/iGameVis.git"
+            "https://${ENC_USER}:${ENC_TOKEN}@gitcode.com/yanhekaiyuan/iGameVis.git"
 
-          git fetch gitcode "${BRANCH}" || true
-
-          if git show-ref --verify --quiet "refs/remotes/gitcode/${BRANCH}"; then
-            git push gitcode "HEAD:refs/heads/${BRANCH}" --force-with-lease=gitcode/${BRANCH}
-          else
-            git push gitcode "HEAD:refs/heads/${BRANCH}"
-          fi
+          # GitHub is the source of truth for this mirror, so force-update the branch tip.
+          # --force-with-lease previously failed with exit 128 when lease ref syntax/state mismatched.
+          git push gitcode "HEAD:refs/heads/${BRANCH}" --force
 
           echo "Synced ${BRANCH} -> gitcode/${BRANCH}"
 
