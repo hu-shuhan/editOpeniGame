@@ -1,5 +1,4 @@
-**过程总结**
-最终结果：
+**产物目录**
 wasm 构建通过，并产出：
  iGameWasm.js
  iGameWasm.wasm
@@ -7,9 +6,13 @@ wasm 构建通过，并产出：
 
 **手动复现命令表（Windows，仓库根目录执行）**
 
-1. 进入工程目录
-cmd:
-cd editOpeniGame
+0. 安装emsdk(请确保拉取了emsdk子模块)
+cd ThirdParty\emsdk
+ .\emsdk.bat install latest
+ emsdk activate latest
+
+1. 进入工程根目录
+cd iGameVis
 
 2. 检查基础工具
 cmd:
@@ -42,7 +45,7 @@ dir out\build\wasm-release-memory16g\Examples\Wasm
 
 7. 本地启动静态服务（用于浏览器验证）
 cmd:
-cd editOpeniGame\out\build\wasm-release-memory16g\Examples\Wasm
+cd out\build\wasm-release-memory16g\Examples\Wasm
 python -m http.server 8000
 
 8. 浏览器打开
