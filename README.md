@@ -1,4 +1,4 @@
-# iGameVis developer version
+# iGameVis release version
 
 ## File Import
 
@@ -12,9 +12,9 @@ File import cannot have Chinese path.
 
 ~~~shell
 # Needn't to use ThirdParty's SubModule
-git clone https://github.com/mky8812/editOpeniGame.git
+git clone https://gitcode.com/yanhekaiyuan/iGameVis.git
 # If you need to use ThirdParty's SubModule. SubModule's detail see target file(.gitmodules)
-git clone --recurse-submodules https://github.com/mky8812/editOpeniGame.git
+git clone --recurse-submodules https://gitcode.com/yanhekaiyuan/iGameVis.git
 ~~~
 
 ## Build

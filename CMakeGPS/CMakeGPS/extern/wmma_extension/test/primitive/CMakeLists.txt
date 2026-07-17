@@ -1,0 +1,1 @@
+add_executable(primitive_mma mma.cu)

@@ -1,0 +1,6 @@
+set(LIBRARY_NAME MeshKernel)
+
+file(GLOB SOURCE_FILES *.cpp)
+file(GLOB INCLUDE_FILES *.hpp)
+#message(${SOURCE_FILES})
+add_library(${LIBRARY_NAME} STATIC ${INCLUDE_FILES} ${SOURCE_FILES})

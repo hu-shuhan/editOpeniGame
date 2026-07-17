@@ -1,0 +1,6 @@
+set(LIBRARY_NAME CommonLib)
+
+file(GLOB SOURCE_FILES *.cpp)
+file(GLOB INCLUDE_FILES *.hpp)
+
+add_library(${LIBRARY_NAME} STATIC ${SOURCE_FILES})

@@ -1,0 +1,1 @@
+add_executable(tcec_mma mma.cu)

@@ -119,6 +119,9 @@ def main():
     parser.add_argument('--generator', default='', help="CMake generator to use (e.g. Ninja, Visual Studio 17 2022).")
     parser.add_argument('--reuse-build', action='store_true', help="Reuse existing build directory (no clean).")
     parser.add_argument('--skip-package', action='store_true', help="Skip packaging stage.")
+    parser.add_argument('--gcc-versions', nargs='*', type=int, default=[],
+                        help="Specify GCC versions to build on Linux (e.g. --gcc-versions 11 13). "
+                             "If omitted, builds all (11, 13, 15). Ignored on non-Linux platforms.")
     args = parser.parse_args()
 
     build_configs = []
@@ -151,6 +154,22 @@ def main():
     else:
         print(f"--- Unsupported platform: {sys.platform}. Exiting. ---")
         sys.exit(1)
+
+    # Filter GCC versions if specified
+    if args.gcc_versions:
+        filtered = []
+        for ver in args.gcc_versions:
+            target_name = f"cmake-autobuild-release-gcc{ver}"
+            matched = [c for c in build_configs if c["name"] == target_name]
+            if matched:
+                filtered.extend(matched)
+            else:
+                print(f"Warning: GCC version {ver} not found in build configs, skipping.")
+        if not filtered:
+            print("Error: No matching GCC versions found. Available: gcc11, gcc13, gcc15")
+            sys.exit(1)
+        build_configs = filtered
+        print(f"--- Building only GCC versions: {args.gcc_versions} ---")
 
     for config in build_configs:
         build_and_package(config, args)
