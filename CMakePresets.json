@@ -91,6 +91,55 @@
                 "CMAKE_CXX_FLAGS": "-sMEMORY64=1",
                 "CMAKE_EXE_LINKER_FLAGS": "-sMEMORY64=1"
             }
+        },
+        {
+            "name": "windows-base",
+            "displayName": "Windows Desktop Base",
+            "description": "Base preset for native Windows x64 desktop builds",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe",
+                "ENABLE_QT_MODULE": "ON",
+                "ENABLE_WASM": "OFF",
+                "IGAME_RENDER_BACKEND": "DesktopGL"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "x64-Debug",
+            "displayName": "x64 Debug",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "x64-Release",
+            "displayName": "x64 Release",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "USE_VCPKG": "OFF"
+            }
+        },
+        {
+            "name": "x64-Release-2",
+            "displayName": "x64 RelWithDebInfo",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
         }
     ],
     "buildPresets": [
@@ -117,6 +166,18 @@
         {
             "name": "wasm-release-memory16g",
             "configurePreset": "wasm-release-memory16g"
+        },
+        {
+            "name": "x64-Debug",
+            "configurePreset": "x64-Debug"
+        },
+        {
+            "name": "x64-Release",
+            "configurePreset": "x64-Release"
+        },
+        {
+            "name": "x64-Release-2",
+            "configurePreset": "x64-Release-2"
         }
     ]
 }
