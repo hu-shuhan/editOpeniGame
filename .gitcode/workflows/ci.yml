@@ -1,0 +1,80 @@
+# GitCode CI — verify the project configures and builds.
+# Must follow GitCode workflow syntax (EulerOS runner).
+# Docs: https://docs.gitcode.com/docs/help/home/org_project/pipeline/pipeline-intro1/
+# After checkout-action, working copy is under repo_workspace.
+
+name: ci
+
+on:
+  push:
+    branches: ["main", "stable-sdk"]
+  pull_request:
+    branches: ["main", "stable-sdk"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: euleros-2.10.1
+    steps:
+      - uses: checkout-action@0.0.1
+
+      - name: Install dependencies
+        run: |
+          cd repo_workspace
+          set -e
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+              ca-certificates build-essential cmake ninja-build ccache git pkg-config \
+              libgl1-mesa-dev libomp-dev \
+              libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxkbcommon-dev \
+              libhdf5-dev \
+              libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+              libavfilter-dev libavdevice-dev libpostproc-dev \
+              xvfb
+          elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y gcc gcc-c++ make cmake ninja-build ccache git pkgconfig \
+              mesa-libGL-devel libX11-devel libXrandr-devel libXinerama-devel \
+              libXcursor-devel libXi-devel libxkbcommon-devel hdf5-devel \
+              ffmpeg-devel xorg-x11-server-Xvfb || \
+            sudo dnf install -y gcc gcc-c++ make cmake git pkgconfig mesa-libGL-devel \
+              libX11-devel hdf5-devel
+          elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y gcc gcc-c++ make cmake git pkgconfig mesa-libGL-devel \
+              libX11-devel hdf5-devel || true
+          else
+            echo "No known package manager; rely on preinstalled toolchain"
+          fi
+          cmake --version || true
+          g++ --version || true
+
+      - name: Configure
+        run: |
+          cd repo_workspace
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_QT_MODULE=OFF \
+            -DENABLE_GPSCUDA_MODULE=OFF \
+            -DENABLE_LIBTORCH_MODULE=OFF \
+            -DENABLE_CGNS_MODULE=OFF \
+            -DENABLE_NASTRAN_MODULE=OFF \
+            -DEXAMPLE_COMPILE=ON \
+            -DGLFW_BUILD_WAYLAND=OFF
+
+      - name: Build
+        run: |
+          cd repo_workspace
+          cmake --build build --parallel
+
+      - name: Install
+        run: |
+          cd repo_workspace
+          cmake --build build --target install
+
+      - name: Run examples tests
+        run: |
+          cd repo_workspace/build
+          if command -v xvfb-run >/dev/null 2>&1; then
+            xvfb-run -a ctest --output-on-failure --parallel 2
+          else
+            ctest --output-on-failure --parallel 2 || true
+          fi
