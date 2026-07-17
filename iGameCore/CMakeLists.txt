@@ -116,13 +116,15 @@ if (${FFMPEG_FOUND})
     message("Find FFMPEG")
     target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+    # Copy next to iGameCore output. Do not use ${PROJECT_NAME}/iGameVis here:
+    # CI builds with ENABLE_QT_MODULE=OFF have no iGameVis executable target.
     if (WIN32 AND FFMPEG_DLL_DIR)
         file(GLOB FFMPEG_DLLS "${FFMPEG_DLL_DIR}/*.dll")
         add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${MODULE_NAME}>"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${FFMPEG_DLLS}
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                "$<TARGET_FILE_DIR:${MODULE_NAME}>"
                 COMMENT "Copying FFMPEG DLLs to output folder")
     endif ()
 endif ()
@@ -167,10 +169,10 @@ if (ENABLE_GPSCUDA_MODULE)
 
     file(GLOB_RECURSE EXDLL ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
     add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${MODULE_NAME}>"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${EXDLL}
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+            "$<TARGET_FILE_DIR:${MODULE_NAME}>"
     )
 endif ()
 
