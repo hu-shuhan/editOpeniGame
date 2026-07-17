@@ -9,68 +9,57 @@
 #include <QMap>
 #include <QVariant>
 #include <QString>
+#include <QStringList>
+#include <QVector>
 
-// 前向声明
 class QDockWidget;
 
 namespace Ui {
 class igQtSearchInfo;
 }
 
-class igQtSearchInfoWidget : public QWidget
-{
+class igQtSearchInfoWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit igQtSearchInfoWidget(QWidget *parent = nullptr);
+    explicit igQtSearchInfoWidget(QWidget* parent = nullptr);
     ~igQtSearchInfoWidget();
 
-    // 初始化dockwidget
     static QDockWidget* createDockWidget(QWidget* parent);
 
-    // 设置当前模型数据
     void setCurrentModelData(void* modelData);
-
-    // 刷新属性列表
     void refreshProperties();
 
 private slots:
-    // 查询按钮点击槽函数
     void onQueryButtonClicked();
-
-    // 刷新数据
     void refreshData();
+    void onDataTypeChanged();
 
 private:
-    Ui::igQtSearchInfo *ui;
-    
-    // 当前模型数据
-    void* m_currentModelData;
-    
-    // 存储所有数据用于查询
+    struct AttrColumn {
+        QString key;       // map key in m_allData, e.g. "attr:Pressure" / "attr:Vel:0"
+        QString header;    // table header text
+        int attrIndex{-1}; // index in AttributeSet
+        int component{-1}; // -1 = scalar/all as magnitude for multi-comp query helper; >=0 component
+        int dimension{1};
+    };
+
+    Ui::igQtSearchInfo* ui;
+    void* m_currentModelData{nullptr};
     QList<QMap<QString, QVariant>> m_allData;
-    
-    // 属性信息
-    QList<QString> m_attributeNames;
-    QList<QString> m_attributeTypes;
-    QList<int> m_attributeDimensions;
-    QList<int> m_attributeAttachmentTypes;
-    
-    // 当前选择的数据类型 (0: 点数据, 1: 面数据)
-    int m_currentDataType;
-    
-    // 初始化UI
+    QVector<AttrColumn> m_attrColumns;
+    QStringList m_headers;
+    int m_currentDataType{0}; // 0: points, 1: cells/faces
+
     void initUI();
-    
-    // 初始化信号槽连接
     void initConnections();
-    
-    // 读取模型数据
     void readModelData();
-    
-    // 执行查询
+    void readPointData();
+    void readCellData();
+    void collectAttributeColumns(int attachmentType);
+    void appendAttributeValues(QMap<QString, QVariant>& item, int elementIndex, int attachmentType);
+    double readAttributeComponent(int attrIndex, int elementIndex, int component) const;
     void executeQuery();
-    
-    // 填充结果表格
     void populateResultsTable(const QList<QMap<QString, QVariant>>& results);
+    void rebuildTableHeaders();
 };

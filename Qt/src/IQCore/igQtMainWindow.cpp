@@ -1713,7 +1713,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
     //############# HIDE SOMETHING ST #############
     ui->action_ParallelCoordinates->setVisible(false);
-    ui->action_SearchInfo->setVisible(false);
+    // 查找数据：菜单「可视化」→「查找数据」打开右侧 dockWidget_SearchInfo
+    ui->action_SearchInfo->setVisible(true);
     //############# HIDE SOMETHING ED #############
 
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
