@@ -170,6 +170,53 @@ QTableWidget::item:selected { background-color: #3A3A3A; color: #FFFFFF; }</stri
         </property>
        </widget>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_Pagination">
+        <item>
+         <widget class="QPushButton" name="pushButton_PrevPage">
+          <property name="text">
+           <string>上一页</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 4px 8px; }
+QPushButton:hover { background-color: #3A3A3A; }
+QPushButton:disabled { color: #666666; }</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_PageInfo">
+          <property name="text">
+           <string>第 0 / 0 页（共 0 条）</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QLabel { font-size: 13px; color: #C8C8C8; }</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_NextPage">
+          <property name="text">
+           <string>下一页</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton { background-color: #252526; color: #CCCCCC; border: 1px solid #3C3C3C; padding: 4px 8px; }
+QPushButton:hover { background-color: #3A3A3A; }
+QPushButton:disabled { color: #666666; }</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>

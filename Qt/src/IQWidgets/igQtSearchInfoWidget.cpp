@@ -4,6 +4,7 @@
 #include <QDockWidget>
 #include <QHeaderView>
 #include <QSignalBlocker>
+#include <algorithm>
 #include <cmath>
 
 #include <iGameAttributeSet.h>
@@ -30,6 +31,15 @@ QString FormatNumber(double v) {
 QString SanitizeAttrName(const std::string& name, int index) {
     if (name.empty()) { return QString("Attribute_%1").arg(index); }
     return QString::fromStdString(name);
+}
+
+bool MatchValue(double propValue, const QString& operatorStr, double value) {
+    if (operatorStr == "=") {
+        return std::fabs(propValue - value) <= 1e-12 * std::max(1.0, std::fabs(value));
+    }
+    if (operatorStr == ">") { return propValue > value; }
+    if (operatorStr == "<") { return propValue < value; }
+    return false;
 }
 } // namespace
 
@@ -133,25 +143,54 @@ void igQtSearchInfoWidget::collectAttributeColumns(int attachmentType) {
 
 void igQtSearchInfoWidget::onQueryButtonClicked() { executeQuery(); }
 
+void igQtSearchInfoWidget::onPrevPageClicked() {
+    if (m_currentPage <= 0) { return; }
+    loadPage(m_currentPage - 1);
+}
+
+void igQtSearchInfoWidget::onNextPageClicked() {
+    if (m_currentPage + 1 >= pageCount()) { return; }
+    loadPage(m_currentPage + 1);
+}
+
+int igQtSearchInfoWidget::pageCount() const {
+    if (m_totalMatches <= 0) { return 0; }
+    return (m_totalMatches + kPageSize - 1) / kPageSize;
+}
+
+void igQtSearchInfoWidget::clearResults() {
+    m_query = QuerySpec{};
+    m_totalMatches = 0;
+    m_currentPage = 0;
+    m_pageIds.clear();
+    ui->tableWidget_Results->clearContents();
+    ui->tableWidget_Results->setRowCount(0);
+    updatePaginationControls();
+}
+
 void igQtSearchInfoWidget::refreshData() {
-    if (!m_currentModelData) {
-        ui->tableWidget_Results->clearContents();
-        ui->tableWidget_Results->setRowCount(0);
-        m_allData.clear();
-        return;
-    }
-    readModelData();
+    clearResults();
+    if (!m_currentModelData) { return; }
+
+    const int attachment = (m_currentDataType == 0) ? IG_POINT : IG_CELL;
+    collectAttributeColumns(attachment);
+    rebuildTableHeaders();
+    // No filter: paginate and show all elements automatically.
+    loadPage(0);
 }
 
 void igQtSearchInfoWidget::initUI() {
-    ui->tableWidget_Results->setSortingEnabled(true);
+    ui->tableWidget_Results->setSortingEnabled(false);
     ui->tableWidget_Results->horizontalHeader()->setStretchLastSection(true);
     ui->tableWidget_Results->setAlternatingRowColors(true);
     rebuildTableHeaders();
+    updatePaginationControls();
 }
 
 void igQtSearchInfoWidget::initConnections() {
     connect(ui->pushButton_Query, &QPushButton::clicked, this, &igQtSearchInfoWidget::onQueryButtonClicked);
+    connect(ui->pushButton_PrevPage, &QPushButton::clicked, this, &igQtSearchInfoWidget::onPrevPageClicked);
+    connect(ui->pushButton_NextPage, &QPushButton::clicked, this, &igQtSearchInfoWidget::onNextPageClicked);
     connect(ui->radioButton_Points, &QRadioButton::toggled, this, [this](bool checked) {
         if (checked) { onDataTypeChanged(); }
     });
@@ -173,21 +212,13 @@ void igQtSearchInfoWidget::rebuildTableHeaders() {
     ui->tableWidget_Results->setHorizontalHeaderLabels(m_headers);
 }
 
-void igQtSearchInfoWidget::readModelData() {
-    if (!m_currentModelData) { return; }
-    m_allData.clear();
-
-    const int attachment = (m_currentDataType == 0) ? IG_POINT : IG_CELL;
-    collectAttributeColumns(attachment);
-
-    if (m_currentDataType == 0) {
-        readPointData();
-    } else {
-        readCellData();
-    }
-
-    rebuildTableHeaders();
-    populateResultsTable(m_allData);
+void igQtSearchInfoWidget::updatePaginationControls() {
+    const int pages = pageCount();
+    const int displayPage = (pages > 0) ? (m_currentPage + 1) : 0;
+    ui->label_PageInfo->setText(
+            QString("第 %1 / %2 页（共 %3 条，每页 %4）").arg(displayPage).arg(pages).arg(m_totalMatches).arg(kPageSize));
+    ui->pushButton_PrevPage->setEnabled(m_currentPage > 0);
+    ui->pushButton_NextPage->setEnabled(pages > 0 && m_currentPage + 1 < pages);
 }
 
 double igQtSearchInfoWidget::readAttributeComponent(int attrIndex, int elementIndex, int component) const {
@@ -203,200 +234,247 @@ double igQtSearchInfoWidget::readAttributeComponent(int attrIndex, int elementIn
     return attr.pointer->GetValue(valueIndex);
 }
 
-void igQtSearchInfoWidget::appendAttributeValues(QMap<QString, QVariant>& item, int elementIndex, int /*attachmentType*/) {
-    for (const auto& col: m_attrColumns) {
-        item[col.key] = readAttributeComponent(col.attrIndex, elementIndex, col.component);
-    }
-}
-
-void igQtSearchInfoWidget::readPointData() {
+int igQtSearchInfoWidget::getElementCount() const {
     auto* dataObject = static_cast<DataObject*>(m_currentModelData);
-    auto points = dataObject->GetPoints();
-    if (!points) { return; }
+    if (!dataObject) { return 0; }
 
-    const int numPoints = static_cast<int>(points->GetNumberOfPoints());
-    m_allData.reserve(numPoints);
-    for (int i = 0; i < numPoints; ++i) {
-        const auto point = points->GetPoint(i);
-        QMap<QString, QVariant> item;
-        item["id"] = i;
-        item["x"] = point[0];
-        item["y"] = point[1];
-        item["z"] = point[2];
-        appendAttributeValues(item, i, IG_POINT);
-        m_allData.append(item);
+    if (m_currentDataType == 0) {
+        auto points = dataObject->GetPoints();
+        return points ? static_cast<int>(points->GetNumberOfPoints()) : 0;
     }
-}
-
-void igQtSearchInfoWidget::readCellData() {
-    auto* dataObject = static_cast<DataObject*>(m_currentModelData);
-    auto points = dataObject->GetPoints();
-
-    auto appendCell = [&](int cellId, const igIndex* ids, int npts) {
-        QMap<QString, QVariant> item;
-        item["id"] = cellId;
-        item["numPts"] = npts;
-
-        QStringList idList;
-        idList.reserve(npts);
-        double cx = 0.0, cy = 0.0, cz = 0.0;
-        int valid = 0;
-        for (int k = 0; k < npts; ++k) {
-            idList << QString::number(ids[k]);
-            if (points && ids[k] >= 0 && static_cast<IGsize>(ids[k]) < points->GetNumberOfPoints()) {
-                const auto p = points->GetPoint(ids[k]);
-                cx += p[0];
-                cy += p[1];
-                cz += p[2];
-                ++valid;
-            }
-        }
-        if (valid > 0) {
-            cx /= valid;
-            cy /= valid;
-            cz /= valid;
-        }
-        item["pts"] = idList.join(",");
-        item["x"] = cx;
-        item["y"] = cy;
-        item["z"] = cz;
-        appendAttributeValues(item, cellId, IG_CELL);
-        m_allData.append(item);
-    };
-
-    igIndex vhs[IGAME_CELL_MAX_SIZE];
 
     if (auto* surface = DynamicCast<SurfaceMesh>(dataObject)) {
-        const int n = static_cast<int>(surface->GetNumberOfFaces());
-        m_allData.reserve(n);
-        for (int i = 0; i < n; ++i) {
-            const int npts = surface->GetFacePointIds(i, vhs);
-            appendCell(i, vhs, npts);
-        }
-        return;
+        return static_cast<int>(surface->GetNumberOfFaces());
     }
-
     if (auto* volume = DynamicCast<VolumeMesh>(dataObject)) {
-        auto* cells = volume->GetVolumes();
-        if (!cells) { return; }
-        const int n = static_cast<int>(volume->GetNumberOfVolumes());
-        m_allData.reserve(n);
-        for (int i = 0; i < n; ++i) {
-            const int npts = cells->GetCellIds(i, vhs);
-            appendCell(i, vhs, npts);
-        }
-        return;
+        return static_cast<int>(volume->GetNumberOfVolumes());
     }
-
     if (auto* umesh = DynamicCast<UnstructuredMesh>(dataObject)) {
-        const int n = static_cast<int>(umesh->GetNumberOfCells());
-        m_allData.reserve(n);
-        for (int i = 0; i < n; ++i) {
-            const int npts = umesh->GetCellPointIds(i, vhs);
-            appendCell(i, vhs, npts);
-        }
-        return;
+        return static_cast<int>(umesh->GetNumberOfCells());
+    }
+    if (auto cells = dataObject->GetCellArray()) {
+        return static_cast<int>(cells->GetNumberOfCells());
+    }
+    return 0;
+}
+
+bool igQtSearchInfoWidget::readCellGeometry(int cellId, int& numPts, QString& ptsCsv, double& cx, double& cy,
+                                            double& cz) const {
+    auto* dataObject = static_cast<DataObject*>(m_currentModelData);
+    if (!dataObject) { return false; }
+
+    auto points = dataObject->GetPoints();
+    igIndex vhs[IGAME_CELL_MAX_SIZE];
+    int npts = 0;
+
+    if (auto* surface = DynamicCast<SurfaceMesh>(dataObject)) {
+        npts = surface->GetFacePointIds(cellId, vhs);
+    } else if (auto* volume = DynamicCast<VolumeMesh>(dataObject)) {
+        auto* cells = volume->GetVolumes();
+        if (!cells) { return false; }
+        npts = cells->GetCellIds(cellId, vhs);
+    } else if (auto* umesh = DynamicCast<UnstructuredMesh>(dataObject)) {
+        npts = umesh->GetCellPointIds(cellId, vhs);
+    } else if (auto cells = dataObject->GetCellArray()) {
+        npts = cells->GetCellIds(cellId, vhs);
+    } else {
+        return false;
     }
 
-    // Fallback: generic cell array if present
-    if (auto cells = dataObject->GetCellArray()) {
-        const int n = static_cast<int>(cells->GetNumberOfCells());
-        m_allData.reserve(n);
-        for (int i = 0; i < n; ++i) {
-            const int npts = cells->GetCellIds(i, vhs);
-            appendCell(i, vhs, npts);
+    numPts = npts;
+    QStringList idList;
+    idList.reserve(npts);
+    cx = cy = cz = 0.0;
+    int valid = 0;
+    for (int k = 0; k < npts; ++k) {
+        idList << QString::number(vhs[k]);
+        if (points && vhs[k] >= 0 && static_cast<IGsize>(vhs[k]) < points->GetNumberOfPoints()) {
+            const auto p = points->GetPoint(vhs[k]);
+            cx += p[0];
+            cy += p[1];
+            cz += p[2];
+            ++valid;
         }
+    }
+    if (valid > 0) {
+        cx /= valid;
+        cy /= valid;
+        cz /= valid;
+    }
+    ptsCsv = idList.join(",");
+    return true;
+}
+
+bool igQtSearchInfoWidget::readPropertyValue(int elementId, const QString& property, double& outValue) const {
+    auto* dataObject = static_cast<DataObject*>(m_currentModelData);
+    if (!dataObject) { return false; }
+
+    if (m_currentDataType == 0) {
+        auto points = dataObject->GetPoints();
+        if (!points || elementId < 0 || static_cast<IGsize>(elementId) >= points->GetNumberOfPoints()) {
+            return false;
+        }
+        if (property == "pos.x" || property == "pos.y" || property == "pos.z") {
+            const auto point = points->GetPoint(elementId);
+            outValue = (property == "pos.x") ? point[0] : (property == "pos.y") ? point[1] : point[2];
+            return true;
+        }
+    } else {
+        int numPts = 0;
+        QString ptsCsv;
+        double cx = 0.0, cy = 0.0, cz = 0.0;
+        if (!readCellGeometry(elementId, numPts, ptsCsv, cx, cy, cz)) { return false; }
+        if (property == "pos.x") {
+            outValue = cx;
+            return true;
+        }
+        if (property == "pos.y") {
+            outValue = cy;
+            return true;
+        }
+        if (property == "pos.z") {
+            outValue = cz;
+            return true;
+        }
+        if (property == "numPts") {
+            outValue = static_cast<double>(numPts);
+            return true;
+        }
+    }
+
+    for (const auto& col: m_attrColumns) {
+        if (col.key == property) {
+            outValue = readAttributeComponent(col.attrIndex, elementId, col.component);
+            return true;
+        }
+    }
+    return false;
+}
+
+void igQtSearchInfoWidget::fillTableRow(int row, int elementId) {
+    auto* table = ui->tableWidget_Results;
+    auto* dataObject = static_cast<DataObject*>(m_currentModelData);
+    if (!dataObject) { return; }
+
+    int col = 0;
+    if (m_currentDataType == 0) {
+        double x = 0.0, y = 0.0, z = 0.0;
+        if (auto points = dataObject->GetPoints()) {
+            const auto p = points->GetPoint(elementId);
+            x = p[0];
+            y = p[1];
+            z = p[2];
+        }
+        table->setItem(row, col++, new QTableWidgetItem(QString::number(elementId)));
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(x)));
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(y)));
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(z)));
+    } else {
+        int numPts = 0;
+        QString ptsCsv;
+        double cx = 0.0, cy = 0.0, cz = 0.0;
+        readCellGeometry(elementId, numPts, ptsCsv, cx, cy, cz);
+        table->setItem(row, col++, new QTableWidgetItem(QString::number(elementId)));
+        table->setItem(row, col++, new QTableWidgetItem(QString::number(numPts)));
+        table->setItem(row, col++, new QTableWidgetItem(ptsCsv));
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(cx)));
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(cy)));
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(cz)));
+    }
+
+    for (const auto& attrCol: m_attrColumns) {
+        const double v = readAttributeComponent(attrCol.attrIndex, elementId, attrCol.component);
+        table->setItem(row, col++, new QTableWidgetItem(FormatNumber(v)));
     }
 }
 
 void igQtSearchInfoWidget::executeQuery() {
-    if (m_allData.isEmpty()) { return; }
+    if (!m_currentModelData) {
+        clearResults();
+        return;
+    }
 
     const QString property = ui->comboBox_Property->currentData().toString();
     const QString operatorStr = ui->comboBox_Operator->currentText();
     const QString valueStr = ui->lineEdit_Value->text().trimmed();
 
-    if (property.isEmpty() || valueStr.isEmpty()) {
-        populateResultsTable(m_allData);
-        return;
-    }
-
-    bool ok = false;
-    const double value = valueStr.toDouble(&ok);
-    if (!ok) {
-        populateResultsTable(m_allData);
-        return;
-    }
-
-    QList<QMap<QString, QVariant>> results;
-    results.reserve(m_allData.size());
-
-    for (const QMap<QString, QVariant>& item: m_allData) {
-        double propValue = 0.0;
-        if (property == "pos.x") {
-            propValue = item.value("x").toDouble();
-        } else if (property == "pos.y") {
-            propValue = item.value("y").toDouble();
-        } else if (property == "pos.z") {
-            propValue = item.value("z").toDouble();
-        } else if (property == "numPts") {
-            propValue = item.value("numPts").toDouble();
-        } else if (item.contains(property)) {
-            propValue = item.value(property).toDouble();
-        } else {
-            continue;
+    m_query = QuerySpec{};
+    if (!property.isEmpty() && !valueStr.isEmpty()) {
+        bool ok = false;
+        const double value = valueStr.toDouble(&ok);
+        if (ok) {
+            m_query.property = property;
+            m_query.op = operatorStr;
+            m_query.value = value;
+            m_query.active = true;
         }
-
-        bool match = false;
-        if (operatorStr == "=") {
-            match = std::fabs(propValue - value) <= 1e-12 * std::max(1.0, std::fabs(value));
-        } else if (operatorStr == ">") {
-            match = (propValue > value);
-        } else if (operatorStr == "<") {
-            match = (propValue < value);
-        }
-
-        if (match) { results.append(item); }
     }
 
-    populateResultsTable(results);
+    rebuildTableHeaders();
+    loadPage(0);
 }
 
-void igQtSearchInfoWidget::populateResultsTable(const QList<QMap<QString, QVariant>>& results) {
+void igQtSearchInfoWidget::loadPage(int page) {
+    m_pageIds.clear();
+    m_totalMatches = 0;
+    m_currentPage = 0;
+
+    if (!m_currentModelData) {
+        populateResultsTable();
+        updatePaginationControls();
+        return;
+    }
+
+    const int count = getElementCount();
+    const int start = page * kPageSize;
+    const int end = start + kPageSize;
+    m_pageIds.reserve(kPageSize);
+
+    if (!m_query.active) {
+        // No condition: page by contiguous element ids.
+        m_totalMatches = count;
+        const int pages = pageCount();
+        m_currentPage = (pages > 0) ? std::min(std::max(page, 0), pages - 1) : 0;
+        const int pageStart = m_currentPage * kPageSize;
+        const int pageEnd = std::min(pageStart + kPageSize, count);
+        for (int id = pageStart; id < pageEnd; ++id) { m_pageIds.push_back(id); }
+    } else {
+        int matchIndex = 0;
+        for (int id = 0; id < count; ++id) {
+            double propValue = 0.0;
+            if (!readPropertyValue(id, m_query.property, propValue)) { continue; }
+            if (!MatchValue(propValue, m_query.op, m_query.value)) { continue; }
+
+            if (matchIndex >= start && matchIndex < end) { m_pageIds.push_back(id); }
+            ++matchIndex;
+        }
+
+        m_totalMatches = matchIndex;
+        const int pages = pageCount();
+        m_currentPage = (pages > 0) ? std::min(page, pages - 1) : 0;
+        if (pages > 0 && page >= pages) {
+            loadPage(pages - 1);
+            return;
+        }
+    }
+
+    populateResultsTable();
+    updatePaginationControls();
+}
+
+void igQtSearchInfoWidget::populateResultsTable() {
     auto* table = ui->tableWidget_Results;
-    const bool sorting = table->isSortingEnabled();
-    table->setSortingEnabled(false);
     table->setUpdatesEnabled(false);
 
     table->clearContents();
-    table->setRowCount(results.size());
+    table->setRowCount(m_pageIds.size());
     table->setColumnCount(m_headers.size());
     table->setHorizontalHeaderLabels(m_headers);
 
-    for (int i = 0; i < results.size(); ++i) {
-        const QMap<QString, QVariant>& item = results[i];
-        int col = 0;
-
-        if (m_currentDataType == 0) {
-            table->setItem(i, col++, new QTableWidgetItem(QString::number(item.value("id").toInt())));
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value("x").toDouble())));
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value("y").toDouble())));
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value("z").toDouble())));
-        } else {
-            table->setItem(i, col++, new QTableWidgetItem(QString::number(item.value("id").toInt())));
-            table->setItem(i, col++, new QTableWidgetItem(QString::number(item.value("numPts").toInt())));
-            table->setItem(i, col++, new QTableWidgetItem(item.value("pts").toString()));
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value("x").toDouble())));
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value("y").toDouble())));
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value("z").toDouble())));
-        }
-
-        for (const auto& attrCol: m_attrColumns) {
-            table->setItem(i, col++, new QTableWidgetItem(FormatNumber(item.value(attrCol.key).toDouble())));
-        }
+    for (int i = 0; i < m_pageIds.size(); ++i) {
+        fillTableRow(i, m_pageIds[i]);
     }
 
     table->setUpdatesEnabled(true);
-    table->setSortingEnabled(sorting);
     table->resizeColumnsToContents();
 }
