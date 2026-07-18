@@ -1084,8 +1084,11 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             case iGame::VTKAbstractReader::T0:
                 break;
             case iGame::VTKAbstractReader::VERTEX:
+                // Intentionally skip: keep cell count at 0 for point clouds.
+                // Points are drawn via UnstructuredMesh point-cloud path.
                 break;
             case iGame::VTKAbstractReader::POLYVERTEX:
+                // Same as VERTEX — do not inflate GetNumberOfCells().
                 break;
             case iGame::VTKAbstractReader::LINE:
                 mesh->AddCell(vhs, size, IG_LINE);
