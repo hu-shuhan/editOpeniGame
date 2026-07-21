@@ -7,9 +7,15 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 | # | Sub-feature | Status |
 |---|-------------|--------|
 | 1 | Classical physical features: gradient / curvature / Laplacian / vorticity | ✅ Implemented |
-| 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented |
+| 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
 | 3 | Key-region click / selection (points, cells, box) | ✅ Implemented (via Selection / 10.3; extractors run on the current attribute field) |
 | 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (time series / deformation in 11.3; region-limited deformation TBD) |
+
+> This document covers sub-features **1** and **2** in full, and how **3** / **4** connect to existing interaction and visualization modules.
+> Difference from **10.1**: 10.1 focuses on **analysis data generation**; 10.2 focuses on **feature-field extraction and vortex detection evaluation**.
+> Difference from **10.3**: 10.3 focuses on **brush ↔ 3D linking**; 10.2 feature scalars can feed cloud maps and selection analysis.
+> Difference from **11.3**: 11.3 provides generic **time switching, structural deformation, and animation export**; 10.2 key-event temporal views rely on those capabilities.
+
 ---
 
 ## Sub-feature 1: Classical physical feature extraction (other key features)
