@@ -182,7 +182,7 @@ bool igQtChromeFramelessDialog::isOnCaptionButton(const QPoint& dialogPos) const
 }
 
 void igQtChromeFramelessDialog::mousePressEvent(QMouseEvent* event) {
-#if !defined(Q_OS_WIN)
+#if !defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     if (event->button() == Qt::LeftButton && !isMaximized()) {
         const Qt::Edges edges = hitTestEdges(event->pos());
         if (edges != Qt::Edges()) {
