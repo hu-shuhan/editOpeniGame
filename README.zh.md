@@ -6,31 +6,7 @@
 
 iGameVis 是基于 `iGameCore` 核心库与可选 `Qt` 前端模块构建的 CAE 仿真结果可视化平台。
 
-```mermaid
-flowchart TB
-    subgraph entry [入口]
-        mainCpp[main.cpp]
-        examples[Examples]
-    end
-    subgraph qt [Qt模块]
-        mainWindow[igQtMainWindow]
-        fileLoader[igQtFileLoader]
-        dockWidgets[Dock面板]
-    end
-    subgraph core [iGameCore核心库]
-        io[IO_FileIO]
-        dataModel[DataModel]
-        filters[Filters]
-        rendering[Rendering]
-    end
-    mainCpp --> mainWindow
-    examples --> io
-    mainWindow --> fileLoader --> io
-    mainWindow --> dockWidgets --> filters
-    io --> dataModel
-    filters --> dataModel
-    dataModel --> rendering
-```
+![iGameVis 项目框架架构图](Resources/Images/架构图.png)
 
 ### 核心目录
 

@@ -6,31 +6,7 @@
 
 iGameVis is a CAE simulation result visualization platform built on the `iGameCore` core library and an optional `Qt` GUI module.
 
-```mermaid
-flowchart TB
-    subgraph entry [EntryPoints]
-        mainCpp[main.cpp]
-        examples[Examples]
-    end
-    subgraph qt [Qt_Module]
-        mainWindow[igQtMainWindow]
-        fileLoader[igQtFileLoader]
-        dockWidgets[DockWidgets]
-    end
-    subgraph core [iGameCore]
-        io[IO_FileIO]
-        dataModel[DataModel]
-        filters[Filters]
-        rendering[Rendering]
-    end
-    mainCpp --> mainWindow
-    examples --> io
-    mainWindow --> fileLoader --> io
-    mainWindow --> dockWidgets --> filters
-    io --> dataModel
-    filters --> dataModel
-    dataModel --> rendering
-```
+![iGameVis Project Architecture Diagram](Resources/Images/Architectural_diagram.png)
 
 ### Core Directories
 

@@ -7,56 +7,115 @@
     <title>iGameVis Version.Web</title>
     <style>
         :root {
-            --bg: #f4f7fb;
+            --bg: #eef3f8;
             --card: #ffffff;
-            --text: #1b2430;
-            --accent: #0e7490;
-            --line: #d7e2ef;
+            --surface: #f7fafc;
+            --text: #1f2937;
+            --muted: #64748b;
+            --accent: #0f7490;
+            --accent-hover: #0b6078;
+            --line: #d8e2ec;
+            --line-soft: #e8eef5;
+            --focus: rgba(15, 116, 144, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
+            min-height: 100vh;
             font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-            background: radial-gradient(circle at 15% 20%, #e5f2ff 0%, var(--bg) 45%), var(--bg);
+            background:
+                radial-gradient(circle at 12% 8%, rgba(186, 230, 253, 0.65), transparent 34%),
+                radial-gradient(circle at 88% 4%, rgba(204, 251, 241, 0.5), transparent 28%),
+                var(--bg);
             color: var(--text);
         }
 
         .wrap {
-            max-width: 960px;
-            margin: 32px auto;
-            padding: 0 16px;
+            max-width: 1520px;
+            margin: 24px auto;
+            padding: 0 20px;
         }
 
         .card {
             background: var(--card);
             border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 10px 30px rgba(20, 40, 70, 0.08);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 18px 48px rgba(30, 64, 96, 0.1);
         }
 
-        #log {
-            min-height: 60px;
-            white-space: pre-wrap;
-            font-size: 13px;
-            margin-top: 12px;
-            border-top: 1px solid var(--line);
-            padding-top: 10px;
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .app-header h2 {
+            margin: 0;
+            font-size: clamp(22px, 3vw, 30px);
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(330px, 390px);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .viewer-column {
+            min-width: 0;
+        }
+
+        .viewer-heading,
+        .tool-dock-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 38px;
+            margin-bottom: 10px;
+        }
+
+        .viewer-heading h3,
+        .tool-dock-header h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .viewer-heading span,
+        .tool-dock-header span {
+            color: var(--muted);
+            font-size: 12px;
         }
 
         #canvas {
-            width: 60%;
-            height: 540px;
-            border: 1px solid var(--line);
+            width: 100%;
+            height: calc(100vh - 172px);
+            min-height: 560px;
+            border: 0;
             border-radius: 10px;
-            margin-top: 14px;
             background: #0b0f14;
             display: block;
         }
 
         .viewer-shell {
             position: relative;
-            margin-top: 14px;
+            margin-top: 0;
+            padding: 6px;
+            border: 1px solid #172433;
+            border-radius: 14px;
+            background: #111a24;
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
         }
 
         .viewer-shell #canvas {
@@ -70,33 +129,218 @@
             align-items: center;
         }
 
-        .build-marker {
+        label {
             display: inline-flex;
             align-items: center;
-            margin: 0 0 12px;
-            padding: 6px 10px;
-            border: 1px solid #a7f3d0;
-            border-radius: 6px;
-            background: #ecfdf5;
-            color: #047857;
+            gap: 5px;
+            color: #475569;
             font-size: 13px;
             font-weight: 600;
         }
 
+        .build-marker {
+            display: inline-flex;
+            align-items: center;
+            margin: 0;
+            padding: 6px 10px;
+            border: 1px solid #a7f3d0;
+            border-radius: 999px;
+            background: #ecfdf5;
+            color: #047857;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
         button {
-            border: 0;
+            border: 1px solid rgba(6, 78, 99, 0.18);
             border-radius: 8px;
-            background: var(--accent);
+            background: linear-gradient(180deg, #1683a0, var(--accent));
             color: #fff;
-            padding: 10px 14px;
+            padding: 9px 13px;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.15;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(15, 116, 144, 0.16);
+            transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 10px rgba(15, 116, 144, 0.22);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        summary:focus-visible {
+            outline: 3px solid var(--focus);
+            outline-offset: 2px;
+        }
+
+        select,
+        input[type="text"],
+        input[type="number"] {
+            height: 36px;
+            border: 1px solid #cbd7e4;
+            border-radius: 8px;
+            background: #fff;
+            color: var(--text);
+            padding: 0 10px;
+        }
+
+        select:hover,
+        input[type="text"]:hover,
+        input[type="number"]:hover {
+            border-color: #9fb3c8;
+        }
+
+        input[type="file"] {
+            max-width: 290px;
+            border: 1px dashed #b8c8d9;
+            border-radius: 8px;
+            background: #fff;
+            color: var(--muted);
+            padding: 4px;
+            font-size: 13px;
+        }
+
+        input[type="file"]::file-selector-button {
+            margin-right: 8px;
+            border: 0;
+            border-radius: 6px;
+            background: #e7f3f7;
+            color: #075b72;
+            padding: 6px 10px;
+            font-weight: 600;
             cursor: pointer;
         }
 
-        details.color-map-panel {
-            margin-top: 14px;
+        input[type="checkbox"],
+        input[type="radio"],
+        input[type="range"] {
+            accent-color: var(--accent);
+        }
+
+        input[type="color"] {
+            width: 42px;
+            height: 36px;
+            border: 1px solid #cbd7e4;
+            border-radius: 8px;
+            background: #fff;
+            padding: 3px;
+            cursor: pointer;
+        }
+
+        .tool-section-body>.row>span {
+            border-radius: 999px;
+            background: #edf2f7;
+            padding: 5px 9px;
+        }
+
+        .tool-dock {
+            min-width: 0;
+            max-height: calc(100vh - 112px);
+            overflow-y: auto;
+            padding-right: 4px;
+            scrollbar-color: #b8c8d9 transparent;
+            scrollbar-width: thin;
+        }
+
+        details.tool-section {
+            margin-bottom: 8px;
             border: 1px solid var(--line);
             border-radius: 10px;
-            background: #fbfdff;
+            background: var(--surface);
+            overflow: hidden;
+        }
+
+        details.tool-section>summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 700;
+            user-select: none;
+        }
+
+        details.tool-section>summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.tool-section>summary::after {
+            content: "+";
+            flex: 0 0 auto;
+            color: var(--accent);
+            font-size: 19px;
+            font-weight: 500;
+            line-height: 1;
+        }
+
+        details.tool-section[open]>summary {
+            background: #eef6f9;
+            border-bottom: 1px solid var(--line);
+            color: #075b72;
+        }
+
+        details.tool-section[open]>summary::after {
+            content: "−";
+        }
+
+        .tool-section-body {
+            padding: 12px;
+        }
+
+        .tool-section-body>.row {
+            gap: 8px;
+            margin-top: 0 !important;
+            padding: 0 0 12px;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .tool-section-body>.row+.row {
+            margin-top: 12px !important;
+        }
+
+        .tool-section-body>.row:last-child {
+            padding-bottom: 0;
+            border-bottom: 0;
+        }
+
+        .tool-dock #modelList,
+        .tool-dock #annotationText,
+        .tool-dock #scalarSelect {
+            width: 100%;
+            min-width: 0 !important;
+        }
+
+        .tool-dock #color_canvas,
+        .tool-dock #color_jsonOut {
+            width: 100% !important;
+            max-width: 100%;
+        }
+
+        details.color-map-panel {
+            margin-top: 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--surface);
             overflow: hidden;
         }
 
@@ -110,6 +354,18 @@
             border-bottom: 1px solid var(--line);
         }
 
+        details.color-map-panel>summary::after {
+            content: "+";
+            float: right;
+            color: var(--accent);
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        details.color-map-panel[open]>summary::after {
+            content: "−";
+        }
+
         details.color-map-panel>summary::-webkit-details-marker {
             display: none;
         }
@@ -117,39 +373,133 @@
         .color-map-body {
             padding: 14px;
         }
+
+        .range-panel {
+            margin-top: 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 14px;
+            background: var(--surface);
+        }
+
+        .range-panel h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+        }
+
+        @media (max-width: 1050px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .tool-dock {
+                max-height: none;
+                overflow: visible;
+                padding-right: 0;
+            }
+
+            #canvas {
+                height: 62vh;
+                min-height: 440px;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .wrap {
+                margin: 12px auto;
+                padding: 0 10px;
+            }
+
+            .card {
+                padding: 14px;
+                border-radius: 12px;
+            }
+
+            .app-header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .viewer-heading,
+            .tool-dock-header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 3px;
+            }
+
+            #modelList,
+            #annotationText,
+            #scalarSelect {
+                min-width: 100% !important;
+                width: 100%;
+            }
+
+            #canvas {
+                height: 56vh;
+                min-height: 360px;
+            }
+        }
     </style>
 </head>
 
 <body>
     <div class="wrap">
         <div class="card">
-            <h2>iGameVis Version.Web</h2>
-            <div class="build-marker">Build marker: 2026-06-13_V1</div>
-            <div class="row">
-                <input id="vtkFile" type="file" accept=".vtk,.vtu,.vtp,.igc,.igcm,.zip" />
-                <button id="btnLoadFromServer" type="button">Load From Server</button>
-                <button id="btnRaiseTestError" type="button">Raise Test Error</button>
-                <label>Import</label>
-                <select id="importMode">
-                    <option value="append" selected>Append</option>
-                    <option value="replace">Replace</option>
-                </select>
-                <button id="btnReset" type="button">Reset Camera</button>
-                <label>Camera Type</label>
-                <select id="cameraType">
-                    <option value="0" selected>Perspective</option>
-                    <option value="1">Orthographic</option>
-                </select>
-                <button id="btnApplyCameraType" type="button">Apply Camera Type</button>
+            <div class="app-header">
+                <h2>iGameVis Version.Web</h2>
+                <div class="build-marker">Build marker: 2026-06-13_V1</div>
             </div>
-            <div class="row" style="margin-top: 10px;">
-                <label>IGC Time Series</label>
-                <button id="btnLoadIgcSeries" type="button">Load comp Series</button>
-                <button id="btnPreviousIgcFrame" type="button">Previous Frame</button>
-                <button id="btnNextIgcFrame" type="button">Next Frame</button>
-                <button id="btnPlayIgcSeries" type="button">Play</button>
-                <span id="igcSeriesStatus" style="font-size: 13px; color: #4b5563;">Not loaded</span>
-            </div>
+            <div class="workspace">
+                <section class="viewer-column" aria-label="模型显示区">
+                    <div class="viewer-heading">
+                        <h3>模型显示</h3>
+                        <span>拖动旋转 · 滚轮缩放</span>
+                    </div>
+                    <div id="viewerShell" class="viewer-shell">
+                        <canvas id="canvas"></canvas>
+                    </div>
+                </section>
+
+                <aside class="tool-dock" aria-label="功能工具栏">
+                    <div class="tool-dock-header">
+                        <h3>功能工具</h3>
+                        <span>点击分类展开或收起</span>
+                    </div>
+
+                    <details class="tool-section" open>
+                        <summary>文件导入</summary>
+                        <div class="tool-section-body">
+                            <div class="row">
+                                <input id="vtkFile" type="file" accept=".vtk,.vtu,.vtp,.igc,.igcm,.zip" />
+                                <button id="btnLoadFromServer" type="button">Load From Server</button>
+                                <button id="btnRaiseTestError" type="button">Raise Test Error</button>
+                                <label>Import</label>
+                                <select id="importMode">
+                                    <option value="append" selected>Append</option>
+                                    <option value="replace">Replace</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="tool-section">
+                        <summary>时序数据</summary>
+                        <div class="tool-section-body">
+                            <div class="row">
+                                <label>IGC Time Series</label>
+                                <button id="btnLoadIgcSeries" type="button">Load comp Series</button>
+                                <button id="btnPreviousIgcFrame" type="button">Previous Frame</button>
+                                <button id="btnNextIgcFrame" type="button">Next Frame</button>
+                                <button id="btnPlayIgcSeries" type="button">Play</button>
+                                <span id="igcSeriesStatus" style="font-size: 13px; color: #4b5563;">Not loaded</span>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="tool-section">
+                        <summary>模型管理</summary>
+                        <div class="tool-section-body">
             <div class="row" style="margin-top: 10px;">
                 <label>Models</label>
                 <select id="modelList" style="min-width: 360px;"></select>
@@ -166,6 +516,12 @@
                 <button id="btnReinitViewer" type="button">Destroy + Init</button>
                 <span id="lifecycleStatus" style="font-size: 13px; color: #4b5563;">Ready</span>
             </div>
+                        </div>
+                    </details>
+
+                    <details class="tool-section">
+                        <summary>选择与切片</summary>
+                        <div class="tool-section-body">
             <div class="row" style="margin-top: 10px;">
                 <label>Selection</label>
                 <button id="btnSelectionBrowse" type="button">Browse</button>
@@ -198,6 +554,21 @@
                 <input id="clipNormalY" type="text" value="0" style="width: 72px;" />
                 <input id="clipNormalZ" type="text" value="0" style="width: 72px;" />
                 <span id="sliceStatus" style="font-size: 13px; color: #4b5563;">Slice: inactive</span>
+            </div>
+                        </div>
+                    </details>
+
+                    <details class="tool-section">
+                        <summary>相机与外观</summary>
+                        <div class="tool-section-body">
+            <div class="row">
+                <button id="btnReset" type="button">Reset Camera</button>
+                <label>Camera Type</label>
+                <select id="cameraType">
+                    <option value="0" selected>Perspective</option>
+                    <option value="1">Orthographic</option>
+                </select>
+                <button id="btnApplyCameraType" type="button">Apply Camera Type</button>
             </div>
             <div class="row" style="margin-top: 10px;">
                 <label>Camera Views</label>
@@ -269,6 +640,12 @@
                 <input id="annotationText" type="text" value="iGameVis WASM" style="min-width: 260px;" />
                 <button id="btnApplyAnnotation" type="button">Apply Annotation</button>
             </div>
+                        </div>
+                    </details>
+
+                    <details class="tool-section">
+                        <summary>标量与颜色</summary>
+                        <div class="tool-section-body">
             <div class="row" style="margin-top: 10px;">
                 <label>Scalar</label>
                 <select id="scalarSelect" style="min-width: 260px;">
@@ -305,8 +682,7 @@
                         {}</div>
                 </div>
             </details>
-            <div
-                style="margin-top:12px; border:1px solid var(--line); border-radius:8px; padding:12px; background:#fbfdff;">
+            <div class="range-panel">
                 <h3 style="margin:0 0 8px 0; font-size:15px;">Range API Verification</h3>
                 <div style="margin-bottom:8px;">
                     <label>Scalar Name</label>
@@ -324,22 +700,16 @@
                     <button id="rangeDebugSequence" type="button">Debug 0-1/0-100/0-1</button>
                 </div>
             </div>
-            <div id="log">Waiting for wasm...</div>
-            <div id="viewerShell" class="viewer-shell">
-                <canvas id="canvas"></canvas>
+                        </div>
+                    </details>
+                </aside>
             </div>
         </div>
     </div>
 
     <script>
         const log = (msg) => {
-            const logElement = document.getElementById('log');
-            if (!logElement) return;
             const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logElement.textContent = logElement.textContent === 'Waiting for wasm...'
-                ? line
-                : `${logElement.textContent}\n${line}`;
-            logElement.scrollTop = logElement.scrollHeight;
             console.log(line);
         };
         let renderLoopStarted = false;
