@@ -243,14 +243,14 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     model->SetVisibility(false);
     ChangeModelVisibility(model, true);
 
-    // Disable shell rendering/simplification for newly added model and its
-    // sub-objects to keep rendering stable and avoid on-demand shell builds.
+    #if __EMSCRIPTEN__
     auto drawObject = DynamicCast<DrawObject>(obj);
     if (drawObject) {
         drawObject->SetShellRenderingOption(false);
         drawObject->ProcessSubDataObjects(&DrawObject::SetShellRenderingOption,
                                           false);
     }
+    #endif
 
     Update();
     return modelID;
