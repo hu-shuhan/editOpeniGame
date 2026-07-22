@@ -13,6 +13,13 @@ set(iGameCore_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-build-release/install/li
 find_package(iGameCore REQUIRED)
 find_package(HDF5 REQUIRED)
 
+# 必须与编译 iGameCore 时一致，否则 Scene 等类型布局不同（如 GL_SUPPORT_MSAA），
+# Scene::New 会在运行期直接堆损坏崩溃。裸链 ${IGAMEVIS_CORE_LIB_TARGETS} 不会自动带上这些宏。
+add_compile_definitions(
+    IGAME_PLATFORM_WINDOWS
+    IGAME_OPENGL_VERSION_460
+)
+
 if (MSVC)
     add_compile_options(/utf-8)
 endif ()
@@ -147,15 +154,10 @@ target_link_libraries(testGetClosestCellsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGE
 target_link_libraries(testGetPointsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testGetCellsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
-<<<<<<< HEAD
 target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
-=======
-target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testLosslessEncode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testLosslessEncode PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
 target_link_libraries(testConvertPolyhedralCells PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testConvertToPointCloud PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
@@ -189,7 +191,7 @@ target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS
 
 target_link_libraries(testConvertToLagrangeUnstructuredMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 
-#Use this ThirdParty's Module need to Add Compile Definition
+# Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
 target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
 target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
