@@ -15,14 +15,25 @@ iGame::Model::Pointer igQtStreamTracerWidget::pickSourceModel() {
         if (!m) return false;
         auto obj = m->GetDataObject();
         if (!obj) return false;
-        // 排除流线结果本身
+        // 排除当前那个流线结果本身
         if (m_ResultObject && obj.GetPointer() == m_ResultObject.GetPointer()) return false;
+        // 排除任何以前生成的流线结果（名字里含 _StreamLine）——
+        // 它们通常是仅有 line cell 的 UnstructuredMesh，走 TransferToVolumeMesh 会得到 0 体单元
+        if (obj->GetName().find("_StreamLine") != std::string::npos) return false;
         // 必须是含体单元的 VolumeMesh / UnstructuredMesh
         if (auto vol = iGame::DynamicCast<iGame::VolumeMesh>(obj)) {
             return vol->GetNumberOfVolumes() > 0;
         }
-        if (iGame::DynamicCast<iGame::UnstructuredMesh>(obj)) {
-            return true; // UnstructuredMesh 走自己的 TransferToVolumeMesh 分支
+        if (auto um = iGame::DynamicCast<iGame::UnstructuredMesh>(obj)) {
+            // UnstructuredMesh 里必须有非 line / vertex 的高维单元才可能是有效流场
+            auto cells = um->GetCells();
+            auto types = um->GetCellTypes();
+            if (!cells || cells->GetNumberOfCells() == 0) return false;
+            if (types && types->GetNumberOfValues() > 0) {
+                auto t = types->GetValue(0);
+                if (t == IG_LINE || t == IG_VERTEX) return false;
+            }
+            return true;
         }
         return false;
     };
