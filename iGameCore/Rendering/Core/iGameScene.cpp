@@ -930,6 +930,7 @@ void Scene::RefreshHzb() {
     shader->Use();
 
     ResolveFrameBuffer();
+    GLCheckError();
 
     m_DepthR32FTexture->Active(GL_TEXTURE1);
     shader->SetUniformi("screenDepth", 1);
@@ -949,6 +950,7 @@ void Scene::RefreshHzb() {
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
                         GL_TEXTURE_FETCH_BARRIER_BIT);
+        GLCheckError();
     }
 
     // generate other level
@@ -972,6 +974,7 @@ void Scene::RefreshHzb() {
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
                         GL_TEXTURE_FETCH_BARRIER_BIT);
+        GLCheckError();
     }
 #endif
 }
