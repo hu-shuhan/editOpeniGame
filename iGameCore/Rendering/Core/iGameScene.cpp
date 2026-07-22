@@ -600,7 +600,9 @@ void Scene::InitOpenGL() {
 
 void Scene::InitOIT() {
 #ifdef IGAME_OPENGL_VERSION_460
-    GLuint* data;
+    GLuint* data = nullptr;
+    // 8192x8192 会申请约 256MB(map) + 2GB(list)。在 4GB 显卡上 MapRange 常失败，
+    // 若对空指针 memset 会变成 0xC0000005。失败时跳过 OIT，不阻断普通显示。
     size_t totalPixels = MAX_FRAMEBUFFER_WIDTH * MAX_FRAMEBUFFER_HEIGHT;
 
     m_OITHeadPointerTexture->Create();
@@ -613,6 +615,13 @@ void Scene::InitOIT() {
                                           GL_STATIC_DRAW);
     data = static_cast<GLuint*>(m_OITHeadPointerInitializer->MapRange(
             0, totalPixels * sizeof(GLuint), GL_MAP_WRITE_BIT));
+    if (data == nullptr) {
+        IGAME_RENDERING_ERROR(
+                "InitOIT: MapRange failed (need ~{} MB). Skip OIT buffers.",
+                (totalPixels * sizeof(GLuint)) / (1024 * 1024));
+        GLCheckError();
+        return;
+    }
     // 0xFF is equivalent to the end of the linked list
     memset(data, 0xFF, totalPixels * sizeof(GLuint));
     m_OITHeadPointerInitializer->Unmap();
