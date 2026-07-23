@@ -1,67 +1,71 @@
 #include <iostream>
+#include <filesystem>
 #include <iGameVolume.h>
 #include <Core/iGameScene.h>
 #include <iGameRenderWindow.h>
 #include <iGameInteractor.h>
 #include <iGameFileIO.h>
-#include <Clip/iGameModelClip.h>
 #include <Contour/iGameContourFilter.h>
 
-int main(){
-    /* 创建场景*/
+int main() {
     auto scene = iGame::Scene::New();
-    const std::string fileName = "./Models/dianfengshan.vtk";
+    // dianfengshan.vtk 未随仓库提供；改用 Models 内已有、带点标量的网格
+    const std::string fileName = "./Models/Tet_Plane.vtk";
+    std::cerr << "[testContourLine] cwd=" << std::filesystem::current_path().string()
+              << " file=" << fileName
+              << " exists=" << std::filesystem::exists(fileName) << "\n"
+              << std::flush;
+
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj == nullptr) {
-        std::cout << "Read ERROR!\n";
-    }
-    auto input = obj;
-    //新建filter用于提取等值线等值面
-    auto filter = iGame::ContourFilter::New();
-    //数据的index
-    int index = 0;
-    auto pointAttibutes = obj->GetAttributeSet()->GetAllPointAttributes();
-    if (pointAttibutes == nullptr|| index > pointAttibutes->GetNumberOfElements()) {
-        std::cout<< "数据有误,无效点数据\n";
-        return 0;
+        std::cerr << "[testContourLine] FAIL: ReadFile returned null\n" << std::flush;
+        return 1;
     }
 
-    
+    auto filter = iGame::ContourFilter::New();
+    int index = 0;
+    auto pointAttibutes = obj->GetAttributeSet()->GetAllPointAttributes();
+    if (pointAttibutes == nullptr || index >= pointAttibutes->GetNumberOfElements()) {
+        std::cerr << "[testContourLine] FAIL: invalid point attributes\n" << std::flush;
+        return 1;
+    }
+
     auto& attr = pointAttibutes->GetElement(index);
     auto range = attr.GetDataRange();
     auto array = attr.pointer;
-    //数据的维度
     int dimension = 0;
-    std::vector<double>values;
-    double value = 0.0;
-    //设定好想要提取的等值数据
-    value = range->GetValue(dimension * 2 + 2) * 2 / 3 + range->GetValue(dimension * 2 + 3) / 3;
+    std::vector<double> values;
+    // 在标量范围内取三档等值
+    double value = range->GetValue(dimension * 2 + 2) * 2 / 3 + range->GetValue(dimension * 2 + 3) / 3;
     values.push_back(value);
     value = range->GetValue(dimension * 2 + 2) / 3 + range->GetValue(dimension * 2 + 3) * 2 / 3;
     values.push_back(value);
     value = range->GetValue(dimension * 2 + 2) / 2 + range->GetValue(dimension * 2 + 3) / 2;
     values.push_back(value);
-    //设置输入模型
-    filter->SetInput(input);
-    //设置对于的数据集，等值数据以及维度，不建议用矢量的长度模式，因为数据并不是线性的
+
+    filter->SetInput(obj);
     filter->SetIsoScalarData(array, values, dimension);
-    //执行
     filter->Execute();
     auto res = filter->GetOutput();
-    if (res != nullptr) {
-        scene->AddModel(res);
+    if (res == nullptr) {
+        std::cerr << "[testContourLine] FAIL: ContourFilter output null\n" << std::flush;
+        return 1;
     }
-    (DynamicCast<iGame::DrawObject>(res))->ConvertToDrawableData();
-    (DynamicCast<iGame::DrawObject>(res))->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-    (DynamicCast<iGame::DrawObject>(res))->ViewCloudPicture(scene, index, dimension);
-    /* 启动窗口设置*/
+
+    scene->AddModel(res);
+    auto draw = DynamicCast<iGame::DrawObject>(res);
+    draw->ConvertToDrawableData();
+    draw->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+    draw->ViewCloudPicture(scene, index, dimension);
+
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
-    window->SetSize(1920, 1080);
+    window->SetSize(1280, 720);
     window->SetScene(scene);
     auto interactor = iGame::Interactor::New();
     interactor->Initialize(scene);
     interactor->CreateDefaultStyle();
     window->SetInteractor(interactor);
+    std::cerr << "[testContourLine] Show() — close window to exit\n" << std::flush;
     window->Show();
     return 0;
 }

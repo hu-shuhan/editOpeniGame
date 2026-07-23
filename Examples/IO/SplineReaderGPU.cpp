@@ -7,6 +7,7 @@
 #include "Spline XML/iGameSplineReaderGPU.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"
+#include "iGameSplineGeometry.h"
 
 static void ImportSplineFileWithGpuCompute() {
     // Create a new scene

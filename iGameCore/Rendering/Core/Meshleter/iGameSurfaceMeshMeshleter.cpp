@@ -1,10 +1,12 @@
 #include "iGameSurfaceMeshMeshleter.h"
+#include "iGameDrawObject.h"
 #include "iGameRenderingLogger.h"
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameTimer.h"
 #include "iGameUnstructuredMesh.h"
 #include <algorithm>
+#include <vector>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -75,9 +77,11 @@ void SurfaceMeshMeshleter::Build() {
         // triangle to face map
         triToFace.reserve(mesh->GetNumberOfFaces() * 2);
 
-        igIndex cell[32]{};
+        std::vector<igIndex> cell;
         for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
-            int ncell = mesh->GetFacePointIds(i, cell);
+            const auto faceSize = mesh->GetFaces()->GetCellSize(i);
+            cell.resize(faceSize);
+            int ncell = mesh->GetFacePointIds(i, cell.data());
             for (int j = 1; j < ncell - 1; j++) {
                 triangleIndices->AddElement3(cell[0], cell[j], cell[j + 1]);
                 // store by sorted vertex ids to be order-invariant
@@ -106,6 +110,21 @@ void SurfaceMeshMeshleter::Build() {
         const unsigned int* indices = triangleIndices->RawPointer();
         size_t index_count = triangleIndices->GetNumberOfValues();
 
+        // meshoptimizer requires a non-empty triangle list. More importantly,
+        // the accelerated draw path must not run with uncreated SSBO/indirect
+        // buffers, otherwise the first rendered frame reports a deferred GL
+        // error from the meshlet pass.
+        if (vertex_count == 0 || index_count < 3) {
+            m_MeshletCount = 0;
+            DynamicCast<DrawObject>(m_DataObject)->SetAccelerationOption(false);
+            IGAME_RENDERING_WARN(
+                    "DataObject {} contains no triangles; meshlet rendering "
+                    "has been disabled.",
+                    m_DataObject->GetName());
+            this->Modified();
+            return;
+        }
+
         // use for mesh shader
         std::vector<unsigned int> meshletVertices;
         std::vector<unsigned char> meshletTriangles;
@@ -132,6 +151,17 @@ void SurfaceMeshMeshleter::Build() {
                 meshletTriangles.data(), optimized_indices.data(), index_count,
                 vertex_positions, vertex_count, sizeof(float) * 3,
                 m_MaxVertices, m_MaxTriangles, m_ConeWeight);
+
+        if (meshlet_count == 0) {
+            m_MeshletCount = 0;
+            DynamicCast<DrawObject>(m_DataObject)->SetAccelerationOption(false);
+            IGAME_RENDERING_WARN(
+                    "DataObject {} produced no meshlets; meshlet rendering "
+                    "has been disabled.",
+                    m_DataObject->GetName());
+            this->Modified();
+            return;
+        }
 
         // Resize the vector to fit the actual generated meshlet data
         const meshopt_Meshlet& last = meshlets[meshlet_count - 1];

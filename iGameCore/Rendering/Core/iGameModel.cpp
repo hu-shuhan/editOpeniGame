@@ -6,7 +6,9 @@
 #include "iGameScene.h"
 #include "iGameSelection.h"
 #include "iGameSurfaceMesh.h"
+#include <algorithm>
 #include <functional>
+#include <limits>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -905,23 +907,40 @@ void Model::DrawPhase1() {
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &visibleMeshletCount);
 
-            if (colorWithCell || meshleter->GetRenderWithMeshlet()) {
-                meshleter->m_CellTriangleVAO->Bind();
-                meshleter->m_CellFinalDrawCommandBuffer->Target(
-                        GL_DRAW_INDIRECT_BUFFER);
-                meshleter->m_CellFinalDrawCommandBuffer->Bind();
-                glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr,
-                                          visibleMeshletCount, 0);
-                meshleter->m_CellTriangleVAO->Release();
-            } else {
-                meshleter->m_TriangleVAO->Bind();
-                meshleter->m_FinalDrawCommandBuffer->Target(
-                        GL_DRAW_INDIRECT_BUFFER);
-                meshleter->m_FinalDrawCommandBuffer->Bind();
-                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
-                                            nullptr, visibleMeshletCount, 0);
-                meshleter->m_TriangleVAO->Release();
+            const auto maxDrawCount = static_cast<unsigned int>(
+                    std::min(meshleter->m_MeshletCount,
+                             static_cast<size_t>(
+                                     std::numeric_limits<GLsizei>::max())));
+            if (visibleMeshletCount > maxDrawCount) {
+                IGAME_RENDERING_ERROR(
+                        "{} returned an invalid visible meshlet count: {} "
+                        "(maximum {}). The indirect draw count was clamped.",
+                        meshleter->GetName(), visibleMeshletCount,
+                        maxDrawCount);
+                visibleMeshletCount = maxDrawCount;
             }
+
+            if (visibleMeshletCount > 0) {
+                if (colorWithCell || meshleter->GetRenderWithMeshlet()) {
+                    meshleter->m_CellTriangleVAO->Bind();
+                    meshleter->m_CellFinalDrawCommandBuffer->Target(
+                            GL_DRAW_INDIRECT_BUFFER);
+                    meshleter->m_CellFinalDrawCommandBuffer->Bind();
+                    glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr,
+                                              visibleMeshletCount, 0);
+                    meshleter->m_CellTriangleVAO->Release();
+                } else {
+                    meshleter->m_TriangleVAO->Bind();
+                    meshleter->m_FinalDrawCommandBuffer->Target(
+                            GL_DRAW_INDIRECT_BUFFER);
+                    meshleter->m_FinalDrawCommandBuffer->Bind();
+                    glMultiDrawElementsIndirect(
+                            GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
+                            visibleMeshletCount, 0);
+                    meshleter->m_TriangleVAO->Release();
+                }
+            }
+            GLCheckError();
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
@@ -1206,7 +1225,9 @@ void Model::DrawPhase2() {
                 size_t count = meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
                                   1);
-                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT |
+                                GL_COMMAND_BARRIER_BIT);
+                GLCheckError();
             }
 
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
@@ -1215,22 +1236,37 @@ void Model::DrawPhase2() {
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &count);
 
-            if (colorWithCell || meshleter->GetRenderWithMeshlet()) {
-                meshleter->m_CellTriangleVAO->Bind();
-                meshleter->m_CellFinalDrawCommandBuffer->Target(
-                        GL_DRAW_INDIRECT_BUFFER);
-                meshleter->m_CellFinalDrawCommandBuffer->Bind();
-                glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr, count, 0);
-                meshleter->m_CellTriangleVAO->Release();
-            } else {
-                meshleter->m_TriangleVAO->Bind();
-                meshleter->m_FinalDrawCommandBuffer->Target(
-                        GL_DRAW_INDIRECT_BUFFER);
-                meshleter->m_FinalDrawCommandBuffer->Bind();
-                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
-                                            nullptr, count, 0);
-                meshleter->m_TriangleVAO->Release();
+            const auto maxDrawCount = static_cast<unsigned int>(
+                    std::min(meshleter->m_MeshletCount,
+                             static_cast<size_t>(
+                                     std::numeric_limits<GLsizei>::max())));
+            if (count > maxDrawCount) {
+                IGAME_RENDERING_ERROR(
+                        "{} returned an invalid visible meshlet count: {} "
+                        "(maximum {}). The indirect draw count was clamped.",
+                        meshleter->GetName(), count, maxDrawCount);
+                count = maxDrawCount;
             }
+
+            if (count > 0) {
+                if (colorWithCell || meshleter->GetRenderWithMeshlet()) {
+                    meshleter->m_CellTriangleVAO->Bind();
+                    meshleter->m_CellFinalDrawCommandBuffer->Target(
+                            GL_DRAW_INDIRECT_BUFFER);
+                    meshleter->m_CellFinalDrawCommandBuffer->Bind();
+                    glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr, count, 0);
+                    meshleter->m_CellTriangleVAO->Release();
+                } else {
+                    meshleter->m_TriangleVAO->Bind();
+                    meshleter->m_FinalDrawCommandBuffer->Target(
+                            GL_DRAW_INDIRECT_BUFFER);
+                    meshleter->m_FinalDrawCommandBuffer->Bind();
+                    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
+                                                nullptr, count, 0);
+                    meshleter->m_TriangleVAO->Release();
+                }
+            }
+            GLCheckError();
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
@@ -1311,7 +1347,9 @@ void Model::TestOcclusionResults() {
                 size_t count = meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
                                   1);
-                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT |
+                                GL_COMMAND_BARRIER_BIT);
+                GLCheckError();
             }
         }
 

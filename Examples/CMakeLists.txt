@@ -20,6 +20,13 @@ find_package(FFMPEG QUIET)
 find_package(AbqSDK QUIET)
 find_package(OpenMP QUIET)
 
+# 必须与编译 iGameCore 时一致，否则 Scene 等类型布局不同（如 GL_SUPPORT_MSAA），
+# Scene::New 会在运行期直接堆损坏崩溃。裸链 ${IGAMEVIS_CORE_LIB_TARGETS} 不会自动带上这些宏。
+add_compile_definitions(
+    IGAME_PLATFORM_WINDOWS
+    IGAME_OPENGL_VERSION_460
+)
+
 if (MSVC)
     add_compile_options(/utf-8)
 endif ()
@@ -197,3 +204,4 @@ enable_testing()
 foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
     igame_register_example_test(${EXAMPLE_TARGET})
 endforeach()
+
