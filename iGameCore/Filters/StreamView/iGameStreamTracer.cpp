@@ -90,11 +90,14 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             // mesh->SetShouldBuildFaceEageLinks(false);
             // mesh->SetShouldBuildVolumeFaceLinks(false);
             // mesh->SetShouldBuildVolumeEageLinks(false);
-            mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+            // 前半段 (0 -> 0.5): InitPolyhedronVertices；后半段 (0.5 -> 1): InitAdjacent
+            mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(0.5 * p); });
+            this->UpdateProgress(0.5);
+            this->ResetProgress(0.5); // 让 InitAdjacent 内部的 0->1 映射到整体 0.5->1
             clock_t startTime = clock();
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(), true);
             std::cout << "Init Adjacent Time: " << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC
                       << " seconds." << std::endl;
-            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(), true);
             this->UpdateProgress(1);
         }
 
@@ -137,12 +140,14 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             //mesh->SetShouldBuildFaceEageLinks(false);
             //mesh->SetShouldBuildVolumeFaceLinks(false);
             //mesh->SetShouldBuildVolumeEageLinks(false);
-            mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+            // 前半段 (0 -> 0.5): InitPolyhedronVertices；后半段 (0.5 -> 1): InitAdjacent
+            mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(0.5 * p); });
+            this->UpdateProgress(0.5);
+            this->ResetProgress(0.5); // 让 InitAdjacent 内部的 0->1 映射到整体 0.5->1
             clock_t startTime = clock();
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(), true);
             std::cout << "Init Adjacent Time: " << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC
                       << " seconds." << std::endl;
-            //InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             this->UpdateProgress(1);
         }
 
@@ -341,6 +346,13 @@ std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName
     return result;
 }
 bool StreamTracer::Execute() {
+    // 重置进度累积，避免上一次 initStreamTracer / Execute 遗留的 shift/scale 影响本次
+    // （否则进度条可能停在 100% 或以缩放后的斜率增长，看起来"没反应"）
+    m_Progress = 0.0;
+    m_ProgressShift = 0.0;
+    m_ProgressScale = 1.0;
+    this->UpdateProgress(0.0);
+
     // 检查参数是否已设置
     if (m_SeedPoints.empty()) {
         igError("Seed points not set. Please call setinput() first.");
@@ -2380,7 +2392,8 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
         if ((chunk_start / CHUNK_SIZE) % 10 == 0) {
             std::cout << "Filling progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
-            if ((chunk_start / cellNum) < 0.2) this->UpdateProgress((chunk_start / cellNum));
+            // 第 4 步占整个 InitAdjacent 的前 40%
+            this->UpdateProgress(0.4 * static_cast<double>(chunk_start) / cellNum);
         }
     }
 
@@ -2422,10 +2435,13 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
         if ((chunk_start / CHUNK_SIZE) % 50 == 0) {
             std::cout << "Cell link progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+            // 第 5 步占 InitAdjacent 的 40%~100%
+            this->UpdateProgress(0.4 + 0.6 * static_cast<double>(chunk_start) / cellNum);
         }
     }
 
     cell_link.offset[cellNum] = cell_link.data.size();
+    this->UpdateProgress(1.0);
 
     std::cout << "Adjacency building completed successfully!" << std::endl;
     std::cout << "Vertex links: " << vetex_link.data.size() << " entries" << std::endl;
