@@ -22,42 +22,65 @@ igQtColorRangeSlider::igQtColorRangeSlider(QWidget* aParent)
     setMouseTracking(true);
     InitColorRangeSlider();
 }
-void igQtColorRangeSlider::InitColorRangeSlider() {
+bool igQtColorRangeSlider::InitColorRangeSlider() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     m_ColorMapper = nullptr;
+    iGame::ColorMap::Pointer src;
     if (scene) {
         auto model = scene->GetCurrentModel();
         if (model && model->GetDataObject()) {
-            this->UpdateSliderWithColorBar(model->GetDataObject()->GetColorMapper());
-          
+            src = model->GetDataObject()->GetColorMapper();
+            m_ColorMapper = src;
         }
     }
-
+    if (src) {
+        UpdateSliderWithColorBar(src);
+        return true;
+    }
+    // 无模型时仍给可编辑默认色条，避免空指针绘制崩溃
+    m_TmpColorMapper = iGame::ColorMap::New();
+    m_TmpColorMapper->InitColorBarWithBlueWhiteRedType();
+    PressedHandle = -1;
+    update();
+    return false;
 }
 void igQtColorRangeSlider::UpdateSliderWithColorBar(iGame::ColorMap::Pointer colorMap) {
     m_ColorMapper = colorMap;
-    if (!m_ColorMapper) { m_ColorMapper = iGame::ColorMap::New(); }
     this->m_TmpColorMapper = iGame::ColorMap::New();
+    if (!colorMap || !colorMap->GetColorBar() || !colorMap->GetColorRange()) {
+        m_TmpColorMapper->InitColorBarWithBlueWhiteRedType();
+        PressedHandle = -1;
+        return;
+    }
     auto tmpColorBar = iGame::FloatArray::New();
     tmpColorBar->SetDimension(3);
     auto tmpColorRange = iGame::FloatArray::New();
-    int n = m_ColorMapper->GetColorBarSize() + 1;
+    int n = colorMap->GetColorBarSize() + 1;
     tmpColorBar->Reserve(n);
     tmpColorRange->Reserve(n);
     float rgb[16];
     for (int i = 0; i < n; i++) {
-        m_ColorMapper->GetColorBar()->GetElement(i, rgb);
+        colorMap->GetColorBar()->GetElement(i, rgb);
         tmpColorBar->AddElement(rgb);
     }
     for (int i = 0; i < n; i++) {
-        tmpColorRange->AddValue(m_ColorMapper->GetColorRange()->GetValue(i));
+        tmpColorRange->AddValue(colorMap->GetColorRange()->GetValue(i));
     }
     m_TmpColorMapper->SetColorMap(tmpColorBar, tmpColorRange);
+    PressedHandle = -1;
 }
 void igQtColorRangeSlider::updateSliderDrawInfo() {
 
     // 计算colors
     this->colorBarLength = this->width() - 2 * LeftRightMargin;
+    if (colorBarLength <= 0) {
+        drawColors.clear();
+        return;
+    }
+    if (!m_TmpColorMapper) {
+        m_TmpColorMapper = iGame::ColorMap::New();
+        m_TmpColorMapper->InitColorBarWithBlueWhiteRedType();
+    }
     drawColors.resize(colorBarLength);
     float scale = 1.0 / colorBarLength;
     QColor color;
@@ -74,9 +97,8 @@ void igQtColorRangeSlider::paintEvent(QPaintEvent* aEvent)
 {
     Q_UNUSED(aEvent);
     updateSliderDrawInfo();
+    if (!m_TmpColorMapper || drawColors.isEmpty()) return;
     QPainter painter(this);
-    int height = this->height();
-    int width = this->width();
     for (int i = 0; i < colorBarLength; i++) {
         QRect rect(LeftRightMargin + i, TopMargin, 1, colorBarHeight);
         painter.fillRect(rect, drawColors.at(i));
@@ -86,6 +108,7 @@ void igQtColorRangeSlider::paintEvent(QPaintEvent* aEvent)
     QBrush handleBrush(QColor(0xFA, 0xFA, 0xFA));
     painter.setBrush(handleBrush);
     auto colorRanges = this->m_TmpColorMapper->GetColorRange();
+    if (!colorRanges) return;
     for (int i = 0; i < colorRanges->GetNumberOfElements(); i++) {
         if (i == PressedHandle) {
             pen.setColor(QColor(155, 0, 0));
@@ -114,6 +137,7 @@ QRectF igQtColorRangeSlider::getHandleRect(int aValue) const
 
 void igQtColorRangeSlider::mousePressEvent(QMouseEvent* aEvent)
 {
+    if (!m_TmpColorMapper || !m_TmpColorMapper->GetColorRange() || !m_TmpColorMapper->GetColorBar()) return;
     this->isPressed = true;
     int tmp = this->PressedHandle;
     this->PressedHandle = -1;
@@ -189,6 +213,7 @@ void igQtColorRangeSlider::mousePressEvent(QMouseEvent* aEvent)
 
 void igQtColorRangeSlider::mouseMoveEvent(QMouseEvent* aEvent)
 {
+    if (!m_TmpColorMapper || !m_TmpColorMapper->GetColorRange()) return;
     auto colorRanges = this->m_TmpColorMapper->GetColorRange();
     if (aEvent->buttons() & Qt::LeftButton && isPressed)
     {
@@ -206,7 +231,7 @@ void igQtColorRangeSlider::mouseReleaseEvent(QMouseEvent* aEvent)
 {
     Q_UNUSED(aEvent);
     this->isPressed = false;
-    if (this->PressedHandle != -1) {
+    if (this->PressedHandle != -1 && m_TmpColorMapper && m_TmpColorMapper->GetColorBar()) {
         QColor c;
         float rgb[3];
         this->m_TmpColorMapper->GetColorBar()->GetElement(PressedHandle, rgb);
@@ -217,6 +242,7 @@ void igQtColorRangeSlider::mouseReleaseEvent(QMouseEvent* aEvent)
 }
 void igQtColorRangeSlider::updateColorInIndex(QColor c)
 {
+    if (!m_TmpColorMapper) return;
     if (PressedHandle != -1) {
         this->m_TmpColorMapper->SetIndexColor(PressedHandle, c.red() / 255.0, c.green() / 255.0, c.blue() / 255.0);
     }
@@ -224,10 +250,22 @@ void igQtColorRangeSlider::updateColorInIndex(QColor c)
     Q_EMIT rangeChanges();
 }
 
-void igQtColorRangeSlider::updataManagerColorBarWithMyCorlorBar()
+bool igQtColorRangeSlider::updataManagerColorBarWithMyCorlorBar()
 {
-    //auto colorMap = iGame::iGameModelColorManager::Instance()->GetColorMapper();
-    if (!m_ColorMapper) return;
+    if (!m_ColorMapper || !m_TmpColorMapper || !m_TmpColorMapper->GetColorBar() ||
+        !m_TmpColorMapper->GetColorRange()) {
+        return false;
+    }
+    // 重新绑定当前模型 mapper，避免场景切换后写到旧对象
+    if (auto scene = iGame::SceneManager::Instance()->GetCurrentScene()) {
+        if (auto model = scene->GetCurrentModel()) {
+            if (auto obj = model->GetDataObject()) {
+                if (auto mapper = obj->GetColorMapper()) { m_ColorMapper = mapper; }
+            }
+        }
+    }
+    if (!m_ColorMapper) return false;
+
     int num = this->m_TmpColorMapper->GetColorBar()->GetNumberOfElements();
     auto tmpColorBar = iGame::FloatArray::New();
     tmpColorBar->SetDimension(3);
@@ -239,11 +277,12 @@ void igQtColorRangeSlider::updataManagerColorBarWithMyCorlorBar()
         tmpColorRange->AddValue(m_TmpColorMapper->GetColorRange()->GetValue(i));
     }
     m_ColorMapper->SetColorMap(tmpColorBar, tmpColorRange);
-
-
+    m_ColorMapper->Modified();
+    return true;
 }
 void igQtColorRangeSlider::changeColorBarWithDefaultMode(int mode)
 {
+    if (!m_TmpColorMapper) { m_TmpColorMapper = iGame::ColorMap::New(); }
     switch (mode)
     {
     case 0:
@@ -264,6 +303,7 @@ void igQtColorRangeSlider::changeColorBarWithDefaultMode(int mode)
     default:
         break;
     }
+    PressedHandle = -1;
     update();
     Q_EMIT rangeChanges();
 }

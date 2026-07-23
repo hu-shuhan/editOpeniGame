@@ -2421,16 +2421,23 @@ void igQtMainWindow::initAllMySignalConnections() {
 
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
+            // 打开前从当前模型 ColorMapper 同步色条（无模型会提示）
             this->ColorManagerWidget->resetColorRange();
             this->ColorManagerWidget->show();
+            this->ColorManagerWidget->raise();
+            this->ColorManagerWidget->activateWindow();
         } else {
             this->ColorManagerWidget->hide();
         }
     });
 
     connect(this->ColorManagerWidget, &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
+        // SetColorMap + Modified 后刷新顶点色与图例
         ui->widget_ScalarField->updateDrawStyle();
-        this->rendererWidget->getColorBarWidget()->update();
+        if (this->rendererWidget && this->rendererWidget->getColorBarWidget()) {
+            this->rendererWidget->getColorBarWidget()->update();
+        }
+        if (this->rendererWidget) { this->rendererWidget->update(); }
     });
 
     connect(ui->widget_VectorField, &igQtVectorWidget::DrawDireVector, this, [&](iGame::DataObject::Pointer res) {

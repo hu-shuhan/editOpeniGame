@@ -18,12 +18,16 @@
 #include <QLineEdit>
 #include <QPaintEvent>
 #include <ui_ColorManager.h>
-class IG_QT_MODULE_EXPORT  igQtColorManagerWidget : public QWidget {
+
+class IG_QT_MODULE_EXPORT igQtColorManagerWidget : public QWidget {
 	Q_OBJECT
 
 public:
 	igQtColorManagerWidget(QWidget* parent = nullptr);
 	~igQtColorManagerWidget() override;
+
+	/** 从当前场景模型同步色条；无模型时返回 false。 */
+	bool syncFromCurrentModel();
 
 public slots:
 	void resetColorRange();
@@ -45,19 +49,23 @@ public slots:
 	bool setCustomColorFromStr();
 	void updataManagerColorBar();
 	void changeColorMapMode();
+	void slotControlPointColor(QColor);
+
 signals:
 	void UpdateColorBarFinished();
 
 protected:
 	void paintEvent(QPaintEvent* event) override;
+	void syncSpinBoxesFromColor(const QColor& c);
+	void applyColorBarToModel();
+
 	Ui::ColorManager* ui{nullptr};
 	QColor myColor;
 	QString customColorStr;
 	QColor customColor;
-	float tmpRgb[3] = { 0,0,0 };
-	float tmpHsv[3] = { 0,0,0 };
-
+	float tmpRgb[3] = {0, 0, 0};
+	float tmpHsv[3] = {0, 0, 0};
+	bool m_SyncingSpinBoxes{false};
 };
 
-
-#endif //IGQTCOLORMANAGERWIDGET_H
+#endif // IGQTCOLORMANAGERWIDGET_H

@@ -117,12 +117,15 @@ void igQtScalarViewWidget::showScalarView() {
 	}
 }
 void igQtScalarViewWidget::updateDrawStyle() {
-	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper;}
-	m_ColorMapper->Modified();
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-	if (scene) {
-		scene->Update();
+	if (!scene) return;
+	auto model = scene->GetCurrentModel();
+	if (model && model->GetDataObject()) {
+		m_ColorMapper = model->GetDataObject()->GetColorMapper();
 	}
+	if (!m_ColorMapper) return;
+	m_ColorMapper->Modified();
+	scene->Update();
 }
 void igQtScalarViewWidget::editColorBar() { 
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();

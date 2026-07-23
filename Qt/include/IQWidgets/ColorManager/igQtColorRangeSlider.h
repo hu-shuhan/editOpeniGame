@@ -15,8 +15,8 @@ public:
 
 	QSize minimumSizeHint() const override;
 
-	//	Obtain Color Bar from the scene, then init slider
-	void InitColorRangeSlider();
+	// 从当前场景模型同步色条；无模型/无 ColorMapper 时返回 false（仍会初始化默认临时色条供编辑）
+	bool InitColorRangeSlider();
 	//  Obtain Color Bar from the input, then update slider
 	void UpdateSliderWithColorBar(iGame::ColorMap::Pointer);
 
@@ -36,7 +36,8 @@ signals:
 	void MouseReleased(QColor);
 public slots:
 	void updateColorInIndex(QColor);
-	void updataManagerColorBarWithMyCorlorBar();
+	/** 将临时色条写回模型 ColorMapper，并 Modified；失败返回 false */
+	bool updataManagerColorBarWithMyCorlorBar();
 	void changeColorBarWithDefaultMode(int);
 private:
 	int colorBarLength;
