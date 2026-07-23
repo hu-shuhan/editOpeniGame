@@ -14,6 +14,25 @@
 #include <QFileDialog>
 #include <IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <Deformation/iGameStressDeformationFilter.h>
+#include <iGameScalarsToColors.h>
+
+namespace {
+/** 动画播放/导出时锁定当前 ColorMapper 范围，避免每帧按当帧 dataRange 重置。 */
+void LockAnimationColorRange(iGame::DrawObject* obj) {
+    if (!obj) return;
+    auto mapper = obj->GetColorMapper();
+    if (!mapper || mapper->GetStable()) return;
+    mapper->SetRangeStable(true);
+    mapper->Modified();
+}
+
+void UnlockAnimationColorRange(iGame::DrawObject* obj) {
+    if (!obj) return;
+    auto mapper = obj->GetColorMapper();
+    if (!mapper) return;
+    mapper->SetRangeStable(false);
+}
+} // namespace
 
 /**
  * @class   igQtAnimationWidget
@@ -184,6 +203,9 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 
     // 缓存设置由 comboBox_AnimationCacheNum 控制，不在播放时覆盖
     currentDrawObject->UpdateAnimation(keyframe_idx);
+
+    // 固定整段动画的颜色范围（使用进入播放时 mapper 上已有的 min/max）
+    LockAnimationColorRange(currentDrawObject.get());
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -357,6 +379,8 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
 
+    LockAnimationColorRange(currentDrawObject.get());
+
     if (currentDrawObject->GetAttributeIndex() != -1) {
         currentDrawObject->ViewCloudPicture(
                 currentScene, currentDrawObject->GetAttributeIndex());
@@ -380,6 +404,13 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
 void igQtAnimationWidget::btnPlay_finishLoop() {
     ui->btnPlayOrPause->setChecked(false);
     ui->btnReverseOrPause->setChecked(false);
+    // 播放结束后解除锁定，便于之后按单帧自适应；手动改过的范围可通过「重置/自定义范围」再锁
+    auto currentScene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (currentScene && currentScene->GetCurrentModel()) {
+        auto draw = iGame::DynamicCast<iGame::DrawObject>(
+                currentScene->GetCurrentModel()->GetDataObject());
+        UnlockAnimationColorRange(draw.get());
+    }
 }
 
 void igQtAnimationWidget::updateAnimationComponentsKeyframeSum(
@@ -616,6 +647,11 @@ bool igQtAnimationWidget::saveAnimation() {
 
 
     QFileInfo info(path);
+    auto drawObj = DynamicCast<DrawObject>(currentObject);
+    // 先建立第 0 帧范围，再锁定整段导出期间的色标
+    this->playAnimation_snap(0);
+    LockAnimationColorRange(drawObj.get());
+
     for(int i = 0; i < timeStepSize; i ++)
     {
         this->playAnimation_snap(i);
@@ -632,6 +668,7 @@ bool igQtAnimationWidget::saveAnimation() {
         inputInfo.bytes_per_line = width * 4;
         inputInfo.raw_image_data.emplace_back(tmp);
     }
+    UnlockAnimationColorRange(drawObj.get());
     rendererWidget->resize(oldwidth, oldheight);
 
 

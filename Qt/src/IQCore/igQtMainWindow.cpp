@@ -2377,9 +2377,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     /* Animation signal connect BEGIN.*/
     connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene,
             this, &igQtMainWindow::UpdateRenderingWidget);
-    // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
+    // Update scalar view UI when animation frame changes (keep locked color range)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
-            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
+            ui->widget_ScalarField, &igQtScalarViewWidget::refreshScalarViewKeepRange);
 
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             this, [&](){

@@ -12,11 +12,30 @@
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
 #include <iGameScene.h>
+#include <iGameScalarsToColors.h>
 #include <iGameThreadPool.h>
 #include <iostream>
 #include <string>
 
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
+
+namespace {
+void LockAnimationColorRange(iGame::DrawObject* obj) {
+    if (!obj) return;
+    auto mapper = obj->GetColorMapper();
+    if (!mapper || mapper->GetStable()) return;
+    mapper->SetRangeStable(true);
+    mapper->Modified();
+}
+
+void UnlockAnimationColorRange(iGame::DrawObject* obj) {
+    if (!obj) return;
+    auto mapper = obj->GetColorMapper();
+    if (!mapper) return;
+    mapper->SetRangeStable(false);
+}
+} // namespace
+
 void PlayAnimation(iGame::DataObject::Pointer obj, iGame::Scene* scene, int keyframe_idx) {
     using namespace iGame;
 
@@ -29,9 +48,9 @@ void PlayAnimation(iGame::DataObject::Pointer obj, iGame::Scene* scene, int keyf
         deformFilter->SetInput(currentDrawObject);
         if (!deformFilter->Execute()) std::cout << " error \n";
     }
-    //    /* process Object's scalar range*/
-    //    currentDrawObject->ReCollectSubDataObjectDataRange();
-    //    currentDrawObject->UpdateSubDataObjectDataRange();
+
+    // 固定整段动画颜色范围，避免每帧按当帧 min/max 重置
+    LockAnimationColorRange(currentDrawObject.get());
 
     scene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -49,6 +68,11 @@ void SaveAnimationToMP4(iGame::Scene* currentScene, iGame::DataObject ::Pointer 
         std::cout << "error\n";
         return;
     }
+    auto drawObj = DynamicCast<DrawObject>(currentObject);
+    // 导出前先播第 0 帧建立 mapper 范围，再锁定
+    PlayAnimation(currentObject, currentScene, 0);
+    LockAnimationColorRange(drawObj.get());
+
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
     std::cout << "time step size: " << timeStepSize << std::endl;
     int width = 1920, height = 1080;
@@ -64,6 +88,7 @@ void SaveAnimationToMP4(iGame::Scene* currentScene, iGame::DataObject ::Pointer 
         std::cout << i << " " << tmp.size() << "\n";
         inputInfo.raw_image_data.emplace_back(tmp);
     }
+    UnlockAnimationColorRange(drawObj.get());
 
     FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
     inputInfo.output_path = outputPath;
@@ -84,6 +109,10 @@ void SaveAnimationToGIF(iGame::Scene* currentScene, iGame::DataObject ::Pointer 
         std::cout << "error\n";
         return;
     }
+    auto drawObj = DynamicCast<DrawObject>(currentObject);
+    PlayAnimation(currentObject, currentScene, 0);
+    LockAnimationColorRange(drawObj.get());
+
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
     std::cout << "time step size: " << timeStepSize << std::endl;
     int width = 1920, height = 1080;
@@ -95,14 +124,12 @@ void SaveAnimationToGIF(iGame::Scene* currentScene, iGame::DataObject ::Pointer 
     for (int i = 0; i < timeStepSize; i++) {
         PlayAnimation(currentObject, currentScene, i);
 
-        //        std::vector<uint8_t> tmp(image.bits(),
-        //                                 image.bits() + image.sizeInBytes());
-        //        inputInfo.bytes_per_line = image.bytesPerLine();
         auto tmp = currentScene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true);
         inputInfo.bytes_per_line = width * 4;
         std::cout << i << " " << tmp.size() << "\n";
         inputInfo.raw_image_data.emplace_back(tmp);
     }
+    UnlockAnimationColorRange(drawObj.get());
 
     FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
     inputInfo.output_path = outputPath;

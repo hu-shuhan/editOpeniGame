@@ -18,6 +18,8 @@ public:
 
 public slots:
 	void showScalarView();
+	/** 动画换帧时刷新标量 UI，不覆盖已锁定的 ColorMapper 范围 */
+	void refreshScalarViewKeepRange();
 	void editColorBar();
 	void rescaleRange();
 	void setCustomScaleRange();

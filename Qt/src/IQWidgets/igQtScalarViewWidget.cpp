@@ -29,8 +29,8 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::isShowColorLegend);
 	connect(ui->widget_DataRangeSlider, &igQtDataRangeSlider::DataRangeChanged,
 		this, [&](double _min, double _max) {
-//            std::cout << m_ColorMapper  << std::endl;
 			m_ColorMapper->SetRange(_min, _max);
+			m_ColorMapper->SetRangeStable(true);
 			updateDrawStyle();
 		});
 	connect(SetCustomScaleRangeUi->btnRescale, &QPushButton::clicked, this,
@@ -84,6 +84,14 @@ void igQtScalarViewWidget::initScalarRange() {
 		ui->widget_DataRangeSlider->hide();
 		return;
 	}
+	// 动画固定色标时：只同步滑条显示为当前 mapper 范围，不写回 SetRange
+	if (m_ColorMapper && m_ColorMapper->GetStable()) {
+		scalarMin = static_cast<float>(m_ColorMapper->GetRange()[0]);
+		scalarMax = static_cast<float>(m_ColorMapper->GetRange()[1]);
+		ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
+		ui->widget_DataRangeSlider->show();
+		return;
+	}
 	// 更新 ColorMapper 的范围到新的数据范围
 	if (m_ColorMapper) {
 		m_ColorMapper->SetRange(scalarMin, scalarMax);
@@ -101,6 +109,9 @@ void igQtScalarViewWidget::initScalarInfo()
 	oss << std::scientific << std::setprecision(6);
 	oss << scalarName << "\nMin Value : " << scalarMin
 		<< "\nMax Value : " << scalarMax;
+	if (m_ColorMapper && m_ColorMapper->GetStable()) {
+		oss << "\n(Range locked)";
+	}
 	
 	ui->labelScalarInfo->setText(QString::fromStdString(oss.str()));
 }
@@ -115,6 +126,19 @@ void igQtScalarViewWidget::showScalarView() {
 	if (m_ColorMapper) {
 		updateDrawStyle();
 	}
+}
+
+void igQtScalarViewWidget::refreshScalarViewKeepRange() {
+	loadScalarData();
+	if (m_ColorMapper && m_ColorMapper->GetStable()) {
+		scalarMin = static_cast<float>(m_ColorMapper->GetRange()[0]);
+		scalarMax = static_cast<float>(m_ColorMapper->GetRange()[1]);
+	}
+	if (currentSelectedScalarIdx >= 0) {
+		ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
+		ui->widget_DataRangeSlider->show();
+	}
+	initScalarInfo();
 }
 void igQtScalarViewWidget::updateDrawStyle() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -154,6 +178,7 @@ void igQtScalarViewWidget::rescaleRange() {
     scalarMax = attribute.dataRange->GetElement(scalarDimension + 1)[1];
 
 	m_ColorMapper->SetRange(scalarMin, scalarMax);
+	m_ColorMapper->SetRangeStable(true);
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
     initScalarInfo();
 	updateDrawStyle();
@@ -168,6 +193,7 @@ void igQtScalarViewWidget::setCustomScaleRange() {
 	ssmin >> min;
 	ssmax >> max;
 	m_ColorMapper->SetRange(min, max);
+	m_ColorMapper->SetRangeStable(true);
 	ui->widget_DataRangeSlider->updateMinAndMax(min, max);
 	updateDrawStyle();
 	this->SetCustomScaleRangeWidget->hide();
