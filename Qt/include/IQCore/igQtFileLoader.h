@@ -10,6 +10,9 @@
 #include <QString>
 #include <IQCore/igQtExportModule.h>
 
+#include <string>
+#include <vector>
+
 using namespace iGame;
 
 class IG_QT_MODULE_EXPORT igQtFileLoader : public QObject
@@ -56,4 +59,8 @@ protected:
 	QList<QAction*> recentFileActionList;
 	int maxFileNr = 10;
     SceneManager::Pointer m_SceneManager;
+
+private:
+    void OpenDataCodecFileAsync(std::string filePath);
+    void OpenDataCodecFilesAsync(std::vector<std::string> filePaths);
 };

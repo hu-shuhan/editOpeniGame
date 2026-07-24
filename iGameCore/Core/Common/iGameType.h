@@ -1,4 +1,4 @@
-﻿#ifndef iGameType_h
+#ifndef iGameType_h
 #define iGameType_h
 
 #include <cstdint>
@@ -103,7 +103,7 @@ enum {
 };
 
 // Streaming Data's String Type
-enum class StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
+enum class StreamingType { NONE, MultiSubFiles, SingleFieldAttributes, IGCFramePackage };
 
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };

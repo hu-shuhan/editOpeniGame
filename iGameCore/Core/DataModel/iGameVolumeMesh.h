@@ -22,6 +22,7 @@ public:
 
     // Get/Set volume array
     CellArray* GetVolumes();
+    CellArray* GetVolumeFaces();
     void SetVolumes(CellArray::Pointer volumes);
     virtual CellArray::Pointer GetCellArray() override { return m_Volumes; }
 

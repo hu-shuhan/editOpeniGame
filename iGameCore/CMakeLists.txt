@@ -16,7 +16,14 @@ endif ()
 #--------------------------------------------------------------------
 # Core Module's main Cmake
 #--------------------------------------------------------------------
+include(Cmake/CheckDataCodecDependencies.cmake)
+igame_check_datacodec_dependencies(${CMAKE_CURRENT_SOURCE_DIR}/Filters/DataCodec)
+
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
+set(IGAME_DATACODEC_TEST_RUNNER_SOURCE
+        "${CMAKE_CURRENT_SOURCE_DIR}/Filters/DataCodec/Test/Runner/DataCodecTestMain.cpp")
+list(FILTER IGAME_CORE_FILE EXCLUDE REGEX
+        "Filters/DataCodec/Test/Runner/DataCodecTestMain\\.cpp$")
 
 # Currently, only shared libraries for the Linux system are supported
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
@@ -73,18 +80,32 @@ target_include_directories(${MODULE_NAME} PUBLIC
 )
 set(ThirdParty_lib_dependency)
 list(APPEND ThirdParty_lib_dependency
-        glad
         freetype
         eigen
         meshoptimizer
         tinyXML2
         vtkkwiml
-        libzstd_static
-        glfw
         spdlog_header_only
         zlibstatic
         nanoflann
 )
+set(ThirdParty_internal_lib_dependency)
+list(APPEND ThirdParty_internal_lib_dependency
+        libzstd_static
+        mio
+        cereal
+        libpressio
+)
+
+if (NOT EMSCRIPTEN)
+    list(APPEND ThirdParty_lib_dependency glfw glad)
+endif ()
+
+if (IGAME_DATACODEC_BUILD_TESTS)
+    add_executable(iGameDataCodecTests ${IGAME_DATACODEC_TEST_RUNNER_SOURCE})
+    target_link_libraries(iGameDataCodecTests PRIVATE ${MODULE_NAME})
+    add_test(NAME DataCodec.All COMMAND iGameDataCodecTests)
+endif ()
 
 #--------------------------------------------------------------------
 # Find or Enable ThirdParty Components' Stuff.
@@ -103,6 +124,8 @@ if (ENABLE_LIBTORCH_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
 endif ()
+
+target_compile_definitions(${MODULE_NAME} PUBLIC DATACODEC_ENABLE_LIBPRESSIO)
 
 find_package(AbqSDK)
 if (${AbqSDK_FOUND})
@@ -180,6 +203,11 @@ endif ()
 # Target link Module needed ThirdParty's lib
 #--------------------------------------------------------------------
 target_link_libraries(${MODULE_NAME} PUBLIC ${ThirdParty_lib_dependency})
+target_link_libraries(${MODULE_NAME} PUBLIC
+        "$<BUILD_INTERFACE:${ThirdParty_internal_lib_dependency}>")
+if (WIN32)
+    target_link_libraries(${MODULE_NAME} PUBLIC psapi)
+endif ()
 
 if (WIN32)
     #  内部库在cmake构建时定义IGAME_COMPILE_EXPORT，使得模式切换为dllexport, 否则外部库在使用编译这个动态库代码时将其模式切换为dllimport

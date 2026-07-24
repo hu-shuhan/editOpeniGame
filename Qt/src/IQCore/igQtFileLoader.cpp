@@ -8,9 +8,8 @@
 #include <cstring>
 
 #include "iGameFileIO.h"
+#include "iGameProgressObserver.h"
 //#include "CSTest.h"
-//#include "iGameMeshCodec/iGameMeshEncoder.h"
-//#include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGamePointSet.h"
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
@@ -31,11 +30,20 @@
 #include <iGameType.h>
 
 #include <QCoreApplication>
+#include <QMetaObject>
 #include <QMessageBox>
+#include <QPointer>
+#include <QThread>
+#include <filesystem>
 #include <iostream>
+#include <memory>
+#include <utility>
 #include <qaction.h>
 #include <qdebug.h>
 #include <qsettings.h>
+#include <IQCore/igQtAttributeDataSourceManager.h>
+#include <IQCore/igQtDataCodecDecodeSettings.h>
+#include <IGDC/iGameIGDCReader.h>
 
 igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
     InitRecentFilePaths();
@@ -52,13 +60,12 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
                            "Compression file(*.igc)",
-                           "Compression Manifest file(*.igcm)",
                            "Fluent file(*.cas)"};
     QString selectedFilter;
     std::string filePath =
@@ -89,7 +96,7 @@ void igQtFileLoader::LoadOnlineC() {
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
         "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-        "*.vtm *.cgns *.igc *.igcm *.cas *.xml"
+        "*.vtm *.cgns *.igc *.cas *.xml"
 #if defined(AbqSDK_ENABLE)
         " *.odb"
 #endif
@@ -107,7 +114,6 @@ void igQtFileLoader::LoadFile() {
         "Nastran file(*.bdf *.op2)",
 #endif
         "Compression file(*.igc)",
-        "Compression Manifest file(*.igcm)",
         "Fluent file(*.cas)"
     };
     QString selectedFilter;
@@ -144,6 +150,11 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
 
+    if (FileIO::GetFileType(filePath) == FileIO::IGDC) {
+        OpenDataCodecFileAsync(filePath);
+        return;
+    }
+
     auto obj = iGame::FileIO::ReadFile(filePath);
     //_obj = obj;
     if (obj == nullptr) {
@@ -167,23 +178,21 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     using namespace iGame;
     if (filePaths.empty()) return;
 
-    // IGCM 是“多块清单文件”，不应被当作“多文件帧/子文件”加入模型树；
-    // 若用户同时选中了 .igcm 与其子块 .igc，仅打开 .igcm 即可（子块会由清单引用并加载）。
-    QStringList igcmFiles;
-    for (const auto& p : filePaths) {
-        if (p.endsWith(".igcm", Qt::CaseInsensitive)) {
-            igcmFiles.append(p);
-        }
-    }
-    if (!igcmFiles.empty()) {
-        for (const auto& p : igcmFiles) {
-            this->OpenFile(p.toStdString());
-        }
-        return;
-    }
-
     const std::string& first_file_path = filePaths[0].toStdString();
     if(strrchr(first_file_path.data(), '.') == nullptr) return;
+
+    std::vector<std::string> dataCodecPaths;
+    dataCodecPaths.reserve(filePaths.size());
+    const bool allDataCodecFiles = std::all_of(filePaths.begin(), filePaths.end(), [&](const auto& path) {
+        const auto nativePath = path.toStdString();
+        if (FileIO::GetFileType(nativePath) != FileIO::IGDC) { return false; }
+        dataCodecPaths.push_back(nativePath);
+        return true;
+    });
+    if (allDataCodecFiles) {
+        OpenDataCodecFilesAsync(std::move(dataCodecPaths));
+        return;
+    }
 
     // 检测 XML 后缀，使用 Spline 弹窗处理
     const char* ext = strrchr(first_file_path.data(), '.');
@@ -277,6 +286,99 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     //return;
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
+}
+
+void igQtFileLoader::OpenDataCodecFileAsync(std::string filePath) {
+    OpenDataCodecFilesAsync({std::move(filePath)});
+}
+
+void igQtFileLoader::OpenDataCodecFilesAsync(std::vector<std::string> filePaths) {
+    if (filePaths.empty()) { return; }
+    const bool decodeAttributesOnDemand =
+        igQtDataCodecDecodeSettingsStore::Load().decodeAttributesOnDemand;
+    if (auto* progress = iGame::ProgressObserver::Instance(); progress != nullptr) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
+
+    QPointer<igQtFileLoader> self(this);
+    auto* worker = QThread::create([
+        self,
+        filePaths = std::move(filePaths),
+        decodeAttributesOnDemand]() mutable {
+        iGame::AttributeDataSourcePointer source;
+        std::string error;
+        iGame::DataObject::Pointer object;
+        auto filePath = filePaths.front();
+        if (filePaths.size() > 1u) {
+            auto reader = iGame::IGDCReader::New();
+            reader->SetFilePath(filePath);
+            reader->SetLoadAllAvailableAttributes(!decodeAttributesOnDemand);
+            reader->SetSelectedFramePaths(filePaths);
+            if (reader->Execute()) {
+                object = reader->GetOutput();
+                if (decodeAttributesOnDemand) {
+                    source = reader->GetAttributeDataSource();
+                }
+            }
+            if (object == nullptr) {
+                error.clear();
+                for (const auto& message: reader->GetMessages()) {
+                    if (!error.empty()) { error += "; "; }
+                    error += message.text;
+                }
+            }
+        } else if (decodeAttributesOnDemand) {
+            auto reader = iGame::IGDCReader::New();
+            reader->SetFilePath(filePath);
+            reader->SetLoadAllAvailableAttributes(false);
+            if (reader->Execute()) {
+                object = reader->GetOutput();
+                source = reader->GetAttributeDataSource();
+            }
+            if (object == nullptr) {
+                for (const auto& message: reader->GetMessages()) {
+                    if (!error.empty()) { error += "; "; }
+                    error += message.text;
+                }
+            }
+        } else {
+            auto reader = iGame::IGDCReader::New();
+            reader->SetFilePath(filePath);
+            if (reader->Execute()) { object = reader->GetOutput(); }
+            if (object == nullptr) {
+                for (const auto& message: reader->GetMessages()) {
+                    if (!error.empty()) { error += "; "; }
+                    error += message.text;
+                }
+            }
+        }
+        if (!self) return;
+
+        QMetaObject::invokeMethod(self, [self, source, object, filePath, error]() {
+            if (!self) return;
+            if (object == nullptr) {
+                igDebug("DataCodec file read error: {}", error);
+                if (error.find("版本不符合") != std::string::npos) {
+                    QMessageBox::warning(nullptr, "错误", "版本不符合");
+                }
+                emit self->FinishReading();
+                return;
+            }
+
+            auto filename = filePath.substr(filePath.find_last_of('/') + 1);
+            object->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+            object->GetProperties()->AddProperty(iGame::Variant::String, "FilePath")->SetValue(filePath);
+            if (source != nullptr) {
+                igQtAttributeDataSourceManager::Instance()->RegisterSource(object, source);
+            }
+            self->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+            emit self->NewModel(object, ItemSource::File);
+            emit self->FinishReading();
+        }, Qt::QueuedConnection);
+    });
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    worker->start();
 }
 void igQtFileLoader::OpenODBFile(const std::string& filePath) {
 #if defined(AbqSDK_ENABLE)

@@ -31,6 +31,14 @@ DataObject::Pointer DataObject::GetSubDataObject(DataObjectId id) {
     return m_SubDataObjectsHelper->GetSubDataObject(id);
 }
 
+DataObjectId DataObject::AttachSubDataObject(DataObject::Pointer obj) {
+    if (obj == nullptr) { return -1; }
+    if (m_SubDataObjectsHelper == nullptr) { m_SubDataObjectsHelper = SubDataObjectsHelper::New(); }
+    obj->SetParent(this);
+    obj->SetColorMapper(this->GetColorMapper());
+    return m_SubDataObjectsHelper->AddSubDataObject(obj);
+}
+
 DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
     if (m_SubDataObjectsHelper == nullptr) { m_SubDataObjectsHelper = SubDataObjectsHelper::New(); }
     obj->SetParent(this);
@@ -219,13 +227,24 @@ const BoundingBox& DataObject::GetBoundingBox() {
 }
 
 void DataObject::UpdateAnimation(int keyframe_idx) {
-    if (this->GetTimeFrames() == nullptr || this->GetTimeFrames()->GetTimeNum() <= keyframe_idx) return;
-    auto timeFrameType = this->GetTimeFrames()->GetTargetFrameType(keyframe_idx);
-    auto timeFrameData = this->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
-    if (timeFrameType == StreamingType::MultiSubFiles) {
+    auto timeFrames = this->PeekTimeFrames();
+    if (timeFrames == nullptr || keyframe_idx < 0 ||
+        timeFrames->GetTimeNum() <= static_cast<std::size_t>(keyframe_idx)) {
+        return;
+    }
+    const auto timeFrameType = timeFrames->GetTargetFrameType(keyframe_idx);
+    const auto timeFrameData = timeFrames->GetTargetTimeFrameData(keyframe_idx);
+    ApplyAnimationFrame(timeFrameType, timeFrameData);
+}
+
+void DataObject::ApplyAnimationFrame(
+        const StreamingType frameType,
+        const std::vector<Object::Pointer>& frameData) {
+    if (frameType == StreamingType::MultiSubFiles ||
+        frameType == StreamingType::IGCFramePackage) {
         this->ClearSubDataObject();
 
-        for (auto& subObj: timeFrameData) {
+        for (const auto& subObj: frameData) {
             auto subDataObj = DynamicCast<iGame::DrawObject>(subObj);
             if (subDataObj) {
 //                subDataObj->SetShellRenderingOption(false);
@@ -233,8 +252,8 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
             }
         }
         if (this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
-    } else if (timeFrameType == StreamingType::SingleFieldAttributes) {
-        auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
+    } else if (frameType == StreamingType::SingleFieldAttributes && !frameData.empty()) {
+        auto attributeSet = DynamicCast<iGame::AttributeSet>(frameData.front());
         if (attributeSet) {
             this->SetAttributeSet(attributeSet);
 //            this->GetAttributeSet()->GetAllAttributes()

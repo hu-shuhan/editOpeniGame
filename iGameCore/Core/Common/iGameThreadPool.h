@@ -98,6 +98,7 @@ public:
         return ret;
     }
     int IdleThreadCount() { return thread_num_; }
+    [[nodiscard]] std::size_t WorkerCount() const noexcept { return pool_.size(); }
 
 private:
     ThreadPool(unsigned int num = std::thread::hardware_concurrency()) : stop_(false) {

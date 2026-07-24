@@ -66,6 +66,10 @@ public:
     VolumeMesh::Pointer ExtractVolumeMesh();
     //Generate from SurfaceMesh
     bool GenerateFromSurfaceMesh(SurfaceMesh::Pointer surfaceMesh);
+    void SetPreparedSurfaceMesh(
+        SurfaceMesh::Pointer surfaceMesh,
+        FlatArray<igIndex>::Pointer pointMap,
+        std::shared_ptr<std::vector<igIndex>> faceToCellMap);
 
     //Generate from VolumeMesh
     bool GenerateFromVolumeMesh(VolumeMesh::Pointer volumeMesh);
@@ -91,8 +95,12 @@ protected:
     void GetTypedCell(const IGsize cellId, Cell::Pointer& cell) const;
 
 private:
+    bool SyncPreparedSurfaceAttributes();
+
     CellArray::Pointer m_Cells{};        // Stores the PointIds of all cells
     UnsignedIntArray::Pointer m_Types{}; // Stores the Type of all cells
+    bool m_UsesPreparedSurfaceMesh{false};
+    std::shared_ptr<std::vector<igIndex>> m_PreparedSurfaceFaceToCellMap;
 
     // Used for the returned cell object, which is Thread-Unsafe
     EmptyCell::Pointer m_EmptyCell{};

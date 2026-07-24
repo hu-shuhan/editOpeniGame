@@ -164,6 +164,135 @@ bool UnstructuredMesh::GenerateFromSurfaceMesh(SurfaceMesh::Pointer mesh) {
     this->SetSelection(mesh->GetSelection());
     return true;
 }
+
+void UnstructuredMesh::SetPreparedSurfaceMesh(
+    SurfaceMesh::Pointer surfaceMesh,
+    FlatArray<igIndex>::Pointer pointMap,
+    std::shared_ptr<std::vector<igIndex>> faceToCellMap) {
+    if (surfaceMesh == nullptr) { return; }
+    SetRenderableObject(surfaceMesh);
+    m_PointMap = std::move(pointMap);
+    m_PreparedSurfaceFaceToCellMap = std::move(faceToCellMap);
+    m_UsesPreparedSurfaceMesh = true;
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
+}
+
+bool UnstructuredMesh::SyncPreparedSurfaceAttributes() {
+    if (!m_UsesPreparedSurfaceMesh || m_PointMap == nullptr) { return false; }
+
+    auto surfaceMesh = DynamicCast<SurfaceMesh>(GetRenderableObject(false));
+    auto sourceAttributes = GetAttributeSet();
+    auto surfaceAttributes = surfaceMesh != nullptr ? surfaceMesh->GetAttributeSet() : nullptr;
+    if (surfaceMesh == nullptr || sourceAttributes == nullptr || surfaceAttributes == nullptr) { return false; }
+    if (m_PointMap->GetNumberOfValues() != GetNumberOfPoints()) {
+        igError("Prepared surface point map does not match the source point count.");
+        return false;
+    }
+
+    const auto sourceAttributeCount = sourceAttributes->GetNumberOfAttributes();
+    auto surfaceAttributeCount = surfaceAttributes->GetNumberOfAttributes();
+    if (surfaceAttributeCount > sourceAttributeCount) {
+        igError("Prepared surface attribute count exceeds the source attribute count.");
+        return false;
+    }
+
+    auto filter = ModelGeometryFilter::New();
+    for (IGsize attributeIndex = surfaceAttributeCount;
+         attributeIndex < sourceAttributeCount;
+         ++attributeIndex) {
+        auto& sourceAttribute = sourceAttributes->GetAttribute(attributeIndex);
+        if (sourceAttribute.isDeleted || sourceAttribute.pointer == nullptr) {
+            surfaceAttributes->GetAllAttributes()->AddElement(AttributeSet::Attribute::None());
+            continue;
+        }
+
+        auto mappedAttributes = AttributeSet::New();
+        mappedAttributes->AddAttribute(
+            sourceAttribute.type,
+            sourceAttribute.attachmentType,
+            sourceAttribute.pointer,
+            sourceAttribute.GetDataRange());
+        if (sourceAttribute.attachmentType == IG_CELL) {
+            if (m_PreparedSurfaceFaceToCellMap == nullptr ||
+                m_PreparedSurfaceFaceToCellMap->size() !=
+                    static_cast<std::size_t>(surfaceMesh->GetNumberOfFaces())) {
+                const auto placeholderIndex = surfaceAttributes->AddAttribute(
+                    sourceAttribute.type,
+                    sourceAttribute.attachmentType,
+                    sourceAttribute.pointer,
+                    sourceAttribute.GetDataRange());
+                if (placeholderIndex >= 0) { surfaceAttributes->DeleteAttribute(placeholderIndex); }
+                igError(
+                    "Prepared surface face-to-cell map is unavailable for cell attribute: {}",
+                    sourceAttribute.pointer->GetName());
+                continue;
+            }
+            auto mappedCellAttributes = AttributeSet::New();
+            filter->CompositeCellAttribute(
+                *m_PreparedSurfaceFaceToCellMap,
+                mappedAttributes,
+                mappedCellAttributes);
+            mappedAttributes = std::move(mappedCellAttributes);
+        } else if (sourceAttribute.attachmentType == IG_POINT) {
+            filter->CompositePointAttribute(
+                m_PointMap->RawPointer(),
+                GetNumberOfPoints(),
+                surfaceMesh->GetNumberOfPoints(),
+                mappedAttributes);
+        } else {
+            const auto placeholderIndex = surfaceAttributes->AddAttribute(
+                sourceAttribute.type,
+                sourceAttribute.attachmentType,
+                sourceAttribute.pointer,
+                sourceAttribute.GetDataRange());
+            if (placeholderIndex >= 0) { surfaceAttributes->DeleteAttribute(placeholderIndex); }
+            igError(
+                "Prepared surface cannot map an attribute with an unsupported attachment type: {}",
+                sourceAttribute.pointer->GetName());
+            continue;
+        }
+        auto& mappedAttribute = mappedAttributes->GetAttribute(0);
+        surfaceAttributes->AddAttribute(
+            mappedAttribute.type,
+            mappedAttribute.attachmentType,
+            mappedAttribute.pointer,
+            mappedAttribute.GetDataRange());
+    }
+
+    surfaceMesh->SetColorMapper(m_ColorMapper);
+    if (m_AttributeIndex >= 0 &&
+        m_AttributeIndex < static_cast<int>(surfaceAttributes->GetNumberOfAttributes())) {
+        auto& surfaceAttribute = surfaceAttributes->GetAttribute(m_AttributeIndex);
+        if (!surfaceAttribute.isDeleted && surfaceAttribute.pointer != nullptr) {
+            // 预生成表面只渲染边界点，自动范围必须基于映射后的可见数据
+            if (!m_ColorMapper->GetStable()) {
+                const bool robustRange =
+                    m_ColorMapper->GetAutoRangeMode() == ScalarsToColors::ROBUST_AUTO_RANGE;
+                if (m_AttributeDimension < 0 && robustRange) {
+                    m_ColorMapper->InitRangeRobust(surfaceAttribute.pointer);
+                } else if (m_AttributeDimension < 0) {
+                    m_ColorMapper->InitRange(surfaceAttribute.pointer);
+                } else if (robustRange) {
+                    m_ColorMapper->InitRangeRobust(surfaceAttribute.pointer, m_AttributeDimension);
+                } else {
+                    m_ColorMapper->InitRange(surfaceAttribute.pointer, m_AttributeDimension);
+                }
+            }
+            surfaceMesh->ViewCloudPicture(nullptr, m_AttributeIndex, m_AttributeDimension, false);
+        } else {
+            surfaceMesh->ViewCloudPicture(nullptr, -1, -1, false);
+        }
+    } else {
+        surfaceMesh->ViewCloudPicture(nullptr, -1, -1, false);
+    }
+    surfaceMesh->ForceReConvertToDrawableData();
+
+    m_AttributeChanged = false;
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
+    return true;
+}
 bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
     if (!mesh) return false;
     int volumeNum = mesh->GetNumberOfVolumes();
@@ -451,9 +580,9 @@ void UnstructuredMesh::GetTypedCell(const IGsize cellId, Cell::Pointer& cell) co
 }
 
 void UnstructuredMesh::ConvertToDrawableData() {
-    bool needReConvertGeometry = m_ReConvertToDrawableData;
-    needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
-    needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+    const bool pointsChanged = m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
+    const bool clipperChanged = m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+    bool needReConvertGeometry = m_ReConvertToDrawableData || pointsChanged || clipperChanged;
 
     bool needReConvertScalar = needReConvertGeometry;
     needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
@@ -546,11 +675,19 @@ void UnstructuredMesh::ConvertToDrawableData() {
         return;
     }
 
+    if (m_ShellRendering && m_UsesPreparedSurfaceMesh && !pointsChanged && !clipperChanged &&
+        (needReConvertScalar || m_AttributeChanged)) {
+        if (SyncPreparedSurfaceAttributes()) { return; }
+    }
+
     // extract surface mesh
     if (m_ShellRendering) {
         if (!needReConvertGeometry && !needReConvertScalar) { return; }
 
         ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
+#ifdef __EMSCRIPTEN__
+        extract->SetMaxThreadSize(8);
+#endif
         {
             // update clip status
             auto box = m_Clipper->m_Box;
@@ -567,14 +704,22 @@ void UnstructuredMesh::ConvertToDrawableData() {
             if (extract->Execute(this, surfaceMesh)) {
                 SetRenderableObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
+                m_UsesPreparedSurfaceMesh = false;
                 m_ReConvertToDrawableData = false;
                 m_ReConvertHelper->Modified();
                 return;
             } else {
-                m_ShellRendering = false;
                 this->m_RenderableMesh.SurfaceMesh = nullptr;
                 this->m_RenderableMesh.SimplifiedMesh = nullptr;
+#ifdef __EMSCRIPTEN__
+                m_ReConvertToDrawableData = false;
+                m_ReConvertHelper->Modified();
+                igError("Web shell extraction failed; full-cell fallback is disabled.");
+                return;
+#else
+                m_ShellRendering = false;
                 igDebug("Failed to execute the shell algorithm.");
+#endif
             }
         }
     }

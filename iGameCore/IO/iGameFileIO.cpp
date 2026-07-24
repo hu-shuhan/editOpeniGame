@@ -4,11 +4,8 @@
 #include "CGNS/iGameCGNSReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "Fluent/iGameCASReader.h"
-#include "IGC/iGameIGCReader.h"
-#include "IGC/iGameIGCMReader.h"
-#include "IGC/iGameIGCMTimeSeriesWriter.h"
-#include "IGC/iGameIGCMWriter.h"
-#include "IGC/iGameIGCWriter.h"
+#include "IGDC/iGameIGDCReader.h"
+#include "IGDC/iGameIGDCWriter.h"
 #include "INP/iGameINPReader.h"
 #include "MESH/iGameMESHReader.h"
 #include "MESH/iGameMESHWriter.h"
@@ -34,6 +31,7 @@
 #include <filesystem>
 
 IGAME_NAMESPACE_BEGIN
+
 IGenum FileIO::GetFileType(const std::string& file_name) {
     const char* pos = strrchr(file_name.data(), '.');
     const char* fileEnd = file_name.data() + file_name.size();
@@ -42,9 +40,7 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
     if (FileSuffix == "vtk") {
         return VTK;
     } else if (FileSuffix == "igc") {
-        return IGC;
-    } else if (FileSuffix == "igcm") {
-        return IGCM;
+        return IGDC;
     } else if (FileSuffix == "obj") {
         return OBJ;
     } else if (FileSuffix == "mesh" || FileSuffix == "MESH") {
@@ -89,10 +85,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "NONE";
         case VTK:
             return "VTK";
-        case IGC:
-            return "IGC";
-        case IGCM:
-            return "IGCM";
+        case IGDC:
+            return "IGDC";
         case OBJ:
             return "OBJ";
         case OFF:
@@ -279,18 +273,8 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             resObj = reader->ReadFile(file_name);
             break;
         }
-        case IGC: {
-            // MeshLoomDecoder* reader = new MeshLoomDecoder(file_name);
-            // resObj = reader->Execute();
-
-            IGCReader::Pointer reader = IGCReader::New();
-            reader->SetFilePath(file_name);
-            reader->Execute();
-            resObj = reader->GetOutput();
-            break;
-        }
-        case IGCM: {
-            IGCMReader::Pointer reader = IGCMReader::New();
+        case IGDC: {
+            IGDCReader::Pointer reader = IGDCReader::New();
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();
@@ -405,6 +389,15 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     if (resObj) {
         resObj->SetName(baseName);
     }
+    if (resObj == nullptr) {
+        end = clock();
+        out.append(", success: false, time: ");
+        out.append(FormatTime(end - start));
+        out.append("]");
+        igDebug(out);
+        return nullptr;
+    }
+    resObj->GetMetadata()->AddString(FILE_PATH, file_name);
 
     end = clock();
     out.append(", success: ");
@@ -426,7 +419,6 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     return resObj;
 }
 
-
 bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObject) {
     IGenum fileType = GetFileType(file_name);
     std::string out;
@@ -445,30 +437,9 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
             result = writer->WriteToFile(dataObject, file_name);
             break;
         }
-        case IGC: {
-            IGCWriter::Pointer writer = IGCWriter::New();
+        case IGDC: {
+            IGDCWriter::Pointer writer = IGDCWriter::New();
             result = writer->WriteToFile(dataObject, file_name);
-            break;
-        }
-        case IGCM: {
-            // 多帧序列：写出 iGameTimeSeries（sequence.igcm）
-            // 单帧（包含 multiblock）：写出 iGameMultiBlock（.igcm）
-            DataObject::Pointer rootObj = dataObject;
-            if (dataObject) {
-                auto* parent = dataObject->FindParent();
-                if (parent && parent != dataObject.get()) {
-                    rootObj = DataObject::Pointer(parent);
-                }
-            }
-
-            auto timeFrames = rootObj ? rootObj->PeekTimeFrames() : nullptr;
-            if (rootObj && timeFrames && timeFrames->GetTimeNum() > 1) {
-                IGCMTimeSeriesWriter::Pointer writer = IGCMTimeSeriesWriter::New();
-                result = writer->WriteToFile(rootObj, file_name);
-            } else {
-                IGCMWriter::Pointer writer = IGCMWriter::New();
-                result = writer->WriteToFile(dataObject, file_name);
-            }
             break;
         }
         case OBJ: {

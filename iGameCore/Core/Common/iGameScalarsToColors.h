@@ -23,6 +23,10 @@ public:
 	the component is the scaled component, the size is the length to scale,
 	if current mode is RGB , this will do nothing*/
     void InitRange(ArrayObject::Pointer input, int component, int size);
+    /*使用确定性采样分位数初始化范围*/
+    void InitRangeRobust(ArrayObject::Pointer input);
+    void InitRangeRobust(ArrayObject::Pointer input, int component);
+    void InitRangeRobust(ArrayObject::Pointer input, int component, int size);
 
     /*Set the range of scaled data*/
     void SetRange(double min, double max);
@@ -78,6 +82,7 @@ public:
     void SetVectorModeToRGBColors();
     void SetVectorMode(int m) { this->VectorMode = m; };
     enum VectorModes { MAGNITUDE = 0, COMPONENT = 1, RGBCOLORS = 2 };
+    enum AutoRangeModes { EXACT_AUTO_RANGE = 0, ROBUST_AUTO_RANGE = 1 };
 
 
     /*vectorComponent means the start dimension,
@@ -105,6 +110,15 @@ public:
     void SetRangeStable(bool stable) { m_stable = stable; }
     bool GetStable() { return m_stable; }
 
+    void SetAutoRangeMode(int mode) {
+        const int normalizedMode = mode == ROBUST_AUTO_RANGE ? ROBUST_AUTO_RANGE : EXACT_AUTO_RANGE;
+        if (m_AutoRangeMode != normalizedMode) {
+            m_AutoRangeMode = normalizedMode;
+            this->Modified();
+        }
+    }
+    int GetAutoRangeMode() const { return m_AutoRangeMode; }
+
     bool DeepCopy(const ScalarsToColors::Pointer other);
 
 protected:
@@ -118,6 +132,7 @@ protected:
     int VectorComponent;
     int VectorSize;
     bool m_stable;
+    int m_AutoRangeMode;
 
 private:
     float RGB[3];

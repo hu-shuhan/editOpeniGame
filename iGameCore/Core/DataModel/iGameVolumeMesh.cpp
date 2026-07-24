@@ -9,6 +9,8 @@ IGsize VolumeMesh::GetNumberOfVolumes() const noexcept { return m_Volumes ? m_Vo
 
 CellArray* VolumeMesh::GetVolumes() { return m_Volumes ? m_Volumes.get() : nullptr; }
 
+CellArray* VolumeMesh::GetVolumeFaces() { return m_VolumeFaces ? m_VolumeFaces.get() : nullptr; }
+
 void VolumeMesh::SetVolumes(CellArray::Pointer volumes) {
     if (m_Volumes != volumes) {
         m_Volumes = volumes;

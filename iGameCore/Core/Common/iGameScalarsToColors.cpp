@@ -1,5 +1,9 @@
 ﻿#include "iGameScalarsToColors.h"
 #include "iGameThreadPool.h"
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <vector>
 #include <time.h>
 
 IGAME_NAMESPACE_BEGIN
@@ -9,6 +13,7 @@ ScalarsToColors::ScalarsToColors() {
     this->VectorComponent = 0;
     this->VectorSize = -1;
     this->VectorMode = ScalarsToColors::COMPONENT;
+    this->m_AutoRangeMode = ScalarsToColors::EXACT_AUTO_RANGE;
 
     // only used in this class, not used in subclasses
     this->InputRange[0] = 0.0;
@@ -49,6 +54,144 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component) {
     if (component < 0) { return InitRange(input); }
     this->SetVectorModeToComponent();
     InitRange(input, component, 1);
+}
+
+void ScalarsToColors::InitRangeRobust(ArrayObject::Pointer input) {
+    if (this->VectorMode == RGBCOLORS) return;
+    this->SetVectorModeToMagnitude();
+    InitRangeRobust(input, 0, -1);
+}
+
+void ScalarsToColors::InitRangeRobust(ArrayObject::Pointer input, int component) {
+    if (this->VectorMode == RGBCOLORS) return;
+    if (component < 0) { return InitRangeRobust(input); }
+    this->SetVectorModeToComponent();
+    InitRangeRobust(input, component, 1);
+}
+
+void ScalarsToColors::InitRangeRobust(ArrayObject::Pointer input, int component, int size) {
+    if (this->VectorMode == RGBCOLORS || input == nullptr || input->GetNumberOfElements() <= 0) return;
+
+    int vectorMode = this->GetVectorMode();
+    const int inComponent = input->GetDimension();
+    if (inComponent <= 0) return;
+
+    if (vectorMode == COMPONENT) {
+        if (component == -1) { component = this->GetVectorComponent(); }
+        if (component < 0) { component = 0; }
+        if (component >= inComponent) { component = inComponent - 1; }
+    }
+    if (vectorMode == MAGNITUDE) {
+        if (size == -1) { size = this->GetVectorSize(); }
+        if (size <= 0) {
+            component = 0;
+            size = inComponent;
+        } else {
+            if (component < 0) { component = 0; }
+            if (component >= inComponent) { component = inComponent - 1; }
+            if (component + size > inComponent) { size = inComponent - component; }
+        }
+        if (size == 1) { vectorMode = COMPONENT; }
+    }
+
+    constexpr std::size_t sampleLimit = 65536u;
+    constexpr double lowerQuantile = 0.01;
+    constexpr double upperQuantile = 0.99;
+    const auto elementCount = static_cast<std::size_t>(input->GetNumberOfElements());
+    const auto sampleCount = std::min(elementCount, sampleLimit);
+    std::vector<float> samples;
+    samples.reserve(sampleCount);
+
+    std::vector<float> data(static_cast<std::size_t>(inComponent));
+    const auto readValue = [&](const std::size_t elementIndex, double& value) {
+        input->GetElement(static_cast<IGsize>(elementIndex), data.data());
+        if (vectorMode == COMPONENT) {
+            value = data[component];
+        } else if (vectorMode == MAGNITUDE) {
+            double squaredMagnitude = 0.0;
+            for (int valueIndex = component; valueIndex < component + size; ++valueIndex) {
+                const double currentValue = data[valueIndex];
+                squaredMagnitude += currentValue * currentValue;
+            }
+            value = std::sqrt(squaredMagnitude);
+        } else {
+            return false;
+        }
+        return std::isfinite(value);
+    };
+    for (std::size_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+        const auto elementIndex = sampleCount <= 1u
+            ? 0u
+            : sampleIndex * (elementCount - 1u) / (sampleCount - 1u);
+        double value = 0.0;
+        if (readValue(elementIndex, value)) { samples.push_back(static_cast<float>(value)); }
+    }
+
+    if (samples.empty()) return;
+    std::sort(samples.begin(), samples.end());
+    const auto lastIndex = samples.size() - 1u;
+    const auto lowerIndex = static_cast<std::size_t>(std::floor(lowerQuantile * lastIndex));
+    const auto upperIndex = static_cast<std::size_t>(std::ceil(upperQuantile * lastIndex));
+    double minValue = samples[lowerIndex];
+    double maxValue = samples[upperIndex];
+
+    if (!(minValue < maxValue)) {
+        double actualMin = std::numeric_limits<double>::infinity();
+        double actualMax = -std::numeric_limits<double>::infinity();
+        std::size_t nonZeroCount = 0u;
+        for (std::size_t elementIndex = 0u; elementIndex < elementCount; ++elementIndex) {
+            double value = 0.0;
+            if (!readValue(elementIndex, value)) { continue; }
+            actualMin = std::min(actualMin, value);
+            actualMax = std::max(actualMax, value);
+            if (value != 0.0) { ++nonZeroCount; }
+        }
+
+        if (actualMin < actualMax) {
+            minValue = actualMin;
+            maxValue = actualMax;
+            if (nonZeroCount > 1u) {
+                const auto nonZeroSampleCount = std::min(nonZeroCount, sampleLimit);
+                std::vector<float> nonZeroSamples;
+                nonZeroSamples.reserve(nonZeroSampleCount);
+                std::size_t nonZeroOrdinal = 0u;
+                std::size_t targetSample = 0u;
+                for (std::size_t elementIndex = 0u;
+                     elementIndex < elementCount && targetSample < nonZeroSampleCount;
+                     ++elementIndex) {
+                    double value = 0.0;
+                    if (!readValue(elementIndex, value) || value == 0.0) { continue; }
+                    const auto targetOrdinal = nonZeroSampleCount <= 1u
+                        ? 0u
+                        : targetSample * (nonZeroCount - 1u) / (nonZeroSampleCount - 1u);
+                    if (nonZeroOrdinal == targetOrdinal) {
+                        nonZeroSamples.push_back(static_cast<float>(value));
+                        ++targetSample;
+                    }
+                    ++nonZeroOrdinal;
+                }
+                std::sort(nonZeroSamples.begin(), nonZeroSamples.end());
+                if (nonZeroSamples.size() > 1u) {
+                    const auto nonZeroLastIndex = nonZeroSamples.size() - 1u;
+                    const auto nonZeroLowerIndex = static_cast<std::size_t>(
+                        std::floor(lowerQuantile * nonZeroLastIndex));
+                    const auto nonZeroUpperIndex = static_cast<std::size_t>(
+                        std::ceil(upperQuantile * nonZeroLastIndex));
+                    const double nonZeroMin = nonZeroSamples[nonZeroLowerIndex];
+                    const double nonZeroMax = nonZeroSamples[nonZeroUpperIndex];
+                    if (nonZeroMin < nonZeroMax) {
+                        minValue = nonZeroMin;
+                        maxValue = nonZeroMax;
+                    }
+                }
+            }
+        } else if (std::isfinite(actualMin)) {
+            const double padding = std::max(std::abs(actualMin) * 1e-6, 1e-6);
+            minValue = actualMin - padding;
+            maxValue = actualMin + padding;
+        }
+    }
+    this->SetRange(minValue, maxValue);
 }
 
 void ScalarsToColors::SetRange(double minval, double maxval) {
@@ -262,6 +405,7 @@ bool ScalarsToColors::DeepCopy(ScalarsToColors::Pointer other) {
     this->VectorComponent = other->VectorComponent;
     this->VectorSize = other->VectorSize;
     this->m_stable = other->m_stable;
+    this->m_AutoRangeMode = other->m_AutoRangeMode;
 
     // Copy range and last RGB/RGBA buffers
     this->InputRange[0] = other->InputRange[0];

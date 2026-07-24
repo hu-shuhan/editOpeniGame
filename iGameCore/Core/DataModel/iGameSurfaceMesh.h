@@ -381,7 +381,8 @@ public:
 	void GetDrawableArray(FloatArray::Pointer& positions,
 		UnsignedIntArray::Pointer& lineIndices,
 		UnsignedIntArray::Pointer& triangleIndices,
-		UnsignedCharArray::Pointer& triangleEdgeMasks);
+		UnsignedCharArray::Pointer& triangleEdgeMasks,
+		bool includeLineIndices = true);
 
 	//protected:
 	//    SurfaceMesh::Pointer m_DrawMesh{nullptr};

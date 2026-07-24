@@ -17,7 +17,6 @@ enum FileType {
     BDF,
 #endif
     IGC,
-    IGCM,
 };
 
 enum SplineType {

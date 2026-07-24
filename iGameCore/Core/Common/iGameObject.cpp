@@ -1,6 +1,9 @@
 #include "iGameObject.h"
 #include "iGameCommand.h"
 
+#include <mutex>
+#include <vector>
+
 IGAME_NAMESPACE_BEGIN
 
 class Observer {
@@ -21,6 +24,7 @@ public:
 	~ObserverInternal() { this->RemoveAllObservers(); }
 
 	unsigned long AddObserver(unsigned long event, Command::Pointer cmd, float p) {
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem = new Observer;
 		elem->m_Priority = p;
 		elem->m_Next = nullptr;
@@ -68,6 +72,7 @@ public:
 
 	void RemoveObserver(unsigned long tag)
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem;
 		Observer* prev;
 		Observer* next;
@@ -100,6 +105,7 @@ public:
 	}
 	void RemoveObservers(unsigned long event)
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem;
 		Observer* prev;
 		Observer* next;
@@ -132,6 +138,7 @@ public:
 	}
 	void RemoveObservers(unsigned long event, Command::Pointer cmd)
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem;
 		Observer* prev;
 		Observer* next;
@@ -164,6 +171,7 @@ public:
 	}
 	void RemoveAllObservers()
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem = this->m_Start;
 		Observer* next;
 		while (elem)
@@ -177,19 +185,21 @@ public:
 
 	bool InvokeEvent(unsigned long event, void* callData, Object* self)
 	{
-		Observer* elem = this->m_Start;
-		Observer* next;
-
-		while (elem)
+		std::vector<Command::Pointer> commands;
 		{
-			next = elem->m_Next;
-			if (elem->m_Event == event && elem->m_Tag < this->m_Count)
+			std::lock_guard<std::recursive_mutex> lock(m_Mutex);
+			Observer* elem = this->m_Start;
+			while (elem)
 			{
-				Command::Pointer command = elem->m_Command;
-				elem->m_Command->Execute(self, event, callData);
+				if (elem->m_Event == event && elem->m_Tag < this->m_Count)
+				{
+					commands.push_back(elem->m_Command);
+				}
+				elem = elem->m_Next;
 			}
-
-			elem = next;
+		}
+		for (const auto& command : commands) {
+			if (command != nullptr) { command->Execute(self, event, callData); }
 		}
 
 		return 0;
@@ -197,6 +207,7 @@ public:
 
 	Command::Pointer GetCommand(unsigned long tag)
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem = this->m_Start;
 		while (elem)
 		{
@@ -211,6 +222,7 @@ public:
 
 	unsigned long GetTag(Command::Pointer cmd)
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem = this->m_Start;
 		while (elem)
 		{
@@ -225,6 +237,7 @@ public:
 
 	bool HasObserver(unsigned long event)
 	{
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem = this->m_Start;
 		while (elem)
 		{
@@ -238,6 +251,7 @@ public:
 	}
 
 	bool HasObserver(unsigned long event, Command::Pointer cmd) {
+		std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 		Observer* elem = this->m_Start;
 		while (elem)
 		{
@@ -253,6 +267,7 @@ public:
 protected:
 	Observer* m_Start{ nullptr };
 	unsigned long m_Count{ 0 };
+	std::recursive_mutex m_Mutex;
 };
 
 class CallbackBase {

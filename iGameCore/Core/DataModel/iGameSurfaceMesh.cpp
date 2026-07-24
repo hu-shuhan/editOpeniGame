@@ -789,7 +789,12 @@ void SurfaceMesh::ConvertToDrawableData() {
         if (m_IsMainRenderableObject) { SetRenderableObject(this); }
 
         // 转换为可绘制数据
-        GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices, m_TriangleEdgeMasks);
+        GetDrawableArray(
+            m_Positions,
+            m_LineIndices,
+            m_TriangleIndices,
+            m_TriangleEdgeMasks,
+            (m_ViewStyle & IG_WIREFRAME) != 0u);
         m_Positions->Modified();
         m_LineIndices->Modified();
         m_TriangleIndices->Modified();
@@ -846,7 +851,8 @@ void SurfaceMesh::ConvertToDrawableData() {
 
 void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntArray::Pointer& lineIndices,
                                    UnsignedIntArray::Pointer& triangleIndices,
-                                   UnsignedCharArray::Pointer& triangleEdgeMasks) {
+                                   UnsignedCharArray::Pointer& triangleEdgeMasks,
+                                   const bool includeLineIndices) {
     Timer::Pointer timer = Timer::New();
 
     positions = m_Points->ConvertToArray();
@@ -860,21 +866,22 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
     triangleEdgeMasks->Reset();
     triangleEdgeMasks->SetDimension(1);
 
-    // set line indices
-    if (this->GetEdges() == nullptr) { this->BuildEdges(); }
+    if (includeLineIndices && this->GetEdges() == nullptr) { this->BuildEdges(); }
 
     if (m_Clipper->IsAllDisable()) {
         // set triangle indices
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
-        lineIndices->Reserve(this->GetNumberOfEdges());
-        for (i = 0; i < this->GetNumberOfEdges(); i++) {
-            ncell = this->GetEdgePointIds(i, cell);
-            if (cell[0] < 0 || cell[1] < 0) {
-                igError("The index of the edge is negative.");
-            } else {
-                lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
+        if (includeLineIndices) {
+            lineIndices->Reserve(this->GetNumberOfEdges());
+            for (i = 0; i < this->GetNumberOfEdges(); i++) {
+                ncell = this->GetEdgePointIds(i, cell);
+                if (cell[0] < 0 || cell[1] < 0) {
+                    igError("The index of the edge is negative.");
+                } else {
+                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
+                }
             }
         }
 
@@ -961,12 +968,14 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
-        for (i = 0; i < this->GetNumberOfEdges(); i++) {
-            ncell = this->GetEdgePointIds(i, cell);
-            if (cell[0] < 0 || cell[1] < 0) {
-                igError("The index of the edge is negative.");
-            } else {
-                lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
+        if (includeLineIndices) {
+            for (i = 0; i < this->GetNumberOfEdges(); i++) {
+                ncell = this->GetEdgePointIds(i, cell);
+                if (cell[0] < 0 || cell[1] < 0) {
+                    igError("The index of the edge is negative.");
+                } else {
+                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
+                }
             }
         }
 

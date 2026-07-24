@@ -30,13 +30,17 @@ protected:
 public:
     bool IsDrawable() override { return true; } // 标识可以被渲染
     virtual void ConvertToDrawableData();       //转化为可渲染模式（当前对象及其所有子对象）
-    void ForceReConvertToDrawableData();  // 强制触发重新映射
-    virtual bool IsUseSinglePassWireframeRendering();                         // 是否使用单通道线框渲染
+    void ForceReConvertToDrawableData();        // 强制触发重新映射
+    void ReuseTopologyDrawDataFrom(const DrawObject* source); // 复用同一拓扑所有者的绘制索引与GPU缓冲
+    virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
     bool IsUseColor();        //是否使用颜色
     bool IsUseNormalSmooth(); //是否使用法线平滑
+    IGsize GetActiveColorBufferElementCount();
+    unsigned int GetActiveColorBufferUpdateId();
+    bool IsActiveColorBufferCellBased() const;
 
     void SetVisibility(bool f); //设置可见性
     bool GetVisibility();       //获取可见性
@@ -61,11 +65,21 @@ public:
     void SetLineWidth(float size);
     int GetLineWidth();
     //对当前对象及其子对象/当前对象所属的整个模型设置属性可视化参数
-    void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
+    bool ViewCloudPicture(
+        Scene* scene,
+        int index,
+        int dimension = -1,
+        bool updateScene = true);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
     FloatArray::Pointer GetRenderPoints();            // 获取当前渲染用的顶点数据
     void SetRenderPoints(FloatArray::Pointer points); // 直接设置顶点数据
+    UnsignedIntArray::Pointer GetRenderTriangleIndices();
+    UnsignedCharArray::Pointer GetRenderTriangleEdgeMasks();
+    void SetSharedRenderData(
+        FloatArray::Pointer positions,
+        UnsignedIntArray::Pointer triangleIndices,
+        UnsignedCharArray::Pointer triangleEdgeMasks);
     // // 设置多边形偏移
     // void SetPolygonOffsetParameters(float factor, float units);
     // void GetPolygonOffsetParameters(float& factor, float& units);
@@ -145,6 +159,7 @@ protected:
     UnsignedIntArray::Pointer m_TriangleIndices;
     // 单通道线框渲染
     bool m_UseSinglePassWireframeRendering{true};
+    bool m_CanRegenerateLineIndices{true};
     UnsignedCharArray::Pointer m_TriangleEdgeMasks;
     GLBuffer::Pointer m_EdgeMaskBuffer;
     GLTextureBuffer::Pointer m_EdgeMaskTexture;
@@ -154,6 +169,7 @@ protected:
     UnsignedCharArray::Pointer m_CellTriangleEdgeMasks;
     GLBuffer::Pointer m_CellEdgeMaskBuffer;
     GLTextureBuffer::Pointer m_CellEdgeMaskTexture;
+    bool m_SharedTopologyDrawBuffers{false}; // 标记拓扑GPU缓冲由其他帧共享
 
     unsigned int m_ViewStyle; // 视图样式
     bool m_Visibility;        //是否可见
@@ -192,13 +208,17 @@ protected:
 
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);
+    bool ApplyCloudPicture(int index, int dimension);
 };
 //递归处理所有子对象的模板函数实现
 template<typename Functor, typename... Args>
 inline void DrawObject::ProcessSubDataObjects(Functor&& functor, Args&&... args) {
     if (HasSubDataObject()) {
         for (auto it = m_SubDataObjectsHelper->Begin(); it != m_SubDataObjectsHelper->End(); ++it) {
-            (DynamicCast<DrawObject>(it->second)->*functor)(std::forward<Args>(args)...);
+            auto drawObject = DynamicCast<DrawObject>(it->second);
+            if (drawObject != nullptr) {
+                (drawObject->*functor)(std::forward<Args>(args)...);
+            }
         }
     }
 }

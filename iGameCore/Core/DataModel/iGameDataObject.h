@@ -40,6 +40,8 @@ public:
     void SetDeformationData(DeformationData::Pointer  p){m_DeformationData = p;}
     /*Update Animation.*/
     void UpdateAnimation(int keyframe_idx);
+    void ApplyAnimationFrame(StreamingType frameType,
+                             const std::vector<Object::Pointer>& frameData);
     void SetAttributeSet(AttributeSet::Pointer p);
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
     int GetCurrentAttributeIndex() { return m_AttributeIndex; }
@@ -122,6 +124,8 @@ public:
     bool ReCollectSubDataObjectDataRange();
     /* Update Sub data Object's data range to the parent data range. */
     bool UpdateSubDataObjectDataRange();
+    // 仅建立父子层级，不触发绘制数据转换和属性范围聚合
+    DataObjectId AttachSubDataObject(DataObject::Pointer obj);
     DataObjectId AddSubDataObject(DataObject::Pointer obj);
     void RemoveSubDataObject(DataObjectId id);
     void ClearSubDataObject();

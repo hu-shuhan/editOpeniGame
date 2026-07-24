@@ -3,6 +3,7 @@
 
 #include "iGameObject.h"
 #include "iGameDataObject.h"
+#include <cstddef>
 
 IGAME_NAMESPACE_BEGIN
 class FileIO : public Object {
@@ -12,7 +13,6 @@ public:
 	enum FileType {
 		NONE = 0,
 		VTK,
-		IGC,
 		OBJ,
 		OFF,
 		MESH,
@@ -30,15 +30,14 @@ public:
 		ODB,
 		CAS,
 		BDF,
-        IGCM,
+        IGDC,
 		FILETYPE_COUNT
 	};
 
-    static DataObject::Pointer ReadFile(const std::string &file_name);
-	static bool WriteFile(const std::string& file_name, DataObject::Pointer);
-	static IGenum GetFileType(const std::string& file_name);
-	static std::string GetFileTypeAsString(IGenum type);
-
+    static DataObject::Pointer ReadFile(const std::string& file_name);
+    static bool WriteFile(const std::string& file_name, DataObject::Pointer);
+    static IGenum GetFileType(const std::string& file_name);
+    static std::string GetFileTypeAsString(IGenum type);
 };
 
 IGAME_NAMESPACE_END

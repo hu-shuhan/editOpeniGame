@@ -15,18 +15,57 @@
 #include "VTK/iGameVTKReader.h"
 
 #include <future>
+#include <filesystem>
+#include <algorithm>
+#include <cctype>
+#include <limits>
 IGAME_NAMESPACE_BEGIN
-bool iGame::StreamingData::TimeFrame::SetCache(std::vector<iGame::Object::Pointer> cache) {
+
+namespace {
+
+DataObject::Pointer ReadStreamingFrameFile(const std::string& fileName) {
+    auto extension = std::filesystem::path(fileName).extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](const unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (extension == ".vtu") {
+        auto reader = iGameVTUReader::New();
+        reader->SetUpdateProgressIndependent(true);
+        reader->SetFilePath(fileName);
+        return reader->Execute() ? reader->GetOutput() : DataObject::Pointer{};
+    }
+    return FileIO::ReadFile(fileName);
+}
+
+} // namespace
+
+StreamingData::~StreamingData() = default;
+bool iGame::StreamingData::TimeFrame::SetCache(StreamingFrameCacheEntry cache) {
     if(m_IsCached) return false;
-    m_CachedData = cache;
+    m_CachedData = std::move(cache.data);
+    m_CachedResource = std::move(cache.resource);
     m_IsCached = true;
     return true;
 }
 
-void StreamingData::TimeFrame::ClearCachedData() {
-    m_CachedData.clear();
-    m_CachedData.shrink_to_fit();
+StreamingFrameCacheEntry StreamingData::TimeFrame::GetCacheEntry() const {
+    return StreamingFrameCacheEntry{
+        .data = m_CachedData,
+        .resource = m_CachedResource,
+    };
+}
+
+StreamingFrameCacheEntry StreamingData::TimeFrame::TakeCacheEntry() {
+    StreamingFrameCacheEntry entry{
+        .data = std::move(m_CachedData),
+        .resource = std::move(m_CachedResource),
+    };
     m_IsCached = false;
+    return entry;
+}
+
+void StreamingData::TimeFrame::ClearCachedData() {
+    (void)TakeCacheEntry();
 }
 
 std::vector<iGame::Object::Pointer> StreamingData::TimeFrame::GetCachedData() {
@@ -52,17 +91,15 @@ const StreamingData::TimeFrame &StreamingData::GetTargetTimeFrame(unsigned int i
 
 std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsigned int index) {
     auto& currentFrame = GetTargetTimeFrame(index);
-    
-    // 如果启用缓存且已缓存，更新LRU顺序并返回缓存数据
-    if(m_Enable_Cache && currentFrame.GetISCached()) {
-        // 更新LRU顺序：移动到列表头部
-        auto it = m_LRUMap.find(index);
-        if(it != m_LRUMap.end()) {
-            m_LRUOrder.erase(it->second);
-            m_LRUOrder.push_front(index);
-            m_LRUMap[index] = m_LRUOrder.begin();
-        }
-        return currentFrame.GetCachedData();
+
+    StreamingFrameCacheEntry cachedEntry;
+    if (FindCachedFrame(index, cachedEntry)) {
+        return std::move(cachedEntry.data);
+    }
+    if (m_FrameProvider != nullptr) {
+        auto provided = m_FrameProvider->RequestFrame(index);
+        m_Cache_AllocatedNum.store(static_cast<unsigned int>(m_FrameProvider->CachedFrameCount()));
+        return provided;
     }
     auto frameData = currentFrame.GetMetaData();
     std::vector<iGame::Object::Pointer> target_time_data;
@@ -72,40 +109,14 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
         std::vector<iGame::DataObject::Pointer> results(frameData->GetNumberOfElements());
         if(frameData->GetNumberOfElements() == 1){
-            results[0] = FileIO::ReadFile(frameData->GetElement(0));
+            results[0] = ReadStreamingFrameFile(frameData->GetElement(0));
         }
         else
         {
             for (int i = 0; i < frameData->GetNumberOfElements(); i++)
             {
                 tasks.emplace_back(ThreadPool::Instance()->Commit([i, &results](const std::string& fileName){
-                    //                DataObject::Pointer newObj = FileIO::ReadFile(fileName);
-                    DataObject::Pointer newObj;
-                    const char* pos = strrchr(fileName.data(), '.');
-                    std::string fileSuffix;
-                    const char *fileEnd = fileName.data() + fileName.size();
-                    fileSuffix = std::string(pos + 1, fileEnd);
-                    if(fileSuffix == "vts"){
-                        iGameVTSReader::Pointer rd = iGameVTSReader::New();
-                        rd->SetFilePath(fileName);
-                        rd->Execute();
-                        newObj = rd->GetOutput();
-                    }
-                    else if(fileSuffix == "vtu"){
-                        iGameVTUReader::Pointer rd = iGameVTUReader::New();
-                        rd->SetUpdateProgressIndependent(true);
-                        rd->SetFilePath(fileName);
-                        rd->Execute();
-                        newObj = rd->GetOutput();
-                    } else if(fileSuffix == "pvd"){
-                        iGamePVDReader::Pointer rd = iGamePVDReader::New();
-                        rd->SetFilePath(fileName);
-                        rd->Execute();
-                        newObj = rd->GetOutput();
-                    }
-                    else if(fileSuffix == "igc" || fileSuffix == "igcm"){
-                        newObj = FileIO::ReadFile(fileName);
-                    }
+                    DataObject::Pointer newObj = ReadStreamingFrameFile(fileName);
                     results[i] = newObj;
                     return newObj;
                 }, frameData->GetElement(i)));
@@ -143,33 +154,25 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
 #endif
         }
     }
-    if(m_Enable_Cache && !currentFrame.GetISCached()){
-        // 如果缓存已满，淘汰最久未使用的缓存
-        if(m_Cache_AllocatedNum >= m_Cache_MAXSize) {
-            EvictLRUCache();
-        }
-        
-        // 缓存当前帧数据
-        if(m_Cache_AllocatedNum < m_Cache_MAXSize) {
-            currentFrame.SetCache(target_time_data);
-            m_Cache_AllocatedNum++;
-            
-            // 添加到LRU列表头部（最近使用）
-            m_LRUOrder.push_front(index);
-            m_LRUMap[index] = m_LRUOrder.begin();
-        }
+    if(m_Enable_Cache && m_FrameProvider == nullptr && !currentFrame.GetISCached()){
+        (void)StoreCachedFrame(index, StreamingFrameCacheEntry{.data = target_time_data});
     }
     return target_time_data;
 }
 
 
 void StreamingData::ClearCache() {
-    m_Cache_AllocatedNum = 0;
-    m_LRUOrder.clear();
-    m_LRUMap.clear();
-    for(auto& timeFrames : m_Data){
-        if(timeFrames.GetISCached()){
-            timeFrames.ClearCachedData();
+    if (m_FrameProvider != nullptr) { m_FrameProvider->ClearCachedFrames(); }
+    std::vector<StreamingFrameCacheEntry> released;
+    {
+        std::lock_guard<std::mutex> lock(m_CacheMutex);
+        m_Cache_AllocatedNum.store(0u);
+        m_LRUOrder.clear();
+        m_LRUMap.clear();
+        for(auto& timeFrames : m_Data){
+            if(timeFrames.GetISCached()){
+                released.push_back(timeFrames.TakeCacheEntry());
+            }
         }
     }
 }
@@ -179,30 +182,145 @@ StreamingType StreamingData::GetTargetFrameType(unsigned int index) {
     return m_Data[index].GetFrameType();
 }
 
+void StreamingData::NotifyFramePresented(const unsigned int index) {
+    if (index >= m_Data.size() || m_FrameProvider == nullptr) { return; }
+    m_FrameProvider->NotifyFramePresented(index);
+    m_Cache_AllocatedNum.store(static_cast<unsigned int>(m_FrameProvider->CachedFrameCount()));
+}
+
 void StreamingData::EnableCache(unsigned int maxCacheSize) {
     m_Enable_Cache = true;
-    m_Cache_MAXSize = std::min((size_t)maxCacheSize, this->GetTimeNum());
+    const auto maximumBufferedFrames = GetTimeNum() > 0u ? GetTimeNum() - 1u : 0u;
+    m_Cache_MAXSize = static_cast<unsigned int>(std::min<std::size_t>(
+        maxCacheSize, maximumBufferedFrames));
+    if (m_FrameProvider != nullptr) {
+        m_FrameProvider->ConfigureCacheCapacity(m_Cache_MAXSize);
+        m_Cache_AllocatedNum.store(static_cast<unsigned int>(m_FrameProvider->CachedFrameCount()));
+    }
 }
 
 void StreamingData::DisableCache() {
     m_Enable_Cache = false;
     m_Cache_MAXSize = 0;
+    if (m_FrameProvider != nullptr) {
+        m_FrameProvider->ConfigureCacheCapacity(0u);
+    }
     ClearCache();
 }
 
-void StreamingData::EvictLRUCache() {
-    // 淘汰列表尾部的缓存（最久未使用的）
+void StreamingData::SetFrameProvider(IStreamingFrameProvider::Pointer provider) {
+    m_FrameProvider = std::move(provider);
+    m_Cache_AllocatedNum.store(m_FrameProvider != nullptr
+        ? static_cast<unsigned int>(m_FrameProvider->CachedFrameCount())
+        : 0u);
+}
+
+bool StreamingData::FindCachedFrame(
+        const unsigned int index,
+        StreamingFrameCacheEntry& entry) {
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    if (!m_Enable_Cache || index >= m_Data.size() || !m_Data[index].GetISCached()) { return false; }
+    TouchLRULocked(index);
+    entry = m_Data[index].GetCacheEntry();
+    return true;
+}
+
+bool StreamingData::StoreCachedFrame(
+        const unsigned int index,
+        StreamingFrameCacheEntry entry,
+        const bool mostRecent) {
+    std::vector<StreamingFrameCacheEntry> released;
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    if (!m_Enable_Cache || index >= m_Data.size() || entry.data.empty()) { return false; }
+    auto& frame = m_Data[index];
+    if (frame.GetISCached()) {
+        released.push_back(frame.TakeCacheEntry());
+        const auto iterator = m_LRUMap.find(index);
+        if (iterator != m_LRUMap.end()) {
+            m_LRUOrder.erase(iterator->second);
+            m_LRUMap.erase(iterator);
+        }
+    }
+    const auto residentLimit = static_cast<std::size_t>(m_Cache_MAXSize) + 1u;
+    while (m_LRUMap.size() >= residentLimit && !m_LRUOrder.empty()) {
+        EvictLRUCacheLocked(released);
+    }
+    if (!frame.SetCache(std::move(entry))) { return false; }
+    if (mostRecent) {
+        m_LRUOrder.push_front(index);
+        m_LRUMap[index] = m_LRUOrder.begin();
+    } else {
+        m_LRUOrder.push_back(index);
+        auto position = m_LRUOrder.end();
+        --position;
+        m_LRUMap[index] = position;
+    }
+    m_Cache_AllocatedNum.store(static_cast<unsigned int>(m_LRUMap.size()));
+    return true;
+}
+
+bool StreamingData::EraseCachedFrame(const unsigned int index) {
+    StreamingFrameCacheEntry released;
+    {
+        std::lock_guard<std::mutex> lock(m_CacheMutex);
+        if (index >= m_Data.size() || !m_Data[index].GetISCached()) { return false; }
+        released = m_Data[index].TakeCacheEntry();
+        const auto iterator = m_LRUMap.find(index);
+        if (iterator != m_LRUMap.end()) {
+            m_LRUOrder.erase(iterator->second);
+            m_LRUMap.erase(iterator);
+        }
+        m_Cache_AllocatedNum.store(static_cast<unsigned int>(m_LRUMap.size()));
+    }
+    return true;
+}
+
+std::vector<unsigned int> StreamingData::CachedFrameIndices() const {
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    std::vector<unsigned int> indices;
+    indices.reserve(m_LRUMap.size());
+    for (const auto& [index, position] : m_LRUMap) {
+        (void)position;
+        indices.push_back(index);
+    }
+    std::sort(indices.begin(), indices.end());
+    return indices;
+}
+
+std::uint64_t StreamingData::CachedResidentSizeHint() const {
+    std::lock_guard<std::mutex> lock(m_CacheMutex);
+    std::uint64_t bytes = 0u;
+    for (const auto& frame : m_Data) {
+        if (!frame.GetISCached()) { continue; }
+        const auto resource = frame.GetCachedResource();
+        if (resource == nullptr) { continue; }
+        const auto residentBytes = resource->ResidentSizeHint();
+        bytes = residentBytes > std::numeric_limits<std::uint64_t>::max() - bytes
+            ? std::numeric_limits<std::uint64_t>::max()
+            : bytes + residentBytes;
+    }
+    return bytes;
+}
+
+void StreamingData::TouchLRULocked(const unsigned int index) {
+    const auto iterator = m_LRUMap.find(index);
+    if (iterator != m_LRUMap.end()) { m_LRUOrder.erase(iterator->second); }
+    m_LRUOrder.push_front(index);
+    m_LRUMap[index] = m_LRUOrder.begin();
+}
+
+void StreamingData::EvictLRUCacheLocked(std::vector<StreamingFrameCacheEntry>& released) {
     if(m_LRUOrder.empty()) return;
-    
-    unsigned int oldestIndex = m_LRUOrder.back();
+
+    const unsigned int oldestIndex = m_LRUOrder.back();
     m_LRUOrder.pop_back();
     m_LRUMap.erase(oldestIndex);
-    
+
     auto& frame = GetTargetTimeFrame(oldestIndex);
     if(frame.GetISCached()) {
-        frame.ClearCachedData();
-        m_Cache_AllocatedNum--;
+        released.push_back(frame.TakeCacheEntry());
     }
+    m_Cache_AllocatedNum.store(static_cast<unsigned int>(m_LRUMap.size()));
 }
 
 float StreamingData::GetTargetTimeValue(unsigned int index) {
