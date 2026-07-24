@@ -88,6 +88,8 @@
 #include <QTimer>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QShowEvent>
+#include <QWindow>
 #include <QApplication>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
@@ -121,7 +123,7 @@ ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
     return metrics;
 }
 
-int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
+int resolveToolbarIconSize(int availableWidth) {
     int iconSize = 52;
     if (availableWidth <= 1366) {
         iconSize = 32;
@@ -135,8 +137,7 @@ int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
         iconSize = 50;
     }
 
-    const qreal scale = qMax<qreal>(1.0, dpiScale);
-    return qBound(24, static_cast<int>(qRound(static_cast<qreal>(iconSize) / scale)), 52);
+    return qBound(24, iconSize, 52);
 }
 
 int resolveToolbarIconSizeForWidget(const QWidget* widget) {
@@ -144,9 +145,27 @@ int resolveToolbarIconSizeForWidget(const QWidget* widget) {
     if (!screen) {
         screen = QGuiApplication::primaryScreen();
     }
-    const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
-    const int availableWidth = screen ? screen->availableGeometry().width() : (widget ? widget->width() : 1920);
-    return resolveToolbarIconSize(availableWidth, dpiScale);
+    const int widgetWidth = widget ? widget->width() : 0;
+    const int availableWidth = widgetWidth > 0
+                                       ? widgetWidth
+                                       : (screen ? screen->availableGeometry().width() : 1920);
+    return resolveToolbarIconSize(availableWidth);
+}
+
+QRect fitGeometryToScreen(const QRect& requested, QScreen* screen) {
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (!screen) return requested;
+
+    const QRect available = screen->availableGeometry();
+    QSize size = requested.isValid() ? requested.size() : available.size() * 0.8;
+    size.setWidth(qMin(size.width(), available.width()));
+    size.setHeight(qMin(size.height(), available.height()));
+
+    const int maxX = available.right() - size.width() + 1;
+    const int maxY = available.bottom() - size.height() + 1;
+    const int x = qBound(available.left(), requested.x(), qMax(available.left(), maxX));
+    const int y = qBound(available.top(), requested.y(), qMax(available.top(), maxY));
+    return QRect(QPoint(x, y), size);
 }
 
 const char* kGlobalSpinBoxDarkQss = R"(
@@ -528,19 +547,18 @@ void igQtMainWindow::toggleMaximizeRestore() {
         }
 
         m_isRestoringFromMaximized = true;
+        QScreen* currentScreen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
         QRect targetRect = m_normalGeometry;
         if (!targetRect.isValid() || targetRect.width() < 100 || targetRect.height() < 100) {
-            QRect workArea = QGuiApplication::primaryScreen()->availableGeometry();
+            const QRect workArea = currentScreen ? currentScreen->availableGeometry() : QRect(0, 0, 1280, 720);
             targetRect = QRect(workArea.x() + workArea.width() / 10,
                                workArea.y() + workArea.height() / 10,
                                workArea.width() * 8 / 10,
                                workArea.height() * 8 / 10);
         }
+        targetRect = fitGeometryToScreen(targetRect, currentScreen);
 
-        QRect startRect = QGuiApplication::primaryScreen()->availableGeometry();
-        if (windowHandle() && windowHandle()->screen()) {
-            startRect = windowHandle()->screen()->availableGeometry();
-        }
+        QRect startRect = currentScreen ? currentScreen->availableGeometry() : targetRect;
 
         showNormal();
         setGeometry(startRect);
@@ -573,7 +591,61 @@ void igQtMainWindow::updateMaximizeButtonIcon() {
 
 void igQtMainWindow::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event);
+    applyScreenMetrics();
+}
+
+void igQtMainWindow::showEvent(QShowEvent* event) {
+    QMainWindow::showEvent(event);
+    if (!windowHandle()) return;
+
+    connect(windowHandle(), &QWindow::screenChanged, this, &igQtMainWindow::bindToScreen,
+            Qt::UniqueConnection);
+    bindToScreen(windowHandle()->screen());
+}
+
+void igQtMainWindow::bindToScreen(QScreen* screen) {
+    if (m_observedScreen == screen) {
+        applyScreenMetrics();
+        if (ColorManagerWidget && ColorManagerWidget->isVisible()) positionColorManagerOnCurrentScreen();
+        return;
+    }
+
+    if (m_observedScreen) disconnect(m_observedScreen, nullptr, this, nullptr);
+    m_observedScreen = screen;
+
+    if (m_observedScreen) {
+        connect(m_observedScreen, &QScreen::logicalDotsPerInchChanged, this,
+                [this](qreal) { applyScreenMetrics(); });
+        connect(m_observedScreen, &QScreen::availableGeometryChanged, this,
+                [this](const QRect&) { applyScreenMetrics(); });
+        connect(m_observedScreen, &QScreen::geometryChanged, this,
+                [this](const QRect&) { applyScreenMetrics(); });
+    }
+    applyScreenMetrics();
+    if (ColorManagerWidget && ColorManagerWidget->isVisible()) positionColorManagerOnCurrentScreen();
+}
+
+void igQtMainWindow::applyScreenMetrics() {
+    const int iconSize = resolveToolbarIconSizeForWidget(this);
+    if (iconSize != m_toolbarIconSize) {
+        m_toolbarIconSize = iconSize;
+        UpdateIcons();
+        updateToolbarMetrics(iconSize);
+    }
+
     relayoutToolbarWrappers();
+    if (rendererWidget) rendererWidget->synchronizeDevicePixelRatio();
+}
+
+void igQtMainWindow::positionColorManagerOnCurrentScreen() {
+    if (!ColorManagerWidget) return;
+    QScreen* screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+    if (!screen) return;
+
+    const QRect available = screen->availableGeometry();
+    const QSize popupSize = ColorManagerWidget->size();
+    const QRect centered(available.center() - QPoint(popupSize.width() / 2, popupSize.height() / 2), popupSize);
+    ColorManagerWidget->move(fitGeometryToScreen(centered, screen).topLeft());
 }
 
 igQtMainWindow::~igQtMainWindow() {
@@ -601,7 +673,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     fileLoader = new igQtFileLoader(this);
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
-    ColorManagerWidget->setGeometry(400, 500, 780, 1000);
 
     // 初始化AI聊天DockWidget
     aiChatDockWidget = new QDockWidget(this);
@@ -614,7 +685,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     aiChatDockWidget->hide(); // 初始隐藏
     this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
 
-    // 设置DockWidget的默认大小
+    // 设置 DockWidget 的默认大小；内容本身保持可收缩，避免窄屏挤占渲染区。
+    aiChatDockWidget->setMinimumWidth(280);
     aiChatDockWidget->resize(400, 600);
 
     // 将原本右侧的 dockwidget 移到左侧（后续统一加入左侧 tab 组）
@@ -803,7 +875,7 @@ void igQtMainWindow::initToolbarComponent() {
     addToolbarTitle(ui->toolBar_3, "可视化");
     addToolbarTitle(ui->toolBar_2, "选择与编辑");
     addToolbarTitle(ui->toolBar_4, "视图设置");
-    relayoutToolbarWrappers();
+    applyScreenMetrics();
 }
 
 void igQtMainWindow::initAllComponents() {
@@ -1040,21 +1112,27 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
         QString path =
                 QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
+        if (path.isEmpty()) return;
+
         igQtScreenShotOptionDialog dialog(this);
         dialog.setDialogTitle(QStringLiteral("Save Screenshot option"));
-        int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
-        int ratio_pixel = rendererWidget->devicePixelRatio();
+        const QSize oldSize = rendererWidget->size();
         int width = 1920, height = 1080;
         if (dialog.exec() == QDialog::Accepted) {
             auto input = dialog.getInput();
             width = input.first, height = input.second;
+        } else {
+            return;
         }
 
-        width /= ratio_pixel, height /= ratio_pixel;
-        rendererWidget->resize(width, height);
+        const QSize requestedPixelSize(width, height);
+        rendererWidget->resize(rendererWidget->logicalSizeForPixelSize(requestedPixelSize));
         QImage saved_image = rendererWidget->grabFramebuffer();
-        rendererWidget->resize(oldwidth, oldheight);
-        const bool savedOk = saved_image.save(path, "BMP");
+        rendererWidget->resize(oldSize);
+        if (saved_image.size() != requestedPixelSize) {
+            saved_image = saved_image.scaled(requestedPixelSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        }
+        const bool savedOk = saved_image.save(path);
         showDarkFramelessMessage(QStringLiteral("截图结果"),
                                  savedOk ? QStringLiteral("保存成功") : QStringLiteral("保存失败"), savedOk);
     });
@@ -2423,6 +2501,7 @@ void igQtMainWindow::initAllMySignalConnections() {
         if (this->ColorManagerWidget->isHidden()) {
             // 打开前从当前模型 ColorMapper 同步色条（无模型会提示）
             this->ColorManagerWidget->resetColorRange();
+            positionColorManagerOnCurrentScreen();
             this->ColorManagerWidget->show();
             this->ColorManagerWidget->raise();
             this->ColorManagerWidget->activateWindow();
@@ -3282,6 +3361,70 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     wrapper->setMinimumWidth(container->sizeHint().width() + spacing.btnGap * 2);
 
     this->addToolBar(area, wrapper);
+}
+
+void igQtMainWindow::updateToolbarMetrics(int iconSize) {
+    const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize);
+    const QSize standardIconSize(iconSize, iconSize);
+
+    for (QToolBar* wrapper : findChildren<QToolBar*>()) {
+        if (!wrapper || !wrapper->objectName().startsWith(QStringLiteral("wrapper_"))) continue;
+
+        const QString sourceName = wrapper->objectName().mid(QStringLiteral("wrapper_").size());
+        QWidget* container = wrapper->findChild<QWidget*>(QStringLiteral("toolbarContainer_") + sourceName);
+        if (!container) continue;
+
+        auto* verticalLayout = qobject_cast<QVBoxLayout*>(container->layout());
+        QWidget* topRow = verticalLayout && verticalLayout->count() > 0
+                                  ? verticalLayout->itemAt(0)->widget()
+                                  : nullptr;
+        auto* horizontalLayout = topRow ? qobject_cast<QHBoxLayout*>(topRow->layout()) : nullptr;
+        if (verticalLayout) {
+            verticalLayout->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin,
+                                               spacing.bottomMargin);
+            verticalLayout->setSpacing(spacing.verticalGap);
+        }
+        if (horizontalLayout) {
+            horizontalLayout->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin, 0);
+            horizontalLayout->setSpacing(spacing.btnGap);
+        }
+
+        QWidget* twoRowGrid = container->findChild<QWidget*>(QStringLiteral("twoRowViewGrid"));
+        if (twoRowGrid) {
+            const int targetIcon = qMax(20, static_cast<int>(iconSize * 0.65));
+            const int rowHeight = targetIcon + 8;
+            const int gridSpacing = qMax(4, iconSize / 6);
+            if (auto* gridLayout = qobject_cast<QGridLayout*>(twoRowGrid->layout())) {
+                gridLayout->setSpacing(gridSpacing);
+                gridLayout->invalidate();
+            }
+            twoRowGrid->setMinimumSize(3 * rowHeight + 2 * gridSpacing,
+                                       2 * rowHeight + gridSpacing);
+            for (QToolButton* button : twoRowGrid->findChildren<QToolButton*>()) {
+                button->setIconSize(QSize(targetIcon, targetIcon));
+                button->setFixedSize(rowHeight, rowHeight);
+            }
+        }
+
+        for (QToolButton* button : container->findChildren<QToolButton*>()) {
+            if (twoRowGrid && twoRowGrid->isAncestorOf(button)) continue;
+            button->setIconSize(standardIconSize);
+            button->setMinimumSize(iconSize + 2 * spacing.buttonPadding,
+                                   iconSize + 2 * spacing.buttonPadding);
+        }
+
+        if (verticalLayout) {
+            verticalLayout->invalidate();
+            verticalLayout->activate();
+        }
+        container->adjustSize();
+        container->updateGeometry();
+
+        const QSize containerHint = container->sizeHint();
+        wrapper->setMinimumHeight(containerHint.height());
+        wrapper->setMinimumWidth(containerHint.width() + spacing.btnGap * 2);
+        wrapper->updateGeometry();
+    }
 }
 
 void igQtMainWindow::relayoutToolbarWrappers() {

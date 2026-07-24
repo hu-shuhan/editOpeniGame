@@ -604,9 +604,7 @@ bool igQtAnimationWidget::saveAnimation() {
                                          filters.join(";;"), &SelectedFilter);
 
     igQtVideoOptionDialog dialog(this);
-    int oldwidth = rendererWidget->width(),
-        oldheight = rendererWidget->height();
-    int ratio_pixel = rendererWidget->devicePixelRatio();
+    const QSize oldSize = rendererWidget->size();
     int width = 1920, height = 1080;
     VideoInputInfo inputInfo;
     if (dialog.exec() == QDialog::Accepted) {
@@ -615,7 +613,8 @@ bool igQtAnimationWidget::saveAnimation() {
     } else
         return false;
 
-    rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
+    const QSize requestedPixelSize(width, height);
+    rendererWidget->resize(rendererWidget->logicalSizeForPixelSize(requestedPixelSize));
     int selected_idx = filters.indexOf(SelectedFilter);
 
     switch (selected_idx) {
@@ -631,10 +630,6 @@ bool igQtAnimationWidget::saveAnimation() {
         default:
             break;
     }
-    int ratio = currentScene->GetCamera()->GetDevicePixelRatio();
-    auto wh = currentScene->GetCamera()->GetViewPort();
-
-
 //    /* RGBA Type , means that one pixel's size is 4 byte.*/
 //    inputInfo.bytes_per_line = width * 4;
 //
@@ -656,6 +651,9 @@ bool igQtAnimationWidget::saveAnimation() {
     {
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
+        if (image.size() != requestedPixelSize) {
+            image = image.scaled(requestedPixelSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        }
         if(filters.indexOf(SelectedFilter) == 2){
             qDebug() << QString(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
             image.save(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
@@ -669,7 +667,7 @@ bool igQtAnimationWidget::saveAnimation() {
         inputInfo.raw_image_data.emplace_back(tmp);
     }
     UnlockAnimationColorRange(drawObj.get());
-    rendererWidget->resize(oldwidth, oldheight);
+    rendererWidget->resize(oldSize);
 
 
 
@@ -730,4 +728,3 @@ bool igQtAnimationWidget::saveAnimation() {
 
     return true;
 }
-

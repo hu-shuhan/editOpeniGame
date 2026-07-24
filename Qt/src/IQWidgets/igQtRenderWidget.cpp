@@ -12,6 +12,10 @@
 #include <IQWidgets/igQtRenderWidget.h>
 #include <QMouseEvent>
 #include <QOpenGLFunctions> //
+#include <QScreen>
+#include <QShowEvent>
+#include <QTimer>
+#include <QWindow>
 #include <iGamePointSet.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
@@ -175,6 +179,14 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
 
 iGame::Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
+QSize igQtRenderWidget::logicalSizeForPixelSize(const QSize& pixelSize) const {
+    const qreal ratio = qMax<qreal>(0.01, devicePixelRatioF());
+    return QSize(qMax(1, qRound(static_cast<qreal>(pixelSize.width()) / ratio)),
+                 qMax(1, qRound(static_cast<qreal>(pixelSize.height()) / ratio)));
+}
+
+void igQtRenderWidget::synchronizeDevicePixelRatio() { scheduleSceneViewportSync(); }
+
 void igQtRenderWidget::initializeGL() {
     // 目前当窗口
     iGame::SceneManager::Pointer sceneManager = iGame::SceneManager::Instance();
@@ -190,11 +202,59 @@ void igQtRenderWidget::initializeGL() {
 }
 
 void igQtRenderWidget::resizeGL(int w, int h) {
-    auto ratio = this->devicePixelRatio();
-    m_Scene->Resize(width(), height(), ratio);
+    if (!m_Scene) return;
+    m_Scene->ResizeWithDevicePixelRatio(qMax(1, w), qMax(1, h),
+                                        static_cast<float>(devicePixelRatioF()));
 }
 
 void igQtRenderWidget::paintGL() { m_Scene->Draw(); }
+
+void igQtRenderWidget::showEvent(QShowEvent* event) {
+    QOpenGLWidget::showEvent(event);
+    QWindow* topLevelHandle = window() ? window()->windowHandle() : nullptr;
+    if (!topLevelHandle) return;
+
+    connect(topLevelHandle, &QWindow::screenChanged, this, &igQtRenderWidget::bindToScreen,
+            Qt::UniqueConnection);
+    bindToScreen(topLevelHandle->screen());
+}
+
+void igQtRenderWidget::bindToScreen(QScreen* screen) {
+    if (m_observedScreen == screen) {
+        scheduleSceneViewportSync();
+        return;
+    }
+
+    if (m_observedScreen) disconnect(m_observedScreen, nullptr, this, nullptr);
+    m_observedScreen = screen;
+
+    if (m_observedScreen) {
+        connect(m_observedScreen, &QScreen::logicalDotsPerInchChanged, this,
+                [this](qreal) { scheduleSceneViewportSync(); });
+        connect(m_observedScreen, &QScreen::geometryChanged, this,
+                [this](const QRect&) { scheduleSceneViewportSync(); });
+    }
+    scheduleSceneViewportSync();
+}
+
+void igQtRenderWidget::scheduleSceneViewportSync() {
+    if (m_viewportSyncPending) return;
+    m_viewportSyncPending = true;
+    QTimer::singleShot(0, this, [this]() {
+        m_viewportSyncPending = false;
+        syncSceneViewport();
+    });
+}
+
+void igQtRenderWidget::syncSceneViewport() {
+    if (!m_Scene || !isValid()) return;
+
+    makeCurrent();
+    m_Scene->ResizeWithDevicePixelRatio(qMax(1, width()), qMax(1, height()),
+                                        static_cast<float>(devicePixelRatioF()));
+    doneCurrent();
+    QOpenGLWidget::update();
+}
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {

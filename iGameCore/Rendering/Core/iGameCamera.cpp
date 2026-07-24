@@ -5,13 +5,14 @@
 #include "iGameCamera.h"
 #include "iGameRenderingLogger.h"
 #include <algorithm>
+#include <cmath>
 
 IGAME_NAMESPACE_BEGIN
 
 Viewport::Viewport() {
     m_Offset = igm::uvec2{0, 0};
     m_Size = igm::uvec2{800, 600};
-    m_DevicePixelRatio = 1;
+    m_DevicePixelRatio = 1.0f;
 }
 
 Viewport::~Viewport() {}
@@ -26,18 +27,34 @@ void Viewport::SetViewPort(uint32_t width, uint32_t height) {
 
 igm::uvec2 Viewport::GetViewPort() { return m_Size; }
 
-igm::uvec2 Viewport::GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
+igm::uvec2 Viewport::GetScaledViewPort() {
+    const auto scaledDimension = [this](uint32_t logicalSize) -> uint32_t {
+        if (logicalSize == 0) return 0;
+        return static_cast<uint32_t>(
+                std::max<long>(1, std::lround(static_cast<double>(logicalSize) * m_DevicePixelRatio)));
+    };
+    return {scaledDimension(m_Size.x), scaledDimension(m_Size.y)};
+}
 
 void Viewport::SetDevicePixelRatio(unsigned int devicePixelRatio) {
-    if (devicePixelRatio == m_DevicePixelRatio) { return; }
+    SetDevicePixelRatioF(static_cast<float>(devicePixelRatio));
+}
 
-    m_DevicePixelRatio = devicePixelRatio;
+void Viewport::SetDevicePixelRatioF(float devicePixelRatio) {
+    const float safeRatio = std::isfinite(devicePixelRatio) && devicePixelRatio > 0.0f
+                                    ? devicePixelRatio
+                                    : 1.0f;
+    if (std::fabs(safeRatio - m_DevicePixelRatio) < 0.0001f) { return; }
+
+    m_DevicePixelRatio = safeRatio;
     this->Modified();
 }
 
 unsigned int Viewport::GetDevicePixelRatio() const {
-    return m_DevicePixelRatio;
+    return static_cast<unsigned int>(std::max<long>(1, std::lround(m_DevicePixelRatio)));
 }
+
+float Viewport::GetDevicePixelRatioF() const { return m_DevicePixelRatio; }
 
 Viewer::Viewer() {
     m_ClippingRange.x = 0.01f;

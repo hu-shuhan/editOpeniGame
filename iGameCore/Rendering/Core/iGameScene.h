@@ -190,6 +190,14 @@ public:
     void Resize(int width, int height, int pixelRatio);
 
     /**
+     * @brief 调整视口大小，并保留小数设备像素比。
+     * @param width 逻辑像素宽度。
+     * @param height 逻辑像素高度。
+     * @param pixelRatio 设备像素比，例如 1.25、1.5、1.75。
+     */
+    void ResizeWithDevicePixelRatio(int width, int height, float pixelRatio);
+
+    /**
      * @brief 更新场景状态，调用前需要调用SetUpdateFunctor绑定自定义更新函数。
      */
     void Update();

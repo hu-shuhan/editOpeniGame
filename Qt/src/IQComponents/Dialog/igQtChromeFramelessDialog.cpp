@@ -1,11 +1,13 @@
 #include "IQComponents/Dialog/igQtChromeFramelessDialog.h"
 
 #include <QHBoxLayout>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPushButton>
+#include <QScreen>
 #include <QVBoxLayout>
 #include <QWindow>
 
@@ -26,6 +28,21 @@ constexpr int kRootMarginNormal = 3;
 constexpr int kShellFillAlphaNormal = 236;
 constexpr int kShellFillAlphaMaximized = 252;
 constexpr int kShellBorderAlpha = 125;
+
+QRect fitGeometryToScreen(const QRect& requested, QScreen* screen) {
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (!screen) return requested;
+
+    const QRect available = screen->availableGeometry();
+    QSize size = requested.isValid() ? requested.size() : available.size() * 0.8;
+    size.setWidth(qMin(size.width(), available.width()));
+    size.setHeight(qMin(size.height(), available.height()));
+    const int maxX = available.right() - size.width() + 1;
+    const int maxY = available.bottom() - size.height() + 1;
+    return QRect(qBound(available.left(), requested.x(), qMax(available.left(), maxX)),
+                 qBound(available.top(), requested.y(), qMax(available.top(), maxY)),
+                 size.width(), size.height());
+}
 } // namespace
 
 igQtChromeFramelessDialog::igQtChromeFramelessDialog(QWidget* parent) : QDialog(parent) {
@@ -163,7 +180,8 @@ void igQtChromeFramelessDialog::setMaximizeEnabled(bool enabled) {
         showNormal();
         if (m_normalGeometry.isValid() && m_normalGeometry.width() >= minimumWidth() &&
             m_normalGeometry.height() >= minimumHeight()) {
-            setGeometry(m_normalGeometry);
+            QScreen* screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+            setGeometry(fitGeometryToScreen(m_normalGeometry, screen));
         }
         updateMaximizeButtonIcon();
         updateFrameMarginsForWindowState();
@@ -276,7 +294,8 @@ void igQtChromeFramelessDialog::toggleMaximizeRestore() {
         showNormal();
         if (m_normalGeometry.isValid() && m_normalGeometry.width() >= minimumWidth() &&
             m_normalGeometry.height() >= minimumHeight()) {
-            setGeometry(m_normalGeometry);
+            QScreen* screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+            setGeometry(fitGeometryToScreen(m_normalGeometry, screen));
         }
         updateMaximizeButtonIcon();
         updateFrameMarginsForWindowState();
@@ -318,17 +337,25 @@ bool igQtChromeFramelessDialog::nativeEvent(const QByteArray& eventType, void* m
     if (eventType == "windows_generic_MSG") {
         MSG* msg = static_cast<MSG*>(message);
         if (msg->message == WM_NCHITTEST && !isMaximized()) {
-            const int bw = qMax(1, qRound(static_cast<qreal>(kResizeBorder) * devicePixelRatioF()));
             const int gx = GET_X_LPARAM(msg->lParam);
             const int gy = GET_Y_LPARAM(msg->lParam);
-            const QPoint gp(gx, gy);
-            const QPoint lp = mapFromGlobal(gp);
-            if (!rect().contains(lp)) return QDialog::nativeEvent(eventType, message, result);
+            RECT nativeRect{};
+            if (!GetWindowRect(msg->hwnd, &nativeRect)) {
+                return QDialog::nativeEvent(eventType, message, result);
+            }
 
-            const int x = lp.x();
-            const int y = lp.y();
-            const int w = width();
-            const int h = height();
+            // WM_NCHITTEST is expressed in native physical pixels. Keep all edge
+            // calculations in that coordinate system instead of mixing them with
+            // Qt's device-independent widget geometry.
+            const qreal dpr = qMax<qreal>(0.01, devicePixelRatioF());
+            const int bw = qMax(1, qRound(static_cast<qreal>(kResizeBorder) * dpr));
+            const int x = gx - nativeRect.left;
+            const int y = gy - nativeRect.top;
+            const int w = nativeRect.right - nativeRect.left;
+            const int h = nativeRect.bottom - nativeRect.top;
+            if (x < 0 || y < 0 || x >= w || y >= h) {
+                return QDialog::nativeEvent(eventType, message, result);
+            }
 
             if (x < bw && y < bw) {
                 *result = HTTOPLEFT;
@@ -363,8 +390,14 @@ bool igQtChromeFramelessDialog::nativeEvent(const QByteArray& eventType, void* m
                 return true;
             }
 
-            if (m_titleBar && m_titleBar->geometry().contains(lp)) {
-                if (!isOnCaptionButton(lp)) {
+            POINT nativeClientPoint{gx, gy};
+            if (!ScreenToClient(msg->hwnd, &nativeClientPoint)) {
+                return QDialog::nativeEvent(eventType, message, result);
+            }
+            const QPoint logicalPoint(qRound(static_cast<qreal>(nativeClientPoint.x) / dpr),
+                                      qRound(static_cast<qreal>(nativeClientPoint.y) / dpr));
+            if (m_titleBar && m_titleBar->geometry().contains(logicalPoint)) {
+                if (!isOnCaptionButton(logicalPoint)) {
                     *result = HTCAPTION;
                     return true;
                 }

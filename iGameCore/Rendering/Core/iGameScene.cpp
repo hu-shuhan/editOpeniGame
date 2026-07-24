@@ -855,8 +855,12 @@ void Scene::SetGpuUsageLimit(float usagePercent) {
 void Scene::EnableFramePacing(bool enable) { m_FramePacingEnabled = enable; }
 
 void Scene::Resize(int width, int height, int pixelRatio) {
+    ResizeWithDevicePixelRatio(width, height, static_cast<float>(pixelRatio));
+}
+
+void Scene::ResizeWithDevicePixelRatio(int width, int height, float pixelRatio) {
     m_Camera->SetViewPort(width, height);
-    m_Camera->SetDevicePixelRatio(pixelRatio);
+    m_Camera->SetDevicePixelRatioF(pixelRatio);
     ResizeFrameBuffer();
 }
 

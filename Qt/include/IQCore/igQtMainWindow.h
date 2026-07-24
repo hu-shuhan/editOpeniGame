@@ -19,6 +19,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QResizeEvent>
 #include <QRect>
+#include <QPointer>
 #include <array>
 #undef QT_NO_OPENGL
 
@@ -33,6 +34,8 @@ class igQtModelClipWidget;
 class igQtDeformationWidget;
 class igQtAiChatWidget;
 class igQtCommandManager;
+class QScreen;
+class QShowEvent;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -158,6 +161,7 @@ private:
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     void changeEvent(QEvent* event) override;
     int streamTreeIndex = -1;
 
@@ -165,6 +169,13 @@ private:
     void minimizeWithAnimation();
     void toggleMaximizeRestore();
     void updateMaximizeButtonIcon();
+    void bindToScreen(QScreen* screen);
+    void applyScreenMetrics();
+    void updateToolbarMetrics(int iconSize);
+    void positionColorManagerOnCurrentScreen();
+
+    QPointer<QScreen> m_observedScreen;
+    int m_toolbarIconSize{-1};
 };
 
 

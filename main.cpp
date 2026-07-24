@@ -75,6 +75,13 @@ int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
     QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);     // 图标高分辨率支持
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    // Keep 125%/150%/175% scale factors instead of rounding them to an integer.
+    // The OpenGL viewport path uses devicePixelRatioF(), so fractional scaling is
+    // preserved consistently from Qt widgets to the render framebuffer.
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+            Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication a(argc, argv);
 
@@ -99,7 +106,6 @@ int main(int argc, char* argv[]) {
     igQtMainWindow w;
     QTextCodec* codec = QTextCodec::codecForName("GBK");
     w.setWindowTitle(codec->toUnicode("iGameVis 2.0"));
-    w.show();
     w.showMaximized();
     w.initArgs(a.arguments());
     a.exec();

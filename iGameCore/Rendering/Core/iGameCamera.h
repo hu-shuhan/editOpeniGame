@@ -60,10 +60,22 @@ public:
     void SetDevicePixelRatio(unsigned int devicePixelRatio);
 
     /**
+     * @brief 设置支持小数的设备像素比（例如 1.25、1.5、1.75）。
+     * @param devicePixelRatio 设备像素比。
+     */
+    void SetDevicePixelRatioF(float devicePixelRatio);
+
+    /**
      * @brief 获取设备像素比。
      * @return 返回设备像素比值。
      */
     unsigned int GetDevicePixelRatio() const;
+
+    /**
+     * @brief 获取支持小数的设备像素比。
+     * @return 返回设备像素比值。
+     */
+    float GetDevicePixelRatioF() const;
 
     /**
      * @brief 计算视口的纵横比（宽高比）。
@@ -79,7 +91,7 @@ protected:
 
     igm::uvec2 m_Offset;
     igm::uvec2 m_Size;
-    unsigned int m_DevicePixelRatio;
+    float m_DevicePixelRatio;
 };
 
 /**

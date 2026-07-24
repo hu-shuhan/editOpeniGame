@@ -85,7 +85,10 @@ void igQtAiChatWidget::setMainWindow(igQtMainWindow* mainWindow)
 void igQtAiChatWidget::setupUI()
 {
     setWindowTitle("iGameAiTool - AI聊天助手");
-    setMinimumSize(600, 500);
+    // This widget lives inside a dock. A 600 px minimum width made the dock
+    // impossible to shrink on 1366-wide and high-DPI logical desktops.
+    setMinimumSize(280, 320);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     
     // 加载样式表
     loadStyleSheet();

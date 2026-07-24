@@ -529,9 +529,14 @@ OperationResult igQtCommandExecutor::executeSaveScreenshot(const QJsonObject& da
     QSize oldSize = m_mainWindow->rendererWidget->size();
 
     // 调整尺寸并截图
-    m_mainWindow->rendererWidget->resize(width, height);
+    const QSize requestedPixelSize(width, height);
+    m_mainWindow->rendererWidget->resize(
+            m_mainWindow->rendererWidget->logicalSizeForPixelSize(requestedPixelSize));
     QImage screenshot = m_mainWindow->rendererWidget->grabFramebuffer();
     m_mainWindow->rendererWidget->resize(oldSize);
+    if (screenshot.size() != requestedPixelSize) {
+        screenshot = screenshot.scaled(requestedPixelSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
 
     // 保存截图
     if (screenshot.save(filePath, "PNG")) {

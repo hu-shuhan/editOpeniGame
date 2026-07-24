@@ -143,13 +143,13 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     modelTreeWidget = ui->modelTreeWidget;
     propertyWidget = ui->propertyWidget;
 
-    int totalWidth = parent ? parent->width() / 6 : 200;
+    constexpr int dockMinWidth = 240;
 
     // 上半部分：圖層/模型樹 Dock（可單獨拖出懸浮）
     m_treeDock = new QDockWidget(QStringLiteral("模型树"), parent);
     m_treeDock->setObjectName("LayerTreeDock");
     m_treeDock->setWidget(modelTreeWidget);
-    m_treeDock->setMinimumWidth(totalWidth);
+    m_treeDock->setMinimumWidth(dockMinWidth);
     // LayerDialog 允许悬浮 + 可拖动（可关闭、可移动、可浮动）
     m_treeDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable |
                             QDockWidget::DockWidgetFloatable);
@@ -165,7 +165,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     m_propertiesDock = new QDockWidget(QStringLiteral("属性"), parent);
     m_propertiesDock->setObjectName("LayerPropertiesDock");
     m_propertiesDock->setWidget(tabWidget);
-    m_propertiesDock->setMinimumWidth(totalWidth);
+    m_propertiesDock->setMinimumWidth(dockMinWidth);
     // Properties 不允许悬浮/拖动（只保留可关闭）
     m_propertiesDock->setFeatures(QDockWidget::DockWidgetClosable);
     m_propertiesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea);
@@ -203,15 +203,12 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     tabWidget->addTab(ui->ModelInformationWidget, QStringLiteral("模型信息"));
     tabWidget->addTab(ui->propertyWidget, QStringLiteral("模型属性"));
 
-    // 根据总宽度调整列宽
-    int col1Width = totalWidth * 0.4;
-    int col2Width = totalWidth * 0.6;
-
-
     modelTreeWidget->setColumnCount(2);
     modelTreeWidget->header()->hide();
-    modelTreeWidget->setColumnWidth(0, 140);
-    modelTreeWidget->setColumnWidth(1, 200);
+    modelTreeWidget->header()->setMinimumSectionSize(80);
+    modelTreeWidget->header()->setStretchLastSection(false);
+    modelTreeWidget->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    modelTreeWidget->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     // 减小缩进，让模型和 attribute 文本更靠近左侧
     modelTreeWidget->setIndentation(10);
     modelTreeWidget->setAlternatingRowColors(true);
