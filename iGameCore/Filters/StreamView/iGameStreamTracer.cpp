@@ -2151,7 +2151,8 @@ void StreamTracer::precomputeTrigValues() {
     }
 }
 
-std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, float topPercent, int ptsPerExtrema) {
+std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, float topPercent, int ptsPerExtrema,
+                                                      bool useSelection) {
     if (ptFinder.empty() || !ptFinder[0]) return {};
     int totalBoxes = ptFinder[0]->GetNumberOfBoxes();
     if (totalBoxes <= 0) return {};
@@ -2159,6 +2160,27 @@ std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, fl
     if (currentV.empty() || isChange) {
         currentV = std::move(GetUnifiedVectorField(vectorName));
         isChange = false;
+    }
+
+    // 收集选区内的点（与 getModelSelectMax 同一套逻辑）。
+    // 后面用它把熵统计限制在选区覆盖的空间格子里，让 topPercent 成为"选区内相对排名"。
+    std::unordered_set<igIndex> allSelectedPoints;
+    if (useSelection && model && model->GetSelection()) {
+        auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
+        auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
+        if (!selectedPoints.empty()) {
+            for (auto pointId: selectedPoints) { allSelectedPoints.insert(pointId); }
+        } else if (!selectedCells.empty()) {
+            for (auto cellId: selectedCells) {
+                igIndex pVolume[32]{};
+                int psize = mesh->GetVolumePointIds(cellId, pVolume);
+                for (int i = 0; i < psize; i++) { allSelectedPoints.insert(pVolume[i]); }
+            }
+        }
+    }
+    const bool restrictToSelection = !allSelectedPoints.empty();
+    if (useSelection && !restrictToSelection) {
+        std::cout << "[EntropySeeding] no selection -> fall back to global entropy" << std::endl;
     }
 
     struct BoxStat {
@@ -2175,6 +2197,23 @@ std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, fl
             if (!ptIds || ptIds->GetNumberOfIds() <= 1) {
                 boxStats[i].entropy = 0;
                 continue;
+            }
+
+            // 限定选区时：格子里若一个选中点都没有，直接判定为不参与排序。
+            // 用 -1 而不是 0，是为了和"真实熵恰好为 0"的格子区分开（后者仍属于选区）。
+            if (restrictToSelection) {
+                bool hitSelection = false;
+                int m = ptIds->GetNumberOfIds();
+                for (int j = 0; j < m; ++j) {
+                    if (allSelectedPoints.count(ptIds->GetId(j))) {
+                        hitSelection = true;
+                        break;
+                    }
+                }
+                if (!hitSelection) {
+                    boxStats[i].entropy = -1.0f;
+                    continue;
+                }
             }
 
             std::vector<int> counts(360, 0);
@@ -2215,11 +2254,26 @@ std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, fl
         }
     });
 
-    // Phase 2: Selection of top 1/10 boxes
+    // Phase 2: Selection of top boxes
     std::sort(boxStats.begin(), boxStats.end(),
               [](const BoxStat& a, const BoxStat& b) { return a.entropy > b.entropy; });
 
-    int numSelected = std::max(1, (int) (totalBoxes * topPercent));
+    // 排序后 entropy < 0 的都是"不在选区里"的格子，排在末尾，不参与取样。
+    // topPercent 按"参与排序的格子数"来算 —— 限定选区时它就是选区内的相对排名。
+    int eligibleBoxes = totalBoxes;
+    if (restrictToSelection) {
+        eligibleBoxes = 0;
+        for (const auto& bs: boxStats) {
+            if (bs.entropy < 0) break; // 已排序，遇到第一个负值即可停止
+            ++eligibleBoxes;
+        }
+        std::cout << "[EntropySeeding] selection covers " << eligibleBoxes << " / " << totalBoxes << " boxes"
+                  << std::endl;
+        if (eligibleBoxes == 0) return {};
+    }
+
+    int numSelected = std::max(1, (int) (eligibleBoxes * topPercent));
+    numSelected = std::min(numSelected, eligibleBoxes);
     std::vector<Vector3f> allSeeds;
     std::mutex mtx;
 
@@ -2236,9 +2290,13 @@ std::vector<Vector3f> StreamTracer::getEntropySeeding(std::string vectorName, fl
             mags.reserve(n);
             for (int j = 0; j < n; ++j) {
                 igIndex pid = ptIds->GetId(j);
+                if (pid < 0 || pid >= (igIndex) currentV.size()) continue;
+                // 限定选区时，种子只能落在选中的点上；否则用户框了区域却得到区域外的种子
+                if (restrictToSelection && !allSelectedPoints.count(pid)) continue;
                 const Vector3f& v = currentV[pid];
                 mags.push_back({v[0] * v[0] + v[1] * v[1] + v[2] * v[2], pid});
             }
+            if (mags.empty()) continue;
             std::sort(mags.begin(), mags.end());
 
             // ptsPerExtrema Smallest

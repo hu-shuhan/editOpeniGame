@@ -549,11 +549,38 @@ void igQtStreamTracerWidget::generateStreamline() {
                                                      streamtracer->GetMesh()->GetBoundingBox().max, splitX, splitY,
                                                      splitZ);
     } else if (control == 6) {
-        seeds = streamtracer->getEntropySeeding(vectorName, 0.025f, 8);
-        auto uniformSeeds = streamtracer->computeSubBlockCenters(streamtracer->GetMesh()->GetBoundingBox().min,
-                                                                 streamtracer->GetMesh()->GetBoundingBox().max, splitX,
-                                                                 splitY, splitZ);
+        // 熵驱动：若当前有选区，则把熵排序限制在选区内（topPercent 变成选区内相对排名），
+        // 保证用户框选的区域一定能取到代表性种子；无选区时退回全局行为。
+        auto Smodel = streamtracer->GetModel();
+        if (!Smodel) { Smodel = model; }
+        Q_EMIT SetUseBox(Smodel);
+        emit SetSelectItemShow(false);
+
+        auto& selPts = model->GetSelection()->GetSelectedItems(IG_POINT);
+        auto& selCells = model->GetSelection()->GetSelectedItems(IG_CELL);
+        const bool hasSelection = !selPts.empty() || !selCells.empty();
+
+        seeds = streamtracer->getEntropySeeding(vectorName, 0.025f, 8, hasSelection);
+
+        // 均匀补充种子：有选区时限制在选区包围盒内，避免把全局均匀点混进来稀释选区结果
+        Vector3f uniMin = streamtracer->GetMesh()->GetBoundingBox().min;
+        Vector3f uniMax = streamtracer->GetMesh()->GetBoundingBox().max;
+        if (hasSelection && !seeds.empty()) {
+            uniMin = seeds[0];
+            uniMax = seeds[0];
+            for (const auto& s: seeds) {
+                for (int d = 0; d < 3; ++d) {
+                    uniMin[d] = std::min(uniMin[d], s[d]);
+                    uniMax[d] = std::max(uniMax[d], s[d]);
+                }
+            }
+            std::cout << "[StreamTracer] entropy seeds bbox: (" << uniMin[0] << "," << uniMin[1] << "," << uniMin[2]
+                      << ") - (" << uniMax[0] << "," << uniMax[1] << "," << uniMax[2] << ")\n";
+        }
+        auto uniformSeeds = streamtracer->computeSubBlockCenters(uniMin, uniMax, splitX, splitY, splitZ);
         seeds.insert(seeds.end(), uniformSeeds.begin(), uniformSeeds.end());
+
+        if (hasSelection) { model->GetSelection()->ClearSelections(); }
     }
     // 种子为空时回退：用新 mesh 包围盒生成线段种子，避免静默不出图
     if (seeds.empty()) {
