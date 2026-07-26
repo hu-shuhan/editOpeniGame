@@ -49,6 +49,7 @@
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
+#include <iGameBlockMapping.h>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -1889,6 +1890,27 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     ui->action_ParallelCoordinates->setVisible(false);
     ui->action_SearchInfo->setVisible(false);
     //############# HIDE SOMETHING ED #############
+
+    //############# TESTS ST #############
+    {
+        QAction* testAction{};
+        testAction = new QAction(this);
+        testAction->setObjectName(QString::fromUtf8("testAction"));
+        testAction->setText(QString::fromUtf8("testAction"));
+        ui->menu_DataAnalysis->addAction(testAction);
+        connect(testAction, &QAction::triggered, this, [&](bool checked) {
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            auto obj = iGame::FileIO::ReadFile("D:/TestModels/segment_result.vtk");
+            auto resultArray = BlockMapping::GetMappingBlockCellsArray(
+                    DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToSurfaceMesh(),
+                    DynamicCast<UnstructuredMesh>(obj));
+            resultArray->SetName("block_id");
+            auto dataObj = model->GetDataObject();
+            dataObj->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, resultArray);
+            modelTreeWidget->updateAllAttriubute(dataObj);
+        });
+    }
+    //############# TESTS ED #############
 
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
             [&]() {
