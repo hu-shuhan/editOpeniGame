@@ -50,6 +50,8 @@ drawObj->ViewCloudPicture(scene, attributeIndex, dimension);
 | Menu View → Scalar / `action_Scalar` | Opens left “Scalar” panel |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | Cloud type, color bar, value range |
 
+![Scalar cloud map](../../Resources/Images/标量场云图.PNG)
+
 ---
 
 ## Sub-feature 2: Adaptive vector fields
@@ -89,6 +91,8 @@ vectorView.DrawVector("Velocity", dataObj);
 |-------|-------|
 | Menu View → Vector / Glyph | Opens “Vector” panel |
 | `dockWidget_VectorField` | Modes: 0=All, 1=Range, 2=EveryNth |
+
+![Vector field](../../Resources/Images/矢量场.PNG)
 
 ---
 
@@ -136,6 +140,8 @@ GUI path may also use `iGameTensorBase::ShowTensorField()`.
 | Menu View → Tensor / `action_Tensor` | Opens “Tensor” panel |
 | `dockWidget_TensorField` | Glyph type, scale, coloring |
 
+![Tensor field](../../Resources/Images/张量场.PNG)
+
 > Only ellipsoid and cuboid glyphs are implemented; the representation class notes room for later glyph types.
 
 ---
@@ -177,6 +183,8 @@ filter->Execute();
 |-------|-------|
 | Toolbar `action_deformation` / `action_StrucDeformation` | Opens deformation panel |
 | `DeformationDockWidget` (created in code, moved into left tabs) | Vector attribute, auto/uniform/non-uniform DSF, enable offset, execute |
+
+![Structural deformation](../../Resources/Images/结构形变.PNG)
 
 > **Region-limited deformation** is not wired yet; current behavior is whole-mesh offset. See `README_10.2.md` sub-feature 4 for the planned selection binding.
 
@@ -243,6 +251,8 @@ scene->AddModel(streamBase);
 | `dockWidget_FlowField` | Seeding, integration, Cluster filtering |
 | Toolbar Streamline | Same panel |
 
+![Streamline extraction](../../Resources/Images/流线提取.PNG)
+
 ---
 
 ## Sub-feature 6: Animation playback and export
@@ -297,6 +307,8 @@ for (int i = 0; i < frameCount; ++i) {
 | Menu View → Animation export / `action_ExportAnimation` | Opens bottom animation dock |
 | `dockWidget_Animation` | Play, cache, export |
 | Toolbar `action_SaveAnimation` | Calls `saveAnimation()` |
+
+![Animation visualization](../../Resources/Images/动画可视化.PNG)
 
 ---
 

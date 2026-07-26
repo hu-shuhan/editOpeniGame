@@ -50,6 +50,8 @@ drawObj->ViewCloudPicture(scene, attributeIndex, dimension); // 指定分量
 | 菜单「可视化」→ 标量场 / `action_Scalar` | 打开左侧「标量场」面板 |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | 云图类型、色带、数值范围 |
 
+![标量场云图](../../Resources/Images/标量场云图.PNG)
+
 ---
 
 ## 子功能 2：自适应矢量场
@@ -89,6 +91,8 @@ vectorView.DrawVector("Velocity", dataObj);
 |------|------|
 | 菜单「可视化」→ 矢量场 / Glyph | 打开「矢量场」面板 |
 | `dockWidget_VectorField` | 模式：0=All，1=Range，2=EveryNth |
+
+![矢量场](../../Resources/Images/矢量场.PNG)
 
 ---
 
@@ -136,6 +140,8 @@ GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
 | 菜单「可视化」→ 张量场 / `action_Tensor` | 打开「张量场」面板 |
 | `dockWidget_TensorField` | Glyph 类型、缩放、着色 |
 
+![张量场](../../Resources/Images/张量场.PNG)
+
 > 当前 Glyph 仅实现椭球与立方体；表示类中预留了后续扩展注释。
 
 ---
@@ -177,6 +183,8 @@ filter->Execute();             // p' = p + s * U
 |------|------|
 | 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
 | `DeformationDockWidget`（代码创建，并入左侧 Tab） | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
+
+![结构形变](../../Resources/Images/结构形变.PNG)
 
 > **选中区域单独形变**尚未接入；当前为整模偏移。与选区绑定的增强见 `README_10.2.md` 子功能 4。
 
@@ -243,6 +251,8 @@ scene->AddModel(streamBase);
 | `dockWidget_FlowField` | 布种、积分参数、筛选（Cluster） |
 | 工具栏 Streamline | 同上 |
 
+![流线提取](../../Resources/Images/流线提取.PNG)
+
 ---
 
 ## 子功能 6：动画播放与动画输出
@@ -297,6 +307,8 @@ for (int i = 0; i < frameCount; ++i) {
 | 菜单「可视化」→ 动画输出可视化 / `action_ExportAnimation` | 打开底部动画 Dock |
 | `dockWidget_Animation` | 播放、缓存、导出 |
 | 工具栏 `action_SaveAnimation` | 触发 `saveAnimation()` |
+
+![动画可视化](../../Resources/Images/动画可视化.PNG)
 
 ---
 
