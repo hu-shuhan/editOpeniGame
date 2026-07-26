@@ -217,7 +217,7 @@ GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
 
 ### 调用方式
 
-完整 API 见 `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp`（`testDeformation` 目前仅加载显示，形变调用被注释）：
+完整 API 见 `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp`：
 
 ```cpp
 auto obj = iGame::FileIO::ReadFile("./Models/sukong_Step-1_2.vtu");  // 需自备
@@ -247,7 +247,7 @@ scene->AddModel(res);
 
 | Target | 源文件 | 默认数据 | 说明 |
 |--------|--------|----------|------|
-| `testDeformation` | `Examples/Filter/Deformation/TestStressDeformationFilter.cpp` | `./Models/sukong_Step-1_2.vtu`（需自备） | 加载显示；形变 API 在注释中 |
+| `testDeformation` | `Examples/Filter/Deformation/TestStressDeformationFilter.cpp` | `./Models/sukong_Step-1_2.vtu`（需自备）
 | `testDeformationCode` | `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp` | 示例写死本地 VTU；注释中为 `sukong_Step-1_2.vtu` | 显式 DSF + `Execute` |
 
 ---
