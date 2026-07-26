@@ -9,7 +9,6 @@
 #include "iGameStreamingData.h"
 #include "iGameDeformationData.h"
 #include "iGameCellArray.h"
-#include "iGameFlatArray.h"
 
 IGAME_NAMESPACE_BEGIN
 class DataObject : public Object {
@@ -45,11 +44,6 @@ public:
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
     int GetCurrentAttributeIndex() { return m_AttributeIndex; }
     int GetCurrentAttributeDimension(){return m_AttributeDimension;}
-
-    IntArray* GetBlockMapping() { return m_BlockMapping.get(); }
-    void SetBlockMapping(IntArray::Pointer p) { m_BlockMapping = p; }
-    bool HasBlockMapping() const { return m_BlockMapping != nullptr; }
-
     Metadata* GetMetadata() { return m_Metadata.get(); }
     PropertyTree* GetProperties() { return m_Properties.get(); }
     const BoundingBox& GetBoundingBox();
@@ -164,7 +158,6 @@ protected:
     StreamingData::Pointer m_TimeFrames{};
     DeformationData::Pointer m_DeformationData{};
     AttributeSet::Pointer m_Attributes{};
-    IntArray::Pointer m_BlockMapping{};
     Metadata::Pointer m_Metadata{};
     PropertyTree::Pointer m_Properties{};
 

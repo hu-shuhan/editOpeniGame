@@ -1906,7 +1906,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                     DynamicCast<UnstructuredMesh>(obj));
             resultArray->SetName("block_id");
             auto dataObj = model->GetDataObject();
-            dataObj->SetBlockMapping(resultArray);
+            dataObj->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
         });
     }

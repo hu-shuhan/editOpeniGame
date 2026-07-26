@@ -301,14 +301,8 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
 
     // process renderable object
-    if (m_RenderableMesh.SurfaceMesh) {
-        if (index == -2) { m_RenderableMesh.SurfaceMesh->SetBlockMapping(IntArray::Pointer(this->GetBlockMapping())); }
-        m_RenderableMesh.SurfaceMesh->ViewCloudPicture(scene, index, dimension);
-    }
-    if (m_RenderableMesh.SimplifiedMesh) {
-        if (index == -2) { m_RenderableMesh.SimplifiedMesh->SetBlockMapping(IntArray::Pointer(this->GetBlockMapping())); }
-        m_RenderableMesh.SimplifiedMesh->ViewCloudPicture(scene, index, dimension);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->ViewCloudPicture(scene, index, dimension); }
+    if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->ViewCloudPicture(scene, index, dimension); }
 
     // process this object
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index, dimension); }
@@ -318,11 +312,6 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         m_AttributeIndex = -1;
         m_AttributeDimension = -1;
         m_UseColor = false;
-    } else if (index == -2) {
-        // block mapping，直接用自身存储的 m_BlockMapping
-        m_AttributeIndex = -2;
-        m_AttributeDimension = -1;
-        m_UseColor = true;
     } else if (GetAttributeSet()->GetNumberOfAttributes() > index) {
         m_AttributeIndex = index;
         m_AttributeDimension = dimension;
@@ -498,7 +487,6 @@ void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject
     renderableObject->m_ColorMapper = m_ColorMapper;
     renderableObject->m_DefaultColor = this->m_DefaultColor;
     renderableObject->m_IsMainRenderableObject = false;
-    renderableObject->m_BlockMapping = this->m_BlockMapping;
 }
 
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }

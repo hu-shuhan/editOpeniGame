@@ -323,15 +323,6 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         child->setDimension(attr.pointer->GetDimension());
         // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
-
-    if (obj->HasBlockMapping()) {
-        AttribTreeWidgetItem* child = new AttribTreeWidgetItem(-2, modelTreeWidget, item);
-        child->setText(0, QString::fromStdString(obj->GetBlockMapping()->GetName()));
-        child->setToolTip(0, QString::fromStdString(obj->GetBlockMapping()->GetName()));
-        child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
-        child->setDimension(1);
-    }
-
     item->viewAttribute(-1);
     iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
 }
