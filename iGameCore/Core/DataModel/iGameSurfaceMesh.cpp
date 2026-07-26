@@ -808,7 +808,16 @@ void SurfaceMesh::ConvertToDrawableData() {
 
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
-        if (m_AttributeIndex != -1) {
+        if (m_AttributeIndex == -2) {
+            if (m_BlockMapping != nullptr &&
+                m_BlockMapping->GetNumberOfElements() == static_cast<IGsize>(this->GetNumberOfFaces())) {
+                m_ColorMapper->SetVectorModeToComponent();
+                m_ColorMapper->InitRange(m_BlockMapping);
+                m_ColorWithCell = true;
+                auto emptyRange = DoubleArray::New();
+                this->SetAttributeWithCellData(m_BlockMapping, emptyRange, -1);
+            }
+        } else if (m_AttributeIndex != -1) {
             if (this->GetAttributeSet()->GetNumberOfAttributes() > m_AttributeIndex) {
                 auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
                 if (attr.type == IG_RGB) {
