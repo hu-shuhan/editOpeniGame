@@ -7,6 +7,8 @@
 #include <ui_Animation.h>
 #include <IQCore/igQtExportModule.h>
 #include <iGameDataObject.h>
+#include <cstdint>
+#include <optional>
 class igQtAnimationVcrController;
 class IG_QT_MODULE_EXPORT igQtAnimationWidget : public QWidget{
 
@@ -20,6 +22,7 @@ public:
 
 public slots:
     void initAnimationComponents();
+    void notifyCurrentFramePresented();
 
     bool saveAnimation();
 
@@ -43,7 +46,19 @@ signals:
 
 
 private:
+    void presentAnimationFrame(unsigned int keyframeIndex,
+                               iGame::DataObject* dataObject,
+                               iGame::StreamingData::Pointer timeFrames,
+                               StreamingType frameType,
+                               const std::vector<iGame::Object::Pointer>& frameData);
+    void completeSnapFrameRequest();
+
     Ui::Animation* ui;
     igQtAnimationVcrController* VcrController;
     bool m_IsAnimationPlaying{false}; // 动画播放状态标记
+    bool m_SnapFrameRequestInFlight{false};
+    std::optional<unsigned int> m_PendingSnapFrame;
+    std::uint64_t m_SnapFrameGeneration{0u};
+    int m_LastPresentedObjectId{-1};
+    int m_LastPresentedFrame{-1};
 };

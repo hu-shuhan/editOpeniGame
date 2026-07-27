@@ -13,6 +13,14 @@ SurfaceMeshMeshleter::SurfaceMeshMeshleter() {}
 SurfaceMeshMeshleter::~SurfaceMeshMeshleter() {}
 
 void SurfaceMeshMeshleter::Build() {
+#ifdef __EMSCRIPTEN__
+    // WebGL1/GLES2 does not support the meshlet GPU path (SSBO/indirect draw).
+    // Keep meshlet disabled on wasm to preserve the basic rendering pipeline.
+    m_MeshletCount = 0;
+    this->Modified();
+    return;
+#else
+
     if (m_DataObject->GetDataObjectType() != IG_SURFACE_MESH) {
         IGAME_RENDERING_ERROR(
                 "{} is not a SurfaceMesh, but it will be processed using "
@@ -152,7 +160,7 @@ void SurfaceMeshMeshleter::Build() {
 
         m_MeshletCount = meshlet_count;
 
-#ifdef GL_SUPPORTS_MESH_SHADER
+    #ifdef GL_SUPPORTS_MESH_SHADER
         // Prepare MeshletDescriptors array to store meshlet descriptors
         std::vector<MeshletDescriptor> meshletDescriptors(meshlet_count);
         for (size_t i = 0; i < meshlet_count; ++i) {
@@ -198,7 +206,7 @@ void SurfaceMeshMeshleter::Build() {
             m_PositionBuffer->Allocate(vertex_count * 3 * sizeof(float),
                                        vertex_positions, GL_STATIC_DRAW);
         }
-#else
+    #else
         // Record indirect Command
         m_MeshletIndices.resize(meshletTriangles.size());
         m_TriangleToFace.resize(meshletTriangles.size() / 3);
@@ -331,7 +339,7 @@ void SurfaceMeshMeshleter::Build() {
             GLSetVertexAttrib(m_CellTriangleVAO, GL_LOCATION_IDX_0,
                               GL_VBO_IDX_0, 3, GL_FLOAT, GL_FALSE, 0);
         }
-#endif
+    #endif
 
         IGAME_RENDERING_TRACE(
                 "DataObject {}, build meshlets [count: {}, time: {}]",
@@ -340,6 +348,7 @@ void SurfaceMeshMeshleter::Build() {
     }
 
     this->Modified();
+#endif
 }
 
 IGAME_NAMESPACE_END

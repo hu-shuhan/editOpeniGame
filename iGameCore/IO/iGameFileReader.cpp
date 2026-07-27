@@ -11,6 +11,10 @@ FileReader::FileReader() {
     this->IS = nullptr;
     this->file_ = nullptr;
     this->m_FileSize = 0;
+    this->m_MemoryBuffer = nullptr;
+    this->m_MemoryBufferSize = 0;
+    this->m_UseMemoryBuffer = false;
+    this->m_OwnsBuffer = false;
 }
 DataObject::Pointer FileReader::ReadFile(const std::string& filePath) {
     SetFilePath(filePath);
@@ -73,6 +77,15 @@ bool FileReader::Execute() {
 }
 
 bool FileReader::Open() {
+    if (m_UseMemoryBuffer) {
+        if (m_MemoryBuffer == nullptr || m_MemoryBufferSize == 0) { return false; }
+        m_FileSize = m_MemoryBufferSize;
+        FILESTART = const_cast<char*>(m_MemoryBuffer);
+        IS = FILESTART;
+        FILEEND = FILESTART + m_FileSize;
+        return true;
+    }
+
     if (m_FilePath.empty()) { return false; }
     bool isOpenOK = false;
 
@@ -114,11 +127,14 @@ bool FileReader::OpenWithFreadType() {
         fclose(file_);
         return false;
     }
+    m_OwnsBuffer = true;
 
     size_t bytesRead = fread(FILESTART, 1, m_FileSize, file_);
     if (bytesRead != m_FileSize) {
         IGAME_CORE_ERROR("fread failed to read the entire file.");
         free(FILESTART);
+        FILESTART = nullptr;
+        m_OwnsBuffer = false;
         fclose(file_);
         return false;
     }
@@ -203,6 +219,14 @@ bool FileReader::OpenWithLinuxOrMacSystem() {
     return true;
 }
 bool FileReader::Close() {
+    if (m_OwnsBuffer && FILESTART) {
+        free(FILESTART);
+        FILESTART = nullptr;
+        IS = nullptr;
+        FILEEND = nullptr;
+        m_OwnsBuffer = false;
+    }
+
 #ifdef PLATFORM_WINDOWS
     if (this->m_MapFile) {
         UnmapViewOfFile(this->IS);
@@ -644,7 +668,15 @@ ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, 
 void FileReader::SetFilePath(const std::string& filePath) {
     this->m_FilePath = filePath;
     this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+    this->m_UseMemoryBuffer = false;
     igDebug("Reading file: "+ filePath);
+}
+
+void FileReader::SetMemoryBuffer(const void* data, size_t size) {
+    this->m_MemoryBuffer = static_cast<const char*>(data);
+    this->m_MemoryBufferSize = size;
+    this->m_UseMemoryBuffer = (data != nullptr && size > 0);
+    this->m_OwnsBuffer = false;
 }
 
 void FileReader::SkipNullData() {

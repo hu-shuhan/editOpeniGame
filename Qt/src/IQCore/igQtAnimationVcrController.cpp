@@ -7,6 +7,7 @@
 #include "qdebug.h"
 igQtAnimationVcrController::igQtAnimationVcrController(QObject *parent) : QObject(parent) {
     timer = new QTimer(this);
+    timer->setSingleShot(true);
     connect(timer, &QTimer::timeout, this, &igQtAnimationVcrController::onTick);
 
 }
@@ -38,20 +39,29 @@ void igQtAnimationVcrController::onTick() {
         if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);
         else Q_EMIT this->timeStepChanged_snap(current_keyframe_index);
     }
-    else Q_EMIT this->finishPlaying();
+    else {
+        isPlaying = false;
+        Q_EMIT this->finishPlaying();
+    }
 //    qDebug() << "Playing current Keyframe : " << current_keyframe_index;
 
 }
 
 void igQtAnimationVcrController::onPlay(bool forward) {
     isForward = forward;
+    isPlaying = true;
     startTimer();
 //    qDebug() << "play";
 }
 
 void igQtAnimationVcrController::onPause() {
+    isPlaying = false;
     stopTimer();
 //    qDebug() << "pause";
+}
+
+void igQtAnimationVcrController::onFramePresented() {
+    startTimer();
 }
 
 void igQtAnimationVcrController::onLoop(bool checked) {
@@ -59,7 +69,7 @@ void igQtAnimationVcrController::onLoop(bool checked) {
 }
 
 void igQtAnimationVcrController::startTimer() {
-    if (keyframe_sum) timer->start(100);
+    if (keyframe_sum && isPlaying && !timer->isActive()) timer->start(100);
 }
 
 void igQtAnimationVcrController::stopTimer() {
@@ -68,12 +78,15 @@ void igQtAnimationVcrController::stopTimer() {
 
 
 void igQtAnimationVcrController::clearInfo() {
+    isPlaying = false;
+    stopTimer();
     keyframe_sum = 0;
     current_keyframe_index = 0;
 }
 
 void igQtAnimationVcrController::onFirstFrame() {
     if (current_keyframe_index) {
+        if (isPlaying) stopTimer();
         current_keyframe_index = 0;
         Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
         if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);
@@ -83,6 +96,7 @@ void igQtAnimationVcrController::onFirstFrame() {
 
 void igQtAnimationVcrController::onLastFrame() {
     if (keyframe_sum && current_keyframe_index != keyframe_sum - 1) {
+        if (isPlaying) stopTimer();
         current_keyframe_index = keyframe_sum - 1;
         Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
         if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);
@@ -93,6 +107,7 @@ void igQtAnimationVcrController::onLastFrame() {
 void igQtAnimationVcrController::onPreviousFrame() {
     if (current_keyframe_index - stepSize >= 0)
     {
+        if (isPlaying) stopTimer();
         current_keyframe_index -= stepSize;
         Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
         if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);
@@ -103,6 +118,7 @@ void igQtAnimationVcrController::onPreviousFrame() {
 void igQtAnimationVcrController::onNextFrame() {
     if (current_keyframe_index + stepSize < keyframe_sum)
     {
+        if (isPlaying) stopTimer();
         current_keyframe_index += stepSize;
         Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
         if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);
@@ -112,6 +128,7 @@ void igQtAnimationVcrController::onNextFrame() {
 
 void igQtAnimationVcrController::updateCurrentKeyframe(int idx) {
     if(idx < 0) return ;
+    if (isPlaying) stopTimer();
     current_keyframe_index = idx;
     Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
     if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);

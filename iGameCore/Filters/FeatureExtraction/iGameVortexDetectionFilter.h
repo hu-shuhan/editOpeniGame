@@ -8,7 +8,9 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <cmath>
+#ifndef __EMSCRIPTEN__
 #include <omp.h>
+#endif
 #include <string>
 #if defined(LibTorch_ENABLE)
 // Temporarily save and undef Qt keyword macros that can conflict with external libraries (e.g., LibTorch/TBB)

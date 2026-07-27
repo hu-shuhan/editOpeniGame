@@ -32,7 +32,7 @@ else ()
     add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h" "Filters/StreamView/iGameStreamlineSimplifier.h" "Filters/StreamView/iGameStreamlineSimplifier.cpp")
 endif ()
 
-if (UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     find_package(OpenMP REQUIRED)
     if (OpenMP_CXX_FOUND)
         target_link_libraries(${MODULE_NAME} PUBLIC OpenMP::OpenMP_CXX)

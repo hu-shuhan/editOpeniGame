@@ -3,6 +3,7 @@
 #include "iGameScene.h"
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
+#include "Log/iGameLogger.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -15,7 +16,21 @@ Interactor::Interactor() {
     m_DataObject = nullptr;
 }
 
-Interactor::~Interactor() {}
+Interactor::~Interactor() {
+    IGAME_RENDERING_DEBUG("[iGameDestroy] Interactor::~Interactor this={}",
+                          static_cast<const void*>(this));
+}
+
+void Interactor::Finalize() {
+    IGAME_RENDERING_DEBUG("[iGameDestroy] Interactor::Finalize this={}",
+                          static_cast<const void*>(this));
+    m_Internal = nullptr;
+    m_SpecialInternals.clear();
+    m_DataObject = nullptr;
+    m_Painter3D = nullptr;
+    m_Camera = nullptr;
+    m_Scene = nullptr;
+}
 
 void Interactor::Initialize(SmartPointer<Scene> scene) {
     if (scene) {
@@ -34,7 +49,7 @@ void Interactor::CreateDefaultStyle() {
 void Interactor::FilterEvent(IEvent event) {
     if (m_Scene == nullptr) return;
     if (!m_Internal) {
-        std::cout << "FilterEvent: Creating default style" << std::endl;
+        IGAME_RENDERING_DEBUG("FilterEvent: creating default style");
         CreateDefaultStyle();
     }
     //先考虑特殊交互器，再考虑普通交互器

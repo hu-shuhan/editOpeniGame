@@ -737,6 +737,8 @@ void Selection::DrawCellEdges() {
         case IG_SURFACE_MESH: {
             auto mesh = DynamicCast<SurfaceMesh>(dataObj);
             auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
+            std::cout << "[Selection] selected cells=" << m_SelectedItems[IG_CELL].size()
+          << ", extracted edges=" << edges.size() << std::endl;
             DrawEdges(painter, edges, mesh);
         } break;
         case IG_VOLUME_MESH:

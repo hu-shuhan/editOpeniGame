@@ -69,10 +69,13 @@ void Model::Update() {
     if (m_Scene) { m_Scene->Update(); }
 }
 
-void Model::ViewCloudPicture(int index, int dimension) {
+bool Model::ViewCloudPicture(
+    const int index,
+    const int dimension,
+    const bool updateScene) {
     auto drawObject = DynamicCast<DrawObject>(GetDataObject());
-    if (drawObject != nullptr)
-        drawObject->ViewCloudPicture(m_Scene, index, dimension);
+    return drawObject != nullptr &&
+        drawObject->ViewCloudPicture(m_Scene, index, dimension, updateScene);
 }
 
 void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
@@ -156,6 +159,14 @@ void Model::SetPickedItemSwitch(bool action) {
 // Helper: apply a functor to every DrawObject in the model's DataObject tree (root included)
 namespace
 {
+static void SetPointSizeIfSupported(float pointSize) {
+#ifndef __EMSCRIPTEN__
+    glPointSize(pointSize);
+#else
+    (void) pointSize;
+#endif
+}
+
 static void
 ForEachDrawObject(DataObject::Pointer root,
                   const std::function<void(DrawObject::Pointer)>& fn) {
@@ -169,6 +180,20 @@ ForEachDrawObject(DataObject::Pointer root,
             ForEachDrawObject(it->second, fn);
         }
     }
+}
+
+static void
+ForEachDrawableLeaf(DataObject::Pointer root,
+                    const std::function<void(DrawObject::Pointer)>& fn) {
+    if (!root) { return; }
+    if (root->HasSubDataObject()) {
+        for (auto it = root->SubDataObjectIteratorBegin();
+             it != root->SubDataObjectIteratorEnd(); ++it) {
+            ForEachDrawableLeaf(it->second, fn);
+        }
+        return;
+    }
+    if (auto draw = DynamicCast<DrawObject>(root)) { fn(draw); }
 }
 } // namespace
 
@@ -224,7 +249,7 @@ void Model::Draw() {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         if (!drawObject->GetVisibility()) { return; }
 
-#ifndef IGAME_OPENGL_VERSION_330
+#if !defined(IGAME_OPENGL_VERSION_330) || defined(__EMSCRIPTEN__)
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
         if (hasTransparency || hasAcceleration) { return; }
@@ -250,11 +275,17 @@ void Model::Draw() {
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
+#ifdef __EMSCRIPTEN__
+            m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
 
             // 如果是样条对象，强制用红色绘制控制点
             if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
+#ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
@@ -262,10 +293,13 @@ void Model::Draw() {
             if (colorWithCell) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
+#ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            glPointSize(renderableObject->m_PointSize);
+            SetPointSizeIfSupported(renderableObject->m_PointSize);
 
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
                 renderableObject->m_PointVAO->DrawArrays(
@@ -282,6 +316,7 @@ void Model::Draw() {
         }
 
         // whether to use single-pass wireframe rendering
+#ifndef __EMSCRIPTEN__
         if (viewStyle & IG_WIREFRAME && viewStyle & IG_SURFACE &&
             renderableObject->IsUseSinglePassWireframeRendering()) {
             auto shader = m_Scene->GetShader(ShaderType::SINGLEPASSWIREFRAME);
@@ -321,9 +356,70 @@ void Model::Draw() {
                         GL_UNSIGNED_INT);
             }
         } else {
+#else
+        {
+#endif
+            bool combinedSurfaceWireframe =
+                    (viewStyle & IG_SURFACE) && (viewStyle & IG_WIREFRAME);
+
+#ifdef __EMSCRIPTEN__
+            GLint currentDepthFunc = GL_LESS;
+            GLint wireframeDepthFunc = GL_LESS;
+            GLboolean previousDepthMask = GL_TRUE;
+            GLboolean previousPolygonOffsetFill = GL_FALSE;
+            bool hasCapturedDepthState = false;
+#endif
+
             if (viewStyle & IG_SURFACE) {
+#ifdef __EMSCRIPTEN__
+                if (combinedSurfaceWireframe) {
+                    glGetIntegerv(GL_DEPTH_FUNC, &currentDepthFunc);
+                    glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
+                    previousPolygonOffsetFill =
+                            glIsEnabled(GL_POLYGON_OFFSET_FILL);
+                    hasCapturedDepthState = true;
+
+                    // Push filled surface slightly back to avoid depth fighting with wireframe.
+                    float polygonOffsetFactor = 1.0f;
+                    float polygonOffsetUnits = 1.0f;
+                    if (currentDepthFunc == GL_GREATER ||
+                        currentDepthFunc == GL_GEQUAL) {
+                        polygonOffsetFactor = -1.0f;
+                        polygonOffsetUnits = -1.0f;
+                    }
+
+                    wireframeDepthFunc = currentDepthFunc;
+                    if (currentDepthFunc == GL_GREATER) {
+                        wireframeDepthFunc = GL_GEQUAL;
+                    } else if (currentDepthFunc == GL_LESS) {
+                        wireframeDepthFunc = GL_LEQUAL;
+                    }
+
+                    glEnable(GL_POLYGON_OFFSET_FILL);
+                    glPolygonOffset(polygonOffsetFactor, polygonOffsetUnits);
+                }
+#endif
+#ifdef __EMSCRIPTEN__
+                SmartPointer<GLShaderProgram> shader;
+                if (m_Scene->GetSurfaceShadingMode() == 1) {
+                    shader =
+                            (useColor || colorWithCell)
+                                    ? m_Scene->GetShader(ShaderType::NOLIGHT)
+                                    : m_Scene->GetShader(ShaderType::PURECOLOR);
+                } else {
+                    shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
+                }
+#else
                 auto shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
+#endif
+                auto defaultColor = renderableObject->GetDefaultColor();
                 shader->Use();
+#ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
+                if (!useColor && !colorWithCell) {
+                    shader->SetUniform3f("inputColor", defaultColor);
+                }
 
                 if (colorWithCell) {
                     renderableObject->m_CellVAO->DrawArrays(
@@ -339,14 +435,36 @@ void Model::Draw() {
                                     ->GetNumberOfValues(),
                             GL_UNSIGNED_INT);
                 }
+
+#ifdef __EMSCRIPTEN__
+                if (combinedSurfaceWireframe) {
+                    if (!previousPolygonOffsetFill) {
+                        glDisable(GL_POLYGON_OFFSET_FILL);
+                    }
+                }
+#endif
             }
 
             if (viewStyle & IG_WIREFRAME) {
+#ifdef __EMSCRIPTEN__
+                if (combinedSurfaceWireframe) {
+                    glDepthMask(GL_FALSE);
+                    // Keep same depth direction but allow equal depth to reduce residual cracks.
+                    glDepthFunc(wireframeDepthFunc);
+                }
+#endif
                 if (useColor && !colorWithCell) {
-                    m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+                    auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+                    shader->Use();
+#ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
                 } else {
                     auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                     shader->Use();
+#ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+#endif
                     shader->SetUniform3f("inputColor",
                                          igm::vec3{0.0f, 0.0f, 0.0f});
                 }
@@ -367,21 +485,20 @@ void Model::Draw() {
                                 1,
                         renderableObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
+
+#ifdef __EMSCRIPTEN__
+                if (combinedSurfaceWireframe) {
+                    if (hasCapturedDepthState) {
+                        glDepthMask(previousDepthMask);
+                        glDepthFunc(currentDepthFunc);
+                    }
+                }
+#endif
             }
         }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachDrawableLeaf(m_DataObject, [&](DrawObject::Pointer drawObject) { draw(drawObject); });
 }
 
 void Model::DrawWithTransparency() {
@@ -414,16 +531,23 @@ void Model::DrawWithTransparency() {
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
+            #ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+            #endif
+            shader->SetUniformi("uUseLighting", 0);
             shader->SetUniformi("colorMode", 1);
 
             // 如果是cell标量，强制用白色绘制点
             if (colorWithCell) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
+                #ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #endif
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            glPointSize(renderableObject->m_PointSize);
+            SetPointSizeIfSupported(renderableObject->m_PointSize);
 
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
                 renderableObject->m_PointVAO->DrawArrays(
@@ -439,14 +563,28 @@ void Model::DrawWithTransparency() {
             }
         }
 
-        if (viewStyle & IG_WIREFRAME) {
+#ifdef __EMSCRIPTEN__
+        const bool drawTransparentWireframe =
+                (viewStyle & IG_WIREFRAME) && !(viewStyle & IG_SURFACE);
+#else
+        const bool drawTransparentWireframe = viewStyle & IG_WIREFRAME;
+#endif
+        if (drawTransparentWireframe) {
             if (useColor && !colorWithCell) {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
+                #ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #endif
+                shader->SetUniformi("uUseLighting", 0);
                 shader->SetUniformi("colorMode", 1);
             } else {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
+                #ifdef __EMSCRIPTEN__
+                    m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+                #endif
+                shader->SetUniformi("uUseLighting", 0);
                 shader->SetUniformi("colorMode", 2);
                 shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
             }
@@ -463,6 +601,13 @@ void Model::DrawWithTransparency() {
         if (viewStyle & IG_SURFACE) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
+            #ifdef __EMSCRIPTEN__
+                m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
+            #endif
+            shader->SetUniformi("uUseLighting",
+                                m_Scene->GetSurfaceShadingMode() == 1 ? 0 : 1);
+            shader->SetUniform3f("inputColor",
+                                 renderableObject->GetDefaultColor());
             shader->SetUniformi("colorMode", 0);
 
             if (colorWithCell) {
@@ -480,17 +625,7 @@ void Model::DrawWithTransparency() {
         }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachDrawableLeaf(m_DataObject, [&](DrawObject::Pointer drawObject) { draw(drawObject); });
 }
 
 void Model::DrawWithVolume() {
@@ -527,17 +662,7 @@ void Model::DrawWithVolume() {
         }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachDrawableLeaf(m_DataObject, [&](DrawObject::Pointer drawObject) { draw(drawObject); });
 }
 
 void Model::DrawPhase1() {
@@ -585,13 +710,14 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            glPointSize(surfaceObject->m_PointSize);
+            SetPointSizeIfSupported(surfaceObject->m_PointSize);
 
             float u;
             surfaceObject->GetPointOffsetParameters(u);
 
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
+
                         GL_POINTS, 0,
                         surfaceObject->m_Positions->GetNumberOfElements());
             } else {
@@ -720,7 +846,7 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            glPointSize(surfaceObject->m_PointSize);
+            SetPointSizeIfSupported(surfaceObject->m_PointSize);
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
@@ -794,17 +920,7 @@ void Model::DrawPhase1() {
     };
     #endif
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachDrawableLeaf(m_DataObject, [&](DrawObject::Pointer drawObject) { draw(drawObject); });
 #endif
 }
 
@@ -853,7 +969,7 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            glPointSize(surfaceObject->m_PointSize);
+            SetPointSizeIfSupported(surfaceObject->m_PointSize);
 
             float u;
             surfaceObject->GetPointOffsetParameters(u);
@@ -990,7 +1106,7 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
-            glPointSize(surfaceObject->m_PointSize);
+            SetPointSizeIfSupported(surfaceObject->m_PointSize);
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
@@ -1104,17 +1220,7 @@ void Model::DrawPhase2() {
     };
     #endif
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachDrawableLeaf(m_DataObject, [&](DrawObject::Pointer drawObject) { draw(drawObject); });
 #endif
 }
 
@@ -1198,17 +1304,7 @@ void Model::TestOcclusionResults() {
         // }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachDrawableLeaf(m_DataObject, [&](DrawObject::Pointer drawObject) { draw(drawObject); });
 #endif
 }
 

@@ -4,8 +4,44 @@
 #include "iGameRenderingLogger.h"
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 
 IGAME_NAMESPACE_BEGIN
+
+#ifdef __EMSCRIPTEN__
+namespace
+{
+void ClearPendingGLErrors() {
+    while (glGetError() != GL_NO_ERROR) {}
+}
+
+const char* WebGLErrorName(GLenum error) {
+    switch (error) {
+        case GL_INVALID_ENUM:
+            return "INVALID_ENUM";
+        case GL_INVALID_VALUE:
+            return "INVALID_VALUE";
+        case GL_INVALID_OPERATION:
+            return "INVALID_OPERATION";
+        case GL_OUT_OF_MEMORY:
+            return "OUT_OF_MEMORY";
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            return "INVALID_FRAMEBUFFER_OPERATION";
+        default:
+            return "UNKNOWN_ERROR";
+    }
+}
+
+void CheckTransparentPassError(const char* step) {
+    GLenum err = GL_NO_ERROR;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        IGAME_RENDERING_ERROR("TransparentPass GL error after {}: {} ({})",
+                              step, WebGLErrorName(err), err);
+    }
+}
+} // namespace
+#endif
+
 Scene::Scene() {
     m_ModelPool = HandlePool<SmartPointer<Model>>::New();
     m_CurrentModelID = 0;
@@ -19,6 +55,10 @@ Scene::Scene() {
 
     m_Axes = Axes::New();
     m_Axes->SetScene(this);
+    m_ColorBar2DActor = ColorBar2DActor::New();
+    m_ColorBar2DActor->SetScene(this);
+    m_TextOverlay2DActor = TextOverlay2DActor::New();
+    m_TextOverlay2DActor->SetScene(this);
 
     m_Interactor = Interactor::New();
     m_FontManager = FontManager::New();
@@ -70,14 +110,57 @@ Scene::Scene() {
 }
 
 Scene::~Scene() {
+    std::cout << "[iGameDestroy] Scene::~Scene this=" << this << " finishInit=" << (m_FinishInit ? "true" : "false")
+              << '\n';
     if (m_FinishInit) { glDeleteQueries(2, m_TimeQueries); }
 }
 
-void Scene::BindFramebuffer() const {
+void Scene::Finalize() {
+    std::cout << "[iGameDestroy] Scene::Finalize this=" << this << '\n';
+    m_ModelPool = nullptr;
+    m_CurrentModelID = 0;
+    m_Interactor = nullptr;
+    m_Axes = nullptr;
+    m_ColorBar2DActor = nullptr;
+    m_TextOverlay2DActor = nullptr;
+    m_CenterAxesModel = nullptr;
+    m_Painter2D = nullptr;
+    m_Painter3D = nullptr;
+    m_FontManager = nullptr;
+    m_ShaderManager = nullptr;
+    m_EmptyVAO = nullptr;
+    m_Framebuffer = nullptr;
+    m_ColorTexture = nullptr;
+    m_DepthR32FTexture = nullptr;
+    m_DepthTexture = nullptr;
+    m_FramebufferBackup = nullptr;
+    m_ColorTextureBackup = nullptr;
 #ifdef GL_SUPPORT_MSAA
-    m_FramebufferMultisampled->Bind();
+    m_FramebufferMultisampled = nullptr;
+    m_ColorTextureMultisampled = nullptr;
+    m_DepthTextureMultisampled = nullptr;
+#endif
+    m_OITHeadPointerTexture = nullptr;
+    m_OITHeadPointerInitializer = nullptr;
+    m_OITAtomicCounterBuffer = nullptr;
+    m_OITLinkedListBuffer = nullptr;
+    m_OITLinkedListTexture = nullptr;
+    m_VolumeFramebuffer = nullptr;
+    m_VolumeColorTexture = nullptr;
+    m_VolumeDepthTexture = nullptr;
+    m_HzbTexture = nullptr;
+    m_Camera = nullptr;
+}
+
+void Scene::BindFramebuffer() const {
+#ifdef __EMSCRIPTEN__
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
+    #ifdef GL_SUPPORT_MSAA
+    m_FramebufferMultisampled->Bind();
+    #else
     m_Framebuffer->Bind();
+    #endif
 #endif
 }
 
@@ -116,7 +199,9 @@ bool Scene::Initialize() {
     }
 
     this->InitOpenGL();
+#ifndef IGAME_OPENGL_VERSION_GLES2
     this->InitOIT();
+#endif
     this->InitAxes();
 
     this->ResetCameraView();
@@ -130,6 +215,21 @@ bool Scene::Initialize() {
     this->AddModel(m_CenterAxesModel);          // 加入模型池
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
+
+    // Web端保留模型抽壳，避免体网格展开内部面和边
+    #if __EMSCRIPTEN__
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (!model->GetDataObject()->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        if (!drawObject) { continue; }
+        drawObject->SetShellRenderingOption(true);
+        // 同步子对象的抽壳策略
+        drawObject->ProcessSubDataObjects(&DrawObject::SetShellRenderingOption,
+                                          true);
+    }
+    #endif
+
     m_FinishInit = true;
     return true;
 }
@@ -140,7 +240,22 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     model->SetScene(this);
     auto modelID = m_ModelPool->AllocateObject(model);
     m_CurrentModelID = modelID;
+    model->SetVisibility(false);
     ChangeModelVisibility(model, true);
+
+    // Web端使用外表面渲染，桌面端保持现有直接渲染策略
+    auto drawObject = DynamicCast<DrawObject>(obj);
+    if (drawObject) {
+#if __EMSCRIPTEN__
+        constexpr bool shellRendering = true;
+#else
+        constexpr bool shellRendering = false;
+#endif
+        drawObject->SetShellRenderingOption(shellRendering);
+        drawObject->ProcessSubDataObjects(&DrawObject::SetShellRenderingOption,
+                                          shellRendering);
+    }
+
     Update();
     return modelID;
 }
@@ -243,9 +358,9 @@ SmartPointer<Model> Scene::GetModelById(int id) {
 bool Scene::SetModelById(int id, SmartPointer<Model>model) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto modelID = it->first;
-        if (modelID == id) { 
+        if (modelID == id) {
             it->second = model;
-            return true; 
+            return true;
         }
     }
     return false;
@@ -271,17 +386,31 @@ void Scene::ChangeModelVisibility(int modelID, bool visibility) {
 }
 
 void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
+    // Safely update DrawObject visibility (if drawable) and keep Model visibility
+    // in sync. Adjust visible models counter only when actual visibility changes.
     auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-    drawObject->SetVisibility(visibility);
 
-    if (visibility) {
-        m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 2 || m_VisibleModelsCount == 1) {
-            ResetCameraView(model->GetDataObject());
-            UpdateAxisSize();
-        } // CenterAxesModel is visible
-    } else {
-        m_VisibleModelsCount--;
+    // previous model-level visibility
+    const bool prevVisibility = model->GetVisibility();
+
+    // apply visibility to draw object if available
+    if (drawObject) { drawObject->SetVisibility(visibility); }
+
+    // ensure model-level visibility is updated to reflect draw object
+    model->SetVisibility(visibility);
+
+    // update visible models count only when visibility state changes
+    if (prevVisibility != visibility) {
+        if (visibility) {
+            m_VisibleModelsCount++;
+            if (m_VisibleModelsCount == 1 || m_VisibleModelsCount == 2) {
+                // if this is the first or second visible model, reset camera to include it
+                ResetCameraView(model->GetDataObject());
+                UpdateAxisSize();
+            }
+        } else {
+            if (m_VisibleModelsCount > 0) { m_VisibleModelsCount--; }
+        }
     }
 
     UpdateCameraClippingRange();
@@ -290,12 +419,27 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
 void Scene::SetBackGround(const Color& color) {
     auto c = ColorUtils::Map(color);
     m_BackgroundColor = c;
+    m_BackgroundGradientEnabled = false;
+    m_BackgroundGradientMode = 0;
     this->Modified();
 }
 
 void Scene::SetBackGround(int R, int G, int B) {
     auto c = ColorUtils::Map(R, G, B);
     m_BackgroundColor = c;
+    m_BackgroundGradientEnabled = false;
+    m_BackgroundGradientMode = 0;
+    this->Modified();
+}
+
+void Scene::SetBackGroundGradient(int R1, int G1, int B1, int R2, int G2,
+                                  int B2, int mode) {
+    mode = mode < 0 ? 0 : mode;
+    mode = mode > 2 ? 2 : mode;
+    m_BackgroundColor = ColorUtils::Map(R1, G1, B1);
+    m_BackgroundGradientColor = ColorUtils::Map(R2, G2, B2);
+    m_BackgroundGradientMode = mode;
+    m_BackgroundGradientEnabled = mode != 0;
     this->Modified();
 }
 
@@ -344,6 +488,11 @@ void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
+void Scene::SetSurfaceShadingMode(int mode) {
+    if (mode < 0 || mode > 1) { mode = 0; }
+    m_SurfaceShadingMode = mode;
+}
+int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
 
 void Scene::ChangeCameraType(Camera::Type type) {
     this->ResetCameraView();
@@ -366,7 +515,9 @@ SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
 }
 
 void Scene::InitOpenGL() {
+#ifndef __EMSCRIPTEN__
     if (!gladLoadGL()) { IGAME_RENDERING_ERROR("Failed to initialize GLAD"); }
+#endif
 
     // log opengl info
     {
@@ -396,6 +547,8 @@ void Scene::InitOpenGL() {
 
     // initilize shader
     m_ShaderManager->Initialize();
+    m_ColorBar2DActor->Initialize();
+    m_TextOverlay2DActor->Initialize();
 
     // init framebuffer
     ResizeFrameBuffer();
@@ -451,9 +604,7 @@ void Scene::InitOpenGL() {
 
 void Scene::InitOIT() {
 #ifdef IGAME_OPENGL_VERSION_460
-    GLuint* data = nullptr;
-    // 8192x8192 会申请约 256MB(map) + 2GB(list)。在 4GB 显卡上 MapRange 常失败，
-    // 若对空指针 memset 会变成 0xC0000005。失败时跳过 OIT，不阻断普通显示。
+    GLuint* data;
     size_t totalPixels = MAX_FRAMEBUFFER_WIDTH * MAX_FRAMEBUFFER_HEIGHT;
 
     m_OITHeadPointerTexture->Create();
@@ -466,13 +617,6 @@ void Scene::InitOIT() {
                                           GL_STATIC_DRAW);
     data = static_cast<GLuint*>(m_OITHeadPointerInitializer->MapRange(
             0, totalPixels * sizeof(GLuint), GL_MAP_WRITE_BIT));
-    if (data == nullptr) {
-        IGAME_RENDERING_ERROR(
-                "InitOIT: MapRange failed (need ~{} MB). Skip OIT buffers.",
-                (totalPixels * sizeof(GLuint)) / (1024 * 1024));
-        GLCheckError();
-        return;
-    }
     // 0xFF is equivalent to the end of the linked list
     memset(data, 0xFF, totalPixels * sizeof(GLuint));
     m_OITHeadPointerInitializer->Unmap();
@@ -723,7 +867,9 @@ void Scene::Draw() {
     if (m_FramePacingEnabled && m_LastRenderEndValid) {
         if (!ShouldRenderThisCall()) {
             // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
+#ifndef __EMSCRIPTEN__
             RenderToSpecificFrame(defaultFramebuffer);
+#endif
             return;
         }
     }
@@ -732,14 +878,19 @@ void Scene::Draw() {
     UpdateCameraClippingRange();
 
     // Start counting the rendering time consumption
+#ifndef __EMSCRIPTEN__
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
+#endif
 
     // render
     DrawFrame();
+#ifndef __EMSCRIPTEN__
     RenderToSpecificFrame(defaultFramebuffer);
+#endif
 
     // End counting the rendering time consumption
+#ifndef __EMSCRIPTEN__
     glEndQuery(GL_TIME_ELAPSED);
     {
         int prevIdx = 1 - curIdx;
@@ -768,6 +919,7 @@ void Scene::Draw() {
         m_TimeQueryReady[curIdx] = true;
         m_TimeQueryIndex = 1 - curIdx;
     }
+#endif
 
     // Record the end time of this frame
     m_LastRenderEnd = std::chrono::steady_clock::now();
@@ -860,6 +1012,71 @@ void Scene::Resize(int width, int height, int pixelRatio) {
     ResizeFrameBuffer();
 }
 
+void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
+    glClearDepth(depth); // reversed-z: near=1.0, far=0.0
+
+    GLboolean wasScissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    GLint previousScissor[4] = {0, 0, 0, 0};
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+    glDisable(GL_SCISSOR_TEST);
+
+    if (!m_BackgroundGradientEnabled || m_BackgroundGradientMode == 0 ||
+        width <= 0 || height <= 0) {
+        glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
+                     m_BackgroundColor.b, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                GL_STENCIL_BUFFER_BIT);
+        if (wasScissorEnabled) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(previousScissor[0], previousScissor[1],
+                      previousScissor[2], previousScissor[3]);
+        }
+        return;
+    }
+
+    glClearColor(m_BackgroundGradientColor.r, m_BackgroundGradientColor.g,
+                 m_BackgroundGradientColor.b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    glEnable(GL_SCISSOR_TEST);
+    const int stripCount = 96;
+    const bool horizontal = m_BackgroundGradientMode == 2;
+    const int length = horizontal ? width : height;
+
+    for (int i = 0; i < stripCount; ++i) {
+        int start = (i * length) / stripCount;
+        int end = ((i + 1) * length) / stripCount;
+        if (end <= start) { continue; }
+
+        float t = stripCount > 1 ? static_cast<float>(i) /
+                                           static_cast<float>(stripCount - 1)
+                                 : 0.0f;
+        if (!horizontal) { t = 1.0f - t; }
+
+        float r = m_BackgroundColor.r * (1.0f - t) +
+                  m_BackgroundGradientColor.r * t;
+        float g = m_BackgroundColor.g * (1.0f - t) +
+                  m_BackgroundGradientColor.g * t;
+        float b = m_BackgroundColor.b * (1.0f - t) +
+                  m_BackgroundGradientColor.b * t;
+
+        glClearColor(r, g, b, 1.0f);
+        if (horizontal) {
+            glScissor(start, 0, end - start, height);
+        } else {
+            glScissor(0, start, width, end - start);
+        }
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    if (wasScissorEnabled) {
+        glScissor(previousScissor[0], previousScissor[1], previousScissor[2],
+                  previousScissor[3]);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
+}
+
 void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
@@ -872,24 +1089,18 @@ void Scene::DrawFrame() {
     // Update camera data block in GPU
     UpdateCameraDataBlock();
     {
-        auto ClearFramebuffer = [&](float depth = 0.0f) {
-            glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
-                         m_BackgroundColor.b, 1.0f);
-            glClearDepth(depth); // reversed-z: near=1.0, far=0.0
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
-                    GL_STENCIL_BUFFER_BIT);
-        };
-
         // Clear default framebuffer before rendering
-        m_Framebuffer->Bind();
-        ClearFramebuffer();
+        BindFramebuffer();
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
 
+#ifndef __EMSCRIPTEN__
         m_VolumeFramebuffer->Bind();
-        ClearFramebuffer();
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
 
-#ifdef GL_SUPPORT_MSAA
+    #ifdef GL_SUPPORT_MSAA
         m_FramebufferMultisampled->Bind();
-        ClearFramebuffer();
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
+    #endif
 #endif
 
         // Render to framebuffer
@@ -897,6 +1108,9 @@ void Scene::DrawFrame() {
 #ifdef IGAME_OPENGL_VERSION_330
         ShadowPass();
         ForwardPass();
+    #ifdef __EMSCRIPTEN__
+        TransparentPass();
+    #endif
 #else
         if (!m_EnableVolumeRendering) {
             ShadowPass();
@@ -908,11 +1122,15 @@ void Scene::DrawFrame() {
 #endif
 
         // Draw painter 2d and axes
-        m_Framebuffer->Bind();
+        BindFramebuffer();
         glViewport(0, 0, viewport.x, viewport.y);
         {
             // Draw painter 2D in the image top
             m_Painter2D->Draw();
+            if (m_ColorBarVisible && m_ColorBar2DActor) {
+                m_ColorBar2DActor->Draw();
+            }
+            if (m_TextOverlay2DActor) { m_TextOverlay2DActor->Draw(); }
 
             // Draw axes in bottom left
             if (m_AxesVisible) {
@@ -1007,7 +1225,10 @@ void Scene::ForwardPass() {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         model->Draw();
-        model->GetPainter3D()->Draw();
+        if (model->GetVisibility()) {
+            auto& painter3Ds = model->GetAllPainter3Ds();
+            for (auto& painter: painter3Ds) { painter.second->Draw(); }
+        }
     }
 #elif IGAME_OPENGL_VERSION_460
     // normal mesh
@@ -1099,13 +1320,63 @@ void Scene::ForwardPass() {
     BindFramebuffer();
     m_Painter3D->Draw();
 
+#ifndef __EMSCRIPTEN__
     ResolveFrameBuffer();
-    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+#endif
     GLCheckError();
 }
 
 void Scene::TransparentPass() {
-#ifdef IGAME_OPENGL_VERSION_460
+#ifdef __EMSCRIPTEN__
+    ClearPendingGLErrors();
+    BindFramebuffer();
+    CheckTransparentPassError("BindFramebuffer");
+
+    auto drawTransparentModels = [&](const char* stage) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+            auto model = it->second;
+            CheckTransparentPassError(stage);
+            model->DrawWithTransparency();
+            CheckTransparentPassError("DrawWithTransparency");
+        }
+    };
+
+    glEnable(GL_DEPTH_TEST);
+    CheckTransparentPassError("glEnable(GL_DEPTH_TEST)");
+    glDepthFunc(GL_GREATER);
+    CheckTransparentPassError("glDepthFunc(GL_GREATER)");
+
+    // WebGL fallback: first capture only the nearest transparent surface in
+    // the reversed-z depth buffer. This prevents dense meshes from blending
+    // many internal/back-facing layers and making small opacity values look
+    // much more opaque than requested.
+    glDisable(GL_BLEND);
+    CheckTransparentPassError("depth prepass glDisable(GL_BLEND)");
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    CheckTransparentPassError("depth prepass glColorMask false");
+    glDepthMask(GL_TRUE);
+    CheckTransparentPassError("depth prepass glDepthMask(GL_TRUE)");
+    drawTransparentModels("depth prepass before DrawWithTransparency");
+
+    glDepthMask(GL_FALSE);
+    CheckTransparentPassError("glDepthMask(GL_FALSE)");
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    CheckTransparentPassError("color pass glColorMask true");
+    glDepthFunc(GL_GEQUAL);
+    CheckTransparentPassError("color pass glDepthFunc(GL_GEQUAL)");
+    glEnable(GL_BLEND);
+    CheckTransparentPassError("glEnable(GL_BLEND)");
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    CheckTransparentPassError("glBlendFunc");
+    drawTransparentModels("color pass before DrawWithTransparency");
+
+    glDisable(GL_BLEND);
+    CheckTransparentPassError("glDisable(GL_BLEND)");
+    glDepthMask(GL_TRUE);
+    CheckTransparentPassError("glDepthMask(GL_TRUE)");
+    glDepthFunc(GL_GREATER);
+    CheckTransparentPassError("restore glDepthFunc(GL_GREATER)");
+#elif defined(IGAME_OPENGL_VERSION_460)
     // Bind framebuffer
     m_Framebuffer->Bind();
 
@@ -1433,9 +1704,65 @@ void Scene::RotateClockwise(float angle) {
 // 切换显示状态实现
 void Scene::ToggleCenterAxes() {
     m_CenterAxesVisible = !m_CenterAxesVisible;
-    m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
+    SetCenterAxesVisible(m_CenterAxesVisible);
+}
+void Scene::SetCenterAxesVisible(bool visible) {
+    m_CenterAxesVisible = visible;
+    if (m_CenterAxesModel) { m_CenterAxesModel->SetVisibility(visible); }
+    this->Modified();
 }
 void Scene::ToggleAxes() { m_AxesVisible = !m_AxesVisible; }
+void Scene::SetAxesVisible(bool visible) {
+    m_AxesVisible = visible;
+    this->Modified();
+}
+bool Scene::GetAxesVisible() const { return m_AxesVisible; }
+
+void Scene::ToggleColorBar() { SetColorBarVisible(!m_ColorBarVisible); }
+
+void Scene::SetColorBarVisible(bool visible) {
+    m_ColorBarVisible = visible;
+    if (m_ColorBar2DActor) { m_ColorBar2DActor->SetVisible(visible); }
+    this->Modified();
+}
+
+bool Scene::GetColorBarVisible() const { return m_ColorBarVisible; }
+
+SmartPointer<ColorBar2DActor> Scene::GetColorBar2DActor() const {
+    return m_ColorBar2DActor;
+}
+
+void Scene::SetCornerAnnotationText(const std::string& text) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetText(text);
+        this->Modified();
+    }
+}
+
+void Scene::SetCornerAnnotationPosition(float left, float top) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetPosition(left, top);
+        this->Modified();
+    }
+}
+
+void Scene::SetCornerAnnotationAnchorToBottomRight(bool anchorToBottomRight) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetAnchorToBottomRight(anchorToBottomRight);
+        this->Modified();
+    }
+}
+
+void Scene::SetCornerAnnotationVisible(bool visible) {
+    if (m_TextOverlay2DActor) {
+        m_TextOverlay2DActor->SetVisible(visible);
+        this->Modified();
+    }
+}
+
+SmartPointer<TextOverlay2DActor> Scene::GetTextOverlay2DActor() const {
+    return m_TextOverlay2DActor;
+}
 
 SmartPointer<CenterAxesModel> Scene::GetCenterAxesModel() const {
     return m_CenterAxesModel;

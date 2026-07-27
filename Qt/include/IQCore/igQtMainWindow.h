@@ -19,6 +19,8 @@
 #include <QtWidgets/QMainWindow>
 #include <QResizeEvent>
 #include <QRect>
+#include <QList>
+#include <QPointer>
 #include <array>
 #undef QT_NO_OPENGL
 
@@ -132,6 +134,9 @@ private:
     bool m_isRestoringFromMaximized = false;
     QRect m_geometryBeforeMinimize;
     QRect m_normalGeometry;
+    QList<QPointer<QWidget>> m_synchronizedToolWindows;
+    bool m_synchronizingToolWindowState = false;
+    int m_pendingInitialAttributeObjectId = -1;
 
     // 左侧工具 Tab（按需添加；下方 Properties 常驻）
     QDockWidget* m_leftFieldDock = nullptr;
@@ -154,6 +159,10 @@ private:
     void addToolbarTitle(QToolBar* toolbar, const QString& title);
     void relayoutToolbarWrappers();
     void initCustomTitleBar();
+    void registerSynchronizedToolWindow(QWidget* window);
+    void showSynchronizedToolWindow(QWidget* window);
+    void minimizeSynchronizedToolWindows();
+    void restoreSynchronizedToolWindows();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

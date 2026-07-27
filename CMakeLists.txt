@@ -22,6 +22,27 @@ option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
+option(ENABLE_WASM "Build WASM Target." OFF)
+option(IGAME_DATACODEC_BUILD_TESTS "Build DataCodec temporary test runner." OFF)
+
+if (IGAME_DATACODEC_BUILD_TESTS)
+    enable_testing()
+endif ()
+
+set(IGAME_RENDER_BACKEND "DesktopGL" CACHE STRING "Rendering backend: DesktopGL or GLES2")
+set_property(CACHE IGAME_RENDER_BACKEND PROPERTY STRINGS DesktopGL GLES2)
+set(IGAME_WASM_PTHREAD_POOL_SIZE "16" CACHE STRING "Precreated pthread count for Wasm")
+set(IGAME_WASM_DATACODEC_MAX_WORKERS "6" CACHE STRING "Maximum workers in one DataCodec thread pool for Wasm")
+set(IGAME_WASM_MEMORY_PROFILE "memory-4g" CACHE STRING "Wasm memory profile: memory-4g or memory-16g")
+set_property(CACHE IGAME_WASM_MEMORY_PROFILE PROPERTY STRINGS memory-4g memory-16g)
+
+if (EMSCRIPTEN)
+    set(ENABLE_QT_MODULE OFF CACHE BOOL "Build GUI/Qt Module." FORCE)
+    if (NOT IGAME_RENDER_BACKEND STREQUAL "GLES2")
+        message(STATUS "EMSCRIPTEN detected: switch IGAME_RENDER_BACKEND to GLES2")
+        set(IGAME_RENDER_BACKEND "GLES2" CACHE STRING "Rendering backend: DesktopGL or GLES2" FORCE)
+    endif ()
+endif ()
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
@@ -66,6 +87,25 @@ add_compile_options(
         "$<$<AND:$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:/utf-8>"
         "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:CXX>>:/utf-8>"
 )
+if (EMSCRIPTEN)
+    if (NOT IGAME_WASM_PTHREAD_POOL_SIZE MATCHES "^[1-9][0-9]*$")
+        message(FATAL_ERROR "IGAME_WASM_PTHREAD_POOL_SIZE must be a positive integer")
+    endif ()
+    if (NOT IGAME_WASM_DATACODEC_MAX_WORKERS MATCHES "^[1-9][0-9]*$")
+        message(FATAL_ERROR "IGAME_WASM_DATACODEC_MAX_WORKERS must be a positive integer")
+    endif ()
+    add_compile_options(
+            "$<$<COMPILE_LANGUAGE:C>:-pthread>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-pthread>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-fexceptions>"
+    )
+    if (IGAME_WASM_MEMORY_PROFILE STREQUAL "memory-16g")
+        add_compile_options(-sMEMORY64=1)
+    elseif (NOT IGAME_WASM_MEMORY_PROFILE STREQUAL "memory-4g")
+        message(FATAL_ERROR "Unknown IGAME_WASM_MEMORY_PROFILE: ${IGAME_WASM_MEMORY_PROFILE}")
+    endif ()
+    add_link_options(-pthread -fexceptions)
+endif ()
 add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -106,6 +146,11 @@ add_subdirectory(ThirdParty)
 
 # 导入核心库
 add_subdirectory(iGameCore)
+if (EMSCRIPTEN)
+    target_compile_definitions(iGameCore PUBLIC
+            DATACODEC_MAX_PARALLEL_WORKERS=${IGAME_WASM_DATACODEC_MAX_WORKERS}
+    )
+endif ()
 
 # 导入Qt模块
 if (ENABLE_QT_MODULE)
@@ -139,4 +184,8 @@ endif ()
 # 导入example
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
+endif ()
+
+if (ENABLE_WASM)
+    add_subdirectory(Examples/Wasm)
 endif ()

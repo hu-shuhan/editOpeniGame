@@ -13,6 +13,7 @@ ScalarsToColors::ScalarsToColors() {
     this->VectorComponent = 0;
     this->VectorSize = -1;
     this->VectorMode = ScalarsToColors::COMPONENT;
+    this->m_stable = false;
     this->m_AutoRangeMode = ScalarsToColors::EXACT_AUTO_RANGE;
 
     // only used in this class, not used in subclasses

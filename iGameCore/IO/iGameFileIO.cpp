@@ -20,6 +20,7 @@
 #include "VTK XML/iGamePVDReader.h"
 #include "VTK XML/iGameVTMReader.h"
 #include "VTK XML/iGameVTSReader.h"
+#include "VTK XML/iGameVTPReader.h"
 #include "VTK XML/iGameVTUReader.h"
 #include "VTK/iGameVTKReader.h"
 #include "VTK/iGameVTKWriter.h"
@@ -37,6 +38,9 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
     const char* fileEnd = file_name.data() + file_name.size();
     std::string FileSuffix;
     if (pos != nullptr) { FileSuffix = std::string(pos + 1, fileEnd); }
+    for (char& c: FileSuffix) {
+        if (c >= 'A' && c <= 'Z') { c = static_cast<char>(c - 'A' + 'a'); }
+    }
     if (FileSuffix == "vtk") {
         return VTK;
     } else if (FileSuffix == "igc") {
@@ -61,6 +65,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return VTS;
     } else if (FileSuffix == "vtu") {
         return VTU;
+    } else if (FileSuffix == "vtp") {
+        return VTP;
     } else if (FileSuffix == "vtm") {
         return VTM;
     } else if (FileSuffix == "e" || FileSuffix == "ex2" || FileSuffix == "EX2") {
@@ -109,6 +115,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "VTM";
         case VTU:
             return "VTU";
+        case VTP:
+            return "VTP";
         case CGNS:
             return "CGNS";
         case INP:
@@ -255,6 +263,21 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
     return newAttrs;
 }
 
+static DataObject::Pointer FinalizeLoadedObject(DataObject::Pointer resObj, const std::string& objectName) {
+    if (resObj) {
+        if (!objectName.empty()) { resObj->SetName(objectName); }
+        if (resObj->GetAttributeSet()) {
+            resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet()));
+        }
+    }
+
+    if (auto* progress = ProgressObserver::Instance()) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
+    return resObj;
+}
+
 DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     IGenum fileType = GetFileType(file_name);
     std::string out;
@@ -350,6 +373,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             resObj = reader->GetOutput();
             break;
         }
+        case iGame::FileIO::VTP: {
+            iGameVTPReader::Pointer reader = iGameVTPReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
 
         case iGame::FileIO::PVD: {
             iGamePVDReader::Pointer reader = iGamePVDReader::New();
@@ -386,9 +416,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
     std::filesystem::path pathObj(file_name);
     std::string baseName = pathObj.stem().string();
-    if (resObj) {
-        resObj->SetName(baseName);
-    }
+    resObj = FinalizeLoadedObject(resObj, baseName);
     if (resObj == nullptr) {
         end = clock();
         out.append(", success: false, time: ");
@@ -406,17 +434,51 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     out.append(FormatTime(end - start));
     out.append("]");
     igDebug(out);
-
-
-    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
-
-    // 读文件流程里很多 Reader 会把进度推到 1.0，但并不会在结束时清理。
-    // ProgressObserver 是全局单例，不复位就会导致 UI 进度条停在 100%。
-    if (auto* progress = ProgressObserver::Instance()) {
-        progress->UpdateProgress(0.0);
-        progress->UpdateText("");
-    }
     return resObj;
+}
+
+DataObject::Pointer FileIO::ReadVTKFromMemory(const void* data, size_t size) {
+    if (data == nullptr || size == 0) return nullptr;
+
+    VTKReader::Pointer reader = VTKReader::New();
+    reader->SetMemoryBuffer(data, size);
+    if (!reader->Execute()) { return nullptr; }
+
+    auto result = reader->GetOutput();
+    return FinalizeLoadedObject(result, "Imported VTK");
+}
+
+DataObject::Pointer FileIO::ReadVTUFromMemory(const void* data, size_t size) {
+    if (data == nullptr || size == 0) return nullptr;
+
+    iGameVTUReader::Pointer reader = iGameVTUReader::New();
+    reader->SetMemoryBuffer(data, size);
+    if (!reader->Execute()) { return nullptr; }
+
+    auto result = reader->GetOutput();
+    return FinalizeLoadedObject(result, "Imported VTU");
+}
+
+DataObject::Pointer FileIO::ReadVTPFromMemory(const void* data, size_t size) {
+    if (data == nullptr || size == 0) return nullptr;
+
+    iGameVTPReader::Pointer reader = iGameVTPReader::New();
+    reader->SetMemoryBuffer(data, size);
+    if (!reader->Execute()) { return nullptr; }
+
+    auto result = reader->GetOutput();
+    return FinalizeLoadedObject(result, "Imported VTP");
+}
+
+DataObject::Pointer FileIO::ReadIGCFromMemory(const void* data, size_t size) {
+    if (data == nullptr || size == 0) return nullptr;
+
+    IGDCReader::Pointer reader = IGDCReader::New();
+    reader->SetMemoryBuffer(data, size);
+    if (!reader->Execute()) { return nullptr; }
+
+    auto result = reader->GetOutput();
+    return FinalizeLoadedObject(result, "Imported IGC");
 }
 
 bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObject) {

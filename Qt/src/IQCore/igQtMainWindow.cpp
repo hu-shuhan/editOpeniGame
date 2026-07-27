@@ -32,12 +32,14 @@
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>
+#include <IQCore/igQtDataCodecDecodeSettings.h>
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
 #include <IQWidgets/ColorManager/igQtColorManagerWidget.h>
 #include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
 #include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <IQWidgets/igQtCharts.h>
+#include <IQWidgets/igQtDataCodecCompressionWidget.h>
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
@@ -47,12 +49,22 @@
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QSpinBox>
 #include <QDebug>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QSplitter>
 #include <QStyleFactory>
 #include <QGridLayout>
+#include <QFrame>
+#include <QGraphicsProxyWidget>
+#include <QGraphicsScene>
+#include <QGraphicsView>
 #include <QHBoxLayout>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -64,6 +76,7 @@
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
+#include <DataCodec/API/Params/CodecParamFactories.h>
 #include <fcntl.h>
 #include <iGameBoxStyle.h>
 #include <iGameCtxPresObjData.h>
@@ -71,6 +84,7 @@
 #include <iGameDynamicBox.h>
 #include <iGamePointFinder.h>
 #include <iGameSelectionParameter.h>
+#include <iGameThreadPool.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
@@ -92,11 +106,16 @@
 #include <QEasingCurve>
 #include <QStyle>
 #include <QFontMetrics>
+#include <QWindow>
+#include <QWindowStateChangeEvent>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
 namespace {
+constexpr auto kSynchronizedToolWindowOpenProperty = "igSynchronizedToolWindowOpen";
+constexpr auto kRestoreToolWindowWithMainProperty = "igRestoreToolWindowWithMain";
+
 struct ToolbarSpacingMetrics {
     int btnGap;
     int edgeMargin;
@@ -146,6 +165,129 @@ int resolveToolbarIconSizeForWidget(const QWidget* widget) {
     const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
     const int availableWidth = screen ? screen->availableGeometry().width() : (widget ? widget->width() : 1920);
     return resolveToolbarIconSize(availableWidth, dpiScale);
+}
+
+constexpr int kDataCodecCompressionDialogBaseWidth = 1034;
+constexpr int kDataCodecCompressionDialogBaseHeight = 880;
+constexpr int kDataCodecCompressionContentBaseHeight = 840;
+
+class DataCodecCompressionScaleView final : public QGraphicsView {
+public:
+    explicit DataCodecCompressionScaleView(QWidget* parent = nullptr)
+        : QGraphicsView(parent),
+          m_scene(new QGraphicsScene(this)) {
+        setObjectName(QStringLiteral("DataCodecCompressionScaleView"));
+        setScene(m_scene);
+        setFrameShape(QFrame::NoFrame);
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setAlignment(Qt::AlignCenter);
+        setBackgroundBrush(Qt::NoBrush);
+        setStyleSheet(QStringLiteral("QGraphicsView#DataCodecCompressionScaleView { background: transparent; border: none; }"));
+        setMinimumSize(1, 1);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    }
+
+    void setScaledWidget(QWidget* widget, const QSize& baseSize) {
+        if (widget == nullptr || !m_scene) return;
+        m_baseSize = baseSize;
+        widget->setFixedSize(baseSize);
+        m_proxy = m_scene->addWidget(widget);
+        m_proxy->setPos(0, 0);
+        m_scene->setSceneRect(QRectF(QPointF(0, 0), QSizeF(m_baseSize)));
+        refreshScale();
+    }
+
+    void refreshScale() {
+        if (m_scene == nullptr || m_proxy == nullptr || !m_baseSize.isValid()) return;
+        const QRectF targetRect(QPointF(0, 0), QSizeF(m_baseSize));
+        m_scene->setSceneRect(targetRect);
+        resetTransform();
+        fitInView(targetRect, Qt::KeepAspectRatio);
+        centerOn(targetRect.center());
+    }
+
+protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QGraphicsView::resizeEvent(event);
+        refreshScale();
+    }
+
+private:
+    QGraphicsScene* m_scene{nullptr};
+    QGraphicsProxyWidget* m_proxy{nullptr};
+    QSize m_baseSize;
+};
+
+QScreen* resolveDataCodecCompressionScreen(const QWidget* dialog, const QWidget* fallback) {
+    if (dialog != nullptr && dialog->isVisible() &&
+        dialog->windowHandle() != nullptr && dialog->windowHandle()->screen() != nullptr) {
+        return dialog->windowHandle()->screen();
+    }
+    if (dialog != nullptr && dialog->isVisible()) {
+        if (QScreen* screen = QGuiApplication::screenAt(dialog->frameGeometry().center())) {
+            return screen;
+        }
+        if (QScreen* screen = dialog->screen()) {
+            return screen;
+        }
+    }
+    if (fallback != nullptr) {
+        if (QScreen* screen = QGuiApplication::screenAt(fallback->frameGeometry().center())) {
+            return screen;
+        }
+        if (QScreen* screen = fallback->screen()) {
+            return screen;
+        }
+    }
+    return QGuiApplication::primaryScreen();
+}
+
+QSize dataCodecCompressionDialogSizeForScreen(const QScreen* screen) {
+    const QRect available = screen != nullptr
+        ? screen->availableGeometry()
+        : QRect(0, 0, kDataCodecCompressionDialogBaseWidth, kDataCodecCompressionDialogBaseHeight);
+    const qreal widthScale = static_cast<qreal>(available.width()) /
+        static_cast<qreal>(kDataCodecCompressionDialogBaseWidth);
+    const qreal heightScale = static_cast<qreal>(available.height()) /
+        static_cast<qreal>(kDataCodecCompressionDialogBaseHeight);
+    const qreal scale = qMin<qreal>(1.0, qMin(widthScale, heightScale));
+    return QSize(
+        qMax(1, qRound(static_cast<qreal>(kDataCodecCompressionDialogBaseWidth) * scale)),
+        qMax(1, qRound(static_cast<qreal>(kDataCodecCompressionDialogBaseHeight) * scale)));
+}
+
+void keepDataCodecCompressionDialogInScreen(QWidget* dialog, const QScreen* screen) {
+    if (dialog == nullptr || screen == nullptr) return;
+    const QRect available = screen->availableGeometry();
+    QRect nextGeometry = dialog->frameGeometry();
+    if (nextGeometry.width() > available.width()) {
+        nextGeometry.setWidth(available.width());
+    }
+    if (nextGeometry.height() > available.height()) {
+        nextGeometry.setHeight(available.height());
+    }
+    const int maxX = available.right() - nextGeometry.width() + 1;
+    const int maxY = available.bottom() - nextGeometry.height() + 1;
+    const int x = qBound(available.left(), nextGeometry.left(), qMax(available.left(), maxX));
+    const int y = qBound(available.top(), nextGeometry.top(), qMax(available.top(), maxY));
+    dialog->move(x, y);
+}
+
+void applyDataCodecCompressionDialogScreenFit(
+    igQtChromeFramelessDialog* dialog,
+    DataCodecCompressionScaleView* scaleView,
+    QScreen* screen) {
+    if (dialog == nullptr || scaleView == nullptr) return;
+    screen = screen != nullptr ? screen : resolveDataCodecCompressionScreen(dialog, dialog->parentWidget());
+    const QSize dialogSize = dataCodecCompressionDialogSizeForScreen(screen);
+    if (dialog->isMaximized() || dialog->isFullScreen()) {
+        dialog->showNormal();
+    }
+    scaleView->setMinimumSize(1, 1);
+    dialog->setFixedSize(dialogSize);
+    scaleView->refreshScale();
+    keepDataCodecCompressionDialogInScreen(dialog, screen);
 }
 
 const char* kGlobalSpinBoxDarkQss = R"(
@@ -310,7 +452,7 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
         qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
     }
 
-    ThreadPool::Instance();
+    iGame::ThreadPool::Instance();
 }
 
 void igQtMainWindow::initCustomTitleBar() {
@@ -408,6 +550,31 @@ void igQtMainWindow::initCustomTitleBar() {
 }
 
 bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
+    QWidget* synchronizedToolWindow = nullptr;
+    for (const auto& window : m_synchronizedToolWindows) {
+        if (window != nullptr && window.data() == watched) {
+            synchronizedToolWindow = window.data();
+            break;
+        }
+    }
+    if (synchronizedToolWindow != nullptr) {
+        if (event->type() == QEvent::Close) {
+            synchronizedToolWindow->setProperty(kSynchronizedToolWindowOpenProperty, false);
+            synchronizedToolWindow->setProperty(kRestoreToolWindowWithMainProperty, false);
+        } else if (event->type() == QEvent::WindowStateChange &&
+                   !m_synchronizingToolWindowState) {
+            auto* stateEvent = static_cast<QWindowStateChangeEvent*>(event);
+            const bool becameMinimized = synchronizedToolWindow->isMinimized() &&
+                !stateEvent->oldState().testFlag(Qt::WindowMinimized);
+            if (becameMinimized && !isMinimized()) {
+                synchronizedToolWindow->setProperty(
+                    kSynchronizedToolWindowOpenProperty,
+                    true);
+                showMinimized();
+            }
+        }
+    }
+
     if (!m_titleBar) return QMainWindow::eventFilter(watched, event);
 
     // 全局兜底：只要左键释放就结束拖动，避免窗口“黏在鼠标上”
@@ -485,9 +652,73 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
 
 void igQtMainWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
+        auto* stateEvent = static_cast<QWindowStateChangeEvent*>(event);
+        const bool wasMinimized = stateEvent->oldState().testFlag(Qt::WindowMinimized);
         updateMaximizeButtonIcon();
+        if (isMinimized() && !wasMinimized) {
+            minimizeSynchronizedToolWindows();
+        } else if (!isMinimized() && wasMinimized) {
+            QTimer::singleShot(0, this, [this]() {
+                restoreSynchronizedToolWindows();
+            });
+        }
     }
     QMainWindow::changeEvent(event);
+}
+
+void igQtMainWindow::registerSynchronizedToolWindow(QWidget* window) {
+    if (window == nullptr) return;
+    for (const auto& registered : m_synchronizedToolWindows) {
+        if (registered.data() == window) return;
+    }
+    window->setProperty(kSynchronizedToolWindowOpenProperty, false);
+    window->setProperty(kRestoreToolWindowWithMainProperty, false);
+    window->installEventFilter(this);
+    m_synchronizedToolWindows.push_back(QPointer<QWidget>(window));
+}
+
+void igQtMainWindow::showSynchronizedToolWindow(QWidget* window) {
+    if (window == nullptr) return;
+    registerSynchronizedToolWindow(window);
+    window->setProperty(kSynchronizedToolWindowOpenProperty, true);
+    window->setProperty(kRestoreToolWindowWithMainProperty, false);
+    if (window->isMinimized()) {
+        window->showNormal();
+    } else {
+        window->show();
+    }
+    window->raise();
+    window->activateWindow();
+}
+
+void igQtMainWindow::minimizeSynchronizedToolWindows() {
+    m_synchronizingToolWindowState = true;
+    for (const auto& window : m_synchronizedToolWindows) {
+        if (window == nullptr) continue;
+        const bool shouldRestore = window->property(
+            kSynchronizedToolWindowOpenProperty).toBool();
+        window->setProperty(kRestoreToolWindowWithMainProperty, shouldRestore);
+        if (shouldRestore && !window->isMinimized()) {
+            window->showMinimized();
+        }
+    }
+    m_synchronizingToolWindowState = false;
+}
+
+void igQtMainWindow::restoreSynchronizedToolWindows() {
+    m_synchronizingToolWindowState = true;
+    for (const auto& window : m_synchronizedToolWindows) {
+        if (window == nullptr ||
+            !window->property(kRestoreToolWindowWithMainProperty).toBool() ||
+            !window->property(kSynchronizedToolWindowOpenProperty).toBool()) {
+            continue;
+        }
+        window->setProperty(kRestoreToolWindowWithMainProperty, false);
+        window->showNormal();
+        window->show();
+        window->raise();
+    }
+    m_synchronizingToolWindowState = false;
 }
 
 void igQtMainWindow::minimizeWithAnimation() {
@@ -1702,6 +1933,228 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     ui->action_SearchInfo->setVisible(true);
     //############# HIDE SOMETHING ED #############
 
+    auto openDataCodecCompressionWindow = [this]() {
+        static igQtChromeFramelessDialog* dialog = nullptr;
+        static DataCodecCompressionScaleView* scaleView = nullptr;
+        static igQtDataCodecCompressionWidget* widget = nullptr;
+        static bool screenFitConnected = false;
+
+        if (!dialog) {
+            dialog = new igQtChromeFramelessDialog(this);
+            dialog->setDialogTitle(QStringLiteral("压缩"));
+            dialog->setMaximizeEnabled(false);
+            dialog->setOpaqueShell(true);
+            dialog->setWindowFlag(Qt::WindowStaysOnTopHint, true);
+
+            scaleView = new DataCodecCompressionScaleView(dialog->contentHost());
+            widget = new igQtDataCodecCompressionWidget();
+            scaleView->setScaledWidget(
+                widget,
+                QSize(kDataCodecCompressionDialogBaseWidth, kDataCodecCompressionContentBaseHeight));
+            dialog->setContentWidget(scaleView);
+            registerSynchronizedToolWindow(dialog);
+            applyDataCodecCompressionDialogScreenFit(
+                dialog,
+                scaleView,
+                resolveDataCodecCompressionScreen(dialog, this));
+        }
+
+        if (!screenFitConnected) {
+            dialog->winId();
+            if (QWindow* window = dialog->windowHandle()) {
+                connect(window, &QWindow::screenChanged, dialog, [](QScreen* screen) {
+                    applyDataCodecCompressionDialogScreenFit(dialog, scaleView, screen);
+                });
+                screenFitConnected = true;
+            }
+        }
+
+        auto scene = rendererWidget != nullptr ? rendererWidget->GetScene() : nullptr;
+        auto model = scene != nullptr ? scene->GetCurrentModel() : nullptr;
+        applyDataCodecCompressionDialogScreenFit(
+            dialog,
+            scaleView,
+            resolveDataCodecCompressionScreen(dialog, this));
+        showSynchronizedToolWindow(dialog);
+        applyDataCodecCompressionDialogScreenFit(
+            dialog,
+            scaleView,
+            resolveDataCodecCompressionScreen(dialog, this));
+        auto* targetWidget = widget;
+        QTimer::singleShot(0, targetWidget, [targetWidget, model]() {
+            targetWidget->SetModel(model);
+        });
+    };
+
+    QAction* fileDataCodecCompressionAction = ui->menu_file->addAction(QStringLiteral("压缩"));
+    connect(fileDataCodecCompressionAction, &QAction::triggered, this, [openDataCodecCompressionWindow](bool) {
+        openDataCodecCompressionWindow();
+    });
+
+    igQtDataCodecDecodeSettingsStore::Apply(
+        igQtDataCodecDecodeSettingsStore::Load());
+    auto* dataCodecDecodeSettingsAction = ui->menu_file->addAction(
+        QStringLiteral("解压设置"));
+    connect(dataCodecDecodeSettingsAction, &QAction::triggered, this, [this](bool) {
+        static igQtChromeFramelessDialog* dialog = nullptr;
+        static QComboBox* performanceCombo = nullptr;
+        static QCheckBox* onDemandAttributes = nullptr;
+        static QCheckBox* decodedResultCache = nullptr;
+        static QSpinBox* decodedResultCacheFrameLimit = nullptr;
+        if (dialog == nullptr) {
+            dialog = new igQtChromeFramelessDialog(this);
+            dialog->setDialogTitle(QStringLiteral("解压设置"));
+            dialog->setMaximizeEnabled(false);
+            dialog->setOpaqueShell(true);
+            dialog->setWindowFlag(Qt::WindowStaysOnTopHint, true);
+            dialog->setFixedSize(360, 242);
+
+            auto* panel = new QWidget(dialog->contentHost());
+            panel->setObjectName(QStringLiteral("DataCodecDecodeSettingsPanel"));
+            panel->setAttribute(Qt::WA_StyledBackground, true);
+            panel->setStyleSheet(QStringLiteral(R"(
+QWidget#DataCodecDecodeSettingsPanel {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: "Microsoft YaHei", "Segoe UI";
+    font-size: 12px;
+}
+QLabel, QCheckBox {
+    color: #d4d4d4;
+    font-size: 12px;
+}
+QComboBox, QSpinBox {
+    min-height: 28px;
+    max-height: 28px;
+    background: #1e1e1e;
+    color: #e6e6e6;
+    border: 1px solid #3c3c3c;
+    border-radius: 5px;
+    padding: 0 8px;
+    font-size: 12px;
+}
+QComboBox:focus, QSpinBox:focus {
+    border-color: #26a29c;
+}
+QComboBox::drop-down {
+    border-left: 1px solid #3c3c3c;
+    width: 20px;
+}
+QComboBox QAbstractItemView {
+    background: #252526;
+    color: #d4d4d4;
+    border: 1px solid #3c3c3c;
+    selection-background-color: #3a3a3a;
+    selection-color: #ffffff;
+    font-size: 12px;
+}
+QPushButton {
+    min-width: 68px;
+    min-height: 27px;
+    max-height: 27px;
+    background: #2d2d30;
+    color: #e6e6e6;
+    border: 1px solid #3c3c3c;
+    border-radius: 5px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+QPushButton:hover {
+    background: #3a3a3d;
+    border-color: #4a4a4a;
+}
+QPushButton#DataCodecDecodeSettingsPrimaryButton {
+    background: #0e7772;
+    color: #ffffff;
+    border-color: #26a29c;
+}
+QPushButton#DataCodecDecodeSettingsPrimaryButton:hover {
+    background: #0f8c86;
+}
+)"));
+
+            auto* layout = new QFormLayout(panel);
+            layout->setContentsMargins(16, 12, 16, 12);
+            layout->setHorizontalSpacing(12);
+            layout->setVerticalSpacing(10);
+            performanceCombo = new QComboBox(panel);
+            performanceCombo->addItem(
+                QStringLiteral("时间优先"),
+                static_cast<int>(::datacodec::DataCodecDecodeTier::Fast));
+            performanceCombo->addItem(
+                QStringLiteral("平衡"),
+                static_cast<int>(::datacodec::DataCodecDecodeTier::Balanced));
+            performanceCombo->addItem(
+                QStringLiteral("内存优先"),
+                static_cast<int>(::datacodec::DataCodecDecodeTier::LowMemory));
+
+            onDemandAttributes = new QCheckBox(
+                QStringLiteral("按需解压属性场"),
+                panel);
+            onDemandAttributes->setToolTip(
+                QStringLiteral("首次载入只解压几何和拓扑，属性场在使用时解压"));
+            decodedResultCache = new QCheckBox(
+                QStringLiteral("启用解码结果缓存"),
+                panel);
+            decodedResultCache->setToolTip(
+                QStringLiteral("保留完成解码的帧，重复载入或动画回放可直接复用"));
+            decodedResultCacheFrameLimit = new QSpinBox(panel);
+            decodedResultCacheFrameLimit->setRange(1, 10);
+            decodedResultCacheFrameLimit->setSuffix(QStringLiteral(" 帧"));
+            decodedResultCacheFrameLimit->setToolTip(
+                QStringLiteral("完整解码结果 LRU 最多保留的帧数"));
+
+            layout->addRow(QStringLiteral("性能模式"), performanceCombo);
+            layout->addRow(QString(), onDemandAttributes);
+            layout->addRow(QString(), decodedResultCache);
+            layout->addRow(QStringLiteral("缓存帧数"), decodedResultCacheFrameLimit);
+
+            auto* buttons = new QDialogButtonBox(
+                QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                panel);
+            buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确定"));
+            buttons->button(QDialogButtonBox::Ok)->setObjectName(
+                QStringLiteral("DataCodecDecodeSettingsPrimaryButton"));
+            buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
+            layout->addRow(buttons);
+
+            connect(buttons, &QDialogButtonBox::accepted, dialog, []() {
+                igQtDataCodecDecodeSettingsStore::Save({
+                    .performanceTier = static_cast<::datacodec::DataCodecDecodeTier>(
+                        performanceCombo->currentData().toInt()),
+                    .decodeAttributesOnDemand = onDemandAttributes->isChecked(),
+                    .enableDecodedResultCache = decodedResultCache->isChecked(),
+                    .decodedResultCacheFrameLimit = static_cast<std::size_t>(
+                        decodedResultCacheFrameLimit->value()),
+                });
+                dialog->close();
+            });
+            connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::close);
+            connect(decodedResultCache, &QCheckBox::toggled, dialog,
+                [](const bool enabled) {
+                    decodedResultCacheFrameLimit->setEnabled(enabled);
+                });
+            dialog->setContentWidget(panel);
+            registerSynchronizedToolWindow(dialog);
+        }
+
+        const auto settings = igQtDataCodecDecodeSettingsStore::Load();
+        const auto tierIndex = performanceCombo->findData(
+            static_cast<int>(settings.performanceTier));
+        performanceCombo->setCurrentIndex(tierIndex >= 0 ? tierIndex : 0);
+        onDemandAttributes->setChecked(settings.decodeAttributesOnDemand);
+        decodedResultCache->setChecked(settings.enableDecodedResultCache);
+        decodedResultCacheFrameLimit->setValue(
+            static_cast<int>(settings.decodedResultCacheFrameLimit));
+        decodedResultCacheFrameLimit->setEnabled(settings.enableDecodedResultCache);
+        showSynchronizedToolWindow(dialog);
+    });
+
+    QAction* dataCodecCompressionAction = ui->menu_DataAnalysis->addAction(QStringLiteral("DataCodec 压缩"));
+    connect(dataCodecCompressionAction, &QAction::triggered, this, [openDataCodecCompressionWindow](bool) {
+        openDataCodecCompressionWindow();
+    });
+
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
             [&]() {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -2291,12 +2744,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
 
-    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
-        ui->widget_Animation->initAnimationComponents();
-    });
-    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
-
     connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
+        m_pendingInitialAttributeObjectId = -1;
+
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) return;
 
@@ -2316,16 +2766,58 @@ void igQtMainWindow::initAllMySignalConnections() {
         if (drawObject) {
             auto item = modelTreeWidget->getItemFromObject(dataObject);
             if (item && item->childCount() > 0) {
-                item->setExpanded(true);
-                auto child = item->child(0);
-                item->setCurrentChild(child);
-                item->setSelected(false);
-                item->viewAttribute(0, -1);
-                child->setSelected(true);
-                modelTreeWidget->setCurrentItem(child);
+                m_pendingInitialAttributeObjectId = dataObject->GetDataObjectId();
             }
         }
     });
+
+    connect(rendererWidget, &igQtRenderWidget::FrameRendered, this, [&]() {
+        bool needsAttributeFrame = false;
+        if (m_pendingInitialAttributeObjectId >= 0) {
+            const int pendingObjectId = m_pendingInitialAttributeObjectId;
+            m_pendingInitialAttributeObjectId = -1;
+
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            auto model = scene != nullptr ? scene->GetCurrentModel() : nullptr;
+            auto dataObject = model != nullptr
+                ? model->GetDataObject()
+                : iGame::DataObject::Pointer{};
+            if (dataObject != nullptr &&
+                dataObject->GetDataObjectId() == pendingObjectId) {
+                auto item = modelTreeWidget->getItemFromObject(dataObject);
+                if (item != nullptr && item->childCount() > 0) {
+                    auto* attributeItem = dynamic_cast<AttribTreeWidgetItem*>(
+                        item->child(0));
+                    if (attributeItem != nullptr) {
+                        item->setExpanded(true);
+                        if (!attributeItem->hasAttributeData() ||
+                            attributeItem->loadState() ==
+                                iGame::AttributeDataLoadState::Loaded) {
+                            item->setCurrentChild(attributeItem);
+                            item->setSelected(false);
+                            int dimensionIndex = attributeItem->currentIndex();
+                            if (dimensionIndex < 0) dimensionIndex = 0;
+                            const int attributeDimension =
+                                attributeItem->getDimension() == 1
+                                    ? 0
+                                    : dimensionIndex - 1;
+                            needsAttributeFrame = attributeItem->viewAttribute(
+                                attributeDimension);
+                            attributeItem->setSelected(true);
+                            modelTreeWidget->setCurrentItem(attributeItem);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (needsAttributeFrame) {
+            rendererWidget->update();
+            return;
+        }
+        modelTreeWidget->completeDeferredModelInformationUpdate();
+        ui->widget_Animation->notifyCurrentFramePresented();
+    }, Qt::QueuedConnection);
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
         streamTreeIndex=modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
@@ -2365,6 +2857,15 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Update scalar view UI when animation frame changes (keep locked color range)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::refreshScalarViewKeepRange);
+
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            this, [&]() {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                auto model = scene != nullptr ? scene->GetCurrentModel() : nullptr;
+                if (model != nullptr && model->GetDataObject() != nullptr) {
+                    modelTreeWidget->updateAllAttriubute(model->GetDataObject());
+                }
+            });
 
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             this, [&](){
@@ -2779,12 +3280,14 @@ void igQtMainWindow::initAllInteractor() {
         auto currentAttributeIndex = dataObj->GetCurrentAttributeIndex();
         if (currentAttributeIndex < 0 || allAttr->Size() <= currentAttributeIndex) return;
         auto& currentAttr = allAttr->GetElement(currentAttributeIndex);
+        if (currentAttr.isDeleted || currentAttr.pointer == nullptr) return;
         auto dataType = currentAttr.GetAttachmentType();
         auto currentAttributeDim = dataObj->GetCurrentAttributeDimension();
         int variableIndex = 0;
         for (int attrIndex = 0; attrIndex < currentAttributeIndex; attrIndex++) {
         //for (int attrIndex = 0; attrIndex < allAttr->Size(); attrIndex++) {
             auto& attr = allAttr->GetElement(attrIndex);
+            if (attr.isDeleted || attr.pointer == nullptr) continue;
             if (attr.attachmentType != dataType) continue;
             auto dim = attr.pointer->GetDimension();
             variableIndex += ((dim == 1) ? 1 : dim + 1);

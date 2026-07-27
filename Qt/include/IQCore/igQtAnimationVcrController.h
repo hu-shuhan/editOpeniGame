@@ -25,6 +25,7 @@ private:
     int current_keyframe_index{0};
     bool isForward{false};
     bool isLoop{false};
+    bool isPlaying{false};
     QTimer* timer;
 
     bool isInterpolateMode{false};
@@ -40,6 +41,8 @@ public:
     void onPlay(bool);
 
     void onPause();
+
+    void onFramePresented();
 
     void onLoop(bool);
 

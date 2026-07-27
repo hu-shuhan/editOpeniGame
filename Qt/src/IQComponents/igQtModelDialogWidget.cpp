@@ -1,5 +1,6 @@
 #include "Sources/iGameLineTypePointsSourceFilter.h"
 #include <IQComponents/igQtModelDialogWidget.h>
+#include <IQCore/igQtAttributeDataSourceManager.h>
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
 #include <QApplication>
 #include <QMainWindow>
@@ -17,6 +18,10 @@
 #include <qaction.h>
 #include <qdebug.h>
 #include <qmenu.h>
+
+#include <map>
+#include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -96,8 +101,67 @@ private:
     QPoint m_dragOffset;
 };
 
+using AttributeDescriptorMap = std::map<int, std::vector<iGame::AttributeDataDescriptor>>;
+
+static AttributeDescriptorMap BuildAttributeDescriptorMap(
+    const iGame::AttributeDataSourcePointer& source) {
+    AttributeDescriptorMap descriptorsByObject;
+    if (source == nullptr) return descriptorsByObject;
+    std::unordered_map<std::string, iGame::DataObject::Pointer> objectsByPath;
+    for (const auto& descriptor : source->Attributes()) {
+        auto [targetIterator, inserted] = objectsByPath.try_emplace(
+            descriptor.target.blockPath,
+            iGame::DataObject::Pointer{});
+        if (inserted) {
+            targetIterator->second = source->TargetObject(descriptor.target);
+        }
+        if (targetIterator->second != nullptr) {
+            descriptorsByObject[targetIterator->second->GetDataObjectId()].push_back(descriptor);
+        }
+    }
+    return descriptorsByObject;
+}
+
+static void AddTopLevelAttributes(
+    QTreeWidget* tree,
+    ModelTreeWidgetItem* parentItem,
+    const std::vector<iGame::AttributeDataDescriptor>& descriptors) {
+    for (const auto& descriptor : descriptors) {
+        auto* attributeItem = new AttribTreeWidgetItem(descriptor.nativeIndex, tree, parentItem);
+        attributeItem->setAttributeName(QString::fromUtf8(descriptor.name.c_str()));
+        attributeItem->setAttributeData(descriptor.target, descriptor.state, descriptor.nativeIndex);
+        if (descriptor.attachment == IG_POINT) {
+            attributeItem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
+        } else if (descriptor.attachment == IG_CELL) {
+            attributeItem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
+        }
+        attributeItem->setDimension(descriptor.componentCount);
+    }
+}
+
+static void AddSubObjectAttributes(
+    QTreeWidget* tree,
+    SubObjectTreeWidgetItem* parentItem,
+    const std::vector<iGame::AttributeDataDescriptor>& descriptors) {
+    for (const auto& descriptor : descriptors) {
+        auto* attributeItem = new SubAttribTreeWidgetItem(descriptor.nativeIndex, tree, parentItem);
+        attributeItem->setAttributeName(QString::fromUtf8(descriptor.name.c_str()));
+        attributeItem->setAttributeData(descriptor.target, descriptor.state, descriptor.nativeIndex);
+        if (descriptor.attachment == IG_POINT) {
+            attributeItem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
+        } else if (descriptor.attachment == IG_CELL) {
+            attributeItem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
+        }
+        attributeItem->setDimension(descriptor.componentCount);
+    }
+}
+
 // Build sub-dataobject hierarchy under a given parent tree item
-static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, iGame::DataObject::Pointer obj) {
+static void BuildSubObjectTree(
+    QTreeWidget* tree,
+    QTreeWidgetItem* parentItem,
+    iGame::DataObject::Pointer obj,
+    const AttributeDescriptorMap& descriptorsByObject) {
     if (!obj || !obj->HasSubDataObject()) return;
 
     for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it) {
@@ -111,25 +175,14 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
         // set initial eye icon by current visibility
         if (auto draw = DynamicCast<iGame::DrawObject>(sub)) { childItem->changeVisibility(draw->GetVisibility()); }
 
-        // add attribute children under this sub-object
-        if (auto attrSet = sub->GetAttributeSet()) {
-            auto all = attrSet->GetAllAttributes();
-            for (int i = 0; i < all->GetNumberOfElements(); ++i) {
-                auto& attr = all->GetElement(i);
-                if (attr.isDeleted) continue;
-                auto* aitem = new SubAttribTreeWidgetItem(i, tree, childItem);
-                const QString attrName = QString::fromStdString(attr.pointer->GetName());
-                aitem->setText(0, attrName);
-                aitem->setToolTip(0, attrName);
-                if (attr.attachmentType == IG_POINT) aitem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
-                else if (attr.attachmentType == IG_CELL)
-                    aitem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
-                aitem->setDimension(attr.pointer->GetDimension());
-            }
+        if (const auto descriptorIterator = descriptorsByObject.find(sub->GetDataObjectId());
+            descriptorIterator != descriptorsByObject.end()) {
+            AddSubObjectAttributes(tree, childItem, descriptorIterator->second);
         }
 
         // recurse into deeper hierarchy
-        BuildSubObjectTree(tree, childItem, sub);
+        BuildSubObjectTree(tree, childItem, sub, descriptorsByObject);
+        childItem->setExpanded(true);
     }
 }
 } // namespace
@@ -282,6 +335,12 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
             &igQtModelDialogWidget::updateCurrentModelInfo);
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
     connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
+    connect(tabWidget, &QTabWidget::currentChanged, this, [this](int) {
+        completeDeferredModelInformationUpdate();
+    });
+    connect(m_propertiesDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (visible) completeDeferredModelInformationUpdate();
+    });
 }
 
 ModelTreeWidgetItem* igQtModelDialogWidget::getItemFromObject(iGame::DataObject::Pointer obj) {
@@ -304,25 +363,15 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
     item->setCurrentChild(nullptr);
 
     while (item->childCount() > 0) { delete item->takeChild(0); }
-    auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
-    for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
-        auto& attr = attrSet->GetElement(i);
-        if (attr.isDeleted) continue;
-        AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
-        //if (obj->GetAttributeIndex() == i) {
-        //    item->setCurrentChild(child);
-        //    child->setSelected(true);
-        //}
-        const QString attrName = QString::fromStdString(attr.pointer->GetName());
-        child->setText(0, attrName);
-        child->setToolTip(0, attrName);
-        if (attr.attachmentType == IG_POINT) 
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
-        else if (attr.attachmentType == IG_CELL)
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
-        child->setDimension(attr.pointer->GetDimension());
-        // std::cout << i << " " << attr.pointer->GetName() << std::endl;
+    auto source = igQtAttributeDataSourceManager::Instance()->EnsureSource(obj);
+    const auto descriptorsByObject = BuildAttributeDescriptorMap(source);
+    if (const auto iterator = descriptorsByObject.find(obj->GetDataObjectId());
+        iterator != descriptorsByObject.end()) {
+        AddTopLevelAttributes(modelTreeWidget, item, iterator->second);
     }
+    BuildSubObjectTree(modelTreeWidget, item, obj, descriptorsByObject);
+    item->setExpanded(true);
+    modelTreeWidget->RebuildAttributeIndex();
     item->viewAttribute(-1);
     iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
 }
@@ -341,29 +390,29 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     item->setName(QString::fromStdString(obj->GetName()));
     item->setModel(model);
 
-    // build attribute children
-    auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
-    for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
-        auto& attr = attrSet->GetElement(i);
-        if (attr.isDeleted) continue;
-        AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
-        const QString attrName = QString::fromStdString(attr.pointer->GetName());
-        child->setText(0, attrName);
-        child->setToolTip(0, attrName);
-        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
-        else if (attr.attachmentType == IG_CELL)
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
-        child->setDimension(attr.pointer->GetDimension());
+    auto sourceController = igQtAttributeDataSourceManager::Instance();
+    auto attributeSource = sourceController->EnsureSource(obj);
+    const auto descriptorsByObject = BuildAttributeDescriptorMap(attributeSource);
+    if (const auto iterator = descriptorsByObject.find(obj->GetDataObjectId());
+        iterator != descriptorsByObject.end()) {
+        AddTopLevelAttributes(modelTreeWidget, item, iterator->second);
     }
 
     // build sub-data objects hierarchy
-    BuildSubObjectTree(modelTreeWidget, item, obj);
+    BuildSubObjectTree(modelTreeWidget, item, obj, descriptorsByObject);
 
     modelTreeWidget->addTopLevelItem(item);
+    item->setExpanded(true);
+    modelTreeWidget->RebuildAttributeIndex();
     modelTreeWidget->setCurrentItem(item);
 
     updateCurrentModelProperty(model);
-    updateCurrentModelInfo();
+    if (source == ItemSource::File) {
+        m_PendingModelInformationObjectId = obj->GetDataObjectId();
+        Q_EMIT CurrendModelChanged();
+    } else {
+        updateCurrentModelInfo();
+    }
     //QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     //std::cout << "add current model: " << currentItem << std::endl;
     return id;
@@ -375,20 +424,61 @@ int igQtModelDialogWidget::addModelToModelTree(iGame::Model::Pointer model) {
 
     auto id = scene->AddModel(model->GetDataObject());
 
+    item->setModelId(id);
     item->setName(QString::fromStdString(model->GetDataObject()->GetName()));
     item->setModel(model);
 
+    auto attributeSource = igQtAttributeDataSourceManager::Instance()->EnsureSource(model->GetDataObject());
+    const auto descriptorsByObject = BuildAttributeDescriptorMap(attributeSource);
+    if (const auto iterator = descriptorsByObject.find(model->GetDataObject()->GetDataObjectId());
+        iterator != descriptorsByObject.end()) {
+        AddTopLevelAttributes(modelTreeWidget, item, iterator->second);
+    }
     // build sub-data objects hierarchy
-    BuildSubObjectTree(modelTreeWidget, item, model->GetDataObject());
+    BuildSubObjectTree(modelTreeWidget, item, model->GetDataObject(), descriptorsByObject);
 
     modelTreeWidget->addTopLevelItem(item);
+    item->setExpanded(true);
+    modelTreeWidget->RebuildAttributeIndex();
     modelTreeWidget->setCurrentItem(item);
     return id;
 }
+
+void igQtModelDialogWidget::completeDeferredModelInformationUpdate() {
+    if (m_PendingModelInformationObjectId < 0) return;
+    if (tabWidget == nullptr ||
+        tabWidget->currentWidget() != ui->ModelInformationWidget ||
+        !ui->ModelInformationWidget->isVisible()) {
+        return;
+    }
+
+    const auto pendingObjectId = m_PendingModelInformationObjectId;
+    m_PendingModelInformationObjectId = -1;
+
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (scene == nullptr) return;
+
+    auto model = scene->GetCurrentModel();
+    if (model == nullptr) return;
+
+    auto object = model->GetDataObject();
+    if (object == nullptr || object->GetDataObjectId() != pendingObjectId) return;
+
+    ui->ModelInformationWidget->updateInformationFrame();
+}
+
 int igQtModelDialogWidget::updateCurrentModelInfo() {
     //    qDebug() << ui->modelTreeWidget->currentIndex();
 
-    ui->ModelInformationWidget->updateInformationFrame();
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    auto model = scene != nullptr ? scene->GetCurrentModel() : nullptr;
+    auto object = model != nullptr
+        ? model->GetDataObject()
+        : iGame::DataObject::Pointer{};
+    m_PendingModelInformationObjectId = object != nullptr
+        ? object->GetDataObjectId()
+        : -1;
+    completeDeferredModelInformationUpdate();
     Q_EMIT CurrendModelChanged();
 
 
@@ -455,15 +545,20 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     
     // 在删除之前获取模型名称，避免在 RemoveModel 后持有引用
     std::string modelName;
+    int rootObjectId = -1;
     {
         auto model = scene->GetModelById(id);
         if (model && model->GetDataObject()) {
             modelName = model->GetDataObject()->GetName();
+            rootObjectId = model->GetDataObject()->GetDataObjectId();
         }
         // model 智能指针在这里离开作用域并释放
     }
 
     scene->RemoveModel(id);
+    if (rootObjectId >= 0) {
+        igQtAttributeDataSourceManager::Instance()->ReleaseSource(rootObjectId);
+    }
     scene->Update();
 
     if (!modelName.empty()) {
@@ -473,6 +568,7 @@ void igQtModelDialogWidget::deleteCurrentModel() {
 
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }
+    modelTreeWidget->RebuildAttributeIndex();
 
     currentItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem());
     if (currentItem) {

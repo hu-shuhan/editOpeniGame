@@ -12,8 +12,12 @@
 
 #include <QProgressBar>
 #include <QLabel>
+#include <QString>
 #include <QWidget>
 #include <IQCore/igQtExportModule.h>
+
+#include <atomic>
+#include <cstdint>
 
 class IG_QT_MODULE_EXPORT igQtProgressBarWidget : public QWidget{
 public:
@@ -23,12 +27,16 @@ public:
 
     void updateProgressBar(double value);
 
-    void updateProgressBarLabel(const char* info);
+    void updateProgressBarLabel(const QString& info);
 private:
+    void postProgressBarUpdate(double value);
+    void postProgressTextUpdate(const QString& info);
+    void invalidatePendingUpdates();
     void resetTextMode();
 
     QProgressBar* progressBar;
     QLabel *progressBarLabel;
     iGame::ProgressObserver* progressObserver;
+    std::atomic_uint64_t updateGeneration{0};
     bool hasExternalText{false};
 };

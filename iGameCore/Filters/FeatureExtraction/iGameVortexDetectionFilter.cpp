@@ -13,7 +13,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#ifndef __EMSCRIPTEN__
 #include <omp.h>
+#endif
 // #include <semaphore>
 #include <string>
 #include <vector>

@@ -53,7 +53,7 @@ bool SurfaceMeshMetricsFilter::Execute() {
     igIndex faceNum = m_Faces->GetNumberOfCells(); //总面数
 
     DoubleArray::Pointer metricArray = DoubleArray::New();
-    metricArray->SetName("Metric" + std::to_string(m_Metric));
+    metricArray->SetName(std::string("Metric") + std::to_string(m_Metric));
 
     metricArray->SetDimension(1);
     metricArray->Reserve(faceNum);
@@ -171,7 +171,6 @@ double SurfaceMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
 }
 //计算顶点内角
 double SurfaceMeshMetricsFilter::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2) {
-
     Point e1 = v1 - v0;
     Point e2 = v2 - v0;
     double denom = e1.norm() * e2.norm();
@@ -179,7 +178,6 @@ double SurfaceMeshMetricsFilter::GetInternalAnglesOfVertex(Point v0, Point v1, P
     double cosa = e1.dot(e2) / denom;
     cosa = std::clamp(cosa, -1.0, 1.0);
     double angle = acos(cosa) * 180.0 / PI;
-
     return angle;
 }
 

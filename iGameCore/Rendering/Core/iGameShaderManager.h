@@ -125,6 +125,14 @@ public:
      */
     void UseShader(ShaderType type);
 
+#ifdef __EMSCRIPTEN__
+    /**
+     * @brief 为Web端设置Shader的回退Uniforms。
+     * @param shader 要设置的Shader程序指针。
+     */
+    void ApplyWebFallbackUniforms(SmartPointer<GLShaderProgram> shader);
+#endif
+
     /**
      * @brief 更新相机数据块。
      * @param camera 相机指针。
@@ -220,6 +228,12 @@ protected:
     SmartPointer<GLBuffer> m_ObjectDataBlock;
     SmartPointer<GLBuffer> m_UBOBlock;
     SmartPointer<GLBuffer> m_CullDataBuffer;
+
+#ifdef __EMSCRIPTEN__
+    CameraDataBuffer m_WebCameraData{};
+    ObjectDataBuffer m_WebObjectData{};
+    UniformBufferObjectBuffer m_WebUboData{};
+#endif
 };
 
 IGAME_NAMESPACE_END

@@ -17,6 +17,9 @@ iGameXMLFileReader::iGameXMLFileReader() {
 	SetNumberOfInputs(0);
 	SetNumberOfOutputs(1);
     SetOutput(0, m_Output);
+	m_MemoryBuffer = nullptr;
+	m_MemoryBufferSize = 0;
+	m_UseMemoryBuffer = false;
 }
 iGameXMLFileReader::~iGameXMLFileReader() {
     if(doc != nullptr){
@@ -28,6 +31,13 @@ iGameXMLFileReader::~iGameXMLFileReader() {
 void iGameXMLFileReader::SetFilePath(const std::string& filePath) {
 	this->m_FilePath = filePath;
 	this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+	this->m_UseMemoryBuffer = false;
+}
+
+void iGameXMLFileReader::SetMemoryBuffer(const void* data, size_t size) {
+    this->m_MemoryBuffer = static_cast<const char*>(data);
+    this->m_MemoryBufferSize = size;
+    this->m_UseMemoryBuffer = (data != nullptr && size > 0);
 }
 
 bool iGameXMLFileReader::Execute() {
@@ -75,6 +85,25 @@ bool iGameXMLFileReader::Execute() {
 }
 
 bool iGameXMLFileReader::Open() {
+	if (m_UseMemoryBuffer) {
+        if (m_MemoryBuffer == nullptr || m_MemoryBufferSize == 0) { return false; }
+        doc = new tinyxml2::XMLDocument(true, tinyxml2::ParseMode::MIXED_BINARY_XML);
+        if (doc->Parse(m_MemoryBuffer, m_MemoryBufferSize) != tinyxml2::XML_SUCCESS) {
+            IGAME_CORE_ERROR("[XML parser]:Could not parse memory buffer. Error='{}'. Exiting.", doc->ErrorStr());
+            delete doc;
+            doc = nullptr;
+            return false;
+        }
+        root = doc->RootElement();
+		if (root == nullptr) {
+			IGAME_CORE_ERROR("[XML parser]:Root element is null for memory buffer.");
+			delete doc;
+			doc = nullptr;
+			return false;
+		}
+		return true;
+    }
+
 	if (m_FilePath.empty()) {
         IGAME_CORE_WARN("[XML parser]:FilePath is empty. Exiting.\n");
 		return false;
@@ -85,9 +114,17 @@ bool iGameXMLFileReader::Open() {
 	if (doc->LoadFile(m_FilePath.c_str()) != tinyxml2::XML_SUCCESS) {
 //		printf("[XML parser]:Could not load file: %s . Error='%s'. Exiting.\n", m_FilePath.c_str(), doc->ErrorStr());
         IGAME_CORE_ERROR("[XML parser]:Could not load file: {} . Error='{}'. Exiting.", m_FilePath.c_str(), doc->ErrorStr());
+		delete doc;
+		doc = nullptr;
 		return false;
 	}
 	root = doc->RootElement(); // <VTKFile>
+	if (root == nullptr) {
+		IGAME_CORE_ERROR("[XML parser]:Root element is null for file: {}", m_FilePath.c_str());
+		delete doc;
+		doc = nullptr;
+		return false;
+	}
 
 	return true;
 }

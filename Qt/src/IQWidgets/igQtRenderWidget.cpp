@@ -19,6 +19,8 @@
 
 igQtRenderWidget::igQtRenderWidget(QWidget* parent) : QOpenGLWidget(parent) {
     setAttribute(Qt::WA_TranslucentBackground, false);
+    connect(this, &QOpenGLWidget::frameSwapped,
+            this, &igQtRenderWidget::FrameRendered);
 
     setMouseTracking(true);
     setMinimumHeight(185);
@@ -194,7 +196,9 @@ void igQtRenderWidget::resizeGL(int w, int h) {
     m_Scene->Resize(width(), height(), ratio);
 }
 
-void igQtRenderWidget::paintGL() { m_Scene->Draw(); }
+void igQtRenderWidget::paintGL() {
+    m_Scene->Draw();
+}
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {

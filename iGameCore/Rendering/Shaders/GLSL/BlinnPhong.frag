@@ -30,6 +30,7 @@ layout(std140, binding = 2) uniform UniformBufferObjectBlock {
 
 //layout(binding = 3) uniform sampler2D texSampler;
 uniform sampler2D texSampler;
+uniform vec3 inputColor = vec3(1.0f, 1.0f, 1.0f);
 
 layout(location = 0) in vec3 in_MCPosition;
 layout(location = 1) in vec3 in_VCPosition;
@@ -71,6 +72,7 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
 void main() {
     //out_ScreenColor = texture(texSampler, in_UV);
     vec3 color = vec3(0.0f, 0.0f, 0.0f);
+    vec3 baseColor = ubo.useColor == 1 ? in_Color : inputColor;
 
     vec3 normal = vec3(0.0f, 0.0f, 0.0f);
     if (ubo.useNormalSmooth == 1) {
@@ -92,10 +94,10 @@ void main() {
     }
 
     // ambient
-    color += ambient * in_Color;
+    color += ambient * baseColor;
     // lighting
     vec3 lighting = BlinnPhong(normal, in_MCPosition, light);
-    color += lighting * in_Color;
+    color += lighting * baseColor;
 
     out_ScreenColor = vec4(color, 1.0f);
     //out_ScreenColor = vec4(in_Color, 1.0);

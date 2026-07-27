@@ -35,10 +35,16 @@ void GLVertexArray::DrawElements(GLenum mode, int elementCount, GLenum type,
 }
 
 void GLVertexArray::DrawRangeElements(GLenum mode, GLuint start, GLuint end,
-                                      GLsizei count, GLenum type,
-                                      const void* indices) {
+                                       GLsizei count, GLenum type,
+                                       const void* indices) {
     glBindVertexArray(m_Handle);
+#ifdef __EMSCRIPTEN__
+    (void) start;
+    (void) end;
+    glDrawElements(mode, count, type, indices);
+#else
     glDrawRangeElements(mode, start, end, count, type, indices);
+#endif
     glBindVertexArray(0);
 }
 

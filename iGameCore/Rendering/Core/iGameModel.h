@@ -125,7 +125,10 @@ public:
      * @param index 图片索引。
      * @param dimension 图片维度，默认值为 -1。
      */
-    void ViewCloudPicture(int index, int dimension = -1);
+    bool ViewCloudPicture(
+        int index,
+        int dimension = -1,
+        bool updateScene = true);
 
     /**
      * @brief 设置模型的文件路径。

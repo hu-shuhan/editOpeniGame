@@ -1,7 +1,11 @@
 #include <IQComponents/igQtModelTreeWidget.h>
+#include <IQCore/igQtAttributeDataSourceManager.h>
 #include <QAction>
 #include <QMenu>
 #include <QHeaderView>
+#include <QSet>
+
+#include <functional>
 
 #include "iGameSceneManager.h"
 
@@ -82,9 +86,12 @@ void ModelTreeWidgetItem::changeVisibility(bool vis) {
         show();
     }
 }
-void ModelTreeWidgetItem::viewAttribute(int index, int dim) {
-    model->ViewCloudPicture(index, dim);
-    Q_EMIT dynamic_cast<igQtModelTreeWidget*>(this->parent)->ViewCloudPicture();
+bool ModelTreeWidgetItem::viewAttribute(const int index, const int dim) {
+    const bool changed = model->ViewCloudPicture(index, dim, false);
+    if (changed) {
+        Q_EMIT dynamic_cast<igQtModelTreeWidget*>(this->parent)->ViewCloudPicture();
+    }
+    return changed;
 }
 
 void ModelTreeWidgetItem::setCurrentChild(QTreeWidgetItem* child) { current_child = child; }
@@ -197,6 +204,43 @@ void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->setCurrentIndex(0);
 }
 
+void AttribTreeWidgetItem::setAttributeName(const QString& name) {
+    m_AttributeName = name;
+    refreshLabel();
+}
+
+void AttribTreeWidgetItem::setAttributeData(
+    const iGame::AttributeDataTarget& target,
+    const iGame::AttributeDataLoadState state,
+    const int nativeIndex) {
+    m_HasAttributeData = true;
+    m_Target = target;
+    setLoadState(state, nativeIndex);
+}
+
+void AttribTreeWidgetItem::setLoadState(
+    const iGame::AttributeDataLoadState state,
+    const int nativeIndex) {
+    m_LoadState = state;
+    if (nativeIndex >= 0) index = nativeIndex;
+    refreshLabel();
+}
+
+int AttribTreeWidgetItem::takePendingDimension() {
+    const int dimension = m_PendingDimension;
+    m_PendingDimension = -2;
+    return dimension;
+}
+
+void AttribTreeWidgetItem::refreshLabel() {
+    QString suffix;
+    if (m_LoadState == iGame::AttributeDataLoadState::Unloaded) suffix = QStringLiteral("  [未加载]");
+    if (m_LoadState == iGame::AttributeDataLoadState::Loading) suffix = QStringLiteral("  [加载中]");
+    if (m_LoadState == iGame::AttributeDataLoadState::Failed) suffix = QStringLiteral("  [加载失败]");
+    setText(0, m_AttributeName + suffix);
+    setToolTip(0, m_AttributeName + suffix);
+}
+
 igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     // Keep eliding ("xxxx...") but show full name via tooltip.
     setTextElideMode(Qt::ElideRight);
@@ -204,6 +248,119 @@ igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) 
     if (header()) {
         header()->setStretchLastSection(false);
         header()->setSectionResizeMode(QHeaderView::Interactive);
+    }
+    connect(
+        igQtAttributeDataSourceManager::Instance(),
+        &igQtAttributeDataSourceManager::AttributeLoadStateChanged,
+        this,
+        [this](
+            const int rootObjectId,
+            const iGame::AttributeDataTarget& target,
+            const iGame::AttributeDataLoadState state,
+            const int nativeIndex,
+            const QString&) {
+            const auto iterator = m_AttributeItems.constFind(
+                AttributeItemKey(rootObjectId, target));
+            if (iterator == m_AttributeItems.constEnd()) {
+                return;
+            }
+            const bool activate = IsActiveAttributeTarget(rootObjectId, target);
+            for (const auto& binding : iterator.value()) {
+                if (auto* attributeItem = dynamic_cast<AttribTreeWidgetItem*>(binding.attributeItem);
+                    attributeItem != nullptr) {
+                    attributeItem->setLoadState(state, nativeIndex);
+                    if (state == iGame::AttributeDataLoadState::Loaded) {
+                        const int dimension = attributeItem->takePendingDimension();
+                        if (activate && dimension != -2) {
+                            attributeItem->show();
+                            binding.modelItem->setCurrentChild(attributeItem);
+                            attributeItem->viewAttribute(dimension);
+                        }
+                    }
+                    continue;
+                }
+                if (auto* attributeItem = dynamic_cast<SubAttribTreeWidgetItem*>(binding.attributeItem);
+                    attributeItem != nullptr) {
+                    attributeItem->setLoadState(state, nativeIndex);
+                    if (state == iGame::AttributeDataLoadState::Loaded) {
+                        const int dimension = attributeItem->takePendingDimension();
+                        if (activate && dimension != -2) {
+                            attributeItem->show();
+                            if (auto* parentItem = dynamic_cast<SubObjectTreeWidgetItem*>(attributeItem->parent());
+                                parentItem != nullptr) {
+                                parentItem->setCurrentChild(attributeItem);
+                            }
+                            if (attributeItem->viewAttribute(dimension)) {
+                                emit ViewCloudPicture();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+}
+
+QString igQtModelTreeWidget::AttributeItemKey(
+    const int rootObjectId,
+    const iGame::AttributeDataTarget& target) {
+    return QStringLiteral("%1:%2:%3:%4")
+        .arg(rootObjectId)
+        .arg(target.frameIndex)
+        .arg(QString::fromUtf8(target.blockPath.c_str()))
+        .arg(static_cast<qulonglong>(target.sourceIndex));
+}
+
+void igQtModelTreeWidget::SetActiveAttributeTarget(
+    const int rootObjectId,
+    const iGame::AttributeDataTarget& target) {
+    m_ActiveAttributeTargets.insert(rootObjectId, target);
+    igQtAttributeDataSourceManager::Instance()->SetActiveAttributeTarget(
+        rootObjectId, target);
+}
+
+bool igQtModelTreeWidget::IsActiveAttributeTarget(
+    const int rootObjectId,
+    const iGame::AttributeDataTarget& target) const {
+    const auto iterator = m_ActiveAttributeTargets.constFind(rootObjectId);
+    return iterator != m_ActiveAttributeTargets.constEnd() && iterator.value() == target;
+}
+
+void igQtModelTreeWidget::RebuildAttributeIndex() {
+    m_AttributeItems.clear();
+    QSet<int> liveRootObjectIds;
+    for (int topIndex = 0; topIndex < topLevelItemCount(); ++topIndex) {
+        auto* modelItem = dynamic_cast<ModelTreeWidgetItem*>(topLevelItem(topIndex));
+        if (modelItem == nullptr ||
+            modelItem->getModel() == nullptr ||
+            modelItem->getModel()->GetDataObject() == nullptr) {
+            continue;
+        }
+        const int rootObjectId = modelItem->getModel()->GetDataObject()->GetDataObjectId();
+        liveRootObjectIds.insert(rootObjectId);
+        std::function<void(QTreeWidgetItem*)> indexItem;
+        indexItem = [&](QTreeWidgetItem* item) {
+            if (auto* attributeItem = dynamic_cast<AttribTreeWidgetItem*>(item);
+                attributeItem != nullptr && attributeItem->hasAttributeData()) {
+                m_AttributeItems[AttributeItemKey(rootObjectId, attributeItem->attributeTarget())]
+                    .push_back({modelItem, attributeItem});
+            } else if (auto* attributeItem = dynamic_cast<SubAttribTreeWidgetItem*>(item);
+                       attributeItem != nullptr && attributeItem->hasAttributeData()) {
+                m_AttributeItems[AttributeItemKey(rootObjectId, attributeItem->attributeTarget())]
+                    .push_back({modelItem, attributeItem});
+            }
+            for (int childIndex = 0; childIndex < item->childCount(); ++childIndex) {
+                indexItem(item->child(childIndex));
+            }
+        };
+        indexItem(modelItem);
+    }
+    for (auto iterator = m_ActiveAttributeTargets.begin();
+         iterator != m_ActiveAttributeTargets.end();) {
+        if (!liveRootObjectIds.contains(iterator.key())) {
+            iterator = m_ActiveAttributeTargets.erase(iterator);
+        } else {
+            ++iterator;
+        }
     }
 }
 
@@ -331,8 +488,15 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             }
 
             item->setSelected(true);
-            item->getModel()->ViewCloudPicture(-1);
-            Q_EMIT ViewCloudPicture();
+            if (item->getModel()->GetDataObject() != nullptr) {
+                m_ActiveAttributeTargets.remove(
+                    item->getModel()->GetDataObject()->GetDataObjectId());
+                igQtAttributeDataSourceManager::Instance()->ClearActiveAttributeTarget(
+                    item->getModel()->GetDataObject()->GetDataObjectId());
+            }
+            if (item->getModel()->ViewCloudPicture(-1, -1, false)) {
+                Q_EMIT ViewCloudPicture();
+            }
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
             if (current) { current->hide(); }
             item->setCurrentChild(nullptr);
@@ -378,8 +542,20 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                     if (!scene) { return; }
                     auto draw = DynamicCast<iGame::DrawObject>(sub->getDataObject());
                     if (!draw) { return; }
-                    draw->ViewCloudPicture(scene, -1);
-                    Q_EMIT ViewCloudPicture();
+                    QTreeWidgetItem* rootItem = sub;
+                    while (rootItem->parent() != nullptr) rootItem = rootItem->parent();
+                    if (auto* modelItem = dynamic_cast<ModelTreeWidgetItem*>(rootItem);
+                        modelItem != nullptr &&
+                        modelItem->getModel() != nullptr &&
+                        modelItem->getModel()->GetDataObject() != nullptr) {
+                        m_ActiveAttributeTargets.remove(
+                            modelItem->getModel()->GetDataObject()->GetDataObjectId());
+                        igQtAttributeDataSourceManager::Instance()->ClearActiveAttributeTarget(
+                            modelItem->getModel()->GetDataObject()->GetDataObjectId());
+                    }
+                    if (draw->ViewCloudPicture(scene, -1, -1, false)) {
+                        Q_EMIT ViewCloudPicture();
+                    }
                 }
             }
         } else if (auto* sa = dynamic_cast<SubAttribTreeWidgetItem*>(child)) {
@@ -398,7 +574,32 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 // For single-component fields: use component 0
                 // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
                 int actualDim = (sa->getDimension() == 1) ? 0 : (dim - 1);
-                sa->viewAttribute(actualDim);
+                int rootObjectId = -1;
+                QTreeWidgetItem* rootItem = sa;
+                while (rootItem->parent() != nullptr) rootItem = rootItem->parent();
+                auto* modelItem = dynamic_cast<ModelTreeWidgetItem*>(rootItem);
+                if (modelItem != nullptr &&
+                    modelItem->getModel() != nullptr &&
+                    modelItem->getModel()->GetDataObject() != nullptr) {
+                    rootObjectId = modelItem->getModel()->GetDataObject()->GetDataObjectId();
+                    SetActiveAttributeTarget(rootObjectId, sa->attributeTarget());
+                }
+                if (sa->hasAttributeData() &&
+                    sa->loadState() != iGame::AttributeDataLoadState::Loaded) {
+                    sa->setPendingDimension(actualDim);
+                    if (modelItem != nullptr &&
+                        modelItem->getModel() != nullptr &&
+                        modelItem->getModel()->GetDataObject() != nullptr) {
+                        igQtAttributeDataSourceManager::Instance()->RequestAttribute(
+                            modelItem->getModel()->GetDataObject()->GetDataObjectId(),
+                            sa->attributeTarget());
+                    }
+                    call = false;
+                    return;
+                }
+                if (sa->viewAttribute(actualDim)) {
+                    emit ViewCloudPicture();
+                }
                 call = false;
             }
         } else {
@@ -427,8 +628,18 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                     // For single-component fields: use component 0
                     // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
                     int actualDim = (c->getDimension() == 1) ? 0 : (dim - 1);
+                    const int rootObjectId = parent->getModel()->GetDataObject()->GetDataObjectId();
+                    SetActiveAttributeTarget(rootObjectId, c->attributeTarget());
+                    if (c->hasAttributeData() &&
+                        c->loadState() != iGame::AttributeDataLoadState::Loaded) {
+                        c->setPendingDimension(actualDim);
+                        igQtAttributeDataSourceManager::Instance()->RequestAttribute(
+                            rootObjectId,
+                            c->attributeTarget());
+                        call = false;
+                        return;
+                    }
                     c->viewAttribute(actualDim);
-                    Q_EMIT ViewCloudPicture();
                 }
             }
         }

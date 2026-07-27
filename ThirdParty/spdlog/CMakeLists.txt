@@ -411,3 +411,7 @@ target_include_directories(spdlog_header_only INTERFACE
         $<BUILD_INTERFACE:${SPDLOG_INCLUDE_DIRS}>
         $<INSTALL_INTERFACE:include/ThirdParty/spdlog>
 )
+
+target_compile_definitions(spdlog_header_only INTERFACE
+        $<$<AND:$<PLATFORM_ID:Windows>,$<CXX_COMPILER_ID:Clang>>:SPDLOG_NO_TLS>
+)

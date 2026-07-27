@@ -8,16 +8,19 @@
 #ifndef iGameSocketConnection_h
 #define iGameSocketConnection_h
 
-
+#if !defined(__EMSCRIPTEN__)
 #include <thread>
-#include <string>
-#include <vector>
-#include <mutex>
+#endif
+
+#include "iGameObject.h"
 #include <atomic>
 #include <functional>
 #include <memory>
-#include "iGameObject.h"
+#include <mutex>
+#include <string>
+#include <vector>
 
+#if !defined(__EMSCRIPTEN__)
 // 跨平台socket定义
 #ifdef _WIN32
 #include <winsock2.h>
@@ -26,15 +29,16 @@
 #define SOCKET_ERROR_CODE WSAGetLastError()
 #define SOCKET_CLOSE closesocket
 #else
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #define SOCKET_TYPE int
 #define SOCKET_ERROR_CODE errno
 #define SOCKET_CLOSE close
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
+#endif
 #endif
 
 IGAME_NAMESPACE_BEGIN
@@ -66,7 +70,7 @@ public:
      * @param port 监听端口
      */
     iGameSocketConnection(const std::string& host, int port);
-    
+
     /**
      * @brief 析构函数
      */
@@ -77,38 +81,38 @@ public:
      * @return 启动成功返回true，否则返回false
      */
     bool start();
-    
+
     /**
      * @brief 停止服务器
      */
     void stop();
-    
+
     /**
      * @brief 发送响应
      * @param data 响应数据
      * @return 发送成功返回true，否则返回false
      */
     bool sendResponse(const std::vector<uint8_t>& data);
-    
+
     /**
      * @brief 发送响应（字符串版本）
      * @param data 响应数据字符串
      * @return 发送成功返回true，否则返回false
      */
     bool sendResponse(const std::string& data);
-    
+
     /**
      * @brief 检查客户端是否已连接
      * @return 已连接返回true，否则返回false
      */
     bool isClientConnected() const;
-    
+
     /**
      * @brief 设置消息接收回调
      * @param callback 回调函数
      */
     void setMessageCallback(MessageCallback callback);
-    
+
     /**
      * @brief 设置连接状态变化回调
      * @param callback 回调函数
@@ -143,19 +147,24 @@ private:
 
     std::string m_host;
     int m_port;
-    SOCKET_TYPE m_serverSocket;
-    SOCKET_TYPE m_clientSocket;
     std::atomic<bool> m_shouldStop;
     std::atomic<bool> m_isRunning;
     std::atomic<bool> m_clientConnected;
-    
+
     MessageCallback m_messageCallback;
     ConnectionCallback m_connectionCallback;
-    
+
     mutable std::mutex m_mutex;
+#if !defined(__EMSCRIPTEN__)
     std::unique_ptr<std::thread> m_serverThread;
-    
+    SOCKET_TYPE m_serverSocket;
+    SOCKET_TYPE m_clientSocket;
     bool m_winsockInitialized;
+#else
+    int m_serverSocket;
+    int m_clientSocket;
+    bool m_winsockInitialized;
+#endif
 };
 
 IGAME_NAMESPACE_END

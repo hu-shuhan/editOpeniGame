@@ -1,6 +1,7 @@
 ﻿#ifndef iGameThreadPool_h
 #define iGameThreadPool_h
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <future>
@@ -9,6 +10,12 @@
 #include <thread>
 
 #include "iGameObject.h"
+
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+#define IGAME_EMSCRIPTEN_SINGLE_THREAD 1
+#else
+#define IGAME_EMSCRIPTEN_SINGLE_THREAD 0
+#endif
 
 IGAME_NAMESPACE_BEGIN
 class ThreadPool : public Object {
@@ -31,18 +38,29 @@ public:
     // parallelFor 函数
     template<typename Func>
     static void parallelFor(int start, int end, Func&& process, int numThreads = GetDefaultThreadCount()) {
-        int range = end - start;
-        int chunkSize = range / numThreads;
-        if (range < numThreads) {
-            numThreads = range;
-            chunkSize = 1;
+        if (end <= start) { return; }
+#if IGAME_EMSCRIPTEN_SINGLE_THREAD
+        process(start, end);
+        return;
+#endif
+        if (numThreads <= 1) {
+            process(start, end);
+            return;
         }
+        int range = end - start;
+        if (numThreads > range) { numThreads = range; }
+        if (numThreads <= 1) {
+            process(start, end);
+            return;
+        }
+        int chunkSize = (range + numThreads - 1) / numThreads;
         // std::cout << "The number of threads uesd  is " << numThreads << '\n';
         std::vector<std::future<void>> futures;
         for (int i = 0; i < numThreads; ++i) {
             int chunkStart = start + i * chunkSize;
-            int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
-            if (chunkStart == chunkEnd) continue;
+            if (chunkStart >= end) { break; }
+            int chunkEnd = (i == numThreads - 1) ? end : std::min(end, chunkStart + chunkSize);
+            if (chunkStart == chunkEnd) { continue; }
             // 使用线程池提交任务
             //std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
             futures.emplace_back(ThreadPool::Instance()->Commit([=]() { process(chunkStart, chunkEnd); }));
@@ -57,21 +75,36 @@ public:
     template<typename Func>
     static void parallelFor(int start, int end, int maxThreadSize, Func&& process,
                             int numThreads = GetDefaultThreadCount()) {
-        if (numThreads > maxThreadSize) numThreads = maxThreadSize;
-        int range = end - start;
-        int chunkSize = range / numThreads;
-        if (range < numThreads) {
-            numThreads = range;
-            chunkSize = 1;
+        if (end <= start) { return; }
+        if (maxThreadSize <= 0) {
+            process(start, end, 0);
+            return;
         }
+#if IGAME_EMSCRIPTEN_SINGLE_THREAD
+        process(start, end, 0);
+        return;
+#endif
+        if (numThreads <= 1) {
+            process(start, end, 0);
+            return;
+        }
+        if (numThreads > maxThreadSize) { numThreads = maxThreadSize; }
+        int range = end - start;
+        if (numThreads > range) { numThreads = range; }
+        if (numThreads <= 1) {
+            process(start, end, 0);
+            return;
+        }
+        int chunkSize = (range + numThreads - 1) / numThreads;
         // std::cout << "The number of threads uesd  is " << numThreads << '\n';
         std::vector<std::thread> threads;
         for (int i = 0; i < numThreads; ++i) {
             int chunkStart = start + i * chunkSize;
-            int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
-            if (chunkStart == chunkEnd) continue;
+            if (chunkStart >= end) { break; }
+            int chunkEnd = (i == numThreads - 1) ? end : std::min(end, chunkStart + chunkSize);
+            if (chunkStart == chunkEnd) { continue; }
             // 创建线程执行任务
-            
+
             threads.emplace_back([=]() { process(chunkStart, chunkEnd, i); });
         }
         // 等待所有线程完成
@@ -103,10 +136,14 @@ public:
 private:
     ThreadPool(unsigned int num = std::thread::hardware_concurrency()) : stop_(false) {
         //std::cout << "Thread number: " << num << std::endl;
+#if IGAME_EMSCRIPTEN_SINGLE_THREAD
+        thread_num_ = 1;
+#else
         if (num <= 1) thread_num_ = 2;
         else
             thread_num_ = num;
         this->Start();
+#endif
     }
 
     ~ThreadPool() { this->Stop(); }
@@ -118,15 +155,14 @@ private:
 private:
     std::mutex cv_mt_;
     std::condition_variable cv_lock_;
-    std::atomic_bool stop_;                  // 线程池是否退出
-    std::atomic_int thread_num_;             // 空闲的线程数
-    std::queue<Task> tasks_;         // 任务队列
-	std::vector<std::thread> pool_;          // 线程队列
+    std::atomic_bool stop_;         // 线程池是否退出
+    std::atomic_int thread_num_;    // 空闲的线程数
+    std::queue<Task> tasks_;        // 任务队列
+    std::vector<std::thread> pool_; // 线程队列
 
-	// 静态变量存储默认线程数量
-	static int defaultThreadCount;
+    // 静态变量存储默认线程数量
+    static int defaultThreadCount;
 };
-
 
 
 IGAME_NAMESPACE_END

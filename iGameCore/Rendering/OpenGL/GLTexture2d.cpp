@@ -20,7 +20,7 @@ void GLTexture2d::CopyImageSubData(const SmartPointer<GLTexture2d> source,
                                    GLsizei srcHeight, GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330
     IGAME_RENDERING_ERROR("[GLTexture2d::CopyImageSubData] Error: Function not "
-                     "supported on OpenGL 3.3.");
+                          "supported on OpenGL 3.3.");
 #elif IGAME_OPENGL_VERSION_460
     glCopyImageSubData(source->Handle(), GL_TEXTURE_2D, srcLevel, srcX, srcY,
                        srcZ, destination->Handle(), GL_TEXTURE_2D, dstLevel,
@@ -53,6 +53,35 @@ void GLTexture2d::Storage(unsigned mip_levels, GLenum internal_format,
 
     GLenum format;
     GLenum type;
+    GLenum storageInternalFormat = internal_format;
+
+    #ifdef __EMSCRIPTEN__
+    if (internal_format == GL_LUMINANCE || internal_format == GL_R8 ||
+        internal_format == GL_R32F) {
+        storageInternalFormat = GL_LUMINANCE;
+        format = GL_LUMINANCE;
+        type = GL_UNSIGNED_BYTE;
+    } else if (internal_format == GL_RGB8) {
+        storageInternalFormat = GL_RGB;
+        format = GL_RGB;
+        type = GL_UNSIGNED_BYTE;
+    } else if (internal_format == GL_RGBA8) {
+        storageInternalFormat = GL_RGBA;
+        format = GL_RGBA;
+        type = GL_UNSIGNED_BYTE;
+    } else if (internal_format == GL_DEPTH_COMPONENT24 ||
+               internal_format == GL_DEPTH_COMPONENT32F ||
+               internal_format == GL_DEPTH24_STENCIL8 ||
+               internal_format == GL_DEPTH_COMPONENT) {
+        storageInternalFormat = GL_DEPTH_COMPONENT;
+        format = GL_DEPTH_COMPONENT;
+        type = GL_UNSIGNED_SHORT;
+    } else {
+        storageInternalFormat = GL_RGBA;
+        format = GL_RGBA;
+        type = GL_UNSIGNED_BYTE;
+    }
+    #else
 
     // Select the appropriate format and type based on internal_format
     switch (internal_format) {
@@ -86,13 +115,14 @@ void GLTexture2d::Storage(unsigned mip_levels, GLenum internal_format,
             break;
         default:
             IGAME_RENDERING_ERROR("[GLTexture2d::Storage] Error: Unsupported "
-                             "internal format.");
+                                  "internal format.");
             return;
     }
+    #endif
 
     for (unsigned int level = 0; level < mip_levels; ++level) {
-        glTexImage2D(GL_TEXTURE_2D, level, internal_format, width >> level,
-                     height >> level, 0, format, type, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, level, storageInternalFormat,
+                     width >> level, height >> level, 0, format, type, nullptr);
     }
 
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -147,8 +177,9 @@ void GLTexture2d::GenerateMipmap() {
 
 void GLTexture2d::Active(GLenum texture) {
     if (texture == GL_TEXTURE0) {
-        IGAME_RENDERING_ERROR("[GLTexture2d::Active] Error: GL_TEXTURE0 is reserved "
-                         "and cannot be used.");
+        IGAME_RENDERING_ERROR(
+                "[GLTexture2d::Active] Error: GL_TEXTURE0 is reserved "
+                "and cannot be used.");
         return;
     }
     glActiveTexture(texture);
@@ -164,8 +195,9 @@ void GLTexture2d::BindImage(unsigned int binding_index, unsigned int mip_level,
                             bool layered, int layer, GLenum access,
                             GLenum format) {
 #ifdef IGAME_OPENGL_VERSION_330
-    IGAME_RENDERING_ERROR("You called the GLTexture2d::BindImage function on the "
-                     "opengl330. This function is currently not supported.");
+    IGAME_RENDERING_ERROR(
+            "You called the GLTexture2d::BindImage function on the "
+            "opengl330. This function is currently not supported.");
 #elif IGAME_OPENGL_VERSION_460
     glBindImageTexture(binding_index, m_Handle, mip_level, layered, layer,
                        access, format);

@@ -2,8 +2,13 @@
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Mutex/iGameAtomicMutex.h"
 #include "iGameThreadPool.h"
+#include <atomic>
+#include <chrono>
+#include <cstdint>
 #include <mutex>
+#ifndef __EMSCRIPTEN__
 #include <omp.h>
+#endif
 #include <stdexcept>
 IGAME_NAMESPACE_BEGIN
 #define ArrayList std::vector<ArrayObject>
@@ -145,9 +150,12 @@ bool ModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::Pointe
     return true;
 }
 
+class FaceMemoryPool;
+
 class GFace {
 public:
     GFace* Next = nullptr;
+    FaceMemoryPool* Owner = nullptr;
     //父亲cell，用于对cell attribute的map
     igIndex OriginalCellId = 0;
     igIndex* PointIds = nullptr;
@@ -201,13 +209,29 @@ public:
         }
     }
     bool operator!=(const GFace& other) const { return !(*this == other); }
+    [[nodiscard]] int GetSize() const noexcept { return NumberOfPoints; }
 };
+
+inline std::uint64_t MixFacePointKey(const igIndex pointId) noexcept {
+    auto value = static_cast<std::uint64_t>(pointId);
+    value ^= value >> 30u;
+    value *= 0xbf58476d1ce4e5b9ULL;
+    value ^= value >> 27u;
+    value *= 0x94d049bb133111ebULL;
+    value ^= value >> 31u;
+    return value;
+}
+
+inline std::size_t FinishFaceKey(const std::uint64_t key) noexcept {
+    return static_cast<std::size_t>(key ^ (key >> 32u));
+}
 
 
 template<int Fcnt>
 class StaticFace : public GFace {
 private:
     std::array<igIndex, Fcnt> PointIdsContainer{};
+    std::size_t HashKey{0u};
 
 public:
     StaticFace(const igIndex& originalCellId, const igIndex* pointIds, const bool& isGhost)
@@ -217,14 +241,17 @@ public:
     }
 
     inline static constexpr int GetSize() { return Fcnt; }
+    [[nodiscard]] std::size_t GetHashKey() const noexcept { return HashKey; }
 
     void Initialize(const igIndex* pointIds) {
         int offset = 0;
-        int index;
-        for (index = 1; index < Fcnt; ++index) {
+        std::uint64_t key = static_cast<std::uint64_t>(Fcnt);
+        for (int index = 0; index < Fcnt; ++index) {
             if (pointIds[index] < pointIds[offset]) { offset = index; }
+            key += MixFacePointKey(pointIds[index]);
         }
-        for (index = 0; index < Fcnt; ++index) {
+        HashKey = FinishFaceKey(key);
+        for (int index = 0; index < Fcnt; ++index) {
             this->PointIds[index] = static_cast<igIndex>(pointIds[(offset + index) % Fcnt]);
         }
     }
@@ -274,59 +301,41 @@ using GPolygon = DynamicFace;
 
 class FaceMemoryPool {
 private:
-    static constexpr std::size_t BlockSize = 64ULL * 1024ULL * 1024ULL;
+    static constexpr std::size_t ChunkBytes = 4u * 1024u * 1024u;
     std::size_t NumberOfArrays;
     std::size_t ArrayLength;
     std::size_t NextArrayIndex;
     std::size_t NextFaceIndex;
     unsigned char** Arrays;
+    std::vector<GFace*> FreeFaces;
+    std::mutex Mutex;
+
     inline static std::size_t SizeofFace(const int& numberOfPoints) {
-        static constexpr std::size_t fSize = sizeof(GFace);
-        static constexpr std::size_t sizeId = sizeof(igIndex);
-        if (fSize % sizeId == 0) {
-            return fSize + static_cast<std::size_t>(numberOfPoints) * sizeId;
-        } else {
-            return (fSize / sizeId + 1 + static_cast<std::size_t>(numberOfPoints)) * sizeId;
+        const auto rawSize = sizeof(GFace) + static_cast<std::size_t>(numberOfPoints) * sizeof(igIndex);
+        const auto alignment = alignof(GFace);
+        return (rawSize + alignment - 1u) / alignment * alignment;
+    }
+
+    void EnsureFreeFaceList(const int numberOfPoints) {
+        if (numberOfPoints < 0) { return; }
+        const auto requiredSize = static_cast<std::size_t>(numberOfPoints) + 1u;
+        if (requiredSize > FreeFaces.size()) { FreeFaces.resize(requiredSize, nullptr); }
+    }
+
+    GFace* AllocateUnlocked(const int numberOfPoints) {
+        EnsureFreeFaceList(numberOfPoints);
+        if (numberOfPoints >= 0 && FreeFaces[static_cast<std::size_t>(numberOfPoints)] != nullptr) {
+            auto* face = FreeFaces[static_cast<std::size_t>(numberOfPoints)];
+            FreeFaces[static_cast<std::size_t>(numberOfPoints)] = face->Next;
+            face->Next = nullptr;
+            face->Owner = this;
+            return face;
         }
-    }
 
-public:
-    FaceMemoryPool()
-        : NumberOfArrays(0), ArrayLength(0), NextArrayIndex(0), NextFaceIndex(0),
-          Arrays(nullptr) /*, Lock(std::make_unique<std::mutex>()) */ {}
-
-    ~FaceMemoryPool() { this->Destroy(); }
-
-    void Initialize(const igIndex& numberOfPoints) {
-        this->Destroy();
-        this->NumberOfArrays = 100;
-        this->NextArrayIndex = 0;
-        this->NextFaceIndex = 0;
-        this->Arrays = new unsigned char*[this->NumberOfArrays];
-        for (std::size_t i = 0; i < this->NumberOfArrays; i++) { this->Arrays[i] = nullptr; }
-        this->ArrayLength = BlockSize;
-    }
-
-    void Destroy() {
-        for (std::size_t i = 0; i < this->NumberOfArrays; i++) {
-            delete[] this->Arrays[i];
-            this->Arrays[i] = nullptr;
-        }
-        delete[] this->Arrays;
-        this->Arrays = nullptr;
-        this->ArrayLength = 0;
-        this->NumberOfArrays = 0;
-        this->NextArrayIndex = 0;
-        this->NextFaceIndex = 0;
-    }
-
-    GFace* Allocate(const int& numberOfPoints) {
-
-        const std::size_t polySize = SizeofFace(numberOfPoints);
+        const auto polySize = SizeofFace(numberOfPoints);
         if (polySize > this->ArrayLength) {
             throw std::length_error("Face size exceeds FaceMemoryPool block size");
         }
-        //std::cout << this->NextArrayIndex << " " << this->NextFaceIndex << '\n';
         if (this->NextFaceIndex + polySize > this->ArrayLength) {
             ++this->NextArrayIndex;
             this->NextFaceIndex = 0;
@@ -345,79 +354,169 @@ public:
             this->Arrays = newArrays;
             this->NumberOfArrays = num;
         }
-        //如果还没有就生成一个新的
         if (this->Arrays[this->NextArrayIndex] == nullptr) {
             this->Arrays[this->NextArrayIndex] = new unsigned char[this->ArrayLength];
         }
 
-        GFace* Face = reinterpret_cast<GFace*>(this->Arrays[this->NextArrayIndex] + this->NextFaceIndex);
-        Face->NumberOfPoints = numberOfPoints;
-
-        static constexpr std::size_t fSize = sizeof(GFace);
-        static constexpr std::size_t sizeId = sizeof(igIndex);
-        //字节对齐
-        if (fSize % sizeId == 0) {
-            Face->PointIds = (igIndex*) Face + fSize / sizeId;
-        } else {
-            Face->PointIds = (igIndex*) Face + fSize / sizeId + 1;
-        }
-
+        GFace* face = reinterpret_cast<GFace*>(this->Arrays[this->NextArrayIndex] + this->NextFaceIndex);
+        face->Owner = this;
+        face->NumberOfPoints = numberOfPoints;
+        face->PointIds = reinterpret_cast<igIndex*>(reinterpret_cast<unsigned char*>(face) + sizeof(GFace));
         this->NextFaceIndex += polySize;
-
-        return Face;
+        return face;
     }
+
+    void ReleaseUnlocked(GFace* face) {
+        if (face == nullptr || face->NumberOfPoints < 0) { return; }
+        EnsureFreeFaceList(face->NumberOfPoints);
+        const auto index = static_cast<std::size_t>(face->NumberOfPoints);
+        face->Next = FreeFaces[index];
+        FreeFaces[index] = face;
+    }
+
+public:
+    FaceMemoryPool()
+        : NumberOfArrays(0), ArrayLength(0), NextArrayIndex(0), NextFaceIndex(0),
+          Arrays(nullptr) /*, Lock(std::make_unique<std::mutex>()) */ {}
+
+    ~FaceMemoryPool() { this->Destroy(); }
+
+    void Initialize(const igIndex&) {
+        this->Destroy();
+        this->NumberOfArrays = 16;
+        this->NextArrayIndex = 0;
+        this->NextFaceIndex = 0;
+        this->Arrays = new unsigned char*[this->NumberOfArrays];
+        for (auto i = 0; i < this->NumberOfArrays; i++) { this->Arrays[i] = nullptr; }
+        this->ArrayLength = ChunkBytes;
+        FreeFaces.assign(static_cast<std::size_t>(IGAME_CELL_MAX_SIZE) + 1u, nullptr);
+    }
+
+    void Destroy() {
+        for (auto i = 0; i < this->NumberOfArrays; i++) {
+            delete[] this->Arrays[i];
+            this->Arrays[i] = nullptr;
+        }
+        delete[] this->Arrays;
+        this->Arrays = nullptr;
+        this->ArrayLength = 0;
+        this->NumberOfArrays = 0;
+        this->NextArrayIndex = 0;
+        this->NextFaceIndex = 0;
+        FreeFaces.clear();
+    }
+
+    GFace* Allocate(const int& numberOfPoints) {
+        std::lock_guard<std::mutex> lock(Mutex);
+        return AllocateUnlocked(numberOfPoints);
+    }
+
+    GFace* AllocateSerial(const int numberOfPoints) { return AllocateUnlocked(numberOfPoints); }
+
+    void Release(GFace* face) {
+        std::lock_guard<std::mutex> lock(Mutex);
+        ReleaseUnlocked(face);
+    }
+
+    void ReleaseSerial(GFace* face) { ReleaseUnlocked(face); }
 };
 class FaceHashMap {
 private:
+    using BucketMutex = iGameAtomicMutex;
+
     struct Bucket {
         GFace* Head;
-        iGameAtomicMutex Lock;
+        BucketMutex Lock;
         Bucket() : Head(nullptr) {}
     };
     size_t Size;
     std::vector<Bucket> Buckets;
+    bool ThreadSafe{true};
 
-public:
-    FaceHashMap(const size_t& size) : Size(size) { this->Buckets.resize(this->Size); }
-    ~FaceHashMap() { std::vector<Bucket>().swap(this->Buckets); }
-    std::vector<Bucket>& GetBuckets() { return this->Buckets; }
-    //插入面到池子中，如果已经存在就去除，如果不存在就加入
-    template<typename TypeFace>
-    void Insert(const TypeFace& f, FaceMemoryPool* pool) {
-        const size_t key = static_cast<size_t>(f.PointIds[0]) % this->Size;
-        auto& bucket = this->Buckets[key];
-        auto& bucketHead = bucket.Head;
-        std::lock_guard<iGameAtomicMutex> lock(bucket.Lock);
-        auto current = bucketHead;
-        auto previous = current;
+    static std::size_t GetKey(const GFace& face) {
+        std::uint64_t key = static_cast<std::uint64_t>(face.NumberOfPoints);
+        for (int i = 0; i < face.NumberOfPoints; ++i) {
+            key += MixFacePointKey(face.PointIds[i]);
+        }
+        return FinishFaceKey(key);
+    }
+
+    template<int Fcnt>
+    static std::size_t GetKey(const StaticFace<Fcnt>& face) noexcept {
+        return face.GetHashKey();
+    }
+
+    template<bool Synchronized, typename TypeFace>
+    static void InsertExclusive(
+        GFace*& bucketHead,
+        const TypeFace& face,
+        FaceMemoryPool* pool) {
+        auto* current = bucketHead;
+        auto* previous = current;
         while (current != nullptr) {
-            if (*current == f) {
-                // delete the duplicate
+            if (*current == face) {
                 if (bucketHead == current) {
                     bucketHead = current->Next;
                 } else {
                     previous->Next = current->Next;
+                }
+                if (current->Owner != nullptr) {
+                    if constexpr (Synchronized) {
+                        current->Owner->Release(current);
+                    } else {
+                        current->Owner->ReleaseSerial(current);
+                    }
                 }
                 return;
             }
             previous = current;
             current = current->Next;
         }
-        //not existed, allocate a new face
-        //GFace* newF = new GFace(f.OriginalCellId, f.GetSize(), f.IsGhost);
-        //newF->PointIds = new igIndex[f.GetSize()];
-        GFace* newF = pool->Allocate(f.GetSize());
-        newF->Next = nullptr;
-        newF->OriginalCellId = f.OriginalCellId;
-        newF->IsGhost = f.IsGhost;
-        std::copy(f.PointIds, f.PointIds + f.GetSize(), newF->PointIds);
-        //for (int i = 0; i < f.GetSize(); i++) {
-        //    newF->PointIds[i]=f.PointIds[i];
-        //}
-        if (bucketHead == nullptr) {
-            bucketHead = newF;
+        GFace* newFace = nullptr;
+        if constexpr (Synchronized) {
+            newFace = pool->Allocate(face.GetSize());
         } else {
-            previous->Next = newF;
+            newFace = pool->AllocateSerial(face.GetSize());
+        }
+        newFace->Next = nullptr;
+        newFace->OriginalCellId = face.OriginalCellId;
+        newFace->IsGhost = face.IsGhost;
+        std::copy(face.PointIds, face.PointIds + face.GetSize(), newFace->PointIds);
+        if (bucketHead == nullptr) {
+            bucketHead = newFace;
+        } else {
+            previous->Next = newFace;
+        }
+    }
+
+public:
+    FaceHashMap(const size_t& size, const bool threadSafe = true)
+        : Size(std::max<std::size_t>(1u, std::min<std::size_t>(size, 1024u * 1024u))),
+          ThreadSafe(threadSafe) {
+        this->Buckets.resize(this->Size);
+    }
+    ~FaceHashMap() { std::vector<Bucket>().swap(this->Buckets); }
+    std::vector<Bucket>& GetBuckets() { return this->Buckets; }
+    //插入面到池子中，如果已经存在就去除，如果不存在就加入
+    template<typename TypeFace>
+    void Insert(const TypeFace& f, FaceMemoryPool* pool) {
+        const size_t key = GetKey(f) % this->Size;
+        auto& bucket = this->Buckets[key];
+        auto& bucketHead = bucket.Head;
+        if (!ThreadSafe) {
+            InsertExclusive<false>(bucketHead, f, pool);
+            return;
+        }
+        std::lock_guard<BucketMutex> lock(bucket.Lock);
+        InsertExclusive<true>(bucketHead, f, pool);
+    }
+    void MergeInto(FaceHashMap& output, FaceMemoryPool* pool) const {
+        for (const auto& bucket : Buckets) {
+            auto* current = bucket.Head;
+            while (current != nullptr) {
+                output.Insert(*current, pool);
+                current = current->Next;
+            }
         }
     }
     void CompositeFaces(CellArray::Pointer& Polygons, std::vector<igIndex>& f2c) {
@@ -1045,11 +1144,249 @@ struct ExtractUG : public ExtractCellBoundaries {
         }
     }
 };
+
+struct ExtractDecodedUG : public ExtractCellBoundaries {
+    std::shared_ptr<FaceHashMap> FaceMap;
+
+    explicit ExtractDecodedUG(const igIndex pointCount)
+        : ExtractCellBoundaries(nullptr, nullptr, nullptr) {
+        CreatePointMap(pointCount);
+        FaceMap = std::make_shared<FaceHashMap>(static_cast<std::size_t>(pointCount));
+        Initialize();
+    }
+};
+
+struct ModelGeometryDecodedSurfaceBuilder::Impl {
+    explicit Impl(const IGsize pointCountValue, const std::size_t workerCountValue)
+        : pointCount(pointCountValue),
+          workerCount(std::max<std::size_t>(workerCountValue, 1u)) {
+        if (pointCount > static_cast<IGsize>(std::numeric_limits<igIndex>::max())) {
+            Fail("decoded surface point count exceeds index capacity");
+            return;
+        }
+        extract = std::make_unique<ExtractDecodedUG>(static_cast<igIndex>(pointCount));
+        pools.reserve(workerCount);
+        for (std::size_t index = 0u; index < workerCount; ++index) {
+            auto pool = std::make_unique<FaceMemoryPool>();
+            pool->Initialize(static_cast<igIndex>(pointCount));
+            pools.push_back(std::move(pool));
+        }
+    }
+
+    void Fail(std::string message) {
+        valid.store(false, std::memory_order_relaxed);
+        std::lock_guard<std::mutex> lock(errorMutex);
+        if (error.empty()) { error = std::move(message); }
+    }
+
+    void CopyError(std::string* output) const {
+        if (output == nullptr) { return; }
+        std::lock_guard<std::mutex> lock(errorMutex);
+        *output = error;
+    }
+
+    IGsize pointCount{0u};
+    std::size_t workerCount{1u};
+    std::unique_ptr<ExtractDecodedUG> extract;
+    std::vector<std::unique_ptr<FaceMemoryPool>> pools;
+    std::atomic<bool> valid{true};
+    mutable std::mutex errorMutex;
+    std::string error;
+};
+
+namespace {
+
+bool IsDecodedSurfaceCellTypeSupported(const int cellType) {
+    switch (cellType) {
+        case IG_TETRA:
+        case IG_HEXAHEDRON:
+        case IG_PRISM:
+        case IG_PYRAMID:
+        case IG_QUADRATIC_TETRA:
+        case IG_QUADRATIC_HEXAHEDRON:
+        case IG_QUADRATIC_PRISM:
+        case IG_QUADRATIC_PYRAMID:
+            return true;
+        default:
+            return false;
+    }
+}
+
+} // namespace
+
+ModelGeometryDecodedSurfaceBuilder::ModelGeometryDecodedSurfaceBuilder(
+    const IGsize pointCount,
+    const std::size_t workerCount)
+    : m_impl(std::make_unique<Impl>(pointCount, workerCount)) {}
+
+ModelGeometryDecodedSurfaceBuilder::~ModelGeometryDecodedSurfaceBuilder() = default;
+
+bool ModelGeometryDecodedSurfaceBuilder::AccumulateBlock(
+    const std::size_t workerIndex,
+    const std::size_t cellOffset,
+    const int fixedCellSize,
+    const std::span<const std::uint32_t> connectivity,
+    const std::span<const std::uint32_t> offsets,
+    const std::span<const std::uint32_t> cellTypes,
+    std::string* error) {
+    if (m_impl == nullptr || !m_impl->valid.load(std::memory_order_relaxed)) {
+        if (m_impl != nullptr) { m_impl->CopyError(error); }
+        return false;
+    }
+    if (workerIndex >= m_impl->pools.size()) {
+        m_impl->Fail("decoded surface worker index is invalid");
+        m_impl->CopyError(error);
+        return false;
+    }
+    if (cellTypes.empty()) {
+        m_impl->Fail("decoded surface requires explicit cell types");
+        m_impl->CopyError(error);
+        return false;
+    }
+    if (fixedCellSize > 0) {
+        const auto fixedSize = static_cast<std::size_t>(fixedCellSize);
+        if (cellTypes.size() > std::numeric_limits<std::size_t>::max() / fixedSize ||
+            connectivity.size() != cellTypes.size() * fixedSize) {
+            m_impl->Fail("decoded surface fixed topology block shape is invalid");
+            m_impl->CopyError(error);
+            return false;
+        }
+    } else if (offsets.size() != cellTypes.size() + 1u ||
+               offsets.empty() ||
+               offsets.back() != connectivity.size()) {
+        m_impl->Fail("decoded surface variable topology block shape is invalid");
+        m_impl->CopyError(error);
+        return false;
+    }
+    auto* outputFacePool = m_impl->pools[workerIndex].get();
+    auto* outputFaceMap = m_impl->extract->FaceMap.get();
+#if defined(__EMSCRIPTEN__)
+    FaceMemoryPool localFacePool;
+    localFacePool.Initialize(static_cast<igIndex>(m_impl->pointCount));
+    const auto localBucketCount = cellTypes.size() <= std::numeric_limits<std::size_t>::max() / 2u
+        ? cellTypes.size() * 2u
+        : cellTypes.size();
+    FaceHashMap localFaceMap((std::max<std::size_t>)(localBucketCount, 1u), false);
+    auto* facePool = &localFacePool;
+    auto* faceMap = &localFaceMap;
+#else
+    auto* facePool = outputFacePool;
+    auto* faceMap = outputFaceMap;
+#endif
+    UnstructuredMesh::Pointer input;
+    igIndex pointIds[IGAME_CELL_MAX_SIZE]{};
+    for (std::size_t localCellIndex = 0u; localCellIndex < cellTypes.size(); ++localCellIndex) {
+        if (!m_impl->valid.load(std::memory_order_relaxed)) { break; }
+        const auto globalCellIndex = cellOffset + localCellIndex;
+        if (globalCellIndex > static_cast<std::size_t>(std::numeric_limits<igIndex>::max())) {
+            m_impl->Fail("decoded surface cell index exceeds index capacity");
+            break;
+        }
+        const auto cellType = static_cast<int>(cellTypes[localCellIndex]);
+        if (Cell::GetCellDimension(cellType) < 3) { continue; }
+        if (!IsDecodedSurfaceCellTypeSupported(cellType)) {
+            m_impl->Fail("decoded surface encountered an unsupported volume cell type");
+            break;
+        }
+
+        std::size_t begin = 0u;
+        std::size_t end = 0u;
+        if (fixedCellSize > 0) {
+            begin = localCellIndex * static_cast<std::size_t>(fixedCellSize);
+            end = begin + static_cast<std::size_t>(fixedCellSize);
+        } else {
+            begin = static_cast<std::size_t>(offsets[localCellIndex]);
+            end = static_cast<std::size_t>(offsets[localCellIndex + 1u]);
+        }
+        if (begin > end || end > connectivity.size() || end - begin > IGAME_CELL_MAX_SIZE) {
+            m_impl->Fail("decoded surface cell connectivity range is invalid");
+            break;
+        }
+        const auto pointCount = end - begin;
+        for (std::size_t pointIndex = 0u; pointIndex < pointCount; ++pointIndex) {
+            const auto pointId = connectivity[begin + pointIndex];
+            if (pointId > static_cast<std::uint32_t>(std::numeric_limits<igIndex>::max())) {
+                m_impl->Fail("decoded surface point index exceeds index capacity");
+                break;
+            }
+            pointIds[pointIndex] = static_cast<igIndex>(pointId);
+        }
+        if (!m_impl->valid.load(std::memory_order_relaxed)) { break; }
+        ExtractCellGeometry(
+            input,
+            static_cast<igIndex>(globalCellIndex),
+            cellType,
+            static_cast<igIndex>(pointCount),
+            pointIds,
+            facePool,
+            faceMap,
+            false);
+    }
+
+    if (!m_impl->valid.load(std::memory_order_relaxed)) {
+        m_impl->CopyError(error);
+        return false;
+    }
+#if defined(__EMSCRIPTEN__)
+    localFaceMap.MergeInto(*outputFaceMap, outputFacePool);
+#endif
+    return true;
+}
+
+bool ModelGeometryDecodedSurfaceBuilder::Finalize(
+    UnstructuredMesh::Pointer input,
+    SurfaceMesh::Pointer& output,
+    FlatArray<igIndex>::Pointer& pointMap,
+    std::shared_ptr<std::vector<igIndex>>& faceToCellMap,
+    std::string* error) {
+    if (m_impl == nullptr || !m_impl->valid.load(std::memory_order_relaxed)) {
+        if (m_impl != nullptr) { m_impl->CopyError(error); }
+        return false;
+    }
+    if (input == nullptr || input->GetPoints() == nullptr ||
+        input->GetNumberOfPoints() != m_impl->pointCount) {
+        m_impl->Fail("decoded surface input geometry does not match topology");
+        m_impl->CopyError(error);
+        return false;
+    }
+
+    auto polygons = CellArray::New();
+    std::vector<igIndex> faceToCell;
+    m_impl->extract->FaceMap->CompositeFaces(polygons, faceToCell);
+
+    auto filter = ModelGeometryFilter::New();
+    auto outputAttributes = AttributeSet::New();
+    filter->CompositeCellAttribute(faceToCell, input->GetAttributeSet(), outputAttributes);
+    auto outputPoints = input->GetPoints();
+    filter->ProcessPointMergin(
+        m_impl->extract.get(),
+        input->GetPoints(),
+        outputPoints,
+        polygons,
+        outputAttributes);
+
+    if (output == nullptr) { output = SurfaceMesh::New(); }
+    output->SetPoints(outputPoints);
+    output->SetFaces(polygons);
+    output->SetAttributeSet(outputAttributes);
+    output->SetViewStyle(IG_SURFACE);
+    pointMap = filter->GetPointMap();
+    faceToCellMap = std::make_shared<std::vector<igIndex>>(std::move(faceToCell));
+
+    m_impl->pools.clear();
+    m_impl->extract.reset();
+    return true;
+}
+
 int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                      SurfaceMesh::Pointer exc) {
+    using SurfaceClock = std::chrono::steady_clock;
+    const auto totalStart = SurfaceClock::now();
     UnstructuredMesh::Pointer Mesh = DynamicCast<UnstructuredMesh>(input);
+    if (Mesh == nullptr) { return 0; }
     //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
     //                     << Mesh->GetNumberOfCells() << " cells.");
+    const auto dimensionScanStart = SurfaceClock::now();
     bool isNot3D = true;
     for (int i = 0; i < Mesh->GetNumberOfCells(); i++) {
         if (Cell::GetCellDimension(Mesh->GetCellType(i)) >= 3) {
@@ -1057,16 +1394,17 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
             break;
         }
     }
+    const auto dimensionScanEnd = SurfaceClock::now();
     if (isNot3D) {
         auto surfaceMesh = Mesh->TransferToSurfaceMesh();
         if (surfaceMesh == nullptr) { return 0; }
-        if (!ExecuteWithSurfaceMesh(Mesh->TransferToSurfaceMesh(), output)) { output = surfaceMesh; }
+        if (!ExecuteWithSurfaceMesh(surfaceMesh, output)) { output = surfaceMesh; }
         return 1;
     }
-    clock_t startTime = clock();
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
     igIndex64 numCells = Mesh->GetNumberOfCells();
+    if (numCells <= 0) { return 0; }
     igIndex64 numInputPts = Mesh->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
     auto inPoints = Mesh->GetPoints();
@@ -1075,42 +1413,79 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     auto outAllDataArray = AttributeSet::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
+    const auto visibilityStart = SurfaceClock::now();
     char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetCells(), Mesh->GetCellTypes());
+    const auto visibilityEnd = SurfaceClock::now();
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
 
+    const auto faceExtractionStart = SurfaceClock::now();
     auto* extract =
             new ExtractUG(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
 
-    FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
-    std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+    int poolCount = this->MaxThreadSize > 0 ? this->MaxThreadSize : 1;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    poolCount = 1;
+#endif
+    FaceMemoryPool** FacePools = new FaceMemoryPool*[poolCount];
+    std::fill(FacePools, FacePools + poolCount, nullptr);
     std::exception_ptr workerException;
     std::mutex workerExceptionMutex;
     auto func = [&](igIndex start, igIndex end, int i) -> void {
         try {
-            FacePools[i] = new FaceMemoryPool;
-            FacePools[i]->Initialize(Mesh->GetNumberOfPoints());
-            extract->Execute(start, end, FacePools[i]);
+            const int poolId = (i >= 0 && i < poolCount) ? i : 0;
+            if (FacePools[poolId] == nullptr) {
+                FacePools[poolId] = new FaceMemoryPool;
+                FacePools[poolId]->Initialize(Mesh->GetNumberOfPoints());
+            }
+            extract->Execute(start, end, FacePools[poolId]);
         } catch (...) {
             std::lock_guard<std::mutex> lock(workerExceptionMutex);
             if (!workerException) { workerException = std::current_exception(); }
         }
     };
-    ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
+#ifdef __EMSCRIPTEN__
+    auto sharedPool = ThreadPool::Instance();
+    const std::size_t sharedPoolWorkerCount = sharedPool->WorkerCount();
+    const int cellRange = static_cast<int>(numCells);
+    const int chunkSize = (cellRange + poolCount - 1) / poolCount;
+    std::vector<std::future<void>> futures;
+    futures.reserve(poolCount);
+    for (int workerIndex = 0; workerIndex < poolCount; ++workerIndex) {
+        const int chunkStart = workerIndex * chunkSize;
+        if (chunkStart >= cellRange) { break; }
+        const int chunkEnd = std::min(cellRange, chunkStart + chunkSize);
+        futures.emplace_back(sharedPool->Commit([&, chunkStart, chunkEnd, workerIndex]() {
+            func(chunkStart, chunkEnd, workerIndex);
+        }));
+    }
+    for (auto& future: futures) { future.get(); }
+#else
+    const std::size_t sharedPoolWorkerCount = 0u;
+    ThreadPool::parallelFor(0, numCells, poolCount, func);
+#endif
     if (workerException) {
         delete extract;
-        for (int poolIndex = 0; poolIndex < MaxThreadSize; ++poolIndex) { delete FacePools[poolIndex]; }
+        for (int poolIndex = 0; poolIndex < poolCount; ++poolIndex) { delete FacePools[poolIndex]; }
         delete[] FacePools;
         std::rethrow_exception(workerException);
     }
+    const auto faceExtractionEnd = SurfaceClock::now();
     std::vector<igIndex> f2c;
+    const auto faceCompositeStart = SurfaceClock::now();
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
+    const auto faceCompositeEnd = SurfaceClock::now();
+    const auto cellAttributeStart = SurfaceClock::now();
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
+    const auto cellAttributeEnd = SurfaceClock::now();
+    const auto pointMergeStart = SurfaceClock::now();
     if (Merging) {
         ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray);
     } else {
         m_PointMap = nullptr;
     }
+    const auto pointMergeEnd = SurfaceClock::now();
+    const auto finalizeStart = SurfaceClock::now();
     output->SetPoints(outPoints);
     output->SetFaces(Polygons);
     output->SetAttributeSet(outAllDataArray);
@@ -1121,7 +1496,7 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     f2c.swap(temp);
     delete extract;
     extract = nullptr;
-    for (int i = 0; i < MaxThreadSize; i++) {
+    for (int i = 0; i < poolCount; i++) {
         if (FacePools[i]) {
             delete FacePools[i];
             FacePools[i] = nullptr;
@@ -1131,8 +1506,19 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     }
     delete[] FacePools;
     FacePools = nullptr;
-    clock_t endTime = clock();
-    igDebug("Extracted surface cost {} ms.", endTime - startTime);
+    const auto finalizeEnd = SurfaceClock::now();
+    const auto elapsedMs = [](const auto start, const auto end) {
+        return std::chrono::duration<double, std::milli>(end - start).count();
+    };
+    igDebug(
+            "[ModelGeometryFilter timing] total={} ms; dimension-scan={} ms; visibility={} ms; "
+            "face-extraction={} ms; face-composite={} ms; cell-attributes={} ms; point-merge={} ms; finalize={} ms; "
+            "point-merging={}; workers={}; shared-pool-workers={}",
+            elapsedMs(totalStart, finalizeEnd), elapsedMs(dimensionScanStart, dimensionScanEnd),
+            elapsedMs(visibilityStart, visibilityEnd), elapsedMs(faceExtractionStart, faceExtractionEnd),
+            elapsedMs(faceCompositeStart, faceCompositeEnd), elapsedMs(cellAttributeStart, cellAttributeEnd),
+            elapsedMs(pointMergeStart, pointMergeEnd), elapsedMs(finalizeStart, finalizeEnd), Merging, poolCount,
+            sharedPoolWorkerCount);
     return 1;
 }
 

@@ -8,6 +8,14 @@
 
 IGAME_NAMESPACE_BEGIN
 
+#ifdef __EMSCRIPTEN__
+constexpr GLenum kGlyphInternalFormat = GL_LUMINANCE;
+constexpr GLenum kGlyphFormat = GL_LUMINANCE;
+#else
+constexpr GLenum kGlyphInternalFormat = GL_R8;
+constexpr GLenum kGlyphFormat = GL_RED;
+#endif
+
 FontManager::FontManager() {}
 
 FontManager::~FontManager() {
@@ -25,20 +33,23 @@ void FontManager::RegisterWords(const wchar_t* text) {
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
         IGAME_RENDERING_ERROR("FREETYPE: Could not init FreeType Library");
+        return;
     }
 
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
         IGAME_RENDERING_ERROR("FREETYPE: Failed to load font {}", fontPath);
+        FT_Done_FreeType(ft);
+        return;
     }
 
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
     FT_Set_Pixel_Sizes(face, 0, 128);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    int lew_w = wcslen(text);
+    size_t textLength = wcslen(text);
 
-    for (GLubyte i = 0; i < lew_w; i++) {
+    for (size_t i = 0; i < textLength; i++) {
         auto wchar = text[i];
 
         // Skip registered word
@@ -48,9 +59,11 @@ void FontManager::RegisterWords(const wchar_t* text) {
         // Loading the glyphs for characters
         if (FT_Load_Char(face, wchar, FT_LOAD_DEFAULT)) {
             IGAME_RENDERING_ERROR("FREETYPE: Failed to load Char");
+            continue;
         }
         if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL)) {
             IGAME_RENDERING_ERROR("FREETYPE: Failed to load Glyph");
+            continue;
         }
 
         // Font size
@@ -61,6 +74,13 @@ void FontManager::RegisterWords(const wchar_t* text) {
         int font_top = face->glyph->bitmap_top;
         // The distance from the origin to the next glyph origin
         int font_x = face->glyph->advance.x;
+        Character character = {
+                0, igm::ivec2(font_width, font_rows),
+                igm::ivec2(font_left, font_top), static_cast<uint32_t>(font_x)};
+        if (font_width == 0 || font_rows == 0) {
+            m_Characters.insert(std::pair<wchar_t, Character>(wchar, character));
+            continue;
+        }
         // Flip the bitmap vertically
         auto data = face->glyph->bitmap.buffer;
         FlipVertically(data, font_width, font_rows);
@@ -69,11 +89,16 @@ void FontManager::RegisterWords(const wchar_t* text) {
         SmartPointer<GLTexture2d> texture = GLTexture2d::New();
         texture->Create();
         texture->Bind();
-        texture->Storage(1, GL_R8, font_width, font_rows);
-        texture->SubImage(0, 0, 0, font_width, font_rows, GL_RED,
+        texture->Storage(1, kGlyphInternalFormat, font_width, font_rows);
+        texture->SubImage(0, 0, 0, font_width, font_rows, kGlyphFormat,
                           GL_UNSIGNED_BYTE, data);
+#ifdef __EMSCRIPTEN__
+        texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#else
         texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+#endif
         texture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         texture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -82,9 +107,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
                 std::pair<wchar_t, SmartPointer<GLTexture2d>>(wchar, texture));
 
         // Store characters for later use
-        Character character = {
-                texture->Handle(), igm::ivec2(font_width, font_rows),
-                igm::ivec2(font_left, font_top), static_cast<uint32_t>(font_x)};
+        character.TextureID = texture->Handle();
         m_Characters.insert(std::pair<wchar_t, Character>(wchar, character));
     }
 
@@ -104,6 +127,10 @@ FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
         this->RegisterWords(text);
         it = m_Characters.find(wchar);
     }
+    if (it == m_Characters.end()) {
+        static Character fallbackCharacter{};
+        return fallbackCharacter;
+    }
     return it->second;
 }
 
@@ -116,6 +143,9 @@ SmartPointer<GLTexture2d> FontManager::GetTexture(const wchar_t wchar) {
         wchar_t text[2] = {wchar, L'\0'};
         this->RegisterWords(text);
         it = m_Textures.find(wchar);
+    }
+    if (it == m_Textures.end()) {
+        return nullptr;
     }
     return it->second;
 }

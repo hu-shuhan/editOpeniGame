@@ -22,6 +22,8 @@ public:
 
     void SetInteractor(Interactor* _interactor);
 
+    void RenderOneFrame();
+
     void Show();
 
     void SetSize(int width, int height);

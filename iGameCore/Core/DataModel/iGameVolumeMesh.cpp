@@ -1467,12 +1467,14 @@ void VolumeMesh::ConvertToDrawableData() {
 
 void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                           igIndex dimension) {
-    double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
-    double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
-    if (minimal_val < maximal_val) {
-        m_ColorMapper->SetRange(minimal_val, maximal_val);
-    } else {
-        m_ColorMapper->InitRange(attr, dimension);
+    if (!m_ColorMapper->GetStable()) {
+        double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+        double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+        if (minimal_val < maximal_val) {
+            m_ColorMapper->SetRange(minimal_val, maximal_val);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
     }
 
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);

@@ -2,16 +2,19 @@
 
 #include <iGameModel.h>
 #include <iGameSceneManager.h>
+#include <Attribute/iGameAttributeDataSource.h>
 
 #include <IQComponents/igQtComponents.h>
 #include <IQCore/igQtExportModule.h>
 
 #include <QComboBox>
 #include <QDockWidget>
+#include <QHash>
 #include <QMouseEvent>
 #include <QObject>
 #include <QPushButton>
 #include <QTreeWidget>
+#include <QVector>
 #include <qboxlayout.h>
 
 #include <iostream>
@@ -32,7 +35,7 @@ public:
 
     void changeVisibility(bool);
 
-    void viewAttribute(int index, int dim = -1);
+    bool viewAttribute(int index, int dim = -1);
 
     void setCurrentChild(QTreeWidgetItem* child);
     QTreeWidgetItem* getCurrentChild();
@@ -88,11 +91,29 @@ public:
     void show() { comboBox->show(); }
     void hide() { comboBox->hide(); }
     MComboBox* get() { return comboBox; }
-    void viewAttribute(int dim) { parent->viewAttribute(index, dim); }
+    bool viewAttribute(int dim) { return parent->viewAttribute(index, dim); }
+    void setAttributeName(const QString& name);
+    void setAttributeData(
+        const iGame::AttributeDataTarget& target,
+        iGame::AttributeDataLoadState state,
+        int nativeIndex);
+    void setLoadState(iGame::AttributeDataLoadState state, int nativeIndex = -1);
+    [[nodiscard]] bool hasAttributeData() const { return m_HasAttributeData; }
+    [[nodiscard]] const iGame::AttributeDataTarget& attributeTarget() const { return m_Target; }
+    [[nodiscard]] iGame::AttributeDataLoadState loadState() const { return m_LoadState; }
+    void setPendingDimension(int dimension) { m_PendingDimension = dimension; }
+    [[nodiscard]] int takePendingDimension();
 
 private:
+    void refreshLabel();
+
     int index;
     int m_Dimension{1};
+    int m_PendingDimension{-2};
+    bool m_HasAttributeData{false};
+    QString m_AttributeName;
+    iGame::AttributeDataTarget m_Target;
+    iGame::AttributeDataLoadState m_LoadState{iGame::AttributeDataLoadState::Loaded};
     MComboBox* comboBox;
     ModelTreeWidgetItem* parent;
 };
@@ -222,21 +243,61 @@ public:
     int currentIndex() const { return m_Combo->currentIndex(); }
     void show() { m_Combo->show(); }
     void hide() { m_Combo->hide(); }
+    void setAttributeName(const QString& name) {
+        m_AttributeName = name;
+        refreshLabel();
+    }
+    void setAttributeData(
+        const iGame::AttributeDataTarget& target,
+        iGame::AttributeDataLoadState state,
+        int nativeIndex) {
+        m_HasAttributeData = true;
+        m_Target = target;
+        setLoadState(state, nativeIndex);
+    }
+    void setLoadState(iGame::AttributeDataLoadState state, int nativeIndex = -1) {
+        m_LoadState = state;
+        if (nativeIndex >= 0) m_Index = nativeIndex;
+        refreshLabel();
+    }
+    [[nodiscard]] bool hasAttributeData() const { return m_HasAttributeData; }
+    [[nodiscard]] const iGame::AttributeDataTarget& attributeTarget() const { return m_Target; }
+    [[nodiscard]] iGame::AttributeDataLoadState loadState() const { return m_LoadState; }
+    void setPendingDimension(int dimension) { m_PendingDimension = dimension; }
+    [[nodiscard]] int takePendingDimension() {
+        const int dimension = m_PendingDimension;
+        m_PendingDimension = -2;
+        return dimension;
+    }
 
-    void viewAttribute(int dim) {
-        if (!m_Parent) return;
+    bool viewAttribute(int dim) {
+        if (!m_Parent) return false;
         auto obj = m_Parent->getDataObject();
         auto draw = DynamicCast<iGame::DrawObject>(obj);
         if (draw) {
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-            draw->ViewCloudPicture(scene, m_Index, dim);
-            if (scene) scene->Update();
+            return draw->ViewCloudPicture(scene, m_Index, dim, false);
         }
+        return false;
     }
 
 private:
+    void refreshLabel() {
+        QString suffix;
+        if (m_LoadState == iGame::AttributeDataLoadState::Unloaded) suffix = QStringLiteral("  [未加载]");
+        if (m_LoadState == iGame::AttributeDataLoadState::Loading) suffix = QStringLiteral("  [加载中]");
+        if (m_LoadState == iGame::AttributeDataLoadState::Failed) suffix = QStringLiteral("  [加载失败]");
+        setText(0, m_AttributeName + suffix);
+        setToolTip(0, m_AttributeName + suffix);
+    }
+
     int m_Index;
     int m_Dimension{1};
+    int m_PendingDimension{-2};
+    bool m_HasAttributeData{false};
+    QString m_AttributeName;
+    iGame::AttributeDataTarget m_Target;
+    iGame::AttributeDataLoadState m_LoadState{iGame::AttributeDataLoadState::Loaded};
     MComboBox* m_Combo{nullptr};
     QTreeWidget* m_Tree{nullptr};
     SubObjectTreeWidgetItem* m_Parent{nullptr};
@@ -250,6 +311,7 @@ public:
 
     ModelTreeWidgetItem* getItem(const QPoint& p) const;
     QTreeWidgetItem* getChild(const QPoint& p) const;
+    void RebuildAttributeIndex();
 
     //void setCurrentModelItem(ModelTreeWidgetItem* item);
     //ModelTreeWidgetItem* getCurrentModelItem();
@@ -262,5 +324,22 @@ signals:
     void ViewCloudPicture();
 
 private:
+    struct AttributeItemBinding {
+        ModelTreeWidgetItem* modelItem{nullptr};
+        QTreeWidgetItem* attributeItem{nullptr};
+    };
+
+    [[nodiscard]] static QString AttributeItemKey(
+        int rootObjectId,
+        const iGame::AttributeDataTarget& target);
+    void SetActiveAttributeTarget(
+        int rootObjectId,
+        const iGame::AttributeDataTarget& target);
+    [[nodiscard]] bool IsActiveAttributeTarget(
+        int rootObjectId,
+        const iGame::AttributeDataTarget& target) const;
+
+    QHash<QString, QVector<AttributeItemBinding>> m_AttributeItems;
+    QHash<int, iGame::AttributeDataTarget> m_ActiveAttributeTargets;
     //ModelTreeWidgetItem* currentModelItem{nullptr};
 };

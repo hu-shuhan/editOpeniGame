@@ -108,6 +108,13 @@ void GLShaderProgram::AddShaders(Shaders&&... shaders) {
 
     (glAttachShader(m_Handle, shaders->m_Handle), ...);
 
+#ifdef __EMSCRIPTEN__
+    glBindAttribLocation(m_Handle, 0, "in_Position");
+    glBindAttribLocation(m_Handle, 1, "in_Color");
+    glBindAttribLocation(m_Handle, 2, "in_Normal");
+    glBindAttribLocation(m_Handle, 3, "in_UV");
+#endif
+
     glLinkProgram(m_Handle);
     CheckCompileErrors();
 }

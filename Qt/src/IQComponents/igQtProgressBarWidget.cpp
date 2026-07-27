@@ -4,6 +4,9 @@
 
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <QHBoxLayout>
+#include <QMetaObject>
+#include <QPointer>
+#include <QThread>
 
 /**
  * @class   igQtProgressBarWidget
@@ -29,28 +32,71 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
     this->setLayout(layout);
 
     progressObserver = iGame::ProgressObserver::Instance();
+    QPointer<igQtProgressBarWidget> self(this);
 
    progressObserver->AddObserver(iGame::Command::ProgressEvent,
-        [&](iGame::Object*, unsigned long, void* data)-> void {
+        [self](iGame::Object*, unsigned long, void* data)-> void {
+            if (!self) return;
             double value = *static_cast<double*>(data);
-            this->updateProgressBar(value);
+            self->postProgressBarUpdate(value);
         });
 
     progressObserver->AddObserver(iGame::Command::UpdateEvent,
-        [&](iGame::Object*, unsigned long, void* data)-> void {
+        [self](iGame::Object*, unsigned long, void* data)-> void {
+            if (!self) return;
             const char* text = static_cast<const char*>(data);
-            if (!text || text[0] == '\0') {
-                resetTextMode();
-                return;
-            }
-            hasExternalText = true;
-            this->updateProgressBarLabel(text);
+            self->postProgressTextUpdate(text != nullptr ? QString::fromUtf8(text) : QString());
         });
+}
+
+void igQtProgressBarWidget::postProgressBarUpdate(double value) {
+    if (QThread::currentThread() == thread()) {
+        if (value <= 0.0) invalidatePendingUpdates();
+        updateProgressBar(value);
+        return;
+    }
+
+    QPointer<igQtProgressBarWidget> self(this);
+    const std::uint64_t generation = updateGeneration.load(std::memory_order_acquire);
+    QMetaObject::invokeMethod(this, [self, value, generation]() {
+        if (self && generation != self->updateGeneration.load(std::memory_order_acquire)) return;
+        if (self) self->updateProgressBar(value);
+    }, Qt::QueuedConnection);
+}
+
+void igQtProgressBarWidget::postProgressTextUpdate(const QString& info) {
+    if (QThread::currentThread() == thread()) {
+        if (info.isEmpty()) {
+            invalidatePendingUpdates();
+            resetTextMode();
+            return;
+        }
+        hasExternalText = true;
+        updateProgressBarLabel(info);
+        return;
+    }
+
+    QPointer<igQtProgressBarWidget> self(this);
+    const std::uint64_t generation = updateGeneration.load(std::memory_order_acquire);
+    QMetaObject::invokeMethod(this, [self, info, generation]() {
+        if (!self) return;
+        if (generation != self->updateGeneration.load(std::memory_order_acquire)) return;
+        if (info.isEmpty()) {
+            self->resetTextMode();
+            return;
+        }
+        self->hasExternalText = true;
+        self->updateProgressBarLabel(info);
+    }, Qt::QueuedConnection);
+}
+
+void igQtProgressBarWidget::invalidatePendingUpdates() {
+    updateGeneration.fetch_add(1, std::memory_order_acq_rel);
 }
 
 void igQtProgressBarWidget::resetTextMode() {
     hasExternalText = false;
-    updateProgressBarLabel(DEFAULT);
+    updateProgressBarLabel(QString::fromUtf8(DEFAULT));
 }
 
 void igQtProgressBarWidget::updateProgressBar(double value) {
@@ -62,7 +108,7 @@ void igQtProgressBarWidget::updateProgressBar(double value) {
 
     if (progress < 100) {
         if (!hasExternalText) {
-            updateProgressBarLabel(PROCESSING);
+            updateProgressBarLabel(QString::fromUtf8(PROCESSING));
         }
         progressBar->setValue(progress);
     } else {
@@ -72,10 +118,10 @@ void igQtProgressBarWidget::updateProgressBar(double value) {
     }
 }
 
-void igQtProgressBarWidget::updateProgressBarLabel(const char* info) {
-    if (!info || info[0] == '\0') {
-        progressBarLabel->setText(DEFAULT);
+void igQtProgressBarWidget::updateProgressBarLabel(const QString& info) {
+    if (info.isEmpty()) {
+        progressBarLabel->setText(QString::fromUtf8(DEFAULT));
         return;
     }
-    progressBarLabel->setText(QString::fromUtf8(info));
+    progressBarLabel->setText(info);
 }

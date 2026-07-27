@@ -37,6 +37,7 @@ public slots:
     void updateAllAttriubute(iGame::DataObject::Pointer obj);
     void updateItemName(iGame::DataObject::Pointer obj);
     int addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source);
+    void completeDeferredModelInformationUpdate();
     int updateCurrentModelInfo();
     void updateCurrentModelProperty(iGame::Model* model);
     void updateCurrentModelProperty();
@@ -72,5 +73,6 @@ private:
     Ui::LayerDialog* ui;
     QDockWidget* m_treeDock = nullptr;       // 上半
     QDockWidget* m_propertiesDock = nullptr; // 下半
+    DataObjectId m_PendingModelInformationObjectId = -1;
     static bool m_AutoAccelerate;
 };
