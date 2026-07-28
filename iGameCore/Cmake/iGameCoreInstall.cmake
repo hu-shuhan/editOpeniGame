@@ -14,16 +14,43 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
 
     if (ENABLE_CGNS_MODULE)
         if (WIN32)
-            set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+            # Use already-discovered HDF5 from the main configure when possible.
+            # Layout differs by version:
+            #   1.13.x: <prefix>/share/cmake  -> lib is <prefix>/lib  (../../lib from cmake dir)
+            #   1.14.x: <prefix>/cmake        -> lib is <prefix>/lib  (../lib from cmake dir)
+            if (NOT HDF5_DIR AND DEFINED ENV{HDF5_HOME})
+                if (EXISTS "$ENV{HDF5_HOME}/cmake")
+                    set(HDF5_DIR "$ENV{HDF5_HOME}/cmake")
+                elseif (EXISTS "$ENV{HDF5_HOME}/share/cmake")
+                    set(HDF5_DIR "$ENV{HDF5_HOME}/share/cmake")
+                endif ()
+            endif ()
             find_package(HDF5 REQUIRED)
-            install(FILES
-                    ${HDF5_DIR}/../../lib/libhdf5.lib
-                    ${HDF5_DIR}/../../lib/libhdf5_hl.lib
-                    ${HDF5_DIR}/../../lib/libhdf5_tools.lib
-                    ${HDF5_DIR}/../../lib/libzlib.lib
-                    ${HDF5_DIR}/../../lib/libsz.lib
-                    ${HDF5_DIR}/../../lib/libaec.lib
-                    DESTINATION lib/ThirdParty)
+
+            get_filename_component(_hdf5_prefix "${HDF5_DIR}/.." ABSOLUTE)
+            if (NOT EXISTS "${_hdf5_prefix}/lib")
+                get_filename_component(_hdf5_prefix "${HDF5_DIR}/../.." ABSOLUTE)
+            endif ()
+            set(_hdf5_lib_dir "${_hdf5_prefix}/lib")
+
+            set(_hdf5_install_libs
+                    "${_hdf5_lib_dir}/libhdf5.lib"
+                    "${_hdf5_lib_dir}/libhdf5_hl.lib"
+                    "${_hdf5_lib_dir}/libhdf5_tools.lib"
+                    "${_hdf5_lib_dir}/libzlib.lib"
+                    "${_hdf5_lib_dir}/libsz.lib"
+                    "${_hdf5_lib_dir}/libaec.lib"
+            )
+            foreach (_hdf5_lib ${_hdf5_install_libs})
+                if (EXISTS "${_hdf5_lib}")
+                    install(FILES "${_hdf5_lib}" DESTINATION lib/ThirdParty)
+                else ()
+                    message(STATUS "Skip missing HDF5 install artifact: ${_hdf5_lib}")
+                endif ()
+            endforeach ()
+            unset(_hdf5_install_libs)
+            unset(_hdf5_lib_dir)
+            unset(_hdf5_prefix)
         else ()
             find_package(HDF5 REQUIRED)
             if (HDF5_LIBRARIES)
