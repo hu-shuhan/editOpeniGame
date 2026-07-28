@@ -186,7 +186,7 @@ GUI path may also use `iGameTensorBase::ShowTensorField()`.
 | Menu View → Tensor / `action_Tensor` | Opens “Tensor” panel |
 | `dockWidget_TensorField` | Glyph type, scale, coloring |
 
-![Tensor field](../../Resources/Images/张量场.PNG)
+![Tensor field](../../Resources/Images/张量场可视化.png)
 
 > Only ellipsoid and cuboid glyphs are implemented; the representation class notes room for later glyph types.
 
