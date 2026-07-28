@@ -207,6 +207,8 @@ auto vtpObj = iGame::FileIO::ReadVTPFromMemory(data, size);
 
 Memory-reading functions return `nullptr` for a null pointer or a zero-length buffer. The currently exposed VTK memory entry points cover `.vtk`, `.vtu`, and `.vtp`, but not `.vts`, `.vtm`, or `.pvd`.
 
+![VTK 导入效果](../../Resources/Images/VTK导入.png)
+
 ### GUI
 
 | Entry point | Description |
@@ -215,8 +217,6 @@ Memory-reading functions return `nullptr` for a null pointer or a zero-length bu
 | `.vtp` | Supported by the API, but not currently listed in the file-selection filter |
 | Animation dock | Calls `UpdateAnimation()` by time frame after a PVD file has been loaded |
 | Model tree | VTM / PVD multiblock data is displayed as a parent object with child objects |
-
-![CGNS 导入效果](../../Resources/Images/CGNS导入.png)
 
 ### Test Cases
 
@@ -422,6 +422,8 @@ if (obj == nullptr) {
 | Model tree | A multi-zone file is displayed as a parent object with multiple child meshes |
 
 > The GUI filter may always display `.cgns`. If the project was built without `ENABLE_CGNS_MODULE`, the unified entry point does not execute CGNS reading and returns `nullptr`.
+
+![CGNS 导入效果](../../Resources/Images/CGNS导入.png)
 
 ### Test Cases
 

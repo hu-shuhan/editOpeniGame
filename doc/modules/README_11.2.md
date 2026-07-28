@@ -206,7 +206,7 @@ auto vtpObj = iGame::FileIO::ReadVTPFromMemory(data, size);
 ```
 
 内存入口对空指针或零长度返回 `nullptr`。当前公开的 VTK 内存入口为 `.vtk`、`.vtu`、`.vtp`，不包含 `.vts`、`.vtm`、`.pvd`。
-
+![VTK 导入效果](../../Resources/Images/VTK导入.png)
 ### GUI
 
 | 入口 | 说明 |
