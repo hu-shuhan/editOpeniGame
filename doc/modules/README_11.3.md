@@ -37,10 +37,17 @@
 
 ### 调用方式
 
+对应示例 `Examples/Rendering/SetScalarField.cpp`：
+
 ```cpp
+auto scene = iGame::Scene::New();
+auto dataObj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
+scene->AddModel(dataObj);
+
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
-drawObj->ViewCloudPicture(scene, attributeIndex);           // 全部分量
-drawObj->ViewCloudPicture(scene, attributeIndex, dimension); // 指定分量
+drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
+// 第 2 个参数为属性索引；第 3 个为分量，-1 表示按模长 / 全部分量
+drawObj->ViewCloudPicture(scene, 1, -1);
 ```
 
 ### GUI
@@ -49,6 +56,14 @@ drawObj->ViewCloudPicture(scene, attributeIndex, dimension); // 指定分量
 |------|------|
 | 菜单「可视化」→ 标量场 / `action_Scalar` | 打开左侧「标量场」面板 |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | 云图类型、色带、数值范围 |
+
+![标量场云图](../../Resources/Images/标量场云图.PNG)
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 |
+|--------|--------|----------|
+| `testSetScalarField` | `Examples/Rendering/SetScalarField.cpp` | `./Models/Tet_Plane.vtk` |
 
 ---
 
@@ -75,12 +90,21 @@ drawObj->ViewCloudPicture(scene, attributeIndex, dimension); // 指定分量
 
 ### 调用方式
 
+对应示例 `Examples/Filter/Vector/TestVector*.cpp`（以 `EveryNth` 为例）：
+
 ```cpp
-iGame::iGameVectorBase vectorView;
-vectorView.SetDrawMode(iGame::iGameVectorBase::EveryNth);  // 或 AllCell / CellInRange
-vectorView.SetNth(1200);
-vectorView.SetArrow(/* hR, hL, tR, tL */);
-vectorView.DrawVector("Velocity", dataObj);
+auto m_VectorBase = iGame::iGameVectorBase::New();
+m_VectorBase->SetArrow(0.01, 0.03, 0.005, 0.04);  // headR, headL, tailR, tailL
+m_VectorBase->SetInit(false);
+
+// DrawType: AllCell / CellInRange / EveryNth
+m_VectorBase->SetDrawMode(iGame::iGameVectorBase::DrawType::EveryNth);
+m_VectorBase->SetNth(5);
+// CellInRange 时：m_VectorBase->SetCellRange(0, 1000);
+
+m_VectorBase->DrawVector(vectorName, dataObj);  // vectorName 来自 IG_VECTOR 属性名
+scene->AddModel(m_VectorBase);
+scene->ChangeModelVisibility(0, false);         // 可选：隐藏原网格只看箭头
 ```
 
 ### GUI
@@ -89,6 +113,18 @@ vectorView.DrawVector("Velocity", dataObj);
 |------|------|
 | 菜单「可视化」→ 矢量场 / Glyph | 打开「矢量场」面板 |
 | `dockWidget_VectorField` | 模式：0=All，1=Range，2=EveryNth |
+
+![矢量场](../../Resources/Images/矢量场.PNG)
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 采样模式 |
+|--------|--------|----------|----------|
+| `testVector` | `Examples/Filter/Vector/TestVector.cpp` | `./Models/StreamTest.vtk` | `AllCell` |
+| `testVectorAllCell` | `Examples/Filter/Vector/TestVectorAllCell.cpp` | `./Models/StreamTest.vtk` | `AllCell` |
+| `testVectorCellInRange` | `Examples/Filter/Vector/TestVectorCellInRange.cpp` | 大 CGNS（需自备） | `CellInRange` |
+| `testVectorEveryNth` | `Examples/Filter/Vector/TestVectorEveryNth.cpp` | `./Models/StreamTest.vtk` | `EveryNth` |
+| `testVectorSubData` | `Examples/Filter/Vector/TestVectorSubData.cpp` | `CAD11/_frames.pvd`（需自备） | 子数据矢量 |
 
 ---
 
@@ -116,15 +152,29 @@ vectorView.DrawVector("Velocity", dataObj);
 
 ### 调用方式
 
+对应示例 `Examples/Filter/Tensor/TestTensorView.cpp`：
+
 ```cpp
-auto tensorFilter = iGame::iGameTensorFilter::New();
-tensorFilter->SetInput(drawObj);
-tensorFilter->SetTensorAttributes(tensorArray);
-tensorFilter->SetGlyphType(/* ELLIPSOID or CUBOID */);
-tensorFilter->SetGlyphScale(scale);
-tensorFilter->SetSliceNum(slices);
-tensorFilter->Execute();
-// 可选：tensorFilter->GenerateVectorField();  // 主特征向量场
+auto mesh = iGame::DynamicCast<iGame::PointSet>(
+    iGame::FileIO::ReadFile("./Models/Quad_Plane_Tensor.vtk"));
+
+// 从属性集中找点上的 IG_TENSOR（9 分量 / 3×3）
+iGame::ArrayObject::Pointer tensorData = /* ... */;
+
+auto m_TensorFilter = iGame::iGameTensorFilter::New();
+m_TensorFilter->SetInput(mesh);
+m_TensorFilter->SetTensorAttributes(tensorData);
+m_TensorFilter->SetGlyphType(iGame::iGameTensorRepresentation::CUBOID);  // 或 ELLIPSOID
+m_TensorFilter->SetSliceNum(5);
+m_TensorFilter->SetGlyphScale(0.02);
+
+if (m_TensorFilter->Execute()) {
+    auto res = iGame::DynamicCast<iGame::DrawObject>(m_TensorFilter->GetOutput());
+    scene->AddModel(res);
+    if (res->GetAttributeSet()->GetNumberOfAttributes() > 0) {
+        res->ViewCloudPicture(scene, 0);  // 可选：用 Glyph 属性着色
+    }
+}
 ```
 
 GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
@@ -136,7 +186,15 @@ GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
 | 菜单「可视化」→ 张量场 / `action_Tensor` | 打开「张量场」面板 |
 | `dockWidget_TensorField` | Glyph 类型、缩放、着色 |
 
+![张量场可视化](../../Resources/Images/张量场可视化.png)
+
 > 当前 Glyph 仅实现椭球与立方体；表示类中预留了后续扩展注释。
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 |
+|--------|--------|----------|
+| `testTensorView` | `Examples/Filter/Tensor/TestTensorView.cpp` | `./Models/Quad_Plane_Tensor.vtk` |
 
 ---
 
@@ -159,16 +217,19 @@ GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
 
 ### 调用方式
 
-```cpp
-auto deform = dataObj->GetDeformationData();
-deform->SetEnableDeformation(true);
-deform->SetAttributeName("Displacement");   // 位移矢量属性名
-deform->SetScaleFactors(idealDsf);          // 或 SetScaleFactorX/Y/Z
+完整 API 见 `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp`：
 
-auto filter = iGame::StressDeformationFilter::New();
-filter->SetInput(drawObj);
-filter->CalculateIdealDSF();   // 可选：估算理想缩放
+```cpp
+auto obj = iGame::FileIO::ReadFile("./Models/sukong_Step-1_2.vtu");  // 需自备
+auto filter = iGame::StressDeformationCodeFilter::New();  // GUI 路径用 StressDeformationFilter
+
+obj->GetDeformationData()->SetAttributeName("UVW");  // 位移矢量属性名
+filter->SetInput(obj);
+filter->CalculateIdealDSF();   // 估算理想缩放；也可 SetScaleFactorX/Y/Z
 filter->Execute();             // p' = p + s * U
+
+auto res = filter->GetOutput(0);  // Code 变体可得到新几何；Filter 变体原地改渲染点
+scene->AddModel(res);
 ```
 
 ### GUI
@@ -178,7 +239,16 @@ filter->Execute();             // p' = p + s * U
 | 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
 | `DeformationDockWidget`（代码创建，并入左侧 Tab） | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
 
+![结构形变](../../Resources/Images/结构形变.PNG)
+
 > **选中区域单独形变**尚未接入；当前为整模偏移。与选区绑定的增强见 `README_10.2.md` 子功能 4。
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 说明 |
+|--------|--------|----------|------|
+| `testDeformation` | `Examples/Filter/Deformation/TestStressDeformationFilter.cpp` | `./Models/sukong_Step-1_2.vtu`（需自备）
+| `testDeformationCode` | `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp` | 示例写死本地 VTU；注释中为 `sukong_Step-1_2.vtu` | 显式 DSF + `Execute` |
 
 ---
 
@@ -216,23 +286,41 @@ filter->Execute();             // p' = p + s * U
 
 ### 调用方式
 
-**时序切换 + 矢量刷新：**
+**时序切换 + 矢量刷新**（`Examples/Filter/Vector/TestTimeVaryingVector.cpp`）：
 
 ```cpp
-drawObj->UpdateAnimation(keyframeIdx);
-vectorView.DrawVector("Velocity", dataObj);
+auto obj = iGame::FileIO::ReadFile("./Models/redsea/1.pvd");  // 需自备
+auto currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
+currentDrawObject->GetTimeFrames()->EnableCache(1000);
+currentDrawObject->UpdateAnimation(8);  // 切到指定帧
+
+auto m_VectorBase = iGame::iGameVectorBase::New();
+m_VectorBase->SetArrow(0.1, 0.3, 0.5, 0.4);
+m_VectorBase->SetInit(false);
+m_VectorBase->SetDrawMode(iGame::iGameVectorBase::DrawType::EveryNth);
+m_VectorBase->SetNth(1200);
+m_VectorBase->DrawVector(vectorName, dataObj);
+scene->AddModel(m_VectorBase);
 ```
 
-**流线：**
+**流线**（`Examples/Filter/Vector/TestStreamline.cpp`）：
 
 ```cpp
-auto streamBase = iGame::StreamBase::New();
-auto streamtracer = streamBase->streamFilter;
+auto m_StreamBase = iGame::StreamBase::New();
+auto streamtracer = m_StreamBase->streamFilter;
 streamtracer->initStreamTracer(dataObj);
-streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+
+auto boundMax = streamtracer->GetMesh()->GetBoundingBox().max;
+auto boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+auto centerMax = (boundMax - boundMin) / 5 + boundMin;
+auto seeds = streamtracer->getAllSubBlockCenters(
+    boundMax, boundMin, centerMax, boundMin, 2, 4, 2, 2, 4, 2);
+
+streamtracer->SetInput(seeds, vectorName, /*length*/5.f, /*step*/0.3f,
+                       /*terminalSpeed*/0.005f, /*maxSteps*/1000.f);
 streamtracer->Execute();
-streamBase->SetUpdate(true);
-scene->AddModel(streamBase);
+m_StreamBase->SetUpdate(true);
+scene->AddModel(m_StreamBase);
 ```
 
 ### GUI
@@ -242,6 +330,15 @@ scene->AddModel(streamBase);
 | 菜单「可视化」→ 时序流场 / `action_FlowField` | 打开「流场」流线面板 |
 | `dockWidget_FlowField` | 布种、积分参数、筛选（Cluster） |
 | 工具栏 Streamline | 同上 |
+
+![流线提取](../../Resources/Images/流线提取.PNG)
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 说明 |
+|--------|--------|----------|------|
+| `testTimeVaryingVector` | `Examples/Filter/Vector/TestTimeVaryingVector.cpp` | `./Models/redsea/1.pvd`（需自备） | 时序帧 + 矢量 Glyph |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/kit.vtk` | 流线积分 |
 
 ---
 
@@ -264,16 +361,49 @@ UpdateAnimation(i)
 
 另支持插值播放（VCR / interpolate 路径）与缓存帧数配置。
 
-### 导出流程
+### 调用方式
+
+**单帧准备 / 播放一帧**（`Examples/Animation/SaveAnimation.cpp` 中的 `PlayAnimation`）：
 
 ```cpp
-for (int i = 0; i < frameCount; ++i) {
-    drawObj->UpdateAnimation(i);
-    // 可选：形变、云图
-    scene->Draw();
-    scene->CaptureScreen(imagePath);   // 或 GUI 抓帧得到 RGBA
+auto currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
+currentDrawObject->GetTimeFrames()->EnableCache(1000);
+currentDrawObject->UpdateAnimation(keyframe_idx);
+
+if (obj->GetDeformationData()->GetEnableStatus()) {
+    auto deformFilter = iGame::StressDeformationFilter::New();
+    deformFilter->SetInput(currentDrawObject);
+    deformFilter->Execute();
 }
-// FFMPEGVideoWriter::SaveMP4() / SaveGIF()
+if (currentDrawObject->GetAttributeIndex() != -1) {
+    currentDrawObject->ViewCloudPicture(scene, currentDrawObject->GetAttributeIndex());
+}
+scene->Draw();
+```
+
+**导出 MP4 / GIF**（同文件 `SaveAnimationToMP4` / `SaveAnimationToGIF`）：
+
+```cpp
+auto obj = iGame::FileIO::ReadFile("./Models/CAD11/_frames.pvd");  // 需自备
+scene->AddModel(obj);
+
+iGame::VideoInputInfo inputInfo;
+inputInfo.width = 1920;
+inputInfo.height = 1080;
+inputInfo.bit_rate = 1000000;
+inputInfo.frame_rate = 1;
+
+for (int i = 0; i < obj->GetTimeFrames()->GetTimeNum(); ++i) {
+    PlayAnimation(obj, scene, i);
+    auto rgba = scene->CaptureScreen(0, 0, 1920, 1080, iGame::GLFramebuffer::Type::RGBA, true);
+    inputInfo.bytes_per_line = 1920 * 4;
+    inputInfo.raw_image_data.emplace_back(rgba);
+}
+
+auto writer = iGame::FFMPEGVideoWriter::New();
+inputInfo.output_path = "./AnimationExample.mp4";
+writer->SetVideoInputInfo(inputInfo);
+writer->SaveMP4();   // 或 SaveGIF()
 ```
 
 | 导出形式 | 条件 |
@@ -298,29 +428,14 @@ for (int i = 0; i < frameCount; ++i) {
 | `dockWidget_Animation` | 播放、缓存、导出 |
 | 工具栏 `action_SaveAnimation` | 触发 `saveAnimation()` |
 
----
+![动画可视化](../../Resources/Images/动画可视化.PNG)
 
-## 配套：等值面 / 等值线
+### 测试用例
 
-虽未写入指标标题六项，但同属场可视化输出，GUI 与示例已接入。
-
-| 路径 | 说明 |
-|------|------|
-| `iGameCore/Filters/Contour/iGameContourFilter.*` | 等值面 / 等值线 |
-| `Qt/src/IQWidgets/igQtContourExtractWidget.*` | `dockWidget_ContourExtract` |
-| 示例 `testContourLine` | 等值线 |
-
----
-
-## Meshlet 加速（可选）
-
-大网格云图 / 绘制可通过 Meshlet 加速：
-
-```cpp
-drawObj->SetAccelerationOption(/* ... */);
-```
-
-见 `iGameDrawObject::SetAccelerationOption`，细节可对照指标 **11.4**。
+| Target | 源文件 | 默认数据 | 条件 |
+|--------|--------|----------|------|
+| `testAnimation` | `Examples/Animation/TestAnimation.cpp` | `./Models/CAD11/_frames.pvd`（需自备） | 默认 |
+| `testSaveAnimation` | `Examples/Animation/SaveAnimation.cpp` | `./Models/CAD11/_frames.pvd`（需自备） | 需 `FFMPEG_FOUND` |
 
 ---
 
@@ -338,16 +453,3 @@ drawObj->SetAccelerationOption(/* ... */);
 | `testContourLine` | 等值线 | 默认 |
 | `testAnimation` | 动画播放准备 | 默认 |
 | `testSaveAnimation` | 动画导出 | `FFMPEG_FOUND` |
-
----
-
-## 验收自检清单
-
-| 子功能 | 建议验证 |
-|--------|----------|
-| 云图 | 打开标量属性，色带与范围正确 |
-| 矢量场 | 三种采样模式箭头密度符合预期 |
-| 张量场 | 椭球 / 立方体 Glyph 随张量主值变化 |
-| 形变 | 开关偏移后几何随位移矢量变化；动画帧保持形变 |
-| 时序 / 流线 | PVD 切换帧；流线积分可见 |
-| 动画输出 | 播放流畅；有 FFMPEG 时可导出 MP4/GIF |

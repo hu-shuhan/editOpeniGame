@@ -18,7 +18,9 @@
 #include <IQCore/igQtExportModule.h>
 #include <QtWidgets/QMainWindow>
 #include <QResizeEvent>
+#include <QShowEvent>
 #include <QRect>
+#include <QTimer>
 #include <array>
 #undef QT_NO_OPENGL
 
@@ -158,8 +160,21 @@ private:
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     void changeEvent(QEvent* event) override;
     int streamTreeIndex = -1;
+
+private:
+    // 响应式 toolbar 布局：把耗时的重排合并（避免每 1px 拖动都触发全量刷新）
+    QTimer* m_ResizeDebounceTimer{nullptr};
+    bool m_ResponsiveHooked{false};
+    void hookResponsiveEvents();
+    // 依当前窗口宽度/屏幕 DPI 挑选最大能一行装下的 iconSize，然后应用到全部工具栏
+    void applyResponsiveToolbarLayout();
+    // 内部帮手：按给定 iconSize 刷新普通 toolbar、两行按钮容器、带标题容器
+    void applyToolbarIconSize(int iconSize);
+    // 内部帮手：估计所有 wrapper toolbar 总宽（当前布局下）
+    int totalWrapperWidth() const;
 
 private:
     void minimizeWithAnimation();

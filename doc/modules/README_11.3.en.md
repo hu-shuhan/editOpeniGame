@@ -37,10 +37,17 @@ Map a selected `AttributeSet` attribute (and optional component `dimension`) to 
 
 ### How It Is Called
 
+From `Examples/Rendering/SetScalarField.cpp`:
+
 ```cpp
+auto scene = iGame::Scene::New();
+auto dataObj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
+scene->AddModel(dataObj);
+
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
-drawObj->ViewCloudPicture(scene, attributeIndex);
-drawObj->ViewCloudPicture(scene, attributeIndex, dimension);
+drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
+// arg2 = attribute index; arg3 = component (-1 = magnitude / all)
+drawObj->ViewCloudPicture(scene, 1, -1);
 ```
 
 ### GUI
@@ -49,6 +56,14 @@ drawObj->ViewCloudPicture(scene, attributeIndex, dimension);
 |-------|-------|
 | Menu View → Scalar / `action_Scalar` | Opens left “Scalar” panel |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | Cloud type, color bar, value range |
+
+![Scalar cloud map](../../Resources/Images/标量场云图.PNG)
+
+### Test Cases
+
+| Target | Source | Default data |
+|--------|--------|--------------|
+| `testSetScalarField` | `Examples/Rendering/SetScalarField.cpp` | `./Models/Tet_Plane.vtk` |
 
 ---
 
@@ -75,12 +90,21 @@ Arrow shape: `SetArrow(headRadius, headLength, tailRadius, tailLength)`.
 
 ### How It Is Called
 
+From `Examples/Filter/Vector/TestVector*.cpp` (`EveryNth` example):
+
 ```cpp
-iGame::iGameVectorBase vectorView;
-vectorView.SetDrawMode(iGame::iGameVectorBase::EveryNth);  // or AllCell / CellInRange
-vectorView.SetNth(1200);
-vectorView.SetArrow(/* hR, hL, tR, tL */);
-vectorView.DrawVector("Velocity", dataObj);
+auto m_VectorBase = iGame::iGameVectorBase::New();
+m_VectorBase->SetArrow(0.01, 0.03, 0.005, 0.04);  // headR, headL, tailR, tailL
+m_VectorBase->SetInit(false);
+
+// DrawType: AllCell / CellInRange / EveryNth
+m_VectorBase->SetDrawMode(iGame::iGameVectorBase::DrawType::EveryNth);
+m_VectorBase->SetNth(5);
+// For CellInRange: m_VectorBase->SetCellRange(0, 1000);
+
+m_VectorBase->DrawVector(vectorName, dataObj);  // vectorName from IG_VECTOR attribute
+scene->AddModel(m_VectorBase);
+scene->ChangeModelVisibility(0, false);         // optional: hide base mesh
 ```
 
 ### GUI
@@ -89,6 +113,18 @@ vectorView.DrawVector("Velocity", dataObj);
 |-------|-------|
 | Menu View → Vector / Glyph | Opens “Vector” panel |
 | `dockWidget_VectorField` | Modes: 0=All, 1=Range, 2=EveryNth |
+
+![Vector field](../../Resources/Images/矢量场.PNG)
+
+### Test Cases
+
+| Target | Source | Default data | Sampling |
+|--------|--------|--------------|----------|
+| `testVector` | `Examples/Filter/Vector/TestVector.cpp` | `./Models/StreamTest.vtk` | `AllCell` |
+| `testVectorAllCell` | `Examples/Filter/Vector/TestVectorAllCell.cpp` | `./Models/StreamTest.vtk` | `AllCell` |
+| `testVectorCellInRange` | `Examples/Filter/Vector/TestVectorCellInRange.cpp` | Large CGNS (bring your own) | `CellInRange` |
+| `testVectorEveryNth` | `Examples/Filter/Vector/TestVectorEveryNth.cpp` | `./Models/StreamTest.vtk` | `EveryNth` |
+| `testVectorSubData` | `Examples/Filter/Vector/TestVectorSubData.cpp` | `CAD11/_frames.pvd` (bring your own) | Sub-data vectors |
 
 ---
 
@@ -116,15 +152,29 @@ Eigen-decompose 3×3 tensors at points (stress / strain, etc.) and show principa
 
 ### How It Is Called
 
+From `Examples/Filter/Tensor/TestTensorView.cpp`:
+
 ```cpp
-auto tensorFilter = iGame::iGameTensorFilter::New();
-tensorFilter->SetInput(drawObj);
-tensorFilter->SetTensorAttributes(tensorArray);
-tensorFilter->SetGlyphType(/* ELLIPSOID or CUBOID */);
-tensorFilter->SetGlyphScale(scale);
-tensorFilter->SetSliceNum(slices);
-tensorFilter->Execute();
-// optional: tensorFilter->GenerateVectorField();
+auto mesh = iGame::DynamicCast<iGame::PointSet>(
+    iGame::FileIO::ReadFile("./Models/Quad_Plane_Tensor.vtk"));
+
+// Find point-attached IG_TENSOR (9 components / 3×3) in AttributeSet
+iGame::ArrayObject::Pointer tensorData = /* ... */;
+
+auto m_TensorFilter = iGame::iGameTensorFilter::New();
+m_TensorFilter->SetInput(mesh);
+m_TensorFilter->SetTensorAttributes(tensorData);
+m_TensorFilter->SetGlyphType(iGame::iGameTensorRepresentation::CUBOID);  // or ELLIPSOID
+m_TensorFilter->SetSliceNum(5);
+m_TensorFilter->SetGlyphScale(0.02);
+
+if (m_TensorFilter->Execute()) {
+    auto res = iGame::DynamicCast<iGame::DrawObject>(m_TensorFilter->GetOutput());
+    scene->AddModel(res);
+    if (res->GetAttributeSet()->GetNumberOfAttributes() > 0) {
+        res->ViewCloudPicture(scene, 0);  // optional: color glyphs by attribute
+    }
+}
 ```
 
 GUI path may also use `iGameTensorBase::ShowTensorField()`.
@@ -136,7 +186,15 @@ GUI path may also use `iGameTensorBase::ShowTensorField()`.
 | Menu View → Tensor / `action_Tensor` | Opens “Tensor” panel |
 | `dockWidget_TensorField` | Glyph type, scale, coloring |
 
+![Tensor field](../../Resources/Images/张量场可视化.png)
+
 > Only ellipsoid and cuboid glyphs are implemented; the representation class notes room for later glyph types.
+
+### Test Cases
+
+| Target | Source | Default data |
+|--------|--------|--------------|
+| `testTensorView` | `Examples/Filter/Tensor/TestTensorView.cpp` | `./Models/Quad_Plane_Tensor.vtk` |
 
 ---
 
@@ -159,16 +217,19 @@ Deformation state lives on each `DataObject` via `DeformationData`. When animati
 
 ### How It Is Called
 
-```cpp
-auto deform = dataObj->GetDeformationData();
-deform->SetEnableDeformation(true);
-deform->SetAttributeName("Displacement");
-deform->SetScaleFactors(idealDsf);  // or SetScaleFactorX/Y/Z
+Full API is in `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp`:
 
-auto filter = iGame::StressDeformationFilter::New();
-filter->SetInput(drawObj);
-filter->CalculateIdealDSF();
-filter->Execute();
+```cpp
+auto obj = iGame::FileIO::ReadFile("./Models/sukong_Step-1_2.vtu");  // bring your own
+auto filter = iGame::StressDeformationCodeFilter::New();  // GUI uses StressDeformationFilter
+
+obj->GetDeformationData()->SetAttributeName("UVW");  // displacement vector name
+filter->SetInput(obj);
+filter->CalculateIdealDSF();   // or SetScaleFactorX/Y/Z
+filter->Execute();             // p' = p + s * U
+
+auto res = filter->GetOutput(0);  // Code variant emits new geometry; Filter offsets in place
+scene->AddModel(res);
 ```
 
 ### GUI
@@ -178,7 +239,16 @@ filter->Execute();
 | Toolbar `action_deformation` / `action_StrucDeformation` | Opens deformation panel |
 | `DeformationDockWidget` (created in code, moved into left tabs) | Vector attribute, auto/uniform/non-uniform DSF, enable offset, execute |
 
+![Structural deformation](../../Resources/Images/结构形变.PNG)
+
 > **Region-limited deformation** is not wired yet; current behavior is whole-mesh offset. See `README_10.2.md` sub-feature 4 for the planned selection binding.
+
+### Test Cases
+
+| Target | Source | Default data | Notes |
+|--------|--------|--------------|-------|
+| `testDeformation` | `Examples/Filter/Deformation/TestStressDeformationFilter.cpp` | `./Models/sukong_Step-1_2.vtu` (bring your own) |
+| `testDeformationCode` | `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp` | Hardcoded local VTU; comment uses `sukong_Step-1_2.vtu` | Explicit DSF + `Execute` |
 
 ---
 
@@ -216,23 +286,41 @@ Key APIs: `DataObject::UpdateAnimation(keyframeIdx)`, `GetTimeFrames()`.
 
 ### How It Is Called
 
-**Time switch + vector refresh:**
+**Time switch + vector refresh** (`Examples/Filter/Vector/TestTimeVaryingVector.cpp`):
 
 ```cpp
-drawObj->UpdateAnimation(keyframeIdx);
-vectorView.DrawVector("Velocity", dataObj);
+auto obj = iGame::FileIO::ReadFile("./Models/redsea/1.pvd");  // bring your own
+auto currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
+currentDrawObject->GetTimeFrames()->EnableCache(1000);
+currentDrawObject->UpdateAnimation(8);
+
+auto m_VectorBase = iGame::iGameVectorBase::New();
+m_VectorBase->SetArrow(0.1, 0.3, 0.5, 0.4);
+m_VectorBase->SetInit(false);
+m_VectorBase->SetDrawMode(iGame::iGameVectorBase::DrawType::EveryNth);
+m_VectorBase->SetNth(1200);
+m_VectorBase->DrawVector(vectorName, dataObj);
+scene->AddModel(m_VectorBase);
 ```
 
-**Streamlines:**
+**Streamlines** (`Examples/Filter/Vector/TestStreamline.cpp`):
 
 ```cpp
-auto streamBase = iGame::StreamBase::New();
-auto streamtracer = streamBase->streamFilter;
+auto m_StreamBase = iGame::StreamBase::New();
+auto streamtracer = m_StreamBase->streamFilter;
 streamtracer->initStreamTracer(dataObj);
-streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+
+auto boundMax = streamtracer->GetMesh()->GetBoundingBox().max;
+auto boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+auto centerMax = (boundMax - boundMin) / 5 + boundMin;
+auto seeds = streamtracer->getAllSubBlockCenters(
+    boundMax, boundMin, centerMax, boundMin, 2, 4, 2, 2, 4, 2);
+
+streamtracer->SetInput(seeds, vectorName, /*length*/5.f, /*step*/0.3f,
+                       /*terminalSpeed*/0.005f, /*maxSteps*/1000.f);
 streamtracer->Execute();
-streamBase->SetUpdate(true);
-scene->AddModel(streamBase);
+m_StreamBase->SetUpdate(true);
+scene->AddModel(m_StreamBase);
 ```
 
 ### GUI
@@ -242,6 +330,15 @@ scene->AddModel(streamBase);
 | Menu View → Time-series flow / `action_FlowField` | Opens flow / streamline panel |
 | `dockWidget_FlowField` | Seeding, integration, Cluster filtering |
 | Toolbar Streamline | Same panel |
+
+![Streamline extraction](../../Resources/Images/流线提取.PNG)
+
+### Test Cases
+
+| Target | Source | Default data | Notes |
+|--------|--------|--------------|-------|
+| `testTimeVaryingVector` | `Examples/Filter/Vector/TestTimeVaryingVector.cpp` | `./Models/redsea/1.pvd` (bring your own) | Time frame + vector glyphs |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/kit.vtk` | Streamline integration |
 
 ---
 
@@ -264,16 +361,49 @@ UpdateAnimation(i)
 
 Also supports interpolate playback (VCR path) and configurable frame cache size.
 
-### Export flow
+### How It Is Called
+
+**Single-frame prepare / play one frame** (`PlayAnimation` in `Examples/Animation/SaveAnimation.cpp`):
 
 ```cpp
-for (int i = 0; i < frameCount; ++i) {
-    drawObj->UpdateAnimation(i);
-    // optional: deformation, cloud map
-    scene->Draw();
-    scene->CaptureScreen(imagePath);  // or GUI grab → RGBA
+auto currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
+currentDrawObject->GetTimeFrames()->EnableCache(1000);
+currentDrawObject->UpdateAnimation(keyframe_idx);
+
+if (obj->GetDeformationData()->GetEnableStatus()) {
+    auto deformFilter = iGame::StressDeformationFilter::New();
+    deformFilter->SetInput(currentDrawObject);
+    deformFilter->Execute();
 }
-// FFMPEGVideoWriter::SaveMP4() / SaveGIF()
+if (currentDrawObject->GetAttributeIndex() != -1) {
+    currentDrawObject->ViewCloudPicture(scene, currentDrawObject->GetAttributeIndex());
+}
+scene->Draw();
+```
+
+**Export MP4 / GIF** (`SaveAnimationToMP4` / `SaveAnimationToGIF`):
+
+```cpp
+auto obj = iGame::FileIO::ReadFile("./Models/CAD11/_frames.pvd");  // bring your own
+scene->AddModel(obj);
+
+iGame::VideoInputInfo inputInfo;
+inputInfo.width = 1920;
+inputInfo.height = 1080;
+inputInfo.bit_rate = 1000000;
+inputInfo.frame_rate = 1;
+
+for (int i = 0; i < obj->GetTimeFrames()->GetTimeNum(); ++i) {
+    PlayAnimation(obj, scene, i);
+    auto rgba = scene->CaptureScreen(0, 0, 1920, 1080, iGame::GLFramebuffer::Type::RGBA, true);
+    inputInfo.bytes_per_line = 1920 * 4;
+    inputInfo.raw_image_data.emplace_back(rgba);
+}
+
+auto writer = iGame::FFMPEGVideoWriter::New();
+inputInfo.output_path = "./AnimationExample.mp4";
+writer->SetVideoInputInfo(inputInfo);
+writer->SaveMP4();   // or SaveGIF()
 ```
 
 | Export form | Condition |
@@ -298,29 +428,14 @@ for (int i = 0; i < frameCount; ++i) {
 | `dockWidget_Animation` | Play, cache, export |
 | Toolbar `action_SaveAnimation` | Calls `saveAnimation()` |
 
----
+![Animation visualization](../../Resources/Images/动画可视化.PNG)
 
-## Companion: Contour / isolines
+### Test Cases
 
-Not one of the six title bullets, but part of field visualization output and already wired in GUI/examples.
-
-| Path | Notes |
-|------|-------|
-| `iGameCore/Filters/Contour/iGameContourFilter.*` | Iso-surface / iso-line |
-| `Qt/src/IQWidgets/igQtContourExtractWidget.*` | `dockWidget_ContourExtract` |
-| Example `testContourLine` | Isolines |
-
----
-
-## Meshlet acceleration (optional)
-
-Large-mesh cloud maps / drawing can use Meshlet acceleration:
-
-```cpp
-drawObj->SetAccelerationOption(/* ... */);
-```
-
-See `iGameDrawObject::SetAccelerationOption`; more detail in metric **11.4**.
+| Target | Source | Default data | Condition |
+|--------|--------|--------------|-----------|
+| `testAnimation` | `Examples/Animation/TestAnimation.cpp` | `./Models/CAD11/_frames.pvd` (bring your own) | default |
+| `testSaveAnimation` | `Examples/Animation/SaveAnimation.cpp` | `./Models/CAD11/_frames.pvd` (bring your own) | `FFMPEG_FOUND` |
 
 ---
 
@@ -338,16 +453,3 @@ See `iGameDrawObject::SetAccelerationOption`; more detail in metric **11.4**.
 | `testContourLine` | Isolines | default |
 | `testAnimation` | Animation play setup | default |
 | `testSaveAnimation` | Animation export | `FFMPEG_FOUND` |
-
----
-
-## Acceptance Checklist
-
-| Sub-feature | Suggested check |
-|-------------|-----------------|
-| Cloud map | Scalar attribute colors and color bar look correct |
-| Vector field | Three sampling modes produce expected arrow density |
-| Tensor field | Ellipsoid / cuboid glyphs follow principal values |
-| Deformation | Geometry moves with displacement when enabled; persists across animation frames |
-| Time series / streamlines | PVD frames switch; streamlines integrate visibly |
-| Animation export | Playback is smooth; MP4/GIF export works when FFMPEG is built |

@@ -132,7 +132,6 @@ protected:
         Meshleter::Pointer mMeshleter = nullptr;
     };
     RenderableMesh m_RenderableMesh;
-    bool m_SimplifiedMeshBuildAttempted = false;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;

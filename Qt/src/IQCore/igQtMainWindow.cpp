@@ -91,6 +91,7 @@
 #include <QTimer>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QWindow>
 #include <QApplication>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
@@ -124,6 +125,12 @@ ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
     return metrics;
 }
 
+// 工具栏标题（每个 toolbar 下方那行小灰字，"文件与输出" 之类）字号 → iconSize 的映射；
+// 让文字大小随着窗口/屏幕响应式变化。
+int titlePointSizeForIcon(int iconSize) {
+    return qBound(8, iconSize / 4, 14); // 32->8, 40->10, 46->11, 50->12, 52->13
+}
+
 int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
     int iconSize = 52;
     if (availableWidth <= 1366) {
@@ -148,8 +155,13 @@ int resolveToolbarIconSizeForWidget(const QWidget* widget) {
         screen = QGuiApplication::primaryScreen();
     }
     const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
-    const int availableWidth = screen ? screen->availableGeometry().width() : (widget ? widget->width() : 1920);
-    return resolveToolbarIconSize(availableWidth, dpiScale);
+    // 响应式：优先按窗口自身可视宽度分档，而不是整个屏幕；
+    // 窗口还没显示（width==0）或过窄时才回退到屏幕宽度。
+    int refWidth = widget ? widget->width() : 0;
+    if (refWidth < 400) {
+        refWidth = screen ? screen->availableGeometry().width() : 1920;
+    }
+    return resolveToolbarIconSize(refWidth, dpiScale);
 }
 
 const char* kGlobalSpinBoxDarkQss = R"(
@@ -576,7 +588,9 @@ void igQtMainWindow::updateMaximizeButtonIcon() {
 
 void igQtMainWindow::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event);
+    // 立刻决定要不要换行（视觉上跟手）；同时 100ms 防抖跑一次全量重排（含 iconSize 重算）
     relayoutToolbarWrappers();
+    if (m_ResizeDebounceTimer) { m_ResizeDebounceTimer->start(100); }
 }
 
 igQtMainWindow::~igQtMainWindow() {
@@ -3387,7 +3401,7 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     const QList<QAction*> actions = toolbar->actions();
 
     QFont titleFont(QStringLiteral("PingFang SC"));
-    titleFont.setPointSize(10);
+    titleFont.setPointSize(titlePointSizeForIcon(iconSize.width()));
     const int titleTextH = QFontMetrics(titleFont).height();
     const int totalH = iconSize.height() + spacing.verticalGap + titleTextH + spacing.bottomMargin;
 
@@ -3455,8 +3469,9 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     titleLabel->setObjectName("toolbarTitle_" + toolbar->objectName());
     titleLabel->setFont(titleFont);
     titleLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    // 不再在 CSS 里硬写 font-size，让 setFont(titleFont) 生效并可被响应式重排刷新
     titleLabel->setStyleSheet(
-            "QLabel { color: #6B6B6B; font-size: 10pt; padding: 0; "
+            "QLabel { color: #6B6B6B; padding: 0; "
             "background-color: transparent; border: none; font-family: 'PingFang SC'; }"
     );
     vLayout->addWidget(titleLabel, 0);
@@ -3533,4 +3548,140 @@ void igQtMainWindow::UpdateIcons()
     }
 
 
+}
+
+void igQtMainWindow::hookResponsiveEvents() {
+    if (m_ResponsiveHooked) return;
+    m_ResponsiveHooked = true;
+
+    // 防抖 timer：合并 100ms 内的多次 resize 触发。
+    m_ResizeDebounceTimer = new QTimer(this);
+    m_ResizeDebounceTimer->setSingleShot(true);
+    connect(m_ResizeDebounceTimer, &QTimer::timeout, this,
+            [this]() { applyResponsiveToolbarLayout(); });
+
+    // 屏幕切换（拖到不同显示器）→ 重新排。
+    if (auto wh = this->windowHandle()) {
+        connect(wh, &QWindow::screenChanged, this,
+                [this](QScreen*) { applyResponsiveToolbarLayout(); });
+    }
+}
+
+int igQtMainWindow::totalWrapperWidth() const {
+    int total = 0;
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        if (!tb->objectName().startsWith("wrapper_")) continue;
+        total += qMax(tb->minimumWidth(), tb->sizeHint().width());
+    }
+    return total;
+}
+
+void igQtMainWindow::applyResponsiveToolbarLayout() {
+    // 只按当前窗口宽度选一次 iconSize，然后由 relayoutToolbarWrappers 决定是否换行
+    const int iconSize = resolveToolbarIconSizeForWidget(this);
+    applyToolbarIconSize(iconSize);
+    relayoutToolbarWrappers();
+}
+
+void igQtMainWindow::applyToolbarIconSize(int iconSize) {
+    const QSize iconQSize(iconSize, iconSize);
+    const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize);
+
+    // 1) 普通 toolbar（非 wrapper_ 前缀）——只需 setIconSize，Qt 会级联到其中的 QToolButton。
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        if (tb->objectName().startsWith("wrapper_"))
+            continue;
+        tb->setIconSize(iconQSize);
+        tb->setMinimumHeight(iconSize + qMax(6, iconSize / 6));
+    }
+
+    // 2) 两行按钮容器（+X/-X/+Y/-Y/+Z/-Z 那种）——按钮尺寸/最小最大值都是硬算的，
+    //    需要在 icon 尺寸变化时刷新，否则容器会保留旧尺寸把 toolbar 撑大。
+    const int gridSpacing = qMax(4, iconSize / 6);
+    const int targetIcon = qMax(20, static_cast<int>(iconSize * 0.65));
+    const int rowHeight = targetIcon + 8;
+    const QSize btnSize(rowHeight, rowHeight);
+    for (QWidget* container : this->findChildren<QWidget*>("twoRowViewGrid")) {
+        for (QToolButton* btn : container->findChildren<QToolButton*>(
+                     QString(), Qt::FindDirectChildrenOnly)) {
+            btn->setIconSize(QSize(targetIcon, targetIcon));
+            btn->setMinimumSize(btnSize);
+            btn->setMaximumSize(btnSize);
+        }
+        container->setMinimumHeight(2 * rowHeight + gridSpacing);
+        container->setMinimumWidth(3 * rowHeight + 2 * gridSpacing);
+        if (auto* lay = container->layout()) { lay->setSpacing(gridSpacing); }
+        container->updateGeometry();
+    }
+
+    // 3) 带标题的容器（toolbarContainer_ 前缀）——里面的 topRow 装的都是 QToolButton；
+    //    这些按钮当初 setIconSize 用的是 toolbar 的 iconSize（现在已经改过了），
+    //    需要显式刷一遍，同时更新最小尺寸/间距。
+    //    注意：twoRowViewGrid 可能被 addToolbarTitle 迁移到 toolbarContainer_ 下面，
+    //    这里必须跳过其中的按钮，否则会把上一步刷成 targetIcon 的又改回 iconSize。
+    for (QWidget* container : this->findChildren<QWidget*>()) {
+        if (!container->objectName().startsWith("toolbarContainer_"))
+            continue;
+        for (QToolButton* b : container->findChildren<QToolButton*>()) {
+            bool insideTwoRow = false;
+            for (QWidget* p = b->parentWidget(); p && p != container; p = p->parentWidget()) {
+                if (p->objectName() == "twoRowViewGrid") {
+                    insideTwoRow = true;
+                    break;
+                }
+            }
+            if (insideTwoRow) continue;
+            b->setIconSize(iconQSize);
+            b->setMinimumSize(iconSize + 2 * spacing.buttonPadding,
+                              iconSize + 2 * spacing.buttonPadding);
+        }
+        // 顶部按钮行 layout 间距同步刷新
+        if (auto topRow = container->findChild<QWidget*>(QString(), Qt::FindDirectChildrenOnly)) {
+            if (auto* hlay = qobject_cast<QHBoxLayout*>(topRow->layout())) {
+                hlay->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin, 0);
+                hlay->setSpacing(spacing.btnGap);
+            }
+        }
+        // 标题标签字号也跟着 iconSize 缩放
+        const int titlePt = titlePointSizeForIcon(iconSize);
+        for (QLabel* lbl : container->findChildren<QLabel*>()) {
+            if (!lbl->objectName().startsWith("toolbarTitle_"))
+                continue;
+            QFont f = lbl->font();
+            f.setPointSize(titlePt);
+            lbl->setFont(f);
+            lbl->updateGeometry();
+        }
+        // 外层垂直 layout 的间距/下边距也同步刷新
+        if (auto* vlay = qobject_cast<QVBoxLayout*>(container->layout())) {
+            vlay->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin, spacing.bottomMargin);
+            vlay->setSpacing(spacing.verticalGap);
+        }
+        // 容器整体最小尺寸重算：图标高 + 垂直间距 + 标题高 + 下边距
+        const int titleTextH = QFontMetrics(QFont(QStringLiteral("PingFang SC"), titlePt)).height();
+        const int totalH = iconSize + spacing.verticalGap + titleTextH + spacing.bottomMargin;
+        container->setMinimumHeight(totalH);
+        container->updateGeometry();
+    }
+
+    // 4) 包装 toolbar 也刷新最小高度/宽度（保证 sizeHint 用得上新尺寸）
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        if (!tb->objectName().startsWith("wrapper_"))
+            continue;
+        if (auto* container = tb->findChild<QWidget*>()) {
+            tb->setMinimumHeight(container->minimumSizeHint().height());
+            tb->setMinimumWidth(container->minimumSizeHint().width());
+        }
+        tb->updateGeometry();
+    }
+    // 注意：不在这里 relayoutToolbarWrappers()——是否换行由外层
+    // applyResponsiveToolbarLayout() 统一决定（我们的目标是一直保持一行）
+}
+
+void igQtMainWindow::showEvent(QShowEvent* event) {
+    QMainWindow::showEvent(event);
+    // 窗口首次真正显示后，屏幕 handle 才稳定；此时挂 hook + 跑一次布局，
+    // 修正启动阶段按"主屏宽度"猜的档位。
+    hookResponsiveEvents();
+    applyResponsiveToolbarLayout();
 }

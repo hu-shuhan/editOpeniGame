@@ -422,9 +422,10 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
         m_Positions->Modified();
     }
 
-    // Build simplified mesh lazily in GetRenderableObject(true)
     m_RenderableMesh.SimplifiedMesh = nullptr;
-    m_SimplifiedMeshBuildAttempted = false;
+#ifndef __EMSCRIPTEN__
+    if (m_ShellRendering) { BuildSimplifiedRenderableObject(); }
+#endif
 
     // 设置Meshleter
     m_RenderableMesh.mMeshleter = SurfaceMeshMeshleter::New();
@@ -434,18 +435,19 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
     if (!m_ShellRendering) { return this; }
 
-    if (useSimplified && m_RenderableMesh.SimplifiedMesh == nullptr && !m_SimplifiedMeshBuildAttempted) {
-        BuildSimplifiedRenderableObject();
+    if (useSimplified && m_RenderableMesh.SimplifiedMesh != nullptr &&
+        m_RenderableMesh.SimplifiedMesh->m_Positions->GetNumberOfElements() >
+                0 &&
+        m_RenderableMesh.SimplifiedMesh->m_TriangleIndices
+                        ->GetNumberOfElements() >
+                0) {
+        return m_RenderableMesh.SimplifiedMesh;
     }
-
-    if (useSimplified && m_RenderableMesh.SimplifiedMesh != nullptr) { return m_RenderableMesh.SimplifiedMesh; }
     if (m_RenderableMesh.SurfaceMesh != nullptr) { return m_RenderableMesh.SurfaceMesh; }
     return this;
 }
 
 void DrawObject::BuildSimplifiedRenderableObject() {
-    m_SimplifiedMeshBuildAttempted = true;
-
     DrawObject::Pointer sourceMesh = nullptr;
     if (m_RenderableMesh.SurfaceMesh != nullptr) {
         sourceMesh = m_RenderableMesh.SurfaceMesh;
@@ -469,6 +471,7 @@ void DrawObject::BuildSimplifiedRenderableObject() {
 
     m_RenderableMesh.SimplifiedMesh = simplifiedMesh;
     SyncRenderableState(m_RenderableMesh.SimplifiedMesh);
+
 }
 
 void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject) {
