@@ -24,6 +24,7 @@ find_package(OpenMP QUIET)
 # Scene::New 会在运行期直接堆损坏崩溃。裸链 ${IGAMEVIS_CORE_LIB_TARGETS} 不会自动带上这些宏。
 add_compile_definitions(
     IGAME_PLATFORM_WINDOWS
+    $<$<PLATFORM_ID:Windows>:PLATFORM_WINDOWS>
     IGAME_OPENGL_VERSION_460
 )
 
