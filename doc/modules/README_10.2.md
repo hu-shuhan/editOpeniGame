@@ -188,6 +188,8 @@ if (filter->Execute()) {
 2. 对全场执行特征提取（子功能 1 / 2），再以云图查看 `vortexPredict` 等属性。
 3. 需要局部分析时，将选区 bounding box 交给 10.1 图表或 10.3 刷选管线。
 
+![框选关键区域高亮示例](../../Resources/Images/car_feaure_select.png)
+
 ---
 
 ## 子功能 4：关键事件时域演化与选中区域形变

@@ -65,6 +65,8 @@
 | `dockWidget_VariableCorrelationField` | `igQtVariableCorrelationWidget` | 变量相关性 |
 | `dockWidget_VariableDensityField` | `igQtVariableDensityWidget` | 变量密度 |
 
+![局部区域多变量图表分析示例](../../Resources/Images/car_pressure_velocity_density.png)
+
 ---
 
 ## 子功能 2：基于信息熵的区域流线种子点自动计算
