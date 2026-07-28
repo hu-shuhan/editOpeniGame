@@ -13,7 +13,7 @@
 2. [共同第一步：编译并 Install 主库](#2-共同第一步编译并-install-主库)
 3. [方式一：CLion 跑 Examples](#3-方式一clion-跑-examples)
 4. [方式二：Visual Studio 跑 Examples](#4-方式二visual-studio-跑-examples)
-5. [方式三：命令行跑 Examples](#5-方式三命令行跑-examples)
+5. [方式三：命令行配置 / 编译 / 运行 Examples](#5-方式三命令行配置编译运行-examples)
 6. [建议先跑通的 3 个验收用例](#6-建议先跑通的-3-个验收用例)
 7. [用例一览（按模块）](#7-用例一览按模块)
 8. [模块依赖](#8-模块依赖编译--运行前核对)
@@ -27,6 +27,31 @@
 | CLion | `cmake-build-examples-clion` |
 | Visual Studio | `cmake-build-examples-vs` |
 | 命令行 | `cmake-build-examples` |
+
+### 命令行一页纸流程（主库 → 构建 Examples → 运行）
+
+主工程**不会**自动编 Examples。命令行完整顺序如下（均在 **x64 Native Tools** 中；路径按本机改）：
+
+```bat
+cd /d D:\RealStudy\editOpeniGame
+
+REM ===== 1) 主库：配置 + 编译 + Install =====
+cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_CGNS_MODULE=ON -DENABLE_QT_MODULE=OFF
+cmake --build cmake-build-release
+cmake --install cmake-build-release
+
+REM ===== 2) Examples：配置 + 编译（无 install）=====
+cmake -S Examples -B cmake-build-examples -G Ninja -DCMAKE_BUILD_TYPE=Release -DiGameCore_DIR=D:/RealStudy/editOpeniGame/cmake-build-release/install/lib/cmake/iGameCore
+cmake --build cmake-build-examples
+
+REM ===== 3) 运行（必须在 Examples 构建目录下）=====
+cd /d D:\RealStudy\editOpeniGame\cmake-build-examples
+set PATH=D:\RealStudy\editOpeniGame\cmake-build-release\install\bin;C:\Program Files\HDF_Group\HDF5\1.14.6\bin;%PATH%
+testLosslessEncode.exe .\Models\StreamTest.vtk
+testSetViewStyle.exe
+```
+
+细节、PowerShell 写法与排错见 [第 2 节](#2-共同第一步编译并-install-主库) 与 [第 5 节](#5-方式三命令行配置编译运行-examples)。CLion / VS 见第 3、4 节。
 
 ---
 
@@ -142,7 +167,8 @@ D:\RealStudy\editOpeniGame\cmake-build-release\install\lib\cmake\iGameCore\iGame
 ### 2.3 关于 Examples 的 Install
 
 **Examples 没有 install 步骤**（`Examples/CMakeLists.txt` 无 `install()`）。  
-只需对主库执行 `cmake --install`；Examples 配置 + 编译后，在构建目录直接运行 exe 即可。
+只需对主库执行 `cmake --install`。  
+接下来如何**配置并编译** Examples：命令行见 [第 5 节](#5-方式三命令行配置编译运行-examples)，CLion / VS 见第 3、4 节。
 
 ---
 
@@ -284,17 +310,21 @@ D:\RealStudy\editOpeniGame\cmake-build-examples-vs
 
 ---
 
-## 5. 方式三：命令行跑 Examples
+## 5. 方式三：命令行配置 / 编译 / 运行 Examples
 
 适合无 IDE、脚本验收或 CI 本地复现。  
-需已安装 VS 2022，并在 **x64 Native Tools / Developer PowerShell** 中操作（否则缺 `cl`）。
+需已安装 VS 2022，并在 **x64 Native Tools / Developer PowerShell** 中操作（配置与 **build 都必须**在该终端，否则可能缺 `cl` 或 `shlwapi.lib`）。
 
 前提：第 2 节主库 **Build + Install 已成功**，且存在  
 `cmake-build-release\install\lib\cmake\iGameCore\iGameCoreConfig.cmake`。
 
-Examples **不要**执行 `cmake --install`（无安装规则）；配好、编好、进构建目录跑即可。
+Examples **不要**执行 `cmake --install`（无安装规则）：
 
-### 5.1 配置并编译 Examples
+```text
+配置（cmake -S Examples）→ 编译（cmake --build）→ 进构建目录运行 exe
+```
+
+### 5.1 配置并编译 Examples（构建步骤）
 
 #### cmd（一行写完）
 
