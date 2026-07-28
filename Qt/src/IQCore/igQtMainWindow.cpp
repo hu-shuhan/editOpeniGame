@@ -1898,15 +1898,19 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         testAction->setObjectName(QString::fromUtf8("testAction"));
         testAction->setText(QString::fromUtf8("testAction"));
         ui->menu_DataAnalysis->addAction(testAction);
+        testAction->setVisible(false);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
             auto model = rendererWidget->GetScene()->GetCurrentModel();
             auto obj = iGame::FileIO::ReadFile("D:/TestModels/segment_result.vtk");
+            auto drawObj = DynamicCast<DrawObject>(model->GetDataObject());
+            drawObj->ConvertToDrawableData();
+            auto surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
             auto resultArray = BlockMapping::GetMappingBlockCellsArray(
-                    DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToSurfaceMesh(),
+                    surfaceMesh,
                     DynamicCast<UnstructuredMesh>(obj));
             resultArray->SetName("block_id");
             auto dataObj = model->GetDataObject();
-            dataObj->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, resultArray);
+            dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
         });
     }

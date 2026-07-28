@@ -86,6 +86,7 @@ enum AttributeType {
     IG_TCOORD,
     IG_TENSOR,
     IG_RGB,
+    IG_BLOCK_MAPPING,
     IG_ATTRIBUTE_COUNT,
 };
 

@@ -201,6 +201,25 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
     return true;
 }
 
+void DataObject::SetBlockMapping(IntArray::Pointer p) {
+    if (m_BlockMappingAttrIndex >= 0) {
+        m_Attributes->DeleteAttribute(m_BlockMappingAttrIndex);
+        m_BlockMappingAttrIndex = -1;
+    }
+    if (p == nullptr) return;
+    m_BlockMappingAttrIndex = static_cast<int>(
+        m_Attributes->AddAttribute(IG_BLOCK_MAPPING, IG_CELL, p));
+}
+
+IntArray* DataObject::GetBlockMapping() {
+    if (m_BlockMappingAttrIndex < 0) return nullptr;
+    return DynamicCast<IntArray>(m_Attributes->GetAttribute(m_BlockMappingAttrIndex).pointer);
+}
+
+bool DataObject::HasBlockMapping() const {
+    return m_BlockMappingAttrIndex >= 0;
+}
+
 void DataObject::SetAttributeSet(AttributeSet::Pointer p) {
     if (p != m_Attributes) {
         m_Attributes = p;

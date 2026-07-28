@@ -308,6 +308,7 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
     for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
         auto& attr = attrSet->GetElement(i);
         if (attr.isDeleted) continue;
+        if (attr.type == IG_BLOCK_MAPPING) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         //if (obj->GetAttributeIndex() == i) {
         //    item->setCurrentChild(child);
@@ -316,13 +317,23 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         const QString attrName = QString::fromStdString(attr.pointer->GetName());
         child->setText(0, attrName);
         child->setToolTip(0, attrName);
-        if (attr.attachmentType == IG_POINT) 
+        if (attr.attachmentType == IG_POINT)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
         // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
+
+    if (obj->HasBlockMapping()) {
+        AttribTreeWidgetItem* child = new AttribTreeWidgetItem(
+            obj->GetBlockMappingAttrIndex(), modelTreeWidget, item);
+        child->setText(0, QString::fromStdString(obj->GetBlockMapping()->GetName()));
+        child->setToolTip(0, child->text(0));
+        child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
+        child->setDimension(1);
+    }
+
     item->viewAttribute(-1);
     iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
 }
