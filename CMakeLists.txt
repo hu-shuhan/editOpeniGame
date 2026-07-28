@@ -17,10 +17,10 @@ endif ()
 
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
-option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
-option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
-option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
+option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" ON)
+option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." ON)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 option(ENABLE_WASM "Build WASM Target." OFF)
 
@@ -30,7 +30,7 @@ set_property(CACHE IGAME_RENDER_BACKEND PROPERTY STRINGS DesktopGL GLES2)
 if (EMSCRIPTEN)
     set(ENABLE_QT_MODULE OFF CACHE BOOL "Build GUI/Qt Module." FORCE)
     if (NOT IGAME_RENDER_BACKEND STREQUAL "GLES2")
-        message(STATUS "EMSCRIPTEN detected: switch IGAME_RENDER_BACKEND to GLES2")
+        message(STATUS "EMSCRIPTEN detected: switch IGAME_RENDER_BACKEND to GLES2")  
         set(IGAME_RENDER_BACKEND "GLES2" CACHE STRING "Rendering backend: DesktopGL or GLES2" FORCE)
     endif ()
 endif ()
