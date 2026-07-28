@@ -89,10 +89,11 @@ file(COPY ${RENDERING_ASSESTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUT
 file(COPY ${RENDERING_SHADERS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders)
 file(COPY ${AI_MODEL_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/AI)
 
+# Absolute install prefix (needed by converter copy steps below).
+get_filename_component(IGAMEVIS_INSTALL_DIR_ABS "${IGAMEVIS_INSTALL_DIR}" ABSOLUTE)
+
 # Copy Nastran converter executable to build directory
 if(@ENABLE_NASTRAN_MODULE@)
-    # Get absolute path for install directory
-    get_filename_component(IGAMEVIS_INSTALL_DIR_ABS "${IGAMEVIS_INSTALL_DIR}" ABSOLUTE)
     set(NASTRAN_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/NastranConverter/nastran_to_vtk_cli.exe")
 
     if(EXISTS "${NASTRAN_CONVERTER_SOURCE}")
@@ -107,7 +108,7 @@ set(FLUENT_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/FluentConverter/cas
 if(EXISTS "${FLUENT_CONVERTER_SOURCE}")
     file(COPY "${FLUENT_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 else()
-    message(WARNING "could not Find FluentConverter: ${FLUENT_CONVERTER_SOURCE}")
+    message(STATUS "FluentConverter not found (optional): ${FLUENT_CONVERTER_SOURCE}")
 endif()
 
 mark_as_advanced(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR)
@@ -183,15 +184,28 @@ endif ()
 # Find ThirdParty lib and Core Components Lib
 #----------------------------------------------
 foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
+    # Clear cached NOTFOUND from previous configures (e.g. zlibstatic -> zs.lib rename).
+    unset(temp${LIB} CACHE)
     set(temp${LIB})
 
     if(WIN32)
+        # Target names in ThirdParty_lib_dependency often differ from OUTPUT_NAME on disk.
+        # zlibstatic installs as zs.lib; glfw as glfw3.lib; HDF5 1.14 uses zlib-static / libszaec.
+        set(_igame_lib_names ${LIB})
+        if(LIB STREQUAL "zlibstatic")
+            list(APPEND _igame_lib_names zs z)
+        elseif(LIB STREQUAL "glfw")
+            list(APPEND _igame_lib_names glfw3)
+        elseif(LIB STREQUAL "libzlib")
+            list(APPEND _igame_lib_names zlib zlib-static)
+        elseif(LIB STREQUAL "libsz")
+            list(APPEND _igame_lib_names libszaec sz szip)
+        endif()
         find_library(temp${LIB}
-            NAMES
-            "${LIB}.lib"
-            HINTS
-            ${IGAMEVIS_CORE_PRIVATE_LIB}
+            NAMES ${_igame_lib_names}
+            HINTS ${IGAMEVIS_CORE_PRIVATE_LIB}
         )
+        unset(_igame_lib_names)
     else()
         # On UNIX, try names with and without 'lib' prefix, any extension (.so/.a)
         find_library(temp${LIB}
