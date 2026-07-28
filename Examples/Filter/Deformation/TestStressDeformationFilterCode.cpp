@@ -8,7 +8,7 @@ int main(){
     iGame::StressDeformationCodeFilter::Pointer filter = iGame::StressDeformationCodeFilter::New();
     //    const std::string fileName = "./Models/sukong_Step-1_2.vtu";
     // Any Model with Vector Attribute.
-    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\pvd\\redsea\\1/1_0_30.vtu";
+    const std::string fileName = "./Models/redsea/1/1_0_30.vtu";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
 
     obj->GetDeformationData()->SetAttributeName("UVW");
