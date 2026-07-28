@@ -186,7 +186,7 @@ GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
 | 菜单「可视化」→ 张量场 / `action_Tensor` | 打开「张量场」面板 |
 | `dockWidget_TensorField` | Glyph 类型、缩放、着色 |
 
-![张量场](../../Resources/Images/张量场.PNG)
+![张量场](../../Resources/Images/张量场可视化.PNG)
 
 > 当前 Glyph 仅实现椭球与立方体；表示类中预留了后续扩展注释。
 
