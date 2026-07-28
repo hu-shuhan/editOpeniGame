@@ -241,5 +241,7 @@ commandManager->sendResponse(responseJson);  // 执行结果回传 MCP Tool Serv
 | AI Chat Dock（`igQtAiChatWidget`） | 消息输入框（支持多行）、历史气泡、流式逐字输出、连接状态指示 |
 | 设置按钮 | 配置 MCP 文件夹路径（`onSetMcpPath`）和 Python 解释器路径（`onSetPythonPath`） |
 
+![MCP 文本交互界面](../../Resources/Images/MCP_USE.png)
+
 ---
 
