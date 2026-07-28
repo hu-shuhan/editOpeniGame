@@ -147,7 +147,7 @@ auto streamlines = tracer->GetOutput();
 
 | 入口 | 说明 |
 |------|------|
-| 菜单「可视化」→ 时序流场 / `action_FlowField` | 打开左侧「流场」流线面板 |
+| 菜单 流线型 / `action_FlowField` | 打开左侧「流场」流线面板 |
 | `dockWidget_FlowField` / `igQtStreamTracerWidget` | 种子点生成方式下拉框选「信息熵模式」（`control == 6`） |
 | 「选择」面板 → 启用选择盒 | 框选关注区域，使熵排序限定在选区内（可选） |
 
