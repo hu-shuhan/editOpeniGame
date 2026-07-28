@@ -6,7 +6,7 @@
 
 | # | 子功能 | 状态 |
 |---|--------|------|
-| 1 | 语义分割，点选物体局部聚焦，改变视角和旋转中心 | ✅ 旋转中心交互已实现；语义分割标注属性待完善 |
+| 1 | 语义分割，点选物体局部聚焦，改变视角和旋转中心 | ⏳ 旋转中心交互已实现；语义分割标注属性待完善 |
 | 2 | 选择局部三维区域计算微观流线，同时显示微观和宏观流线 | ✅ 已实现 |
 | 3 | 基于 MCP 的文本交互 | ✅ 已实现 |
 
@@ -77,7 +77,7 @@
 | `action_PickCenter`（PickCenter 按钮） | `igQtMainWindow.cpp:1040` | 切换到 `DragCenterStyle`，显示旋转中心坐标轴，允许鼠标拖拽精细调整旋转中心 |
 | `action_ShowCenter` | `igQtMainWindow.cpp:1031` | 切换坐标轴显隐（`ToggleCenterAxes`） |
 
-语义分割标注属性的 GUI 入口依赖 10.2 / 10.1 中的属性切换面板（`dockWidget_ScalarField`）。
+![框选局部区域聚焦示例](../../Resources/Images/car_box_view.png)
 
 ---
 
