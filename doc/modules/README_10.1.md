@@ -26,14 +26,14 @@
 
 ### 源码路径
 
-| 路径 | 说明 |
-|------|------|
-| `Qt/src/IQWidgets/igQtDataChangeWidget.cpp` / `Qt/include/IQWidgets/igQtDataChangeWidget.h` | 局部区域图表分析主面板（选区、径向图、图表绘制） |
-| `iGameCore/Filters/PlotLine/iGameGeneratePlotLineDataFilter.*` | 探针线 / 区域数据生成 |
-| `iGameCore/Filters/ParallelCoordinates/iGameGenerateParallelCoordinatesData.*` | 并行坐标数据生成 |
-| `iGameCore/Filters/VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.*` | 变量相关性矩阵 |
-| `iGameCore/Filters/VariableDensity/iGameGenerateVariableDensityDataFilter.*` | 变量密度分布 |
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | 框选盒交互，提供 bounding box 极值点 |
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
+| `Qt/src/IQWidgets/igQtDataChangeWidget.*` | `igQtDataChangeWidget` | 局部区域图表分析主面板（选区、径向图、图表绘制） |
+| `iGameCore/Filters/PlotLine/iGameGeneratePlotLineDataFilter.*` | `GeneratePlotLineDataFilter` | 探针线 / 区域数据生成 |
+| `iGameCore/Filters/ParallelCoordinates/iGameGenerateParallelCoordinatesData.*` | `GenerateParallelCoordinatesData` | 并行坐标数据生成 |
+| `iGameCore/Filters/VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.*` | `GenerateVariableCorrelationDataFilter` | 变量相关性矩阵 |
+| `iGameCore/Filters/VariableDensity/iGameGenerateVariableDensityDataFilter.*` | `GenerateVariableDensityDataFilter` | 变量密度分布 |
+| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle` | 框选盒交互，提供 bounding box 极值点 |
 
 ### 关键实现
 
@@ -56,16 +56,45 @@
 
 3. **选区联动**：选区变化通过 `SelectionCallbackEvent(itemType, ids, ope)` 回调，实时刷新被选中变量的图像（`GenerateChoosedVariableImage`）。
 
+### 调用方式
+
+对应示例 `Examples/Filter/VisualizationData/TestPlotLineData.cpp`：
+
+```cpp
+auto dataObj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
+auto attrs   = dataObj->GetAttributeSet();
+
+auto filter = iGame::GeneratePlotLineDataFilter::New();
+filter->SetInput(dataObj);
+// 分析范围：显式框选时用选区包围盒，否则退化为整模型包围盒
+filter->SetBoundingBox(dataObj->GetBoundingBox());
+filter->Execute();
+auto plotData = filter->GetOutput();
+```
+
+并行坐标 / 变量相关性 / 变量密度同为 `Filter::New() → SetInput() → Execute() → GetOutput()` 模式，分别见
+`TestParallelCoordinatesData.cpp` / `TestVariableCorrelationData.cpp` / `TestVariableDensityData.cpp`。
+
 ### GUI
 
-| Dock 面板 | Widget | 说明 |
-|-----------|--------|------|
-| `dockWidget_DataChangeField` | `igQtDataChangeWidget` | 选点 / 框选 → 局部区域径向图 / 探针线图表 |
-| `dockWidget_ParallelCoordinatesField` | `igQtParallelCoordinatesWidget` | 并行坐标 |
-| `dockWidget_VariableCorrelationField` | `igQtVariableCorrelationWidget` | 变量相关性 |
-| `dockWidget_VariableDensityField` | `igQtVariableDensityWidget` | 变量密度 |
+| 入口 | 说明 |
+|------|------|
+| 菜单「可视化」→ `action_DataChange` | 打开左侧「数据变化」面板 |
+| `dockWidget_DataChangeField` / `igQtDataChangeWidget` | 选点 / 框选 → 局部区域径向图 / 探针线图表 |
+| 菜单「可视化」→ `action_ParallelCoordinates` / `dockWidget_ParallelCoordinatesField` | 并行坐标 |
+| 菜单「可视化」→ `action_VariableCorrelation` / `dockWidget_VariableCorrelationField` | 变量相关性 |
+| 菜单「可视化」→ `action_VariableDensity` / `dockWidget_VariableDensityField` | 变量密度 |
 
 ![局部区域多变量图表分析示例](../../Resources/Images/car_pressure_velocity_density.png)
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 |
+|--------|--------|----------|
+| `testPlotLineData` | `Examples/Filter/VisualizationData/TestPlotLineData.cpp` | `./Models/Tet_Plane.vtk` |
+| `testParallelCoordinatesData` | `Examples/Filter/VisualizationData/TestParallelCoordinatesData.cpp` | `./Models/Tet_Plane.vtk` |
+| `testVariableCorrelationData` | `Examples/Filter/VisualizationData/TestVariableCorrelationData.cpp` | `./Models/Tet_Plane.vtk` |
+| `testVariableDensityData` | `Examples/Filter/VisualizationData/TestVariableDensityData.cpp` | `./Models/Tet_Plane.vtk` |
 
 ---
 
@@ -97,9 +126,13 @@
 
 ### 调用方式
 
+对应示例 `Examples/Filter/Vector/TestStreamline.cpp`：
+
 ```cpp
+auto dataObj = iGame::FileIO::ReadFile("./Models/Driver/driver-1.vtk");
+
 auto tracer = iGame::StreamTracer::New();
-tracer->initStreamTracer(model);        // 绑定模型 / 网格
+tracer->initStreamTracer(dataObj);      // 绑定模型 / 网格
 tracer->AddPtFinder(pointFinder);       // 提供盒格划分
 // 信息熵种子点：熵最高 2.5% 的盒子、每盒 8 个极值点
 auto seeds = tracer->getEntropySeeding(vectorName, 0.025f, 8);
@@ -112,15 +145,25 @@ auto streamlines = tracer->GetOutput();
 
 ### GUI
 
-在流线面板 `igQtStreamTracerWidget` 中，种子模式（`control == 6`）即“信息熵种子”：先调用 `getEntropySeeding` 得到高熵区种子，再叠加均匀子块中心 `computeSubBlockCenters`，随后生成流线。
-
-区域来源支持“选区自动包围盒”：`getModelSelect` 依据选中的点 / 单元自动求 bounding box，再在焦点区域内划分子块中心作为布种范围。
-
-### 相关示例
-
-| 示例 | 说明 |
+| 入口 | 说明 |
 |------|------|
-| `Examples/Filter/Vector/TestStreamline.cpp` | 流线与种子点生成 |
+| 菜单「可视化」→ 时序流场 / `action_FlowField` | 打开左侧「流场」流线面板 |
+| `dockWidget_FlowField` / `igQtStreamTracerWidget` | 种子点生成方式下拉框选「信息熵模式」（`control == 6`） |
+| 「选择」面板 → 启用选择盒 | 框选关注区域，使熵排序限定在选区内（可选） |
+
+面板中种子模式 `control == 6` 即"信息熵种子"：先调用 `getEntropySeeding` 得到高熵区种子，再叠加均匀子块中心 `computeSubBlockCenters`，随后生成流线。
+
+区域来源支持"选区自动包围盒"：`getModelSelect` 依据选中的点 / 单元自动求 bounding box，再在焦点区域内划分子块中心作为布种范围。
+
+![信息熵种子流线](../../Resources/Images/信息熵种子流线.png)
+
+> 图中「种子点生成方式」选择「信息熵模式」，矢量选择 `CellRelativeVelocity`；视图中的小方框为选择盒，用于把熵排序限定在关注区域内。
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 |
+|--------|--------|----------|
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/driver-1.vtk` |
 
 ---
 
@@ -172,15 +215,38 @@ if (simp->Execute()) {
 
 ### GUI
 
-在流线面板 `igQtStreamTracerWidget` 中，先在模型树选中已生成的流线对象（名称含 `_StreamLine`），点击 **Cluster** 按钮触发 `Simplifier()`：类别数取自 `clusterSpin`、保留总数取自 `perClusterSpin`。首次筛选会缓存原始流线快照，后续可反复调参而不丢失原始数据；结果按 `ClusterLabel` 云图着色。
+| 入口 | 说明 |
+|------|------|
+| 模型树 → 选中流线对象（名称含 `_StreamLine`） | 指定筛选目标 |
+| `dockWidget_FlowField` → `clusterSpin` / `perClusterSpin` | 聚类类别数 / 保留流线总数 |
+| `dockWidget_FlowField` → **Cluster** 按钮 | 触发 `Simplifier()` |
+
+首次筛选会缓存原始流线快照，后续可反复调参而不丢失原始数据；结果按 `ClusterLabel` 云图着色。每次生成都会产出独立的流线对象（命名为 `<模型名>_StreamLine_<序号>_<模式>`），可分别对不同流线对象施加不同筛选参数，互不影响。
+
+**筛选前**：一次布种生成的全部流线（131982 个 line 单元），互相遮挡难以观察。
+
+![流线筛选前](../../Resources/Images/流线筛选前.png)
+
+**筛选后**：簇数 2、采样总数 50，保留的代表流线按 `ClusterLabel` 着色，可清晰区分两类流动模式（中心涡旋 / 外围绕流）。
+
+![流线筛选后](../../Resources/Images/流线筛选后.png)
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 说明 |
+|--------|--------|----------|------|
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/driver-1.vtk` | 先生成流线，再对输出调用 `StreamlineSimplifier` |
+
+> 筛选功能当前无独立示例 Target；GUI 路径见上表，代码路径见「调用方式」。
 
 ---
 
-## 相关示例（图表分析）
+## 相关示例汇总
 
-| 示例 Target | 说明 |
-|-------------|------|
-| `testParallelCoordinatesData` | 并行坐标 |
-| `testVariableCorrelationData` | 变量相关性 |
-| `testVariableDensityData` | 变量密度 |
-| `testPlotLineData` | 探针线 / 局部区域数据 |
+| 示例 Target | 源文件 | 默认数据 | 说明 | 条件 |
+|-------------|--------|----------|------|------|
+| `testPlotLineData` | `Examples/Filter/VisualizationData/TestPlotLineData.cpp` | `./Models/Tet_Plane.vtk` | 探针线 / 局部区域数据 | 默认 |
+| `testParallelCoordinatesData` | `Examples/Filter/VisualizationData/TestParallelCoordinatesData.cpp` | `./Models/Tet_Plane.vtk` | 并行坐标 | 默认 |
+| `testVariableCorrelationData` | `Examples/Filter/VisualizationData/TestVariableCorrelationData.cpp` | `./Models/Tet_Plane.vtk` | 变量相关性 | 默认 |
+| `testVariableDensityData` | `Examples/Filter/VisualizationData/TestVariableDensityData.cpp` | `./Models/Tet_Plane.vtk` | 变量密度 | 默认 |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/driver-1.vtk` | 流线积分 / 熵种子 / 筛选输入 | 默认 |
