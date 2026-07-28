@@ -421,6 +421,8 @@ if (obj == nullptr) {
 
 > GUI 过滤器始终可能显示 `.cgns`；若构建时未启用 `ENABLE_CGNS_MODULE`，统一入口不会执行 CGNS 读取并返回 `nullptr`。
 
+![CGNS 导入效果](../../Resources/Images/CGNS导入.png)
+
 ### 测试用例
 
 | Target | 源文件 | 默认数据 | 条件 |

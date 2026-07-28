@@ -216,6 +216,8 @@ Memory-reading functions return `nullptr` for a null pointer or a zero-length bu
 | Animation dock | Calls `UpdateAnimation()` by time frame after a PVD file has been loaded |
 | Model tree | VTM / PVD multiblock data is displayed as a parent object with child objects |
 
+![CGNS 导入效果](../../Resources/Images/CGNS导入.png)
+
 ### Test Cases
 
 | Target | Source file | Default data | Description |
