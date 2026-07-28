@@ -229,21 +229,6 @@ double recall    = filter->GetRecall();
 
 ---
 
-## 开源与交付物映射
-
-考核交付物与本仓库文档的对应关系（证书编号请按实际补全）：
-
-| 交付物 | 说明 | 登记 |
-|--------|------|------|
-| 开源软件代码库 | 本仓库 `iGameCore` + `Qt` + `Examples` + `doc/` | 仓库地址 / License：________ |
-| 软件著作权 × 5 | 按软著证书归档 | 证书编号：________ |
-| 软件测试报告 × 5 | 建议覆盖：Meshlet、场可视化(11.3)、特征提取(10.2)、多尺度交互(10.3)、高阶/Spline(7.1) | 报告编号：________ |
-| 硕 / 博士培养 × 2 | 学位证书归档 | 姓名 / 学位：________ |
-
-运行与验收操作说明可参考：[Examples/HOW_TO_RUN.md](../../Examples/HOW_TO_RUN.md)（若已纳入仓库）。
-
----
-
 ## 相关示例汇总
 
 | Target | 对应子功能 | 条件 |
@@ -254,20 +239,6 @@ double recall    = filter->GetRecall();
 | `testSetScalarField` / `testVector*` / `testTensorView` / … | 3 场可视化 | 见 11.3 |
 | `testMultiscaleInteraction` | 4 多尺度交互 | 默认 |
 | `testGradientExtraction` / … / `testVortexDetection` | 5–6 特征与评测 | 涡预测需 LibTorch |
-
----
-
-## 验收自检清单
-
-| 子功能 | 建议现场验证 |
-|--------|----------------|
-| 1 并行内核 | 打开 Meshlet：`testMeshletRendering`；设置目标帧率：`testSetRenderingPressure`；大网格交互不卡死 |
-| 2 高保真 | 加载 Spline XML 或 Lagrange 转换结果，几何与属性显示正确 |
-| 3 场可视化 | 按 11.3 清单：云图 / 矢量 / 张量 / 形变 / 流线 / 动画至少各演示一项 |
-| 4 多尺度交互 | `testMultiscaleInteraction`：2D 刷选 ↔ 3D 高亮联动 |
-| 5 特征提取 | 梯度 / 曲率 / 涡预测等结果进入属性树并可云图显示 |
-| 6 智能评测 | `testVortexDetection` 输出 Precision / Recall；说明与标注对比流程 |
-| 开源交付 | 可指出代码路径、编译方式；软著 / 测试报告 / 培养材料备查 |
 
 ---
 

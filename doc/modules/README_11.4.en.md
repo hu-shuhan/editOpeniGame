@@ -7,11 +7,11 @@ This metric builds a **high-precision parallel visualization platform** for CAE 
 | # | Sub-feature (vs. assessment text) | Status | Detail doc |
 |---|-----------------------------------|--------|------------|
 | 1 | High-precision parallel kernel (VTK-class: Meshlet GPU accel, thread pool, render-pressure pacing) | ✅ Implemented | **This document** |
-| 2 | IGA / high-order high-fidelity visualization (spectral methods: see Known gaps) | ✅ Partial (Spline / Lagrange) | [README_7.1.en.md](README_7.1.en.md) / [README_7.1.md](README_7.1.md) |
+| 2 | IGA / high-order high-fidelity visualization (spectral methods: see Known gaps) | ✅ Partial (Spline / Lagrange) | [README_7.1.en.md](README_7.1.en.md) |
 | 3 | Cloud maps / adaptive vectors / tensors and related field visualization | ✅ Implemented | [README_11.3.en.md](README_11.3.en.md) |
-| 4 | Large-scale multi-scale physical-field visual interaction | ✅ Implemented | [README_10.3.md](README_10.3.md) |
-| 5 | Multi-level critical-feature intelligent extraction | ✅ Implemented | [README_10.2.en.md](README_10.2.en.md) / [README_10.2.md](README_10.2.md) |
-| 6 | Visualization-result intelligent evaluation (expert / annotation fusion) | ✅ Partial (vortex Precision/Recall; mesh metrics pending stronger GUI) | This overview + 10.2 |
+| 4 | Large-scale multi-scale physical-field visual interaction | ✅ Implemented | [README_10.3.en.md](README_10.3.en.md) |
+| 5 | Multi-level critical-feature intelligent extraction | ✅ Implemented | [README_10.2.en.md](README_10.2.en.md) |
+| 6 | Visualization-result intelligent evaluation (expert / annotation fusion) | ✅ Partial (vortex Precision/Recall; mesh metrics pending stronger GUI) | This overview + [README_10.2.en.md](README_10.2.en.md) |
 
 > **Doc style**: 11.4 is a **platform umbrella**. Sub-features 1 and 6 are expanded here; 2–5 are mainly cross-links to avoid duplicating 7.1 / 10.x / 11.3.  
 > Differs from **11.3**: 11.3 answers “how to draw fields”; 11.4 answers “how the platform parallelizes / accelerates and integrates those modules”.  
@@ -120,7 +120,7 @@ Build Examples with `EXAMPLE_COMPILE=ON` (or the repo’s current Examples CMake
 
 Lagrange high-order conversion and NURBS/Spline CPU/GPU readers for IGA-style high-fidelity display.
 
-Full detail: **[README_7.1.md](README_7.1.md)** (EN stub if present: `README_7.1.en.md`).
+Full detail, API, GUI, and examples: **[README_7.1.en.md](README_7.1.en.md)**.
 
 ### Test Cases (entry points)
 
@@ -143,7 +143,7 @@ Full detail: **[README_7.1.md](README_7.1.md)** (EN stub if present: `README_7.1
 
 Platform integrates scalar cloud maps, adaptive vector glyphs, tensor glyphs, deformation, time-series streamlines, and animation export.
 
-Full detail and screenshots: **[README_11.3.en.md](README_11.3.en.md)**.
+Full detail, screenshots, call sites, and tests: **[README_11.3.en.md](README_11.3.en.md)** (Chinese: [README_11.3.md](README_11.3.md)).
 
 ### Test Cases (entry points)
 
@@ -164,14 +164,14 @@ Full detail and screenshots: **[README_11.3.en.md](README_11.3.en.md)**.
 
 Brush/box selection in parallel coordinates, correlation, density, and plot-line views links to 3D highlight/filter via `Selection`.
 
-Full detail: **[README_10.3.md](README_10.3.md)**.
+Full detail: **[README_10.3.en.md](README_10.3.en.md)**.
 
 ### Test Cases (entry points)
 
 | Target | Source |
 |--------|--------|
 | `testMultiscaleInteraction` | `Examples/MultiscaleInteraction/TestMultiscaleInteraction.cpp` |
-| Chart/selection singles | Parallel coordinates, correlation, density, plot-line examples |
+| `testParallelCoordinatesData`, etc. | Per-view examples |
 
 ---
 
@@ -181,7 +181,7 @@ Full detail: **[README_10.3.md](README_10.3.md)**.
 
 Classical features (gradient / curvature / Laplacian / vorticity) plus NN vortex detection; results land in `AttributeSet` for 11.3 cloud maps and 10.3 selection.
 
-Detail and Precision/Recall ≥ 90% target: **[README_10.2.md](README_10.2.md)**.
+Detail and Precision/Recall ≥ 90% target: **[README_10.2.en.md](README_10.2.en.md)**.
 
 ### Test Cases (entry points)
 
@@ -204,12 +204,13 @@ The strongest “annotation / expert knowledge” path today is **vortex predict
 
 | Path | API | Notes |
 |------|-----|-------|
-| FeatureExtraction (vortex detection) | `EvaluatePredictMetrics` / `GetPrecision` / `GetRecall` | Annotation comparison |
-| `iGameCore/Filters/MeshMetrics/` | Surface / Volume metrics filters | Quality metrics (pending stronger integration) |
+| `iGameCore/Filters/FeatureExtraction/` (vortex detection) | `EvaluatePredictMetrics` / `GetPrecision` / `GetRecall` | Annotation comparison |
+| `iGameCore/Filters/MeshMetrics/` | `SurfaceMeshMetricsFilter` / `VolumeMeshMetricsFilter` | Mesh quality (pending stronger integration) |
 
-### How It Is Called
+### How It Is Called (from the 10.2 path)
 
 ```cpp
+// After vortex prediction, with a PredictedLabel annotation attribute present:
 filter->EvaluatePredictMetrics(/* ... */);
 double precision = filter->GetPrecision();
 double recall    = filter->GetRecall();
@@ -228,19 +229,6 @@ double recall    = filter->GetRecall();
 
 ---
 
-## Open Source & Deliverables Mapping
-
-| Deliverable | Notes | Registry |
-|-------------|-------|----------|
-| Open-source codebase | This repo: `iGameCore` + `Qt` + `Examples` + `doc/` | URL / License: ________ |
-| Software copyrights × 5 | Archive certificates | Nos.: ________ |
-| Software test reports × 5 | Suggested coverage: Meshlet, field viz (11.3), features (10.2), multi-scale (10.3), high-order/Spline (7.1) | Nos.: ________ |
-| Master’s / PhD training × 2 | Archive degree certificates | Names / degrees: ________ |
-
-Build/run guidance: [Examples/HOW_TO_RUN.md](../../Examples/HOW_TO_RUN.md) (if present in the tree).
-
----
-
 ## Related Examples (summary)
 
 | Target | Sub-feature | Condition |
@@ -254,29 +242,15 @@ Build/run guidance: [Examples/HOW_TO_RUN.md](../../Examples/HOW_TO_RUN.md) (if p
 
 ---
 
-## Acceptance Checklist
-
-| Sub-feature | Suggested live check |
-|-------------|----------------------|
-| 1 Parallel kernel | Meshlet via `testMeshletRendering`; FPS via `testSetRenderingPressure`; large mesh stays interactive |
-| 2 High-fidelity | Load Spline XML or Lagrange convert; geometry/attributes look correct |
-| 3 Field viz | Per 11.3: demo at least one of cloud / vector / tensor / deform / streamline / animation |
-| 4 Multi-scale | `testMultiscaleInteraction`: 2D brush ↔ 3D highlight |
-| 5 Feature extraction | Gradient / curvature / vortex predict appear in attribute tree and as cloud maps |
-| 6 Evaluation | `testVortexDetection` prints Precision / Recall; explain annotation compare flow |
-| Open-source delivery | Point to code paths & build steps; copyrights / reports / training materials on hand |
-
----
-
 ## Related Metrics
 
 | Metric | Doc | Relation to 11.4 |
 |--------|-----|------------------|
-| 7.1 | [README_7.1.md](README_7.1.md) | High-order / IGA fidelity |
-| 10.1 | [README_10.1.md](README_10.1.md) | Analysis data generation |
-| 10.2 | [README_10.2.md](README_10.2.md) | Critical features & evaluation |
-| 10.3 | [README_10.3.md](README_10.3.md) | Multi-scale interaction |
-| 11.2 | [README_11.2.md](README_11.2.md) | Multi-format IO |
+| 7.1 | [README_7.1.en.md](README_7.1.en.md) | High-order / IGA fidelity |
+| 10.1 | [README_10.1.en.md](README_10.1.en.md) | Analysis data generation |
+| 10.2 | [README_10.2.en.md](README_10.2.en.md) | Critical features & evaluation |
+| 10.3 | [README_10.3.en.md](README_10.3.en.md) | Multi-scale interaction |
+| 11.2 | [README_11.2.en.md](README_11.2.en.md) | Multi-format IO |
 | 11.3 | [README_11.3.en.md](README_11.3.en.md) | Field visualization output |
 
 Index: [README.md](README.md)

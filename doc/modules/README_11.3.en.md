@@ -217,7 +217,7 @@ Deformation state lives on each `DataObject` via `DeformationData`. When animati
 
 ### How It Is Called
 
-Full API is in `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp` (`testDeformation` currently only loads/displays; deformation calls are commented):
+Full API is in `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp`:
 
 ```cpp
 auto obj = iGame::FileIO::ReadFile("./Models/sukong_Step-1_2.vtu");  // bring your own
@@ -247,7 +247,7 @@ scene->AddModel(res);
 
 | Target | Source | Default data | Notes |
 |--------|--------|--------------|-------|
-| `testDeformation` | `Examples/Filter/Deformation/TestStressDeformationFilter.cpp` | `./Models/sukong_Step-1_2.vtu` (bring your own) | Load/display; API in comments |
+| `testDeformation` | `Examples/Filter/Deformation/TestStressDeformationFilter.cpp` | `./Models/sukong_Step-1_2.vtu` (bring your own) |
 | `testDeformationCode` | `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp` | Hardcoded local VTU; comment uses `sukong_Step-1_2.vtu` | Explicit DSF + `Execute` |
 
 ---
@@ -361,9 +361,9 @@ UpdateAnimation(i)
 
 Also supports interpolate playback (VCR path) and configurable frame cache size.
 
-### Export flow
+### How It Is Called
 
-**Play one frame** (`PlayAnimation` in `Examples/Animation/SaveAnimation.cpp`):
+**Single-frame prepare / play one frame** (`PlayAnimation` in `Examples/Animation/SaveAnimation.cpp`):
 
 ```cpp
 auto currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
@@ -439,30 +439,6 @@ writer->SaveMP4();   // or SaveGIF()
 
 ---
 
-## Companion: Contour / isolines
-
-Not one of the six title bullets, but part of field visualization output and already wired in GUI/examples.
-
-| Path | Notes |
-|------|-------|
-| `iGameCore/Filters/Contour/iGameContourFilter.*` | Iso-surface / iso-line |
-| `Qt/src/IQWidgets/igQtContourExtractWidget.*` | `dockWidget_ContourExtract` |
-| Example `testContourLine` | Isolines |
-
----
-
-## Meshlet acceleration (optional)
-
-Large-mesh cloud maps / drawing can use Meshlet acceleration:
-
-```cpp
-drawObj->SetAccelerationOption(/* ... */);
-```
-
-See `iGameDrawObject::SetAccelerationOption`; more detail in metric **11.4**.
-
----
-
 ## Related Examples (summary)
 
 | Target | Notes | Condition |
@@ -477,16 +453,3 @@ See `iGameDrawObject::SetAccelerationOption`; more detail in metric **11.4**.
 | `testContourLine` | Isolines | default |
 | `testAnimation` | Animation play setup | default |
 | `testSaveAnimation` | Animation export | `FFMPEG_FOUND` |
-
----
-
-## Acceptance Checklist
-
-| Sub-feature | Suggested check |
-|-------------|-----------------|
-| Cloud map | Scalar attribute colors and color bar look correct |
-| Vector field | Three sampling modes produce expected arrow density |
-| Tensor field | Ellipsoid / cuboid glyphs follow principal values |
-| Deformation | Geometry moves with displacement when enabled; persists across animation frames |
-| Time series / streamlines | PVD frames switch; streamlines integrate visibly |
-| Animation export | Playback is smooth; MP4/GIF export works when FFMPEG is built |

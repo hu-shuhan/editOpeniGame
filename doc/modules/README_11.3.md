@@ -439,30 +439,6 @@ writer->SaveMP4();   // 或 SaveGIF()
 
 ---
 
-## 配套：等值面 / 等值线
-
-虽未写入指标标题六项，但同属场可视化输出，GUI 与示例已接入。
-
-| 路径 | 说明 |
-|------|------|
-| `iGameCore/Filters/Contour/iGameContourFilter.*` | 等值面 / 等值线 |
-| `Qt/src/IQWidgets/igQtContourExtractWidget.*` | `dockWidget_ContourExtract` |
-| 示例 `testContourLine` | 等值线 |
-
----
-
-## Meshlet 加速（可选）
-
-大网格云图 / 绘制可通过 Meshlet 加速：
-
-```cpp
-drawObj->SetAccelerationOption(/* ... */);
-```
-
-见 `iGameDrawObject::SetAccelerationOption`，细节可对照指标 **11.4**。
-
----
-
 ## 相关示例汇总
 
 | 示例 Target | 说明 | 条件 |
@@ -477,16 +453,3 @@ drawObj->SetAccelerationOption(/* ... */);
 | `testContourLine` | 等值线 | 默认 |
 | `testAnimation` | 动画播放准备 | 默认 |
 | `testSaveAnimation` | 动画导出 | `FFMPEG_FOUND` |
-
----
-
-## 验收自检清单
-
-| 子功能 | 建议验证 |
-|--------|----------|
-| 云图 | 打开标量属性，色带与范围正确 |
-| 矢量场 | 三种采样模式箭头密度符合预期 |
-| 张量场 | 椭球 / 立方体 Glyph 随张量主值变化 |
-| 形变 | 开关偏移后几何随位移矢量变化；动画帧保持形变 |
-| 时序 / 流线 | PVD 切换帧；流线积分可见 |
-| 动画输出 | 播放流畅；有 FFMPEG 时可导出 MP4/GIF |
