@@ -54,6 +54,14 @@ Qt 通过 `igQtFileLoader::OpenSplineFile()` 加载 `.xml` 样条文件，按用
 | `testSplineReaderCPU` | CPU 样条读取与可视化 | 默认 |
 | `testSplineReaderGPU` | GPU 样条读取 | `ENABLE_GPSCUDA_MODULE=ON` |
 
+![高阶可视化_Surface_CPU](../../Resources/Images/高阶可视化_Surface_CPU.png)
+
+图 1：高阶可视化_Surface_CPU（曲面模式）
+
+![高阶可视化_Volume_CPU](../../Resources/Images/高阶可视化_Volume_CPU.png)
+
+图 2：高阶可视化_Volume_CPU（体模式）
+
 ## 已知限制
 
 - VTK 高阶单元类型在 IO 层已有解析，但用户文档注明 **VTK 高阶网格端到端可视化尚未完全适配**（见 `iGameVisNoticeToUsers.md`）。
