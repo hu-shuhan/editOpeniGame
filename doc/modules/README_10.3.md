@@ -85,73 +85,94 @@
 
 ### 功能说明
 
-用户在三维模型上框选或点选一个局部区域，系统在此区域内以更细的空间分割生成**微观流线**种子点；同时在整体模型包围盒范围内以较粗的分割生成**宏观流线**种子点；两组流线共同可视化，形成"全局结构 + 局部细节"的多尺度流场视图。
+用户框选一个局部三维区域后，系统在**一次流线生成中同时布置两种空间尺度的种子点**，得到并置显示的多尺度流场视图：
 
-- **宏观流线**：对整体模型包围盒做粗分割，捕捉全局流动趋势。
-- **微观流线**：对选中局部区域做细分割，仅作用于选区范围，呈现局部细节流动结构。
+| 尺度 | 种子来源 | 作用 |
+|------|----------|------|
+| **微观流线** | 框选区域内速度模长的**极大值 / 极小值**点 | 呈现关注区域内部的细节流动结构（分离、驻点、局部涡） |
+| **宏观流线** | 贯穿整个流场的**种子线**上均匀采样 | 捕捉全局流动趋势与主要结构走向 |
+
+两组种子合并后一次积分，输出到同一个流线网格中，因此微观细节与宏观背景天然对齐、共享同一套着色与线宽设置。
+
+对应「种子点生成方式」下拉框中的两个模式：
+
+| 模式 | `control` | 微观种子 |
+|------|-----------|----------|
+| **多尺度混合模式(极大)** | 3 | 选区内速度模长最大的 N 个点 |
+| **多尺度混合模式(极小)** | 4 | 选区内速度模长最小的 N 个点 |
 
 ### 源码路径
 
 | 路径 | 类 / 函数 | 说明 |
 |------|-----------|------|
 | `iGameCore/Filters/StreamView/iGameStreamTracer.*` | `StreamTracer` | 流线计算核心 |
-| `iGameCore/Filters/StreamView/iGameStreamTracer.cpp` | `getAllSubBlockCenters` | 按包围盒与焦点区域双层划分，生成种子中心点 |
-| `iGameCore/Filters/StreamView/iGameStreamTracer.cpp` | `getModelSelect` | 从当前选区自动求焦点包围盒，调用 `getAllSubBlockCenters` |
-| `iGameCore/Filters/StreamView/iGameStreamTracer.cpp` | `computeSubBlockCenters` | 将空间盒均匀划分为子块并返回中心点列表 |
-| `iGameCore/Filters/StreamView/iGameStreamTracer.cpp` | `getEntropySeeding` | 高熵区种子点生成，支持 `useSelection` 参数限定在选区内布种 |
-| `Qt/src/IQWidgets/igQtStreamTracerWidget.cpp` | `generateStreamline` | GUI 触发流线生成（宏 / 微两组） |
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle` | 框选包围盒，为焦点区域提供极值点 |
+| `iGameCore/Filters/StreamView/iGameStreamTracer.cpp` | `getModelSelectMax` / `getModelSelectMin` | 选区内极大 / 极小速度点布种（微观） |
+| `iGameCore/Filters/StreamView/iGameStreamTracer.cpp` | `seedPCoordGenerate` | 种子线上均匀采样布种（宏观） |
+| `Qt/src/IQWidgets/igQtStreamTracerWidget.cpp` | `generateStreamline`（`control == 3 / 4`） | GUI 触发；合并宏 / 微两组种子后一次计算 |
+| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle` | 框选包围盒，界定微观流线的作用范围 |
+| `iGameCore/Core/Common/iGameSelection.*` | `Selection` | 选区数据模型，提供选中点 / 单元集合 |
 
 ### 算法要点
 
-`getModelSelect(bX, bY, bZ, fX, fY, fZ)` 流程：
+以「多尺度混合模式(极大)」（`control == 3`）为例：
 
-1. 从 `model->GetSelection()` 取已选点或单元，计算选区轴对齐包围盒 `[focusMin, focusMax]`。
-2. 调用 `getAllSubBlockCenters(meshBBoxMax, meshBBoxMin, focusMax, focusMin, bX, bY, bZ, fX, fY, fZ)`。
-3. `getAllSubBlockCenters` 调用 `computeSubBlockCenters` 分别为全局盒（宏观）和焦点盒（微观）生成子块中心并合并。
+1. **激活选择盒**：`Q_EMIT SetUseBox(Smodel)` 把当前选择盒套用到源模型上，拾取落入盒内的点 / 单元。
+2. **微观布种**：`getModelSelectMax(vectorName, numOfSeeds)`
+   - 从 `model->GetSelection()` 收集选中点（选中单元时展开为其顶点）；
+   - 按速度模长 `‖v‖` 降序，取前 `numOfSeeds` 个点作为种子，并沿矢量方向做极小偏移避免退化。
+3. **清空选区**：`model->GetSelection()->ClearSelections()`，避免残留选区影响下一次生成。
+4. **宏观布种**：`seedPCoordGenerate(numOfSeeds, startP, endP)` 在种子线两端点之间均匀插值出 `numOfSeeds` 个点。
+5. **合并**：宏观种子追加到微观种子之后，一并送入 `SetInput` → `Execute`。
 
-微观种子还可通过 `getEntropySeeding(vectorName, topPercent, ptsPerExtrema, useSelection=true)` 生成：开启 `useSelection` 后，熵排名在选区内计算，保证局部细节区域一定能取到代表性种子。
+「多尺度混合模式(极小)」（`control == 4`）流程相同，第 2 步改用 `getModelSelectMin`，用于观察低速滞止区的局部结构。
+
+> 种子线端点 `startP` / `endP` 可在面板中直接输入，也可在 3D 视图中拖拽两端的绿色控制点交互调整（`StreamLineSelection`），拖拽结果与输入框双向同步。
 
 ### 调用方式
 
+对应示例 `Examples/Filter/Vector/TestStreamline.cpp`：
+
 ```cpp
+auto dataObj = iGame::FileIO::ReadFile("./Models/Driver/driver-1.vtk");
+
 auto tracer = iGame::StreamTracer::New();
-tracer->initStreamTracer(model);
-tracer->AddPtFinder(pointFinder);
+tracer->initStreamTracer(dataObj);
 
-// 宏观种子：整体模型包围盒粗分割
-auto macroSeeds = tracer->computeSubBlockCenters(
-    model->GetMesh()->GetBoundingBox().min,
-    model->GetMesh()->GetBoundingBox().max,
-    4, 4, 4);
+// 微观种子：选区内速度极大值点（需先在场景中框选）
+auto seeds = tracer->getModelSelectMax(vectorName, numOfSeeds);
 
-// 微观种子：从选区求焦点包围盒，细分割
-// （或使用 getEntropySeeding 高熵局部布种）
-auto microSeeds = tracer->getModelSelect(4, 4, 4, 8, 8, 8);
+// 宏观种子：种子线上均匀采样，贯穿整个流场
+auto macroSeeds = tracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+seeds.insert(seeds.end(), macroSeeds.begin(), macroSeeds.end());
 
-// 合并种子，一次计算两组流线
-std::vector<Vector3f> allSeeds;
-allSeeds.insert(allSeeds.end(), macroSeeds.begin(), macroSeeds.end());
-allSeeds.insert(allSeeds.end(), microSeeds.begin(), microSeeds.end());
-
-tracer->SetInput(allSeeds, vectorName, length, step, termSpeed, maxSteps);
+// 合并后一次积分，输出同时包含宏 / 微两种尺度的流线
+tracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
 tracer->Execute();
-auto streamlines = tracer->GetOutput();  // 包含宏 / 微两组流线的网格
+auto streamlines = tracer->GetOutput();
 ```
 
 ### GUI
 
-在流线面板 `igQtStreamTracerWidget` 中框选区域后触发 `generateStreamline()`：
+操作流程：**流线型 → 流场面板 → 框选关注区域 → 选择「多尺度混合模式(极大/极小)」→ 生成流线**
 
-- `getModelSelectMax` / `getModelSelectMin` 取选区内最大 / 最小速度区域种子；
-- `getEntropySeeding(..., hasSelection=true)` 在有选区时限定在选区内布种（微观），无选区时全局布种（宏观）；
-- 宏微观流线同时添加为场景对象，通过 `AddStreamObject` / `UpdateStreamObject` 信号传回主窗口并共同显示。
+| 步骤 | 入口 | 说明 |
+|------|------|------|
+| 1 | 工具栏「流线型」/ 菜单「可视化」→ 时序流场 | 打开左侧「流场」面板 |
+| 2 | 「选择」面板 → 启用选择盒 | 在 3D 视图中拖拽选择盒，框住关注区域 |
+| 3 | `dockWidget_FlowField` → 种子点生成方式 | 选择「多尺度混合模式(极大)」或「多尺度混合模式(极小)」 |
+| 4 | 种子线起点 / 终点 | 设定宏观流线的采样线段（可在视图中拖拽绿色端点） |
+| 5 | 种子点数量 | 微观与宏观各取该数量的种子（默认 200） |
+| 6 | **生成流线** 按钮 | 触发 `generateStreamline()`，合并两级种子一次计算 |
 
-### 相关示例
+![宏观与微观流线联合显示](../../Resources/Images/宏观微观流线.png)
 
-| 示例 Target | 说明 |
-|-------------|------|
-| `TestStreamline` | 多尺度种子点生成与流线计算（`Examples/Filter/Vector/TestStreamline.cpp`） |
+> 图中为 DrivAer 整车外流场（720 万体单元）在「多尺度混合模式(极大)」下的结果：贯穿画面的平行流线为种子线生成的**宏观流线**，展现整体绕流趋势；车顶选择盒附近密集缠绕的流线为**微观流线**，由选区内速度极大值点布种，刻画 A 柱与车顶过渡处的局部流动细节。
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 |
+|--------|--------|----------|
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/driver-1.vtk` |
 
 ---
 
