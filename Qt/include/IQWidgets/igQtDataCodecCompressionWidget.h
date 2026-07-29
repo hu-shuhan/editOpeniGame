@@ -11,6 +11,8 @@
 #include <iGameDataObject.h>
 #include <iGameModel.h>
 
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -140,7 +142,6 @@ private:
         int elementCount{0};
         int rangeLower{0};
         int rangeUpper{100};
-        QVector<igIndex> elementIds;
     };
 
     struct HistogramView {
@@ -154,8 +155,17 @@ private:
         double backgroundMax{0.0};
     };
 
+    struct FeatureAnalysis {
+        HistogramView histogram;
+        std::array<std::uint64_t, 101u> lessThanEndpointCounts{};
+        std::array<std::uint64_t, 101u> greaterThanEndpointCounts{};
+        std::uint64_t effectiveValueCount{0u};
+        bool ready{false};
+    };
+
     struct FeatureState {
         iGame::RegionFeatureBasisData::Pointer featureBasis;
+        mutable FeatureAnalysis analysis;
         QVector<RegionItem> regions;
         int selectedRegionId{0};
         bool basisComputed{false};
@@ -224,6 +234,7 @@ private:
     bool hasSelectedFields() const;
     std::vector<::datacodec::AttributeTarget> selectedAttributeTargets() const;
     bool hasMultiFrameData() const;
+    void appendPredictionEncodingRecommendation();
     void appendLog(const QString& text);
     void chooseOutputPath();
     void startEncode();
@@ -239,18 +250,21 @@ private:
     void syncSelectedPrecision();
     void applyLosslessMode(bool enabled);
     void applyLosslessModeToAllFields();
+    void applyHighPrecisionLossyModeToAllFields();
     void syncCurrentDefaultPrecisionToAllFields();
     bool losslessModeEnabled() const;
-    QVector<igIndex> currentFeatureSelectionIds() const;
-    QVector<igIndex> featureSelectionIdsForRange(const FeatureState& featureState, int lower, int upper) const;
     int featureSelectionCountForRange(const FeatureState& featureState, int lower, int upper) const;
-    HistogramView currentHistogramView() const;
+    std::uint64_t featureSelectionCountForRange64(const FeatureState& featureState, int lower, int upper) const;
+    const HistogramView& currentHistogramView() const;
+    const HistogramView& histogramViewForFeature(const FeatureState& featureState) const;
     QVector<double> currentOccupiedHistogramBins(const HistogramView& view) const;
     int currentSelectionOverlapCount(int ignoredRegionId = -1) const;
     int selectionOverlapCountForRange(const FeatureState& featureState, int lower, int upper, int ignoredRegionId) const;
     QVector<int> invalidRegionIdsForFeature(const FeatureState& featureState) const;
     bool isRegionInvalid(int regionId) const;
     int invalidActiveRegionCount() const;
+    int unavailableActiveRegionFeatureCount() const;
+    int customRegionCount(const FeatureState& featureState) const;
 
     FieldState* currentFieldState();
     const FieldState* currentFieldState() const;
@@ -263,6 +277,7 @@ private:
     void ensureFieldStateInitialized(int fieldIndex);
     void initializeFieldStateDefaults(FieldState& state, int fieldIndex) const;
     double computeFieldValueRange(int fieldIndex) const;
+    IGsize numericFieldElementCount(int fieldIndex) const;
     void ensureFeatureStates(FieldState& state) const;
     void syncDefaultRegionToFeatures(FieldState& state) const;
     QString basisBaseName(int index) const;
@@ -294,6 +309,7 @@ private:
     void configurePrecisionModeCombo(QComboBox* combo, int mode) const;
     void updateRegionPrecisionMode(int regionId, int mode);
     void updateRegionPrecisionValue(int regionId, int mode, double value);
+    static FeatureAnalysis buildFeatureAnalysis(const iGame::RegionFeatureBasisData::Pointer& featureBasis);
     QString currentBasisName() const;
     int selectedRegionIndex() const;
     bool hasExplicitRegions() const;
@@ -306,10 +322,12 @@ private:
     QLineEdit* m_outputPathEdit{nullptr};
     QPushButton* m_outputPathButton{nullptr};
     QComboBox* m_performanceCombo{nullptr};
+    QCheckBox* m_compressionEnhancementCheck{nullptr};
     QSpinBox* m_zstdLevelSpin{nullptr};
     QWidget* m_gopControlRow{nullptr};
     QSpinBox* m_gopFrameCountSpin{nullptr};
     QPushButton* m_applyLosslessAllButton{nullptr};
+    QPushButton* m_applyLossyAllButton{nullptr};
     QPushButton* m_syncDefaultPrecisionButton{nullptr};
     QCheckBox* m_intraAttributePredictionCheck{nullptr};
     QCheckBox* m_temporalAttributePredictionCheck{nullptr};
@@ -335,4 +353,6 @@ private:
     QPlainTextEdit* m_logEdit{nullptr};
     bool m_intraAttributePredictionPreferred{true};
     bool m_temporalAttributePredictionPreferred{true};
+    bool m_featureComputationActive{false};
+    std::uint64_t m_featureRequestSerial{0u};
 };

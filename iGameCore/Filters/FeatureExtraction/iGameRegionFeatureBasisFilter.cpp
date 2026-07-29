@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -80,8 +81,10 @@ bool RegionFeatureBasisFilter::Execute() {
     auto output = RegionFeatureBasisData::New();
     output->SetFieldName(fieldName);
     output->SetAttachmentType(attachmentType);
-    output->SetValues(ApplyBasisMode(baseValues));
-    output->BuildHistogram(m_HistogramBinCount);
+    output->SetValues(ApplyBasisMode(std::move(baseValues)));
+    if (m_HistogramBinCount > 0) {
+        output->BuildHistogram(m_HistogramBinCount);
+    }
 
     m_OutputData = output;
     SetOutput(output);
@@ -157,7 +160,7 @@ bool RegionFeatureBasisFilter::BuildAttributeValues(AttributeSet::Attribute* att
     return true;
 }
 
-std::vector<double> RegionFeatureBasisFilter::ApplyBasisMode(const std::vector<double>& baseValues) const {
+std::vector<double> RegionFeatureBasisFilter::ApplyBasisMode(std::vector<double> baseValues) const {
     if (m_Mode == BasisMode::Magnitude || baseValues.size() < 2) return baseValues;
 
     std::vector<double> result(baseValues.size(), 0.0);

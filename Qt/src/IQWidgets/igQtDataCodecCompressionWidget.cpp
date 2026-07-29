@@ -44,13 +44,13 @@
 #include <QWheelEvent>
 #include <DataCodec/API/Adapter/IEncodeAdapter.h>
 #include <DataCodec/Filter/Adapter/iGameDataCodecAttributeCatalog.h>
-#include <DataCodec/Filter/Execution/iGameProgressReporter.h>
+#include <DataCodec/Filter/Execution/iGameRunRecordSink.h>
 #include <DataCodec/API/Params/TimeSeriesControlParams.h>
 #include <DataCodec/API/Params/NumericArrayParams.h>
 #include <DataCodec/API/Params/ReferenceControlParams.h>
 #include <DataCodec/Log/Analysis/AdapterPrecisionMetrics.h>
 #include <DataCodec/Filter/Adapter/iGameBlockTreeAdapter.h>
-#include <DataCodec/Log/Capture/RemapOrderCapture.h>
+#include <DataCodec/Log/Telemetry/Sinks/JsonTelemetrySink.h>
 #include <FeatureExtraction/iGameRegionFeatureBasisFilter.h>
 #include <IGDC/iGameIGDCReader.h>
 #include <IGDC/iGameIGDCWriter.h>
@@ -60,6 +60,7 @@
 #include <iGameType.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -78,6 +79,9 @@ constexpr int kHistogramEdgeInset = 16;
 constexpr int kSmartHistogramLeftInset = 86;
 constexpr int kHistogramBinCount = 34;
 constexpr int kRawBackgroundDetectBinCount = 72;
+constexpr int kRangeEndpointCount = 101;
+constexpr int kMaxCustomRegionCount = 8;
+constexpr int kDefaultCustomRegionSpan = 24;
 constexpr double kBackgroundPeakRatio = 0.45;
 constexpr double kBackgroundMergeRatio = 0.16;
 constexpr double kDefaultGreenPrecisionRatio = 1.0e-5;
@@ -91,11 +95,14 @@ constexpr auto kSettingsOrganization = "iGame";
 constexpr auto kSettingsApplication = "iGameVis";
 constexpr auto kEncodeSettingsGroup = "DataCodec/Encode";
 constexpr auto kEncodePerformanceTierKey = "PerformanceTier";
+constexpr auto kEncodeCompressionEnhancementKey = "CompressionEnhancement";
 constexpr auto kEncodeZstdLevelKey = "ZstdLevel";
 constexpr auto kEncodeGopFrameCountKey = "GopFrameCount";
+constexpr auto kDefaultEncodeTier = ::datacodec::DataCodecEncodeTier::TimePriority;
 
 struct DataCodecCompressionPerformanceSettings {
-    ::datacodec::DataCodecEncodeTier tier{::datacodec::DataCodecEncodeTier::Balanced};
+    ::datacodec::DataCodecEncodeTier tier{kDefaultEncodeTier};
+    bool compressionEnhancement{false};
     int zstdLevel{3};
     int gopFrameCount{8};
 };
@@ -114,20 +121,23 @@ QSettings CreateDataCodecCompressionSettings() {
         case ::datacodec::DataCodecEncodeTier::TimePriority:
         case ::datacodec::DataCodecEncodeTier::Balanced:
         case ::datacodec::DataCodecEncodeTier::MemoryPriority:
-        case ::datacodec::DataCodecEncodeTier::CompressionPriority:
             return tier;
     }
-    return ::datacodec::DataCodecEncodeTier::Balanced;
+    return kDefaultEncodeTier;
 }
 
 DataCodecCompressionPerformanceSettings LoadDataCodecCompressionPerformanceSettings() {
     auto storage = CreateDataCodecCompressionSettings();
     storage.beginGroup(QString::fromLatin1(kEncodeSettingsGroup));
-    const auto tier = DecodeEncodeTierFromValue(storage.value(
+    const int storedTierValue = storage.value(
         QString::fromLatin1(kEncodePerformanceTierKey),
-        static_cast<int>(::datacodec::DataCodecEncodeTier::Balanced)).toInt());
+        static_cast<int>(kDefaultEncodeTier)).toInt();
+    const auto tier = DecodeEncodeTierFromValue(storedTierValue);
     const auto definition = ::datacodec::MakeEncodeConfigurationParams(
         ::datacodec::DataCodecEncodeOptions{.tier = tier});
+    const bool compressionEnhancement = storage.value(
+        QString::fromLatin1(kEncodeCompressionEnhancementKey),
+        false).toBool();
     const auto zstdLevel = qBound(
         1,
         storage.value(
@@ -140,6 +150,7 @@ DataCodecCompressionPerformanceSettings LoadDataCodecCompressionPerformanceSetti
     storage.endGroup();
     return DataCodecCompressionPerformanceSettings{
         .tier = tier,
+        .compressionEnhancement = compressionEnhancement,
         .zstdLevel = zstdLevel,
         .gopFrameCount = gopFrameCount,
     };
@@ -152,6 +163,9 @@ void SaveDataCodecCompressionPerformanceSettings(
     storage.setValue(
         QString::fromLatin1(kEncodePerformanceTierKey),
         static_cast<int>(settings.tier));
+    storage.setValue(
+        QString::fromLatin1(kEncodeCompressionEnhancementKey),
+        settings.compressionEnhancement);
     storage.setValue(QString::fromLatin1(kEncodeZstdLevelKey), settings.zstdLevel);
     storage.setValue(QString::fromLatin1(kEncodeGopFrameCountKey), settings.gopFrameCount);
     storage.endGroup();
@@ -184,86 +198,47 @@ public:
     }
 };
 
-class CompressionStatusReporter final : public ::datacodec::IProgressReporter {
-public:
-    explicit CompressionStatusReporter(std::function<void(const QString&)> callback)
-        : m_emit(std::move(callback)) {}
+QString compressionStatusText(const ::datacodec::RunRecord& record) {
+    const auto* progress = std::get_if<::datacodec::RunProgressRecord>(&record);
+    if (progress == nullptr) return {};
 
-    void Submit(const ::datacodec::ProgressUpdate& update) override {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_progressReporter.Submit(update);
-
-        QString text;
-        if (update.kind == ::datacodec::ProgressUpdateKind::Begin) {
-            text = QStringLiteral("开始压缩");
-        } else if (update.kind == ::datacodec::ProgressUpdateKind::Update) {
-            text = QString::fromUtf8(update.text.c_str()).trimmed();
-        }
-        if (!text.isEmpty() && update.frameCount > 1u) {
-            const auto displayOrdinal = update.frameOrdinal < update.frameCount
-                ? update.frameOrdinal + 1u
-                : update.frameCount;
-            text = QStringLiteral("%1/%2帧 %3")
-                .arg(displayOrdinal)
-                .arg(update.frameCount)
-                .arg(text);
-        }
-        if (text.isEmpty() || !m_emit) return;
-        m_emit(text);
+    QString text;
+    if (progress->phase == ::datacodec::RunProgressPhase::Begin) {
+        text = QStringLiteral("开始压缩");
+    } else if (progress->phase == ::datacodec::RunProgressPhase::Update) {
+        text = QString::fromUtf8(progress->text.c_str()).trimmed();
     }
-
-private:
-    std::function<void(const QString&)> m_emit;
-    iGame::iGameProgressReporter m_progressReporter;
-    std::mutex m_mutex;
-};
-
-void appendDataCodecRegionRuns(
-        std::vector<::datacodec::RegionRun>& runs,
-        const QVector<igIndex>& elementIds,
-        const std::uint32_t regionId,
-        const std::size_t elementCount) {
-    if (elementIds.isEmpty() || elementCount == 0u) return;
-    std::vector<::datacodec::ParamSize> sortedIds;
-    sortedIds.reserve(static_cast<std::size_t>(elementIds.size()));
-    for (const igIndex elementId : elementIds) {
-        const auto localId = static_cast<std::uint64_t>(elementId);
-        if (localId >= static_cast<std::uint64_t>(elementCount)) continue;
-        sortedIds.push_back(static_cast<::datacodec::ParamSize>(localId));
+    if (!text.isEmpty() && progress->frameCount > 1u) {
+        const auto displayOrdinal = progress->frameOrdinal < progress->frameCount
+            ? progress->frameOrdinal + 1u
+            : progress->frameCount;
+        text = QStringLiteral("%1/%2帧 %3")
+            .arg(displayOrdinal)
+            .arg(progress->frameCount)
+            .arg(text);
     }
-    if (sortedIds.empty()) return;
-    std::sort(sortedIds.begin(), sortedIds.end());
-    sortedIds.erase(std::unique(sortedIds.begin(), sortedIds.end()), sortedIds.end());
-
-    auto begin = sortedIds.front();
-    auto previous = begin;
-    for (std::size_t index = 1u; index < sortedIds.size(); ++index) {
-        const auto current = sortedIds[index];
-        if (current == previous + 1u) {
-            previous = current;
-            continue;
-        }
-        runs.push_back(::datacodec::RegionRun{
-            .begin = begin,
-            .count = previous - begin + 1u,
-            .regionId = regionId,
-        });
-        begin = current;
-        previous = current;
-    }
-    runs.push_back(::datacodec::RegionRun{
-        .begin = begin,
-        .count = previous - begin + 1u,
-        .regionId = regionId,
-    });
+    return text;
 }
 
 QString attachmentName(int attachmentType) {
     switch (attachmentType) {
-    case IG_CELL: return QStringLiteral("依附于单元");
-    case IG_POINT: return QStringLiteral("依附于点");
-    default: return QStringLiteral("Data");
+    case IG_CELL: return QStringLiteral("单元数据");
+    case IG_POINT: return QStringLiteral("点数据");
+    default: return QStringLiteral("数据");
     }
+}
+
+QString localizedFeatureErrorMessage(const QString& message) {
+    if (message == QLatin1String("input is empty")) return QStringLiteral("输入数据为空");
+    if (message == QLatin1String("attribute set is empty")) return QStringLiteral("属性数据集合为空");
+    if (message == QLatin1String("attribute is not found")) return QStringLiteral("未找到指定属性数据");
+    if (message == QLatin1String("geometry is empty")) return QStringLiteral("坐标数据为空");
+    if (message == QLatin1String("attribute is empty")) return QStringLiteral("属性数据为空");
+    if (message == QLatin1String("attribute values are empty")) return QStringLiteral("属性数据值为空");
+    if (message == QLatin1String("attribute component is out of range")) {
+        return QStringLiteral("属性数据分量超出有效范围");
+    }
+    return message;
 }
 
 QString numericTypeName(IGenum arrayType) {
@@ -300,7 +275,7 @@ QString numericTypeName(::datacodec::DataType dataType) {
 }
 
 QString fieldDetailName(int attachmentType, const QString& numericType, int componentCount) {
-    return QStringLiteral("%1 · %2 · %3 维")
+    return QStringLiteral("%1 · %2 · %3 个分量")
             .arg(attachmentName(attachmentType), numericType, QString::number(qMax(1, componentCount)));
 }
 
@@ -416,24 +391,41 @@ bool writeUtf8TextFile(const QString& path, const std::string& text) {
 }
 
 bool writeTelemetryArtifacts(const QString& reportDirectory,
-                             const std::optional<::datacodec::TelemetrySession>& telemetry,
+                             const QString& telemetryStem,
+                             const std::vector<::datacodec::TelemetrySession>& sessions,
                              QStringList* writtenPaths) {
-    if (!telemetry.has_value()) {
-        return true;
-    }
     int artifactIndex = 0;
-    for (const auto& artifact : telemetry->artifacts) {
-        if (artifact.text.empty()) {
-            continue;
-        }
-        const QString artifactPath = QDir(reportDirectory).filePath(telemetryArtifactFileName(artifact, artifactIndex));
-        if (!writeUtf8TextFile(artifactPath, artifact.text)) {
+    int sessionIndex = 0;
+    const auto sanitizedTelemetryStem = sanitizeArtifactStem(telemetryStem);
+    for (const auto& session : sessions) {
+        const QString sessionPath = QDir(reportDirectory).filePath(
+            QStringLiteral("%1_%2.json")
+                .arg(sessionIndex, 2, 10, QLatin1Char('0'))
+                .arg(sanitizedTelemetryStem));
+        if (!writeUtf8TextFile(
+                sessionPath,
+                ::datacodec::SerializeTelemetrySessionJson(session))) {
             return false;
         }
         if (writtenPaths != nullptr) {
-            writtenPaths->push_back(artifactPath);
+            writtenPaths->push_back(sessionPath);
         }
-        ++artifactIndex;
+        ++sessionIndex;
+
+        for (const auto& artifact : session.artifacts) {
+            if (artifact.text.empty()) {
+                continue;
+            }
+            const QString artifactPath = QDir(reportDirectory).filePath(
+                telemetryArtifactFileName(artifact, artifactIndex));
+            if (!writeUtf8TextFile(artifactPath, artifact.text)) {
+                return false;
+            }
+            if (writtenPaths != nullptr) {
+                writtenPaths->push_back(artifactPath);
+            }
+            ++artifactIndex;
+        }
     }
     return true;
 }
@@ -486,11 +478,11 @@ bool writeCompressionReport(const QString& reportPath,
     QTextStream stream(&file);
     stream.setCodec("UTF-8");
     stream << QStringLiteral("DataCodec 压缩报告\n");
-    stream << QStringLiteral("输出文件: ") << outputPath << '\n';
-    stream << QStringLiteral("压缩前文件大小: ") << formatByteSize(beforeBytes) << '\n';
-    stream << QStringLiteral("压缩后文件大小: ") << formatByteSize(afterBytes) << '\n';
-    stream << QStringLiteral("压缩率: ") << ratio << '\n';
-    stream << QStringLiteral("压缩时间: ") << elapsedMs << QStringLiteral(" ms\n");
+    stream << QStringLiteral("输出文件：") << outputPath << '\n';
+    stream << QStringLiteral("压缩前文件大小：") << formatByteSize(beforeBytes) << '\n';
+    stream << QStringLiteral("压缩后文件大小：") << formatByteSize(afterBytes) << '\n';
+    stream << QStringLiteral("压缩后大小占比：") << ratio << '\n';
+    stream << QStringLiteral("压缩时间：") << elapsedMs << QStringLiteral(" ms\n");
     if (!precisionReport.isEmpty()) {
         stream << '\n' << precisionReport << '\n';
     }
@@ -515,10 +507,12 @@ void configurePrecisionSpin(QDoubleSpinBox* spin) {
 
 QString precisionSpinToneStyle(const QColor& color) {
     return QStringLiteral(R"(
-QDoubleSpinBox {
+QDoubleSpinBox,
+QDoubleSpinBox QLineEdit {
     color: %1;
 }
-QDoubleSpinBox:disabled {
+QDoubleSpinBox:disabled,
+QDoubleSpinBox QLineEdit:disabled {
     color: #7d7d7d;
 }
 )").arg(color.name());
@@ -656,7 +650,7 @@ void igQtDataCodecHistogramWidget::paintEvent(QPaintEvent* event) {
         painter.setPen(m_darkMode ? QColor(255, 221, 139) : QColor(116, 83, 22));
         painter.setFont(QFont(painter.font().family(), 8, QFont::Bold));
         painter.drawText(backgroundRect.adjusted(2, 0, -2, 0), Qt::AlignHCenter | Qt::AlignTop,
-                         QStringLiteral("背景数值占比\n%1%").arg(qRound(ratio * 100.0)));
+                         QStringLiteral("背景数值\n占比%1%").arg(qRound(ratio * 100.0)));
         painter.setPen(QPen(m_darkMode ? QColor(75, 82, 84) : QColor(205, 205, 198), 1));
         painter.drawLine(kSmartHistogramLeftInset - 10, barRect.top(), kSmartHistogramLeftInset - 10, barRect.bottom());
     }
@@ -668,17 +662,21 @@ void igQtDataCodecHistogramWidget::paintEvent(QPaintEvent* event) {
                                             : (m_darkMode ? QColor(64, 66, 66) : QColor(224, 224, 220));
     const QColor occupied = m_enabledVisual ? (m_darkMode ? QColor(126, 102, 53) : QColor(180, 136, 58))
                                             : (m_darkMode ? QColor(82, 76, 62) : QColor(202, 184, 140));
-    const QColor overlap = m_darkMode ? QColor(220, 112, 54) : QColor(198, 87, 40);
+    const QColor overlap = m_darkMode ? QColor(238, 91, 91) : QColor(198, 50, 50);
     for (int i = 0; i < binCount; ++i) {
         const double density = qBound(0.0, m_bins[i], 1.0);
         const int h = qBound(3, static_cast<int>(barRect.height() * density), barRect.height());
         const int x = barRect.left() + i * barRect.width() / binCount;
         const int nextX = barRect.left() + (i + 1) * barRect.width() / binCount;
-        const int pct = i * 100 / qMax(1, binCount - 1);
-        const bool selected = pct >= m_lowerPercent && pct <= m_upperPercent;
-        const bool occupiedBin = i < m_occupiedBins.size() && m_occupiedBins[i] > 0.0;
+        const double binLower = static_cast<double>(i) * 100.0 / static_cast<double>(binCount);
+        const double binUpper = static_cast<double>(i + 1) * 100.0 / static_cast<double>(binCount);
+        const bool selected = binUpper >= static_cast<double>(m_lowerPercent) &&
+            binLower <= static_cast<double>(m_upperPercent);
+        const double occupiedState = i < m_occupiedBins.size() ? m_occupiedBins[i] : 0.0;
+        const bool occupiedBin = occupiedState >= 1.0;
+        const bool overlapBin = occupiedState >= 2.0;
         QColor fill = inactive;
-        if (selected && occupiedBin) {
+        if (overlapBin) {
             fill = overlap;
         } else if (selected) {
             fill = active;
@@ -835,6 +833,11 @@ igQtDataCodecCompressionWidget::igQtDataCodecCompressionWidget(QWidget* parent) 
 
     root->addWidget(body, 1);
     root->addWidget(createStatusPanel(), 0);
+    if (m_compressionEnhancementCheck != nullptr &&
+        m_compressionEnhancementCheck->isChecked()) {
+        appendLog(QStringLiteral(
+            "启用压缩率增强功能后，数据压缩率将得到提升，编解码速度将有所下降。"));
+    }
 
     applyStyle();
     refreshFields();
@@ -843,10 +846,14 @@ igQtDataCodecCompressionWidget::igQtDataCodecCompressionWidget(QWidget* parent) 
 }
 
 void igQtDataCodecCompressionWidget::SetModel(iGame::Model::Pointer model) {
+    ++m_featureRequestSerial;
+    m_featureComputationActive = false;
+    if (m_computeButton != nullptr) m_computeButton->setText(QStringLiteral("计算特征"));
     m_model = model;
     refreshFields();
     resetRegionState();
     refreshFeatureState();
+    appendPredictionEncodingRecommendation();
 }
 
 bool igQtDataCodecCompressionWidget::eventFilter(QObject* watched, QEvent* event) {
@@ -905,33 +912,37 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
     pathRow->addWidget(m_outputPathButton, 0);
     layout->addLayout(pathRow);
 
-    auto* codecLabel = new QLabel(QStringLiteral("浮点数值压缩器: SZ3"), panel);
+    auto* codecLabel = new QLabel(QStringLiteral("浮点数据压缩算法：SZ3"), panel);
     codecLabel->setObjectName(QStringLiteral("DataCodecLabel"));
     layout->addWidget(codecLabel);
 
     auto* tierRow = new QHBoxLayout;
-    auto* tierLabel = new QLabel(QStringLiteral("性能策略"), panel);
+    auto* tierLabel = new QLabel(QStringLiteral("资源模式"), panel);
     tierLabel->setObjectName(QStringLiteral("DataCodecLabelStrong"));
     m_performanceCombo = new QComboBox(panel);
     m_performanceCombo->addItem(
-        QStringLiteral("时间优先"),
+        QStringLiteral("快速"),
         static_cast<int>(::datacodec::DataCodecEncodeTier::TimePriority));
     m_performanceCombo->addItem(
-        QStringLiteral("平衡"),
+        QStringLiteral("标准"),
         static_cast<int>(::datacodec::DataCodecEncodeTier::Balanced));
     m_performanceCombo->addItem(
-        QStringLiteral("内存控制优先"),
+        QStringLiteral("低内存"),
         static_cast<int>(::datacodec::DataCodecEncodeTier::MemoryPriority));
-    m_performanceCombo->addItem(
-        QStringLiteral("压缩率优先"),
-        static_cast<int>(::datacodec::DataCodecEncodeTier::CompressionPriority));
+    m_performanceCombo->setToolTip(
+        QStringLiteral("设置编码速度、内存占用及默认 ZSTD压缩等级"));
     configureComboPopup(m_performanceCombo);
     tierRow->addWidget(tierLabel, 1);
     tierRow->addWidget(m_performanceCombo, 0);
     layout->addLayout(tierRow);
 
+    m_compressionEnhancementCheck = new QCheckBox(QStringLiteral("压缩率增强"), panel);
+    m_compressionEnhancementCheck->setToolTip(
+        QStringLiteral("启用单元重排与扩展预测搜索以提高压缩率，不改变 ZSTD压缩等级与资源模式"));
+    layout->addWidget(m_compressionEnhancementCheck);
+
     auto* zstdRow = new QHBoxLayout;
-    auto* zstdLabel = new QLabel(QStringLiteral("Zstd 等级"), panel);
+    auto* zstdLabel = new QLabel(QStringLiteral("ZSTD压缩等级"), panel);
     zstdLabel->setObjectName(QStringLiteral("DataCodecLabelStrong"));
     m_zstdLevelSpin = new QSpinBox(panel);
     m_zstdLevelSpin->setRange(1, 22);
@@ -956,9 +967,15 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
     batchLabel->setObjectName(QStringLiteral("DataCodecLabelStrong"));
     layout->addWidget(batchLabel);
 
-    m_applyLosslessAllButton = new QPushButton(QStringLiteral("一键无损"), panel);
-    m_syncDefaultPrecisionButton = new QPushButton(QStringLiteral("同步默认精度"), panel);
-    layout->addWidget(m_applyLosslessAllButton);
+    m_applyLosslessAllButton = new QPushButton(QStringLiteral("全部无损"), panel);
+    m_applyLossyAllButton = new QPushButton(QStringLiteral("全部有损"), panel);
+    m_applyLossyAllButton->setToolTip(QStringLiteral("将全部数据的相对误差限设为 0.00001"));
+    m_syncDefaultPrecisionButton = new QPushButton(QStringLiteral("应用默认误差限"), panel);
+    auto* batchModeRow = new QHBoxLayout;
+    batchModeRow->setSpacing(6);
+    batchModeRow->addWidget(m_applyLosslessAllButton);
+    batchModeRow->addWidget(m_applyLossyAllButton);
+    layout->addLayout(batchModeRow);
     layout->addWidget(m_syncDefaultPrecisionButton);
     layout->addSpacing(2);
 
@@ -966,8 +983,8 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
     predictionLabel->setObjectName(QStringLiteral("DataCodecLabelStrong"));
     layout->addWidget(predictionLabel);
 
-    m_intraAttributePredictionCheck = new QCheckBox(QStringLiteral("帧内数值场间预测编码"), panel);
-    m_temporalAttributePredictionCheck = new QCheckBox(QStringLiteral("时序数值场预测编码"), panel);
+    m_intraAttributePredictionCheck = new QCheckBox(QStringLiteral("帧内数据预测编码"), panel);
+    m_temporalAttributePredictionCheck = new QCheckBox(QStringLiteral("帧间数据预测编码"), panel);
     m_intraAttributePredictionCheck->setChecked(true);
     m_temporalAttributePredictionCheck->setChecked(true);
     layout->addWidget(m_intraAttributePredictionCheck);
@@ -977,6 +994,8 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
     connect(m_outputPathEdit, &QLineEdit::textChanged, this, &igQtDataCodecCompressionWidget::refreshFeatureState);
     connect(m_applyLosslessAllButton, &QPushButton::clicked, this,
             &igQtDataCodecCompressionWidget::applyLosslessModeToAllFields);
+    connect(m_applyLossyAllButton, &QPushButton::clicked, this,
+            &igQtDataCodecCompressionWidget::applyHighPrecisionLossyModeToAllFields);
     connect(m_syncDefaultPrecisionButton, &QPushButton::clicked, this,
             &igQtDataCodecCompressionWidget::syncCurrentDefaultPrecisionToAllFields);
     connect(m_intraAttributePredictionCheck, &QCheckBox::toggled, this,
@@ -984,6 +1003,7 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
                 if (m_intraAttributePredictionCheck != nullptr &&
                     m_intraAttributePredictionCheck->isEnabled()) {
                     m_intraAttributePredictionPreferred = checked;
+                    if (checked) appendPredictionEncodingRecommendation();
                 }
             });
     connect(m_temporalAttributePredictionCheck, &QCheckBox::toggled, this,
@@ -991,17 +1011,29 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
                 if (m_temporalAttributePredictionCheck != nullptr &&
                     m_temporalAttributePredictionCheck->isEnabled()) {
                     m_temporalAttributePredictionPreferred = checked;
+                    if (checked) appendPredictionEncodingRecommendation();
                 }
             });
 
     const auto performanceSettings = LoadDataCodecCompressionPerformanceSettings();
     const auto tierIndex = m_performanceCombo->findData(
         static_cast<int>(performanceSettings.tier));
-    m_performanceCombo->setCurrentIndex(tierIndex >= 0 ? tierIndex : 1);
+    const auto defaultTierIndex = m_performanceCombo->findData(
+        static_cast<int>(kDefaultEncodeTier));
+    m_performanceCombo->setCurrentIndex(tierIndex >= 0 ? tierIndex : defaultTierIndex);
+    m_compressionEnhancementCheck->setChecked(performanceSettings.compressionEnhancement);
     m_zstdLevelSpin->setValue(performanceSettings.zstdLevel);
     m_gopFrameCountSpin->setValue(performanceSettings.gopFrameCount);
     connect(m_performanceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
         [this](const int) { applyPerformanceTierDefaults(); });
+    connect(m_compressionEnhancementCheck, &QCheckBox::toggled, this,
+        [this](const bool checked) {
+            persistPerformanceSettings();
+            if (checked) {
+                appendLog(QStringLiteral(
+                    "启用压缩率增强功能后，数据压缩率将得到提升，编解码速度将有所下降。"));
+            }
+        });
     connect(m_zstdLevelSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
         [this](const int) { persistPerformanceSettings(); });
     connect(m_gopFrameCountSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
@@ -1017,7 +1049,7 @@ QWidget* igQtDataCodecCompressionWidget::createFieldPanel() {
     layout->setSpacing(10);
 
     auto* titleRow = new QHBoxLayout;
-    auto* title = new QLabel(QStringLiteral("数值场"), panel);
+    auto* title = new QLabel(QStringLiteral("数据"), panel);
     title->setObjectName(QStringLiteral("DataCodecSectionTitle"));
     m_selectAllFieldsCheck = new QCheckBox(QStringLiteral("全选"), panel);
     m_selectAllFieldsCheck->setTristate(true);
@@ -1084,7 +1116,7 @@ QWidget* igQtDataCodecCompressionWidget::createBasisPanel() {
     auto* basisControlRow = new QHBoxLayout;
     basisControlRow->setSpacing(8);
     m_basisCombo = new QComboBox(scope);
-    m_basisCombo->addItems({QStringLiteral("模长"), QStringLiteral("邻域标准差"), QStringLiteral("跳变量")});
+    m_basisCombo->addItems({QStringLiteral("模长"), QStringLiteral("相邻值标准差"), QStringLiteral("相邻最大差值")});
     configureComboPopup(m_basisCombo);
     m_computeButton = new QPushButton(QStringLiteral("计算特征"), scope);
     m_computeButton->setObjectName(QStringLiteral("DataCodecPrimaryButton"));
@@ -1184,7 +1216,7 @@ QWidget* igQtDataCodecCompressionWidget::createRegionBuilderPanel() {
     layout->setSpacing(10);
 
     auto* titleRow = new QHBoxLayout;
-    auto* title = new QLabel(QStringLiteral("区域精度设置"), panel);
+    auto* title = new QLabel(QStringLiteral("区域误差限设置"), panel);
     title->setObjectName(QStringLiteral("DataCodecSectionTitle"));
     m_regionBuilderTitle = new QLabel(panel);
     m_regionBuilderTitle->setObjectName(QStringLiteral("DataCodecPlainTag"));
@@ -1209,6 +1241,15 @@ QWidget* igQtDataCodecCompressionWidget::createRegionBuilderPanel() {
     m_rangeSlider->setRangeValues(76, 100);
     contentGrid->addWidget(m_rangeSlider, 2, 0);
 
+    auto* histogramLegend = new QLabel(panel);
+    histogramLegend->setObjectName(QStringLiteral("DataCodecLabel"));
+    histogramLegend->setTextFormat(Qt::RichText);
+    histogramLegend->setText(QStringLiteral(
+        "<span style='color:#26a29c'>■</span> 当前范围　"
+        "<span style='color:#b4883a'>■</span> 已有区域　"
+        "<span style='color:#ee5b5b'>■</span> 重叠范围"));
+    contentGrid->addWidget(histogramLegend, 3, 0);
+
     auto* precisionPanel = new QWidget(panel);
     auto* precisionLayout = new QVBoxLayout(precisionPanel);
     precisionLayout->setContentsMargins(0, 0, 0, 0);
@@ -1228,10 +1269,10 @@ QWidget* igQtDataCodecCompressionWidget::createRegionBuilderPanel() {
     m_precisionSpin->setValue(0.004);
     precisionLayout->addWidget(m_precisionSpin);
     precisionLayout->addSpacing(10);
-    precisionLayout->addWidget(createStatBox(m_selectedTotalLabel, QStringLiteral("已选定 / 总元素")));
-    precisionLayout->addWidget(createStatBox(m_overlapTotalLabel, QStringLiteral("重合元素")));
+    precisionLayout->addWidget(createStatBox(m_selectedTotalLabel, QStringLiteral("选中数据项数 / 数据项总数")));
+    precisionLayout->addWidget(createStatBox(m_overlapTotalLabel, QStringLiteral("重叠数据项数")));
     precisionLayout->addStretch();
-    contentGrid->addWidget(precisionPanel, 0, 1, 3, 1);
+    contentGrid->addWidget(precisionPanel, 0, 1, 4, 1);
     layout->addLayout(contentGrid);
 
     connect(m_rangeSlider, &igQtDataCodecRangeSliderWidget::rangeChanged, this,
@@ -1258,7 +1299,7 @@ QWidget* igQtDataCodecCompressionWidget::createStatusPanel() {
     auto* header = new QHBoxLayout;
     auto* title = new QLabel(QStringLiteral("运行状态"), panel);
     title->setObjectName(QStringLiteral("DataCodecSectionTitle"));
-    m_emitPerformanceCheck = new QCheckBox(QStringLiteral("输出性能参数"), panel);
+    m_emitPerformanceCheck = new QCheckBox(QStringLiteral("生成性能报告"), panel);
     m_startEncodeButton = new QPushButton(QStringLiteral("开始压缩"), panel);
     m_startEncodeButton->setObjectName(QStringLiteral("DataCodecDarkButton"));
     header->addWidget(title);
@@ -1329,7 +1370,7 @@ QWidget* igQtDataCodecCompressionWidget::createRegionRow(const RegionItem& regio
     if (invalidRegion) {
         auto* warning = new QLabel(QStringLiteral("!"), nameBlock);
         warning->setObjectName(QStringLiteral("DataCodecRegionWarning"));
-        warning->setToolTip(QStringLiteral("该区域与其他区域重合，压缩时不会生效"));
+        warning->setToolTip(QStringLiteral("该区域与其他自定义区域重叠，请调整范围后再编码"));
         warning->setProperty("DataCodecRegionId", region.id);
         warning->setCursor(regionEditingAllowed ? Qt::PointingHandCursor : Qt::ArrowCursor);
         if (regionEditingAllowed) warning->installEventFilter(this);
@@ -1337,9 +1378,21 @@ QWidget* igQtDataCodecCompressionWidget::createRegionRow(const RegionItem& regio
     }
     nameLine->addStretch();
     nameLayout->addLayout(nameLine);
+    if (region.id == 0) {
+        auto* description = new QLabel(QStringLiteral("默认设置 · 用于未被自定义区域覆盖的数据"), nameBlock);
+        description->setObjectName(QStringLiteral("DataCodecRegionMeta"));
+        description->setProperty("DataCodecRegionId", region.id);
+        description->setCursor(regionEditingAllowed ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        if (regionEditingAllowed) description->installEventFilter(this);
+        nameLayout->addWidget(description);
+        row->setToolTip(QStringLiteral("默认误差限适用于全部数据，自定义区域内采用对应区域的误差限"));
+    }
     layout->addWidget(nameBlock, 1);
 
-    auto* count = new QLabel(region.id == 0 ? QString() : QStringLiteral("%1 元素").arg(region.elementCount), row);
+    const qulonglong displayedCount = region.id == 0
+        ? static_cast<qulonglong>(numericFieldElementCount(m_selectedFieldIndex))
+        : static_cast<qulonglong>(qMax(0, region.elementCount));
+    auto* count = new QLabel(QStringLiteral("%1 个数据项").arg(displayedCount), row);
     count->setObjectName(QStringLiteral("DataCodecRegionMeta"));
     count->setMinimumWidth(68);
     count->setProperty("DataCodecRegionId", region.id);
@@ -1383,7 +1436,7 @@ QWidget* igQtDataCodecCompressionWidget::createRegionRow(const RegionItem& regio
     auto* precisionSpin = precisionControls.second;
 
     if (region.id != 0) {
-        auto* deleteButton = new QPushButton(QStringLiteral("X"), row);
+        auto* deleteButton = new QPushButton(QStringLiteral("×"), row);
         deleteButton->setObjectName(QStringLiteral("DataCodecDeleteRegionButton"));
         deleteButton->setFixedSize(22, 22);
         deleteButton->setToolTip(QStringLiteral("删除区域"));
@@ -1413,8 +1466,7 @@ QWidget* igQtDataCodecCompressionWidget::createRegionRow(const RegionItem& regio
         }
         const auto* selectedRegions = currentRegions();
         const int selectedIndex = selectedRegionIndex();
-        if (selectedRegions != nullptr && selectedIndex >= 0 && selectedIndex < selectedRegions->size() &&
-            (*selectedRegions)[selectedIndex].id == id) {
+        if (selectedRegions != nullptr && selectedIndex >= 0 && selectedIndex < selectedRegions->size()) {
             if (m_precisionModeCombo) {
                 QSignalBlocker blocker(m_precisionModeCombo);
                 configurePrecisionModeCombo(m_precisionModeCombo, mode);
@@ -1426,6 +1478,7 @@ QWidget* igQtDataCodecCompressionWidget::createRegionRow(const RegionItem& regio
                 applyPrecisionSpinTone(m_precisionSpin, m_selectedFieldIndex, mode, value, m_precisionSpin->isEnabled());
             }
         }
+        refreshRegionRows();
     });
     connect(precisionSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             [this, id = region.id, modeCombo, precisionSpin](double value) {
@@ -1631,10 +1684,10 @@ QFrame#DataCodecRegionRow[base="true"][selected="true"] {
     border-color: #9b7840;
 }
 QFrame#DataCodecRegionRow[invalid="true"] {
-    border-color: #dc7036;
+    border-color: #ee5b5b;
 }
 QLabel#DataCodecRegionWarning {
-    color: #dc7036;
+    color: #ee5b5b;
     font-size: 16px;
     font-weight: 900;
 }
@@ -1695,6 +1748,9 @@ QCheckBox::indicator:checked {
 }
 
 void igQtDataCodecCompressionWidget::resetRegionState() {
+    ++m_featureRequestSerial;
+    m_featureComputationActive = false;
+    if (m_computeButton != nullptr) m_computeButton->setText(QStringLiteral("计算特征"));
     m_fieldStates.clear();
     ensureFieldStates();
     if (m_rangeSlider) {
@@ -1771,7 +1827,7 @@ void igQtDataCodecCompressionWidget::refreshFields() {
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         item->setCheckState(m_fieldStates[i].selected ? Qt::Checked : Qt::Unchecked);
         item->setText(fieldItemText(i));
-        item->setSizeHint(QSize(274, fieldStatusText(m_fieldStates[i]).isEmpty() ? 68 : 86));
+        item->setSizeHint(QSize(274, 68));
         m_fieldList->addItem(item);
     }
     m_selectedFieldIndex = qBound(0, m_selectedFieldIndex, qMax(0, m_fields.size() - 1));
@@ -1790,7 +1846,7 @@ void igQtDataCodecCompressionWidget::refreshFieldItemLabels() {
         if (!item) continue;
         item->setCheckState(m_fieldStates[i].selected ? Qt::Checked : Qt::Unchecked);
         item->setText(fieldItemText(i));
-        item->setSizeHint(QSize(274, fieldStatusText(m_fieldStates[i]).isEmpty() ? 68 : 86));
+        item->setSizeHint(QSize(274, 68));
     }
     if (m_selectedFieldIndex >= 0 && m_selectedFieldIndex < m_fieldList->count()) {
         m_fieldList->setCurrentRow(m_selectedFieldIndex);
@@ -1811,7 +1867,7 @@ void igQtDataCodecCompressionWidget::refreshSelectAllState() {
         state = Qt::PartiallyChecked;
     }
     QSignalBlocker blocker(m_selectAllFieldsCheck);
-    m_selectAllFieldsCheck->setEnabled(!m_fieldStates.isEmpty());
+    m_selectAllFieldsCheck->setEnabled(!m_fieldStates.isEmpty() && !m_featureComputationActive);
     m_selectAllFieldsCheck->setCheckState(state);
 }
 
@@ -1898,9 +1954,9 @@ void igQtDataCodecCompressionWidget::refreshSelectedRegion() {
     const auto* regions = currentRegions();
     if (regions == nullptr) return;
     const RegionItem& region = (*regions)[index];
-    if (featureState != nullptr && region.id != 0) {
-        featureState->rangeLower = region.rangeLower;
-        featureState->rangeUpper = region.rangeUpper;
+    if (featureState != nullptr) {
+        featureState->rangeLower = region.id == 0 ? 0 : region.rangeLower;
+        featureState->rangeUpper = region.id == 0 ? 100 : region.rangeUpper;
     }
 
     if (m_regionBuilderTitle) {
@@ -1951,18 +2007,29 @@ void igQtDataCodecCompressionWidget::refreshFeatureState() {
     const bool multiFrame = hasMultiFrameData();
     const bool hasData = !m_fields.isEmpty();
     const bool regionFeaturesEnabled = hasField && fieldSelected && !multiFrame;
+    const int invalidRegionCount = invalidActiveRegionCount();
+    const int unavailableRegionFeatureCount = unavailableActiveRegionFeatureCount();
     if (m_basisStateLabel) {
         m_basisStateLabel->setText(
             multiFrame
-                ? QStringLiteral("时序数值场统一精度")
+                ? QStringLiteral("时序数据使用统一误差限")
                 : (basisComputed ? currentBasisName() + QStringLiteral(" 已计算")
                                  : QStringLiteral("待计算")));
     }
     if (m_performanceCombo) m_performanceCombo->setEnabled(hasData);
     if (m_zstdLevelSpin) m_zstdLevelSpin->setEnabled(hasData);
-    if (m_basisCombo) m_basisCombo->setEnabled(regionFeaturesEnabled);
-    if (m_computeButton) m_computeButton->setEnabled(regionFeaturesEnabled && !basisComputed);
-    if (m_addRegionButton) m_addRegionButton->setEnabled(regionFeaturesEnabled && !losslessMode);
+    if (m_fieldList) m_fieldList->setEnabled(hasData && !m_featureComputationActive);
+    if (m_selectAllFieldsCheck) m_selectAllFieldsCheck->setEnabled(hasData && !m_featureComputationActive);
+    if (m_basisCombo) m_basisCombo->setEnabled(regionFeaturesEnabled && !m_featureComputationActive);
+    if (m_computeButton) {
+        m_computeButton->setEnabled(regionFeaturesEnabled && !basisComputed && !m_featureComputationActive);
+        m_computeButton->setText(m_featureComputationActive ? QStringLiteral("计算中...")
+                                                           : QStringLiteral("计算特征"));
+    }
+    if (m_addRegionButton) {
+        m_addRegionButton->setEnabled(hasData);
+        m_addRegionButton->setToolTip(QStringLiteral("添加自定义区域"));
+    }
     if (m_outputPathEdit) {
         m_outputPathEdit->setEnabled(hasSelectedField);
         if (!hasSelectedField && !m_outputPathEdit->text().isEmpty()) {
@@ -1971,12 +2038,25 @@ void igQtDataCodecCompressionWidget::refreshFeatureState() {
     }
     if (m_outputPathButton) m_outputPathButton->setEnabled(hasSelectedField);
     if (m_applyLosslessAllButton) m_applyLosslessAllButton->setEnabled(hasSelectedField);
+    if (m_applyLossyAllButton) m_applyLossyAllButton->setEnabled(hasSelectedField);
     if (m_syncDefaultPrecisionButton) {
         m_syncDefaultPrecisionButton->setEnabled(hasField && fieldSelected && !losslessMode);
     }
     if (m_startEncodeButton) {
-        m_startEncodeButton->setEnabled(hasSelectedField);
-        m_startEncodeButton->setToolTip(QString());
+        m_startEncodeButton->setEnabled(
+            hasSelectedField &&
+            invalidRegionCount == 0 &&
+            unavailableRegionFeatureCount == 0 &&
+            !m_featureComputationActive);
+        if (invalidRegionCount > 0) {
+            m_startEncodeButton->setToolTip(QStringLiteral("请先消除所有自定义区域重叠"));
+        } else if (unavailableRegionFeatureCount > 0) {
+            m_startEncodeButton->setToolTip(QStringLiteral("请先重新计算自定义区域所需的特征"));
+        } else if (m_featureComputationActive) {
+            m_startEncodeButton->setToolTip(QStringLiteral("请等待特征计算完成"));
+        } else {
+            m_startEncodeButton->setToolTip(QString());
+        }
     }
     if (m_emitPerformanceCheck) {
         m_emitPerformanceCheck->setEnabled(hasSelectedField && !multiFrame);
@@ -1985,7 +2065,7 @@ void igQtDataCodecCompressionWidget::refreshFeatureState() {
     if (m_losslessModeCheck) m_losslessModeCheck->setEnabled(hasField && fieldSelected);
     if (m_histogram) {
         if (basisComputed && featureState != nullptr && featureState->featureBasis != nullptr) {
-            const HistogramView histogramView = currentHistogramView();
+            const HistogramView& histogramView = currentHistogramView();
             m_histogram->setHistogramView(histogramView.bins, histogramView.backgroundCount, histogramView.totalCount);
             m_histogram->setOccupiedBins(currentOccupiedHistogramBins(histogramView));
             if (m_rangeSlider) {
@@ -1996,17 +2076,20 @@ void igQtDataCodecCompressionWidget::refreshFeatureState() {
             m_histogram->clearBins();
             if (m_rangeSlider) m_rangeSlider->setTrackInsets(kHistogramEdgeInset, kHistogramEdgeInset);
         }
-        m_histogram->setEnabledVisual(regionFeaturesEnabled && basisComputed && !selectedBase);
+        m_histogram->setEnabledVisual(
+            regionFeaturesEnabled && basisComputed && !selectedBase && !m_featureComputationActive);
         m_histogram->setRange(m_rangeSlider ? m_rangeSlider->lowerValue() : 76,
                               m_rangeSlider ? m_rangeSlider->upperValue() : 100);
     }
     if (m_rangeSlider) {
-        m_rangeSlider->setSliderEnabled(regionFeaturesEnabled && basisComputed && !selectedBase);
+        m_rangeSlider->setSliderEnabled(
+            regionFeaturesEnabled && basisComputed && !selectedBase && !m_featureComputationActive);
     }
     const bool precisionEditable = hasField &&
         fieldSelected &&
         (selectedBase || (!multiFrame && basisComputed)) &&
-        !losslessMode;
+        !losslessMode &&
+        !m_featureComputationActive;
     if (m_precisionModeCombo) m_precisionModeCombo->setEnabled(precisionEditable);
     if (m_precisionSpin) {
         m_precisionSpin->setEnabled(precisionEditable);
@@ -2027,22 +2110,29 @@ void igQtDataCodecCompressionWidget::refreshStats() {
     const auto* featureState = currentFeatureState();
     const bool selectedBase = featureState == nullptr || featureState->selectedRegionId == 0;
     const bool hasField = hasNumericFields();
-    const int total = hasField && featureState != nullptr && featureState->featureBasis != nullptr
-                              ? static_cast<int>(featureState->featureBasis->GetElementCount())
-                              : 0;
-    const int selected = hasField && featureState != nullptr && featureState->basisComputed && !selectedBase
-                                 ? featureSelectionCountForRange(*featureState, featureState->rangeLower, featureState->rangeUpper)
-                                 : 0;
+    const std::uint64_t total = hasField && featureState != nullptr && featureState->featureBasis != nullptr
+                                    ? static_cast<std::uint64_t>(featureState->featureBasis->GetElementCount())
+                                    : static_cast<std::uint64_t>(numericFieldElementCount(m_selectedFieldIndex));
+    const std::uint64_t selected = selectedBase
+        ? total
+        : (hasField && featureState != nullptr && featureState->basisComputed
+               ? featureSelectionCountForRange64(
+                     *featureState,
+                     featureState->rangeLower,
+                     featureState->rangeUpper)
+               : 0u);
     const int overlap = hasField && featureState != nullptr && featureState->basisComputed && !selectedBase
                                 ? currentSelectionOverlapCount(featureState->selectedRegionId)
                                 : 0;
 
     if (m_selectedTotalLabel) {
-        m_selectedTotalLabel->setText(QStringLiteral("%1 / %2").arg(selected).arg(total));
+        m_selectedTotalLabel->setText(QStringLiteral("%1 / %2")
+                                          .arg(static_cast<qulonglong>(selected))
+                                          .arg(static_cast<qulonglong>(total)));
     }
     if (m_overlapTotalLabel) {
         m_overlapTotalLabel->setText(QString::number(overlap));
-        m_overlapTotalLabel->setStyleSheet(overlap > 0 ? QStringLiteral("color: #dc7036;") : QString());
+        m_overlapTotalLabel->setStyleSheet(overlap > 0 ? QStringLiteral("color: #ee5b5b;") : QString());
     }
 }
 
@@ -2076,6 +2166,21 @@ bool igQtDataCodecCompressionWidget::hasMultiFrameData() const {
     return timeFrames != nullptr && timeFrames->GetTimeNum() > 1;
 }
 
+void igQtDataCodecCompressionWidget::appendPredictionEncodingRecommendation() {
+    const bool intraFieldPredictionEnabled =
+        m_intraAttributePredictionCheck != nullptr &&
+        m_intraAttributePredictionCheck->isEnabled() &&
+        m_intraAttributePredictionCheck->isChecked();
+    const bool temporalFieldPredictionEnabled =
+        m_temporalAttributePredictionCheck != nullptr &&
+        m_temporalAttributePredictionCheck->isEnabled() &&
+        m_temporalAttributePredictionCheck->isChecked();
+    if (!intraFieldPredictionEnabled && !temporalFieldPredictionEnabled) return;
+
+    appendLog(QStringLiteral(
+        "已启用数据预测编码。建议使用高精度有损压缩，以提高预测残差的可压缩性"));
+}
+
 void igQtDataCodecCompressionWidget::refreshPredictionControls() {
     const bool hasFields = hasSelectedFields();
     const bool hasMultiFrame = hasFields && hasMultiFrameData();
@@ -2104,6 +2209,9 @@ void igQtDataCodecCompressionWidget::refreshPerformanceControls() {
         static_cast<std::size_t>(std::numeric_limits<int>::max())));
     const bool multiFrame = frameCount > 1;
     const bool hasData = hasNumericFields();
+    if (m_compressionEnhancementCheck != nullptr) {
+        m_compressionEnhancementCheck->setEnabled(hasData);
+    }
     m_gopControlRow->setVisible(multiFrame);
     m_gopControlRow->setEnabled(multiFrame && hasData);
     QSignalBlocker blocker(m_gopFrameCountSpin);
@@ -2113,7 +2221,7 @@ void igQtDataCodecCompressionWidget::refreshPerformanceControls() {
 ::datacodec::DataCodecEncodeTier
 igQtDataCodecCompressionWidget::selectedPerformanceTier() const {
     if (m_performanceCombo == nullptr) {
-        return ::datacodec::DataCodecEncodeTier::Balanced;
+        return kDefaultEncodeTier;
     }
     return DecodeEncodeTierFromValue(m_performanceCombo->currentData().toInt());
 }
@@ -2125,11 +2233,6 @@ void igQtDataCodecCompressionWidget::applyPerformanceTierDefaults() {
         QSignalBlocker blocker(m_zstdLevelSpin);
         m_zstdLevelSpin->setValue(definition.pipelineControl.packageFields.zstdLevel);
     }
-    if (m_gopFrameCountSpin != nullptr) {
-        QSignalBlocker blocker(m_gopFrameCountSpin);
-        m_gopFrameCountSpin->setValue(static_cast<int>(
-            definition.controlParams.attrReference.temporalField.keyFrameInterval));
-    }
     persistPerformanceSettings();
 }
 
@@ -2140,6 +2243,8 @@ void igQtDataCodecCompressionWidget::persistPerformanceSettings() const {
         : 8;
     SaveDataCodecCompressionPerformanceSettings({
         .tier = selectedPerformanceTier(),
+        .compressionEnhancement = m_compressionEnhancementCheck != nullptr &&
+            m_compressionEnhancementCheck->isChecked(),
         .zstdLevel = zstdLevel,
         .gopFrameCount = gopFrameCount,
     });
@@ -2156,35 +2261,52 @@ void igQtDataCodecCompressionWidget::appendLog(const QString& text) {
 
 void igQtDataCodecCompressionWidget::chooseOutputPath() {
     if (!hasSelectedFields()) {
-        appendLog(QStringLiteral("必须先加载数据才可设置输出路径"));
+        appendLog(QStringLiteral("请先加载数据，再设置输出路径"));
         return;
     }
 
     const bool multiFrame = hasMultiFrameData();
     const QString path = QFileDialog::getSaveFileName(resolveDataCodecFileDialogParent(this),
                                                        multiFrame
-                                                           ? QStringLiteral("选择 DataCodec 序列文件名前缀")
-                                                           : QStringLiteral("选择 DataCodec 输出文件"),
+                                                           ? QStringLiteral("选择序列压缩文件的名称前缀")
+                                                           : QStringLiteral("选择压缩文件"),
                                                        m_outputPathEdit ? m_outputPathEdit->text() : QString(),
-                                                       QStringLiteral("DataCodec Package (*.igc);;All Files (*)"));
+                                                       QStringLiteral("压缩文件 (*.igc)"));
     if (path.isEmpty()) return;
     const QString normalizedPath = normalizeDataCodecOutputPath(path);
     if (m_outputPathEdit) m_outputPathEdit->setText(normalizedPath);
-    appendLog(QStringLiteral("输出路径已切换: %1").arg(normalizedPath));
+    appendLog(QStringLiteral("输出路径已设置为：%1").arg(normalizedPath));
 }
 
 void igQtDataCodecCompressionWidget::startEncode() {
     if (!hasSelectedFields()) {
-        appendLog(QStringLiteral("必须至少选择一个数值场"));
+        appendLog(QStringLiteral("请至少选择一项数据"));
+        return;
+    }
+    if (m_featureComputationActive) {
+        appendLog(QStringLiteral("无法开始压缩：请等待特征计算完成"));
+        return;
+    }
+    const int unavailableRegionFeatureCount = unavailableActiveRegionFeatureCount();
+    if (unavailableRegionFeatureCount > 0) {
+        appendLog(QStringLiteral("无法开始压缩：%1 项数据的自定义区域缺少已计算特征")
+                      .arg(unavailableRegionFeatureCount));
+        refreshFeatureState();
+        return;
+    }
+    const int invalidRegionCount = invalidActiveRegionCount();
+    if (invalidRegionCount > 0) {
+        appendLog(QStringLiteral("无法开始压缩：存在 %1 个重叠自定义区域，请先调整").arg(invalidRegionCount));
+        refreshFeatureState();
         return;
     }
     if (m_outputPathEdit == nullptr || m_outputPathEdit->text().trimmed().isEmpty()) {
-        appendLog(QStringLiteral("必须先设置输出路径"));
+        appendLog(QStringLiteral("请先设置输出路径"));
         return;
     }
     auto dataObject = m_model != nullptr ? m_model->GetDataObject() : nullptr;
     if (dataObject == nullptr) {
-        appendLog(QStringLiteral("压缩失败: 未载入数据"));
+        appendLog(QStringLiteral("压缩失败：未载入数据"));
         return;
     }
 
@@ -2196,7 +2318,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
 
     const QFileInfo outputInfo(outputPath);
     if (!QDir().mkpath(outputInfo.absolutePath())) {
-        appendLog(QStringLiteral("压缩失败: 无法创建输出目录 %1").arg(outputInfo.absolutePath()));
+        appendLog(QStringLiteral("压缩失败：无法创建输出目录 %1").arg(outputInfo.absolutePath()));
         return;
     }
     const bool outputPerformance = !multiFrame && m_emitPerformanceCheck != nullptr &&
@@ -2205,14 +2327,16 @@ void igQtDataCodecCompressionWidget::startEncode() {
     if (outputPerformance) {
         reportDirectory = makeCompressionReportDirectory(outputPath);
         if (!QDir().mkpath(reportDirectory)) {
-            appendLog(QStringLiteral("压缩失败: 无法创建报告目录 %1").arg(reportDirectory));
+            appendLog(QStringLiteral("压缩失败：无法创建报告目录 %1").arg(reportDirectory));
             return;
         }
     }
 
     ::datacodec::DataCodecEncodeOptions options;
     options.tier = selectedPerformanceTier();
-    options.enableMonitoring = outputPerformance;
+    options.enableCompressionEnhancement =
+        m_compressionEnhancementCheck != nullptr &&
+        m_compressionEnhancementCheck->isChecked();
     if (m_zstdLevelSpin != nullptr) {
         options.packageZstdLevel = m_zstdLevelSpin->value();
     }
@@ -2226,20 +2350,14 @@ void igQtDataCodecCompressionWidget::startEncode() {
     auto definition = ::datacodec::MakeEncodeConfigurationParams(options);
     definition.source.customControlParams = true;
     applyCompressionControlToDataCodec(definition.controlParams);
-    const int invalidRegionCount = invalidActiveRegionCount();
-    if (invalidRegionCount > 0) {
-        appendLog(QStringLiteral("非法区域将不会生效: %1 个").arg(invalidRegionCount));
-    }
-    if (outputPerformance) {
-        const QString telemetryStem = outputInfo.completeBaseName() + QStringLiteral("_telemetry");
-        definition.controlParams.telemetry.json.artifactName = toUtf8StdString(telemetryStem);
-        definition.controlParams.telemetry.memoryCsv.artifactName =
-            toUtf8StdString(outputInfo.completeBaseName() + QStringLiteral("_memory_trace"));
-    }
     writer->SetEncodeControls(definition);
     QPointer<igQtDataCodecCompressionWidget> self(this);
-    writer->SetProgressReporter(std::make_shared<CompressionStatusReporter>(
-        [self](const QString& text) {
+    iGame::iGameRunRecordSinkSet recordSinks;
+    recordSinks.AddCallback(
+        ::datacodec::RunRecordBit(::datacodec::RunRecordKind::Progress),
+        [self](const ::datacodec::RunRecord& record) {
+            const auto text = compressionStatusText(record);
+            if (text.isEmpty()) return;
             if (!self) return;
             if (QThread::currentThread() == self->thread()) {
                 self->appendLog(text);
@@ -2248,7 +2366,20 @@ void igQtDataCodecCompressionWidget::startEncode() {
             QMetaObject::invokeMethod(self, [self, text]() {
                 if (self) self->appendLog(text);
             }, Qt::QueuedConnection);
-        }));
+        });
+    recordSinks.CaptureMessages();
+    if (outputPerformance) {
+        recordSinks.CaptureTelemetry(
+            ::datacodec::kRunLifecycleRecordMask |
+            ::datacodec::RunRecordKind::Message |
+            ::datacodec::RunRecordKind::StageTiming |
+            ::datacodec::RunRecordKind::ResourceUsage |
+            ::datacodec::RunRecordKind::Artifact,
+            ::datacodec::RunCollectionBit(
+                ::datacodec::RunCollectionKind::MemoryTrace));
+        recordSinks.CaptureRemapOrders();
+    }
+    writer->SetRunRecordSink(recordSinks.Sink());
     const qint64 initialBeforeBytes = outputPerformance ? sourceFileSizeFromDataObject(dataObject) : -1;
     QVector<NumericFieldItem> precisionFields;
     for (int index = 0; index < m_fields.size() && index < m_fieldStates.size(); ++index) {
@@ -2272,9 +2403,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
             for (const auto& message : messages) {
                 self->appendLog(message);
             }
-            if (self->m_startEncodeButton != nullptr) {
-                self->m_startEncodeButton->setEnabled(true);
-            }
+            self->refreshFeatureState();
         }, Qt::QueuedConnection);
     };
 
@@ -2287,12 +2416,9 @@ void igQtDataCodecCompressionWidget::startEncode() {
         initialBeforeBytes,
         precisionFields,
         compressorName,
+        telemetryStem = outputInfo.completeBaseName() + QStringLiteral("_telemetry"),
+        recordSinks,
         complete = std::move(complete)]() mutable {
-        ::datacodec::log::RemapOrderCapture remapSnapshot;
-        if (outputPerformance) {
-            writer->SetEncodeLogSink(&remapSnapshot);
-        }
-
         qint64 beforeBytes = initialBeforeBytes;
         QElapsedTimer timer;
         timer.start();
@@ -2316,19 +2442,37 @@ void igQtDataCodecCompressionWidget::startEncode() {
             ? resolveWrittenDataCodecPath(outputPath)
             : writtenPaths.front();
         const QFileInfo writtenInfo(writtenPath);
-        if (outputPerformance) {
-            if (const auto& telemetry = writer->GetTelemetrySession(); telemetry.has_value()) {
-                if (beforeBytes <= 0 && telemetry->sourceBytes > 0) {
-                    beforeBytes = static_cast<qint64>(telemetry->sourceBytes);
-                }
-                if (beforeBytes <= 0 && telemetry->inputBytes > 0) {
-                    beforeBytes = static_cast<qint64>(telemetry->inputBytes);
-                }
+        const auto recordMessages = recordSinks.TakeMessages();
+        const auto telemetrySessions = recordSinks.SnapshotCompletedTelemetrySessions();
+        if (outputPerformance && beforeBytes <= 0) {
+            std::uint64_t sourceBytes = 0u;
+            std::uint64_t inputBytes = 0u;
+            for (const auto& session : telemetrySessions) {
+                sourceBytes += session.sourceBytes;
+                inputBytes += session.inputBytes;
+            }
+            if (sourceBytes > 0u) {
+                beforeBytes = static_cast<qint64>(sourceBytes);
+            } else if (inputBytes > 0u) {
+                beforeBytes = static_cast<qint64>(inputBytes);
             }
         }
 
         if (!ok || !allOutputsValid || !writtenInfo.isFile() || writtenInfo.size() <= 0) {
-            complete({QStringLiteral("压缩失败: 未生成输出文件")});
+            QStringList failureMessages;
+            for (const auto& message : recordMessages) {
+                if (message.severity != ::datacodec::TelemetryMessageSeverity::Error ||
+                    message.text.empty()) {
+                    continue;
+                }
+                failureMessages.push_back(
+                    QStringLiteral("压缩失败：%1").arg(QString::fromStdString(message.text)));
+            }
+            failureMessages.removeDuplicates();
+            if (failureMessages.isEmpty()) {
+                failureMessages.push_back(QStringLiteral("压缩失败：未生成输出文件"));
+            }
+            complete(std::move(failureMessages));
             return;
         }
 
@@ -2340,7 +2484,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
 
             QString decodeError;
             auto decodedObject = readDataCodecOutput(writtenInfo.filePath(), &decodeError);
-            const auto remapOrders = remapSnapshot.TakeSnapshot();
+            const auto remapOrders = recordSinks.TakeRemapOrders();
             ::datacodec::log::AdapterSignatureOrderSet orderSet;
             orderSet.pointOrders = remapOrders.pointOrders;
             orderSet.cellOrders = remapOrders.cellOrders;
@@ -2365,33 +2509,37 @@ void igQtDataCodecCompressionWidget::startEncode() {
                                                               compressionRatio,
                                                               writtenInfo.filePath(),
                                                               precisionReport,
-                                                              writer->GetMessages());
+                                                              recordMessages);
             if (!reportWritten) {
-                complete({QStringLiteral("压缩失败: 无法写出报告文件")});
+                complete({QStringLiteral("压缩失败：无法写出报告文件")});
                 return;
             }
 
             QStringList artifactPaths;
-            if (!writeTelemetryArtifacts(reportDirectory, writer->GetTelemetrySession(), &artifactPaths)) {
-                complete({QStringLiteral("压缩失败: 无法写出检测数据")});
+            if (!writeTelemetryArtifacts(
+                    reportDirectory,
+                    telemetryStem,
+                    telemetrySessions,
+                    &artifactPaths)) {
+                complete({QStringLiteral("压缩失败：无法写出检测数据")});
                 return;
             }
 
             messages.push_back(QStringLiteral("================ 压缩报告开始 ================"));
-            messages.push_back(QStringLiteral("压缩前文件大小: %1").arg(formatByteSize(beforeBytes)));
-            messages.push_back(QStringLiteral("压缩后文件大小: %1").arg(formatByteSize(afterBytes)));
-            messages.push_back(QStringLiteral("压缩率: %1").arg(compressionRatio));
-            messages.push_back(QStringLiteral("压缩时间: %1 ms").arg(elapsedMs));
+            messages.push_back(QStringLiteral("压缩前文件大小：%1").arg(formatByteSize(beforeBytes)));
+            messages.push_back(QStringLiteral("压缩后文件大小：%1").arg(formatByteSize(afterBytes)));
+            messages.push_back(QStringLiteral("压缩后大小占比：%1").arg(compressionRatio));
+            messages.push_back(QStringLiteral("压缩时间：%1 ms").arg(elapsedMs));
             messages.append(precisionStatusLines);
             for (const QString& path : artifactPaths) {
-                messages.push_back(QStringLiteral("检测数据: %1").arg(path));
+                messages.push_back(QStringLiteral("检测数据：%1").arg(path));
             }
             messages.push_back(QStringLiteral("================ 压缩报告结束 ================"));
         }
         if (writtenPaths.size() > 1) {
-            messages.push_back(QStringLiteral("序列输出: %1 帧").arg(writtenPaths.size()));
-            messages.push_back(QStringLiteral("首帧文件: %1").arg(writtenPaths.front()));
-            messages.push_back(QStringLiteral("末帧文件: %1").arg(writtenPaths.back()));
+            messages.push_back(QStringLiteral("序列输出：%1 帧").arg(writtenPaths.size()));
+            messages.push_back(QStringLiteral("首帧文件：%1").arg(writtenPaths.front()));
+            messages.push_back(QStringLiteral("末帧文件：%1").arg(writtenPaths.back()));
         }
         messages.push_back(QStringLiteral("压缩完成"));
         complete(std::move(messages));
@@ -2401,88 +2549,212 @@ void igQtDataCodecCompressionWidget::startEncode() {
 }
 
 void igQtDataCodecCompressionWidget::computeFeature() {
-    if (!hasNumericFields() || hasMultiFrameData()) return;
+    if (!hasNumericFields() || hasMultiFrameData() || m_featureComputationActive) return;
     auto* fieldState = currentFieldState();
     auto* featureState = currentFeatureState();
     if (fieldState == nullptr || featureState == nullptr) return;
-    const NumericFieldItem& field = m_fields[m_selectedFieldIndex];
+    const int fieldIndex = m_selectedFieldIndex;
+    const int basisIndex = qBound(0, fieldState->currentBasisIndex, 2);
+    const NumericFieldItem field = m_fields[fieldIndex];
     auto dataObject = field.sourceObject;
     if (dataObject == nullptr) {
-        appendLog(QStringLiteral("特征计算失败: 未载入数据"));
+        appendLog(QStringLiteral("特征计算失败：未载入数据"));
         return;
     }
 
-    auto filter = iGame::RegionFeatureBasisFilter::New();
-    filter->SetInput(dataObject);
-    filter->SetHistogramBinCount(34);
-
-    switch (m_basisCombo ? m_basisCombo->currentIndex() : 0) {
+    iGame::RegionFeatureBasisFilter::BasisMode basisMode =
+        iGame::RegionFeatureBasisFilter::BasisMode::Magnitude;
+    switch (basisIndex) {
     case 1:
-        filter->SetBasisMode(iGame::RegionFeatureBasisFilter::BasisMode::LocalStdDev);
+        basisMode = iGame::RegionFeatureBasisFilter::BasisMode::LocalStdDev;
         break;
     case 2:
-        filter->SetBasisMode(iGame::RegionFeatureBasisFilter::BasisMode::Jump);
+        basisMode = iGame::RegionFeatureBasisFilter::BasisMode::Jump;
         break;
     default:
-        filter->SetBasisMode(iGame::RegionFeatureBasisFilter::BasisMode::Magnitude);
         break;
     }
 
-    IGsize elementCount = 0;
-    filter->SetAttributeByName(field.name.toStdString(), field.attachmentType, -1);
-    if (auto* attributeSet = dataObject->GetAttributeSet()) {
-        auto attributes = attributeSet->GetAllAttributes();
-        if (attributes != nullptr) {
-            for (int i = 0; i < attributes->GetNumberOfElements(); ++i) {
-                auto& attr = attributes->GetElement(i);
-                if (attr.isDeleted || attr.pointer == nullptr) continue;
-                if (attr.attachmentType != field.attachmentType) continue;
-                if (attr.pointer->GetName() != field.name.toStdString()) continue;
-                elementCount = attr.pointer->GetNumberOfElements();
-                break;
-            }
-        }
-    }
-
-    appendLog(QStringLiteral("计算特征：%1 / %2，%3 个元素")
+    const IGsize elementCount = numericFieldElementCount(fieldIndex);
+    appendLog(QStringLiteral("计算特征：%1 / %2，%3 个数据项")
                       .arg(field.name, currentBasisName())
                       .arg(static_cast<qulonglong>(elementCount)));
-
-    if (!filter->Execute()) {
-        appendLog(QStringLiteral("特征计算失败: %1").arg(QString::fromStdString(filter->GetMessage())));
-        featureState->featureBasis = nullptr;
-        featureState->basisComputed = false;
-        refreshFeatureState();
-        refreshRegionRows();
-        refreshFieldItemLabels();
-        return;
-    }
-
-    featureState->featureBasis = filter->GetFeatureBasisData();
-    if (featureState->featureBasis == nullptr || !featureState->featureBasis->HasValues()) {
-        appendLog(QStringLiteral("特征计算失败: 未生成特征值"));
-        featureState->basisComputed = false;
-        refreshFeatureState();
-        refreshRegionRows();
-        refreshFieldItemLabels();
-        return;
-    }
-
-    featureState->basisComputed = true;
+    m_featureComputationActive = true;
+    const std::uint64_t requestSerial = ++m_featureRequestSerial;
+    if (m_computeButton != nullptr) m_computeButton->setText(QStringLiteral("计算中..."));
     refreshFeatureState();
-    refreshRegionRows();
-    refreshFieldItemLabels();
+
+    QPointer<igQtDataCodecCompressionWidget> self(this);
+    auto* worker = QThread::create([
+        self,
+        dataObject,
+        fieldIndex,
+        basisIndex,
+        basisMode,
+        fieldName = toUtf8StdString(field.name),
+        attachmentType = field.attachmentType,
+        requestSerial]() mutable {
+        iGame::RegionFeatureBasisData::Pointer output;
+        FeatureAnalysis analysis;
+        QString error;
+
+        auto filter = iGame::RegionFeatureBasisFilter::New();
+        filter->SetInput(dataObject);
+        filter->SetHistogramBinCount(0);
+        filter->SetBasisMode(basisMode);
+        filter->SetAttributeByName(fieldName, attachmentType, -1);
+        if (!filter->Execute()) {
+            error = localizedFeatureErrorMessage(QString::fromStdString(filter->GetMessage()));
+        } else {
+            output = filter->GetFeatureBasisData();
+            if (output == nullptr || !output->HasValues()) {
+                error = QStringLiteral("未生成特征值");
+                output = nullptr;
+            } else {
+                analysis = buildFeatureAnalysis(output);
+            }
+        }
+
+        if (!self) return;
+        QMetaObject::invokeMethod(self, [
+            self,
+            fieldIndex,
+            basisIndex,
+            requestSerial,
+            output,
+            analysis = std::move(analysis),
+            error = std::move(error)]() mutable {
+            if (!self || requestSerial != self->m_featureRequestSerial) return;
+            self->m_featureComputationActive = false;
+            if (self->m_computeButton != nullptr) {
+                self->m_computeButton->setText(QStringLiteral("计算特征"));
+            }
+            if (fieldIndex < 0 || fieldIndex >= self->m_fieldStates.size()) {
+                self->refreshFeatureState();
+                return;
+            }
+
+            FieldState& targetField = self->m_fieldStates[fieldIndex];
+            self->ensureFeatureStates(targetField);
+            if (basisIndex < 0 || basisIndex >= targetField.features.size()) {
+                self->refreshFeatureState();
+                return;
+            }
+            FeatureState& targetFeature = targetField.features[basisIndex];
+            if (!error.isEmpty()) {
+                targetFeature.featureBasis = nullptr;
+                targetFeature.analysis = {};
+                targetFeature.basisComputed = false;
+                self->appendLog(QStringLiteral("特征计算失败：%1").arg(error));
+            } else {
+                for (int index = 0; index < targetField.features.size(); ++index) {
+                    if (index == basisIndex) continue;
+                    targetField.features[index].featureBasis = nullptr;
+                    targetField.features[index].analysis = {};
+                    targetField.features[index].basisComputed = false;
+                }
+                targetFeature.featureBasis = output;
+                targetFeature.analysis = std::move(analysis);
+                targetFeature.basisComputed = true;
+                for (RegionItem& region : targetFeature.regions) {
+                    if (region.id == 0) continue;
+                    region.elementCount = self->featureSelectionCountForRange(
+                        targetFeature,
+                        region.rangeLower,
+                        region.rangeUpper);
+                }
+                self->appendLog(QStringLiteral("特征计算完成"));
+            }
+
+            self->refreshRegionRows();
+            self->refreshFieldItemLabels();
+            self->refreshSelectedRegion();
+        }, Qt::QueuedConnection);
+    });
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    worker->start();
 }
 
 void igQtDataCodecCompressionWidget::addRegion() {
-    if (!hasNumericFields() || hasMultiFrameData()) return;
+    if (!hasNumericFields()) return;
+    auto* fieldState = currentFieldState();
     auto* featureState = currentFeatureState();
     auto* regions = currentRegions();
-    if (featureState == nullptr || regions == nullptr || !featureState->basisComputed ||
-        featureState->featureBasis == nullptr) {
-        appendLog(QStringLiteral("必须先计算特征才可添加区域"));
+    QStringList reasons;
+    if (hasMultiFrameData()) {
+        reasons.push_back(QStringLiteral("时序数据暂不支持自定义区域"));
+    } else {
+        if (fieldState == nullptr || !fieldState->selected) {
+            reasons.push_back(QStringLiteral("请先选择当前数据"));
+        }
+        if (fieldState != nullptr && fieldState->losslessMode) {
+            reasons.push_back(QStringLiteral("请先取消无损压缩"));
+        }
+        if (m_featureComputationActive) {
+            reasons.push_back(QStringLiteral("请等待特征计算完成"));
+        } else if (featureState == nullptr || !featureState->basisComputed ||
+                   featureState->featureBasis == nullptr) {
+            reasons.push_back(QStringLiteral("请先计算当前特征"));
+        }
+        if (featureState != nullptr && customRegionCount(*featureState) >= kMaxCustomRegionCount) {
+            reasons.push_back(QStringLiteral("每个特征最多支持 8 个自定义区域"));
+        }
+    }
+    if (regions == nullptr) {
+        reasons.push_back(QStringLiteral("当前区域状态不可用"));
+    }
+    if (!reasons.isEmpty()) {
+        appendLog(QStringLiteral("无法添加自定义区域：%1").arg(reasons.join(QStringLiteral("；"))));
         return;
     }
+
+    int desiredSpan = kDefaultCustomRegionSpan;
+    if (featureState->selectedRegionId != 0) {
+        desiredSpan = qBound(
+            0,
+            qAbs(featureState->rangeUpper - featureState->rangeLower),
+            100);
+    }
+    QVector<QPair<int, int>> occupiedRanges;
+    occupiedRanges.reserve(customRegionCount(*featureState));
+    for (const RegionItem& region : featureState->regions) {
+        if (region.id == 0) continue;
+        occupiedRanges.push_back({
+            qBound(0, qMin(region.rangeLower, region.rangeUpper), 100),
+            qBound(0, qMax(region.rangeLower, region.rangeUpper), 100),
+        });
+    }
+    std::sort(
+        occupiedRanges.begin(),
+        occupiedRanges.end(),
+        [](const QPair<int, int>& left, const QPair<int, int>& right) {
+            if (left.first != right.first) return left.first < right.first;
+            return left.second < right.second;
+        });
+
+    std::optional<QPair<int, int>> availableRange;
+    int cursor = 0;
+    for (const auto& occupied : occupiedRanges) {
+        if (cursor < occupied.first) {
+            availableRange = QPair<int, int>{
+                cursor,
+                qMin(occupied.first - 1, cursor + desiredSpan),
+            };
+            break;
+        }
+        cursor = qMax(cursor, occupied.second + 1);
+        if (cursor > 100) break;
+    }
+    if (!availableRange.has_value() && cursor <= 100) {
+        availableRange = QPair<int, int>{cursor, qMin(100, cursor + desiredSpan)};
+    }
+    if (!availableRange.has_value()) {
+        appendLog(QStringLiteral("无法添加自定义区域：全部特征值范围已被现有自定义区域占用"));
+        return;
+    }
+    featureState->rangeLower = availableRange->first;
+    featureState->rangeUpper = availableRange->second;
+
     int nextId = 1;
     for (const RegionItem& region : *regions) nextId = qMax(nextId, region.id + 1);
     const int overlap = currentSelectionOverlapCount();
@@ -2494,13 +2766,13 @@ void igQtDataCodecCompressionWidget::addRegion() {
                                       : kPrecisionModeAbs;
     regions->push_back(RegionItem{nextId, QStringLiteral("区域 %1").arg(nextId), QString(),
                                   absPrecision, relPrecision, precisionMode, selectedCount,
-                                  featureState->rangeLower, featureState->rangeUpper, {}});
+                                  featureState->rangeLower, featureState->rangeUpper});
     if (!regions->isEmpty()) {
         RegionItem& region = regions->back();
         region.ruleSummary = QString();
     }
     if (overlap > 0) {
-        appendLog(QStringLiteral("当前区域与已有区域重合: %1 个元素").arg(overlap));
+        appendLog(QStringLiteral("当前区域与已有区域重叠：%1 个数据项").arg(overlap));
     }
     selectRegion(nextId);
     refreshFieldItemLabels();
@@ -2554,7 +2826,10 @@ void igQtDataCodecCompressionWidget::onRangeChanged() {
         featureState->rangeUpper = upper;
     }
     if (m_histogram) m_histogram->setRange(lower, upper);
-    if (m_rangeSlider->isDragging()) return;
+    if (m_rangeSlider->isDragging()) {
+        refreshStats();
+        return;
+    }
     commitRangeSelection();
 }
 
@@ -2570,12 +2845,11 @@ void igQtDataCodecCompressionWidget::commitRangeSelection() {
             (*regions)[index].rangeUpper = featureState->rangeUpper;
             (*regions)[index].elementCount =
                     featureSelectionCountForRange(*featureState, featureState->rangeLower, featureState->rangeUpper);
-            (*regions)[index].elementIds.clear();
             (*regions)[index].ruleSummary = QString();
             refreshRegionRows();
         }
     }
-    refreshStats();
+    refreshFeatureState();
     refreshFieldItemLabels();
 }
 
@@ -2653,7 +2927,29 @@ void igQtDataCodecCompressionWidget::applyLosslessModeToAllFields() {
         state.losslessMode = true;
         syncDefaultRegionToFeatures(state);
     }
-    appendLog(QStringLiteral("已对全部数值场启用无损压缩"));
+    appendLog(QStringLiteral("已将全部数据设为无损压缩"));
+    refreshSelectedRegion();
+    refreshRegionRows();
+    refreshFieldItemLabels();
+    refreshFeatureState();
+}
+
+void igQtDataCodecCompressionWidget::applyHighPrecisionLossyModeToAllFields() {
+    if (!hasNumericFields()) return;
+    ensureFieldStates();
+    for (FieldState& state : m_fieldStates) {
+        state.losslessMode = false;
+        state.defaultPrecisionMode = kPrecisionModeRel;
+        state.defaultRelPrecision = kDefaultGreenPrecisionRatio;
+        ensureFeatureStates(state);
+        for (FeatureState& feature : state.features) {
+            for (RegionItem& region : feature.regions) {
+                region.precisionMode = kPrecisionModeRel;
+                region.relPrecision = kDefaultGreenPrecisionRatio;
+            }
+        }
+    }
+    appendLog(QStringLiteral("已将全部数据设为高精度有损压缩：相对误差限 0.00001"));
     refreshSelectedRegion();
     refreshRegionRows();
     refreshFieldItemLabels();
@@ -2674,9 +2970,15 @@ void igQtDataCodecCompressionWidget::syncCurrentDefaultPrecisionToAllFields() {
         state.defaultPrecisionMode = mode;
         state.defaultAbsPrecision = absPrecision;
         state.defaultRelPrecision = relPrecision;
+        ensureFeatureStates(state);
+        for (FeatureState& feature : state.features) {
+            for (RegionItem& region : feature.regions) {
+                region.precisionMode = mode;
+            }
+        }
         syncDefaultRegionToFeatures(state);
     }
-    appendLog(QStringLiteral("已将当前默认精度同步到全部数值场"));
+    appendLog(QStringLiteral("已将当前默认误差限应用到全部数据"));
     refreshSelectedRegion();
     refreshRegionRows();
     refreshFieldItemLabels();
@@ -2688,56 +2990,33 @@ bool igQtDataCodecCompressionWidget::losslessModeEnabled() const {
     return fieldState != nullptr && fieldState->losslessMode;
 }
 
-QVector<igIndex> igQtDataCodecCompressionWidget::currentFeatureSelectionIds() const {
-    const auto* featureState = currentFeatureState();
-    if (featureState == nullptr) return {};
-    return featureSelectionIdsForRange(*featureState, featureState->rangeLower, featureState->rangeUpper);
-}
-
-QVector<igIndex> igQtDataCodecCompressionWidget::featureSelectionIdsForRange(
-        const FeatureState& featureState,
-        int lower,
-        int upper) const {
-    QVector<igIndex> ids;
-    if (!featureState.basisComputed || featureState.featureBasis == nullptr) {
-        return ids;
-    }
-
-    const HistogramView histogramView = currentHistogramView();
-    const double lowerValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, lower);
-    const double upperValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, upper);
-    const double minValue = qMin(lowerValue, upperValue);
-    const double maxValue = qMax(lowerValue, upperValue);
-
-    const std::vector<double>& values = featureState.featureBasis->GetValues();
-    ids.reserve(static_cast<int>(values.size()));
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        const double value = values[i];
-        if (histogramView.smart && value >= histogramView.backgroundMin && value <= histogramView.backgroundMax) continue;
-        if (value >= minValue && value <= maxValue) ids.push_back(static_cast<igIndex>(i));
-    }
-    return ids;
-}
-
 int igQtDataCodecCompressionWidget::featureSelectionCountForRange(
         const FeatureState& featureState,
         int lower,
         int upper) const {
-    if (!featureState.basisComputed || featureState.featureBasis == nullptr) return 0;
+    const auto count = featureSelectionCountForRange64(featureState, lower, upper);
+    return static_cast<int>(std::min<std::uint64_t>(
+        count,
+        static_cast<std::uint64_t>(std::numeric_limits<int>::max())));
+}
 
-    const HistogramView histogramView = currentHistogramView();
-    const double lowerValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, lower);
-    const double upperValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, upper);
-    const double minValue = qMin(lowerValue, upperValue);
-    const double maxValue = qMax(lowerValue, upperValue);
-
-    int count = 0;
-    const std::vector<double>& values = featureState.featureBasis->GetValues();
-    for (double value : values) {
-        if (histogramView.smart && value >= histogramView.backgroundMin && value <= histogramView.backgroundMax) continue;
-        if (value >= minValue && value <= maxValue) ++count;
-    }
-    return count;
+std::uint64_t igQtDataCodecCompressionWidget::featureSelectionCountForRange64(
+        const FeatureState& featureState,
+        int lower,
+        int upper) const {
+    if (!featureState.basisComputed || featureState.featureBasis == nullptr) return 0u;
+    const auto& analysis = featureState.analysis.ready
+        ? featureState.analysis
+        : (featureState.analysis = buildFeatureAnalysis(featureState.featureBasis));
+    if (!analysis.ready) return 0u;
+    const int boundedLower = qBound(0, qMin(lower, upper), 100);
+    const int boundedUpper = qBound(0, qMax(lower, upper), 100);
+    const std::uint64_t excluded =
+        analysis.lessThanEndpointCounts[static_cast<std::size_t>(boundedLower)] +
+        analysis.greaterThanEndpointCounts[static_cast<std::size_t>(boundedUpper)];
+    return excluded >= analysis.effectiveValueCount
+        ? 0u
+        : analysis.effectiveValueCount - excluded;
 }
 
 QVector<double> igQtDataCodecCompressionWidget::currentOccupiedHistogramBins(const HistogramView& view) const {
@@ -2749,27 +3028,36 @@ QVector<double> igQtDataCodecCompressionWidget::currentOccupiedHistogramBins(con
     }
 
     const int ignoredRegionId = featureState->selectedRegionId;
-    const QVector<int> invalidRegionIds = invalidRegionIdsForFeature(*featureState);
-    const std::vector<double>& values = featureState->featureBasis->GetValues();
+    const bool showOverlap = ignoredRegionId != 0;
+    const int selectedLower = qMin(featureState->rangeLower, featureState->rangeUpper);
+    const int selectedUpper = qMax(featureState->rangeLower, featureState->rangeUpper);
     for (const RegionItem& region : *regions) {
         if (region.id == 0 || region.id == ignoredRegionId) continue;
-        if (invalidRegionIds.contains(region.id)) continue;
-        const double lowerValue = valueAtPercent(view.valueMin, view.valueMax, region.rangeLower);
-        const double upperValue = valueAtPercent(view.valueMin, view.valueMax, region.rangeUpper);
-        const double minValue = qMin(lowerValue, upperValue);
-        const double maxValue = qMax(lowerValue, upperValue);
-        for (double value : values) {
-            if (!std::isfinite(value)) continue;
-            if (view.smart && value >= view.backgroundMin && value <= view.backgroundMax) continue;
-            if (value < minValue || value > maxValue) continue;
-            bins[histogramBinIndexForValue(value, view.valueMin, view.valueMax, bins.size())] += 1.0;
+        const int regionLower = qMin(region.rangeLower, region.rangeUpper);
+        const int regionUpper = qMax(region.rangeLower, region.rangeUpper);
+        const int rangeOverlapLower = qMax(selectedLower, regionLower);
+        const int rangeOverlapUpper = qMin(selectedUpper, regionUpper);
+        const bool rangesOverlap =
+            showOverlap &&
+            rangeOverlapLower <= rangeOverlapUpper &&
+            featureSelectionCountForRange64(*featureState, rangeOverlapLower, rangeOverlapUpper) > 0u;
+        for (int bin = 0; bin < bins.size(); ++bin) {
+            const double binLower = static_cast<double>(bin) * 100.0 / static_cast<double>(bins.size());
+            const double binUpper = static_cast<double>(bin + 1) * 100.0 / static_cast<double>(bins.size());
+            const int overlapLower = qMax(regionLower, qBound(0, static_cast<int>(std::floor(binLower)), 100));
+            const int overlapUpper = qMin(regionUpper, qBound(0, static_cast<int>(std::ceil(binUpper)), 100));
+            if (overlapLower > overlapUpper) continue;
+            bins[bin] = qMax(bins[bin], 1.0);
+            if (!rangesOverlap) continue;
+            const int binOverlapLower = qMax(
+                rangeOverlapLower,
+                qBound(0, static_cast<int>(std::floor(binLower)), 100));
+            const int binOverlapUpper = qMin(
+                rangeOverlapUpper,
+                qBound(0, static_cast<int>(std::ceil(binUpper)), 100));
+            if (binOverlapLower <= binOverlapUpper) bins[bin] = 2.0;
         }
     }
-
-    double maxDensity = 0.0;
-    for (double density : bins) maxDensity = qMax(maxDensity, density);
-    if (maxDensity <= std::numeric_limits<double>::epsilon()) return bins;
-    for (double& density : bins) density /= maxDensity;
     return bins;
 }
 
@@ -2784,50 +3072,66 @@ int igQtDataCodecCompressionWidget::selectionOverlapCountForRange(
         int lower,
         int upper,
         int ignoredRegionId) const {
-    const auto* regions = currentRegions();
-    if (!featureState.basisComputed || featureState.featureBasis == nullptr || regions == nullptr) {
+    if (!featureState.basisComputed || featureState.featureBasis == nullptr) {
         return 0;
     }
 
-    QVector<QPair<double, double>> legalRanges;
-    const HistogramView histogramView = currentHistogramView();
-    for (const RegionItem& region : *regions) {
-        if (region.id == ignoredRegionId) break;
+    const int rangeLower = qBound(0, qMin(lower, upper), 100);
+    const int rangeUpper = qBound(0, qMax(lower, upper), 100);
+    QVector<QPair<int, int>> intersections;
+    for (const RegionItem& region : featureState.regions) {
         if (region.id == 0 || region.id == ignoredRegionId) continue;
-        if (selectionOverlapCountForRange(featureState, region.rangeLower, region.rangeUpper, region.id) > 0) {
+        const int overlapLower = qMax(rangeLower, qMin(region.rangeLower, region.rangeUpper));
+        const int overlapUpper = qMin(rangeUpper, qMax(region.rangeLower, region.rangeUpper));
+        if (overlapLower > overlapUpper) continue;
+        if (featureSelectionCountForRange64(featureState, overlapLower, overlapUpper) == 0u) continue;
+        intersections.push_back({overlapLower, overlapUpper});
+    }
+    if (intersections.isEmpty()) return 0;
+
+    std::sort(
+        intersections.begin(),
+        intersections.end(),
+        [](const QPair<int, int>& left, const QPair<int, int>& right) {
+            if (left.first != right.first) return left.first < right.first;
+            return left.second < right.second;
+        });
+    std::uint64_t overlap = 0u;
+    int mergedLower = intersections.front().first;
+    int mergedUpper = intersections.front().second;
+    for (int index = 1; index < intersections.size(); ++index) {
+        const auto& next = intersections[index];
+        if (next.first <= mergedUpper) {
+            mergedUpper = qMax(mergedUpper, next.second);
             continue;
         }
-        const double lowerValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, region.rangeLower);
-        const double upperValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, region.rangeUpper);
-        legalRanges.push_back({qMin(lowerValue, upperValue), qMax(lowerValue, upperValue)});
+        overlap += featureSelectionCountForRange64(featureState, mergedLower, mergedUpper);
+        mergedLower = next.first;
+        mergedUpper = next.second;
     }
-    if (legalRanges.isEmpty()) return 0;
-
-    const double lowerValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, lower);
-    const double upperValue = valueAtPercent(histogramView.valueMin, histogramView.valueMax, upper);
-    const double minValue = qMin(lowerValue, upperValue);
-    const double maxValue = qMax(lowerValue, upperValue);
-
-    int overlap = 0;
-    const std::vector<double>& values = featureState.featureBasis->GetValues();
-    for (double value : values) {
-        if (histogramView.smart && value >= histogramView.backgroundMin && value <= histogramView.backgroundMax) continue;
-        if (value < minValue || value > maxValue) continue;
-        for (const auto& legalRange : legalRanges) {
-            if (value < legalRange.first || value > legalRange.second) continue;
-            ++overlap;
-            break;
-        }
-    }
-    return overlap;
+    overlap += featureSelectionCountForRange64(featureState, mergedLower, mergedUpper);
+    return static_cast<int>(std::min<std::uint64_t>(
+        overlap,
+        static_cast<std::uint64_t>(std::numeric_limits<int>::max())));
 }
 
 QVector<int> igQtDataCodecCompressionWidget::invalidRegionIdsForFeature(const FeatureState& featureState) const {
     QVector<int> ids;
-    for (const RegionItem& region : featureState.regions) {
-        if (region.id == 0 || region.elementCount <= 0) continue;
-        if (selectionOverlapCountForRange(featureState, region.rangeLower, region.rangeUpper, region.id) > 0) {
-            ids.push_back(region.id);
+    for (int leftIndex = 0; leftIndex < featureState.regions.size(); ++leftIndex) {
+        const RegionItem& left = featureState.regions[leftIndex];
+        if (left.id == 0) continue;
+        for (int rightIndex = leftIndex + 1; rightIndex < featureState.regions.size(); ++rightIndex) {
+            const RegionItem& right = featureState.regions[rightIndex];
+            if (right.id == 0) continue;
+            const int overlapLower = qMax(
+                qMin(left.rangeLower, left.rangeUpper),
+                qMin(right.rangeLower, right.rangeUpper));
+            const int overlapUpper = qMin(
+                qMax(left.rangeLower, left.rangeUpper),
+                qMax(right.rangeLower, right.rangeUpper));
+            if (overlapLower > overlapUpper) continue;
+            if (!ids.contains(left.id)) ids.push_back(left.id);
+            if (!ids.contains(right.id)) ids.push_back(right.id);
         }
     }
     return ids;
@@ -2840,9 +3144,11 @@ bool igQtDataCodecCompressionWidget::isRegionInvalid(int regionId) const {
 }
 
 int igQtDataCodecCompressionWidget::invalidActiveRegionCount() const {
+    if (hasMultiFrameData()) return 0;
     int count = 0;
     for (int fieldIndex = 0; fieldIndex < m_fieldStates.size(); ++fieldIndex) {
         const FieldState& fieldState = m_fieldStates[fieldIndex];
+        if (!fieldState.selected) continue;
         if (fieldState.losslessMode) continue;
         if (fieldState.features.isEmpty()) continue;
         const int featureIndex = qBound(0, fieldState.currentBasisIndex, fieldState.features.size() - 1);
@@ -2851,69 +3157,187 @@ int igQtDataCodecCompressionWidget::invalidActiveRegionCount() const {
     return count;
 }
 
-igQtDataCodecCompressionWidget::HistogramView igQtDataCodecCompressionWidget::currentHistogramView() const {
-    HistogramView view;
-    const auto* featureState = currentFeatureState();
-    if (featureState == nullptr || featureState->featureBasis == nullptr) return view;
+int igQtDataCodecCompressionWidget::unavailableActiveRegionFeatureCount() const {
+    if (hasMultiFrameData()) return 0;
+    int count = 0;
+    for (const FieldState& fieldState : m_fieldStates) {
+        if (!fieldState.selected || fieldState.losslessMode || fieldState.features.isEmpty()) continue;
+        const int featureIndex = qBound(
+            0,
+            fieldState.currentBasisIndex,
+            fieldState.features.size() - 1);
+        const FeatureState& featureState = fieldState.features[featureIndex];
+        if (customRegionCount(featureState) == 0) continue;
+        if (!featureState.basisComputed || featureState.featureBasis == nullptr) ++count;
+    }
+    return count;
+}
 
-    const std::vector<double>& values = featureState->featureBasis->GetValues();
+int igQtDataCodecCompressionWidget::customRegionCount(const FeatureState& featureState) const {
+    return static_cast<int>(std::count_if(
+        featureState.regions.begin(),
+        featureState.regions.end(),
+        [](const RegionItem& region) { return region.id != 0; }));
+}
+
+igQtDataCodecCompressionWidget::FeatureAnalysis igQtDataCodecCompressionWidget::buildFeatureAnalysis(
+        const iGame::RegionFeatureBasisData::Pointer& featureBasis) {
+    FeatureAnalysis analysis;
+    if (featureBasis == nullptr) return analysis;
+
+    const std::vector<double>& values = featureBasis->GetValues();
+    HistogramView& view = analysis.histogram;
     view.totalCount = static_cast<int>(values.size());
-    if (values.empty()) return view;
+    if (values.empty()) {
+        analysis.ready = true;
+        return analysis;
+    }
 
-    auto minMax = std::minmax_element(values.begin(), values.end());
-    view.valueMin = *minMax.first;
-    view.valueMax = *minMax.second;
+    bool haveFiniteValue = false;
+    std::size_t finiteCount = 0u;
+    view.valueMin = std::numeric_limits<double>::infinity();
+    view.valueMax = -std::numeric_limits<double>::infinity();
+    for (const double value : values) {
+        if (!std::isfinite(value)) continue;
+        haveFiniteValue = true;
+        ++finiteCount;
+        view.valueMin = std::min(view.valueMin, value);
+        view.valueMax = std::max(view.valueMax, value);
+    }
+    if (!haveFiniteValue) {
+        view.valueMin = 0.0;
+        view.valueMax = 0.0;
+        analysis.ready = true;
+        return analysis;
+    }
     view.bins = buildNormalizedHistogram(values, view.valueMin, view.valueMax, kHistogramBinCount);
-    if (view.valueMin == view.valueMax || values.size() < 32) return view;
+    if (view.valueMin != view.valueMax && finiteCount >= 32u) {
+        QVector<int> counts(kRawBackgroundDetectBinCount, 0);
+        const double range = view.valueMax - view.valueMin;
+        for (double value : values) {
+            if (!std::isfinite(value)) continue;
+            int bin = static_cast<int>((value - view.valueMin) / range * static_cast<double>(counts.size()));
+            bin = qBound(0, bin, counts.size() - 1);
+            counts[bin] += 1;
+        }
 
-    QVector<int> counts(kRawBackgroundDetectBinCount, 0);
-    const double range = view.valueMax - view.valueMin;
-    for (double value : values) {
-        int bin = static_cast<int>((value - view.valueMin) / range * static_cast<double>(counts.size()));
-        bin = qBound(0, bin, counts.size() - 1);
-        counts[bin] += 1;
-    }
+        int peakIndex = 0;
+        for (int i = 1; i < counts.size(); ++i) {
+            if (counts[i] > counts[peakIndex]) peakIndex = i;
+        }
+        const double peakRatio = static_cast<double>(counts[peakIndex]) / static_cast<double>(finiteCount);
+        if (peakRatio >= kBackgroundPeakRatio) {
+            const int mergeLimit = qMax(1, static_cast<int>(counts[peakIndex] * kBackgroundMergeRatio));
+            int leftIndex = peakIndex;
+            int rightIndex = peakIndex;
+            while (leftIndex > 0 && counts[leftIndex - 1] >= mergeLimit) --leftIndex;
+            while (rightIndex + 1 < counts.size() && counts[rightIndex + 1] >= mergeLimit) ++rightIndex;
 
-    int peakIndex = 0;
-    for (int i = 1; i < counts.size(); ++i) {
-        if (counts[i] > counts[peakIndex]) peakIndex = i;
-    }
-    const double peakRatio = static_cast<double>(counts[peakIndex]) / static_cast<double>(values.size());
-    if (peakRatio < kBackgroundPeakRatio) return view;
+            const double binWidth = range / static_cast<double>(counts.size());
+            const double backgroundMin =
+                view.valueMin + static_cast<double>(leftIndex) * binWidth - binWidth * 0.5;
+            const double backgroundMax =
+                view.valueMin + static_cast<double>(rightIndex + 1) * binWidth + binWidth * 0.5;
 
-    const int mergeLimit = qMax(1, static_cast<int>(counts[peakIndex] * kBackgroundMergeRatio));
-    int leftIndex = peakIndex;
-    int rightIndex = peakIndex;
-    while (leftIndex > 0 && counts[leftIndex - 1] >= mergeLimit) --leftIndex;
-    while (rightIndex + 1 < counts.size() && counts[rightIndex + 1] >= mergeLimit) ++rightIndex;
+            double effectiveMin = std::numeric_limits<double>::infinity();
+            double effectiveMax = -std::numeric_limits<double>::infinity();
+            std::size_t effectiveCount = 0u;
+            int backgroundCount = 0;
+            for (double value : values) {
+                if (!std::isfinite(value)) continue;
+                if (value >= backgroundMin && value <= backgroundMax) {
+                    ++backgroundCount;
+                    continue;
+                }
+                ++effectiveCount;
+                effectiveMin = std::min(effectiveMin, value);
+                effectiveMax = std::max(effectiveMax, value);
+            }
 
-    const double binWidth = range / static_cast<double>(counts.size());
-    view.backgroundMin = view.valueMin + static_cast<double>(leftIndex) * binWidth - binWidth * 0.5;
-    view.backgroundMax = view.valueMin + static_cast<double>(rightIndex + 1) * binWidth + binWidth * 0.5;
-
-    std::vector<double> effectiveValues;
-    effectiveValues.reserve(values.size());
-    for (double value : values) {
-        if (value >= view.backgroundMin && value <= view.backgroundMax) {
-            ++view.backgroundCount;
-        } else {
-            effectiveValues.push_back(value);
+            if (effectiveCount >= 8u &&
+                backgroundCount >= static_cast<int>(finiteCount * kBackgroundPeakRatio)) {
+                view.smart = true;
+                view.backgroundCount = backgroundCount;
+                view.backgroundMin = backgroundMin;
+                view.backgroundMax = backgroundMax;
+                view.valueMin = effectiveMin;
+                view.valueMax = effectiveMax;
+                QVector<double> effectiveBins(kHistogramBinCount, 0.0);
+                for (const double value : values) {
+                    if (!std::isfinite(value)) continue;
+                    if (value >= backgroundMin && value <= backgroundMax) continue;
+                    effectiveBins[histogramBinIndexForValue(
+                        value,
+                        view.valueMin,
+                        view.valueMax,
+                        effectiveBins.size())] += 1.0;
+                }
+                double maxDensity = 0.0;
+                for (const double density : effectiveBins) maxDensity = qMax(maxDensity, density);
+                if (maxDensity > std::numeric_limits<double>::epsilon()) {
+                    for (double& density : effectiveBins) density /= maxDensity;
+                }
+                view.bins = std::move(effectiveBins);
+            }
         }
     }
 
-    if (effectiveValues.size() < 8 || view.backgroundCount < static_cast<int>(values.size() * kBackgroundPeakRatio)) {
-        view.backgroundCount = 0;
-        view.backgroundMin = 0.0;
-        view.backgroundMax = 0.0;
-        return view;
+    std::array<double, kRangeEndpointCount> thresholds{};
+    for (int percent = 0; percent < kRangeEndpointCount; ++percent) {
+        thresholds[static_cast<std::size_t>(percent)] =
+            valueAtPercent(view.valueMin, view.valueMax, percent);
     }
+    std::array<std::int64_t, kRangeEndpointCount + 1> lessThanDifference{};
+    std::array<std::int64_t, kRangeEndpointCount + 1> greaterThanDifference{};
+    for (const double value : values) {
+        if (!std::isfinite(value)) continue;
+        if (view.smart && value >= view.backgroundMin && value <= view.backgroundMax) continue;
+        ++analysis.effectiveValueCount;
+        const auto firstNotLess = std::lower_bound(thresholds.begin(), thresholds.end(), value);
+        const int firstNotLessIndex = static_cast<int>(firstNotLess - thresholds.begin());
+        if (firstNotLessIndex > 0) {
+            greaterThanDifference[0] += 1;
+            greaterThanDifference[static_cast<std::size_t>(firstNotLessIndex)] -= 1;
+        }
 
-    auto effectiveMinMax = std::minmax_element(effectiveValues.begin(), effectiveValues.end());
-    view.valueMin = *effectiveMinMax.first;
-    view.valueMax = *effectiveMinMax.second;
-    view.bins = buildNormalizedHistogram(effectiveValues, view.valueMin, view.valueMax, kHistogramBinCount);
-    view.smart = true;
-    return view;
+        auto firstGreater = firstNotLess;
+        if (firstGreater != thresholds.end() && *firstGreater == value) {
+            firstGreater = std::upper_bound(firstGreater, thresholds.end(), value);
+        }
+        const int firstGreaterIndex = static_cast<int>(firstGreater - thresholds.begin());
+        if (firstGreaterIndex < kRangeEndpointCount) {
+            lessThanDifference[static_cast<std::size_t>(firstGreaterIndex)] += 1;
+            lessThanDifference[static_cast<std::size_t>(kRangeEndpointCount)] -= 1;
+        }
+    }
+    std::int64_t lessThanCount = 0;
+    std::int64_t greaterThanCount = 0;
+    for (int endpoint = 0; endpoint < kRangeEndpointCount; ++endpoint) {
+        lessThanCount += lessThanDifference[static_cast<std::size_t>(endpoint)];
+        greaterThanCount += greaterThanDifference[static_cast<std::size_t>(endpoint)];
+        analysis.lessThanEndpointCounts[static_cast<std::size_t>(endpoint)] =
+            static_cast<std::uint64_t>(std::max<std::int64_t>(0, lessThanCount));
+        analysis.greaterThanEndpointCounts[static_cast<std::size_t>(endpoint)] =
+            static_cast<std::uint64_t>(std::max<std::int64_t>(0, greaterThanCount));
+    }
+    analysis.ready = true;
+    return analysis;
+}
+
+const igQtDataCodecCompressionWidget::HistogramView&
+igQtDataCodecCompressionWidget::histogramViewForFeature(const FeatureState& featureState) const {
+    if (!featureState.analysis.ready && featureState.featureBasis != nullptr) {
+        featureState.analysis = buildFeatureAnalysis(featureState.featureBasis);
+    }
+    return featureState.analysis.histogram;
+}
+
+const igQtDataCodecCompressionWidget::HistogramView&
+igQtDataCodecCompressionWidget::currentHistogramView() const {
+    static const HistogramView emptyView;
+    const auto* featureState = currentFeatureState();
+    if (featureState == nullptr || featureState->featureBasis == nullptr) return emptyView;
+    return histogramViewForFeature(*featureState);
 }
 
 igQtDataCodecCompressionWidget::FieldState* igQtDataCodecCompressionWidget::currentFieldState() {
@@ -2956,7 +3380,7 @@ igQtDataCodecCompressionWidget::RegionItem igQtDataCodecCompressionWidget::makeD
     const double absPrecision = state.losslessMode ? 0.0 : state.defaultAbsPrecision;
     const double relPrecision = state.losslessMode ? 0.0 : state.defaultRelPrecision;
     return RegionItem{0, QStringLiteral("默认区域"), QString(),
-                      absPrecision, relPrecision, effectivePrecisionMode(state.defaultPrecisionMode), 0, 0, 100, {}};
+                      absPrecision, relPrecision, effectivePrecisionMode(state.defaultPrecisionMode), 0, 0, 100};
 }
 
 void igQtDataCodecCompressionWidget::ensureFieldStates() {
@@ -2982,7 +3406,6 @@ void igQtDataCodecCompressionWidget::initializeFieldStateDefaults(FieldState& st
     state.initialDefaultAbsPrecision = state.defaultAbsPrecision;
     state.initialDefaultRelPrecision = state.defaultRelPrecision;
     state.initialLosslessMode = state.losslessMode;
-    state.defaultPrecisionMode = kPrecisionModeAbs;
     state.precisionDefaultsInitialized = true;
 }
 
@@ -3019,6 +3442,26 @@ double igQtDataCodecCompressionWidget::computeFieldValueRange(int fieldIndex) co
 
     if (!std::isfinite(minValue) || !std::isfinite(maxValue) || maxValue <= minValue) return 0.0;
     return maxValue - minValue;
+}
+
+IGsize igQtDataCodecCompressionWidget::numericFieldElementCount(int fieldIndex) const {
+    if (fieldIndex < 0 || fieldIndex >= m_fields.size()) return 0;
+    const NumericFieldItem& field = m_fields[fieldIndex];
+    auto* attributeSet = field.sourceObject != nullptr
+        ? field.sourceObject->GetAttributeSet()
+        : nullptr;
+    if (attributeSet == nullptr) return 0;
+    auto attributes = attributeSet->GetAllAttributes();
+    if (attributes == nullptr) return 0;
+    const std::string fieldName = toUtf8StdString(field.name);
+    for (int index = 0; index < attributes->GetNumberOfElements(); ++index) {
+        auto& attribute = attributes->GetElement(index);
+        if (attribute.isDeleted || attribute.pointer == nullptr) continue;
+        if (attribute.attachmentType != field.attachmentType) continue;
+        if (attribute.pointer->GetName() != fieldName) continue;
+        return attribute.pointer->GetNumberOfElements();
+    }
+    return 0;
 }
 
 void igQtDataCodecCompressionWidget::ensureFeatureStates(FieldState& state) const {
@@ -3060,8 +3503,8 @@ void igQtDataCodecCompressionWidget::syncDefaultRegionToFeatures(FieldState& sta
 
 QString igQtDataCodecCompressionWidget::basisBaseName(int index) const {
     switch (index) {
-    case 1: return QStringLiteral("邻域标准差");
-    case 2: return QStringLiteral("跳变量");
+    case 1: return QStringLiteral("相邻值标准差");
+    case 2: return QStringLiteral("相邻最大差值");
     default: return QStringLiteral("模长");
     }
 }
@@ -3076,18 +3519,13 @@ QString igQtDataCodecCompressionWidget::fieldItemText(int index) const {
     QString text = m_fields[index].name + QStringLiteral("\n") + m_fields[index].detail;
     if (index < m_fieldStates.size()) {
         const QString status = fieldStatusText(m_fieldStates[index]);
-        if (!status.isEmpty()) text += QStringLiteral("\n") + status;
+        if (!status.isEmpty()) text += QStringLiteral(" · ") + status;
     }
     return text;
 }
 
 QString igQtDataCodecCompressionWidget::fieldStatusText(const FieldState& state) const {
-    QStringList tags;
-    if (!state.selected) tags.push_back(QStringLiteral("未编码"));
-    const int regionCount = explicitRegionCount(state);
-    if (regionCount > 0) tags.push_back(QStringLiteral("%1 区域").arg(regionCount));
-    if (state.losslessMode) tags.push_back(QStringLiteral("无损"));
-    return tags.join(QStringLiteral("  "));
+    return state.losslessMode ? QStringLiteral("无损") : QStringLiteral("有损");
 }
 
 int igQtDataCodecCompressionWidget::explicitRegionCount(const FieldState& state) const {
@@ -3116,8 +3554,8 @@ int igQtDataCodecCompressionWidget::effectivePrecisionMode(int mode) const {
 }
 
 QString igQtDataCodecCompressionWidget::precisionModeName(int mode) const {
-    return effectivePrecisionMode(mode) == kPrecisionModeRel ? QStringLiteral("相对精度")
-                                                            : QStringLiteral("绝对精度");
+    return effectivePrecisionMode(mode) == kPrecisionModeRel ? QStringLiteral("相对误差限")
+                                                            : QStringLiteral("绝对误差限");
 }
 
 QString igQtDataCodecCompressionWidget::precisionValueText(double value) const {
@@ -3169,24 +3607,6 @@ igQtDataCodecCompressionWidget::applyCompressionControlToDataCodec(
             ::datacodec::TemporalFieldReferenceControlParams{}.codec;
     }
 
-    auto findAttributeElementCount = [&](const NumericFieldItem& field) -> std::size_t {
-        auto* attributeSet = field.sourceObject != nullptr
-            ? field.sourceObject->GetAttributeSet()
-            : nullptr;
-        if (attributeSet == nullptr) return 0u;
-        auto attributes = attributeSet->GetAllAttributes();
-        if (attributes == nullptr) return 0u;
-        const std::string fieldName = toUtf8StdString(field.name);
-        for (int i = 0; i < attributes->GetNumberOfElements(); ++i) {
-            auto& attr = attributes->GetElement(i);
-            if (attr.isDeleted || attr.pointer == nullptr) continue;
-            if (attr.attachmentType != field.attachmentType) continue;
-            if (attr.pointer->GetName() != fieldName) continue;
-            return static_cast<std::size_t>(attr.pointer->GetNumberOfElements());
-        }
-        return 0u;
-    };
-
     for (int fieldIndex = 0; fieldIndex < m_fields.size() && fieldIndex < m_fieldStates.size(); ++fieldIndex) {
         const NumericFieldItem& field = m_fields[fieldIndex];
         FieldState& fieldState = m_fieldStates[fieldIndex];
@@ -3205,29 +3625,92 @@ igQtDataCodecCompressionWidget::applyCompressionControlToDataCodec(
         numericControl.regionRuns.clear();
 
         // 区域元素编号只对应当前驻留帧
-        // 多帧任务仅共享每个属性场的默认精度
+        // 多帧任务仅共享每项属性数据的默认误差限
         if (!fieldState.losslessMode && !multiFrame) {
-            const std::size_t elementCount = findAttributeElementCount(field);
+            const std::size_t elementCount = static_cast<std::size_t>(
+                numericFieldElementCount(fieldIndex));
             const FeatureState& featureState =
                 fieldState.features[qBound(0, fieldState.currentBasisIndex, qMax(0, fieldState.features.size() - 1))];
-            const QVector<int> invalidRegionIds = invalidRegionIdsForFeature(featureState);
-            for (const RegionItem& region : featureState.regions) {
-                if (region.id == 0 || region.elementCount <= 0 || elementCount == 0u) continue;
-                if (invalidRegionIds.contains(region.id)) continue;
-                const QVector<igIndex> selectedIds =
-                        featureSelectionIdsForRange(featureState, region.rangeLower, region.rangeUpper);
-                if (selectedIds.isEmpty()) continue;
-                const int regionMode = effectivePrecisionMode(region.precisionMode);
-                numericControl.regionControl.regions.push_back(
-                    ::datacodec::MakeNumericArrayRegionPrecision(
-                        toUtf8StdString(region.name),
-                        makeCompressorConfig(regionMode, precisionValueForMode(region, regionMode))));
 
-                appendDataCodecRegionRuns(
-                    numericControl.regionRuns,
-                    selectedIds,
-                    static_cast<std::uint32_t>(numericControl.regionControl.regions.size()),
-                    elementCount);
+            struct EncodingRegionRange {
+                double minimum{0.0};
+                double maximum{0.0};
+                std::uint32_t regionId{0u};
+            };
+            std::vector<EncodingRegionRange> encodingRegions;
+            encodingRegions.reserve(static_cast<std::size_t>(customRegionCount(featureState)));
+
+            if (featureState.basisComputed && featureState.featureBasis != nullptr && elementCount > 0u) {
+                const HistogramView& histogramView = histogramViewForFeature(featureState);
+                for (const RegionItem& region : featureState.regions) {
+                    if (region.id == 0) continue;
+                    if (featureSelectionCountForRange64(
+                            featureState,
+                            region.rangeLower,
+                            region.rangeUpper) == 0u) {
+                        continue;
+                    }
+
+                    const double lowerValue = valueAtPercent(
+                        histogramView.valueMin,
+                        histogramView.valueMax,
+                        region.rangeLower);
+                    const double upperValue = valueAtPercent(
+                        histogramView.valueMin,
+                        histogramView.valueMax,
+                        region.rangeUpper);
+                    const int regionMode = effectivePrecisionMode(region.precisionMode);
+                    numericControl.regionControl.regions.push_back(
+                        ::datacodec::MakeNumericArrayRegionPrecision(
+                            toUtf8StdString(region.name),
+                            makeCompressorConfig(
+                                regionMode,
+                                precisionValueForMode(region, regionMode))));
+                    encodingRegions.push_back(EncodingRegionRange{
+                        .minimum = qMin(lowerValue, upperValue),
+                        .maximum = qMax(lowerValue, upperValue),
+                        .regionId = static_cast<std::uint32_t>(
+                            numericControl.regionControl.regions.size()),
+                    });
+                }
+            }
+
+            if (!encodingRegions.empty()) {
+                const HistogramView& histogramView = histogramViewForFeature(featureState);
+                const std::vector<double>& featureValues = featureState.featureBasis->GetValues();
+                const std::size_t scanCount = std::min(elementCount, featureValues.size());
+                std::uint32_t currentRegionId = 0u;
+                std::size_t currentRunBegin = 0u;
+
+                auto appendCurrentRun = [&](const std::size_t runEnd) {
+                    if (currentRegionId == 0u || currentRunBegin >= runEnd) return;
+                    numericControl.regionRuns.push_back(::datacodec::RegionRun{
+                        .begin = static_cast<::datacodec::ParamSize>(currentRunBegin),
+                        .count = static_cast<::datacodec::ParamSize>(runEnd - currentRunBegin),
+                        .regionId = currentRegionId,
+                    });
+                };
+
+                for (std::size_t elementIndex = 0u; elementIndex < scanCount; ++elementIndex) {
+                    const double value = featureValues[elementIndex];
+                    std::uint32_t nextRegionId = 0u;
+                    if (std::isfinite(value) &&
+                        !(histogramView.smart &&
+                          value >= histogramView.backgroundMin &&
+                          value <= histogramView.backgroundMax)) {
+                        for (const auto& region : encodingRegions) {
+                            if (value >= region.minimum && value <= region.maximum) {
+                                nextRegionId = region.regionId;
+                                break;
+                            }
+                        }
+                    }
+                    if (nextRegionId == currentRegionId) continue;
+                    appendCurrentRun(elementIndex);
+                    currentRegionId = nextRegionId;
+                    currentRunBegin = elementIndex;
+                }
+                appendCurrentRun(scanCount);
             }
         }
 
@@ -3316,7 +3799,7 @@ igQtDataCodecCompressionWidget::buildPrecisionReports(
         if (!found) {
             reports.push_back(makeFailure(
                 field,
-                probeFailure.isEmpty() ? QStringLiteral("DataCodec 精度探针未找到数值场") : probeFailure));
+                probeFailure.isEmpty() ? QStringLiteral("DataCodec 误差检测未找到数据") : probeFailure));
             continue;
         }
         if (!report.ok) {
@@ -3348,10 +3831,10 @@ QStringList igQtDataCodecCompressionWidget::buildPrecisionStatusLines(
     QStringList lines;
     for (const auto& report : reports) {
         if (!report.ok) {
-            lines.push_back(QStringLiteral("%1 相对精度 统计失败").arg(report.fieldName));
+            lines.push_back(QStringLiteral("%1 相对误差统计失败").arg(report.fieldName));
             continue;
         }
-        lines.push_back(QStringLiteral("%1 相对精度 %2")
+        lines.push_back(QStringLiteral("%1 最大逐值相对误差：%2")
                                 .arg(report.fieldName, formatPrecisionMetric(report.maxPointRelativeError)));
     }
     return lines;
@@ -3364,29 +3847,29 @@ QString igQtDataCodecCompressionWidget::buildPrecisionReportText(
 
     QString report;
     QTextStream stream(&report);
-    stream << QStringLiteral("数值数据精度报告\n");
+    stream << QStringLiteral("数据误差报告\n");
     stream << QStringLiteral("报告来源: DataCodec Test PrecisionProbe，按编码 remap 顺序对齐后逐值比较\n");
-    stream << QStringLiteral("状态栏相对精度: max(|原值-回读值| / max(|原值|, 1e-30))\n");
-    stream << QStringLiteral("压缩器: ") << compressorName << '\n';
+    stream << QStringLiteral("状态栏最大逐值相对误差：max(|原值-回读值| / max(|原值|, 1e-30))\n");
+    stream << QStringLiteral("压缩算法：") << compressorName << '\n';
 
     for (const auto& item : reports) {
         stream << '\n';
-        stream << QStringLiteral("数值场: ") << item.fieldName << '\n';
-        stream << QStringLiteral("数据: ") << item.detail << '\n';
+        stream << QStringLiteral("数据：") << item.fieldName << '\n';
+        stream << QStringLiteral("类型信息：") << item.detail << '\n';
         if (!item.ok) {
-            stream << QStringLiteral("精度统计: 失败\n");
-            stream << QStringLiteral("失败原因: ") << item.error << '\n';
+            stream << QStringLiteral("误差统计：失败\n");
+            stream << QStringLiteral("失败原因：") << item.error << '\n';
             continue;
         }
-        stream << QStringLiteral("元素数: ") << item.elementCount << '\n';
-        stream << QStringLiteral("维度: ") << item.componentCount << '\n';
-        stream << QStringLiteral("原始最小值: ") << formatPrecisionMetric(item.originalMin) << '\n';
-        stream << QStringLiteral("原始最大值: ") << formatPrecisionMetric(item.originalMax) << '\n';
-        stream << QStringLiteral("最大绝对误差: ") << formatPrecisionMetric(item.maxAbsError) << '\n';
-        stream << QStringLiteral("均方根绝对误差: ") << formatPrecisionMetric(item.rmsAbsError) << '\n';
-        stream << QStringLiteral("最大逐值相对误差: ")
+        stream << QStringLiteral("数据项数：") << item.elementCount << '\n';
+        stream << QStringLiteral("分量数：") << item.componentCount << '\n';
+        stream << QStringLiteral("原始最小值：") << formatPrecisionMetric(item.originalMin) << '\n';
+        stream << QStringLiteral("原始最大值：") << formatPrecisionMetric(item.originalMax) << '\n';
+        stream << QStringLiteral("最大绝对误差：") << formatPrecisionMetric(item.maxAbsError) << '\n';
+        stream << QStringLiteral("均方根绝对误差：") << formatPrecisionMetric(item.rmsAbsError) << '\n';
+        stream << QStringLiteral("最大逐值相对误差：")
                << formatPrecisionMetric(item.maxPointRelativeError) << '\n';
-        stream << QStringLiteral("最大值域归一化误差: ")
+        stream << QStringLiteral("最大值域归一化误差：")
                << (item.hasRangeRelativeError ? formatPrecisionMetric(item.rangeRelativeError)
                                                : QStringLiteral("无法计算"))
                << '\n';
@@ -3442,36 +3925,33 @@ void igQtDataCodecCompressionWidget::applyPrecisionSpinTone(
         color = QColor(238, 91, 91);
     }
     spin->setStyleSheet(precisionSpinToneStyle(color));
-    spin->setToolTip(QStringLiteral("精度量级: %1").arg(QString::number(normalized, 'g', 4)));
+    spin->setToolTip(QStringLiteral("归一化误差限：%1").arg(QString::number(normalized, 'g', 4)));
 }
 
 void igQtDataCodecCompressionWidget::configurePrecisionModeCombo(QComboBox* combo, int mode) const {
     if (combo == nullptr) return;
     QSignalBlocker blocker(combo);
     combo->clear();
-    combo->addItem(QStringLiteral("绝对精度"), kPrecisionModeAbs);
-    combo->addItem(QStringLiteral("相对精度"), kPrecisionModeRel);
+    combo->addItem(QStringLiteral("绝对误差限"), kPrecisionModeAbs);
+    combo->addItem(QStringLiteral("相对误差限"), kPrecisionModeRel);
     const int targetMode = effectivePrecisionMode(mode);
     const int index = qMax(0, combo->findData(targetMode));
     combo->setCurrentIndex(index);
+    combo->setToolTip(QStringLiteral("同一数据的默认区域和自定义区域统一使用此误差限类型"));
 }
 
 void igQtDataCodecCompressionWidget::updateRegionPrecisionMode(int regionId, int mode) {
+    Q_UNUSED(regionId);
     auto* fieldState = currentFieldState();
-    auto* featureState = currentFeatureState();
-    if (fieldState == nullptr || featureState == nullptr) return;
+    if (fieldState == nullptr) return;
     const int nextMode = effectivePrecisionMode(mode);
-    if (regionId == 0) {
-        fieldState->defaultPrecisionMode = nextMode;
-        syncDefaultRegionToFeatures(*fieldState);
-        return;
-    }
-    for (RegionItem& region : featureState->regions) {
-        if (region.id == regionId) {
+    fieldState->defaultPrecisionMode = nextMode;
+    for (FeatureState& feature : fieldState->features) {
+        for (RegionItem& region : feature.regions) {
             region.precisionMode = nextMode;
-            break;
         }
     }
+    syncDefaultRegionToFeatures(*fieldState);
 }
 
 void igQtDataCodecCompressionWidget::updateRegionPrecisionValue(int regionId, int mode, double value) {

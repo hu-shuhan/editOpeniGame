@@ -42,14 +42,11 @@ public:
     void SetEncodedInputCache(
         std::shared_ptr<::datacodec::IEncodedInputCache> inputCache);
     void SetLoadAllAvailableAttributes(bool loadAllAvailableAttributes);
+    void SetRunRecordSink(std::shared_ptr<::datacodec::IRunRecordSink> sink);
 
     [[nodiscard]] AttributeDataSourcePointer GetAttributeDataSource() const;
 
     const std::vector<::datacodec::TelemetryMessageRecord>& GetMessages() const;
-
-    const std::optional<::datacodec::TelemetrySession>& GetTelemetrySession() const;
-
-    const std::optional<::datacodec::UiTelemetrySnapshot>& GetUiTelemetrySnapshot() const;
 
 protected:
     IGDCReader();

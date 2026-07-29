@@ -47,7 +47,7 @@ private:
     AttributeLookupResult FindAttribute(AttributeSet* attributeSet) const;
     bool BuildGeometryValues(DataObject::Pointer input, std::vector<double>& values, IGenum& attachmentType);
     bool BuildAttributeValues(AttributeSet::Attribute* attribute, std::vector<double>& values, IGenum& attachmentType);
-    std::vector<double> ApplyBasisMode(const std::vector<double>& baseValues) const;
+    std::vector<double> ApplyBasisMode(std::vector<double> baseValues) const;
 
     bool m_UseGeometry{true};
     int m_AttributeIndex{-1};

@@ -2150,7 +2150,7 @@ QPushButton#DataCodecDecodeSettingsPrimaryButton:hover {
         showSynchronizedToolWindow(dialog);
     });
 
-    QAction* dataCodecCompressionAction = ui->menu_DataAnalysis->addAction(QStringLiteral("DataCodec 压缩"));
+    QAction* dataCodecCompressionAction = ui->menu_DataAnalysis->addAction(QStringLiteral("数据压缩"));
     connect(dataCodecCompressionAction, &QAction::triggered, this, [openDataCodecCompressionWindow](bool) {
         openDataCodecCompressionWindow();
     });

@@ -6,7 +6,6 @@
 
 #include <filesystem>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,20 +38,12 @@ public:
         m_attributeTargets.clear();
     }
 
-    void SetProgressReporter(std::shared_ptr<::datacodec::IProgressReporter> reporter) noexcept {
-        m_progressReporter = std::move(reporter);
+    void SetRunRecordSink(std::shared_ptr<::datacodec::IRunRecordSink> sink) noexcept {
+        m_runRecordSink = std::move(sink);
     }
 
     [[nodiscard]] const std::vector<std::string>& GetWrittenFilePaths() const noexcept {
         return m_writtenFilePaths;
-    }
-
-    void SetEncodeLogSink(::datacodec::IEncodeLogSink* sink) noexcept {
-        m_encodeLogSink = sink;
-    }
-
-    void SetLogSink(std::shared_ptr<::datacodec::ILogSink> sink) noexcept {
-        m_logSink = std::move(sink);
     }
 
     void SetEncodeTier(const ::datacodec::DataCodecEncodeTier tier) {
@@ -61,18 +52,6 @@ public:
 
     void SetEncodeOptions(const ::datacodec::DataCodecEncodeOptions& options) {
         SetEncodeControls(::datacodec::MakeEncodeConfigurationParams(options));
-    }
-
-    const std::vector<::datacodec::TelemetryMessageRecord>& GetMessages() const {
-        return m_messages;
-    }
-
-    const std::optional<::datacodec::TelemetrySession>& GetTelemetrySession() const {
-        return m_telemetrySession;
-    }
-
-    const std::optional<::datacodec::UiTelemetrySnapshot>& GetUiTelemetrySnapshot() const {
-        return m_uiTelemetrySnapshot;
     }
 
 protected:
@@ -87,19 +66,12 @@ private:
     ::datacodec::EncodeExecutionOptions m_execution{::datacodec::MakeDefaultEncodeExecutionOptions()};
     ::datacodec::DataCodecEncodeConfigurationSource m_configurationSource;
     std::vector<::datacodec::AttributeTarget> m_attributeTargets;
-    std::shared_ptr<::datacodec::IProgressReporter> m_progressReporter;
-    ::datacodec::IEncodeLogSink* m_encodeLogSink{nullptr};
-    std::shared_ptr<::datacodec::ILogSink> m_logSink;
-
-    std::vector<::datacodec::TelemetryMessageRecord> m_messages;
-    std::optional<::datacodec::TelemetrySession> m_telemetrySession;
-    std::optional<::datacodec::UiTelemetrySnapshot> m_uiTelemetrySnapshot;
+    std::shared_ptr<::datacodec::IRunRecordSink> m_runRecordSink;
     std::vector<std::string> m_writtenFilePaths;
 
     ::datacodec::EncodePackageKind ResolveEncodePackageKind(const DataObject::Pointer& rootObject) const;
     bool EncodeToFile(::datacodec::EncodePackageKind packageKind);
     bool EncodeFrameSequence(const std::filesystem::path& outputHint);
-    void CaptureEncodeResult(::datacodec::EncodeResult&& result);
     void RecordMessage(std::string text);
 };
 
