@@ -1,18 +1,11 @@
 # Metric 8.1: Lightweight Visualization and High-Performance Rendering for CAE Data
 
-## Metric Scope
+## Subfunctions
 
-This module provides lightweight CAE visualization based on Meshlets and mesh simplification.
-
-| Item | Requirement |
-|------|-------------|
-| Function | Lightweight visualization and high-performance rendering for CAE data |
-| Technical route | Meshlet GPU rendering and mesh simplification |
-| Scale | Billion-scale mesh and result data processing in a client/server architecture |
-| Assessment | Qualified third-party evaluation |
-| Deliverables | Open link library, publication/acceptance evidence, patent acceptance certificate, and degree certificates |
-
-> The repository provides traceable local rendering and simplification code. Billion-scale C/S processing, publications, patents, and student training require separate deployment records and evidence.
+| # | Subfunction | Status |
+|---|-------------|--------|
+| 1 | Meshlet-based GPU accelerated rendering | Implemented for triangular surface meshes |
+| 2 | Quadric-error-metric mesh simplification | Implemented for triangular surface meshes |
 
 ## Meshlet Rendering
 
