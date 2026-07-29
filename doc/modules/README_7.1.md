@@ -62,6 +62,15 @@ Qt 通过 `igQtFileLoader::OpenSplineFile()` 加载 `.xml` 样条文件，按用
 
 图 2：高阶可视化_Volume_CPU（体模式）
 
+![高阶可视化_Surface_CPU](../../Resources/Images/高阶可视化_Surface_GPU.png)
+
+
+图 3：高阶可视化_Surface_GPU（曲面模式）
+
+![高阶可视化_Volume_CPU](../../Resources/Images/高阶可视化_Volume_GPU.png)
+
+图 4：高阶可视化_Volume_GPU（体模式）
+
 ## 已知限制
 
 - VTK 高阶单元类型在 IO 层已有解析，但用户文档注明 **VTK 高阶网格端到端可视化尚未完全适配**（见 `iGameVisNoticeToUsers.md`）。
