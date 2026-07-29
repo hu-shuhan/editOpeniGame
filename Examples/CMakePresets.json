@@ -1,0 +1,27 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 19,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "examples-release",
+            "displayName": "Examples Release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/../cmake-build-examples-clion",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "iGameCore_DIR": "${sourceDir}/../cmake-build-release/install/lib/cmake/iGameCore",
+                "ENABLE_CGNS_MODULE": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "examples-release",
+            "configurePreset": "examples-release"
+        }
+    ]
+}

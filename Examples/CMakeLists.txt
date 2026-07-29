@@ -9,7 +9,12 @@ if (TARGET iGameCore)
     set(_IGAME_EXAMPLE_CORE_LIBS iGameCore)
 else ()
     if (NOT iGameCore_DIR)
-        set(iGameCore_DIR "${CMAKE_BINARY_DIR}/install/lib/cmake/iGameCore")
+        set(_IGAME_DEFAULT_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-build-release/install/lib/cmake/iGameCore")
+        if (EXISTS "${_IGAME_DEFAULT_CORE_DIR}/iGameCoreConfig.cmake")
+            set(iGameCore_DIR "${_IGAME_DEFAULT_CORE_DIR}" CACHE PATH "Path to iGameCore package config" FORCE)
+        else ()
+            set(iGameCore_DIR "${CMAKE_BINARY_DIR}/install/lib/cmake/iGameCore" CACHE PATH "Path to iGameCore package config" FORCE)
+        endif ()
     endif ()
     find_package(iGameCore REQUIRED)
     set(_IGAME_EXAMPLE_CORE_LIBS ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -32,13 +37,29 @@ if (MSVC)
     add_compile_options(/utf-8)
 endif ()
 
-file(COPY "${CMAKE_BINARY_DIR}/Resources" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/Models" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+set(_IGAME_EXAMPLE_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Resources")
+set(_IGAME_EXAMPLE_ASSET_COPY_COMMANDS "")
+if (EXISTS "${_IGAME_EXAMPLE_RESOURCES_DIR}")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${_IGAME_EXAMPLE_RESOURCES_DIR}"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources"
+    )
+endif ()
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Models")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/Models"
+            "${CMAKE_CURRENT_BINARY_DIR}/Models"
+    )
+endif ()
+add_custom_target(iGameCopyExampleAssets ${_IGAME_EXAMPLE_ASSET_COPY_COMMANDS})
 
 set(IGAME_EXAMPLE_TARGETS "")
 
 function(igame_add_example EXAMPLE_TARGET SOURCE)
     add_executable(${EXAMPLE_TARGET} ${SOURCE})
+    add_dependencies(${EXAMPLE_TARGET} iGameCopyExampleAssets)
     set_property(DIRECTORY APPEND PROPERTY IGAME_EXAMPLE_TARGETS ${EXAMPLE_TARGET})
 endfunction()
 
