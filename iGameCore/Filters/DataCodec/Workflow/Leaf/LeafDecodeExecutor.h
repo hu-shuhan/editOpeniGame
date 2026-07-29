@@ -3,6 +3,7 @@
 
 #include "DataCodec/API/Adapter/IRunRecordSink.h"
 #include "DataCodec/API/Params/CodecPerformancePresetParams.h"
+#include "DataCodec/Common/DataCodecTypes.h"
 #include "DataCodec/Log/Telemetry/TelemetryMemoryTrace.h"
 #include "DataCodec/Common/DataCodecCallback.h"
 #include "DataCodec/Common/DataCodecError.h"
@@ -34,8 +35,8 @@ struct LeafDecodeRequest {
     std::string topologyReferenceKey;
     std::uint32_t topologyOwnerFrameIndex{0u};
     std::uint32_t frameIndex{0u};
+    AttributeSelectionMode attributeSelection{AttributeSelectionMode::None};
     std::span<const AttributeTarget> attributeTargets;
-    bool decodeAllAvailableAttributes{false};
     DecodeLeafWorkspace* workspace{nullptr};
     bool supplementAttributesOnly{false};
     AttributeDecodeRequestMode attributeRequestMode{AttributeDecodeRequestMode::DecodeAndCommit};
@@ -144,8 +145,8 @@ public:
         context.topologyReferenceStore = request.topologyReferenceStore;
         context.topologyReferenceKey = request.topologyReferenceKey;
         context.frameIndex = request.frameIndex;
+        context.attributeSelection = request.attributeSelection;
         context.attributeTargets = request.attributeTargets;
-        context.decodeAllAvailableAttributes = request.decodeAllAvailableAttributes;
         context.attributeRequestMode = request.attributeRequestMode;
         context.parallelTaskRunner = request.parallelTaskRunner;
         context.topologyOutputMode = request.execution.topologyOutputMode;

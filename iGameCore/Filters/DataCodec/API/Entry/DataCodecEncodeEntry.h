@@ -58,19 +58,22 @@ struct EncodeOutput {
     EncodePackageKind packageKind{EncodePackageKind::Auto};
     Target target;
 
+    // 将完整编码包返回到 EncodeResult::encodedBytes
+    [[nodiscard]] static EncodeOutput Memory(
+        EncodePackageKind kind = EncodePackageKind::Auto);
+
+    // 将完整编码包写入调用方提供的随机访问输出
     [[nodiscard]] static EncodeOutput ByteRange(
-        EncodePackageKind kind,
-        IByteRangeOutput* sink);
+        IByteRangeOutput& sink,
+        EncodePackageKind kind = EncodePackageKind::Auto);
 };
 
 struct EncodeRequest {
     EncodeInput input;
     EncodeOutput output;
+    AttributeSelectionMode attributeSelection{AttributeSelectionMode::AllAvailable};
     std::vector<AttributeTarget> attributeTargets;
-    EncodeCodecControlParams controlParams{MakeDefaultEncodeControlParams()};
-    EncodePipelineControlParams pipelineControl;
-    EncodeExecutionOptions execution{MakeDefaultEncodeExecutionOptions()};
-    DataCodecEncodeConfigurationSource configurationSource;
+    DataCodecEncodeConfigurationParams configuration{MakeDefaultEncodeConfigurationParams()};
     std::shared_ptr<IRunRecordSink> runRecordSink;
     DataCodecExecutionResources executionResources;
 };

@@ -108,11 +108,11 @@ inline void SubmitDecodePackageProgress(
         .topologyReferenceKey = request.topologyReferenceKey,
         .topologyOwnerFrameIndex = request.topologyOwnerFrameIndex,
         .frameIndex = frameIndex,
+        .attributeSelection = request.attributeSelection,
         .attributeTargets = std::span<const AttributeTarget>(request.attributeTargets),
-        .decodeAllAvailableAttributes = request.decodeAllAvailableAttributes,
-        .controlParams = request.controlParams,
-        .execution = request.execution,
-        .configurationSource = request.configurationSource,
+        .controlParams = request.configuration.controlParams,
+        .execution = request.configuration.execution,
+        .configurationSource = request.configuration.source,
         .runRecordSink = runRecordSink,
         .stopToken = request.stopToken,
         .parallelTaskRunner = resources.parallelTaskRunner,
@@ -480,8 +480,8 @@ inline void SubmitDecodePackageProgress(
     DecodePackageResult result;
     try {
         if (request.inputReader != nullptr &&
-            request.decodeAllAvailableAttributes &&
-            request.execution.enableFullInputPrefetch) {
+            request.attributeSelection == AttributeSelectionMode::AllAvailable &&
+            request.configuration.execution.enableFullInputPrefetch) {
             prefetchResult = request.inputReader->PrefetchRange(
                 0u,
                 request.inputReader->ByteSize());

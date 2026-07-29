@@ -5,6 +5,7 @@
 #include "DataCodec/API/Adapter/IFramePackageDecodeAssembly.h"
 #include "DataCodec/API/Adapter/IRunRecordSink.h"
 #include "DataCodec/API/Params/CodecPerformancePresetParams.h"
+#include "DataCodec/Common/DataCodecTypes.h"
 #include "DataCodec/Runtime/Execution/DataCodecExecutionResources.h"
 #include "DataCodec/Storage/ByteIO/ByteRange.h"
 #include "DataCodec/Storage/FramePackage/FramePackageFormat.h"
@@ -26,13 +27,12 @@ struct DecodePackageRequest {
     IDecodeAdapter* leafAdapter{nullptr};
     IFramePackageDecodeAssembly* frameAssembly{nullptr};
     std::optional<std::uint32_t> requestedFrameIndex;
+    AttributeSelectionMode attributeSelection{AttributeSelectionMode::AllAvailable};
     std::vector<AttributeTarget> attributeTargets;
-    bool decodeAllAvailableAttributes{false};
     std::string topologyReferenceKey;
     std::uint32_t topologyOwnerFrameIndex{0u};
-    DecodeControlParams controlParams{MakeDefaultDecodeControlParams()};
-    DecodeExecutionOptions execution{MakeDefaultDecodeExecutionOptions()};
-    DataCodecDecodeConfigurationSource configurationSource;
+    DataCodecDecodePackageConfigurationParams configuration{
+        MakeDefaultDecodePackageConfigurationParams()};
     std::shared_ptr<IRunRecordSink> runRecordSink;
     DecodeSession* session{nullptr};
     DataCodecExecutionResources executionResources;

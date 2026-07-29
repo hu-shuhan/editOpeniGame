@@ -49,11 +49,8 @@ inline TestResult RunDataCodecFeatureAdapterRoundTrip() noexcept {
                 {},
                 dataset.name,
                 "PointSet"),
-            .output = EncodeOutput{.packageKind = EncodePackageKind::LeafPackage},
-            .attributeTargets = targets,
-            .execution = EncodeExecutionOptions{
-                .enableParallelStages = false,
-            },
+            .output = EncodeOutput::Memory(EncodePackageKind::LeafPackage),
+            .attributeSelection = AttributeSelectionMode::AllAvailable,
         });
         AppendCodecMessages(result, encodeResult.messages);
         if (!Require(
@@ -76,10 +73,8 @@ inline TestResult RunDataCodecFeatureAdapterRoundTrip() noexcept {
         auto decodeResult = DecodePackage(DecodePackageRequest{
             .inputReader = std::make_shared<MemoryByteRangeReader>(std::move(encodedBytes)),
             .leafAdapter = &decodeAdapter,
+            .attributeSelection = AttributeSelectionMode::Explicit,
             .attributeTargets = targets,
-            .execution = DecodeExecutionOptions{
-                .enableParallelStages = false,
-            },
         });
         AppendCodecMessages(result, decodeResult.messages);
         if (!Require(
@@ -150,6 +145,7 @@ inline TestResult RunDataCodecFeatureAdapterRoundTrip() noexcept {
         const auto malformedResult = DecodePackage(DecodePackageRequest{
             .inputReader = std::make_shared<MemoryByteRangeReader>(std::move(malformedBytes)),
             .leafAdapter = &malformedAdapter,
+            .attributeSelection = AttributeSelectionMode::Explicit,
             .attributeTargets = targets,
         });
         AppendCodecMessages(result, malformedResult.messages);

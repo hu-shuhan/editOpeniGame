@@ -198,63 +198,6 @@ inline bool CollectDataCodecEncodeRepresentativeAttributeCatalog(
     return true;
 }
 
-inline bool CollectDataCodecEncodeAttributeCatalog(
-    const DataObject::Pointer& rootObject,
-    std::vector<DataCodecEncodeAttributeDescriptor>& descriptors) {
-    descriptors.clear();
-    const auto packageKind = ResolveDataCodecEncodePackageKind(rootObject);
-    if (packageKind == ::datacodec::EncodePackageKind::LeafPackage) {
-        if (!CanCreateiGameEncodeAdapter(rootObject)) {
-            return false;
-        }
-        iGameEncodeAdapter adapter(rootObject);
-        if (!CollectDataCodecEncodeAttributeDescriptors(&adapter, nullptr, 0u, descriptors)) {
-            return false;
-        }
-        for (auto& descriptor : descriptors) {
-            descriptor.sourceObject = rootObject;
-        }
-        return true;
-    }
-    if (packageKind == ::datacodec::EncodePackageKind::FramePackage) {
-        iGameBlockTreeAdapter adapter(rootObject);
-        for (const auto& leaf : adapter.GetLeaves()) {
-            iGameEncodeAdapter leafAdapter(leaf.object);
-            const auto begin = descriptors.size();
-            AppendDataCodecEncodeAttributeDescriptors(leafAdapter, 0u, leaf.path, descriptors);
-            for (std::size_t index = begin; index < descriptors.size(); ++index) {
-                descriptors[index].sourceObject = leaf.object;
-            }
-        }
-        return true;
-    }
-
-    const auto timeFrames = rootObject != nullptr ? rootObject->PeekTimeFrames() : nullptr;
-    if (timeFrames == nullptr) {
-        return false;
-    }
-    for (std::size_t frameOrdinal = 0u; frameOrdinal < timeFrames->GetTimeNum(); ++frameOrdinal) {
-        auto frameRoot = BuildDataCodecTimeFrameRoot(rootObject, frameOrdinal);
-        if (frameRoot == nullptr) {
-            return false;
-        }
-        iGameBlockTreeAdapter adapter(frameRoot);
-        for (const auto& leaf : adapter.GetLeaves()) {
-            iGameEncodeAdapter leafAdapter(leaf.object);
-            const auto begin = descriptors.size();
-            AppendDataCodecEncodeAttributeDescriptors(
-                leafAdapter,
-                static_cast<std::uint32_t>(frameOrdinal),
-                leaf.path,
-                descriptors);
-            for (std::size_t index = begin; index < descriptors.size(); ++index) {
-                descriptors[index].sourceObject = leaf.object;
-            }
-        }
-    }
-    return true;
-}
-
 IGAME_NAMESPACE_END
 
 #endif

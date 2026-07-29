@@ -39,13 +39,91 @@ EncodeInput EncodeInput::BlockTreeAdapter(
     return input;
 }
 
+EncodeOutput EncodeOutput::Memory(const EncodePackageKind kind) {
+    return EncodeOutput{.packageKind = kind};
+}
+
 EncodeOutput EncodeOutput::ByteRange(
-    const EncodePackageKind kind,
-    IByteRangeOutput* sink) {
-    return EncodeOutput{.packageKind = kind, .target = sink};
+    IByteRangeOutput& sink,
+    const EncodePackageKind kind) {
+    return EncodeOutput{.packageKind = kind, .target = &sink};
 }
 
 namespace {
+
+void AppendAllAttributeTargets(
+    const IEncodeAdapter& adapter,
+    const std::uint32_t frameIndex,
+    const BlockPath& blockPath,
+    std::vector<AttributeTarget>& targets) {
+    const auto pointAttributeCount = adapter.GetNumberOfPointAttrs();
+    const auto cellAttributeCount = adapter.GetNumberOfCellAttrs();
+    targets.reserve(targets.size() + pointAttributeCount + cellAttributeCount);
+    for (std::size_t index = 0u; index < pointAttributeCount; ++index) {
+        targets.push_back(AttributeTarget{
+            .frameIndex = frameIndex,
+            .blockPath = blockPath,
+            .attrIndex = index,
+        });
+    }
+    for (std::size_t index = 0u; index < cellAttributeCount; ++index) {
+        targets.push_back(AttributeTarget{
+            .frameIndex = frameIndex,
+            .blockPath = blockPath,
+            .attrIndex = pointAttributeCount + index,
+        });
+    }
+}
+
+bool ResolveEncodeAttributeTargets(
+    const EncodeRequest& request,
+    IEncodeAdapter* leafAdapter,
+    IBlockTreeAdapter* blockTreeAdapter,
+    std::vector<AttributeTarget>& targets,
+    std::string& error) {
+    targets.clear();
+    if (request.attributeSelection != AttributeSelectionMode::Explicit &&
+        !request.attributeTargets.empty()) {
+        error = "explicit attribute targets require AttributeSelectionMode::Explicit";
+        return false;
+    }
+    if (request.attributeSelection == AttributeSelectionMode::None) {
+        return true;
+    }
+    if (request.attributeSelection == AttributeSelectionMode::Explicit) {
+        targets = request.attributeTargets;
+        return true;
+    }
+    if (request.attributeSelection != AttributeSelectionMode::AllAvailable) {
+        error = "encode request contains an unknown attribute selection mode";
+        return false;
+    }
+    if (leafAdapter != nullptr) {
+        AppendAllAttributeTargets(
+            *leafAdapter,
+            request.input.frameIndex,
+            request.input.leafPath,
+            targets);
+        return true;
+    }
+    if (blockTreeAdapter == nullptr) {
+        error = "encode request has no adapter for attribute enumeration";
+        return false;
+    }
+    for (const auto& leaf : blockTreeAdapter->GetLeafRecords()) {
+        auto adapter = blockTreeAdapter->GetLeaf(leaf.path);
+        if (adapter == nullptr) {
+            error = "block tree adapter failed to create a leaf adapter for attribute enumeration";
+            return false;
+        }
+        AppendAllAttributeTargets(
+            *adapter,
+            request.input.frameIndex,
+            leaf.path,
+            targets);
+    }
+    return true;
+}
 
 EncodeResult MakeEncodeEntryFailure(
     const EncodeRequest& request,
@@ -113,18 +191,8 @@ EncodeResult MakeFrameEncodeResult(
 } // 匿名命名空间
 
 EncodeResult Encode(const EncodeRequest& request) {
-    ResolvedDataCodecExecutionResources resolvedResources;
-    std::string resourceError;
-    if (!ResolveDataCodecExecutionResources(
-            request.executionResources,
-            request.execution.enableParallelStages,
-            resolvedResources,
-            &resourceError)) {
-        return MakeEncodeEntryFailure(
-            request,
-            "execution.task-runner-required",
-            std::move(resourceError));
-    }
+    const auto resolvedResources = ResolveDataCodecExecutionResources(
+        request.executionResources);
     const auto packageKind = request.output.packageKind;
     const auto outputSinkEntry = std::get_if<IByteRangeOutput*>(&request.output.target);
     const auto leafAdapterEntry = std::get_if<IEncodeAdapter*>(&request.input.adapter);
@@ -144,15 +212,24 @@ EncodeResult Encode(const EncodeRequest& request) {
             "encode request contains an invalid input or output combination");
     }
 
-    DataCodecEncodeConfigurationParams runtimeConfiguration{
-        .controlParams = request.controlParams,
-        .pipelineControl = request.pipelineControl,
-        .execution = request.execution,
-        .source = request.configurationSource,
-    };
+    std::vector<AttributeTarget> attributeTargets;
+    std::string attributeSelectionError;
+    if (!ResolveEncodeAttributeTargets(
+            request,
+            leafAdapter,
+            blockTreeAdapter,
+            attributeTargets,
+            attributeSelectionError)) {
+        return MakeEncodeEntryFailure(
+            request,
+            "encode.attribute-selection",
+            std::move(attributeSelectionError));
+    }
+
+    auto runtimeConfiguration = request.configuration;
     CodecControlParamsFactory::ApplyEncodeRuntimeConstraint(
         runtimeConfiguration,
-        request.configurationSource.runtimeProfile);
+        runtimeConfiguration.source.runtimeProfile);
 
     if (blockTreeAdapter != nullptr) {
         const auto leafCount = blockTreeAdapter->GetLeafRecords().size();
@@ -165,12 +242,12 @@ EncodeResult Encode(const EncodeRequest& request) {
                 .timeValue = request.input.timeValue,
                 .controlParams = &runtimeConfiguration.controlParams,
                 .pipelineControl = runtimeConfiguration.pipelineControl,
-                .configurationSource = request.configurationSource,
+                .configurationSource = runtimeConfiguration.source,
                 .runRecordSink = request.runRecordSink.get(),
                 .outputSink = outputSink,
-                .attributeTargets = std::span<const AttributeTarget>(request.attributeTargets),
+                .attributeTargets = std::span<const AttributeTarget>(attributeTargets),
                 .enableParallelStages = runtimeConfiguration.execution.enableParallelStages,
-                .parallelTaskRunner = resolvedResources.resources.parallelTaskRunner,
+                .parallelTaskRunner = resolvedResources.parallelTaskRunner,
             }),
             packageKind,
             leafCount);
@@ -182,18 +259,18 @@ EncodeResult Encode(const EncodeRequest& request) {
     context.meshType = request.input.meshType;
     context.path = request.input.leafPath;
     context.frameIndex = request.input.frameIndex;
-    context.attributeTargets = std::span<const AttributeTarget>(request.attributeTargets);
+    context.attributeTargets = std::span<const AttributeTarget>(attributeTargets);
     context.controlParams = &runtimeConfiguration.controlParams;
 
     return MakeLeafEncodeResult(
         LeafEncodeExecutor::Execute({
             .context = &context,
             .pipelineControl = runtimeConfiguration.pipelineControl,
-            .configurationSource = request.configurationSource,
+            .configurationSource = runtimeConfiguration.source,
             .runRecordSink = request.runRecordSink.get(),
             .outputSink = outputSink,
             .enableParallelStages = runtimeConfiguration.execution.enableParallelStages,
-            .parallelTaskRunner = resolvedResources.resources.parallelTaskRunner,
+            .parallelTaskRunner = resolvedResources.parallelTaskRunner,
         }),
         packageKind);
 }

@@ -470,10 +470,14 @@ struct PlaybackSession::Impl {
             .framePackageMetadata = framePackageMetadata,
             .frameAssembly = assembly.get(),
             .requestedFrameIndex = frameIndex,
-            .decodeAllAvailableAttributes = decodeAllAttributes,
-            .controlParams = controlParams,
-            .execution = execution,
-            .configurationSource = configurationSource,
+            .attributeSelection = decodeAllAttributes
+                ? AttributeSelectionMode::AllAvailable
+                : AttributeSelectionMode::None,
+            .configuration = DataCodecDecodePackageConfigurationParams{
+                .controlParams = controlParams,
+                .execution = execution,
+                .source = configurationSource,
+            },
             .runRecordSink = request.runRecordSink != nullptr ? decodeRecords : nullptr,
             .session = frameSession.get(),
             .executionResources = DataCodecExecutionResources{
@@ -1353,6 +1357,7 @@ DecodedFrameAttributeResult PlaybackSession::RequestDecodedFrameAttributes(
             .adapter = adapter,
             .leafPackage = nullptr,
             .frameIndex = frame->FrameIndex(),
+            .attributeSelection = AttributeSelectionMode::Explicit,
             .attributeTargets = std::span<const AttributeTarget>(targets),
             .supplementAttributesOnly = true,
             .attributeRequestMode = request.mode,

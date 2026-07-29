@@ -193,7 +193,7 @@ public:
                 context.attributeTargets,
                 context.frameIndex,
                 context.leafPackage != nullptr ? context.leafPackage->path : BlockPath{},
-                context.decodeAllAvailableAttributes,
+                context.attributeSelection,
                 workspace.StorageParams().attrParams.size());
             if (targetAttrIndices.empty()) {
                 FailDecodePipeline(
@@ -339,7 +339,7 @@ private:
             context.attributeTargets,
             context.frameIndex,
             context.leafPackage != nullptr ? context.leafPackage->path : BlockPath{},
-            context.decodeAllAvailableAttributes,
+            context.attributeSelection,
             workspace.StorageParams().attrParams.size());
         if (!targetAttrIndices.empty()) {
             auto attribute = std::make_unique<AttrDecodeStage>(BindFieldInput(workspace, FieldType::Attribute));

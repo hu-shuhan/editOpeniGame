@@ -102,6 +102,13 @@ struct DataCodecEncodeConfigurationParams {
     DataCodecEncodeConfigurationSource source;
 };
 
+// 一次 package 解码实际消费的配置
+struct DataCodecDecodePackageConfigurationParams {
+    DecodeControlParams controlParams;
+    DecodeExecutionOptions execution;
+    DataCodecDecodeConfigurationSource source;
+};
+
 struct DataCodecDecodeConfigurationParams {
     DecodeControlParams controlParams;
     DecodeExecutionOptions execution;
@@ -109,6 +116,14 @@ struct DataCodecDecodeConfigurationParams {
     DecodedFrameCachePolicy decodedFrameCachePolicy;
     EncodedInputCachePolicy encodedInputCachePolicy;
     DataCodecDecodeConfigurationSource source;
+
+    [[nodiscard]] DataCodecDecodePackageConfigurationParams PackageConfiguration() const {
+        return DataCodecDecodePackageConfigurationParams{
+            .controlParams = controlParams,
+            .execution = execution,
+            .source = source,
+        };
+    }
 };
 
 [[nodiscard]] inline const char* DataCodecEncodeTierName(
@@ -617,6 +632,11 @@ private:
 
 [[nodiscard]] inline DataCodecDecodeConfigurationParams MakeDefaultDecodeConfigurationParams() {
     return CodecControlParamsFactory::MakeDecodeConfiguration(DataCodecDecodeOptions{});
+}
+
+[[nodiscard]] inline DataCodecDecodePackageConfigurationParams
+MakeDefaultDecodePackageConfigurationParams() {
+    return MakeDefaultDecodeConfigurationParams().PackageConfiguration();
 }
 
 [[nodiscard]] inline DataCodecEncodeConfigurationParams MakeEncodeConfigurationParams(

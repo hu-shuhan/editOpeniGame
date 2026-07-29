@@ -352,18 +352,25 @@ DataCodecDataObjectDecodeResult DataCodecDataObjectDecodeSession::Open(
         m_impl->configurationSource = request.configurationSource != nullptr
             ? *request.configurationSource
             : ::datacodec::DataCodecDecodeConfigurationSource{};
-        m_impl->executionResources = request.executionResources;
+        m_impl->executionResources =
+            ::datacodec::ResolveDataCodecExecutionResources(request.executionResources);
 
         auto decodeResult = ::datacodec::DecodePackage({
             .inputReader = m_impl->inputReader,
             .leafAdapter = &m_impl->initialLeafAdapter,
             .frameAssembly = &m_impl->frameAssembly,
             .requestedFrameIndex = request.requestedFrameIndex,
+            .attributeSelection = request.loadAllAvailableAttributes
+                ? ::datacodec::AttributeSelectionMode::AllAvailable
+                : request.attributeTargets.empty()
+                    ? ::datacodec::AttributeSelectionMode::None
+                    : ::datacodec::AttributeSelectionMode::Explicit,
             .attributeTargets = request.attributeTargets,
-            .decodeAllAvailableAttributes = request.loadAllAvailableAttributes,
-            .controlParams = m_impl->controlParams,
-            .execution = m_impl->execution,
-            .configurationSource = m_impl->configurationSource,
+            .configuration = ::datacodec::DataCodecDecodePackageConfigurationParams{
+                .controlParams = m_impl->controlParams,
+                .execution = m_impl->execution,
+                .source = m_impl->configurationSource,
+            },
             .runRecordSink = request.runRecordSink,
             .session = &m_impl->session,
             .executionResources = m_impl->executionResources,
@@ -516,6 +523,7 @@ DataCodecDataObjectDecodeResult DataCodecDataObjectDecodeSession::RequestAttribu
             .adapter = adapter,
             .leafPackage = nullptr,
             .frameIndex = key.first,
+            .attributeSelection = ::datacodec::AttributeSelectionMode::Explicit,
             .attributeTargets = std::span<const ::datacodec::AttributeTarget>(targets),
             .supplementAttributesOnly = true,
             .attributeRequestMode = request.mode,

@@ -5,6 +5,7 @@
 #include "DataCodec/API/Adapter/IDecodeAdapter.h"
 #include "DataCodec/API/Adapter/IDecodeTopologyBlockObserver.h"
 #include "DataCodec/API/Params/CodecPerformancePresetParams.h"
+#include "DataCodec/Common/DataCodecTypes.h"
 #include "DataCodec/Runtime/Failure/FailureCleanable.h"
 #include "DataCodec/Codec/Reference/DecodedReference.h"
 #include "DataCodec/Common/DataCodecError.h"
@@ -51,8 +52,8 @@ struct DecodeContext : IFailureCleanable {
     DecodedTopologyReferenceCacheStore* topologyReferenceStore{nullptr};
     std::string topologyReferenceKey;
     std::uint32_t frameIndex{0u};
+    AttributeSelectionMode attributeSelection{AttributeSelectionMode::None};
     std::span<const AttributeTarget> attributeTargets;
-    bool decodeAllAvailableAttributes{false};
     AttributeDecodeRequestMode attributeRequestMode{AttributeDecodeRequestMode::DecodeAndCommit};
     RunRecordEmitter runRecords;
     RunEndRecord runSummary;

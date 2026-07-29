@@ -157,7 +157,7 @@ inline void CommitOutput(DecodeContext& context, DecodeLeafWorkspace& workspace)
         context.attributeTargets,
         context.frameIndex,
         context.leafPackage != nullptr ? context.leafPackage->path : BlockPath{},
-        context.decodeAllAvailableAttributes,
+        context.attributeSelection,
         workspace.StorageParams().attrParams.size());
     const auto uncommittedAttrIndices = CollectUncommittedAttributeIndices(workspace, targetAttrIndices);
     auto stageStart = callback::StartTiming(context.runRecords.Wants(RunRecordKind::StageTiming));
@@ -251,7 +251,7 @@ inline void CommitAttributeOutput(DecodeContext& context, DecodeLeafWorkspace& w
         context.attributeTargets,
         context.frameIndex,
         context.leafPackage != nullptr ? context.leafPackage->path : BlockPath{},
-        context.decodeAllAvailableAttributes,
+        context.attributeSelection,
         workspace.StorageParams().attrParams.size());
     const auto uncommittedAttrIndices = CollectUncommittedAttributeIndices(workspace, targetAttrIndices);
     std::string error;

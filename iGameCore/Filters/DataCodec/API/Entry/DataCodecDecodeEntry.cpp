@@ -36,19 +36,24 @@ DecodePackageResult MakeDecodeEntryFailure(
 } // 匿名命名空间
 
 DecodePackageResult DecodePackage(const DecodePackageRequest& request) {
-    ResolvedDataCodecExecutionResources resolvedResources;
-    std::string resourceError;
-    if (!ResolveDataCodecExecutionResources(
-            request.executionResources,
-            request.execution.enableParallelStages,
-            resolvedResources,
-            &resourceError)) {
+    if (request.attributeSelection != AttributeSelectionMode::Explicit &&
+        !request.attributeTargets.empty()) {
         return MakeDecodeEntryFailure(
             request,
-            "execution.task-runner-required",
-            std::move(resourceError));
+            "decode.attribute-selection",
+            "explicit attribute targets require AttributeSelectionMode::Explicit");
     }
-    return ExecutePackageDecodeWorkflow(request, resolvedResources.resources);
+    if (request.attributeSelection != AttributeSelectionMode::None &&
+        request.attributeSelection != AttributeSelectionMode::AllAvailable &&
+        request.attributeSelection != AttributeSelectionMode::Explicit) {
+        return MakeDecodeEntryFailure(
+            request,
+            "decode.attribute-selection",
+            "decode request contains an unknown attribute selection mode");
+    }
+    const auto resolvedResources = ResolveDataCodecExecutionResources(
+        request.executionResources);
+    return ExecutePackageDecodeWorkflow(request, resolvedResources);
 }
 
 } // namespace datacodec

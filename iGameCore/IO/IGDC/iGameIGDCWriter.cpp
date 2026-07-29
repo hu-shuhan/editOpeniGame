@@ -338,31 +338,23 @@ bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
     auto controlParams = m_hasCodecParams
         ? m_CodecParams
         : ::datacodec::MakeDefaultEncodeControlParams();
-    auto execution = m_execution;
     std::vector<::datacodec::AttributeTarget> attributeTargets = m_hasAttributeTargets
         ? m_attributeTargets
         : std::vector<::datacodec::AttributeTarget>{};
-    std::vector<DataCodecEncodeAttributeDescriptor> attributeDescriptors;
-    const auto collectedDefaultTargets = m_hasAttributeTargets ||
-        CollectDataCodecEncodeAttributeCatalog(m_DataObject, attributeDescriptors);
-    if (!m_hasAttributeTargets) {
-        attributeTargets.reserve(attributeDescriptors.size());
-        for (const auto& descriptor : attributeDescriptors) {
-            attributeTargets.push_back(descriptor.target);
-        }
-    }
-    if (!collectedDefaultTargets) {
-        RecordMessage("DataCodec encode failed to enumerate attribute targets");
-        return false;
-    }
-    auto encodeResult = ::datacodec::Encode({
-        .input = encodeInput,
-        .output = ::datacodec::EncodeOutput::ByteRange(packageKind, &outputSink),
-        .attributeTargets = attributeTargets,
+    ::datacodec::DataCodecEncodeConfigurationParams configuration{
         .controlParams = std::move(controlParams),
         .pipelineControl = m_pipelineControl,
-        .execution = execution,
-        .configurationSource = m_configurationSource,
+        .execution = m_execution,
+        .source = m_configurationSource,
+    };
+    auto encodeResult = ::datacodec::Encode({
+        .input = std::move(encodeInput),
+        .output = ::datacodec::EncodeOutput::ByteRange(outputSink, packageKind),
+        .attributeSelection = m_hasAttributeTargets
+            ? ::datacodec::AttributeSelectionMode::Explicit
+            : ::datacodec::AttributeSelectionMode::AllAvailable,
+        .attributeTargets = std::move(attributeTargets),
+        .configuration = std::move(configuration),
         .runRecordSink = runRecordSink,
         .executionResources = MakeDataCodecExecutionResources(),
     });

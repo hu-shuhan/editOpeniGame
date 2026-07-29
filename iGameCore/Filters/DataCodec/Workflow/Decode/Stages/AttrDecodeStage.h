@@ -434,7 +434,7 @@ inline bool PrepareDirectAttributeDecodeStores(
         context.attributeTargets,
         context.frameIndex,
         context.leafPackage != nullptr ? context.leafPackage->path : BlockPath{},
-        context.decodeAllAvailableAttributes,
+        context.attributeSelection,
         workspace.StorageParams().attrParams.size());
     if (attrIndices.empty()) {
         return true;
@@ -487,7 +487,7 @@ public:
             context.attributeTargets,
             context.frameIndex,
             context.leafPackage != nullptr ? context.leafPackage->path : BlockPath{},
-            context.decodeAllAvailableAttributes,
+            context.attributeSelection,
             workspace.StorageParams().attrParams.size());
         if (targetAttrIndices.empty()) {
             return;

@@ -38,6 +38,13 @@ struct AttributeTarget {
     std::size_t attrIndex{0u};
 };
 
+// 编码和解码共用的属性选择语义
+enum class AttributeSelectionMode : std::uint8_t {
+    None = 0,
+    AllAvailable = 1,
+    Explicit = 2,
+};
+
 enum class AttributeDecodeRequestMode : std::uint8_t {
     DecodeAndCommit = 0,
     DecodeToCache = 1,
@@ -85,10 +92,16 @@ inline std::vector<std::size_t> ResolveAttributeDecodeIndices(
     const std::span<const AttributeTarget> targets,
     const std::uint32_t frameIndex,
     const BlockPath& blockPath,
-    const bool decodeAllAvailableAttributes,
+    const AttributeSelectionMode attributeSelection,
     const std::size_t availableAttributeCount) {
-    if (!decodeAllAvailableAttributes) {
+    if (attributeSelection == AttributeSelectionMode::None) {
+        return {};
+    }
+    if (attributeSelection == AttributeSelectionMode::Explicit) {
         return CollectAttributeTargetIndices(targets, frameIndex, blockPath);
+    }
+    if (attributeSelection != AttributeSelectionMode::AllAvailable) {
+        return {};
     }
     std::vector<std::size_t> indices;
     indices.reserve(availableAttributeCount);
