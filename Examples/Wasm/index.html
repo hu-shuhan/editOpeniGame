@@ -1,0 +1,3112 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>iGameVis Version.Web</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --text: #1b2430;
+            --accent: #0e7490;
+            --line: #d7e2ef;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: radial-gradient(circle at 15% 20%, #e5f2ff 0%, var(--bg) 45%), var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 960px;
+            margin: 32px auto;
+            padding: 0 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(20, 40, 70, 0.08);
+        }
+
+        #log {
+            min-height: 60px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            margin-top: 12px;
+            border-top: 1px solid var(--line);
+            padding-top: 10px;
+        }
+
+        #canvas {
+            width: 60%;
+            height: 540px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            margin-top: 14px;
+            background: #0b0f14;
+            display: block;
+        }
+
+        .viewer-shell {
+            position: relative;
+            margin-top: 14px;
+        }
+
+        .viewer-shell #canvas {
+            margin-top: 0;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .build-marker {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 0 12px;
+            padding: 6px 10px;
+            border: 1px solid #a7f3d0;
+            border-radius: 6px;
+            background: #ecfdf5;
+            color: #047857;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+
+        details.color-map-panel {
+            margin-top: 14px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fbfdff;
+            overflow: hidden;
+        }
+
+        details.color-map-panel>summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 600;
+            color: var(--text);
+            background: linear-gradient(180deg, #f7fbff, #eef5fc);
+            border-bottom: 1px solid var(--line);
+        }
+
+        details.color-map-panel>summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .color-map-body {
+            padding: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="card">
+            <h2>iGameVis Version.Web</h2>
+            <div class="build-marker">Build marker: 2026-06-13_V1</div>
+            <div class="row">
+                <input id="vtkFile" type="file" accept=".vtk,.vtu,.vtp,.igc,.zip" />
+                <button id="btnLoadFromServer" type="button">Load From Server</button>
+                <button id="btnRaiseTestError" type="button">Raise Test Error</button>
+                <label>Import</label>
+                <select id="importMode">
+                    <option value="append" selected>Append</option>
+                    <option value="replace">Replace</option>
+                </select>
+                <button id="btnReset" type="button">Reset Camera</button>
+                <label>Camera Type</label>
+                <select id="cameraType">
+                    <option value="0" selected>Perspective</option>
+                    <option value="1">Orthographic</option>
+                </select>
+                <button id="btnApplyCameraType" type="button">Apply Camera Type</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>IGC Time Series</label>
+                <button id="btnLoadIgcSeries" type="button">Load comp Series</button>
+                <button id="btnPreviousIgcFrame" type="button">Previous Frame</button>
+                <button id="btnNextIgcFrame" type="button">Next Frame</button>
+                <button id="btnPlayIgcSeries" type="button">Play</button>
+                <span id="igcSeriesStatus" style="font-size: 13px; color: #4b5563;">Not loaded</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Models</label>
+                <select id="modelList" style="min-width: 360px;"></select>
+                <button id="btnRefreshModels" type="button">Refresh Models</button>
+                <button id="btnSetActiveModel" type="button">Set Active</button>
+                <button id="btnToggleModelVisibility" type="button">Toggle Visible</button>
+                <button id="btnRemoveModel" type="button">Remove</button>
+                <button id="btnRemoveAllModels" type="button">Remove All</button>
+                <button id="btnClearViewer" type="button">Clear Viewer</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Lifecycle</label>
+                <button id="btnDestroyViewer" type="button">Destroy Viewer</button>
+                <button id="btnReinitViewer" type="button">Destroy + Init</button>
+                <span id="lifecycleStatus" style="font-size: 13px; color: #4b5563;">Ready</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Selection</label>
+                <button id="btnSelectionBrowse" type="button">Browse</button>
+                <button id="btnSelectionPoint" type="button">Point</button>
+                <button id="btnSelectionFace" type="button">Face</button>
+                <button id="btnClearSelection" type="button">Clear Selection</button>
+                <button id="btnReadSelection" type="button">Read Selection</button>
+                <span id="selectionResult" style="font-size: 13px; color: #4b5563;">Mode: Browse</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Mesh Slice</label>
+                <button id="btnEnterSlicing" type="button">Enter Slicing</button>
+                <button id="btnExitSlicing" type="button">Exit Slicing</button>
+                <button id="btnExecuteSlice" type="button">Execute</button>
+                <button id="btnApplyClipPlane" type="button">Apply Plane</button>
+                <label><input id="sliceModeSlice" name="sliceOperationMode" type="radio" value="0" checked />
+                    Slice</label>
+                <label><input id="sliceModeClip" name="sliceOperationMode" type="radio" value="1" /> Clip</label>
+                <label><input id="slicePreview" type="checkbox" /> Preview</label>
+                <label><input id="sliceCrinkle" type="checkbox" /> Crinkle</label>
+                <label><input id="sliceInvert" type="checkbox" checked /> Invert</label>
+            </div>
+            <div class="row" style="margin-top: 8px;">
+                <label>Origin</label>
+                <input id="clipOriginX" type="text" value="0" style="width: 72px;" />
+                <input id="clipOriginY" type="text" value="0" style="width: 72px;" />
+                <input id="clipOriginZ" type="text" value="0" style="width: 72px;" />
+                <label>Normal</label>
+                <input id="clipNormalX" type="text" value="1" style="width: 72px;" />
+                <input id="clipNormalY" type="text" value="0" style="width: 72px;" />
+                <input id="clipNormalZ" type="text" value="0" style="width: 72px;" />
+                <span id="sliceStatus" style="font-size: 13px; color: #4b5563;">Slice: inactive</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Camera Views</label>
+                <button id="btnViewXPlus" type="button">X+</button>
+                <button id="btnViewXMinus" type="button">X-</button>
+                <button id="btnViewYPlus" type="button">Y+</button>
+                <button id="btnViewYMinus" type="button">Y-</button>
+                <button id="btnViewZPlus" type="button">Z+</button>
+                <button id="btnViewZMinus" type="button">Z-</button>
+                <button id="btnViewIso" type="button">Iso</button>
+                <button id="btnZoomIn" type="button">Zoom In</button>
+                <button id="btnZoomOut" type="button">Zoom Out</button>
+                <label><input id="axesVisible" type="checkbox" checked /> Axes</label>
+                <label><input id="colorBarVisible" type="checkbox" checked /> ColorBar</label>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Model ID</label>
+                <input id="viewStyleModelId" type="number" min="0" step="1" value="0" style="width: 120px;" />
+                <label>View</label>
+                <select id="viewStyle">
+                    <option value="1">Points</option>
+                    <option value="4">Surface</option>
+                    <option value="2">Wireframe</option>
+                    <option value="6" selected>Surface + Wireframe</option>
+                    <option value="7">Points + Wireframe + Surface</option>
+                </select>
+                <button id="btnApplyView" type="button">Apply View</button>
+                <button id="btnReadView" type="button">Read Current View</button>
+                <span id="viewStyleText" style="font-size: 13px; color: #4b5563;"></span>
+
+                <label>Shading</label>
+                <select id="shadingMode">
+                    <option value="0" selected>BlinnPhong</option>
+                    <option value="1">NoLight</option>
+                </select>
+                <button id="btnApplyShading" type="button">Apply Shading</button>
+
+                <label>Background</label>
+                <input id="bgColor" type="color" value="#222222" />
+                <button id="btnApplyBg" type="button">Apply Background</button>
+
+                <label>Default Color</label>
+                <input id="defaultColor" type="color" value="#d9d9d9" />
+                <button id="btnApplyDefaultColor" type="button">Apply Default Color</button>
+                <button id="btnReadDefaultColor" type="button">Read Default Color</button>
+                <span style="font-size: 12px; color: #6b7280;">仅在未开启颜色映射时生效</span>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Opacity</label>
+                <input id="actorOpacity" type="range" min="0.05" max="1" step="0.05" value="1" />
+                <span id="actorOpacityText" style="font-size: 13px; color: #4b5563;">1.00</span>
+                <button id="btnApplyOpacity" type="button">Apply Opacity</button>
+                <button id="btnReadOpacity" type="button">Read Opacity</button>
+                <label>Solid Color</label>
+                <input id="solidColor" type="color" value="#d9d9d9" />
+                <button id="btnApplySolidColor" type="button">Apply Solid Color</button>
+                <button id="btnReadSolidColor" type="button">Read Solid Color</button>
+                <label>Gradient</label>
+                <input id="bgColor2" type="color" value="#0b0f14" />
+                <select id="bgGradient">
+                    <option value="solid" selected>Solid</option>
+                    <option value="vertical">Vertical</option>
+                    <option value="horizontal">Horizontal</option>
+                </select>
+                <button id="btnApplyGradientBg" type="button">Apply Gradient Example</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Corner Annotation</label>
+                <input id="annotationText" type="text" value="iGameVis WASM" style="min-width: 260px;" />
+                <button id="btnApplyAnnotation" type="button">Apply Annotation</button>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <label>Scalar</label>
+                <select id="scalarSelect" style="min-width: 260px;">
+                    <option value="-1" selected>None</option>
+                </select>
+                <button id="btnRefreshScalarList" type="button">Refresh Scalar List</button>
+                <label>Dimension</label>
+                <select id="scalarDimSelect" style="min-width: 120px;">
+                    <option value="-1" selected>Auto (-1)</option>
+                </select>
+                <label>Attachment</label>
+                <select id="scalarAttachment">
+                    <option value="-1" selected>Any</option>
+                    <option value="0">PointData</option>
+                    <option value="1">CellData</option>
+                </select>
+                <label>Auto Range</label>
+                <select id="autoRangeMode">
+                    <option value="1" selected>Surface Robust P1-P99</option>
+                    <option value="0">Surface Exact Min-Max</option>
+                    <option value="2">Global Exact Min-Max</option>
+                </select>
+                <button id="btnApplyScalar" type="button">Apply Scalar</button>
+                <span id="autoRangeStatus" class="hint">Surface Robust P1-P99</span>
+            </div>
+
+            <details class="color-map-panel">
+                <summary>ColorMap 编辑器</summary>
+                <div class="color-map-body">
+                    <div class="row" style="margin-bottom: 6px;">
+                        <button id="color_btnDefault" type="button">示例节点</button>
+                        <button id="color_btnAdd" type="button">添加节点</button>
+                        <button id="color_btnApply" type="button">应用到 WASM</button>
+                        <button id="color_btnGet" type="button">读取 WASM 映射</button>
+                    </div>
+                    <div id="color_nodes" style="margin-bottom:8px;"></div>
+                    <canvas id="color_canvas" width="420" height="40"
+                        style="border:1px solid var(--line); display:block; margin-bottom:8px;"></canvas>
+                    <div id="color_jsonOut"
+                        style="width:420px; height:120px; white-space:pre-wrap; overflow:auto; border:1px solid #eee; padding:6px; background:#fafafa;">
+                        {}</div>
+                </div>
+            </details>
+            <div
+                style="margin-top:12px; border:1px solid var(--line); border-radius:8px; padding:12px; background:#fbfdff;">
+                <h3 style="margin:0 0 8px 0; font-size:15px;">Range API Verification</h3>
+                <div style="margin-bottom:8px;">
+                    <label>Scalar Name</label>
+                    <input id="rangeScalar" type="text" value="Temperature" style="margin-left:8px;" />
+                </div>
+                <div class="row" style="margin-bottom:8px;">
+                    <input id="rangeComponent" type="number" step="1" value="0" aria-label="component"
+                        style="width:120px;" />
+                    <input id="rangeMin" type="number" step="0.1" value="0" aria-label="min" style="width:120px;" />
+                    <input id="rangeMax" type="number" step="0.1" value="100" aria-label="max" style="width:120px;" />
+                </div>
+                <div class="row">
+                    <button id="rangeApply" type="button">Apply Range API</button>
+                    <button id="rangeRead" type="button">Read Back JSON</button>
+                    <button id="rangeDebugSequence" type="button">Debug 0-1/0-100/0-1</button>
+                </div>
+            </div>
+            <div id="viewerShell" class="viewer-shell">
+                <canvas id="canvas"></canvas>
+            </div>
+            <div id="log">Waiting for wasm...</div>
+        </div>
+    </div>
+
+    <script>
+        const log = (msg) => {
+            const logElement = document.getElementById('log');
+            if (!logElement) return;
+            const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logElement.textContent = logElement.textContent === 'Waiting for wasm...'
+                ? line
+                : `${logElement.textContent}\n${line}`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(line);
+        };
+        let renderLoopStarted = false;
+        let viewerDestroyed = false;
+        let wasmAsyncCallActive = false;
+        let postLoadRenderTiming = null;
+        const expectedWasmBuild = {
+            buildId: '@IGAME_WASM_BUILD_ID@',
+            memoryProfile: '@IGAME_WASM_MEMORY_PROFILE@',
+        };
+        const queryParameters = new URLSearchParams(window.location.search);
+        const singleFrameBenchmarkMode =
+            queryParameters.get('singleFrameBenchmark') !== '0';
+        const readOptionalBoolean = (name) => {
+            const value = queryParameters.get(name);
+            return value === null ? null : value !== '0';
+        };
+        const decodedFrameCacheOverride = readOptionalBoolean('decodedFrameCache');
+        const encodedInputCacheOverride = readOptionalBoolean('encodedInputCache');
+        const fullInputPrefetchOverride = readOptionalBoolean('fullInputPrefetch');
+        const dataCodecCacheExperimentEnabled =
+            decodedFrameCacheOverride !== null ||
+            encodedInputCacheOverride !== null ||
+            fullInputPrefetchOverride !== null;
+        const dataCodecCacheExperiment = {
+            decodedFrameCache: decodedFrameCacheOverride ?? !singleFrameBenchmarkMode,
+            encodedInputCache: encodedInputCacheOverride ?? false,
+            fullInputPrefetch: fullInputPrefetchOverride ?? !singleFrameBenchmarkMode,
+        };
+        const dataCodecMemoryObservation = {
+            peakLinearMemoryBytes: 0,
+            peakJsHeapBytes: 0,
+        };
+        const captureDataCodecMemoryObservation = () => {
+            const linearMemoryBytes = Module.HEAPU8 ? Module.HEAPU8.byteLength : 0;
+            const jsHeapBytes = performance.memory && Number.isFinite(performance.memory.usedJSHeapSize)
+                ? performance.memory.usedJSHeapSize
+                : 0;
+            dataCodecMemoryObservation.peakLinearMemoryBytes = Math.max(
+                dataCodecMemoryObservation.peakLinearMemoryBytes,
+                linearMemoryBytes);
+            dataCodecMemoryObservation.peakJsHeapBytes = Math.max(
+                dataCodecMemoryObservation.peakJsHeapBytes,
+                jsHeapBytes);
+            return {
+                linearMemoryBytes,
+                jsHeapBytes,
+                ...dataCodecMemoryObservation,
+            };
+        };
+        const crossPageCacheProtocolVersion = 4;
+        const packageInspectionPrefixBudget = 64;
+
+        const inspectIgcPackage = async (file) => {
+            if (!file || !Number.isSafeInteger(file.size) || file.size <= 0) {
+                throw new Error('invalid IGC file size');
+            }
+            const prefix = new Uint8Array(await file.slice(
+                0,
+                Math.min(file.size, packageInspectionPrefixBudget)).arrayBuffer());
+            const resultJson = api.inspectIgcPackage(prefix, file.size);
+            if (!resultJson) {
+                throw new Error(`package inspection failed: ${api.getLastErrorJson()}`);
+            }
+            const inspection = JSON.parse(resultJson);
+            if (!inspection.identity || !inspection.sourceIdentity) {
+                throw new Error('package inspection returned an incomplete identity');
+            }
+            return inspection;
+        };
+
+        const createCrossPageDecodeCoordinator = () => {
+            const localLease = {
+                coordinated: false,
+                release() {},
+            };
+            if (singleFrameBenchmarkMode) {
+                log('[Benchmark] cross-page and persistent reuse disabled');
+                return { acquire: async () => localLease };
+            }
+            if (typeof SharedWorker !== 'function') {
+                log('[Cross-page cache] SharedWorker unavailable');
+                return { acquire: async () => localLease };
+            }
+            const pageId = typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            let worker;
+            try {
+                worker = new SharedWorker(
+                    `cache.js?build=${expectedWasmBuild.buildId}-${expectedWasmBuild.memoryProfile}&protocol=${crossPageCacheProtocolVersion}`,
+                    {
+                        name: `igame-cache-${expectedWasmBuild.buildId}-${expectedWasmBuild.memoryProfile}-v${crossPageCacheProtocolVersion}`,
+                        type: 'classic',
+                    });
+            } catch (error) {
+                throw new Error(
+                    `SharedWorker initialization failed: ${String(error && error.message || error)}`);
+            }
+
+            const port = worker.port;
+            const pending = new Map();
+            let nextRequestId = 1;
+            port.onmessage = (event) => {
+                const message = event.data || {};
+                if (message.type === 'artifact-published') {
+                    log(`[Cross-page cache] artifact accepted contentId=${String(message.contentKey || '').slice(-32)} bytes=${Number(message.residentBytes) || 0}`);
+                    return;
+                }
+                if (message.type === 'artifact-rejected') {
+                    log(`[Cross-page cache] artifact rejected contentId=${String(message.contentKey || '').slice(-32)} detail=${String(message.detail || '')}`);
+                    return;
+                }
+                const request = pending.get(message.requestId);
+                if (!request) {
+                    return;
+                }
+                if (message.type === 'queued') {
+                    request.onQueued(message);
+                    return;
+                }
+                pending.delete(message.requestId);
+                if (message.type === 'error') {
+                    request.reject(new Error(String(message.detail || 'coordinator request failed')));
+                    return;
+                }
+                request.resolve(message);
+            };
+            port.start();
+
+            const request = (type, payload = {}, onQueued = () => {}) => new Promise((resolve, reject) => {
+                const requestId = nextRequestId++;
+                pending.set(requestId, { resolve, reject, onQueued });
+                try {
+                    port.postMessage({ type, pageId, requestId, ...payload });
+                } catch (error) {
+                    pending.delete(requestId);
+                    reject(error);
+                }
+            });
+
+            const ready = request('register');
+            const disconnect = () => {
+                try {
+                    port.postMessage({ type: 'disconnect', pageId });
+                    port.close();
+                } catch (_error) {
+                }
+            };
+            window.addEventListener('beforeunload', disconnect, { once: true });
+
+            return {
+                async acquire(contentKey) {
+                    try {
+                        await ready;
+                        const owner = await request(
+                            'acquire',
+                            { contentKey },
+                            (queued) => {
+                                log(`[Cross-page cache] waiting contentId=${contentKey.slice(-32)} owner=${queued.ownerPageId} queue=${queued.queuePosition}`);
+                            });
+                        if (owner.type === 'artifact' && owner.artifact) {
+                            log(`[Cross-page cache] shared surface hit contentId=${contentKey.slice(-32)} bytes=${Number(owner.residentBytes) || 0}`);
+                            return {
+                                coordinated: true,
+                                artifact: owner.artifact,
+                                release() {},
+                            };
+                        }
+                        if (owner.previousResult) {
+                            log(`[Cross-page cache] previous owner completed success=${Boolean(owner.previousResult.success)} detail=${String(owner.previousResult.detail || '')}`);
+                        }
+                        log(`[Cross-page cache] owner contentId=${contentKey.slice(-32)} page=${pageId}`);
+                        let released = false;
+                        const heartbeat = setInterval(() => {
+                            if (!released) {
+                                port.postMessage({ type: 'heartbeat', pageId, contentKey });
+                            }
+                        }, 15000);
+                        return {
+                            coordinated: true,
+                            release(success, detail = '', artifact = null) {
+                                if (released) {
+                                    return;
+                                }
+                                released = true;
+                                clearInterval(heartbeat);
+                                port.postMessage({
+                                    type: 'complete',
+                                    pageId,
+                                    contentKey,
+                                    success: Boolean(success),
+                                    detail: String(detail || ''),
+                                    artifact,
+                                });
+                            },
+                        };
+                    } catch (error) {
+                        throw new Error(
+                            `cross-page coordination failed: ${String(error && error.message || error)}`);
+                    }
+                },
+            };
+        };
+
+        const crossPageDecodeCoordinator = createCrossPageDecodeCoordinator();
+        window.igameCrossPageDecodeCoordinator = crossPageDecodeCoordinator;
+
+        const copyTypedArrayToCacheBuffer = (typedArray) => {
+            const buffer = new ArrayBuffer(typedArray.byteLength);
+            new Uint8Array(buffer).set(new Uint8Array(
+                typedArray.buffer,
+                typedArray.byteOffset,
+                typedArray.byteLength));
+            return buffer;
+        };
+
+        const createPersistentSurfaceCache = () => {
+            const cacheVersion = 2;
+            const cacheDirectoryName = 'igame-surface-cache-v1';
+            const maxArtifactCount = 2;
+            const maxResidentBytes = 512 * 1024 * 1024;
+            const supported = Boolean(navigator.storage &&
+                typeof navigator.storage.getDirectory === 'function');
+
+            const contentLabel = (contentKey) => String(contentKey || '').slice(-32);
+            const entryNameFor = (contentKey) => String(contentKey || '')
+                .replace(/[^a-zA-Z0-9._-]/g, '_')
+                .slice(0, 220);
+
+            const openCacheDirectory = async (create) => {
+                if (!supported) {
+                    return null;
+                }
+                const root = await navigator.storage.getDirectory();
+                return root.getDirectoryHandle(cacheDirectoryName, { create });
+            };
+
+            const readMetadata = async (entryDirectory) => {
+                const handle = await entryDirectory.getFileHandle('metadata.json');
+                const file = await handle.getFile();
+                return JSON.parse(await file.text());
+            };
+
+            const writeFile = async (directory, name, value) => {
+                const handle = await directory.getFileHandle(name, { create: true });
+                const writable = await handle.createWritable();
+                try {
+                    await writable.write(value);
+                    await writable.close();
+                } catch (error) {
+                    try {
+                        await writable.abort(error);
+                    } catch (_abortError) {
+                    }
+                    throw error;
+                }
+            };
+
+            const removeEntry = async (contentKey) => {
+                try {
+                    const cacheDirectory = await openCacheDirectory(false);
+                    if (!cacheDirectory) {
+                        return;
+                    }
+                    await cacheDirectory.removeEntry(entryNameFor(contentKey), { recursive: true });
+                } catch (error) {
+                    if (!error || error.name !== 'NotFoundError') {
+                        log(`[Persistent surface cache] remove failed contentId=${contentLabel(contentKey)} detail=${String(error && error.message || error)}`);
+                    }
+                }
+            };
+
+            const validateMetadata = (metadata, contentKey, packageIdentity, sourceBytes) => {
+                if (!metadata || metadata.version !== cacheVersion ||
+                    metadata.buildId !== expectedWasmBuild.buildId ||
+                    metadata.memoryProfile !== expectedWasmBuild.memoryProfile ||
+                    metadata.contentKey !== contentKey ||
+                    metadata.packageIdentity !== packageIdentity ||
+                    Number(metadata.sourceBytes) !== Number(sourceBytes)) {
+                    return false;
+                }
+                const positionsBytes = Number(metadata.positionsBytes);
+                const trianglesBytes = Number(metadata.trianglesBytes);
+                const edgeMasksBytes = Number(metadata.edgeMasksBytes);
+                const residentBytes = positionsBytes + trianglesBytes + edgeMasksBytes;
+                return Number.isSafeInteger(positionsBytes) && positionsBytes > 0 &&
+                    Number.isSafeInteger(trianglesBytes) && trianglesBytes > 0 &&
+                    Number.isSafeInteger(edgeMasksBytes) && edgeMasksBytes > 0 &&
+                    Number.isSafeInteger(residentBytes) &&
+                    residentBytes === Number(metadata.residentBytes) &&
+                    residentBytes <= maxResidentBytes;
+            };
+
+            const prune = async (protectedEntryName) => {
+                const cacheDirectory = await openCacheDirectory(false);
+                if (!cacheDirectory) {
+                    return;
+                }
+                let quotaBudget = maxResidentBytes;
+                try {
+                    const estimate = await navigator.storage.estimate();
+                    if (Number.isFinite(estimate.quota) && estimate.quota > 0) {
+                        quotaBudget = Math.min(maxResidentBytes, Math.floor(estimate.quota * 0.2));
+                    }
+                } catch (_error) {
+                }
+
+                const entries = [];
+                for await (const [name, handle] of cacheDirectory.entries()) {
+                    if (handle.kind !== 'directory') {
+                        continue;
+                    }
+                    try {
+                        const metadata = await readMetadata(handle);
+                        entries.push({
+                            name,
+                            residentBytes: Number(metadata.residentBytes) || 0,
+                            lastAccessedAt: Number(metadata.lastAccessedAt) || 0,
+                        });
+                    } catch (_error) {
+                        entries.push({ name, residentBytes: 0, lastAccessedAt: 0 });
+                    }
+                }
+
+                let totalBytes = entries.reduce((sum, entry) => sum + entry.residentBytes, 0);
+                let totalCount = entries.length;
+                const candidates = entries
+                    .filter((entry) => entry.name !== protectedEntryName)
+                    .sort((lhs, rhs) => lhs.lastAccessedAt - rhs.lastAccessedAt);
+                for (const entry of candidates) {
+                    if (totalCount <= maxArtifactCount && totalBytes <= quotaBudget) {
+                        break;
+                    }
+                    await cacheDirectory.removeEntry(entry.name, { recursive: true });
+                    totalCount -= 1;
+                    totalBytes -= entry.residentBytes;
+                    log(`[Persistent surface cache] evicted entry=${entry.name} bytes=${entry.residentBytes}`);
+                }
+            };
+
+            return {
+                supported,
+
+                async load(contentKey, packageIdentity, sourceBytes) {
+                    if (!supported) {
+                        return null;
+                    }
+                    const startedAt = performance.now();
+                    try {
+                        const cacheDirectory = await openCacheDirectory(false);
+                        if (!cacheDirectory) {
+                            return null;
+                        }
+                        const entryDirectory = await cacheDirectory.getDirectoryHandle(entryNameFor(contentKey));
+                        const metadata = await readMetadata(entryDirectory);
+                        if (!validateMetadata(metadata, contentKey, packageIdentity, sourceBytes)) {
+                            await removeEntry(contentKey);
+                            throw new Error(
+                                `invalid persistent cache metadata contentId=${contentLabel(contentKey)}`);
+                        }
+
+                        const [positionsFile, trianglesFile, edgeMasksFile] = await Promise.all([
+                            entryDirectory.getFileHandle('positions.bin').then((handle) => handle.getFile()),
+                            entryDirectory.getFileHandle('triangles.bin').then((handle) => handle.getFile()),
+                            entryDirectory.getFileHandle('edge-masks.bin').then((handle) => handle.getFile()),
+                        ]);
+                        if (positionsFile.size !== Number(metadata.positionsBytes) ||
+                            trianglesFile.size !== Number(metadata.trianglesBytes) ||
+                            edgeMasksFile.size !== Number(metadata.edgeMasksBytes)) {
+                            await removeEntry(contentKey);
+                            throw new Error(
+                                `invalid persistent cache file sizes contentId=${contentLabel(contentKey)}`);
+                        }
+
+                        const [positions, triangles, edgeMasks] = await Promise.all([
+                            positionsFile.arrayBuffer(),
+                            trianglesFile.arrayBuffer(),
+                            edgeMasksFile.arrayBuffer(),
+                        ]);
+                        metadata.lastAccessedAt = Date.now();
+                        await writeFile(
+                            entryDirectory,
+                            'metadata.json',
+                            new TextEncoder().encode(JSON.stringify(metadata)));
+                        log(`[Persistent surface cache] hit contentId=${contentLabel(contentKey)} bytes=${metadata.residentBytes} elapsed=${(performance.now() - startedAt).toFixed(2)} ms`);
+                        return { version: cacheVersion, positions, triangles, edgeMasks };
+                    } catch (error) {
+                        if (error && error.name === 'NotFoundError') {
+                            log(`[Persistent surface cache] miss contentId=${contentLabel(contentKey)}`);
+                            return null;
+                        }
+                        throw new Error(
+                            `persistent cache load failed contentId=${contentLabel(contentKey)}: ${String(error && error.message || error)}`);
+                    }
+                },
+
+                async store(contentKey, packageIdentity, sourceBytes, artifact) {
+                    if (!supported || !artifact) {
+                        return false;
+                    }
+                    const positionsBytes = Number(artifact.positions && artifact.positions.byteLength) || 0;
+                    const trianglesBytes = Number(artifact.triangles && artifact.triangles.byteLength) || 0;
+                    const edgeMasksBytes = Number(artifact.edgeMasks && artifact.edgeMasks.byteLength) || 0;
+                    const residentBytes = positionsBytes + trianglesBytes + edgeMasksBytes;
+                    if (positionsBytes <= 0 || trianglesBytes <= 0 || edgeMasksBytes <= 0 ||
+                        residentBytes > maxResidentBytes) {
+                        return false;
+                    }
+
+                    const startedAt = performance.now();
+                    const entryName = entryNameFor(contentKey);
+                    try {
+                        const cacheDirectory = await openCacheDirectory(true);
+                        const entryDirectory = await cacheDirectory.getDirectoryHandle(entryName, { create: true });
+                        await Promise.all([
+                            writeFile(entryDirectory, 'positions.bin', new Uint8Array(artifact.positions)),
+                            writeFile(entryDirectory, 'triangles.bin', new Uint8Array(artifact.triangles)),
+                            writeFile(entryDirectory, 'edge-masks.bin', new Uint8Array(artifact.edgeMasks)),
+                        ]);
+                        const now = Date.now();
+                        const metadata = {
+                            version: cacheVersion,
+                            buildId: expectedWasmBuild.buildId,
+                            memoryProfile: expectedWasmBuild.memoryProfile,
+                            contentKey,
+                            packageIdentity,
+                            sourceBytes,
+                            positionsBytes,
+                            trianglesBytes,
+                            edgeMasksBytes,
+                            residentBytes,
+                            createdAt: now,
+                            lastAccessedAt: now,
+                        };
+                        await writeFile(
+                            entryDirectory,
+                            'metadata.json',
+                            new TextEncoder().encode(JSON.stringify(metadata)));
+                        await prune(entryName);
+                        log(`[Persistent surface cache] stored contentId=${contentLabel(contentKey)} bytes=${residentBytes} elapsed=${(performance.now() - startedAt).toFixed(2)} ms`);
+                        return true;
+                    } catch (error) {
+                        await removeEntry(contentKey);
+                        throw new Error(
+                            `persistent cache store failed contentId=${contentLabel(contentKey)}: ${String(error && error.message || error)}`);
+                    }
+                },
+
+                async remove(contentKey) {
+                    await removeEntry(contentKey);
+                },
+
+                async clear() {
+                    if (!supported) {
+                        return false;
+                    }
+                    try {
+                        const root = await navigator.storage.getDirectory();
+                        await root.removeEntry(cacheDirectoryName, { recursive: true });
+                        log('[Persistent surface cache] cleared');
+                        return true;
+                    } catch (error) {
+                        if (error && error.name === 'NotFoundError') {
+                            return true;
+                        }
+                        log(`[Persistent surface cache] clear failed detail=${String(error && error.message || error)}`);
+                        return false;
+                    }
+                },
+            };
+        };
+
+        const persistentSurfaceCache = createPersistentSurfaceCache();
+        window.igamePersistentSurfaceCache = persistentSurfaceCache;
+
+        const armPostLoadRenderTiming = (modelId, requestStartedAt = null) => {
+            postLoadRenderTiming = {
+                modelId,
+                startedAt: performance.now(),
+                requestStartedAt,
+                refreshModelListMs: null,
+                refreshScalarListMs: null,
+            };
+        };
+        const interactionRenderStats = {
+            active: false,
+            type: '',
+            samples: [],
+            startedAt: 0,
+            wheelTimer: null,
+
+            begin(type) {
+                if (this.active && this.type === type) {
+                    return;
+                }
+                if (this.active) {
+                    this.end('switch');
+                }
+                if (this.wheelTimer !== null) {
+                    clearTimeout(this.wheelTimer);
+                    this.wheelTimer = null;
+                }
+                this.active = true;
+                this.type = type;
+                this.samples = [];
+                this.startedAt = performance.now();
+            },
+
+            record(ms) {
+                if (!this.active || !Number.isFinite(ms)) {
+                    return;
+                }
+                this.samples.push(ms);
+            },
+
+            end(reason) {
+                if (!this.active) {
+                    return;
+                }
+                if (this.wheelTimer !== null) {
+                    clearTimeout(this.wheelTimer);
+                    this.wheelTimer = null;
+                }
+
+                const type = this.type;
+                const samples = this.samples.slice();
+                this.active = false;
+                this.type = '';
+                this.samples = [];
+                this.startedAt = 0;
+
+                if (samples.length === 0) {
+                    return;
+                }
+
+                samples.sort((a, b) => a - b);
+                const sum = samples.reduce((acc, value) => acc + value, 0);
+                const percentile = (p) => {
+                    const index = Math.min(samples.length - 1, Math.floor((samples.length - 1) * p));
+                    return samples[index];
+                };
+                const over16 = samples.filter((value) => value > 16.7).length;
+                const over33 = samples.filter((value) => value > 33.3).length;
+                const avg = sum / samples.length;
+                const max = samples[samples.length - 1];
+
+                log(`[Render timing interaction] type=${type} frames=${samples.length} avg=${avg.toFixed(2)} ms p50=${percentile(0.5).toFixed(2)} ms p95=${percentile(0.95).toFixed(2)} ms max=${max.toFixed(2)} ms over16.7=${over16} over33.3=${over33}`);
+            },
+
+            endWheelSoon() {
+                if (this.wheelTimer !== null) {
+                    clearTimeout(this.wheelTimer);
+                }
+                this.wheelTimer = setTimeout(() => {
+                    this.wheelTimer = null;
+                    this.end('wheel-idle');
+                }, 300);
+            },
+        };
+
+        const eventType = {
+            MousePress: 0,
+            MouseMove: 1,
+            MouseRelease: 2,
+            Wheel: 3,
+        };
+
+        const mouseButton = {
+            NoButton: 0,
+            LeftButton: 1,
+            RightButton: 2,
+            MiddleButton: 4,
+        };
+
+        const wasmColorApi = {
+            setDefaultColor(api, modelId, r, g, b) {
+                return api.setModelDefaultColor(modelId, r, g, b);
+            },
+            getDefaultColor(api, modelId) {
+                return api.getModelDefaultColor(modelId);
+            },
+            setSolidColor(api, modelId, r, g, b) {
+                return api.setSolidColor(modelId, r, g, b);
+            },
+            getSolidColor(api, modelId) {
+                return api.getSolidColor(modelId);
+            },
+            applyHexToPicker(hex, pickerId = 'defaultColor') {
+                const picker = document.getElementById(pickerId);
+                if (picker) {
+                    picker.value = hex;
+                }
+            },
+        };
+
+        const drawStyle = {
+            Points: 1,
+            Wireframe: 2,
+            Surface: 4,
+        };
+
+        const dataAttachment = {
+            Any: -1,
+            Point: 0,
+            Cell: 1,
+        };
+
+        // Fallback for browsers/extensions that forcibly hijack right-drag gestures.
+        const useShiftLeftAsRightDragFallback = true;
+
+        const domButtonToIgame = (btn) => {
+            if (btn === 0) return mouseButton.LeftButton;
+            if (btn === 1) return mouseButton.MiddleButton;
+            if (btn === 2) return mouseButton.RightButton;
+            return mouseButton.NoButton;
+        };
+
+        const getCanvasPos = (canvas, e) => {
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width;
+            const sy = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * sx,
+                y: (e.clientY - rect.top) * sy,
+            };
+        };
+
+        const syncCanvasSize = (canvas, api) => {
+            if (!canvas || !api) {
+                return false;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const width = Math.max(1, Math.round(rect.width || canvas.clientWidth || canvas.width || 1));
+            const height = Math.max(1, Math.round(rect.height || canvas.clientHeight || canvas.height || 1));
+            const ok = api.setSize(width, height);
+            if (ok !== 1) {
+                log(`setSize failed width=${width} height=${height}`);
+                return false;
+            }
+            return true;
+        };
+
+        window.onerror = function (message, source, lineno, colno) {
+            log(`window error: ${message} @ ${source}:${lineno}:${colno}`);
+        };
+
+        window.onunhandledrejection = function (event) {
+            const reason = event && event.reason ? event.reason : 'unknown';
+            log(`promise rejection: ${reason}`);
+        };
+
+        const pthreadEnvironmentReady = window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined';
+        log(`pthread environment ready=${pthreadEnvironmentReady}`);
+        if (!pthreadEnvironmentReady) {
+            log('pthread unavailable: serve this page with COOP=same-origin and COEP=require-corp');
+        }
+
+        Module = {
+            canvas: document.getElementById('canvas'),
+            print(text) {
+                const message = String(text);
+                if (message.includes('[Render timing') ||
+                    message.includes('Topology surface overlap') ||
+                    message.includes('Direct browser DataCodec timing')) {
+                    log(message);
+                    return;
+                }
+                console.log(message);
+            },
+            printErr(text) {
+                console.error(String(text));
+            },
+            igameBrowserFiles: new Map(),
+            igameBrowserFileStats: new Map(),
+            igameNextBrowserFileId: 1,
+            igameBrowserFileLastError: '',
+            igameBrowserFileReadObserver(fileId, offset, byteCount) {
+                const previous = this.igameBrowserFileStats.get(fileId) || {
+                    requests: 0,
+                    bytes: 0,
+                    firstOffset: offset,
+                    lastOffset: offset,
+                };
+                previous.requests += 1;
+                previous.bytes += byteCount;
+                previous.lastOffset = offset;
+                this.igameBrowserFileStats.set(fileId, previous);
+            },
+            onAbort(what) {
+                log(`wasm abort: ${what}`);
+            },
+            onRuntimeInitialized() {
+                const api = Module.iGameWeb;
+                if (!api) {
+                    log('init exception: Module.iGameWeb is unavailable');
+                    return;
+                }
+
+                try {
+                    const buildInfo = JSON.parse(api.getBuildInfoJson());
+                    log(`[Build] page=${expectedWasmBuild.buildId}/${expectedWasmBuild.memoryProfile} runtime=${buildInfo.buildId}/${buildInfo.memoryProfile} surfacePrebuild=${Boolean(buildInfo.webSurfacePrebuild)} singleFrameBenchmark=${singleFrameBenchmarkMode}`);
+                    if (dataCodecCacheExperimentEnabled) {
+                        log(`[Benchmark] decoded-frame-cache=${dataCodecCacheExperiment.decodedFrameCache ? 1 : 0} encoded-input-cache=${dataCodecCacheExperiment.encodedInputCache ? 1 : 0} full-input-prefetch=${dataCodecCacheExperiment.fullInputPrefetch ? 1 : 0}`);
+                    }
+                    if (buildInfo.buildId !== expectedWasmBuild.buildId ||
+                        buildInfo.memoryProfile !== expectedWasmBuild.memoryProfile ||
+                        buildInfo.webSurfacePrebuild !== true) {
+                        log('[Build] asset mismatch detected, reload the page');
+                        return;
+                    }
+                    log('runtime initialized, calling iGameWeb.init...');
+                    const initOk = api.init();
+                    viewerDestroyed = !initOk;
+                    log(initOk ? 'wasm initialized' : 'init failed');
+                    log(`initial lastError=${api.getLastErrorJson ? api.getLastErrorJson() : 'n/a'}`);
+                } catch (err) {
+                    log(`init exception: ${err && err.stack ? err.stack : err}`);
+                    return;
+                }
+
+                const canvas = Module.canvas || document.getElementById('canvas');
+                if (!canvas) {
+                    log('canvas unavailable after wasm init');
+                    return;
+                }
+
+                const applyCanvasSize = () => {
+                    if (viewerDestroyed) {
+                        return;
+                    }
+                    try {
+                        syncCanvasSize(canvas, api);
+                        if (api.renderFrame) {
+                            api.renderFrame();
+                        }
+                    } catch (err) {
+                        log(`canvas resize exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                applyCanvasSize();
+                window.addEventListener('resize', applyCanvasSize);
+
+                // Manual log system test helper: callable from HTML handlers and browser console.
+                window.raiseWasmTestError = (detail = 'manual wasm test error from html', code = -999) => {
+                    try {
+                        const status = api.raiseTestError(String(detail), Number(code));
+                        const lastError = api.getLastErrorJson();
+                        const msg = `raiseTestError status=${status}, lastError=${lastError}`;
+                        log(msg);
+                        console.error(msg);
+                        return status;
+                    } catch (err) {
+                        const errMsg = `raiseTestError exception: ${err && err.stack ? err.stack : err}`;
+                        log(errMsg);
+                        console.error(errMsg);
+                        return 0;
+                    }
+                };
+
+                document.getElementById('btnRaiseTestError').addEventListener('click', () => {
+                    window.raiseWasmTestError();
+                });
+
+                document.getElementById('btnReset').addEventListener('click', () => {
+                    try {
+                        api.resetCamera();
+                    } catch (err) {
+                        log(`reset exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyCameraType').addEventListener('click', () => {
+                    try {
+                        const type = parseInt(document.getElementById('cameraType').value, 10);
+                        const ok = api.setCameraType(type);
+                        if (ok !== 1) {
+                            log('apply camera type failed');
+                            return;
+                        }
+                        if (api.renderFrame) {
+                            api.renderFrame();
+                        }
+                        log('apply camera type success');
+                    } catch (err) {
+                        log(`apply camera type exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyView').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply view style failed: no model selected');
+                            return;
+                        }
+                        const styleMask = parseInt(document.getElementById('viewStyle').value, 10);
+                        const ok = api.setViewStyle(modelId, styleMask);
+                        if (!ok) {
+                            log(`apply view style failed: ${api.getLastErrorJson()}`);
+                        }
+                    } catch (err) {
+                        log(`apply view exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnReadView').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('read view failed: no model selected');
+                            return;
+                        }
+                        const styleMask = api.getViewStyle(modelId);
+                        if (styleMask < 0) {
+                            log('read view failed');
+                            return;
+                        }
+                        const viewText = document.getElementById('viewStyleText');
+                        if (viewText) {
+                            viewText.textContent = `Current style mask: ${styleMask}`;
+                        }
+                        log(`current view style=${styleMask}`);
+                    } catch (err) {
+                        log(`read view exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyShading').addEventListener('click', () => {
+                    try {
+                        const mode = parseInt(document.getElementById('shadingMode').value, 10);
+                        const ok = api.setSurfaceShadingMode(mode);
+                        if (!ok) log('apply shading failed');
+                    } catch (err) {
+                        log(`apply shading exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyBg').addEventListener('click', async () => {
+                    try {
+                        const hex = document.getElementById('bgColor').value || '#222222';
+                        const rgb = hexToRgb01(hex);
+                        const ok = await callViewerMethod('setBackgroundColor', rgb[0], rgb[1], rgb[2]);
+                        if (!ok) log('apply background color failed');
+                    } catch (err) {
+                        log(`apply background exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplyDefaultColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply default color failed: no model selected');
+                            return;
+                        }
+                        const hex = document.getElementById('defaultColor').value || '#d9d9d9';
+                        const rgb = hexToRgb01(hex);
+                        const ok = wasmColorApi.setDefaultColor(api, modelId, rgb[0], rgb[1], rgb[2]);
+                        if (!ok) {
+                            log(`apply default color failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        api.renderFrame();
+                        log(`default color updated for model #${modelId}`);
+                    } catch (err) {
+                        log(`apply default color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnReadDefaultColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('read default color failed: no model selected');
+                            return;
+                        }
+
+                        const raw = wasmColorApi.getDefaultColor(api, modelId);
+                        const parsed = raw ? JSON.parse(raw) : null;
+                        if (!parsed || !Number.isFinite(parsed.r) || !Number.isFinite(parsed.g) || !Number.isFinite(parsed.b)) {
+                            log(`read default color failed: invalid response ${raw}`);
+                            return;
+                        }
+
+                        const hex = rgb01ToHex(parsed.r, parsed.g, parsed.b);
+                        wasmColorApi.applyHexToPicker(hex);
+                        log(`default color read for model #${modelId}: ${raw}`);
+                    } catch (err) {
+                        log(`read default color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnApplySolidColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply solid color failed: no model selected');
+                            return;
+                        }
+                        const hex = document.getElementById('solidColor').value || '#d9d9d9';
+                        const rgb = hexToRgb01(hex);
+                        const ok = wasmColorApi.setSolidColor(api, modelId, rgb[0], rgb[1], rgb[2]);
+                        if (!ok) {
+                            log(`apply solid color failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        api.renderFrame();
+                        log(`solid color updated for model #${modelId}`);
+                    } catch (err) {
+                        log(`apply solid color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnReadSolidColor').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('read solid color failed: no model selected');
+                            return;
+                        }
+
+                        const raw = wasmColorApi.getSolidColor(api, modelId);
+                        const parsed = raw ? JSON.parse(raw) : null;
+                        if (!parsed || !Number.isFinite(parsed.r) || !Number.isFinite(parsed.g) || !Number.isFinite(parsed.b)) {
+                            log(`read solid color failed: invalid response ${raw}`);
+                            return;
+                        }
+
+                        const hex = rgb01ToHex(parsed.r, parsed.g, parsed.b);
+                        wasmColorApi.applyHexToPicker(hex, 'solidColor');
+                        log(`solid color read for model #${modelId}: ${raw}`);
+                    } catch (err) {
+                        log(`read solid color exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                const autoRangeModeLabel = (mode) => {
+                    if (mode === 1) return 'Surface Robust P1-P99';
+                    if (mode === 2) return 'Global Exact Min-Max';
+                    return 'Surface Exact Min-Max';
+                };
+
+                document.getElementById('btnApplyScalar').addEventListener('click', async () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('apply scalar failed: no model selected');
+                            return;
+                        }
+                        const scalarSelect = document.getElementById('scalarSelect');
+                        const selected = scalarSelect.options[scalarSelect.selectedIndex];
+                        if (selected && selected.value === 'solid') {
+                            const hex = document.getElementById('solidColor').value || '#d9d9d9';
+                            const rgb = hexToRgb01(hex);
+                            const solidOk = wasmColorApi.setSolidColor(api, modelId, rgb[0], rgb[1], rgb[2]);
+                            if (!solidOk) {
+                                log(`apply solid mode failed: ${api.getLastErrorJson()}`);
+                                return;
+                            }
+                            const status = api.setColorMapByName(modelId, 'Solid', -1, [], []);
+                            if (status !== 1) {
+                                log(`apply solid mode failed: ${api.getLastErrorJson()}`);
+                                return;
+                            }
+                            api.renderFrame();
+                            log(`apply solid mode ok: modelId=${modelId}`);
+                            return;
+                        }
+                        let attributeIndex = parseInt(selected.value, 10);
+                        const catalogIndex = selected.dataset.catalogIndex;
+                        if (catalogIndex !== undefined && catalogIndex !== '') {
+                            const ensureResult = await requestIgcAttribute(
+                                modelId,
+                                parseInt(catalogIndex, 10));
+                            if (ensureResult <= 0) {
+                                log(`load IGC attribute failed: ${api.getLastErrorJson()}`);
+                                return;
+                            }
+                            attributeIndex = ensureResult - 1;
+                        }
+                        const dimension = parseInt(document.getElementById('scalarDimSelect').value, 10);
+                        const attachment = parseInt(document.getElementById('scalarAttachment').value, 10);
+                        const autoRangeMode = parseInt(document.getElementById('autoRangeMode').value, 10);
+                        const autoRangeStatus = api.setAutoRangeMode(modelId, autoRangeMode);
+                        if (autoRangeStatus !== 1) {
+                            log(`set auto range mode failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        const status = api.setScalarField(attributeIndex, dimension, attachment);
+                        if (status !== 1) {
+                            const messageByCode = {
+                                '-1': 'apply scalar failed: no active model',
+                                '-2': 'apply scalar failed: model is not drawable',
+                                '-3': 'apply scalar failed: invalid scalar index',
+                                '-4': 'apply scalar failed: attachment mismatch',
+                                '-5': 'apply scalar failed: invalid dimension',
+                            };
+                            log(messageByCode[String(status)] || `apply scalar failed: code=${status}`);
+                        } else {
+                            const autoRangeLabel = autoRangeModeLabel(autoRangeMode);
+                            document.getElementById('autoRangeStatus').textContent = autoRangeLabel;
+                            log(`apply scalar ok: attributeIndex=${attributeIndex} dimension=${dimension} attachment=${attachment} autoRange=${autoRangeLabel}`);
+                            if (api.getColorMapJson) {
+                                log(`colorbar snapshot after scalar: ${api.getColorMapJson()}`);
+                            }
+                        }
+                    } catch (err) {
+                        log(`apply scalar exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                const buildDimensionOptions = (dimension) => {
+                    const dimSelect = document.getElementById('scalarDimSelect');
+                    dimSelect.innerHTML = '';
+
+                    const autoOption = document.createElement('option');
+                    autoOption.value = '-1';
+                    autoOption.textContent = 'Auto (-1)';
+                    autoOption.selected = true;
+                    dimSelect.appendChild(autoOption);
+
+                    const dim = Number.isFinite(dimension) ? dimension : 0;
+                    for (let i = 0; i < dim; i++) {
+                        const option = document.createElement('option');
+                        option.value = String(i);
+                        option.textContent = `Component ${i}`;
+                        dimSelect.appendChild(option);
+                    }
+                };
+
+                const refreshScalarList = () => {
+                    const timing = postLoadRenderTiming;
+                    const startedAt = timing ? performance.now() : 0;
+                    try {
+                        const raw = api.getAttributeListJson();
+                        const list = raw ? JSON.parse(raw) : [];
+                        const scalarSelect = document.getElementById('scalarSelect');
+                        const attachmentSelect = document.getElementById('scalarAttachment');
+
+                        scalarSelect.innerHTML = '';
+
+                        const noneOption = document.createElement('option');
+                        noneOption.value = '-1';
+                        noneOption.textContent = 'None';
+                        noneOption.selected = true;
+                        scalarSelect.appendChild(noneOption);
+
+                        const solidOption = document.createElement('option');
+                        solidOption.value = 'solid';
+                        solidOption.textContent = 'Solid';
+                        scalarSelect.appendChild(solidOption);
+
+                        for (const item of list) {
+                            if (item.name === 'Solid') continue;
+                            const option = document.createElement('option');
+                            option.value = item.lazy
+                                ? `igc:${item.catalogIndex}`
+                                : String(item.index);
+                            const attachment = item.attachment === dataAttachment.Point
+                                ? 'Point'
+                                : (item.attachment === dataAttachment.Cell ? 'Cell' : 'Other');
+                            option.textContent = `[${item.index}] ${item.name} (${attachment}, dim=${item.dimension})`;
+                            option.dataset.attachment = String(item.attachment);
+                            option.dataset.dimension = String(item.dimension);
+                            if (item.lazy) {
+                                option.dataset.catalogIndex = String(item.catalogIndex);
+                                option.dataset.blockPath = String(item.blockPath || '');
+                                option.dataset.frameIndex = String(item.frameIndex || 0);
+                            }
+                            scalarSelect.appendChild(option);
+                        }
+
+                        scalarSelect.onchange = () => {
+                            const selected = scalarSelect.options[scalarSelect.selectedIndex];
+                            if (!selected || selected.value === '-1') {
+                                attachmentSelect.value = String(dataAttachment.Any);
+                                buildDimensionOptions(0);
+                                return;
+                            }
+                            if (selected.value === 'solid') {
+                                attachmentSelect.value = String(dataAttachment.Any);
+                                buildDimensionOptions(0);
+                                return;
+                            }
+                            const att = selected.dataset.attachment;
+                            if (att === String(dataAttachment.Point) || att === String(dataAttachment.Cell)) {
+                                attachmentSelect.value = att;
+                            }
+                            buildDimensionOptions(parseInt(selected.dataset.dimension || '0', 10));
+                        };
+
+                        const selected = scalarSelect.options[scalarSelect.selectedIndex];
+                        buildDimensionOptions(
+                            selected && selected.value !== '-1'
+                                && selected.value !== 'solid'
+                                ? parseInt(selected.dataset.dimension || '0', 10)
+                                : 0
+                        );
+                    } catch (err) {
+                        log(`refresh scalar list exception: ${err && err.stack ? err.stack : err}`);
+                    } finally {
+                        if (timing !== null && timing === postLoadRenderTiming) {
+                            timing.refreshScalarListMs = performance.now() - startedAt;
+                            log(`[First render timing] refreshScalarList=${timing.refreshScalarListMs.toFixed(2)} ms`);
+                        }
+                    }
+                };
+
+                const getSelectedModelId = () => {
+                    const modelSelect = document.getElementById('modelList');
+                    if (!modelSelect || !modelSelect.value) return null;
+                    const value = parseInt(modelSelect.value, 10);
+                    return Number.isFinite(value) ? value : null;
+                };
+
+                const hexToRgbByte = (hex) => {
+                    const value = String(hex || '#000000').replace('#', '');
+                    return {
+                        r: parseInt(value.slice(0, 2), 16) || 0,
+                        g: parseInt(value.slice(2, 4), 16) || 0,
+                        b: parseInt(value.slice(4, 6), 16) || 0,
+                    };
+                };
+
+                window.iGameViewerApi = {
+                    async render() { api.renderFrame(); },
+                    async destroyViewer() {
+                        const status = api.destroy();
+                        if (status > 0) {
+                            viewerDestroyed = true;
+                            renderLoopStarted = false;
+                            const lifecycleStatus = document.getElementById('lifecycleStatus');
+                            if (lifecycleStatus) lifecycleStatus.textContent = 'Destroyed';
+                            const modelSelect = document.getElementById('modelList');
+                            if (modelSelect) {
+                                modelSelect.innerHTML = '';
+                                const option = document.createElement('option');
+                                option.value = '';
+                                option.textContent = 'Viewer destroyed';
+                                modelSelect.appendChild(option);
+                            }
+                        }
+                        return status;
+                    },
+                    async reinitializeViewer() {
+                        const destroyStatus = api.destroy();
+                        if (destroyStatus <= 0) {
+                            return destroyStatus;
+                        }
+                        viewerDestroyed = true;
+                        renderLoopStarted = false;
+
+                        const initStatus = api.init();
+                        if (initStatus > 0) {
+                            viewerDestroyed = false;
+                            syncCanvasSize(canvas, api);
+                            if (api.renderFrame) api.renderFrame();
+                            const lifecycleStatus = document.getElementById('lifecycleStatus');
+                            if (lifecycleStatus) lifecycleStatus.textContent = 'Ready';
+                            refreshModelList();
+                        }
+                        return initStatus;
+                    },
+                    async clearViewer() { return api.clearViewer ? api.clearViewer() : api.removeAllModels(); },
+                    async clear() { return api.clear ? api.clear() : this.clearViewer(); },
+                    async setSelectionMode(mode) { return api.setSelectionMode(mode); },
+                    async getSelectionMode() { return api.getSelectionMode(); },
+                    async getSelection(modelId) { return JSON.parse(api.getSelectionJson(modelId)); },
+                    async clearSelection(modelId) { return api.clearSelection(modelId); },
+                    async resize(width, height) { return api.setSize(width, height); },
+                    async setCameraType(type) { return api.setCameraType(type === 'orthographic' ? 1 : 0); },
+                    async resetCamera() { api.resetCamera(); },
+                    async viewXPlus() { return api.viewXPlus(); },
+                    async viewXMinus() { return api.viewXMinus(); },
+                    async viewYPlus() { return api.viewYPlus(); },
+                    async viewYMinus() { return api.viewYMinus(); },
+                    async viewZPlus() { return api.viewZPlus(); },
+                    async viewZMinus() { return api.viewZMinus(); },
+                    async viewIsometric() { return api.viewIsometric(); },
+                    async toggleAxes(visible) { return api.toggleAxes(Boolean(visible)); },
+                    async toggleColorBar(visible) { return api.toggleColorBar(Boolean(visible)); },
+                    async setActorRepresentation(uuid, repr) { return api.setViewStyle(Number(uuid), Number(repr)); },
+                    async getActorRepresentation(uuid) { return api.getViewStyle(Number(uuid)); },
+                    async setActorColor(uuid, color) {
+                        const rgb = hexToRgb01(color);
+                        return api.setModelDefaultColor(Number(uuid), rgb[0], rgb[1], rgb[2]);
+                    },
+                    async getActorColor(uuid) { return api.getModelDefaultColor(Number(uuid)); },
+                    async setActorSolidColor(uuid, color) {
+                        const rgb = hexToRgb01(color);
+                        return api.setSolidColor(Number(uuid), rgb[0], rgb[1], rgb[2]);
+                    },
+                    async getActorSolidColor(uuid) { return api.getSolidColor(Number(uuid)); },
+                    async setActorOpacity(uuid, opacity) { return api.setActorOpacity(Number(uuid), Number(opacity)); },
+                    async getActorOpacity(uuid) { return api.getActorOpacity(Number(uuid)); },
+                    async toggleActor(uuid, visible) { return api.setModelVisibility(Number(uuid), Boolean(visible)); },
+                    async actorIds(visible) {
+                        const list = JSON.parse(api.getModelListJson() || '[]');
+                        return list
+                            .filter((item) => visible === undefined || item.visible === Boolean(visible))
+                            .map((item) => String(item.modelId));
+                    },
+                    async setCornerAnnotationText(text) {
+                        return api.setCornerAnnotationText(String(text || ''));
+                    },
+                    async setCornerAnnotationPosition(left, top) {
+                        return api.setCornerAnnotationPosition(Number(left), Number(top));
+                    },
+                    async setSceneBackgroundGradientColor(color1, color2, mode) {
+                        const rgb1 = hexToRgb01(color1);
+                        const rgb2 = hexToRgb01(color2 || color1);
+                        if (mode === 0 || !api.setSceneBackgroundGradientColor) {
+                            return api.setSceneBackgroundColor(rgb1[0], rgb1[1], rgb1[2]);
+                        }
+                        return api.setSceneBackgroundGradientColor(
+                            rgb1[0], rgb1[1], rgb1[2],
+                            rgb2[0], rgb2[1], rgb2[2],
+                            mode
+                        );
+                    },
+                    async setBackgroundColor(color1, color2 = color1, gradient = 'solid') {
+                        const modeMap = { solid: 0, vertical: 1, horizontal: 2 };
+                        const mode = modeMap[gradient] || 0;
+                        return this.setSceneBackgroundGradientColor(color1, color2, mode);
+                    },
+                    async zoom(factor) { return api.zoom(Number(factor)); },
+                };
+                api.setCornerAnnotationText(document.getElementById('annotationText').value || '');
+                api.setCornerAnnotationPosition(12, 10);
+                if (api.setCornerAnnotationAnchorToBottomRight) {
+                    api.setCornerAnnotationAnchorToBottomRight(true);
+                }
+
+                const callViewerMethod = async (name, ...args) => {
+                    try {
+                        log(`call ${name}(${args.map((value) => JSON.stringify(value)).join(', ')})`);
+                        const status = await window.iGameViewerApi[name](...args);
+                        log(`${name} => ${JSON.stringify(status)}`);
+                        if (api.getLastErrorJson) {
+                            log(`lastError after ${name}: ${api.getLastErrorJson()}`);
+                        }
+                        if (!viewerDestroyed && api.renderFrame) api.renderFrame();
+                        return status;
+                    } catch (err) {
+                        log(`${name} exception: ${err && err.stack ? err.stack : err}`);
+                        return 0;
+                    }
+                };
+
+                document.getElementById('btnDestroyViewer').addEventListener('click', async () => {
+                    const status = await callViewerMethod('destroyViewer');
+                    log(`destroy releases scene/window/interactor globals => ${status}`);
+                });
+                document.getElementById('btnReinitViewer').addEventListener('click', async () => {
+                    const status = await callViewerMethod('reinitializeViewer');
+                    log(`destroy + init => ${status}`);
+                });
+                document.getElementById('btnViewXPlus').addEventListener('click', () => callViewerMethod('viewXPlus'));
+                document.getElementById('btnViewXMinus').addEventListener('click', () => callViewerMethod('viewXMinus'));
+                document.getElementById('btnViewYPlus').addEventListener('click', () => callViewerMethod('viewYPlus'));
+                document.getElementById('btnViewYMinus').addEventListener('click', () => callViewerMethod('viewYMinus'));
+                document.getElementById('btnViewZPlus').addEventListener('click', () => callViewerMethod('viewZPlus'));
+                document.getElementById('btnViewZMinus').addEventListener('click', () => callViewerMethod('viewZMinus'));
+                document.getElementById('btnViewIso').addEventListener('click', () => callViewerMethod('viewIsometric'));
+                document.getElementById('btnZoomIn').addEventListener('click', () => callViewerMethod('zoom', 1.25));
+                document.getElementById('btnZoomOut').addEventListener('click', () => callViewerMethod('zoom', 0.8));
+                document.getElementById('axesVisible').addEventListener('change', (event) => {
+                    callViewerMethod('toggleAxes', event.target.checked);
+                });
+                document.getElementById('colorBarVisible').addEventListener('change', async (event) => {
+                    log(`colorBarVisible changed => ${event.target.checked}`);
+                    await callViewerMethod('toggleColorBar', event.target.checked);
+                    if (api.getColorMapJson) {
+                        log(`colorMap snapshot after toggle: ${api.getColorMapJson()}`);
+                    }
+                });
+
+                document.getElementById('actorOpacity').addEventListener('input', (event) => {
+                    document.getElementById('actorOpacityText').textContent = Number(event.target.value).toFixed(2);
+                });
+
+                document.getElementById('btnApplyOpacity').addEventListener('click', () => {
+                    const modelId = getSelectedModelId();
+                    if (modelId === null) {
+                        log('apply opacity failed: no model selected');
+                        return;
+                    }
+                    const opacity = parseFloat(document.getElementById('actorOpacity').value);
+                    callViewerMethod('setActorOpacity', modelId, opacity);
+                });
+
+                document.getElementById('btnReadOpacity').addEventListener('click', async () => {
+                    const modelId = getSelectedModelId();
+                    if (modelId === null) {
+                        log('read opacity failed: no model selected');
+                        return;
+                    }
+                    const opacity = await callViewerMethod('getActorOpacity', modelId);
+                    if (opacity >= 0) {
+                        document.getElementById('actorOpacity').value = String(opacity);
+                        document.getElementById('actorOpacityText').textContent = Number(opacity).toFixed(2);
+                        log(`opacity read for model #${modelId}: ${Number(opacity).toFixed(2)}`);
+                    }
+                });
+
+                document.getElementById('btnApplyGradientBg').addEventListener('click', () => {
+                    const color1 = document.getElementById('bgColor').value || '#222222';
+                    const color2 = document.getElementById('bgColor2').value || color1;
+                    const gradient = document.getElementById('bgGradient').value || 'solid';
+                    callViewerMethod('setBackgroundColor', color1, color2, gradient);
+                });
+
+                document.getElementById('btnApplyAnnotation').addEventListener('click', () => {
+                    const text = document.getElementById('annotationText').value || '';
+                    callViewerMethod('setCornerAnnotationText', text);
+                });
+
+                const refreshModelList = () => {
+                    const timing = postLoadRenderTiming;
+                    const startedAt = timing ? performance.now() : 0;
+                    try {
+                        const raw = api.getModelListJson();
+                        const list = raw ? JSON.parse(raw) : [];
+                        const modelSelect = document.getElementById('modelList');
+                        const previous = modelSelect.value;
+                        modelSelect.innerHTML = '';
+
+                        if (!Array.isArray(list) || list.length === 0) {
+                            const option = document.createElement('option');
+                            option.value = '';
+                            option.textContent = 'No model loaded';
+                            modelSelect.appendChild(option);
+                            return;
+                        }
+
+                        let activeValue = '';
+                        for (const model of list) {
+                            const option = document.createElement('option');
+                            option.value = String(model.modelId);
+                            const activeTag = model.isActive ? 'active' : 'inactive';
+                            const visibleTag = model.visible ? 'visible' : 'hidden';
+                            option.textContent = `#${model.modelId} ${model.name} [${activeTag}, ${visibleTag}] (${model.sourceType})`;
+                            option.dataset.visible = String(model.visible);
+                            option.dataset.active = String(model.isActive);
+                            modelSelect.appendChild(option);
+                            if (model.isActive) {
+                                activeValue = option.value;
+                            }
+                        }
+
+                        if (previous && Array.from(modelSelect.options).some((o) => o.value === previous)) {
+                            modelSelect.value = previous;
+                        } else if (activeValue) {
+                            modelSelect.value = activeValue;
+                        } else {
+                            modelSelect.selectedIndex = 0;
+                        }
+                    } catch (err) {
+                        log(`refresh model list exception: ${err && err.stack ? err.stack : err}`);
+                    } finally {
+                        if (timing !== null && timing === postLoadRenderTiming) {
+                            timing.refreshModelListMs = performance.now() - startedAt;
+                            log(`[First render timing] refreshModelList=${timing.refreshModelListMs.toFixed(2)} ms`);
+                        }
+                    }
+                };
+
+                document.getElementById('btnRefreshModels').addEventListener('click', refreshModelList);
+
+                const selectionModeName = (mode) => mode === 1 ? 'Point' : mode === 2 ? 'Face' : 'Browse';
+                const updateSelectionResult = (message) => {
+                    document.getElementById('selectionResult').textContent = message;
+                };
+                const readSelection = () => {
+                    const modelId = getSelectedModelId();
+                    if (modelId === null) {
+                        updateSelectionResult(`Mode: ${selectionModeName(api.getSelectionMode())}; no model selected`);
+                        return null;
+                    }
+                    const json = api.getSelectionJson(modelId);
+                    updateSelectionResult(`Mode: ${selectionModeName(api.getSelectionMode())}; ${json}`);
+                    return json;
+                };
+                const setSelectionMode = (mode) => {
+                    const ok = api.setSelectionMode(mode);
+                    if (!ok) {
+                        log(`set selection mode failed: ${api.getLastErrorJson()}`);
+                        return;
+                    }
+                    updateSelectionResult(`Mode: ${selectionModeName(api.getSelectionMode())}`);
+                    log(`selection mode => ${selectionModeName(mode)}`);
+                };
+
+                document.getElementById('btnSelectionBrowse').addEventListener('click', () => setSelectionMode(0));
+                document.getElementById('btnSelectionPoint').addEventListener('click', () => setSelectionMode(1));
+                document.getElementById('btnSelectionFace').addEventListener('click', () => setSelectionMode(2));
+                document.getElementById('btnReadSelection').addEventListener('click', () => {
+                    try {
+                        const json = readSelection();
+                        if (json !== null) log(`selection => ${json}`);
+                    } catch (err) {
+                        log(`read selection exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+                document.getElementById('btnClearSelection').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('clear selection failed: no model selected');
+                            return;
+                        }
+                        if (!api.clearSelection(modelId)) {
+                            log(`clear selection failed: ${api.getLastErrorJson()}`);
+                            return;
+                        }
+                        readSelection();
+                    } catch (err) {
+                        log(`clear selection exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                const parseClipPlaneFields = () => ({
+                    ox: Number(document.getElementById('clipOriginX').value),
+                    oy: Number(document.getElementById('clipOriginY').value),
+                    oz: Number(document.getElementById('clipOriginZ').value),
+                    nx: Number(document.getElementById('clipNormalX').value),
+                    ny: Number(document.getElementById('clipNormalY').value),
+                    nz: Number(document.getElementById('clipNormalZ').value),
+                });
+
+                const writeClipPlaneFields = (plane) => {
+                    if (!plane) return;
+                    document.getElementById('clipOriginX').value = String(plane.origin?.[0] ?? 0);
+                    document.getElementById('clipOriginY').value = String(plane.origin?.[1] ?? 0);
+                    document.getElementById('clipOriginZ').value = String(plane.origin?.[2] ?? 0);
+                    document.getElementById('clipNormalX').value = String(plane.normal?.[0] ?? 1);
+                    document.getElementById('clipNormalY').value = String(plane.normal?.[1] ?? 0);
+                    document.getElementById('clipNormalZ').value = String(plane.normal?.[2] ?? 0);
+                };
+
+                const readClipPlaneFromWasm = () => {
+                    if (!api.getClipPlaneJson) return null;
+                    try {
+                        return JSON.parse(api.getClipPlaneJson());
+                    } catch (err) {
+                        log(`read clip plane exception: ${err && err.stack ? err.stack : err}`);
+                        return null;
+                    }
+                };
+
+                const updateSliceStatus = (message) => {
+                    document.getElementById('sliceStatus').textContent = message;
+                };
+
+                const syncSliceOptionsToWasm = () => {
+                    const mode = document.getElementById('sliceModeClip').checked ? 1 : 0;
+                    api.setSliceOperationMode(mode);
+                    api.setSlicingPreview(document.getElementById('slicePreview').checked);
+                    api.setSliceCrinkle(document.getElementById('sliceCrinkle').checked);
+                    api.setSliceInvert(document.getElementById('sliceInvert').checked);
+                };
+
+                const applyClipPlaneFromFields = () => {
+                    const p = parseClipPlaneFields();
+                    const ok = api.setClipPlane(p.ox, p.oy, p.oz, p.nx, p.ny, p.nz);
+                    if (ok !== 1) {
+                        log(`set clip plane failed: ${api.getLastErrorJson()}`);
+                        return false;
+                    }
+                    if (api.renderFrame) api.renderFrame();
+                    return true;
+                };
+
+                const executeSliceNow = () => {
+                    syncSliceOptionsToWasm();
+                    const resultModelId = api.executeSlice();
+                    if (!resultModelId) {
+                        log(`execute slice failed: ${api.getLastErrorJson()}`);
+                        updateSliceStatus('Slice: execute failed');
+                        return 0;
+                    }
+                    refreshModelList();
+                    startRenderLoop();
+                    updateSliceStatus(`Slice: result modelId=${resultModelId}`);
+                    log(`slice result modelId=${resultModelId}`);
+                    return resultModelId;
+                };
+
+                const enterSlicingMode = () => {
+                    try {
+                        syncSliceOptionsToWasm();
+                        let modelId = getSelectedModelId();
+                        if (modelId === null && api.getSliceSourceModelId) {
+                            modelId = api.getSliceSourceModelId();
+                        }
+                        const ok = api.enterSlicingMode(modelId ?? 0);
+                        if (ok !== 1) {
+                            log(`enter slicing failed: ${api.getLastErrorJson()}`);
+                            updateSliceStatus('Slice: enter failed');
+                            return;
+                        }
+                        writeClipPlaneFields(readClipPlaneFromWasm());
+                        startRenderLoop();
+                        if (api.renderFrame) api.renderFrame();
+                        updateSliceStatus(`Slice: active source=${api.getSliceSourceModelId()}`);
+                        log(`slicing mode active source=${api.getSliceSourceModelId()} plane=${api.getClipPlaneJson()}`);
+                    } catch (err) {
+                        log(`enter slicing exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                const exitSlicingMode = () => {
+                    try {
+                        api.exitSlicingMode();
+                        updateSliceStatus('Slice: inactive');
+                        if (api.renderFrame) api.renderFrame();
+                        log('slicing mode exited');
+                    } catch (err) {
+                        log(`exit slicing exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                };
+
+                document.getElementById('btnEnterSlicing').addEventListener('click', enterSlicingMode);
+                document.getElementById('btnExitSlicing').addEventListener('click', exitSlicingMode);
+                document.getElementById('btnApplyClipPlane').addEventListener('click', () => {
+                    if (applyClipPlaneFromFields()) {
+                        writeClipPlaneFields(readClipPlaneFromWasm());
+                        updateSliceStatus('Slice: plane applied');
+                    }
+                });
+                document.getElementById('btnExecuteSlice').addEventListener('click', executeSliceNow);
+                ['sliceModeSlice', 'sliceModeClip', 'slicePreview', 'sliceCrinkle', 'sliceInvert'].forEach((id) => {
+                    document.getElementById(id).addEventListener('change', syncSliceOptionsToWasm);
+                });
+
+                document.getElementById('btnSetActiveModel').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('set active failed: no model selected');
+                            return;
+                        }
+                        const ok = api.setActiveModel(modelId);
+                        if (!ok) {
+                            log('set active failed');
+                            return;
+                        }
+                        refreshModelList();
+                        refreshScalarList();
+                    } catch (err) {
+                        log(`set active exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnToggleModelVisibility').addEventListener('click', () => {
+                    try {
+                        const modelSelect = document.getElementById('modelList');
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('toggle visibility failed: no model selected');
+                            return;
+                        }
+                        const selected = modelSelect.options[modelSelect.selectedIndex];
+                        const currentVisible = selected && selected.dataset.visible === 'true';
+                        const nextVisible = currentVisible ? 0 : 1;
+                        const ok = api.setModelVisibility(modelId, nextVisible !== 0);
+                        if (!ok) {
+                            log('toggle visibility failed');
+                            return;
+                        }
+                        refreshModelList();
+                    } catch (err) {
+                        log(`toggle visibility exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnRemoveModel').addEventListener('click', () => {
+                    try {
+                        const modelId = getSelectedModelId();
+                        if (modelId === null) {
+                            log('remove failed: no model selected');
+                            return;
+                        }
+                        const ok = api.removeModel(modelId);
+                        if (!ok) {
+                            log('remove model failed');
+                            return;
+                        }
+                        refreshModelList();
+                        refreshScalarList();
+                    } catch (err) {
+                        log(`remove model exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnRemoveAllModels').addEventListener('click', () => {
+                    try {
+                        const ok = api.removeAllModels();
+                        if (!ok) {
+                            log('remove all models failed');
+                            return;
+                        }
+                        refreshModelList();
+                        refreshScalarList();
+                    } catch (err) {
+                        log(`remove all models exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnClearViewer').addEventListener('click', async () => {
+                    const ok = await callViewerMethod('clearViewer');
+                    if (!ok) {
+                        log('clear viewer failed');
+                        return;
+                    }
+                    refreshModelList();
+                    refreshScalarList();
+                    log('viewer cleared');
+                });
+
+                document.getElementById('btnRefreshScalarList').addEventListener('click', refreshScalarList);
+                document.getElementById('autoRangeMode').addEventListener('change', (event) => {
+                    const label = autoRangeModeLabel(Number(event.target.value));
+                    document.getElementById('autoRangeStatus').textContent = `${label} · Apply Scalar`;
+                });
+                refreshModelList();
+
+                // ---------------- ColorMap 编辑器逻辑 ----------------
+                const colorNodesEl = document.getElementById('color_nodes');
+                const colorCanvas = document.getElementById('color_canvas');
+                const colorCtx = colorCanvas.getContext('2d');
+                const colorJsonOut = document.getElementById('color_jsonOut');
+
+                function hexToRgb01(hex) {
+                    if (hex.startsWith('#')) hex = hex.slice(1);
+                    const bigint = parseInt(hex, 16);
+                    const r = (bigint >> 16) & 255;
+                    const g = (bigint >> 8) & 255;
+                    const b = bigint & 255;
+                    return [r / 255, g / 255, b / 255];
+                }
+                function rgb01ToHex(r, g, b) {
+                    const toHex = v => {
+                        const n = Math.round(Math.max(0, Math.min(1, v)) * 255);
+                        return ('0' + n.toString(16)).slice(-2);
+                    };
+                    return '#' + toHex(r) + toHex(g) + toHex(b);
+                }
+
+                function addColorNode(hex = '#000000', pos = 0.0) {
+                    const div = document.createElement('div');
+                    div.className = 'color-node';
+                    div.style.display = 'flex';
+                    div.style.gap = '8px';
+                    div.style.alignItems = 'center';
+                    div.style.marginBottom = '6px';
+                    div.innerHTML = `<input type="color" class="color" value="${hex}"/>` +
+                        `<input type="number" class="pos" min="0" max="1" step="0.001" value="${pos}" style="width:80px;"/>` +
+                        `<button class="remove">删除</button>`;
+                    colorNodesEl.appendChild(div);
+                    div.querySelector('.remove').onclick = () => { div.remove(); renderColorEditor(); };
+                    div.querySelector('.color').oninput = renderColorEditor;
+                    div.querySelector('.pos').oninput = renderColorEditor;
+                    renderColorEditor();
+                }
+
+                function clearColorNodes() { colorNodesEl.innerHTML = ''; }
+
+                function readColorNodes() {
+                    const rows = Array.from(colorNodesEl.querySelectorAll('.color-node'));
+                    const items = rows.map(r => {
+                        const hex = r.querySelector('.color').value;
+                        const pos = parseFloat(r.querySelector('.pos').value) || 0.0;
+                        return { hex, pos };
+                    });
+                    items.sort((a, b) => a.pos - b.pos);
+                    return items;
+                }
+
+                function renderColorEditor() {
+                    const items = readColorNodes();
+                    if (items.length === 0) { colorCtx.clearRect(0, 0, colorCanvas.width, colorCanvas.height); return; }
+                    const grad = colorCtx.createLinearGradient(0, 0, colorCanvas.width, 0);
+                    const min = items[0].pos, max = items[items.length - 1].pos;
+                    const range = Math.max(1e-6, max - min);
+                    items.forEach(it => {
+                        const rgb = hexToRgb01(it.hex);
+                        const color = `rgb(${Math.round(rgb[0] * 255)},${Math.round(rgb[1] * 255)},${Math.round(rgb[2] * 255)})`;
+                        const t = (it.pos - min) / range;
+                        grad.addColorStop(t, color);
+                    });
+                    colorCtx.fillStyle = grad;
+                    colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
+                    colorCtx.fillStyle = '#000';
+                    items.forEach(it => {
+                        const t = (it.pos - min) / range; const x = Math.round(t * colorCanvas.width);
+                        colorCtx.fillRect(x - 1, 0, 2, colorCanvas.height);
+                    });
+                }
+
+                document.getElementById('color_btnAdd').addEventListener('click', () => addColorNode('#ffffff', 1.0));
+                document.getElementById('color_btnDefault').addEventListener('click', () => { clearColorNodes(); addColorNode('#000000', 0.0); addColorNode('#ff0000', 0.5); addColorNode('#ffffff', 1.0); });
+
+                document.getElementById('color_btnApply').addEventListener('click', () => {
+                    const items = readColorNodes();
+                    if (items.length === 0) { alert('请至少添加一个节点'); return; }
+                    const colors_flat = [];
+                    const ranges = [];
+                    for (const it of items) { const rgb = hexToRgb01(it.hex); colors_flat.push(rgb[0], rgb[1], rgb[2]); ranges.push(it.pos); }
+                    try {
+                        const ok = api.setColorMap(colors_flat, ranges);
+                        log(`setColorMap => ${ok}`);
+                        log(`lastError after setColorMap: ${api.getLastErrorJson ? api.getLastErrorJson() : 'n/a'}`);
+                        if (ok > 0) { if (api.renderFrame) api.renderFrame(); }
+                        else { alert('setColorMap 返回错误，查看控制台'); }
+                    } catch (e) { console.error('setColorMap err', e); alert('调用 setColorMap 出错'); }
+                });
+
+                document.getElementById('color_btnGet').addEventListener('click', () => {
+                    try {
+                        const json = api.getColorMapJson();
+                        log(`getColorMapJson => ${json}`);
+                        colorJsonOut.textContent = json;
+                        try {
+                            const parsed = JSON.parse(json);
+                            if (parsed.colors && parsed.ranges) {
+                                clearColorNodes();
+                                for (let i = 0; i < parsed.colors.length; i++) {
+                                    const c = parsed.colors[i]; const r = parsed.ranges[i]; const hex = rgb01ToHex(c[0], c[1], c[2]); addColorNode(hex, r);
+                                }
+                            }
+                        } catch (e) { }
+                    } catch (e) { console.error('getColorMapJson err', e); alert('getColorMapJson 出错'); }
+                });
+
+                // init default
+                document.getElementById('color_btnDefault').click();
+                // ---------------- end ColorMap 编辑器 ----------------
+
+                // Range API Verification handlers
+                try {
+                    const rangeApplyEl = document.getElementById('rangeApply');
+                    if (rangeApplyEl) {
+                        rangeApplyEl.addEventListener('click', () => {
+                            try {
+                                const modelId = getSelectedModelId();
+                                if (modelId === null) {
+                                    log('apply range api failed: no model selected');
+                                    return;
+                                }
+                                const scalarName = String(document.getElementById('rangeScalar').value || 'Temperature');
+                                const component = Number(document.getElementById('rangeComponent').value);
+                                const minValue = Number(document.getElementById('rangeMin').value);
+                                const maxValue = Number(document.getElementById('rangeMax').value);
+                                const status = api.setColorMapByNameRange(modelId, scalarName, component, minValue, maxValue);
+                                if (status !== 1) {
+                                    log(`apply range api failed: ${api.getLastErrorJson()}`);
+                                    return;
+                                }
+                                if (api.renderFrame) api.renderFrame();
+                                log(`apply range api ok: modelId=${modelId} name=${scalarName} component=${component} range=[${minValue}, ${maxValue}]`);
+                            } catch (err) {
+                                log(`apply range api exception: ${err && err.stack ? err.stack : err}`);
+                            }
+                        });
+                    }
+
+                    const rangeReadEl = document.getElementById('rangeRead');
+                    if (rangeReadEl) {
+                        rangeReadEl.addEventListener('click', () => {
+                            try {
+                                const json = api.getColorMapJson();
+                                log(`range api read back => ${json}`);
+                            } catch (err) {
+                                log(`range api read back exception: ${err && err.stack ? err.stack : err}`);
+                            }
+                        });
+                    }
+
+                    const rangeDebugEl = document.getElementById('rangeDebugSequence');
+                    if (rangeDebugEl) {
+                        rangeDebugEl.addEventListener('click', () => {
+                            try {
+                                const modelId = getSelectedModelId();
+                                if (modelId === null) {
+                                    log('debug range sequence failed: no model selected');
+                                    return;
+                                }
+                                const scalarName = String(document.getElementById('rangeScalar').value || 'Temperature');
+                                const component = Number(document.getElementById('rangeComponent').value);
+                                const json = api.debugColorMapRangeSequence(modelId, scalarName, component, 0, 1, 0, 100, 0, 1);
+                                if (api.renderFrame) api.renderFrame();
+                                log(`debug range sequence => ${json}`);
+                            } catch (err) {
+                                log(`debug range sequence exception: ${err && err.stack ? err.stack : err}`);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    log(`attach range handlers failed: ${e && e.stack ? e.stack : e}`);
+                }
+
+                canvas.style.touchAction = 'none';
+                let activePointerId = null;
+                let activeButton = mouseButton.NoButton;
+                let rightDragLock = false;
+                let selectionPointer = false;
+                let selectionPressPos = null;
+                let selectionPointerMoved = false;
+                const selectionClickMoveThreshold = 5;
+
+                // Old-style handlers are kept as an extra guard for browsers that trigger
+                // context gestures before modern event listeners can fully suppress them.
+                canvas.oncontextmenu = () => false;
+                canvas.onselectstart = () => false;
+
+                const suppressCanvasDefault = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+
+                const shouldSuppress = (e) => {
+                    return e.target === canvas || rightDragLock;
+                };
+
+                const mapPointerButtonToAction = (e) => {
+                    const nativeButton = domButtonToIgame(e.button);
+                    if (useShiftLeftAsRightDragFallback && nativeButton === mouseButton.LeftButton && e.shiftKey) {
+                        return mouseButton.RightButton;
+                    }
+                    return nativeButton;
+                };
+
+                const suppressWindowDefaultIfNeeded = (e) => {
+                    if (shouldSuppress(e)) {
+                        e.preventDefault();
+                    }
+                };
+
+                const clearInteractionState = () => {
+                    activePointerId = null;
+                    activeButton = mouseButton.NoButton;
+                    rightDragLock = false;
+                    selectionPointer = false;
+                    selectionPressPos = null;
+                    selectionPointerMoved = false;
+                };
+
+                const interceptOptions = { capture: true };
+                const wheelInterceptOptions = { capture: true, passive: false };
+
+                canvas.addEventListener('contextmenu', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('auxclick', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('mousedown', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('mouseup', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('mousemove', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('wheel', suppressCanvasDefault, wheelInterceptOptions);
+                canvas.addEventListener('dragstart', suppressCanvasDefault, interceptOptions);
+                canvas.addEventListener('selectstart', suppressCanvasDefault, interceptOptions);
+
+                window.addEventListener('contextmenu', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('auxclick', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('mousedown', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('mouseup', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('mousemove', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('pointermove', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('pointerup', suppressWindowDefaultIfNeeded, interceptOptions);
+                window.addEventListener('wheel', suppressWindowDefaultIfNeeded, wheelInterceptOptions);
+                window.addEventListener('blur', () => {
+                    interactionRenderStats.end('window-blur');
+                    clearInteractionState();
+                }, interceptOptions);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState !== 'visible') {
+                        interactionRenderStats.end('document-hidden');
+                        clearInteractionState();
+                    }
+                }, interceptOptions);
+
+                const sendMouseEvent = (type, button, e, delta = 0, overridePos = null) => {
+                    const pos = overridePos || getCanvasPos(canvas, e);
+                    api.sendMouseEvent(type, button, pos.x, pos.y, delta);
+                    if (api.isSlicingMode && api.isSlicingMode()) {
+                        if (api.renderFrame) api.renderFrame();
+                    }
+                };
+
+                canvas.addEventListener('pointerdown', (e) => {
+                    suppressCanvasDefault(e);
+                    try {
+                        activePointerId = e.pointerId;
+                        activeButton = mapPointerButtonToAction(e);
+                        selectionPointer = api.getSelectionMode() !== 0 && activeButton === mouseButton.LeftButton;
+                        if (selectionPointer) {
+                            selectionPressPos = getCanvasPos(canvas, e);
+                            activeButton = mouseButton.MiddleButton;
+                        }
+                        rightDragLock = activeButton === mouseButton.RightButton;
+                        canvas.setPointerCapture(e.pointerId);
+                        if (activeButton !== mouseButton.NoButton) {
+                            interactionRenderStats.begin('drag');
+                        }
+                        sendMouseEvent(eventType.MousePress, activeButton, e, 0);
+                    } catch (err) {
+                        log(`pointer down exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                }, interceptOptions);
+
+                canvas.addEventListener('pointermove', (e) => {
+                    if (e.pointerId === activePointerId || e.buttons !== 0) {
+                        suppressCanvasDefault(e);
+                    }
+                    try {
+                        if (selectionPointer && selectionPressPos) {
+                            const pos = getCanvasPos(canvas, e);
+                            const dx = pos.x - selectionPressPos.x;
+                            const dy = pos.y - selectionPressPos.y;
+                            if (Math.hypot(dx, dy) > selectionClickMoveThreshold) {
+                                selectionPointerMoved = true;
+                            }
+                        }
+                        // Mouse move keeps C++ side mode unchanged; mode is decided at press/release.
+                        sendMouseEvent(eventType.MouseMove, mouseButton.NoButton, e, 0);
+                    } catch (err) {
+                        log(`pointer move exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                }, interceptOptions);
+
+                const handlePointerRelease = (e) => {
+                    suppressCanvasDefault(e);
+                    try {
+                        if (canvas.hasPointerCapture(e.pointerId)) {
+                            canvas.releasePointerCapture(e.pointerId);
+                        }
+                        const releaseButton = activeButton !== mouseButton.NoButton ? activeButton : mapPointerButtonToAction(e);
+                        const releasePos = selectionPointer && !selectionPointerMoved ? selectionPressPos : null;
+                        sendMouseEvent(eventType.MouseRelease, releaseButton, e, 0, releasePos);
+                        if (selectionPointer && !selectionPointerMoved) {
+                            readSelection();
+                        }
+                        if (api.isSlicingMode && api.isSlicingMode()) {
+                            writeClipPlaneFields(readClipPlaneFromWasm());
+                            updateSliceStatus(`Slice: active source=${api.getSliceSourceModelId()}`);
+                        }
+                        interactionRenderStats.end('mouse-up');
+                        clearInteractionState();
+                    } catch (err) {
+                        log(`pointer release exception: ${err && err.stack ? err.stack : err}`);
+                        interactionRenderStats.end('mouse-up-error');
+                        clearInteractionState();
+                    }
+                };
+
+                canvas.addEventListener('pointerup', handlePointerRelease, interceptOptions);
+                canvas.addEventListener('pointercancel', handlePointerRelease, interceptOptions);
+                canvas.addEventListener('lostpointercapture', () => {
+                    interactionRenderStats.end('lost-pointer-capture');
+                    clearInteractionState();
+                }, interceptOptions);
+
+                canvas.addEventListener('wheel', (e) => {
+                    suppressCanvasDefault(e);
+                    try {
+                        interactionRenderStats.begin('wheel');
+                        const delta = e.deltaY < 0 ? 120 : -120;
+                        sendMouseEvent(eventType.Wheel, mouseButton.NoButton, e, delta);
+                        interactionRenderStats.endWheelSoon();
+                    } catch (err) {
+                        log(`wheel exception: ${err && err.stack ? err.stack : err}`);
+                        interactionRenderStats.end('wheel-error');
+                    }
+                }, wheelInterceptOptions);
+
+                const formatBytes = (value) => {
+                    const bytes = Number(value) || 0;
+                    if (bytes < 1024) return `${bytes} B`;
+                    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KiB`;
+                    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
+                    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GiB`;
+                };
+                const errorText = (err) => {
+                    const name = err && err.name ? err.name : 'Error';
+                    const message = err && err.message ? err.message : String(err);
+                    return `${name}: ${message}`;
+                };
+                const maxDirectFileBytes = 1024 * 1024 * 1024;
+                const stagedIgcThresholdBytes = 256 * 1024 * 1024;
+
+                const loadIgcBrowserFile = async (
+                    file,
+                    sourceName,
+                    enableReuseCache = !singleFrameBenchmarkMode) => {
+                    if (typeof Module.ccall !== 'function') {
+                        log('[Browser file] async ccall is unavailable');
+                        return false;
+                    }
+                    if (!Number.isSafeInteger(file.size) || file.size <= 0) {
+                        log(`[Browser file] invalid size=${file.size}`);
+                        return false;
+                    }
+
+                    const fileId = Module.igameNextBrowserFileId++;
+                    Module.igameBrowserFiles.set(fileId, file);
+                    Module.igameBrowserFileStats.set(fileId, {
+                        requests: 0,
+                        bytes: 0,
+                        firstOffset: 0,
+                        lastOffset: 0,
+                    });
+                    const mode = document.getElementById('importMode').value;
+                    const replaceExisting = mode === 'replace' ? 1 : 0;
+                    const reuseCacheEnabled = dataCodecCacheExperimentEnabled
+                        ? (dataCodecCacheExperiment.decodedFrameCache ? 1 : 0)
+                        : (enableReuseCache ? 1 : 0);
+                    wasmAsyncCallActive = true;
+                    const loadStart = performance.now();
+                    log(`[Browser file] begin fileId=${fileId} name=${sourceName} size=${file.size} (${formatBytes(file.size)}) reuse-cache=${reuseCacheEnabled}`);
+                    try {
+                        const modelId = await Module.ccall(
+                            'igameLoadIgcBrowserFile',
+                            'number',
+                            ['number', 'number', 'string', 'number', 'number', 'number', 'number'],
+                            [
+                                fileId,
+                                file.size,
+                                sourceName,
+                                replaceExisting,
+                                reuseCacheEnabled,
+                                dataCodecCacheExperiment.encodedInputCache ? 1 : 0,
+                                dataCodecCacheExperiment.fullInputPrefetch ? 1 : 0,
+                            ],
+                            { async: true });
+                        const elapsed = performance.now() - loadStart;
+                        const stats = Module.igameBrowserFileStats.get(fileId);
+                        if (!modelId) {
+                            Module.igameBrowserFiles.delete(fileId);
+                            Module.igameBrowserFileStats.delete(fileId);
+                            log(`[Browser file] load failed elapsed=${elapsed.toFixed(2)} ms hostError=${Module.igameBrowserFileLastError} lastError=${api.getLastErrorJson()}`);
+                            return false;
+                        }
+                        log(`[Browser file] loaded modelId=${modelId} elapsed=${elapsed.toFixed(2)} ms requests=${stats ? stats.requests : 0} bytes=${stats ? stats.bytes : 0}`);
+                        if (dataCodecCacheExperimentEnabled) {
+                            const memory = captureDataCodecMemoryObservation();
+                            log(`[Benchmark] linear-memory=${memory.linearMemoryBytes} peak-linear-memory=${memory.peakLinearMemoryBytes} js-heap=${memory.jsHeapBytes} peak-js-heap=${memory.peakJsHeapBytes}`);
+                        }
+                        log('model loaded, start rendering');
+                        armPostLoadRenderTiming(modelId, loadStart);
+                        refreshModelList();
+                        refreshScalarList();
+                        startRenderLoop();
+                        return true;
+                    } catch (err) {
+                        Module.igameBrowserFiles.delete(fileId);
+                        Module.igameBrowserFileStats.delete(fileId);
+                        log(`[Browser file] exception error=${errorText(err)} hostError=${Module.igameBrowserFileLastError}`);
+                        return false;
+                    } finally {
+                        wasmAsyncCallActive = false;
+                    }
+                };
+
+                const requestIgcAttribute = async (modelId, catalogIndex, prefetchOnly = false) => {
+                    const summarizeReads = () => {
+                        let requests = 0;
+                        let bytes = 0;
+                        for (const stats of Module.igameBrowserFileStats.values()) {
+                            requests += stats.requests;
+                            bytes += stats.bytes;
+                        }
+                        return { requests, bytes };
+                    };
+                    const before = summarizeReads();
+                    const startedAt = performance.now();
+                    wasmAsyncCallActive = true;
+                    try {
+                        const result = await Module.ccall(
+                            prefetchOnly ? 'igamePrefetchIgcAttribute' : 'igameEnsureIgcAttribute',
+                            'number',
+                            ['number', 'number'],
+                            [modelId, catalogIndex],
+                            { async: true });
+                        const after = summarizeReads();
+                        log(`[Browser file] attribute catalogIndex=${catalogIndex} prefetchOnly=${prefetchOnly ? 1 : 0} elapsed=${(performance.now() - startedAt).toFixed(2)} ms requestsDelta=${after.requests - before.requests} bytesDelta=${after.bytes - before.bytes}`);
+                        if (dataCodecCacheExperimentEnabled) {
+                            const memory = captureDataCodecMemoryObservation();
+                            log(`[Benchmark] attribute-memory catalogIndex=${catalogIndex} linear-memory=${memory.linearMemoryBytes} peak-linear-memory=${memory.peakLinearMemoryBytes} js-heap=${memory.jsHeapBytes} peak-js-heap=${memory.peakJsHeapBytes}`);
+                        }
+                        return result;
+                    } finally {
+                        wasmAsyncCallActive = false;
+                    }
+                };
+
+                const loadLargeStagedFile = async (file, sourceName, modelKind) => {
+                    const totalLoadStartedAt = performance.now();
+                    const safeName = String(sourceName || `local.${modelKind}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const virtualPath = `/tmp/igame_${Date.now()}_${safeName}`;
+                    const chunkSize = 16 * 1024 * 1024;
+                    const mode = document.getElementById('importMode').value;
+                    const replaceExisting = mode === 'replace';
+                    let stageCreated = false;
+                    let stagedBytes = 0;
+                    let nextProgressPercent = 0;
+                    let packageIdentity = '';
+                    let sourceIdentity = '';
+                    let contentKey = '';
+                    let decodeLease = null;
+                    let sharedArtifact = null;
+                    let loadSucceeded = false;
+                    let loadFailureDetail = '';
+                    const activateSurfaceArtifact = (artifact, cacheLabel) => {
+                        const importStart = performance.now();
+                        const modelId = api.loadSharedSurfaceData(
+                            new Uint8Array(artifact.positions),
+                            new Uint8Array(artifact.triangles),
+                            new Uint8Array(artifact.edgeMasks),
+                            sourceName,
+                            sourceIdentity,
+                            replaceExisting);
+                        const importElapsed = performance.now() - importStart;
+                        if (!modelId) {
+                            throw new Error(`${cacheLabel} surface import failed: ${api.getLastErrorJson()}`);
+                        }
+                        const artifactBytes = artifact.positions.byteLength +
+                            artifact.triangles.byteLength + artifact.edgeMasks.byteLength;
+                        log(`[${cacheLabel} surface cache] loaded modelId=${modelId} elapsed=${importElapsed.toFixed(2)} ms bytes=${artifactBytes}`);
+                        log('model loaded, start rendering');
+                        armPostLoadRenderTiming(modelId, totalLoadStartedAt);
+                        refreshModelList();
+                        refreshScalarList();
+                        startRenderLoop();
+                        loadSucceeded = true;
+                    };
+                    wasmAsyncCallActive = true;
+
+                    try {
+                        if (modelKind === 'igc' && singleFrameBenchmarkMode) {
+                            log('[Benchmark] single-frame cold load reuse-cache=off current-frame-residency=1 prefetch=0 identity=verified');
+                        }
+                        if (modelKind === 'igc') {
+                            const identityStartedAt = performance.now();
+                            const inspection = await inspectIgcPackage(file);
+                            packageIdentity = inspection.identity;
+                            sourceIdentity = inspection.sourceIdentity;
+                            const loadedModelId = singleFrameBenchmarkMode
+                                ? 0
+                                : api.findLoadedIgcModel(sourceIdentity);
+                            log(`[File identity] format=${inspection.format} version=${inspection.version} contentId=${packageIdentity} elapsed=${(performance.now() - identityStartedAt).toFixed(2)} ms loadedModelId=${loadedModelId}`);
+                            if (singleFrameBenchmarkMode) {
+                                contentKey = '';
+                            }
+                            if (loadedModelId > 0) {
+                                const loadStart = performance.now();
+                                log(`[File load] reuse contentId=${packageIdentity}`);
+                                const modelId = api.reuseLoadedIgcModel(sourceIdentity, replaceExisting);
+                                const loadElapsed = performance.now() - loadStart;
+                                if (!modelId) {
+                                    throw new Error(`model reuse failed: ${api.getLastErrorJson()}`);
+                                }
+                                log(`[DataCodec topology timing] same-page-model-reuse=1; content-id=${packageIdentity}`);
+                                log(`[File load] returned modelId=${modelId} elapsed=${loadElapsed.toFixed(2)} ms`);
+                                log('model loaded, start rendering');
+                                armPostLoadRenderTiming(modelId, totalLoadStartedAt);
+                                refreshModelList();
+                                refreshScalarList();
+                                startRenderLoop();
+                                loadSucceeded = true;
+                                return true;
+                            }
+                            if (!singleFrameBenchmarkMode) {
+                                contentKey = [
+                                    expectedWasmBuild.buildId,
+                                    expectedWasmBuild.memoryProfile,
+                                    file.size,
+                                    packageIdentity,
+                                ].join(':');
+                                const persistentArtifact = await persistentSurfaceCache.load(
+                                    contentKey,
+                                    packageIdentity,
+                                    file.size);
+                                if (persistentArtifact) {
+                                    activateSurfaceArtifact(persistentArtifact, 'Persistent');
+                                    return true;
+                                }
+                                decodeLease = await crossPageDecodeCoordinator.acquire(contentKey);
+                                if (decodeLease.artifact) {
+                                    activateSurfaceArtifact(decodeLease.artifact, 'Shared');
+                                    return true;
+                                }
+                            }
+                        }
+
+                        log(`[File stage] opening path=${virtualPath}`);
+                        const stageOpened = api.beginFileStage(
+                            virtualPath,
+                            file.size,
+                            modelKind === 'igc' ? sourceIdentity : '');
+                        if (!stageOpened) {
+                            throw new Error(`begin failed: ${api.getLastErrorJson()}`);
+                        }
+                        stageCreated = true;
+                        log(`[File stage] begin path=${virtualPath} size=${file.size} (${formatBytes(file.size)}) chunk=${formatBytes(chunkSize)}`);
+
+                        while (stagedBytes < file.size) {
+                            const end = Math.min(stagedBytes + chunkSize, file.size);
+                            const chunkBuffer = await file.slice(stagedBytes, end).arrayBuffer();
+                            const chunk = new Uint8Array(chunkBuffer);
+                            if (!api.appendFileStage(chunk)) {
+                                throw new Error(`append failed: ${api.getLastErrorJson()}`);
+                            }
+
+                            stagedBytes = end;
+                            const progressPercent = Math.floor((stagedBytes * 100) / file.size);
+                            if (progressPercent >= nextProgressPercent || stagedBytes === file.size) {
+                                log(`[File stage] progress=${progressPercent}% bytes=${stagedBytes}/${file.size}`);
+                                nextProgressPercent = progressPercent + 5;
+                            }
+                            await new Promise((resolve) => setTimeout(resolve, 0));
+                        }
+
+                        log(`[File stage] finalizing bytes=${stagedBytes}`);
+                        if (!api.finishFileStage()) {
+                            throw new Error(`finish failed: ${api.getLastErrorJson()}`);
+                        }
+                        log(`[File stage] complete bytes=${stagedBytes} (${formatBytes(stagedBytes)})`);
+
+                        const loadStart = performance.now();
+                        log(`[File load] begin path=${virtualPath}`);
+                        let modelId = 0;
+                        if (modelKind === 'igc') {
+                            const submitted = api.startStagedIgcDecode(
+                                virtualPath,
+                                sourceName,
+                                replaceExisting,
+                                dataCodecCacheExperiment.decodedFrameCache,
+                                dataCodecCacheExperiment.encodedInputCache,
+                                dataCodecCacheExperiment.fullInputPrefetch);
+                            if (!submitted) {
+                                throw new Error(`decode submit failed: ${api.getLastErrorJson()}`);
+                            }
+                            let lastProgress = -1;
+                            let lastText = '';
+                            for (;;) {
+                                await new Promise((resolve) => setTimeout(resolve, 125));
+                                let status;
+                                try {
+                                    status = JSON.parse(api.getStagedIgcDecodeStatusJson());
+                                } catch (err) {
+                                    throw new Error(`decode status parse failed: ${errorText(err)}`);
+                                }
+                                const progressPercent = Math.floor(Math.max(0, Math.min(1, Number(status.progress) || 0)) * 100);
+                                const text = String(status.text || '解码中');
+                                if (progressPercent !== lastProgress || text !== lastText) {
+                                    log(`[IGC decode] progress=${progressPercent}% stage=${text}`);
+                                    lastProgress = progressPercent;
+                                    lastText = text;
+                                }
+                                if (status.state === 'running') {
+                                    continue;
+                                }
+                                if (status.state !== 'completed') {
+                                    api.finishStagedIgcDecode();
+                                    throw new Error(`decode failed: ${status.detail || api.getLastErrorJson()}`);
+                                }
+                                if (status.timing) {
+                                    log(`[DataCodec topology timing] ${status.timing}`);
+                                }
+                                modelId = api.finishStagedIgcDecode();
+                                break;
+                            }
+                        } else {
+                            modelId = api.loadVtuFromFileEx(virtualPath, sourceName, replaceExisting);
+                        }
+                        const loadElapsed = performance.now() - loadStart;
+                        if (!modelId) {
+                            log(`[File load] failed elapsed=${loadElapsed.toFixed(2)} ms lastError=${api.getLastErrorJson()}`);
+                            return false;
+                        }
+
+                        if (modelKind === 'igc' && !singleFrameBenchmarkMode && packageIdentity && contentKey) {
+                            const exportStart = performance.now();
+                            const exported = api.exportModelSharedSurfaceData(modelId);
+                            if (!exported || !exported.positions || !exported.triangles || !exported.edgeMasks) {
+                                throw new Error(
+                                    `shared surface export failed: ${api.getLastErrorJson()}`);
+                            }
+                            sharedArtifact = {
+                                version: 1,
+                                positions: copyTypedArrayToCacheBuffer(exported.positions),
+                                triangles: copyTypedArrayToCacheBuffer(exported.triangles),
+                                edgeMasks: copyTypedArrayToCacheBuffer(exported.edgeMasks),
+                            };
+                            const sharedBytes = sharedArtifact.positions.byteLength +
+                                sharedArtifact.triangles.byteLength +
+                                sharedArtifact.edgeMasks.byteLength;
+                            log(`[Shared surface cache] published bytes=${sharedBytes} elapsed=${(performance.now() - exportStart).toFixed(2)} ms points=${Number(exported.pointCount) || 0} triangles=${Number(exported.triangleCount) || 0}`);
+                            const stored = await persistentSurfaceCache.store(
+                                contentKey,
+                                packageIdentity,
+                                file.size,
+                                sharedArtifact);
+                            if (!stored) {
+                                log('[Persistent surface cache] store rejected by policy');
+                            }
+                        }
+
+                        log(`[File load] returned modelId=${modelId} elapsed=${loadElapsed.toFixed(2)} ms`);
+                        log('model loaded, start rendering');
+                        armPostLoadRenderTiming(modelId, totalLoadStartedAt);
+                        refreshModelList();
+                        refreshScalarList();
+                        startRenderLoop();
+                        loadSucceeded = true;
+                        return true;
+                    } catch (err) {
+                        loadFailureDetail = errorText(err);
+                        log(`[File stage] failed bytes=${stagedBytes}/${file.size} error=${loadFailureDetail}`);
+                        return false;
+                    } finally {
+                        wasmAsyncCallActive = false;
+                        if (stageCreated) {
+                            try {
+                                api.discardFileStage();
+                            } catch (err) {
+                                log(`[File stage] cleanup failed error=${errorText(err)}`);
+                            }
+                        }
+                        if (decodeLease) {
+                            decodeLease.release(loadSucceeded, loadFailureDetail, sharedArtifact);
+                        }
+                    }
+                };
+
+                document.getElementById('vtkFile').addEventListener('change', async (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+
+                    const sourceName = file.name || 'Local model';
+
+                    const normalizedSourceName = sourceName.toLowerCase();
+                    if (normalizedSourceName.endsWith('.igc')) {
+                        if (singleFrameBenchmarkMode || file.size <= stagedIgcThresholdBytes) {
+                            await loadIgcBrowserFile(
+                                file,
+                                sourceName,
+                                !singleFrameBenchmarkMode);
+                        } else {
+                            await loadLargeStagedFile(file, sourceName, 'igc');
+                        }
+                        e.target.value = '';
+                        return;
+                    }
+                    if (file.size > maxDirectFileBytes && normalizedSourceName.endsWith('.vtu')) {
+                        await loadLargeStagedFile(
+                            file,
+                            sourceName,
+                            'vtu');
+                        e.target.value = '';
+                        return;
+                    }
+
+                    try {
+                        const buf = await file.arrayBuffer();
+                        await loadModelBuffer(buf, sourceName);
+                    } catch (err) {
+                        log(`[File read] failed name=${sourceName} error=${errorText(err)}`);
+                        e.target.value = '';
+                    }
+                });
+
+                const startRenderLoop = () => {
+                    if (viewerDestroyed || renderLoopStarted) {
+                        return;
+                    }
+
+                    renderLoopStarted = true;
+                    const loop = () => {
+                        if (viewerDestroyed || !renderLoopStarted) {
+                            renderLoopStarted = false;
+                            return;
+                        }
+                        if (wasmAsyncCallActive) {
+                            requestAnimationFrame(loop);
+                            return;
+                        }
+                        try {
+                            const timing = postLoadRenderTiming;
+                            const frameStart = performance.now();
+                            api.renderFrame();
+                            const frameMs = performance.now() - frameStart;
+                            interactionRenderStats.record(frameMs);
+                            if (timing !== null && timing === postLoadRenderTiming) {
+                                const totalMs = performance.now() - timing.startedAt;
+                                const totalFromSelectionMs = timing.requestStartedAt === null
+                                    ? null
+                                    : performance.now() - timing.requestStartedAt;
+                                log(`[First render timing] modelId=${timing.modelId} renderFrame=${frameMs.toFixed(2)} ms total-after-load=${totalMs.toFixed(2)} ms total-from-selection=${totalFromSelectionMs === null ? 'n/a' : totalFromSelectionMs.toFixed(2)} ms refreshModelList=${timing.refreshModelListMs === null ? 'n/a' : timing.refreshModelListMs.toFixed(2)} ms refreshScalarList=${timing.refreshScalarListMs === null ? 'n/a' : timing.refreshScalarListMs.toFixed(2)} ms`);
+                                postLoadRenderTiming = null;
+                            }
+                        } catch (err) {
+                            log(`render exception: ${err && err.stack ? err.stack : err}`);
+                            renderLoopStarted = false;
+                            return;
+                        }
+                        requestAnimationFrame(loop);
+                    };
+                    requestAnimationFrame(loop);
+                };
+
+                const loadModelBuffer = async (buf, sourceName) => {
+                    const data = new Uint8Array(buf);
+                    const normalizeModelName = (value) => {
+                        const rawName = String(value || '');
+                        const withoutQuery = rawName.split(/[?#]/, 1)[0];
+                        const slashIndex = Math.max(withoutQuery.lastIndexOf('/'), withoutQuery.lastIndexOf('\\'));
+                        return slashIndex >= 0 ? withoutQuery.slice(slashIndex + 1) : withoutQuery;
+                    };
+
+                    const detectModelKind = () => {
+                        const normalizedName = normalizeModelName(sourceName).toLowerCase();
+                        if (normalizedName.endsWith('.zip')) return 'zip';
+                        if (normalizedName.endsWith('.igc')) return 'igc';
+                        if (normalizedName.endsWith('.vtp')) return 'vtp';
+                        if (normalizedName.endsWith('.vtu')) return 'vtu';
+                        if (normalizedName.endsWith('.vtk')) return 'vtk';
+
+                        if (data.byteLength >= 4) {
+                            const magic = Array.from(data.subarray(0, 4));
+                            if (magic[0] === 0x50 && magic[1] === 0x4b) {
+                                return 'zip';
+                            }
+                        }
+
+                        const previewLength = Math.min(data.byteLength, 2048);
+                        const previewText = new TextDecoder('utf-8', { fatal: false }).decode(data.subarray(0, previewLength));
+                        if (previewText.includes('type="PolyData"') || previewText.includes('<PolyData')) return 'vtp';
+                        if (previewText.includes('type="UnstructuredGrid"') || previewText.includes('<UnstructuredGrid')) return 'vtu';
+                        return 'vtk';
+                    };
+
+                    let loadedResult = 0;
+                    let modelKind = 'vtk';
+                    let igcTimingStart = 0;
+                    let igcTimingAfterLoad = 0;
+                    let shouldReportIgcTiming = false;
+                    try {
+                        const mode = document.getElementById('importMode').value;
+                        const replaceExisting = mode === 'replace' ? 1 : 0;
+                        modelKind = detectModelKind();
+                        const fallbackName = modelKind === 'zip'
+                            ? 'Imported ZIP'
+                            : (modelKind === 'igc'
+                                ? 'Imported IGC'
+                                : (modelKind === 'vtp' ? 'Imported VTP' : (modelKind === 'vtu' ? 'Imported VTU' : 'Imported VTK')));
+
+                        if (modelKind === 'zip') {
+                            loadedResult = api.loadZipFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else if (modelKind === 'igc') {
+                            log('IGC is a compact format that may not support all VTK features; for best compatibility, please upload as ZIP package with .igc files.');
+                            shouldReportIgcTiming = true;
+                            igcTimingStart = performance.now();
+                            loadedResult = api.loadIgcFromMemory(data, sourceName || fallbackName, replaceExisting !== 0);
+                            igcTimingAfterLoad = performance.now();
+                        } else if (modelKind === 'vtp') {
+                            loadedResult = api.loadVtpFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else if (modelKind === 'vtu') {
+                            loadedResult = api.loadVtuFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        } else {
+                            loadedResult = api.loadVtkFromMemEx(data, sourceName || fallbackName, replaceExisting !== 0);
+                        }
+                    } catch (err) {
+                        log(`load exception: ${err && err.stack ? err.stack : err}`);
+                    }
+
+                    if (!loadedResult) {
+                        log('load model failed (.vtk/.vtu/.vtp/.igc package .zip)');
+                        return false;
+                    }
+
+                    if (modelKind === 'zip') {
+                        log(`load returned loadedCount=${loadedResult}`);
+                    } else {
+                        log(`load returned modelId=${loadedResult}`);
+                    }
+                    log('model loaded, start rendering');
+                    refreshModelList();
+                    refreshScalarList();
+                    if (shouldReportIgcTiming) {
+                        const renderStart = performance.now();
+                        api.renderFrame();
+                        const renderEnd = performance.now();
+                        log(`[IGC timing] renderFrame=${(renderEnd - renderStart).toFixed(2)} ms`);
+                        await new Promise((resolve) => requestAnimationFrame(resolve));
+                        const igcTimingAfterRender = performance.now();
+                        log(`[IGC timing] load/decode/add=${(igcTimingAfterLoad - igcTimingStart).toFixed(2)} ms, load-to-render=${(igcTimingAfterRender - igcTimingStart).toFixed(2)} ms`);
+                    }
+                    startRenderLoop();
+                    return true;
+                };
+
+                const igcSeries = {
+                    frames: [],
+                    currentIndex: -1,
+                    playing: false,
+                    playTimer: null,
+                    requestController: null,
+                    requestSerial: 0,
+                };
+
+                const setIgcSeriesStatus = (text) => {
+                    document.getElementById('igcSeriesStatus').textContent = text;
+                };
+
+                const stopIgcSeries = () => {
+                    igcSeries.playing = false;
+                    if (igcSeries.playTimer !== null) {
+                        clearTimeout(igcSeries.playTimer);
+                        igcSeries.playTimer = null;
+                    }
+                    document.getElementById('btnPlayIgcSeries').textContent = 'Play';
+                };
+
+                const requestIgcSeriesManifest = async () => {
+                    const response = await fetch('/api/series/comp/manifest', { cache: 'no-store' });
+                    if (!response.ok) {
+                        throw new Error(`manifest request failed: HTTP ${response.status}`);
+                    }
+                    const manifest = await response.json();
+                    if (!manifest || !Array.isArray(manifest.frames) || manifest.frames.length === 0) {
+                        throw new Error('manifest contains no frames');
+                    }
+                    igcSeries.frames = manifest.frames.slice().sort((lhs, rhs) => lhs.index - rhs.index);
+                    return igcSeries.frames;
+                };
+
+                const showIgcSeriesFrame = async (requestedIndex) => {
+                    if (igcSeries.frames.length === 0) {
+                        await requestIgcSeriesManifest();
+                    }
+                    const frameCount = igcSeries.frames.length;
+                    const index = (requestedIndex + frameCount) % frameCount;
+                    const frame = igcSeries.frames[index];
+                    const requestSerial = ++igcSeries.requestSerial;
+
+                    if (igcSeries.requestController) {
+                        igcSeries.requestController.abort();
+                    }
+                    igcSeries.requestController = new AbortController();
+
+                    try {
+                        // This low-memory demo intentionally releases the previous decoded model first.
+                        api.removeAllModels();
+                        refreshModelList();
+                        refreshScalarList();
+                        setIgcSeriesStatus(`Loading ${frame.name}...`);
+                        log(`IGC series requesting frame ${index + 1}/${frameCount}: ${frame.name}`);
+
+                        const response = await fetch(frame.url, {
+                            cache: 'no-store',
+                            signal: igcSeries.requestController.signal,
+                        });
+                        if (!response.ok) {
+                            throw new Error(`frame request failed: HTTP ${response.status}`);
+                        }
+                        const frameBlob = await response.blob();
+                        if (requestSerial !== igcSeries.requestSerial) {
+                            return false;
+                        }
+
+                        const frameFile = new File(
+                            [frameBlob],
+                            frame.name,
+                            { type: frameBlob.type || 'application/octet-stream' });
+                        const loaded = singleFrameBenchmarkMode || frameFile.size <= stagedIgcThresholdBytes
+                            ? await loadIgcBrowserFile(
+                                  frameFile,
+                                  frame.name,
+                                  !singleFrameBenchmarkMode)
+                            : await loadLargeStagedFile(frameFile, frame.name, 'igc');
+                        if (!loaded) {
+                            throw new Error(`browser file decode failed: ${api.getLastErrorJson()}`);
+                        }
+                        startRenderLoop();
+                        api.renderFrame();
+                        igcSeries.currentIndex = index;
+                        refreshModelList();
+                        refreshScalarList();
+                        setIgcSeriesStatus(`Frame ${index + 1}/${frameCount}: ${frame.name}`);
+                        log(`IGC series displayed frame ${index + 1}/${frameCount}: ${frame.name}`);
+                        return true;
+                    } catch (err) {
+                        if (err && err.name === 'AbortError') {
+                            return false;
+                        }
+                        stopIgcSeries();
+                        setIgcSeriesStatus('Load failed');
+                        log(`IGC series exception: ${err && err.stack ? err.stack : err}`);
+                        return false;
+                    }
+                };
+
+                const scheduleNextIgcFrame = () => {
+                    if (!igcSeries.playing) return;
+                    igcSeries.playTimer = setTimeout(async () => {
+                        const nextIndex = igcSeries.currentIndex < 0 ? 0 : igcSeries.currentIndex + 1;
+                        await showIgcSeriesFrame(nextIndex);
+                        scheduleNextIgcFrame();
+                    }, 1000);
+                };
+
+                document.getElementById('btnLoadIgcSeries').addEventListener('click', async () => {
+                    try {
+                        stopIgcSeries();
+                        await requestIgcSeriesManifest();
+                        log(`IGC series manifest loaded: ${igcSeries.frames.map((frame) => frame.name).join(', ')}`);
+                        await showIgcSeriesFrame(0);
+                    } catch (err) {
+                        setIgcSeriesStatus('Manifest failed');
+                        log(`IGC manifest exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+                document.getElementById('btnPreviousIgcFrame').addEventListener('click', async () => {
+                    stopIgcSeries();
+                    await showIgcSeriesFrame(igcSeries.currentIndex <= 0 ? igcSeries.frames.length - 1 : igcSeries.currentIndex - 1);
+                });
+
+                document.getElementById('btnNextIgcFrame').addEventListener('click', async () => {
+                    stopIgcSeries();
+                    await showIgcSeriesFrame(igcSeries.currentIndex + 1);
+                });
+
+                document.getElementById('btnPlayIgcSeries').addEventListener('click', async () => {
+                    if (igcSeries.playing) {
+                        stopIgcSeries();
+                        return;
+                    }
+                    if (igcSeries.currentIndex < 0) {
+                        await showIgcSeriesFrame(0);
+                    }
+                    igcSeries.playing = true;
+                    document.getElementById('btnPlayIgcSeries').textContent = 'Pause';
+                    scheduleNextIgcFrame();
+                });
+
+                document.getElementById('btnLoadFromServer').addEventListener('click', async () => {
+                    try {
+                        log('Fetching remote model list...');
+                        // 1. 先获取模型列表
+                        const listResp = await fetch('/api/models');
+                        if (!listResp.ok) {
+                            log(`Failed to fetch model list: HTTP ${listResp.status}`);
+                            return;
+                        }
+                        const listData = await listResp.json();
+                        const items = listData.items || [];
+                        if (items.length === 0) {
+                            log('No models available on server');
+                            return;
+                        }
+
+                        // 2. 简单起见，直接加载第一个模型（你可以改为让用户在下拉框中选择）
+                        const model = items[0];
+                        log(`Loading remote model: ${model.name} (${model.id})`);
+
+                        const fileResp = await fetch(`/api/models/${encodeURIComponent(model.id)}/file`);
+                        if (!fileResp.ok) {
+                            log(`Failed to download model file: HTTP ${fileResp.status}`);
+                            return;
+                        }
+
+                        const sourceName = fileResp.headers.get('X-Model-Name') || model.name;
+                        if (String(sourceName).toLowerCase().endsWith('.igc')) {
+                            const remoteSize = Number(fileResp.headers.get('Content-Length') || 0);
+                            if (remoteSize > stagedIgcThresholdBytes &&
+                                fileResp.body &&
+                                navigator.storage &&
+                                typeof navigator.storage.getDirectory === 'function') {
+                                const remoteStageStartedAt = performance.now();
+                                const root = await navigator.storage.getDirectory();
+                                const stagedName = `igame-remote-${Date.now()}-${sourceName}`;
+                                const handle = await root.getFileHandle(stagedName, { create: true });
+                                const writable = await handle.createWritable();
+                                const reader = fileResp.body.getReader();
+                                let receivedBytes = 0;
+                                let lastLoggedPercent = -1;
+                                try {
+                                    for (;;) {
+                                        const { done, value } = await reader.read();
+                                        if (done) break;
+                                        await writable.write(value);
+                                        receivedBytes += value.byteLength;
+                                        const percent = Math.floor((receivedBytes * 100) / remoteSize);
+                                        if (percent >= lastLoggedPercent + 10 || receivedBytes === remoteSize) {
+                                            lastLoggedPercent = percent;
+                                            log(`[Remote stage] progress=${Math.min(100, percent)}% bytes=${receivedBytes}/${remoteSize}`);
+                                        }
+                                    }
+                                    await writable.close();
+                                    if (receivedBytes !== remoteSize) {
+                                        throw new Error(`remote byte count mismatch expected=${remoteSize} actual=${receivedBytes}`);
+                                    }
+                                    const modelFile = await handle.getFile();
+                                    log(`[Remote stage] complete elapsed=${(performance.now() - remoteStageStartedAt).toFixed(2)} ms bytes=${receivedBytes}`);
+                                    if (singleFrameBenchmarkMode) {
+                                        await loadIgcBrowserFile(modelFile, sourceName, false);
+                                    } else {
+                                        await loadLargeStagedFile(modelFile, sourceName, 'igc');
+                                    }
+                                } finally {
+                                    try { reader.releaseLock(); } catch (_) {}
+                                    try { await writable.abort(); } catch (_) {}
+                                    if (!singleFrameBenchmarkMode) {
+                                        try { await root.removeEntry(stagedName); } catch (_) {}
+                                    }
+                                }
+                            } else {
+                                const modelBlob = await fileResp.blob();
+                                const modelFile = new File(
+                                    [modelBlob],
+                                    sourceName,
+                                    { type: modelBlob.type || 'application/octet-stream' });
+                                if (singleFrameBenchmarkMode || modelFile.size <= stagedIgcThresholdBytes) {
+                                    await loadIgcBrowserFile(
+                                        modelFile,
+                                        sourceName,
+                                        !singleFrameBenchmarkMode);
+                                } else {
+                                    await loadLargeStagedFile(modelFile, sourceName, 'igc');
+                                }
+                            }
+                        } else {
+                            const buf = await fileResp.arrayBuffer();
+                            await loadModelBuffer(buf, sourceName);
+                        }
+                    } catch (err) {
+                        log(`remote model load exception: ${err && err.stack ? err.stack : err}`);
+                    }
+                });
+
+            }
+        };
+    </script>
+    <script>
+        var Module = Module || {};
+        const igameWasmAssetVersion = '@IGAME_WASM_BUILD_ID@-@IGAME_WASM_MEMORY_PROFILE@';
+        Module.locateFile = function (path, prefix) {
+            if (path.endsWith('.wasm')) {
+                return `@IGAME_WASM_WASM_NAME@?build=${encodeURIComponent(igameWasmAssetVersion)}`;
+            }
+            if (path.endsWith('.worker.js')) {
+                return `${prefix}${path}?build=${encodeURIComponent(igameWasmAssetVersion)}`;
+            }
+            return prefix + path;
+        };
+    </script>
+    <script src="@IGAME_WASM_JS_NAME@?build=@IGAME_WASM_BUILD_ID@-@IGAME_WASM_MEMORY_PROFILE@"></script>
+</body>
+
+</html>
