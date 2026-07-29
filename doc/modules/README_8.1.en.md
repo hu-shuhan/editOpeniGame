@@ -23,6 +23,20 @@ drawObj->SetAccelerationOption(true);
 scene->AddModel(dataObj);
 ```
 
+### GUI
+
+| Entry | Action | Description |
+|-------|--------|-------------|
+| Right-click a selected object in the model tree | Build rendering acceleration structure | Builds the Meshlet rendering acceleration structure for the selected object. |
+| Right-click a selected object in the model tree | Disable rendering acceleration structure | Disables the accelerated rendering path for the selected object. |
+| Right-click a selected object in the model tree | Toggle Meshlet visualization | Switches the Meshlet visualization state for inspecting Meshlet partitioning. |
+
+### GUI Screenshot
+
+![Meshlet rendering GUI](../../Resources/Images/Meshlet加速.png)
+
+Figure 1: Meshlet rendering acceleration and visualization actions in the model-tree context menu.
+
 ## Mesh Simplification
 
 `MeshSimplificationFilter` reduces triangular surface meshes with configurable target reduction and boundary preservation.
@@ -40,6 +54,23 @@ filter->SetPreserveBoundary(true);
 filter->SetInput(surfaceMesh);
 filter->Execute();
 ```
+
+### GUI
+
+| Entry | Action | Description |
+|-------|--------|-------------|
+| `Mesh Processing` menu | `Surface Simplification` | Opens the surface simplification dialog; set the reduction ratio from 0 to 1 and run the standard surface simplification filter. |
+| `Mesh Processing` menu | `Fast Surface Simplification` | Opens the fast simplification dialog; set the target reduction ratio from 0 to 1 and run the fast surface simplification filter. |
+
+Only triangular surface meshes support these simplification operations.
+
+### GUI Screenshot
+
+| Before simplification | After simplification |
+|-----------------------|----------------------|
+| ![Surface mesh before simplification](../../Resources/Images/before_Simplification.png) | ![Surface mesh after simplification](../../Resources/Images/simplification.png) |
+
+Figure 2: Comparison before and after surface mesh simplification.
 
 ## Test Targets and Assessment
 
