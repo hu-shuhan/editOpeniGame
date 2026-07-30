@@ -2,8 +2,9 @@
 
 #include "DataCodec/Filter/Adapter/iGameFileByteRangeIO.h"
 #include "DataCodec/Filter/Execution/iGameDataCodecThreadPoolTaskRunner.h"
-#include "DataCodec/Filter/Execution/iGameRunRecordSink.h"
-#include "DataCodec/Filter/Wasm/iGameWasmDataCodecDiagnostics.h"
+#include "DataCodec/Filter/Telemetry/iGameDataCodecTelemetryCapture.h"
+#include "DataCodec/Runtime/Record/RunRecordSubmit.h"
+#include "DataCodec/Filter/Wasm/iGameWasmDataCodecTiming.h"
 #include "DataCodec/Platform/Wasm/WasmBrowserFileByteRangeReader.h"
 #include "DataCodec/Platform/Wasm/WasmRuntime.h"
 #include "DataCodec/Storage/Package/PackageBinaryHeader.h"
@@ -17,6 +18,18 @@
 IGAME_NAMESPACE_BEGIN
 
 namespace {
+
+void SubmitWasmRunError(
+    ::datacodec::IRunRecordSink* sink,
+    const std::string& text) {
+    ::datacodec::SubmitRunMessage(
+        sink,
+        ::datacodec::TelemetryMessageRecord{
+            .severity = ::datacodec::TelemetryMessageSeverity::Error,
+            .origin = "iGameWasmDataCodecBridge",
+            .text = text,
+        });
+}
 
 void CleanupFailedWasmDecodeSession(
     iGameWasmDataCodecDecodeResult& result) noexcept {
@@ -38,10 +51,7 @@ void SetWasmDecodeError(
     ::datacodec::IRunRecordSink* runRecordSink,
     std::string text) {
     result.error = std::move(text);
-    SubmitiGameRunError(
-        runRecordSink,
-        "iGameWasmDataCodecBridge",
-        result.error);
+    SubmitWasmRunError(runRecordSink, result.error);
 }
 
 } // 匿名命名空间
@@ -112,10 +122,7 @@ iGameWasmDataCodecDecodeResult DecodeiGameWasmDataCodec(
             *request.inputReader,
             inspectedIdentity,
             &result.error)) {
-        SubmitiGameRunError(
-            request.runRecordSink.get(),
-            "iGameWasmDataCodecBridge",
-            result.error);
+        SubmitWasmRunError(request.runRecordSink.get(), result.error);
         return result;
     }
     if (request.sourceIdentity.IsStable() && request.sourceIdentity != inspectedIdentity) {
@@ -186,9 +193,10 @@ iGameWasmDataCodecDecodeResult DecodeiGameWasmDataCodec(
     const auto encodedInputCache = cacheRuntime->DefaultEncodedInputCache();
     result.cacheStatsBefore = frameCache->Statistics();
     result.encodedInputCacheStatsBefore = encodedInputCache->Statistics();
-    auto diagnosticsSink = std::make_shared<iGameWasmDataCodecDiagnosticsSink>();
-    iGameRunRecordSinkSet recordSinks(false, std::move(request.runRecordSink));
-    recordSinks.AddSink(diagnosticsSink);
+    iGameDataCodecTelemetryCapture recordSinks(std::move(request.runRecordSink));
+    recordSinks.CaptureSessions(
+        ::datacodec::kRunLifecycleRecordMask |
+        ::datacodec::RunRecordKind::StageTiming);
     auto runRecordSink = recordSinks.Sink();
     result.session = std::make_shared<DataCodecDataObjectDecodeSession>();
     result.decodeResult = result.session->Open({
@@ -197,6 +205,7 @@ iGameWasmDataCodecDecodeResult DecodeiGameWasmDataCodec(
         .controlParams = &controls.controlParams,
         .executionOptions = &controls.execution,
         .configurationSource = &controls.source,
+        .language = controls.language,
         .decodedFrameCachePolicy = controls.decodedFrameCachePolicy,
         .encodedInputCachePolicy = controls.encodedInputCachePolicy,
         .cacheRuntime = cacheRuntime,
@@ -211,7 +220,8 @@ iGameWasmDataCodecDecodeResult DecodeiGameWasmDataCodec(
     result.output = result.decodeResult.success
         ? result.decodeResult.output
         : DataObject::Pointer{};
-    result.timingDetail = diagnosticsSink->BuildTopologyTimingDetail();
+    result.timingDetail = BuildiGameWasmTopologyTimingDetail(
+        recordSinks.SnapshotCompletedTelemetrySessions());
     if (result.output == nullptr) {
         if (result.decodeResult.messages.empty()) {
             SetWasmDecodeError(

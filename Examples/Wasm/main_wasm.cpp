@@ -14,7 +14,7 @@
 #include "iGameVolumeMesh.h"
 #include "DataCodec/Filter/Wasm/iGameWasmDataCodecBridge.h"
 #include "DataCodec/Filter/Wasm/iGameWasmDecodedModelRegistry.h"
-#include "DataCodec/Filter/Execution/iGameRunRecordSink.h"
+#include "DataCodec/Filter/Output/iGameDataCodecOutputBinding.h"
 #include "DataCodec/API/Adapter/RunRecordTypes.h"
 #include "IGDC/iGameIGDCWriter.h"
 #include "DataCodec/Platform/Wasm/WasmRuntime.h"
@@ -1609,22 +1609,18 @@ val CopyNativeArrayToJs(const char* constructorName, TValue* data, const std::si
 
 void UpdateStagedIgcDecodeProgress(
     const std::weak_ptr<StagedIgcDecodeTask>& weakTask,
-    const ::datacodec::RunRecord& record) {
-    const auto* progress = std::get_if<::datacodec::RunProgressRecord>(&record);
-    if (progress == nullptr) {
-        return;
-    }
+    const ::datacodec::DataCodecProgressUpdate& progress) {
     const auto task = weakTask.lock();
     if (task == nullptr) {
         return;
     }
     std::lock_guard<std::mutex> lock(task->mutex);
-    const auto normalized = ::datacodec::callback::NormalizeProgress(progress->normalized);
+    const auto normalized = ::datacodec::callback::NormalizeProgress(progress.normalized);
     constexpr double decodeProgressCeiling = 0.94;
-    if (progress->phase == ::datacodec::RunProgressPhase::Begin) {
+    if (progress.phase == ::datacodec::DataCodecProgressPhase::Begin) {
         task->normalizedProgress = 0.0;
-    } else if (progress->phase == ::datacodec::RunProgressPhase::Finish) {
-        if (progress->success) {
+    } else if (progress.phase == ::datacodec::DataCodecProgressPhase::Finish) {
+        if (progress.success) {
             task->normalizedProgress = std::max(task->normalizedProgress, decodeProgressCeiling);
         }
     } else {
@@ -1632,8 +1628,8 @@ void UpdateStagedIgcDecodeProgress(
             task->normalizedProgress,
             std::min(normalized, decodeProgressCeiling));
     }
-    if (!progress->text.empty()) {
-        task->progressText = progress->text;
+    if (!progress.text.empty()) {
+        task->progressText = progress.text;
     }
 }
 
@@ -1715,12 +1711,20 @@ int StartStagedIgcDecode(
     try {
         task->future = iGame::SubmitiGameWasmDataCodecTask([task]() {
             try {
-                const auto progressSink = std::make_shared<iGame::iGameRunRecordCallbackSink>(
-                    ::datacodec::RunRecordBit(::datacodec::RunRecordKind::Progress),
-                    [weakTask = std::weak_ptr<StagedIgcDecodeTask>(task)](
-                        const ::datacodec::RunRecord& record) {
-                        UpdateStagedIgcDecodeProgress(weakTask, record);
+                ::datacodec::DataCodecOutputSinks outputSinks;
+                outputSinks.progress = std::make_shared<iGame::iGameDataCodecProgressBarSink>(
+                    iGame::iGameDataCodecProgressBarOutput{
+                        .updateProgressObserver = false,
+                        .callback = [weakTask = std::weak_ptr<StagedIgcDecodeTask>(task)](
+                            const ::datacodec::DataCodecProgressUpdate& progress) {
+                            UpdateStagedIgcDecodeProgress(weakTask, progress);
+                        },
                     });
+                const auto progressSink = iGame::MakeiGameDataCodecOutputRecordSink(
+                    std::move(outputSinks),
+                    {},
+                    false,
+                    false);
                 auto bridgeResult = iGame::DecodeiGameWasmDataCodecFile(
                     task->inputPath,
                     task->enableReuseCache,
