@@ -7,12 +7,14 @@
 #include <DataCodec/Filter/Adapter/iGameFramePresentationBridge.h>
 #include <DataCodec/Workflow/Session/PlaybackSession.h>
 #include <DataCodec/Filter/Execution/iGameDataCodecThreadPoolTaskRunner.h>
+#include <DataCodec/Filter/Telemetry/iGameDataCodecTelemetryCapture.h>
 #include <DataCodec/Filter/Adapter/iGameFramePackageDecodeAssembly.h>
 #include <DataCodec/API/Adapter/IDecodedFrameCache.h>
 #include <DataCodec/Storage/FramePackage/FramePackageIO.h>
 #include <DataCodec/API/Params/TimeSeriesControlParams.h>
 #include <DataCodec/Test/Feature/DataCodecFeatureDecodeReferenceCache.h>
 #include <DataCodec/Test/Feature/DataCodecFeatureDecodeTaskCoordinator.h>
+#include <DataCodec/Filter/Test/Feature/iGameDataCodecFeatureLocalization.h>
 #include <DataCodec/Filter/Test/Feature/iGameDataCodecFeatureProgress.h>
 #include <DataCodec/Test/Feature/DataCodecFeatureDecodedFrameCache.h>
 #include <DataCodec/Filter/Test/Feature/iGameDataCodecFeatureStreamingFrameCache.h>
@@ -334,8 +336,15 @@ bool TestSingleLeafFrameSequence() {
     if (targets.empty()) { return false; }
     writer->SetAttributeTargets(targets);
     writer->SetFilePath(outputPath.string());
+    iGame::iGameDataCodecTelemetryCapture recordSinks;
+    recordSinks.CaptureSessions(
+        ::datacodec::kRunLifecycleRecordMask |
+        ::datacodec::RunRecordKind::Message);
+    writer->SetTelemetrySink(recordSinks.Sink());
     if (!writer->WriteToFile(source, outputPath.string())) {
-        for (const auto& message: writer->GetMessages()) { std::cerr << message.text << '\n'; }
+        for (const auto& message : recordSinks.SnapshotMessages()) {
+            std::cerr << message.text << '\n';
+        }
         std::cerr << "single-leaf frame sequence encode failed\n";
         return false;
     }
@@ -489,6 +498,7 @@ inline int RunDataCodecFeaturePlaybackSession(const int argc = 0, char** argv = 
         }
         return 0;
     }
+    if (RunDataCodecFeatureHostLocalization() != 0) { return 1; }
     if (RunDataCodecFeatureProgress() != 0) { return 1; }
     if (::datacodec::test::RunDataCodecFeatureDecodedFrameCache() != 0) { return 1; }
     if (::datacodec::test::RunDataCodecFeatureDecodeReferenceCache() != 0) { return 1; }
@@ -544,8 +554,15 @@ inline int RunDataCodecFeaturePlaybackSession(const int argc = 0, char** argv = 
     encodeDefinition.source.customControlParams = true;
     writer->SetEncodeControls(encodeDefinition);
     writer->SetFilePath(outputPath.string());
+    iGame::iGameDataCodecTelemetryCapture recordSinks;
+    recordSinks.CaptureSessions(
+        ::datacodec::kRunLifecycleRecordMask |
+        ::datacodec::RunRecordKind::Message);
+    writer->SetTelemetrySink(recordSinks.Sink());
     if (!writer->WriteToFile(source, outputPath.string())) {
-        for (const auto& message: writer->GetMessages()) { std::cerr << message.text << '\n'; }
+        for (const auto& message : recordSinks.SnapshotMessages()) {
+            std::cerr << message.text << '\n';
+        }
         std::cerr << "playback fixture encode failed\n";
         return 1;
     }

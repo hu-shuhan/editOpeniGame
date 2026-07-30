@@ -103,6 +103,7 @@ FrameSequenceDecodeResult DecodeFrameSequence(const FrameSequenceDecodeRequest& 
             .controlParams = request.controlParams,
             .executionOptions = request.executionOptions,
             .configurationSource = request.configurationSource,
+            .language = request.language,
             .parallelTaskRunner = request.parallelTaskRunner,
             .decodedFrameCachePolicy = request.decodedFrameCachePolicy,
             .decodedFrameCache = std::move(decodedFrameCache),

@@ -1,6 +1,6 @@
 #include "IGDC/iGameIGDCAttributeDataSource.h"
 
-#include "DataCodec/Filter/Execution/iGameRunRecordSink.h"
+#include "DataCodec/Filter/Output/iGameDataCodecOutputBinding.h"
 #include "IGDC/iGameDataCodecIOSettings.h"
 #include "DataCodec/Filter/Adapter/iGameFileByteRangeIO.h"
 
@@ -50,7 +50,7 @@ bool IGDCAttributeDataSource::Open(const std::string& filePath, std::string* err
         .controlParams = &definition.controlParams,
         .executionOptions = &definition.execution,
         .configurationSource = &definition.source,
-        .runRecordSink = MakeiGameRunRecordSink({}, true),
+        .runRecordSink = MakeiGameDataCodecOutputRecordSink({}, {}, true),
     });
     if (!result.success || result.output == nullptr) {
         if (error != nullptr) {

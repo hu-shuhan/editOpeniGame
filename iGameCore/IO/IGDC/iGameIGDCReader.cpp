@@ -1,7 +1,8 @@
 #include "iGameIGDCReader.h"
 
 #include "DataCodec/Filter/Execution/iGameDataCodecThreadPoolTaskRunner.h"
-#include "DataCodec/Filter/Execution/iGameRunRecordSink.h"
+#include "DataCodec/Filter/Output/iGameDataCodecOutputBinding.h"
+#include "DataCodec/Runtime/Record/RunRecordSubmit.h"
 #include "DataCodec/Filter/Playback/iGameFrameSequenceDecodeBridge.h"
 #include "DataCodec/Storage/ByteIO/ByteRange.h"
 #include "DataCodec/Storage/Package/PackageBinaryHeader.h"
@@ -30,7 +31,10 @@ struct IGDCReader::State {
     std::shared_ptr<::datacodec::IDecodedFrameCache> decodedFrameCache;
     ::datacodec::EncodedInputCachePolicy encodedInputCachePolicy;
     std::shared_ptr<::datacodec::IEncodedInputCache> encodedInputCache;
-    std::shared_ptr<::datacodec::IRunRecordSink> runRecordSink;
+    ::datacodec::DataCodecOutputSinks outputSinks;
+    std::shared_ptr<::datacodec::IRunRecordSink> telemetrySink;
+    ::datacodec::DataCodecLanguage language{
+        ::datacodec::DataCodecLanguage::SimplifiedChinese};
     AttributeDataSourcePointer attributeDataSource;
     bool loadAllAvailableAttributes{true};
 };
@@ -63,6 +67,7 @@ void IGDCReader::SetDecodeControls(
     state.decodedFrameCachePolicy = definition.decodedFrameCachePolicy;
     state.encodedInputCachePolicy = definition.encodedInputCachePolicy;
     state.configurationSource = definition.source;
+    state.language = definition.language;
 }
 
 void IGDCReader::SetDecodeTier(const ::datacodec::DataCodecDecodeTier tier) {
@@ -104,9 +109,17 @@ void IGDCReader::SetLoadAllAvailableAttributes(const bool loadAllAvailableAttrib
     m_state->loadAllAvailableAttributes = loadAllAvailableAttributes;
 }
 
-void IGDCReader::SetRunRecordSink(
+void IGDCReader::SetOutputSinks(::datacodec::DataCodecOutputSinks sinks) {
+    m_state->outputSinks = std::move(sinks);
+}
+
+void IGDCReader::SetTelemetrySink(
         std::shared_ptr<::datacodec::IRunRecordSink> sink) {
-    m_state->runRecordSink = std::move(sink);
+    m_state->telemetrySink = std::move(sink);
+}
+
+void IGDCReader::SetLanguage(const ::datacodec::DataCodecLanguage language) {
+    m_state->language = language;
 }
 
 AttributeDataSourcePointer IGDCReader::GetAttributeDataSource() const {
@@ -131,21 +144,11 @@ bool IGDCReader::Execute() {
 
     const auto start = std::chrono::steady_clock::now();
     if (!DecodeInput()) {
-        for (const auto& message : m_state->messages) {
-            IGAME_CORE_ERROR("{}", message.text);
-        }
-        IGAME_CORE_ERROR("Parsing failure");
         resetProgressUI();
         return false;
     }
     if (!CreateDataObject()) {
-        auto message = MakeiGameRunMessage(
-            ::datacodec::TelemetryMessageSeverity::Error,
-            "IGDCReader",
-            "DataCodec decoded output is unavailable");
-        SubmitiGameRunMessage(m_state->runRecordSink.get(), message);
-        m_state->messages.push_back(std::move(message));
-        IGAME_CORE_ERROR("Generate DataObject failure");
+        RecordMessage(iGameDataCodecHostMessageId::DecodedOutputUnavailable);
         resetProgressUI();
         return false;
     }
@@ -171,16 +174,46 @@ bool IGDCReader::DecodeInput() {
     state.messages.clear();
     state.attributeDataSource.reset();
 
-    auto runRecordSink = MakeiGameRunRecordSink(
-        state.runRecordSink,
+    iGameDataCodecOutputBinding outputBinding(
+        state.outputSinks,
+        state.telemetrySink,
         m_ProgressObserver != nullptr);
-    const auto addError = [&state, &runRecordSink](std::string text) {
-        auto message = MakeiGameRunMessage(
-            ::datacodec::TelemetryMessageSeverity::Error,
-            "IGDCReader",
-            std::move(text));
-        SubmitiGameRunMessage(runRecordSink.get(), message);
+    const auto runRecordSink = outputBinding.RecordSink();
+    const auto addStatus = [&state, &runRecordSink](
+        ::datacodec::TelemetryMessageRecord message) {
+        ::datacodec::SubmitRunMessage(runRecordSink.get(), message);
         state.messages.push_back(std::move(message));
+    };
+    const auto addHostError = [&addStatus, &state](
+        const iGameDataCodecHostMessageId messageId,
+        std::string technicalDetail) {
+        ::datacodec::TelemetryMessageRecord message{
+            .severity = ::datacodec::TelemetryMessageSeverity::Error,
+            .origin = "IGDCReader",
+            .language = state.language,
+            .text = std::string(iGameDataCodecHostMessage(state.language, messageId)),
+            .technicalDetail = std::move(technicalDetail),
+        };
+        addStatus(std::move(message));
+    };
+    const auto addCodecError = [&addStatus, &state](std::string technicalDetail) {
+        if (technicalDetail.empty()) {
+            technicalDetail = "DataCodec package inspection failed";
+        }
+        const auto localized = ::datacodec::LocalizeDataCodecMessage(
+            state.language,
+            ::datacodec::DataCodecMessageId::DecodeFailed,
+            {},
+            std::move(technicalDetail));
+        addStatus(::datacodec::TelemetryMessageRecord{
+            .severity = ::datacodec::TelemetryMessageSeverity::Error,
+            .origin = "DataCodec",
+            .language = localized.language,
+            .messageId = localized.id,
+            .messageArguments = localized.arguments,
+            .text = localized.text,
+            .technicalDetail = localized.technicalDetail,
+        });
     };
     std::shared_ptr<::datacodec::IByteRangeReader> inputReader;
     ::datacodec::PackageInspection packageInspection;
@@ -195,16 +228,18 @@ bool IGDCReader::DecodeInput() {
         inputReader = std::make_shared<iGameFileByteRangeReader>(selectedPaths.front());
         std::string inspectionError;
         if (!::datacodec::InspectPackage(*inputReader, packageInspection, &inspectionError)) {
-            addError(std::move(inspectionError));
+            addCodecError(std::move(inspectionError));
             return false;
         }
         if (packageInspection.format == ::datacodec::PackageBinaryFormat::FramePackage) {
             IGDCFrameSequence sequence;
             std::string sequenceError;
             if (!ResolveIGDCFrameSelection(selectedPaths, sequence, &sequenceError)) {
-                addError(sequenceError.empty()
-                    ? "failed to resolve selected frame package sequence"
-                    : std::move(sequenceError));
+                addHostError(
+                    iGameDataCodecHostMessageId::ResolveFrameSequenceFailed,
+                    sequenceError.empty()
+                        ? std::string{}
+                        : std::move(sequenceError));
                 return false;
             }
             auto sequenceResult = DecodeFrameSequence({
@@ -215,6 +250,7 @@ bool IGDCReader::DecodeInput() {
                 .controlParams = state.hasCodecParams ? &state.codecParams : nullptr,
                 .executionOptions = &state.executionOptions,
                 .configurationSource = &state.configurationSource,
+                .language = state.language,
                 .decodedFrameCachePolicy = state.decodedFrameCachePolicy,
                 .decodedFrameCache = state.decodedFrameCache,
                 .encodedInputCachePolicy = state.encodedInputCachePolicy,
@@ -236,13 +272,15 @@ bool IGDCReader::DecodeInput() {
             return true;
         }
         if (state.selectedFramePaths.size() > 1u) {
-            addError("multiple selected paths require frame packages");
+            addHostError(
+                iGameDataCodecHostMessageId::MultiplePathsRequireFramePackages,
+                {});
             return false;
         }
     }
     if (m_UseMemoryBuffer) {
         if (m_MemoryBuffer == nullptr || m_MemoryBufferSize == 0u) {
-            addError("DataCodec memory input is empty");
+            addHostError(iGameDataCodecHostMessageId::MemoryInputEmpty, {});
             return false;
         }
         inputReader = std::make_shared<::datacodec::MemoryByteRangeReader>(
@@ -251,7 +289,7 @@ bool IGDCReader::DecodeInput() {
                 m_MemoryBufferSize));
         std::string headerError;
         if (!::datacodec::InspectPackage(*inputReader, packageInspection, &headerError)) {
-            addError(headerError.empty() ? "版本不符合" : std::move(headerError));
+            addCodecError(headerError.empty() ? "package header validation failed" : std::move(headerError));
             return false;
         }
     }
@@ -262,6 +300,7 @@ bool IGDCReader::DecodeInput() {
         .controlParams = state.hasCodecParams ? &state.codecParams : nullptr,
         .executionOptions = &state.executionOptions,
         .configurationSource = &state.configurationSource,
+        .language = state.language,
         .decodedFrameCachePolicy = state.decodedFrameCachePolicy,
         .decodedFrameCache = state.decodedFrameCache,
         .encodedInputCachePolicy = state.encodedInputCachePolicy,
@@ -275,10 +314,7 @@ bool IGDCReader::DecodeInput() {
     m_FileSize = static_cast<std::size_t>(decodeResult.inputBytes);
     if (!decodeResult.success || decodeResult.output == nullptr) {
         if (state.messages.empty()) {
-            addError("DataCodec decode failed");
-        }
-        for (const auto& message : state.messages) {
-            IGAME_CORE_ERROR("IGDCReader message: {}", message.text);
+            addHostError(iGameDataCodecHostMessageId::DecodeFailed, {});
         }
         return false;
     }
@@ -292,6 +328,30 @@ bool IGDCReader::CreateDataObject() {
         return true;
     }
     return false;
+}
+
+void IGDCReader::RecordMessage(
+    const iGameDataCodecHostMessageId messageId,
+    std::string technicalDetail) {
+    const auto text = std::string(iGameDataCodecHostMessage(
+        m_state->language,
+        messageId));
+    if (text.empty()) {
+        return;
+    }
+    auto outputBinding = iGameDataCodecOutputBinding(
+        m_state->outputSinks,
+        m_state->telemetrySink,
+        false);
+    ::datacodec::TelemetryMessageRecord message{
+        .severity = ::datacodec::TelemetryMessageSeverity::Error,
+        .origin = "IGDCReader",
+        .language = m_state->language,
+        .text = text,
+        .technicalDetail = std::move(technicalDetail),
+    };
+    ::datacodec::SubmitRunMessage(outputBinding.RecordSink().get(), message);
+    m_state->messages.push_back(std::move(message));
 }
 
 IGAME_NAMESPACE_END

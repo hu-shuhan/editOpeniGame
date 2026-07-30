@@ -2,7 +2,7 @@
 #define iGameDataCodecFeatureProgress_h
 
 #include <DataCodec/API/Adapter/IRunRecordSink.h>
-#include <DataCodec/Filter/Execution/iGameRunRecordProgressSink.h>
+#include <DataCodec/Filter/Output/iGameDataCodecOutputSinks.h>
 #include <DataCodec/Runtime/Record/ProgressRangeRunRecordSink.h>
 #include <DataCodec/Test/Common/DataCodecTestResult.h>
 
@@ -130,32 +130,58 @@ inline bool TestiGameProgressFrameText() {
         });
 
     {
-        iGame::iGameRunRecordProgressSink reporter;
-        reporter.Submit(RunRecord{RunProgressRecord{
-            .phase = RunProgressPhase::Update,
+        iGame::iGameDataCodecProgressBarSink reporter;
+        reporter.SubmitProgress(DataCodecProgressUpdate{
+            .phase = DataCodecProgressPhase::Update,
             .normalized = 0.25,
-            .text = "raw stage text",
             .frameOrdinal = 1u,
             .frameCount = 4u,
-        }});
+            .text = "raw stage text",
+        });
     }
-    Require(result, !texts.empty() && texts.back() == "2/4帧",
-            "progress.igame.multiFrameText", "multi-frame UI text should contain only n/m帧");
+    Require(result, !texts.empty() && texts.back() == "第 2/4 帧：raw stage text",
+            "progress.igame.multiFrameText", "multi-frame UI text should include frame and stage text");
 
     {
-        iGame::iGameRunRecordProgressSink reporter;
-        reporter.Submit(RunRecord{RunProgressRecord{
-            .phase = RunProgressPhase::Update,
+        iGame::iGameDataCodecProgressBarSink reporter;
+        reporter.SubmitProgress(DataCodecProgressUpdate{
+            .phase = DataCodecProgressPhase::Update,
             .normalized = 0.25,
-            .text = "single-frame stage",
             .frameOrdinal = 0u,
             .frameCount = 1u,
-        }});
+            .text = "single-frame stage",
+        });
     }
     Require(result, !texts.empty() && texts.back() == "single-frame stage",
             "progress.igame.singleFrameText", "single-frame UI text should preserve the existing status text");
 
     observer->RemoveObserver(textObserverTag);
+    PrintResult(result);
+    return result.passed;
+}
+
+inline bool TestiGameProgressCallback() {
+    TestResult result;
+    std::vector<DataCodecProgressUpdate> updates;
+    iGame::iGameDataCodecProgressBarSink reporter(
+        iGame::iGameDataCodecProgressBarOutput{
+            .updateProgressObserver = false,
+            .callback = [&updates](const DataCodecProgressUpdate& progress) {
+                updates.push_back(progress);
+            },
+        });
+    reporter.SubmitProgress(DataCodecProgressUpdate{
+        .phase = DataCodecProgressPhase::Update,
+        .normalized = 0.5,
+        .text = "callback status",
+    });
+    Require(result, updates.size() == 1u,
+            "progress.igame.callbackCount", "progress callback count mismatch");
+    if (!updates.empty()) {
+        Require(result, updates.front().text == "callback status",
+                "progress.igame.callbackText", "progress callback text mismatch");
+    }
+
     PrintResult(result);
     return result.passed;
 }
@@ -169,7 +195,8 @@ using namespace ::datacodec::test;
 inline int RunDataCodecFeatureProgress() {
     if (!feature_progress::TestProgressRangeMapping() ||
         !feature_progress::TestProgressRangeWithoutFrameTag() ||
-        !feature_progress::TestiGameProgressFrameText()) {
+        !feature_progress::TestiGameProgressFrameText() ||
+        !feature_progress::TestiGameProgressCallback()) {
         return 1;
     }
     std::cout << "DataCodec progress feature tests passed\n";

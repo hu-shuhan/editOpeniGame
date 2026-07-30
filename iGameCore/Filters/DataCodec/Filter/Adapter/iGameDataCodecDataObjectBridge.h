@@ -30,6 +30,8 @@ struct DataCodecDataObjectDecodeRequest {
     const ::datacodec::DecodeControlParams* controlParams{nullptr};
     const ::datacodec::DecodeExecutionOptions* executionOptions{nullptr};
     const ::datacodec::DataCodecDecodeConfigurationSource* configurationSource{nullptr};
+    ::datacodec::DataCodecLanguage language{
+        ::datacodec::DataCodecLanguage::SimplifiedChinese};
     ::datacodec::DecodedFrameCachePolicy decodedFrameCachePolicy;
     std::shared_ptr<::datacodec::IDecodedFrameCache> decodedFrameCache;
     ::datacodec::EncodedInputCachePolicy encodedInputCachePolicy;

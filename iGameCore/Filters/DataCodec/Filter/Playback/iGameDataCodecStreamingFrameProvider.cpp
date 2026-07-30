@@ -1,6 +1,6 @@
 #include "DataCodec/Filter/Playback/iGameDataCodecStreamingFrameProvider.h"
 
-#include "DataCodec/Filter/Execution/iGameRunRecordProgressSink.h"
+#include "DataCodec/Filter/Output/iGameDataCodecOutputBinding.h"
 #include "DataCodec/Filter/Adapter/iGameFramePackageDecodeAssembly.h"
 #include "Log/iGameLogger.h"
 
@@ -21,7 +21,7 @@ std::vector<Object::Pointer> DataCodecStreamingFrameProvider::RequestFrame(
             .frameIndex = m_playbackFrameOrder[ordinal],
             .progressFrameOrdinal = ordinal,
             .progressFrameCount = static_cast<std::uint32_t>(m_playbackFrameOrder.size()),
-            .runRecordSink = std::make_shared<iGameRunRecordProgressSink>(),
+            .runRecordSink = MakeiGameDataCodecOutputRecordSink({}, {}, true),
     });
     const auto output = DataObjectFromDecodedFrame(result.frame);
     if (result.success && output != nullptr) {

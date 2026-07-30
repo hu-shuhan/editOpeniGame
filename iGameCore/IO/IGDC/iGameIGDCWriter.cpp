@@ -1,6 +1,7 @@
 #include "iGameIGDCWriter.h"
 #include "DataCodec/Filter/Execution/iGameDataCodecThreadPoolTaskRunner.h"
-#include "DataCodec/Filter/Execution/iGameRunRecordSink.h"
+#include "DataCodec/Filter/Output/iGameDataCodecOutputBinding.h"
+#include "DataCodec/Runtime/Record/RunRecordSubmit.h"
 
 #include "DataCodec/Filter/Adapter/iGameBlockTreeAdapter.h"
 #include "DataCodec/Filter/Adapter/iGameDataCodecAttributeCatalog.h"
@@ -282,7 +283,7 @@ bool IGDCWriter::Execute()
     this->m_DataObject = this->m_Inputs->GetElement(0);
     if (!m_DataObject) {
         igDebug("could not write nullptr object!");
-        RecordMessage("DataCodec encode requires an input object");
+        RecordMessage(iGameDataCodecHostMessageId::EncodeRequiresInputObject);
         return false;
     }
 
@@ -293,7 +294,7 @@ bool IGDCWriter::GenerateBuffers()
 {
     m_writtenFilePaths.clear();
     if (!m_DataObject) {
-        RecordMessage("DataCodec encode requires an input object");
+        RecordMessage(iGameDataCodecHostMessageId::EncodeRequiresInputObject);
         return false;
     }
 
@@ -307,8 +308,8 @@ bool IGDCWriter::GenerateBuffers()
 
 bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
 {
-    auto runRecordSink = MakeiGameRunRecordSink(
-        m_runRecordSink,
+    const auto outputSinks = ResolveiGameDataCodecOutputSinks(
+        m_outputSinks,
         m_ProgressObserver != nullptr);
     auto outputPath = std::filesystem::path(m_FilePath);
     outputPath.replace_extension(".igc");
@@ -322,7 +323,7 @@ bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
     ::datacodec::EncodeInput encodeInput;
     if (packageKind == ::datacodec::EncodePackageKind::LeafPackage) {
         if (!CanCreateiGameEncodeAdapter(m_DataObject)) {
-            RecordMessage("DataCodec encode requires a supported leaf object");
+            RecordMessage(iGameDataCodecHostMessageId::EncodeRequiresSupportedLeafObject);
             return false;
         }
         leafAdapter = std::make_unique<iGameEncodeAdapter>(m_DataObject);
@@ -346,6 +347,7 @@ bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
         .pipelineControl = m_pipelineControl,
         .execution = m_execution,
         .source = m_configurationSource,
+        .language = m_language,
     };
     auto encodeResult = ::datacodec::Encode({
         .input = std::move(encodeInput),
@@ -355,13 +357,14 @@ bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
             : ::datacodec::AttributeSelectionMode::AllAvailable,
         .attributeTargets = std::move(attributeTargets),
         .configuration = std::move(configuration),
-        .runRecordSink = runRecordSink,
+        .outputSinks = outputSinks,
+        .runRecordSink = m_telemetrySink,
         .executionResources = MakeDataCodecExecutionResources(),
     });
 
     const bool ok = encodeResult.success && encodeResult.hasEncodedOutput;
     if (!ok) {
-        RecordMessage("DataCodec encode failed");
+        RecordMessage(iGameDataCodecHostMessageId::EncodeFailed);
         std::error_code errorCode;
         std::filesystem::remove(outputPath, errorCode);
         return false;
@@ -372,7 +375,7 @@ bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
     m_FileSize = static_cast<std::size_t>(FileSizeOrZero(outputPath));
     m_Buffers.clear();
     if (m_FileSize == 0u) {
-        RecordMessage("DataCodec encode produced an empty output file");
+        RecordMessage(iGameDataCodecHostMessageId::EncodeEmptyOutput);
         return false;
     }
     return true;
@@ -380,12 +383,13 @@ bool IGDCWriter::EncodeToFile(const ::datacodec::EncodePackageKind packageKind)
 
 bool IGDCWriter::EncodeFrameSequence(const std::filesystem::path& outputHint)
 {
-    auto runRecordSink = MakeiGameRunRecordSink(
-        m_runRecordSink,
+    iGameDataCodecOutputBinding outputBinding(
+        m_outputSinks,
+        m_telemetrySink,
         m_ProgressObserver != nullptr);
     const auto timeFrames = m_DataObject != nullptr ? m_DataObject->PeekTimeFrames() : nullptr;
     if (timeFrames == nullptr || timeFrames->GetTimeNum() <= 1u) {
-        RecordMessage("DataCodec frame sequence encode requires multiple frames");
+        RecordMessage(iGameDataCodecHostMessageId::FrameSequenceRequiresMultipleFrames);
         return false;
     }
 
@@ -406,12 +410,13 @@ bool IGDCWriter::EncodeFrameSequence(const std::filesystem::path& outputHint)
         .controlParams = &controlParams,
         .pipelineControl = m_pipelineControl,
         .configurationSource = m_configurationSource,
-        .runRecordSink = runRecordSink.get(),
+        .language = m_language,
+        .runRecordSink = outputBinding.RecordSink().get(),
         .enableParallelStages = m_execution.enableParallelStages,
         .parallelTaskRunner = DataCodecTaskRunner().get(),
     });
     if (!result.success) {
-        RecordMessage("DataCodec frame sequence encode failed");
+        RecordMessage(iGameDataCodecHostMessageId::FrameSequenceEncodeFailed);
         return false;
     }
 
@@ -421,28 +426,51 @@ bool IGDCWriter::EncodeFrameSequence(const std::filesystem::path& outputHint)
         m_writtenFilePaths.push_back(path.string());
     }
     if (m_writtenFilePaths.empty()) {
-        RecordMessage("DataCodec frame sequence encode produced no output files");
+        RecordMessage(iGameDataCodecHostMessageId::FrameSequenceNoOutputFiles);
         return false;
     }
     m_FilePath = m_writtenFilePaths.front();
     m_FileSize = static_cast<std::size_t>(outputSink.TotalBytes());
     m_Buffers.clear();
     if (m_FileSize == 0u) {
-        RecordMessage("DataCodec frame sequence encode produced empty output files");
+        RecordMessage(iGameDataCodecHostMessageId::FrameSequenceEmptyOutputFiles);
         return false;
     }
     return true;
 }
 
-void IGDCWriter::RecordMessage(std::string text)
+void IGDCWriter::RecordMessage(
+    const iGameDataCodecHostMessageId messageId,
+    std::string technicalDetail)
 {
+    const auto text = std::string(iGameDataCodecHostMessage(m_language, messageId));
     if (text.empty()) {
         return;
     }
-    SubmitiGameRunError(
-        m_runRecordSink.get(),
-        "IGDCWriter",
-        std::move(text));
+    auto outputSinks = ResolveiGameDataCodecOutputSinks(
+        m_outputSinks,
+        false);
+    const ::datacodec::DataCodecStatusRecord status{
+        .severity = ::datacodec::DataCodecStatusSeverity::Error,
+        .language = m_language,
+        .text = text,
+        .technicalDetail = technicalDetail,
+    };
+    if (outputSinks.ui != nullptr) {
+        outputSinks.ui->SubmitUiStatus(status);
+    }
+    if (outputSinks.console != nullptr) {
+        outputSinks.console->SubmitConsoleStatus(status);
+    }
+    ::datacodec::SubmitRunMessage(
+        m_telemetrySink.get(),
+        ::datacodec::TelemetryMessageRecord{
+            .severity = ::datacodec::TelemetryMessageSeverity::Error,
+            .origin = "IGDCWriter",
+            .language = m_language,
+            .text = text,
+            .technicalDetail = std::move(technicalDetail),
+        });
 }
 
 IGAME_NAMESPACE_END

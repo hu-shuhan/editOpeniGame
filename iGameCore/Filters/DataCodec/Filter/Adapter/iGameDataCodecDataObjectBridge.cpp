@@ -188,6 +188,8 @@ struct DataCodecDataObjectDecodeSession::Impl {
     ::datacodec::DecodeExecutionOptions execution{
         ::datacodec::MakeDefaultDecodeExecutionOptions()};
     ::datacodec::DataCodecDecodeConfigurationSource configurationSource;
+    ::datacodec::DataCodecLanguage language{
+        ::datacodec::DataCodecLanguage::SimplifiedChinese};
     ::datacodec::DataCodecExecutionResources executionResources;
     std::uint64_t inputBytes{0u};
     std::map<NativeAttributeKey, int> nativeAttributeIndices;
@@ -352,6 +354,7 @@ DataCodecDataObjectDecodeResult DataCodecDataObjectDecodeSession::Open(
         m_impl->configurationSource = request.configurationSource != nullptr
             ? *request.configurationSource
             : ::datacodec::DataCodecDecodeConfigurationSource{};
+        m_impl->language = request.language;
         m_impl->executionResources =
             ::datacodec::ResolveDataCodecExecutionResources(request.executionResources);
 
@@ -370,6 +373,7 @@ DataCodecDataObjectDecodeResult DataCodecDataObjectDecodeSession::Open(
                 .controlParams = m_impl->controlParams,
                 .execution = m_impl->execution,
                 .source = m_impl->configurationSource,
+                .language = m_impl->language,
             },
             .runRecordSink = request.runRecordSink,
             .session = &m_impl->session,
@@ -530,6 +534,7 @@ DataCodecDataObjectDecodeResult DataCodecDataObjectDecodeSession::RequestAttribu
             .controlParams = m_impl->controlParams,
             .execution = m_impl->execution,
             .configurationSource = m_impl->configurationSource,
+            .language = m_impl->language,
             .runRecordSink = request.runRecordSink.get(),
             .stopToken = request.stopToken,
             .parallelTaskRunner = m_impl->executionResources.parallelTaskRunner,

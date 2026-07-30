@@ -5,7 +5,6 @@
 #include "DataCodec/Test/Common/DataCodecTestResult.h"
 #include "DataCodec/API/Params/CodecParamFactories.h"
 #include "DataCodec/Log/Telemetry/Sinks/TelemetrySessionSink.h"
-#include "DataCodec/Runtime/Record/RunMessageCaptureSink.h"
 #include "DataCodec/Runtime/Record/RunRecordDispatcher.h"
 #include "IGDC/iGameIGDCReader.h"
 #include "IGDC/iGameIGDCWriter.h"
@@ -99,22 +98,20 @@ inline void AppendMessageTexts(
     }
 
     auto writer = IGDCWriter::New();
-    auto messageSink = std::make_shared<RunMessageCaptureSink>();
     auto telemetrySink = std::make_shared<TelemetrySessionSink>(
         kRunLifecycleRecordMask |
         RunRecordKind::Message |
         RunRecordKind::StageTiming |
         RunRecordKind::ResourceUsage);
     auto recordDispatcher = std::make_shared<RunRecordDispatcher>();
-    recordDispatcher->AddSink(messageSink);
     recordDispatcher->AddSink(telemetrySink);
     recordDispatcher->AddSink(additionalSink);
     writer->SetEncodeControls(configuration);
-    writer->SetRunRecordSink(recordDispatcher);
+    writer->SetTelemetrySink(recordDispatcher);
     if (!writer->WriteToFile(sourceObject, PathToUtf8String(outputHint))) {
         result.telemetrySessions = telemetrySink->SnapshotCompletedSessions();
         result.status.AddFailure("EncodeDataObjectToFile.write", "writer returned failure");
-        AppendMessageTexts(result.status, messageSink->TakeMessages());
+        AppendMessageTexts(result.status, telemetrySink->SnapshotMessages());
         return result;
     }
 
@@ -123,7 +120,7 @@ inline void AppendMessageTexts(
     if (!std::filesystem::is_regular_file(result.encodedFile)) {
         result.status.AddFailure("EncodeDataObjectToFile.output", "encoded file was not created");
     }
-    AppendMessageTexts(result.status, messageSink->TakeMessages());
+    AppendMessageTexts(result.status, telemetrySink->SnapshotMessages());
     return result;
 }
 
@@ -153,23 +150,21 @@ inline void AppendMessageTexts(
     }
 
     auto reader = IGDCReader::New();
-    auto messageSink = std::make_shared<RunMessageCaptureSink>();
     auto telemetrySink = std::make_shared<TelemetrySessionSink>(
         kRunLifecycleRecordMask |
         RunRecordKind::Message |
         RunRecordKind::StageTiming |
         RunRecordKind::ResourceUsage);
     auto recordDispatcher = std::make_shared<RunRecordDispatcher>();
-    recordDispatcher->AddSink(messageSink);
     recordDispatcher->AddSink(telemetrySink);
     reader->SetCodecControlParams(params);
-    reader->SetRunRecordSink(recordDispatcher);
+    reader->SetTelemetrySink(recordDispatcher);
     result.decodedObject = reader->ReadFile(PathToUtf8String(encodedFile));
     result.telemetrySessions = telemetrySink->SnapshotCompletedSessions();
     if (result.decodedObject == nullptr) {
         result.status.AddFailure("DecodeFileToDataObject.read", "reader returned null object");
     }
-    AppendMessageTexts(result.status, messageSink->TakeMessages());
+    AppendMessageTexts(result.status, telemetrySink->SnapshotMessages());
     return result;
 }
 

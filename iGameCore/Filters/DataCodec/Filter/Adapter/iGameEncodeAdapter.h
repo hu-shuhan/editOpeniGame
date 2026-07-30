@@ -567,16 +567,16 @@ public:
     EncodeAdapterStatusInfo GetEncodeStatusInfo(const std::string_view stageName) const override {
         if (stageName.find("SpatialPartition") != std::string_view::npos ||
             stageName.find("Remap") != std::string_view::npos) {
-            return {EncodeAdapterStatusKind::Sorting, "排序"};
+            return {EncodeAdapterStatusKind::Sorting};
         }
         if (stageName.find("Topo") != std::string_view::npos) {
-            return {EncodeAdapterStatusKind::TopologyCompression, "拓扑压缩"};
+            return {EncodeAdapterStatusKind::TopologyCompression};
         }
         if (stageName.find("Geometry") != std::string_view::npos) {
-            return {EncodeAdapterStatusKind::GeometryCompression, "坐标压缩"};
+            return {EncodeAdapterStatusKind::GeometryCompression};
         }
         if (stageName.find("Attribute") != std::string_view::npos) {
-            return {EncodeAdapterStatusKind::AttributeCompression, "属性数据压缩"};
+            return {EncodeAdapterStatusKind::AttributeCompression};
         }
         return {};
     }

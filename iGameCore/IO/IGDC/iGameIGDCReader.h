@@ -2,10 +2,12 @@
 #define iGameIGDCReader_h
 
 #include "DataCodec/Filter/Adapter/iGameDataCodecDataObjectBridge.h"
+#include "DataCodec/Filter/Localization/iGameDataCodecHostMessage.h"
 #include "DataCodec/API/Adapter/IDecodedFrameCache.h"
 #include "DataCodec/API/Params/CodecPerformancePresetParams.h"
 #include "DataCodec/API/Params/DecodedFrameCacheParams.h"
 #include "DataCodec/API/Params/EncodedInputCacheParams.h"
+#include "DataCodec/API/Output/DataCodecOutputSinks.h"
 #include "Attribute/iGameAttributeDataSource.h"
 #include "iGameFileReader.h"
 
@@ -42,7 +44,9 @@ public:
     void SetEncodedInputCache(
         std::shared_ptr<::datacodec::IEncodedInputCache> inputCache);
     void SetLoadAllAvailableAttributes(bool loadAllAvailableAttributes);
-    void SetRunRecordSink(std::shared_ptr<::datacodec::IRunRecordSink> sink);
+    void SetOutputSinks(::datacodec::DataCodecOutputSinks sinks);
+    void SetTelemetrySink(std::shared_ptr<::datacodec::IRunRecordSink> sink);
+    void SetLanguage(::datacodec::DataCodecLanguage language);
 
     [[nodiscard]] AttributeDataSourcePointer GetAttributeDataSource() const;
 
@@ -60,6 +64,9 @@ private:
     std::unique_ptr<State> m_state;
 
     bool DecodeInput();
+    void RecordMessage(
+        iGameDataCodecHostMessageId messageId,
+        std::string technicalDetail = {});
 };
 
 IGAME_NAMESPACE_END

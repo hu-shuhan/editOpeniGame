@@ -2,6 +2,7 @@
 #define iGameIGDCWriter_h
 
 #include "DataCodec/API/Entry/DataCodecEncodeEntry.h"
+#include "DataCodec/Filter/Localization/iGameDataCodecHostMessage.h"
 #include "iGameFileWriter.h"
 
 #include <filesystem>
@@ -26,6 +27,7 @@ public:
         m_pipelineControl = definition.pipelineControl;
         m_execution = definition.execution;
         m_configurationSource = definition.source;
+        m_language = definition.language;
     }
 
     void SetAttributeTargets(std::vector<::datacodec::AttributeTarget> targets) {
@@ -38,8 +40,12 @@ public:
         m_attributeTargets.clear();
     }
 
-    void SetRunRecordSink(std::shared_ptr<::datacodec::IRunRecordSink> sink) noexcept {
-        m_runRecordSink = std::move(sink);
+    void SetOutputSinks(::datacodec::DataCodecOutputSinks sinks) noexcept {
+        m_outputSinks = std::move(sinks);
+    }
+
+    void SetTelemetrySink(std::shared_ptr<::datacodec::IRunRecordSink> sink) noexcept {
+        m_telemetrySink = std::move(sink);
     }
 
     [[nodiscard]] const std::vector<std::string>& GetWrittenFilePaths() const noexcept {
@@ -65,14 +71,19 @@ private:
     ::datacodec::EncodePipelineControlParams m_pipelineControl;
     ::datacodec::EncodeExecutionOptions m_execution{::datacodec::MakeDefaultEncodeExecutionOptions()};
     ::datacodec::DataCodecEncodeConfigurationSource m_configurationSource;
+    ::datacodec::DataCodecLanguage m_language{
+        ::datacodec::DataCodecLanguage::SimplifiedChinese};
     std::vector<::datacodec::AttributeTarget> m_attributeTargets;
-    std::shared_ptr<::datacodec::IRunRecordSink> m_runRecordSink;
+    ::datacodec::DataCodecOutputSinks m_outputSinks;
+    std::shared_ptr<::datacodec::IRunRecordSink> m_telemetrySink;
     std::vector<std::string> m_writtenFilePaths;
 
     ::datacodec::EncodePackageKind ResolveEncodePackageKind(const DataObject::Pointer& rootObject) const;
     bool EncodeToFile(::datacodec::EncodePackageKind packageKind);
     bool EncodeFrameSequence(const std::filesystem::path& outputHint);
-    void RecordMessage(std::string text);
+    void RecordMessage(
+        iGameDataCodecHostMessageId messageId,
+        std::string technicalDetail = {});
 };
 
 IGAME_NAMESPACE_END
