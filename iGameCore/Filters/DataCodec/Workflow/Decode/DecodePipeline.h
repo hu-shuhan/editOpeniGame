@@ -134,7 +134,12 @@ public:
                     "parallel DataCodec decode requires a task runner");
                 return false;
             }
-            SubmitProgress(context, RunProgressPhase::Begin, 0.0, "开始解码", false);
+            SubmitProgress(
+                context,
+                RunProgressPhase::Begin,
+                0.0,
+                DataCodecMessageId::DecodeStarted,
+                false);
             PrepareWorkspace(context, workspace, m_options);
 
             ParamsDecodeStage paramsStage(BindFieldInput(workspace, FieldType::Params));
@@ -164,7 +169,12 @@ public:
                     "failed to run stage schedule: " + error);
                 return false;
             }
-            SubmitProgress(context, RunProgressPhase::Finish, 1.0, "解码完成", true);
+            SubmitProgress(
+                context,
+                RunProgressPhase::Finish,
+                1.0,
+                DataCodecMessageId::DecodeCompleted,
+                true);
             return true;
         });
         RecordRuntimeResourceUsage(context, workspace);
@@ -218,14 +228,24 @@ public:
                     return !workspace.AttributeCommitted(attrIndex);
                 });
             if (!hasDecodeWork && !hasCommitWork) {
-                SubmitProgress(context, RunProgressPhase::Finish, 1.0, "属性请求已完成", true);
+                SubmitProgress(
+                    context,
+                    RunProgressPhase::Finish,
+                    1.0,
+                    DataCodecMessageId::AttributeRequestCompleted,
+                    true);
                 return true;
             }
 
             workspace.PrepareSupplementRun(
                 m_options.validationPolicy,
                 m_options.resourceBudget);
-            SubmitProgress(context, RunProgressPhase::Begin, 0.0, "开始处理属性", false);
+            SubmitProgress(
+                context,
+                RunProgressPhase::Begin,
+                0.0,
+                DataCodecMessageId::AttributeProcessingStarted,
+                false);
             if (hasDecodeWork) {
                 std::string prepareStoreError;
                 if (!PrepareDirectAttributeDecodeStores(context, workspace, &prepareStoreError)) {
@@ -252,7 +272,12 @@ public:
                 }
                 SubmitStageProgress(context, DecodeCommitStage::kTypeName);
             }
-            SubmitProgress(context, RunProgressPhase::Finish, 1.0, "属性处理完成", true);
+            SubmitProgress(
+                context,
+                RunProgressPhase::Finish,
+                1.0,
+                DataCodecMessageId::AttributeProcessingCompleted,
+                true);
             return true;
         });
         RecordRuntimeResourceUsage(context, workspace);
@@ -406,28 +431,28 @@ private:
         return 0.0;
     }
 
-    static std::string DecodeStageProgressText(const std::string_view stageName) {
-        if (stageName.find("Params") != std::string_view::npos) return "解码参数";
-        if (stageName.find("Geometry") != std::string_view::npos) return "解码坐标";
-        if (stageName.find("Topo") != std::string_view::npos) return "解码拓扑";
+    static DataCodecMessageId DecodeStageProgressMessageId(const std::string_view stageName) {
+        if (stageName.find("Params") != std::string_view::npos) return DataCodecMessageId::DecodeParams;
+        if (stageName.find("Geometry") != std::string_view::npos) return DataCodecMessageId::DecodeGeometry;
+        if (stageName.find("Topo") != std::string_view::npos) return DataCodecMessageId::DecodeTopology;
         if (stageName.find("Attr") != std::string_view::npos ||
-            stageName.find("Attribute") != std::string_view::npos) return "解码数值";
-        if (stageName.find("Commit") != std::string_view::npos) return "提交结果";
-        return "解码中";
+            stageName.find("Attribute") != std::string_view::npos) return DataCodecMessageId::DecodeAttribute;
+        if (stageName.find("Commit") != std::string_view::npos) return DataCodecMessageId::DecodeCommit;
+        return DataCodecMessageId::DecodeInProgress;
     }
 
     static void SubmitProgress(
         DecodeContext& context,
         const RunProgressPhase phase,
         const double normalized,
-        std::string text,
+        const DataCodecMessageId messageId,
         const bool success) {
-        context.runRecords.SubmitProgress(RunProgressRecord{
-            .phase = phase,
-            .normalized = normalized,
-            .text = std::move(text),
-            .success = success,
-        });
+        context.runRecords.SubmitProgress(
+            phase,
+            normalized,
+            messageId,
+            {},
+            success);
     }
 
     static void SubmitStageProgress(DecodeContext& context, const std::string_view stageName) {
@@ -437,7 +462,7 @@ private:
             context,
             RunProgressPhase::Update,
             normalized,
-            DecodeStageProgressText(stageName),
+            DecodeStageProgressMessageId(stageName),
             false);
     }
 
@@ -448,7 +473,7 @@ private:
             context,
             RunProgressPhase::Update,
             normalized,
-            DecodeStageProgressText(stageName),
+            DecodeStageProgressMessageId(stageName),
             false);
     }
 

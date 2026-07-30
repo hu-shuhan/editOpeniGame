@@ -39,6 +39,7 @@ struct FrameEncodeRequest {
     const CodecControlParams* controlParams{nullptr};
     EncodePipelineControlParams pipelineControl;
     DataCodecEncodeConfigurationSource configurationSource;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     IRunRecordSink* runRecordSink{nullptr};
     IByteRangeOutput* outputSink{nullptr};
     std::span<const AttributeTarget> attributeTargets;
@@ -75,6 +76,7 @@ public:
                     ? request.blockTreeAdapter->GetRootName()
                     : request.rootName,
                 .meshType = "FramePackage",
+                .language = request.language,
             },
             &recordDispatcher);
         runRecords.BeginRun();
@@ -93,7 +95,12 @@ public:
         MemoryByteRangeOutput memorySink;
         IByteRangeOutput* outputSink = request.outputSink != nullptr ? request.outputSink : &memorySink;
 
-        SubmitProgress(runRecords, RunProgressPhase::Begin, 0.0, "压缩准备中", false);
+        SubmitProgress(
+            runRecords,
+            RunProgressPhase::Begin,
+            0.0,
+            DataCodecMessageId::EncodePreparing,
+            false);
 
         EncodeSessionWorkspace localSession;
         auto& session = request.workspace != nullptr ? *request.workspace : localSession;
@@ -132,7 +139,7 @@ public:
                 sessionError.empty()
                     ? "failed to build DataCodec temporal frame plan"
                     : sessionError);
-            SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+            SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
             FinalizeRun(result, runRecords, false, runStart);
             return result;
         }
@@ -156,7 +163,7 @@ public:
                     sessionError.empty()
                         ? "failed to prepare DataCodec frame leaf"
                         : sessionError);
-                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
                 FinalizeRun(result, runRecords, false, runStart);
                 return result;
             }
@@ -177,9 +184,14 @@ public:
                 RunProgressPhase::Update,
                 leafWorkBegin,
                 leafCount == 1u
-                    ? "单块数据压缩"
-                    : "多块数据压缩 " + std::to_string(leafIndex + 1) + "/" + std::to_string(leafCount),
-                false);
+                    ? DataCodecMessageId::EncodeSingleBlock
+                    : DataCodecMessageId::EncodeBlock,
+                false,
+                leafCount == 1u
+                    ? std::initializer_list<DataCodecMessageArgument>{}
+                    : std::initializer_list<DataCodecMessageArgument>{
+                        {"index", std::to_string(leafIndex + 1u)},
+                        {"count", std::to_string(leafCount)}});
             ProgressRangeRunRecordSink leafRecords(
                 &recordDispatcher,
                 leafWorkBegin,
@@ -197,7 +209,7 @@ public:
                     runRecords,
                     fieldBundle,
                     result)) {
-                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
                 FinalizeRun(result, runRecords, false, runStart);
                 return result;
             }
@@ -210,7 +222,7 @@ public:
                     *leafPackage,
                     &writerError)) {
                 AddError(result, runRecords, "FrameEncodeExecutor", "failed to build frame leaf package: " + writerError);
-                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
                 FinalizeRun(result, runRecords, false, runStart);
                 return result;
             }
@@ -219,8 +231,8 @@ public:
                 RunProgressPhase::Update,
                 leafEncodeEnd,
                 request.pipelineControl.packageFields.mode == PackageFieldEncodingMode::Zstd
-                    ? "打包压缩"
-                    : "打包写入",
+                    ? DataCodecMessageId::EncodePackageCompress
+                    : DataCodecMessageId::EncodePackageWrite,
                 false);
             double lastPackageProgress = leafEncodeEnd;
             if (!CompressLeafPackageFields(
@@ -241,13 +253,13 @@ public:
                                 runRecords,
                                 RunProgressPhase::Update,
                                 normalized,
-                                {},
+                                DataCodecMessageId::None,
                                 false);
                         }
                     },
                     &writerError)) {
                 AddError(result, runRecords, "FrameEncodeExecutor", "failed to encode frame leaf package fields: " + writerError);
-                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
                 FinalizeRun(result, runRecords, false, runStart);
                 return result;
             }
@@ -255,7 +267,7 @@ public:
                 runRecords,
                 RunProgressPhase::Update,
                 leafPackageEnd,
-                {},
+                DataCodecMessageId::None,
                 false);
             const auto* packageFieldStage =
                 request.pipelineControl.packageFields.mode == PackageFieldEncodingMode::Zstd
@@ -269,7 +281,7 @@ public:
                     leafPackageWriter,
                     &writerError)) {
                 AddError(result, runRecords, "FrameEncodeExecutor", "failed to prepare frame leaf package: " + writerError);
-                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
                 FinalizeRun(result, runRecords, false, runStart);
                 return result;
             }
@@ -289,7 +301,7 @@ public:
                     sessionError.empty()
                         ? "failed to commit DataCodec frame leaf"
                         : sessionError);
-                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+                SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
                 FinalizeRun(result, runRecords, false, runStart);
                 return result;
             }
@@ -297,7 +309,7 @@ public:
                 runRecords,
                 RunProgressPhase::Update,
                 leafWorkEnd,
-                {},
+                DataCodecMessageId::None,
                 false);
         }
 
@@ -307,7 +319,7 @@ public:
             runRecords,
             RunProgressPhase::Update,
             kFrameLeafWorkProgressEnd,
-            "写入文件",
+            DataCodecMessageId::EncodeWriteFile,
             false);
         double lastWriteProgress = kFrameLeafWorkProgressEnd;
         if (!FramePackageIO::WriteToSink(
@@ -329,12 +341,12 @@ public:
                             runRecords,
                             RunProgressPhase::Update,
                             normalized,
-                            {},
+                            DataCodecMessageId::None,
                             false);
                     }
                 })) {
             AddError(result, runRecords, "FrameEncodeExecutor", "failed to write frame package: " + writeError);
-            SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, false);
+            SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, DataCodecMessageId::None, false);
             FinalizeRun(result, runRecords, false, runStart);
             return result;
         }
@@ -342,7 +354,7 @@ public:
             runRecords,
             RunProgressPhase::Update,
             kFrameFinalizeProgress,
-            "完成文件",
+            DataCodecMessageId::EncodeFinalizeFile,
             false);
 
         result.success = true;
@@ -352,7 +364,12 @@ public:
             result.encodedBytes = memorySink.TakeBytes();
             result.encodedByteCount = static_cast<std::uint64_t>(result.encodedBytes.size());
         }
-        SubmitProgress(runRecords, RunProgressPhase::Finish, 1.0, {}, true);
+        SubmitProgress(
+            runRecords,
+            RunProgressPhase::Finish,
+            1.0,
+            DataCodecMessageId::EncodeCompleted,
+            true);
         FinalizeRun(result, runRecords, true, runStart);
         completedSuccessfully = true;
         return result;
@@ -404,14 +421,23 @@ private:
         RunRecordEmitter& runRecords,
         const RunProgressPhase phase,
         const double normalized,
-        std::string text,
-        const bool success) {
-        runRecords.SubmitProgress(RunProgressRecord{
-            .phase = phase,
-            .normalized = normalized,
-            .text = std::move(text),
-            .success = success,
-        });
+        const DataCodecMessageId messageId,
+        const bool success,
+        std::initializer_list<DataCodecMessageArgument> arguments = {}) {
+        if (messageId == DataCodecMessageId::None) {
+            runRecords.SubmitProgress(RunProgressRecord{
+                .phase = phase,
+                .normalized = normalized,
+                .success = success,
+            });
+            return;
+        }
+        runRecords.SubmitProgress(
+            phase,
+            normalized,
+            messageId,
+            arguments,
+            success);
     }
 
     static bool EncodeLeafToFieldBundle(
@@ -430,6 +456,7 @@ private:
             .context = leafRun.context.get(),
             .pipelineControl = request.pipelineControl,
             .configurationSource = request.configurationSource,
+            .language = request.language,
             .runRecordSink = leafRecordSink,
             .fieldBundleOutput = &fieldBundle,
             .includeTopology = leafRun.frameLeaf.topologyMode == TopologyOwnershipMode::Owned,

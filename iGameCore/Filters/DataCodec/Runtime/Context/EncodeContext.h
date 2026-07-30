@@ -51,6 +51,7 @@ struct EncodeContext : IFailureCleanable {
     std::string meshType;
     BlockPath path;
     std::uint32_t frameIndex{0u};
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     std::span<const AttributeTarget> attributeTargets;
     TemporalFieldRole attributeTemporalRole{TemporalFieldRole::SingleFrame};
     std::uint32_t attributeKeyFrameIndex{0u};
@@ -76,6 +77,7 @@ struct EncodeContext : IFailureCleanable {
                 .objectName = objectName,
                 .leafPath = path,
                 .meshType = meshType,
+                .language = language,
             },
             recordSink);
         runSummary = {};

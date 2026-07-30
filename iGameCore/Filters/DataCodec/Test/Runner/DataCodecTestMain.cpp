@@ -3,6 +3,7 @@
 #include "DataCodec/Filter/Test/Feature/iGameDataCodecFeatureRemap.h"
 #include "DataCodec/Filter/Adapter/iGameDataCodecAttributeCatalog.h"
 #include "DataCodec/Test/Suite/DataCodecTestSuite.h"
+#include "DataCodec/Filter/Telemetry/iGameDataCodecTelemetryCapture.h"
 #include "IGDC/iGameIGDCWriter.h"
 #include "iGameFilterIncludes.h"
 
@@ -42,8 +43,13 @@ int WriteBrowserFixture(const std::filesystem::path& outputPath) {
 
     writer->SetAttributeTargets(std::move(targets));
     writer->SetFilePath(outputPath.string());
+    iGame::iGameDataCodecTelemetryCapture recordSinks;
+    recordSinks.CaptureSessions(
+        ::datacodec::kRunLifecycleRecordMask |
+        ::datacodec::RunRecordKind::Message);
+    writer->SetTelemetrySink(recordSinks.Sink());
     if (!writer->WriteToFile(source, outputPath.string())) {
-        for (const auto& message : writer->GetMessages()) {
+        for (const auto& message : recordSinks.SnapshotMessages()) {
             std::cerr << message.text << '\n';
         }
         std::cerr << "failed to write browser fixture\n";

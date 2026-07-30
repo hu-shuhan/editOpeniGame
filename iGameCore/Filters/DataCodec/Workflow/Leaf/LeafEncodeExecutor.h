@@ -11,8 +11,6 @@
 #include "DataCodec/Workflow/Encode/EncodePipeline.h"
 #include "DataCodec/Log/Telemetry/TelemetryMemoryTrace.h"
 #include "DataCodec/Runtime/Record/RunRecordTimestamp.h"
-#include "DataCodec/Runtime/Record/RunMessageCaptureSink.h"
-#include "DataCodec/Runtime/Record/RunRecordDispatcher.h"
 
 #include <memory>
 #include <string>
@@ -24,6 +22,7 @@ struct LeafEncodeRequest {
     EncodeContext* context{nullptr};
     EncodePipelineControlParams pipelineControl;
     DataCodecEncodeConfigurationSource configurationSource;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     IRunRecordSink* runRecordSink{nullptr};
     IByteRangeOutput* outputSink{nullptr};
     EncodedLeafFieldBundle* fieldBundleOutput{nullptr};
@@ -100,11 +99,13 @@ public:
                 .enableParallelStages = request.enableParallelStages,
             },
             .source = request.configurationSource,
+            .language = request.language,
         };
         CodecControlParamsFactory::ApplyEncodeRuntimeConstraint(
             runtimeConfiguration,
             request.configurationSource.runtimeProfile);
         context.controlParams = &runtimeConfiguration.controlParams;
+        context.language = runtimeConfiguration.language;
         const auto* controlParams = context.controlParams;
         std::string resourceValidationError;
         if (!ValidateResourceBudgetControlParams(
@@ -150,17 +151,13 @@ public:
                 result);
             return result;
         }
-        RunMessageCaptureSink messageSink;
-        RunRecordDispatcher recordDispatcher;
-        recordDispatcher.AddSink(&messageSink);
-        recordDispatcher.AddSink(request.runRecordSink);
-        const auto contextInitResult = context.Initialize(&recordDispatcher);
+        const auto contextInitResult = context.Initialize(request.runRecordSink);
         if (!contextInitResult) {
             context.runRecords.BeginRun();
             context.RecordFailure("EncodeContext", CodecErrorCode::MissingInput, contextInitResult.message);
             context.CleanupOnFailure();
             context.runRecords.EndRun(context.runSummary);
-            result.messages = messageSink.TakeMessages();
+            result.messages = context.runRecords.TakeMessages();
             return result;
         }
         TelemetryMemoryTraceRecorder memoryTrace;
@@ -174,12 +171,10 @@ public:
         }
         const auto startTime = callback::Now();
 
-        context.runRecords.SubmitProgress(RunProgressRecord{
-            .phase = RunProgressPhase::Begin,
-            .normalized = 0.0,
-            .text = "编码准备中",
-            .success = false,
-        });
+        context.runRecords.SubmitProgress(
+            RunProgressPhase::Begin,
+            0.0,
+            DataCodecMessageId::EncodePreparing);
 
         const auto& pipelineDescriptor = pipelineBinding.descriptor;
         context.AddInfo(
@@ -217,11 +212,20 @@ public:
         } else {
             pipelineResult = pipeline.Execute(context);
         }
-        context.runRecords.SubmitProgress(RunProgressRecord{
-            .phase = RunProgressPhase::Finish,
-            .normalized = 1.0,
-            .success = pipelineResult.success,
-        });
+        if (pipelineResult.success && request.fieldBundleOutput == nullptr) {
+            context.runRecords.SubmitProgress(
+                RunProgressPhase::Finish,
+                1.0,
+                DataCodecMessageId::EncodeCompleted,
+                {},
+                true);
+        } else {
+            context.runRecords.SubmitProgress(RunProgressRecord{
+                .phase = RunProgressPhase::Finish,
+                .normalized = 1.0,
+                .success = pipelineResult.success,
+            });
+        }
         context.runSummary.success = pipelineResult.success;
         context.runSummary.elapsedMs = callback::ElapsedMilliseconds(startTime);
         context.runSummary.outputBytes = ResolveEncodedOutputBytes(
@@ -246,7 +250,7 @@ public:
         }
         context.memoryTrace = nullptr;
         context.runRecords.EndRun(context.runSummary);
-        result.messages = messageSink.TakeMessages();
+        result.messages = context.runRecords.TakeMessages();
         result.success = pipelineResult.success;
         result.hasEncodedOutput = pipelineResult.hasEncodedOutput;
         result.encodedBytes = std::move(pipelineResult.encodedBytes);
@@ -266,10 +270,6 @@ private:
         if (context != nullptr) {
             context->CleanupOnFailure();
         }
-        RunMessageCaptureSink messageSink;
-        RunRecordDispatcher recordDispatcher;
-        recordDispatcher.AddSink(&messageSink);
-        recordDispatcher.AddSink(request.runRecordSink);
         RunRecordEmitter records;
         records.Reset(
             RunRecordInfo{
@@ -278,12 +278,13 @@ private:
                 .objectName = context != nullptr ? context->objectName : std::string{},
                 .leafPath = context != nullptr ? context->path : BlockPath{},
                 .meshType = context != nullptr ? context->meshType : "unknown",
+                .language = request.language,
             },
-            &recordDispatcher);
+            request.runRecordSink);
         records.BeginRun();
         records.AddMessage(MakeCodecTelemetryMessage(std::string(origin), code, std::string(message)));
         records.EndRun(RunEndRecord{.success = false});
-        result.messages = messageSink.TakeMessages();
+        result.messages = records.TakeMessages();
     }
 
     static std::uint64_t ResolveEncodedOutputBytes(

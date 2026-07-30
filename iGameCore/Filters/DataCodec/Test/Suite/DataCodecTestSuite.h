@@ -4,6 +4,8 @@
 #include "DataCodec/Test/Feature/DataCodecFeatureAdapterRoundTrip.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureByteRange.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureCellGraphTopology.h"
+#include "DataCodec/Test/Feature/DataCodecFeatureLocalization.h"
+#include "DataCodec/Test/Feature/DataCodecFeatureOutputSinks.h"
 #include "DataCodec/Test/Feature/DataCodecFeaturePackageIdentity.h"
 #include "DataCodec/Test/Feature/DataCodecFeaturePipelineContracts.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureReferenceCodecs.h"
@@ -31,6 +33,8 @@ namespace datacodec::test {
     appendResult(pipelineResult);
     appendResult(RunDataCodecFeatureByteRange());
     appendResult(RunDataCodecFeatureCellGraphTopology());
+    appendResult(RunDataCodecFeatureLocalization());
+    appendResult(RunDataCodecFeatureOutputSinks());
     appendResult(RunDataCodecFeaturePackageIdentity());
     appendResult(RunDataCodecFeatureRegionPrecision());
     appendResult(RunDataCodecFeatureTopologyObserver());

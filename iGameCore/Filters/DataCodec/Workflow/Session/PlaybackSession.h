@@ -33,6 +33,7 @@ struct PlaybackOpenRequest {
     const DecodeControlParams* controlParams{nullptr};
     const DecodeExecutionOptions* executionOptions{nullptr};
     const DataCodecDecodeConfigurationSource* configurationSource{nullptr};
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     // 长生命周期播放任务使用调用方提供的执行资源
     std::shared_ptr<IParallelTaskRunner> parallelTaskRunner;
     DecodedFrameCachePolicy decodedFrameCachePolicy;
@@ -56,6 +57,7 @@ struct PlaybackSequenceOpenRequest {
     const DecodeControlParams* controlParams{nullptr};
     const DecodeExecutionOptions* executionOptions{nullptr};
     const DataCodecDecodeConfigurationSource* configurationSource{nullptr};
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     // 长生命周期播放任务使用调用方提供的执行资源
     std::shared_ptr<IParallelTaskRunner> parallelTaskRunner;
     DecodedFrameCachePolicy decodedFrameCachePolicy;

@@ -28,7 +28,6 @@ enum class EncodeAdapterStatusKind : std::uint8_t {
 
 struct EncodeAdapterStatusInfo {
     EncodeAdapterStatusKind kind{EncodeAdapterStatusKind::None};
-    std::string text;
 };
 
 struct IEncodeAttrView {

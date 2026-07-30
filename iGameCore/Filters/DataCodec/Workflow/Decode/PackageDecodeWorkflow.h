@@ -9,6 +9,7 @@
 #include "DataCodec/Runtime/Record/ProgressRangeRunRecordSink.h"
 #include "DataCodec/Runtime/Record/RunRecordDispatcher.h"
 #include "DataCodec/Runtime/Record/RunRecordTimestamp.h"
+#include "DataCodec/Runtime/Output/DataCodecOutputRouter.h"
 #include "DataCodec/Storage/FramePackage/FramePackageIO.h"
 #include "DataCodec/Storage/LeafPackage/LeafPackageIO.h"
 #include "DataCodec/Storage/Package/PackageBinaryHeader.h"
@@ -69,14 +70,15 @@ inline void SubmitDecodePackageProgress(
     RunRecordEmitter& runRecords,
     const RunProgressPhase phase,
     const double normalized,
-    std::string text,
+    const DataCodecMessageId messageId,
+    std::initializer_list<DataCodecMessageArgument> arguments,
     const bool success) {
-    runRecords.SubmitProgress(RunProgressRecord{
-        .phase = phase,
-        .normalized = callback::NormalizeProgress(normalized),
-        .text = std::move(text),
-        .success = success,
-    });
+    runRecords.SubmitProgress(
+        phase,
+        callback::NormalizeProgress(normalized),
+        messageId,
+        arguments,
+        success);
 }
 
 [[nodiscard]] inline DecodePackageResult DecodeLeafPackage(
@@ -113,6 +115,7 @@ inline void SubmitDecodePackageProgress(
         .controlParams = request.configuration.controlParams,
         .execution = request.configuration.execution,
         .configurationSource = request.configuration.source,
+        .language = request.configuration.language,
         .runRecordSink = runRecordSink,
         .stopToken = request.stopToken,
         .parallelTaskRunner = resources.parallelTaskRunner,
@@ -218,15 +221,40 @@ inline void SubmitDecodePackageProgress(
         const auto segmentEnd = leafCount == 0u
             ? 1.0
             : static_cast<double>(leafIndex + 1u) / static_cast<double>(leafCount);
-        const auto leafProgressText = leafCount == 1u
-            ? std::string("单块解码")
-            : "数据块解码 " + std::to_string(leafIndex + 1u) + "/" + std::to_string(leafCount);
-        SubmitDecodePackageProgress(
-            packageRecords,
-            RunProgressPhase::Update,
-            segmentBegin,
-            leafProgressText,
-            false);
+        const auto leafProgressMessageId = leafCount == 1u
+            ? DataCodecMessageId::DecodeSingleBlock
+            : DataCodecMessageId::DecodeBlock;
+        if (leafCount == 1u) {
+            SubmitDecodePackageProgress(
+                packageRecords,
+                RunProgressPhase::Update,
+                segmentBegin,
+                leafProgressMessageId,
+                {},
+                false);
+        } else {
+            SubmitDecodePackageProgress(
+                packageRecords,
+                RunProgressPhase::Update,
+                segmentBegin,
+                leafProgressMessageId,
+                {
+                    {"index", std::to_string(leafIndex + 1u)},
+                    {"count", std::to_string(leafCount)},
+                },
+                false);
+        }
+        std::vector<DataCodecMessageArgument> leafProgressArguments;
+        if (leafCount != 1u) {
+            leafProgressArguments = {
+                {"index", std::to_string(leafIndex + 1u)},
+                {"count", std::to_string(leafCount)},
+            };
+        }
+        const auto leafProgressText = FormatDataCodecMessage(
+            packageRecords.Language(),
+            leafProgressMessageId,
+            leafProgressArguments);
 
         LeafPackage leafPackage;
         std::string readError;
@@ -429,6 +457,9 @@ inline void SubmitDecodePackageProgress(
     const DataCodecExecutionResources& resources = {}) {
     RunRecordDispatcher recordDispatcher;
     recordDispatcher.AddSink(request.runRecordSink);
+    if (!request.outputSinks.Empty()) {
+        recordDispatcher.AddSink(std::make_shared<DataCodecOutputRouter>(request.outputSinks));
+    }
     RunRecordEmitter packageRecords;
     packageRecords.Reset(
         RunRecordInfo{
@@ -436,15 +467,15 @@ inline void SubmitDecodePackageProgress(
             .runKind = TelemetryRunKind::Decode,
             .objectName = "Package",
             .meshType = "Package",
+            .language = request.configuration.language,
         },
         &recordDispatcher);
     packageRecords.BeginRun();
     const auto runStart = callback::Now();
-    packageRecords.SubmitProgress(RunProgressRecord{
-        .phase = RunProgressPhase::Begin,
-        .normalized = 0.0,
-        .text = "DataCodec package decode started",
-    });
+    packageRecords.SubmitProgress(
+        RunProgressPhase::Begin,
+        0.0,
+        DataCodecMessageId::PackageDecodeStarted);
     ProgressRangeRunRecordSink leafRunRecords(
         &recordDispatcher,
         0.0,
@@ -524,14 +555,14 @@ inline void SubmitDecodePackageProgress(
         appendPrefetchWarning(result);
     }
 
-    packageRecords.SubmitProgress(RunProgressRecord{
-        .phase = RunProgressPhase::Finish,
-        .normalized = 1.0,
-        .text = result.success
-            ? "DataCodec package decode completed"
-            : "DataCodec package decode failed",
-        .success = result.success,
-    });
+    packageRecords.SubmitProgress(
+        RunProgressPhase::Finish,
+        1.0,
+        result.success
+            ? DataCodecMessageId::PackageDecodeCompleted
+            : DataCodecMessageId::PackageDecodeFailed,
+        {},
+        result.success);
     packageRecords.EndRun(RunEndRecord{
         .success = result.success,
         .elapsedMs = callback::ElapsedMilliseconds(runStart),

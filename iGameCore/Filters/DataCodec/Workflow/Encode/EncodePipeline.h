@@ -639,17 +639,30 @@ private:
 
     static void SubmitPipelineProgress(
         EncodeContext& context,
-        const double normalized,
-        std::string text = {}) {
+        const double normalized) {
         context.runRecords.SubmitProgress(RunProgressRecord{
             .phase = RunProgressPhase::Update,
             .normalized = std::clamp(
                 normalized,
                 0.0,
                 EncodeOutputWriter::kEncodedOutputProgressEnd),
-            .text = std::move(text),
             .success = false,
         });
+    }
+
+    static void SubmitPipelineProgress(
+        EncodeContext& context,
+        const double normalized,
+        const DataCodecMessageId messageId,
+        std::initializer_list<DataCodecMessageArgument> arguments = {}) {
+        context.runRecords.SubmitProgress(
+            RunProgressPhase::Update,
+            std::clamp(
+                normalized,
+                0.0,
+                EncodeOutputWriter::kEncodedOutputProgressEnd),
+            messageId,
+            arguments);
     }
 
     static double MapEncodeStageProgress(const double normalized) noexcept {
@@ -665,25 +678,48 @@ private:
         if (!context.runRecords.Wants(RunRecordKind::Progress)) {
             return;
         }
-        std::string text;
+        DataCodecMessageId messageId{DataCodecMessageId::None};
         if (context.adapter != nullptr) {
-            text = context.adapter->GetEncodeStatusInfo(stageId.name).text;
+            switch (context.adapter->GetEncodeStatusInfo(stageId.name).kind) {
+                case EncodeAdapterStatusKind::Sorting:
+                    messageId = DataCodecMessageId::EncodeSorting;
+                    break;
+                case EncodeAdapterStatusKind::TopologyCompression:
+                    messageId = DataCodecMessageId::EncodeTopology;
+                    break;
+                case EncodeAdapterStatusKind::GeometryCompression:
+                    messageId = DataCodecMessageId::EncodeGeometry;
+                    break;
+                case EncodeAdapterStatusKind::AttributeCompression:
+                    messageId = DataCodecMessageId::EncodeAttribute;
+                    break;
+                case EncodeAdapterStatusKind::None:
+                default:
+                    break;
+            }
         }
         if ((stageId.name == "PointAttributeStage" || stageId.name == "CellAttributeStage") &&
             stageId.index < workspace.StorageParams().attrParams.size()) {
             const auto& attributeName = workspace.StorageParams().attrParams[stageId.index].name;
-            if (text.empty()) {
-                text = "属性数据压缩";
+            if (attributeName.empty()) {
+                SubmitPipelineProgress(
+                    context,
+                    MapEncodeStageProgress(normalized),
+                    DataCodecMessageId::EncodeAttributeUnnamed,
+                    {{"index", std::to_string(stageId.index + 1u)}});
+            } else {
+                SubmitPipelineProgress(
+                    context,
+                    MapEncodeStageProgress(normalized),
+                    DataCodecMessageId::EncodeAttributeNamed,
+                    {{"name", attributeName}});
             }
-            text += "：";
-            text += attributeName.empty()
-                ? "未命名属性 " + std::to_string(stageId.index + 1u)
-                : attributeName;
+            return;
         }
         SubmitPipelineProgress(
             context,
             MapEncodeStageProgress(normalized),
-            std::move(text));
+            messageId);
     }
 
     static void ReportCompletedProgress(
@@ -742,7 +778,7 @@ private:
             SubmitPipelineProgress(
                 context,
                 EncodeOutputWriter::kPackageFieldProgressEnd,
-                "整理编码结果");
+                DataCodecMessageId::EncodeFinalizeResult);
             const auto exported = EncodeOutputWriter::BuildEncodedLeafFieldBundle(
                 context,
                 workspace,

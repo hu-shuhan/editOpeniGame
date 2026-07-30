@@ -63,6 +63,7 @@ struct FrameSequenceEncodeRequest {
     const CodecControlParams* controlParams{nullptr};
     EncodePipelineControlParams pipelineControl;
     DataCodecEncodeConfigurationSource configurationSource;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     IRunRecordSink* runRecordSink{nullptr};
     bool enableParallelStages{true};
     IParallelTaskRunner* parallelTaskRunner{nullptr};
@@ -89,6 +90,7 @@ public:
                 .runKind = TelemetryRunKind::Encode,
                 .objectName = "FrameSequence",
                 .meshType = "FrameSequence",
+                .language = request.language,
             },
             &recordDispatcher);
         runRecords.BeginRun();
@@ -179,6 +181,7 @@ public:
                     .controlParams = &fallbackControlParams,
                     .pipelineControl = request.pipelineControl,
                     .configurationSource = request.configurationSource,
+                    .language = request.language,
                     .runRecordSink = &frameRecords,
                     .outputSink = output.get(),
                     .attributeTargets = std::span<const AttributeTarget>(frame.attributeTargets),

@@ -34,15 +34,29 @@ namespace
 }
 
 [[nodiscard]] std::string MakeReferenceProgressLabel(
+    const DataCodecLanguage language,
     const std::size_t ordinal,
     const std::size_t count,
     const std::uint32_t frameIndex) {
-    return "准备引用帧 " + std::to_string(ordinal + 1u) + "/" + std::to_string(count) +
-        "（" + FormatPlaybackFrameIndex(frameIndex) + "）";
+    return FormatDataCodecMessage(
+        language,
+        DataCodecMessageId::PrepareReferenceFrame,
+        std::vector<DataCodecMessageArgument>{
+            {"index", std::to_string(ordinal + 1u)},
+            {"count", std::to_string(count)},
+            {"frame", FormatPlaybackFrameIndex(frameIndex)},
+        });
 }
 
-[[nodiscard]] std::string MakeTargetProgressLabel(const std::uint32_t frameIndex) {
-    return "解码目标帧（" + FormatPlaybackFrameIndex(frameIndex) + "）";
+[[nodiscard]] std::string MakeTargetProgressLabel(
+    const DataCodecLanguage language,
+    const std::uint32_t frameIndex) {
+    return FormatDataCodecMessage(
+        language,
+        DataCodecMessageId::DecodeTargetFrame,
+        std::vector<DataCodecMessageArgument>{
+            {"frame", FormatPlaybackFrameIndex(frameIndex)},
+        });
 }
 
 void AddPlaybackMessage(
@@ -190,6 +204,7 @@ struct PlaybackSession::Impl {
     DecodeControlParams controlParams{MakeDefaultDecodeControlParams()};
     DecodeExecutionOptions execution{MakeDefaultDecodeExecutionOptions()};
     DataCodecDecodeConfigurationSource configurationSource;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     DecodedFrameCachePolicy decodedFrameCachePolicy;
     EncodedInputCachePolicy encodedInputCachePolicy;
     std::string decodedFrameResultIdentity;
@@ -477,6 +492,7 @@ struct PlaybackSession::Impl {
                 .controlParams = controlParams,
                 .execution = execution,
                 .source = configurationSource,
+                .language = language,
             },
             .runRecordSink = request.runRecordSink != nullptr ? decodeRecords : nullptr,
             .session = frameSession.get(),
@@ -521,10 +537,16 @@ struct PlaybackSession::Impl {
                     progressFrameOrdinal,
                     progressFrameCount,
                     progressLabel);
+                auto cacheMessage = LocalizeDataCodecMessage(
+                    language,
+                    DataCodecMessageId::CacheHit);
                 cacheProgress.Submit(RunRecord{RunProgressRecord{
                     .phase = RunProgressPhase::Update,
                     .normalized = 1.0,
-                    .text = "缓存命中",
+                    .language = cacheMessage.language,
+                    .messageId = cacheMessage.id,
+                    .messageArguments = std::move(cacheMessage.arguments),
+                    .text = std::move(cacheMessage.text),
                 }});
                 result.success = true;
                 return result;
@@ -632,7 +654,11 @@ struct PlaybackSession::Impl {
                 static_cast<double>(ordinal + 1u) / static_cast<double>(count),
                 0u,
                 1u,
-                MakeReferenceProgressLabel(ordinal, references.size(), references[ordinal]),
+                MakeReferenceProgressLabel(
+                    language,
+                    ordinal,
+                    references.size(),
+                    references[ordinal]),
                 request.stopToken);
             result.messages.insert(
                 result.messages.end(),
@@ -737,7 +763,7 @@ struct PlaybackSession::Impl {
                     decodeEnd,
                     progressFrameOrdinal,
                     progressFrameCount,
-                    MakeTargetProgressLabel(frameIndex),
+                    MakeTargetProgressLabel(language, frameIndex),
                     stopToken);
             } else {
                 frameResult = EnsureReferenceFrame(
@@ -750,7 +776,11 @@ struct PlaybackSession::Impl {
                     decodeEnd,
                     progressFrameOrdinal,
                     progressFrameCount,
-                    MakeReferenceProgressLabel(referenceOrdinal, referenceCount, frameIndex),
+                    MakeReferenceProgressLabel(
+                        language,
+                        referenceOrdinal,
+                        referenceCount,
+                        frameIndex),
                     stopToken);
                 ++referenceOrdinal;
             }
@@ -954,6 +984,7 @@ bool PlaybackSession::Open(const PlaybackOpenRequest& request, std::string* erro
         .controlParams = request.controlParams,
         .executionOptions = request.executionOptions,
         .configurationSource = request.configurationSource,
+        .language = request.language,
         .parallelTaskRunner = request.parallelTaskRunner,
         .decodedFrameCachePolicy = request.decodedFrameCachePolicy,
         .decodedFrameCache = request.decodedFrameCache,
@@ -1074,6 +1105,7 @@ bool PlaybackSession::OpenSequence(const PlaybackSequenceOpenRequest& request, s
         m_impl->configurationSource = request.configurationSource != nullptr
             ? *request.configurationSource
             : DataCodecDecodeConfigurationSource{};
+        m_impl->language = request.language;
         m_impl->decodedFrameCachePolicy = request.decodedFrameCachePolicy;
         m_impl->encodedInputCachePolicy = request.encodedInputCachePolicy;
         m_impl->decodedFrameResultIdentity = decodedFrameResultIdentity +
@@ -1249,6 +1281,7 @@ DecodedFrameAttributeResult PlaybackSession::RequestDecodedFrameAttributes(
     DecodeControlParams controlParams;
     DecodeExecutionOptions execution;
     DataCodecDecodeConfigurationSource configurationSource;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     std::shared_ptr<IParallelTaskRunner> parallelTaskRunner;
     {
         std::lock_guard<std::mutex> stateLock(m_impl->stateMutex);
@@ -1263,6 +1296,7 @@ DecodedFrameAttributeResult PlaybackSession::RequestDecodedFrameAttributes(
         controlParams = m_impl->controlParams;
         execution = m_impl->execution;
         configurationSource = m_impl->configurationSource;
+        language = m_impl->language;
         parallelTaskRunner = m_impl->parallelTaskRunner;
     }
 
@@ -1364,6 +1398,7 @@ DecodedFrameAttributeResult PlaybackSession::RequestDecodedFrameAttributes(
             .controlParams = controlParams,
             .execution = execution,
             .configurationSource = configurationSource,
+            .language = language,
             .runRecordSink = request.runRecordSink.get(),
             .stopToken = request.stopToken,
             .parallelTaskRunner = parallelTaskRunner.get(),

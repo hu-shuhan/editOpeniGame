@@ -52,6 +52,7 @@ struct DecodeContext : IFailureCleanable {
     DecodedTopologyReferenceCacheStore* topologyReferenceStore{nullptr};
     std::string topologyReferenceKey;
     std::uint32_t frameIndex{0u};
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     AttributeSelectionMode attributeSelection{AttributeSelectionMode::None};
     std::span<const AttributeTarget> attributeTargets;
     AttributeDecodeRequestMode attributeRequestMode{AttributeDecodeRequestMode::DecodeAndCommit};
@@ -73,6 +74,7 @@ struct DecodeContext : IFailureCleanable {
                 .runKind = TelemetryRunKind::Decode,
                 .objectName = leafPackage != nullptr ? leafPackage->path : std::string{},
                 .leafPath = leafPackage != nullptr ? leafPackage->path : BlockPath{},
+                .language = language,
             },
             recordSink);
         runSummary = {};

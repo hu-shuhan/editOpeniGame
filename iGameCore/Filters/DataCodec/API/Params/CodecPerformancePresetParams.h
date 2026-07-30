@@ -7,6 +7,7 @@
 #include "DataCodec/API/Params/DecodedFrameCacheParams.h"
 #include "DataCodec/API/Params/EncodedInputCacheParams.h"
 #include "DataCodec/API/Params/EncodePipelineParams.h"
+#include "DataCodec/Localization/DataCodecLanguage.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -49,6 +50,7 @@ struct DataCodecEncodeOptions {
     bool enableCompressionEnhancement{false};
     std::optional<int> packageZstdLevel;
     std::optional<std::uint32_t> temporalKeyFrameInterval;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
 struct DataCodecDecodeOptions {
@@ -62,6 +64,7 @@ struct DataCodecDecodeOptions {
     std::optional<std::size_t> decodedResultCacheFrameLimit;
     // 未指定时沿用性能档位的完整输入预读策略
     std::optional<bool> enableFullInputPrefetch;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
 struct DataCodecEncodeConfigurationSource {
@@ -100,6 +103,7 @@ struct DataCodecEncodeConfigurationParams {
     EncodePipelineControlParams pipelineControl;
     EncodeExecutionOptions execution;
     DataCodecEncodeConfigurationSource source;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
 // 一次 package 解码实际消费的配置
@@ -107,6 +111,7 @@ struct DataCodecDecodePackageConfigurationParams {
     DecodeControlParams controlParams;
     DecodeExecutionOptions execution;
     DataCodecDecodeConfigurationSource source;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
 struct DataCodecDecodeConfigurationParams {
@@ -116,12 +121,14 @@ struct DataCodecDecodeConfigurationParams {
     DecodedFrameCachePolicy decodedFrameCachePolicy;
     EncodedInputCachePolicy encodedInputCachePolicy;
     DataCodecDecodeConfigurationSource source;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 
     [[nodiscard]] DataCodecDecodePackageConfigurationParams PackageConfiguration() const {
         return DataCodecDecodePackageConfigurationParams{
             .controlParams = controlParams,
             .execution = execution,
             .source = source,
+            .language = language,
         };
     }
 };
@@ -259,6 +266,7 @@ public:
                 options.packageZstdLevel.has_value() ||
                 options.temporalKeyFrameInterval.has_value(),
         };
+        result.language = options.language;
         return result;
     }
 
@@ -357,6 +365,7 @@ public:
                 options.decodedResultCacheFrameLimit.has_value() ||
                 options.enableFullInputPrefetch.has_value(),
         };
+        result.language = options.language;
         return result;
     }
 

@@ -4,6 +4,7 @@
 #include "DataCodec/API/Adapter/IDecodeAdapter.h"
 #include "DataCodec/API/Adapter/IFramePackageDecodeAssembly.h"
 #include "DataCodec/API/Adapter/IRunRecordSink.h"
+#include "DataCodec/API/Output/DataCodecOutputSinks.h"
 #include "DataCodec/API/Params/CodecPerformancePresetParams.h"
 #include "DataCodec/Common/DataCodecTypes.h"
 #include "DataCodec/Runtime/Execution/DataCodecExecutionResources.h"
@@ -33,6 +34,7 @@ struct DecodePackageRequest {
     std::uint32_t topologyOwnerFrameIndex{0u};
     DataCodecDecodePackageConfigurationParams configuration{
         MakeDefaultDecodePackageConfigurationParams()};
+    DataCodecOutputSinks outputSinks;
     std::shared_ptr<IRunRecordSink> runRecordSink;
     DecodeSession* session{nullptr};
     DataCodecExecutionResources executionResources;

@@ -1,5 +1,5 @@
-#ifndef DATACODEC_LOG_TELEMETRY_SINKS_JSONTELEMETRYSINK_H
-#define DATACODEC_LOG_TELEMETRY_SINKS_JSONTELEMETRYSINK_H
+#ifndef DATACODEC_LOG_TELEMETRY_TELEMETRYSESSIONJSON_H
+#define DATACODEC_LOG_TELEMETRY_TELEMETRYSESSIONJSON_H
 
 #include "DataCodec/Log/Telemetry/TelemetrySession.h"
 
@@ -165,7 +165,34 @@ void WriteArray(std::string& output, const int indent, FillItems&& fillItems) {
                             if (!message.code.empty()) {
                                 messageField("code", [&]() { AppendEscapedString(output, message.code); });
                             }
+                            messageField("language", [&]() {
+                                AppendEscapedString(output, DataCodecLanguageName(message.language));
+                            });
+                            messageField("messageId", [&]() {
+                                AppendEscapedString(output, DataCodecMessageIdName(message.messageId));
+                            });
+                            messageField("arguments", [&]() {
+                                WriteArray(output, 3, [&](auto&& argumentItem) {
+                                    for (const auto& argument : message.messageArguments) {
+                                        argumentItem([&]() {
+                                            WriteObject(output, 4, [&](auto&& argumentField) {
+                                                argumentField("name", [&]() {
+                                                    AppendEscapedString(output, argument.name);
+                                                });
+                                                argumentField("value", [&]() {
+                                                    AppendEscapedString(output, argument.value);
+                                                });
+                                            });
+                                        });
+                                    }
+                                });
+                            });
                             messageField("text", [&]() { AppendEscapedString(output, message.text); });
+                            if (!message.technicalDetail.empty()) {
+                                messageField("technicalDetail", [&]() {
+                                    AppendEscapedString(output, message.technicalDetail);
+                                });
+                            }
                         });
                     });
                 }
@@ -236,6 +263,6 @@ void WriteArray(std::string& output, const int indent, FillItems&& fillItems) {
     return output;
 }
 
-} // namespace datacodec
+} // 命名空间 datacodec
 
 #endif

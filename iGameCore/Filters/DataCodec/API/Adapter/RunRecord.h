@@ -67,6 +67,7 @@ struct RunRecordInfo {
     std::string objectName;
     BlockPath leafPath;
     std::string meshType;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
 struct RunBeginRecord {
@@ -94,7 +95,11 @@ struct RunProgressRecord {
     std::uint64_t runId{0u};
     RunProgressPhase phase{RunProgressPhase::Update};
     double normalized{0.0};
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
+    DataCodecMessageId messageId{DataCodecMessageId::None};
+    std::vector<DataCodecMessageArgument> messageArguments;
     std::string text;
+    std::string technicalDetail;
     bool success{false};
     std::uint32_t frameOrdinal{0u};
     std::uint32_t frameCount{0u};
@@ -102,6 +107,7 @@ struct RunProgressRecord {
 
 struct RunMessageRecord {
     std::uint64_t runId{0u};
+    TelemetryRunKind runKind{TelemetryRunKind::Unknown};
     TelemetryMessageRecord message;
 };
 

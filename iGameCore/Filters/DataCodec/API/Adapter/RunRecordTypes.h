@@ -1,9 +1,12 @@
 #ifndef DATACODEC_API_ADAPTER_RUNRECORDTYPES_H
 #define DATACODEC_API_ADAPTER_RUNRECORDTYPES_H
 
+#include "DataCodec/Localization/DataCodecMessageCatalog.h"
+
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace datacodec {
 
@@ -83,6 +86,7 @@ enum class TelemetryMessageSeverity : std::uint8_t {
     Info = 0,
     Warning = 1,
     Error = 2,
+    Critical = 3,
 };
 
 inline const char* TelemetryMessageSeverityName(const TelemetryMessageSeverity severity) noexcept {
@@ -91,6 +95,8 @@ inline const char* TelemetryMessageSeverityName(const TelemetryMessageSeverity s
             return "warning";
         case TelemetryMessageSeverity::Error:
             return "error";
+        case TelemetryMessageSeverity::Critical:
+            return "critical";
         case TelemetryMessageSeverity::Info:
         default:
             return "info";
@@ -102,7 +108,11 @@ struct TelemetryMessageRecord {
     TelemetryMessageSeverity severity{TelemetryMessageSeverity::Info};
     std::string origin;
     std::string code;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
+    DataCodecMessageId messageId{DataCodecMessageId::None};
+    std::vector<DataCodecMessageArgument> messageArguments;
     std::string text;
+    std::string technicalDetail;
 };
 
 struct TelemetryArtifactRecord {

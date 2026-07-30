@@ -1,4 +1,6 @@
 #include "DataCodec/API/Entry/DataCodecEncodeEntry.h"
+#include "DataCodec/Runtime/Output/DataCodecOutputRouter.h"
+#include "DataCodec/Runtime/Record/RunRecordDispatcher.h"
 
 #include "DataCodec/Runtime/Record/RunRecordEmitter.h"
 #include "DataCodec/Runtime/Record/RunRecordTimestamp.h"
@@ -135,6 +137,11 @@ EncodeResult MakeEncodeEntryFailure(
         .code = std::move(code),
         .text = std::move(text),
     };
+    RunRecordDispatcher outputRecords;
+    outputRecords.AddSink(request.runRecordSink);
+    if (!request.outputSinks.Empty()) {
+        outputRecords.AddSink(std::make_shared<DataCodecOutputRouter>(request.outputSinks));
+    }
     RunRecordEmitter records;
     records.Reset(
         RunRecordInfo{
@@ -145,8 +152,9 @@ EncodeResult MakeEncodeEntryFailure(
                 : request.input.rootName,
             .leafPath = request.input.leafPath,
             .meshType = request.input.meshType,
+            .language = request.configuration.language,
         },
-        request.runRecordSink.get());
+        &outputRecords);
     records.BeginRun();
     records.AddMessage(message);
     records.EndRun(RunEndRecord{.success = false});
@@ -193,6 +201,11 @@ EncodeResult MakeFrameEncodeResult(
 EncodeResult Encode(const EncodeRequest& request) {
     const auto resolvedResources = ResolveDataCodecExecutionResources(
         request.executionResources);
+    RunRecordDispatcher outputRecords;
+    outputRecords.AddSink(request.runRecordSink);
+    if (!request.outputSinks.Empty()) {
+        outputRecords.AddSink(std::make_shared<DataCodecOutputRouter>(request.outputSinks));
+    }
     const auto packageKind = request.output.packageKind;
     const auto outputSinkEntry = std::get_if<IByteRangeOutput*>(&request.output.target);
     const auto leafAdapterEntry = std::get_if<IEncodeAdapter*>(&request.input.adapter);
@@ -243,7 +256,8 @@ EncodeResult Encode(const EncodeRequest& request) {
                 .controlParams = &runtimeConfiguration.controlParams,
                 .pipelineControl = runtimeConfiguration.pipelineControl,
                 .configurationSource = runtimeConfiguration.source,
-                .runRecordSink = request.runRecordSink.get(),
+                .language = runtimeConfiguration.language,
+                .runRecordSink = &outputRecords,
                 .outputSink = outputSink,
                 .attributeTargets = std::span<const AttributeTarget>(attributeTargets),
                 .enableParallelStages = runtimeConfiguration.execution.enableParallelStages,
@@ -259,6 +273,7 @@ EncodeResult Encode(const EncodeRequest& request) {
     context.meshType = request.input.meshType;
     context.path = request.input.leafPath;
     context.frameIndex = request.input.frameIndex;
+    context.language = runtimeConfiguration.language;
     context.attributeTargets = std::span<const AttributeTarget>(attributeTargets);
     context.controlParams = &runtimeConfiguration.controlParams;
 
@@ -267,7 +282,8 @@ EncodeResult Encode(const EncodeRequest& request) {
             .context = &context,
             .pipelineControl = runtimeConfiguration.pipelineControl,
             .configurationSource = runtimeConfiguration.source,
-            .runRecordSink = request.runRecordSink.get(),
+            .language = runtimeConfiguration.language,
+            .runRecordSink = &outputRecords,
             .outputSink = outputSink,
             .enableParallelStages = runtimeConfiguration.execution.enableParallelStages,
             .parallelTaskRunner = resolvedResources.parallelTaskRunner,

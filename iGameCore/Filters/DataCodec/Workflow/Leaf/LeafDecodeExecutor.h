@@ -12,8 +12,6 @@
 #include "DataCodec/Workflow/Decode/DecodePipeline.h"
 #include "DataCodec/Runtime/Failure/PipelineFailureManagement.h"
 #include "DataCodec/Runtime/Record/RunRecordTimestamp.h"
-#include "DataCodec/Runtime/Record/RunMessageCaptureSink.h"
-#include "DataCodec/Runtime/Record/RunRecordDispatcher.h"
 
 #include <exception>
 #include <memory>
@@ -43,6 +41,7 @@ struct LeafDecodeRequest {
     DecodeControlParams controlParams{MakeDefaultDecodeControlParams()};
     DecodeExecutionOptions execution{MakeDefaultDecodeExecutionOptions()};
     DataCodecDecodeConfigurationSource configurationSource;
+    DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
     IRunRecordSink* runRecordSink{nullptr};
     std::stop_token stopToken;
     IParallelTaskRunner* parallelTaskRunner{nullptr};
@@ -93,6 +92,7 @@ public:
             .controlParams = request.controlParams,
             .execution = request.execution,
             .source = request.configurationSource,
+            .language = request.language,
         };
         CodecControlParamsFactory::ApplyDecodeRuntimeConstraint(
             runtimeConfiguration,
@@ -134,10 +134,6 @@ public:
             return result;
         }
 
-        RunMessageCaptureSink messageSink;
-        RunRecordDispatcher recordDispatcher;
-        recordDispatcher.AddSink(&messageSink);
-        recordDispatcher.AddSink(request.runRecordSink);
         context.leafPackage = request.leafPackage;
         context.attributeKeyFrameReference = request.attributeKeyFrameReference;
         context.geometryKeyFrameReference = request.geometryKeyFrameReference;
@@ -145,6 +141,7 @@ public:
         context.topologyReferenceStore = request.topologyReferenceStore;
         context.topologyReferenceKey = request.topologyReferenceKey;
         context.frameIndex = request.frameIndex;
+        context.language = runtimeConfiguration.language;
         context.attributeSelection = request.attributeSelection;
         context.attributeTargets = request.attributeTargets;
         context.attributeRequestMode = request.attributeRequestMode;
@@ -152,7 +149,7 @@ public:
         context.topologyOutputMode = request.execution.topologyOutputMode;
         context.topologyBlockObserver = request.execution.topologyBlockObserver;
 
-        const auto contextCreateResult = context.Initialize(&recordDispatcher);
+        const auto contextCreateResult = context.Initialize(request.runRecordSink);
         if (!contextCreateResult) {
             context.runRecords.BeginRun();
             context.RecordFailure(
@@ -162,7 +159,7 @@ public:
                 contextCreateResult.message);
             CleanupDecodeFailure(request, context);
             context.runRecords.EndRun(context.runSummary);
-            result.messages = messageSink.TakeMessages();
+            result.messages = context.runRecords.TakeMessages();
             return result;
         }
 
@@ -267,7 +264,7 @@ public:
         CaptureMemoryTrace(context, memoryTrace);
         context.memoryTrace = nullptr;
         context.runRecords.EndRun(context.runSummary);
-        result.messages = messageSink.TakeMessages();
+        result.messages = context.runRecords.TakeMessages();
         completedSuccessfully = result.success;
         return result;
     }
@@ -289,10 +286,6 @@ private:
         const CodecErrorCode code,
         const std::string& message,
         LeafDecodeResult& result) {
-        RunMessageCaptureSink messageSink;
-        RunRecordDispatcher recordDispatcher;
-        recordDispatcher.AddSink(&messageSink);
-        recordDispatcher.AddSink(request.runRecordSink);
         RunRecordEmitter records;
         records.Reset(
             RunRecordInfo{
@@ -305,11 +298,11 @@ private:
                     ? request.leafPackage->path
                     : BlockPath{},
             },
-            &recordDispatcher);
+            request.runRecordSink);
         records.BeginRun();
         records.AddMessage(MakeCodecTelemetryMessage(origin, code, message));
         records.EndRun(RunEndRecord{.success = false});
-        result.messages = messageSink.TakeMessages();
+        result.messages = records.TakeMessages();
     }
 
     static void CommitOutput(

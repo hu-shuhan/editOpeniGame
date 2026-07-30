@@ -90,13 +90,11 @@ inline void RecordCommitTiming(
 inline void SubmitCommitProgress(
     DecodeContext& context,
     const double normalized,
-    std::string text) {
-    context.runRecords.SubmitProgress(RunProgressRecord{
-        .phase = RunProgressPhase::Update,
-        .normalized = normalized,
-        .text = std::move(text),
-        .success = false,
-    });
+    const DataCodecMessageId messageId) {
+    context.runRecords.SubmitProgress(
+        RunProgressPhase::Update,
+        normalized,
+        messageId);
 }
 
 inline bool CommitDecodedTopologyIfPresent(
@@ -161,7 +159,7 @@ inline void CommitOutput(DecodeContext& context, DecodeLeafWorkspace& workspace)
         workspace.StorageParams().attrParams.size());
     const auto uncommittedAttrIndices = CollectUncommittedAttributeIndices(workspace, targetAttrIndices);
     auto stageStart = callback::StartTiming(context.runRecords.Wants(RunRecordKind::StageTiming));
-    SubmitCommitProgress(context, 0.905, "校验提交结果");
+    SubmitCommitProgress(context, 0.905, DataCodecMessageId::DecodeValidateCommit);
     if (!ValidateDecodedCacheShapesIfStrict(workspace, targetAttrIndices, &error)) {
         RecordCommitTiming(context, "DecodeCommitStage.Validate", stageStart);
         FailDecodeStage(
@@ -176,7 +174,7 @@ inline void CommitOutput(DecodeContext& context, DecodeLeafWorkspace& workspace)
     RecordCommitTiming(context, "DecodeCommitStage.Validate", stageStart);
     error.clear();
     stageStart = callback::StartTiming(context.runRecords.Wants(RunRecordKind::StageTiming));
-    SubmitCommitProgress(context, 0.920, "提交坐标");
+    SubmitCommitProgress(context, 0.920, DataCodecMessageId::DecodeCommitGeometry);
     if (!CommitGeometryCache(
             *context.adapter,
             workspace.CacheResourcesRef(),
@@ -195,7 +193,7 @@ inline void CommitOutput(DecodeContext& context, DecodeLeafWorkspace& workspace)
     RecordCommitTiming(context, "DecodeCommitStage.Geometry", stageStart);
     error.clear();
     stageStart = callback::StartTiming(context.runRecords.Wants(RunRecordKind::StageTiming));
-    SubmitCommitProgress(context, 0.940, "提交拓扑");
+    SubmitCommitProgress(context, 0.940, DataCodecMessageId::DecodeCommitTopology);
     const auto* topologyBeforeCommit = workspace.TopologyForCommit();
     const std::string topologyCommitMode =
         topologyBeforeCommit != nullptr ? topologyBeforeCommit->ByteStoreModeName() : std::string{};
@@ -221,7 +219,7 @@ inline void CommitOutput(DecodeContext& context, DecodeLeafWorkspace& workspace)
         topologyCommitMode);
     error.clear();
     stageStart = callback::StartTiming(context.runRecords.Wants(RunRecordKind::StageTiming));
-    SubmitCommitProgress(context, 0.970, "提交数值");
+    SubmitCommitProgress(context, 0.970, DataCodecMessageId::DecodeCommitAttribute);
     if (!CommitAttributeCacheFields(
             *context.adapter,
             workspace.CacheResourcesRef(),
@@ -243,7 +241,7 @@ inline void CommitOutput(DecodeContext& context, DecodeLeafWorkspace& workspace)
     }
     workspace.MarkAttributesCommitted(uncommittedAttrIndices);
     RecordCommitTiming(context, "DecodeCommitStage.Attributes", stageStart);
-    SubmitCommitProgress(context, 0.990, "整理结果");
+    SubmitCommitProgress(context, 0.990, DataCodecMessageId::DecodeFinalizeResult);
 }
 
 inline void CommitAttributeOutput(DecodeContext& context, DecodeLeafWorkspace& workspace) {

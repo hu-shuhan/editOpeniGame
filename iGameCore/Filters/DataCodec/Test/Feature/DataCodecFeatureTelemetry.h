@@ -1,7 +1,7 @@
 #ifndef DATACODEC_TEST_FEATURE_DATACODECFEATURETELEMETRY_H
 #define DATACODEC_TEST_FEATURE_DATACODECFEATURETELEMETRY_H
 
-#include <DataCodec/Log/Telemetry/Sinks/JsonTelemetrySink.h>
+#include <DataCodec/Log/Telemetry/TelemetrySessionJson.h>
 #include <DataCodec/Log/Telemetry/Sinks/TelemetrySessionSink.h>
 #include <DataCodec/Runtime/Record/RunRecordEmitter.h>
 #include <DataCodec/Test/Common/DataCodecTestResult.h>
@@ -44,6 +44,15 @@ inline bool TestInterestDrivenCollection() {
     Require(result, reportSink.Requests(RunCollectionKind::MemoryTrace),
             "telemetry.interest.reportMemory", "report sink should request memory tracing");
 
+    TelemetrySessionSink boundedSink(
+        kRunLifecycleRecordMask |
+        RunRecordKind::Progress |
+        RunRecordKind::RemapOrder);
+    Require(result, !boundedSink.Wants(RunRecordKind::Progress),
+            "telemetry.interest.progress", "session sink should reject progress records");
+    Require(result, !boundedSink.Wants(RunRecordKind::RemapOrder),
+            "telemetry.interest.remap", "session sink should reject remap records");
+
     PrintResult(result);
     return result.passed;
 }
@@ -84,6 +93,12 @@ inline bool TestSessionAndJsonSink() {
         .sourceBytes = 100u,
     });
 
+    const auto emittedMessages = records.TakeMessages();
+    Require(result, emittedMessages.size() == 1u,
+            "telemetry.messages.emitter", "run emitter message count mismatch");
+    const auto capturedMessages = sessionSink.SnapshotMessages();
+    Require(result, capturedMessages.size() == 1u,
+            "telemetry.messages.snapshot", "session message snapshot count mismatch");
     const auto session = sessionSink.TakeSession(records.RunId());
     Require(result, session.has_value(),
             "telemetry.session.present", "completed run should produce a session");

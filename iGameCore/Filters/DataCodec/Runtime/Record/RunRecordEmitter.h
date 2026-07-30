@@ -3,10 +3,13 @@
 
 #include "DataCodec/API/Adapter/IRunRecordSink.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace datacodec {
 
@@ -26,6 +29,8 @@ public:
         m_messageOrder.store(0u, std::memory_order_relaxed);
         m_stageOrder.store(0u, std::memory_order_relaxed);
         m_artifactOrder.store(0u, std::memory_order_relaxed);
+        std::lock_guard<std::mutex> lock(m_messageMutex);
+        m_messages.clear();
     }
 
     [[nodiscard]] std::uint64_t RunId() const noexcept {
@@ -34,6 +39,10 @@ public:
 
     [[nodiscard]] const RunRecordInfo& RunInfo() const noexcept {
         return m_run;
+    }
+
+    [[nodiscard]] DataCodecLanguage Language() const noexcept {
+        return m_run.language;
     }
 
     [[nodiscard]] bool Wants(const RunRecordKind kind) const noexcept {
@@ -58,11 +67,78 @@ public:
         Submit(RunRecordKind::Progress, RunRecord{std::move(record)});
     }
 
+    void SubmitProgress(
+        const RunProgressPhase phase,
+        const double normalized,
+        const DataCodecMessageId messageId,
+        std::initializer_list<DataCodecMessageArgument> arguments = {},
+        const bool success = false,
+        std::string technicalDetail = {}) const {
+        auto message = LocalizeDataCodecMessage(
+            m_run.language,
+            messageId,
+            arguments,
+            std::move(technicalDetail));
+        SubmitProgress(RunProgressRecord{
+            .phase = phase,
+            .normalized = normalized,
+            .language = message.language,
+            .messageId = message.id,
+            .messageArguments = std::move(message.arguments),
+            .text = std::move(message.text),
+            .technicalDetail = std::move(message.technicalDetail),
+            .success = success,
+        });
+    }
+
+    void AddLocalizedMessage(
+        const TelemetryMessageSeverity severity,
+        std::string origin,
+        const DataCodecMessageId messageId,
+        std::initializer_list<DataCodecMessageArgument> arguments = {},
+        std::string code = {},
+        std::string technicalDetail = {}) {
+        auto message = LocalizeDataCodecMessage(
+            m_run.language,
+            messageId,
+            arguments,
+            std::move(technicalDetail));
+        AddMessage(TelemetryMessageRecord{
+            .severity = severity,
+            .origin = std::move(origin),
+            .code = std::move(code),
+            .language = message.language,
+            .messageId = message.id,
+            .messageArguments = std::move(message.arguments),
+            .text = std::move(message.text),
+            .technicalDetail = std::move(message.technicalDetail),
+        });
+    }
+
     void AddMessage(TelemetryMessageRecord message) {
         message.order = m_messageOrder.fetch_add(1u, std::memory_order_relaxed);
+        {
+            std::lock_guard<std::mutex> lock(m_messageMutex);
+            m_messages.push_back(message);
+        }
         Submit(
             RunRecordKind::Message,
-            RunRecord{RunMessageRecord{m_run.runId, std::move(message)}});
+            RunRecord{RunMessageRecord{
+                .runId = m_run.runId,
+                .runKind = m_run.runKind,
+                .message = std::move(message),
+            }});
+    }
+
+    [[nodiscard]] std::vector<TelemetryMessageRecord> TakeMessages() {
+        std::lock_guard<std::mutex> lock(m_messageMutex);
+        std::stable_sort(
+            m_messages.begin(),
+            m_messages.end(),
+            [](const auto& left, const auto& right) { return left.order < right.order; });
+        auto messages = std::move(m_messages);
+        m_messages.clear();
+        return messages;
     }
 
     void AddInfo(std::string origin, std::string text) {
@@ -156,6 +232,8 @@ private:
     std::atomic_uint64_t m_messageOrder{0u};
     std::atomic_uint64_t m_stageOrder{0u};
     std::atomic_uint64_t m_artifactOrder{0u};
+    std::mutex m_messageMutex;
+    std::vector<TelemetryMessageRecord> m_messages;
 };
 
 } // 命名空间 datacodec

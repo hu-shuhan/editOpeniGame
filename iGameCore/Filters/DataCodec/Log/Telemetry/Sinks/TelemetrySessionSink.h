@@ -13,6 +13,13 @@
 
 namespace datacodec {
 
+inline constexpr RunRecordMask kTelemetrySessionRecordMask =
+    kRunLifecycleRecordMask |
+    RunRecordKind::Message |
+    RunRecordKind::StageTiming |
+    RunRecordKind::ResourceUsage |
+    RunRecordKind::Artifact;
+
 class TelemetrySessionSink final : public IRunRecordSink {
 public:
     explicit TelemetrySessionSink(
@@ -20,7 +27,8 @@ public:
             kRunLifecycleRecordMask |
             RunRecordKind::Message,
         const RunCollectionMask collectionRequests = 0u)
-        : m_interests(interests | kRunLifecycleRecordMask),
+        : m_interests((interests & kTelemetrySessionRecordMask) |
+              kRunLifecycleRecordMask),
           m_collectionRequests(collectionRequests) {}
 
     [[nodiscard]] RunRecordMask Interests() const noexcept override {
@@ -66,6 +74,24 @@ public:
             sessions.end(),
             [](const auto& left, const auto& right) { return left.runId < right.runId; });
         return sessions;
+    }
+
+    [[nodiscard]] std::vector<TelemetryMessageRecord> SnapshotMessages() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto messages = m_unscopedMessages;
+        auto runIds = m_completedRunIds;
+        std::sort(runIds.begin(), runIds.end());
+        for (const auto runId : runIds) {
+            const auto iterator = m_sessions.find(runId);
+            if (iterator == m_sessions.end()) {
+                continue;
+            }
+            messages.insert(
+                messages.end(),
+                iterator->second.messages.begin(),
+                iterator->second.messages.end());
+        }
+        return messages;
     }
 
 private:
@@ -127,7 +153,9 @@ private:
         const auto iterator = m_sessions.find(record.runId);
         if (iterator != m_sessions.end()) {
             iterator->second.AddMessage(record.message);
+            return;
         }
+        m_unscopedMessages.push_back(record.message);
     }
 
     void Consume(const RunStageTimingRecord& record) {
@@ -159,6 +187,7 @@ private:
     mutable std::mutex m_mutex;
     std::unordered_map<std::uint64_t, TelemetrySession> m_sessions;
     std::vector<std::uint64_t> m_completedRunIds;
+    std::vector<TelemetryMessageRecord> m_unscopedMessages;
 };
 
 } // 命名空间 datacodec

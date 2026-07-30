@@ -106,8 +106,8 @@ public:
             context,
             kEncodeStageProgressEnd,
             encodingParams.mode == PackageFieldEncodingMode::Zstd
-                ? "打包压缩"
-                : "打包写入");
+                ? DataCodecMessageId::EncodePackageCompress
+                : DataCodecMessageId::EncodePackageWrite);
         LeafPackageByteWriter packageWriter;
         if (!packageWriter.BeginPackageToSink(
                 workspace.TransferCaches().Count(),
@@ -157,7 +157,10 @@ public:
             completedRawBytes = validation::SaturatingAddU64(completedRawBytes, fieldRawBytes);
         }
 
-        SubmitProgress(context, kPackageFinalizeProgress, "完成文件");
+        SubmitProgress(
+            context,
+            kPackageFinalizeProgress,
+            DataCodecMessageId::EncodeFinalizeFile);
         if (!packageWriter.EndPackage(error)) {
             return false;
         }
@@ -397,14 +400,22 @@ private:
 
     static void SubmitProgress(
         EncodeContext& context,
-        const double normalized,
-        std::string text = {}) {
+        const double normalized) {
         context.runRecords.SubmitProgress(RunProgressRecord{
             .phase = RunProgressPhase::Update,
             .normalized = std::clamp(normalized, 0.0, kEncodedOutputProgressEnd),
-            .text = std::move(text),
             .success = false,
         });
+    }
+
+    static void SubmitProgress(
+        EncodeContext& context,
+        const double normalized,
+        const DataCodecMessageId messageId) {
+        context.runRecords.SubmitProgress(
+            RunProgressPhase::Update,
+            std::clamp(normalized, 0.0, kEncodedOutputProgressEnd),
+            messageId);
     }
 };
 

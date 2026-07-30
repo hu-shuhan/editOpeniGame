@@ -4,6 +4,7 @@
 #include "DataCodec/API/Adapter/IBlockTreeAdapter.h"
 #include "DataCodec/API/Adapter/IEncodeAdapter.h"
 #include "DataCodec/API/Adapter/IRunRecordSink.h"
+#include "DataCodec/API/Output/DataCodecOutputSinks.h"
 #include "DataCodec/Storage/ByteIO/ByteRange.h"
 #include "DataCodec/Common/DataCodecTypes.h"
 #include "DataCodec/API/Params/CodecPerformancePresetParams.h"
@@ -74,6 +75,7 @@ struct EncodeRequest {
     AttributeSelectionMode attributeSelection{AttributeSelectionMode::AllAvailable};
     std::vector<AttributeTarget> attributeTargets;
     DataCodecEncodeConfigurationParams configuration{MakeDefaultEncodeConfigurationParams()};
+    DataCodecOutputSinks outputSinks;
     std::shared_ptr<IRunRecordSink> runRecordSink;
     DataCodecExecutionResources executionResources;
 };

@@ -76,7 +76,9 @@ public:
         if (!m_textPrefix.empty()) {
             mapped.text = mapped.text.empty()
                 ? m_textPrefix
-                : m_textPrefix + "：" + mapped.text;
+                : m_textPrefix +
+                    (mapped.language == DataCodecLanguage::English ? ": " : "：") +
+                    mapped.text;
         }
         m_downstream->Submit(RunRecord{std::move(mapped)});
     }

@@ -2,6 +2,7 @@
 #define DATACODEC_LOG_TELEMETRY_TELEMETRYSESSION_H
 
 #include "DataCodec/API/Adapter/RunRecordTypes.h"
+#include "DataCodec/Common/DataCodecTypes.h"
 
 #include <cstdint>
 #include <string>

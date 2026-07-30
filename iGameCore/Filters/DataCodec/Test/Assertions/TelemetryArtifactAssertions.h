@@ -1,7 +1,7 @@
 #ifndef DATACODEC_TEST_ASSERTIONS_TELEMETRYARTIFACTASSERTIONS_H
 #define DATACODEC_TEST_ASSERTIONS_TELEMETRYARTIFACTASSERTIONS_H
 
-#include "DataCodec/Log/Telemetry/Sinks/JsonTelemetrySink.h"
+#include "DataCodec/Log/Telemetry/TelemetrySessionJson.h"
 
 #include <vector>
 
