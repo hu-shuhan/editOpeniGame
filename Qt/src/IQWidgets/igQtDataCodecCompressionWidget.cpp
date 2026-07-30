@@ -12,7 +12,6 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QEvent>
-#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGridLayout>
@@ -44,16 +43,19 @@
 #include <QWheelEvent>
 #include <DataCodec/API/Adapter/IEncodeAdapter.h>
 #include <DataCodec/Filter/Adapter/iGameDataCodecAttributeCatalog.h>
-#include <DataCodec/Filter/Execution/iGameRunRecordSink.h>
+#include <DataCodec/Filter/Localization/iGameDataCodecHostMessage.h>
+#include <DataCodec/Filter/Output/iGameDataCodecOutputSinks.h>
+#include <DataCodec/Filter/Telemetry/iGameDataCodecTelemetryCapture.h>
 #include <DataCodec/API/Params/TimeSeriesControlParams.h>
 #include <DataCodec/API/Params/NumericArrayParams.h>
 #include <DataCodec/API/Params/ReferenceControlParams.h>
 #include <DataCodec/Log/Analysis/AdapterPrecisionMetrics.h>
 #include <DataCodec/Filter/Adapter/iGameBlockTreeAdapter.h>
-#include <DataCodec/Log/Telemetry/Sinks/JsonTelemetrySink.h>
+#include <DataCodec/Log/Telemetry/TelemetrySessionJson.h>
 #include <FeatureExtraction/iGameRegionFeatureBasisFilter.h>
 #include <IGDC/iGameIGDCReader.h>
 #include <IGDC/iGameIGDCWriter.h>
+#include <IQWidgets/igQtDataCodecUiSink.h>
 #include <iGameAttributeSet.h>
 #include <iGameDataObject.h>
 #include <iGamePointSet.h>
@@ -64,6 +66,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <map>
@@ -198,28 +201,6 @@ public:
     }
 };
 
-QString compressionStatusText(const ::datacodec::RunRecord& record) {
-    const auto* progress = std::get_if<::datacodec::RunProgressRecord>(&record);
-    if (progress == nullptr) return {};
-
-    QString text;
-    if (progress->phase == ::datacodec::RunProgressPhase::Begin) {
-        text = QStringLiteral("开始压缩");
-    } else if (progress->phase == ::datacodec::RunProgressPhase::Update) {
-        text = QString::fromUtf8(progress->text.c_str()).trimmed();
-    }
-    if (!text.isEmpty() && progress->frameCount > 1u) {
-        const auto displayOrdinal = progress->frameOrdinal < progress->frameCount
-            ? progress->frameOrdinal + 1u
-            : progress->frameCount;
-        text = QStringLiteral("%1/%2帧 %3")
-            .arg(displayOrdinal)
-            .arg(progress->frameCount)
-            .arg(text);
-    }
-    return text;
-}
-
 QString attachmentName(int attachmentType) {
     switch (attachmentType) {
     case IG_CELL: return QStringLiteral("单元数据");
@@ -340,75 +321,42 @@ std::string toUtf8StdString(const QString& text) {
     return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
 }
 
-QString sanitizeArtifactStem(QString stem) {
-    stem = stem.trimmed();
-    if (stem.isEmpty()) {
-        stem = QStringLiteral("artifact");
-    }
-    for (int i = 0; i < stem.size(); ++i) {
-        const QChar ch = stem.at(i);
-        if (!ch.isLetterOrNumber() && ch != QLatin1Char('_') &&
-            ch != QLatin1Char('-') && ch != QLatin1Char('.')) {
-            stem[i] = QLatin1Char('_');
-        }
-    }
-    return stem;
+QString dataCodecHostLogText(
+    const ::datacodec::DataCodecLanguage language,
+    const iGame::iGameDataCodecHostMessageId messageId,
+    const std::initializer_list<iGame::iGameDataCodecHostMessageArgument> arguments = {}) {
+    const auto text = iGame::iGameDataCodecHostMessage(
+        language,
+        messageId,
+        arguments);
+    return QString::fromUtf8(text.data(), static_cast<int>(text.size()));
 }
 
-QString sanitizeArtifactExtension(QString extension) {
-    extension = extension.trimmed();
-    if (extension.isEmpty()) {
-        extension = QStringLiteral(".txt");
-    }
-    if (!extension.startsWith(QLatin1Char('.'))) {
-        extension.prepend(QLatin1Char('.'));
-    }
-    for (int i = 1; i < extension.size(); ++i) {
-        const QChar ch = extension.at(i);
-        if (!ch.isLetterOrNumber()) {
-            extension[i] = QLatin1Char('_');
-        }
-    }
-    return extension;
-}
-
-QString telemetryArtifactFileName(const ::datacodec::TelemetryArtifactRecord& artifact, int index) {
-    const QString stem = sanitizeArtifactStem(QString::fromStdString(artifact.name));
-    const QString extension = sanitizeArtifactExtension(QString::fromStdString(artifact.preferredExtension));
-    return QStringLiteral("%1_%2%3").arg(index, 2, 10, QLatin1Char('0')).arg(stem, extension);
-}
-
-bool writeUtf8TextFile(const QString& path, const std::string& text) {
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        return false;
-    }
-    if (text.size() > static_cast<std::size_t>(std::numeric_limits<qint64>::max())) {
-        return false;
-    }
-    const auto expectedBytes = static_cast<qint64>(text.size());
-    return file.write(text.data(), expectedBytes) == expectedBytes;
-}
-
-bool writeTelemetryArtifacts(const QString& reportDirectory,
+bool writeTelemetryArtifacts(
+                             const std::shared_ptr<iGame::iGameDataCodecReportFileSink>& reportSink,
                              const QString& telemetryStem,
                              const std::vector<::datacodec::TelemetrySession>& sessions,
                              QStringList* writtenPaths) {
+    if (reportSink == nullptr) {
+        return false;
+    }
     int artifactIndex = 0;
     int sessionIndex = 0;
-    const auto sanitizedTelemetryStem = sanitizeArtifactStem(telemetryStem);
     for (const auto& session : sessions) {
-        const QString sessionPath = QDir(reportDirectory).filePath(
-            QStringLiteral("%1_%2.json")
-                .arg(sessionIndex, 2, 10, QLatin1Char('0'))
-                .arg(sanitizedTelemetryStem));
-        if (!writeUtf8TextFile(
-                sessionPath,
-                ::datacodec::SerializeTelemetrySessionJson(session))) {
+        const auto sessionResult = reportSink->WriteReportFile({
+            .name = toUtf8StdString(
+                QStringLiteral("%1_%2")
+                    .arg(sessionIndex, 2, 10, QLatin1Char('0'))
+                    .arg(telemetryStem)),
+            .mediaType = "application/json",
+            .preferredExtension = ".json",
+            .content = ::datacodec::SerializeTelemetrySessionJson(session),
+        });
+        if (!sessionResult.success) {
             return false;
         }
         if (writtenPaths != nullptr) {
-            writtenPaths->push_back(sessionPath);
+            writtenPaths->push_back(QString::fromUtf8(sessionResult.path.c_str()));
         }
         ++sessionIndex;
 
@@ -416,13 +364,17 @@ bool writeTelemetryArtifacts(const QString& reportDirectory,
             if (artifact.text.empty()) {
                 continue;
             }
-            const QString artifactPath = QDir(reportDirectory).filePath(
-                telemetryArtifactFileName(artifact, artifactIndex));
-            if (!writeUtf8TextFile(artifactPath, artifact.text)) {
+            const auto artifactResult = reportSink->WriteReportFile({
+                .name = std::to_string(artifactIndex) + "_" + artifact.name,
+                .mediaType = artifact.mediaType,
+                .preferredExtension = artifact.preferredExtension,
+                .content = artifact.text,
+            });
+            if (!artifactResult.success) {
                 return false;
             }
             if (writtenPaths != nullptr) {
-                writtenPaths->push_back(artifactPath);
+                writtenPaths->push_back(QString::fromUtf8(artifactResult.path.c_str()));
             }
             ++artifactIndex;
         }
@@ -464,7 +416,7 @@ QString formatPrecisionMetric(double value) {
     return QString::number(value, 'g', 8);
 }
 
-bool writeCompressionReport(const QString& reportPath,
+std::string buildCompressionReportText(
                             qint64 beforeBytes,
                             qint64 afterBytes,
                             qint64 elapsedMs,
@@ -472,11 +424,8 @@ bool writeCompressionReport(const QString& reportPath,
                             const QString& outputPath,
                             const QString& precisionReport,
                             const std::vector<::datacodec::TelemetryMessageRecord>& messages) {
-    QFile file(reportPath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
-
-    QTextStream stream(&file);
-    stream.setCodec("UTF-8");
+    QString reportText;
+    QTextStream stream(&reportText);
     stream << QStringLiteral("DataCodec 压缩报告\n");
     stream << QStringLiteral("输出文件：") << outputPath << '\n';
     stream << QStringLiteral("压缩前文件大小：") << formatByteSize(beforeBytes) << '\n';
@@ -494,7 +443,7 @@ bool writeCompressionReport(const QString& reportPath,
             stream << QString::fromStdString(message.text) << '\n';
         }
     }
-    return true;
+    return toUtf8StdString(reportText);
 }
 
 void configurePrecisionSpin(QDoubleSpinBox* spin) {
@@ -835,8 +784,9 @@ igQtDataCodecCompressionWidget::igQtDataCodecCompressionWidget(QWidget* parent) 
     root->addWidget(createStatusPanel(), 0);
     if (m_compressionEnhancementCheck != nullptr &&
         m_compressionEnhancementCheck->isChecked()) {
-        appendLog(QStringLiteral(
-            "启用压缩率增强功能后，数据压缩率将得到提升，编解码速度将有所下降。"));
+        publishStatus(dataCodecHostLogText(
+            m_dataCodecLanguage,
+            iGame::iGameDataCodecHostMessageId::CompressionEnhancementEnabled));
     }
 
     applyStyle();
@@ -1030,8 +980,9 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
         [this](const bool checked) {
             persistPerformanceSettings();
             if (checked) {
-                appendLog(QStringLiteral(
-                    "启用压缩率增强功能后，数据压缩率将得到提升，编解码速度将有所下降。"));
+                publishStatus(dataCodecHostLogText(
+                    m_dataCodecLanguage,
+                    iGame::iGameDataCodecHostMessageId::CompressionEnhancementEnabled));
             }
         });
     connect(m_zstdLevelSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
@@ -2177,8 +2128,9 @@ void igQtDataCodecCompressionWidget::appendPredictionEncodingRecommendation() {
         m_temporalAttributePredictionCheck->isChecked();
     if (!intraFieldPredictionEnabled && !temporalFieldPredictionEnabled) return;
 
-    appendLog(QStringLiteral(
-        "已启用数据预测编码。建议使用高精度有损压缩，以提高预测残差的可压缩性"));
+    publishStatus(dataCodecHostLogText(
+        m_dataCodecLanguage,
+        iGame::iGameDataCodecHostMessageId::PredictionEncodingRecommendation));
 }
 
 void igQtDataCodecCompressionWidget::refreshPredictionControls() {
@@ -2250,18 +2202,36 @@ void igQtDataCodecCompressionWidget::persistPerformanceSettings() const {
     });
 }
 
-void igQtDataCodecCompressionWidget::appendLog(const QString& text) {
-    if (!m_logEdit) return;
+void igQtDataCodecCompressionWidget::appendLog(
+        const QString& text) {
     const QString time = QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss"));
-    m_logEdit->appendPlainText(QStringLiteral("[%1] %2").arg(time, text));
+    const QString line = QStringLiteral("[%1] %2").arg(time, text);
+    if (!m_logEdit) return;
+    m_logEdit->appendPlainText(line);
     if (auto* scrollBar = m_logEdit->verticalScrollBar()) {
         scrollBar->setValue(scrollBar->maximum());
     }
 }
 
+void igQtDataCodecCompressionWidget::publishStatus(
+        const QString& text,
+        const ::datacodec::DataCodecStatusSeverity severity) {
+    appendLog(text);
+    iGame::iGameSpdlogDataCodecConsoleSink console;
+    console.SubmitConsoleStatus(::datacodec::DataCodecStatusRecord{
+        .severity = severity,
+        .language = m_dataCodecLanguage,
+        .text = toUtf8StdString(text),
+    });
+}
+
 void igQtDataCodecCompressionWidget::chooseOutputPath() {
     if (!hasSelectedFields()) {
-        appendLog(QStringLiteral("请先加载数据，再设置输出路径"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::LoadDataBeforeOutputPath),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         return;
     }
 
@@ -2275,38 +2245,66 @@ void igQtDataCodecCompressionWidget::chooseOutputPath() {
     if (path.isEmpty()) return;
     const QString normalizedPath = normalizeDataCodecOutputPath(path);
     if (m_outputPathEdit) m_outputPathEdit->setText(normalizedPath);
-    appendLog(QStringLiteral("输出路径已设置为：%1").arg(normalizedPath));
+    publishStatus(dataCodecHostLogText(
+        m_dataCodecLanguage,
+        iGame::iGameDataCodecHostMessageId::OutputPathSet,
+        {{"path", toUtf8StdString(normalizedPath)}}));
 }
 
 void igQtDataCodecCompressionWidget::startEncode() {
     if (!hasSelectedFields()) {
-        appendLog(QStringLiteral("请至少选择一项数据"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::SelectCompressionData),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         return;
     }
     if (m_featureComputationActive) {
-        appendLog(QStringLiteral("无法开始压缩：请等待特征计算完成"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::WaitForFeatureComputation),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         return;
     }
     const int unavailableRegionFeatureCount = unavailableActiveRegionFeatureCount();
     if (unavailableRegionFeatureCount > 0) {
-        appendLog(QStringLiteral("无法开始压缩：%1 项数据的自定义区域缺少已计算特征")
-                      .arg(unavailableRegionFeatureCount));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::MissingRegionFeatures,
+                {{"count", std::to_string(unavailableRegionFeatureCount)}}),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         refreshFeatureState();
         return;
     }
     const int invalidRegionCount = invalidActiveRegionCount();
     if (invalidRegionCount > 0) {
-        appendLog(QStringLiteral("无法开始压缩：存在 %1 个重叠自定义区域，请先调整").arg(invalidRegionCount));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::OverlappingRegionsBlockCompression,
+                {{"count", std::to_string(invalidRegionCount)}}),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         refreshFeatureState();
         return;
     }
     if (m_outputPathEdit == nullptr || m_outputPathEdit->text().trimmed().isEmpty()) {
-        appendLog(QStringLiteral("请先设置输出路径"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::SetOutputPath),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         return;
     }
     auto dataObject = m_model != nullptr ? m_model->GetDataObject() : nullptr;
     if (dataObject == nullptr) {
-        appendLog(QStringLiteral("压缩失败：未载入数据"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::CompressionNoData),
+            ::datacodec::DataCodecStatusSeverity::Error);
         return;
     }
 
@@ -2318,7 +2316,12 @@ void igQtDataCodecCompressionWidget::startEncode() {
 
     const QFileInfo outputInfo(outputPath);
     if (!QDir().mkpath(outputInfo.absolutePath())) {
-        appendLog(QStringLiteral("压缩失败：无法创建输出目录 %1").arg(outputInfo.absolutePath()));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::CreateOutputDirectoryFailed,
+                {{"path", toUtf8StdString(outputInfo.absolutePath())}}),
+            ::datacodec::DataCodecStatusSeverity::Error);
         return;
     }
     const bool outputPerformance = !multiFrame && m_emitPerformanceCheck != nullptr &&
@@ -2327,9 +2330,19 @@ void igQtDataCodecCompressionWidget::startEncode() {
     if (outputPerformance) {
         reportDirectory = makeCompressionReportDirectory(outputPath);
         if (!QDir().mkpath(reportDirectory)) {
-            appendLog(QStringLiteral("压缩失败：无法创建报告目录 %1").arg(reportDirectory));
+            publishStatus(
+                dataCodecHostLogText(
+                    m_dataCodecLanguage,
+                    iGame::iGameDataCodecHostMessageId::CreateReportDirectoryFailed,
+                    {{"path", toUtf8StdString(reportDirectory)}}),
+                ::datacodec::DataCodecStatusSeverity::Error);
             return;
         }
+    }
+    std::shared_ptr<iGame::iGameDataCodecReportFileSink> reportSink;
+    if (outputPerformance) {
+        reportSink = std::make_shared<iGame::iGameDataCodecReportFileSink>(
+            std::filesystem::u8path(toUtf8StdString(reportDirectory)));
     }
 
     ::datacodec::DataCodecEncodeOptions options;
@@ -2348,38 +2361,39 @@ void igQtDataCodecCompressionWidget::startEncode() {
     auto writer = iGame::IGDCWriter::New();
     writer->SetAttributeTargets(selectedAttributeTargets());
     auto definition = ::datacodec::MakeEncodeConfigurationParams(options);
+    definition.language = m_dataCodecLanguage;
     definition.source.customControlParams = true;
     applyCompressionControlToDataCodec(definition.controlParams);
     writer->SetEncodeControls(definition);
     QPointer<igQtDataCodecCompressionWidget> self(this);
-    iGame::iGameRunRecordSinkSet recordSinks;
-    recordSinks.AddCallback(
-        ::datacodec::RunRecordBit(::datacodec::RunRecordKind::Progress),
-        [self](const ::datacodec::RunRecord& record) {
-            const auto text = compressionStatusText(record);
-            if (text.isEmpty()) return;
-            if (!self) return;
-            if (QThread::currentThread() == self->thread()) {
+    ::datacodec::DataCodecOutputSinks outputSinks;
+    outputSinks.ui = std::make_shared<igQtDataCodecUiSink>(
+        this,
+        [self](
+            const QString& text,
+            const ::datacodec::DataCodecStatusSeverity) {
+            if (self) {
                 self->appendLog(text);
-                return;
             }
-            QMetaObject::invokeMethod(self, [self, text]() {
-                if (self) self->appendLog(text);
-            }, Qt::QueuedConnection);
         });
-    recordSinks.CaptureMessages();
+    outputSinks.console = std::make_shared<iGame::iGameSpdlogDataCodecConsoleSink>();
+    outputSinks.progress = std::make_shared<iGame::iGameDataCodecProgressBarSink>();
+    writer->SetOutputSinks(std::move(outputSinks));
+    iGame::iGameDataCodecTelemetryCapture telemetryCapture;
+    auto sessionInterests = ::datacodec::kRunLifecycleRecordMask |
+        ::datacodec::RunRecordKind::Message;
+    auto collectionRequests = ::datacodec::RunCollectionMask{0u};
     if (outputPerformance) {
-        recordSinks.CaptureTelemetry(
-            ::datacodec::kRunLifecycleRecordMask |
-            ::datacodec::RunRecordKind::Message |
+        sessionInterests = sessionInterests |
             ::datacodec::RunRecordKind::StageTiming |
             ::datacodec::RunRecordKind::ResourceUsage |
-            ::datacodec::RunRecordKind::Artifact,
-            ::datacodec::RunCollectionBit(
-                ::datacodec::RunCollectionKind::MemoryTrace));
-        recordSinks.CaptureRemapOrders();
+            ::datacodec::RunRecordKind::Artifact;
+        collectionRequests = ::datacodec::RunCollectionBit(
+            ::datacodec::RunCollectionKind::MemoryTrace);
+        telemetryCapture.CaptureRemapOrders();
     }
-    writer->SetRunRecordSink(recordSinks.Sink());
+    telemetryCapture.CaptureSessions(sessionInterests, collectionRequests);
+    writer->SetTelemetrySink(telemetryCapture.Sink());
     const qint64 initialBeforeBytes = outputPerformance ? sourceFileSizeFromDataObject(dataObject) : -1;
     QVector<NumericFieldItem> precisionFields;
     for (int index = 0; index < m_fields.size() && index < m_fieldStates.size(); ++index) {
@@ -2396,12 +2410,18 @@ void igQtDataCodecCompressionWidget::startEncode() {
         m_startEncodeButton->setEnabled(false);
     }
 
-    auto complete = [self](QStringList messages) {
+    auto complete = [self](
+        QStringList messages,
+        const ::datacodec::DataCodecStatusSeverity severity =
+            ::datacodec::DataCodecStatusSeverity::Info) {
         if (!self) return;
-        QMetaObject::invokeMethod(self, [self, messages = std::move(messages)]() {
+        QMetaObject::invokeMethod(self, [
+            self,
+            messages = std::move(messages),
+            severity]() {
             if (!self) return;
             for (const auto& message : messages) {
-                self->appendLog(message);
+                self->publishStatus(message, severity);
             }
             self->refreshFeatureState();
         }, Qt::QueuedConnection);
@@ -2412,12 +2432,13 @@ void igQtDataCodecCompressionWidget::startEncode() {
         dataObject,
         outputPath,
         outputPerformance,
-        reportDirectory,
+        reportSink,
         initialBeforeBytes,
         precisionFields,
         compressorName,
+        logLanguage = m_dataCodecLanguage,
         telemetryStem = outputInfo.completeBaseName() + QStringLiteral("_telemetry"),
-        recordSinks,
+        telemetryCapture,
         complete = std::move(complete)]() mutable {
         qint64 beforeBytes = initialBeforeBytes;
         QElapsedTimer timer;
@@ -2442,8 +2463,8 @@ void igQtDataCodecCompressionWidget::startEncode() {
             ? resolveWrittenDataCodecPath(outputPath)
             : writtenPaths.front();
         const QFileInfo writtenInfo(writtenPath);
-        const auto recordMessages = recordSinks.TakeMessages();
-        const auto telemetrySessions = recordSinks.SnapshotCompletedTelemetrySessions();
+        const auto recordMessages = telemetryCapture.SnapshotMessages();
+        const auto telemetrySessions = telemetryCapture.SnapshotCompletedTelemetrySessions();
         if (outputPerformance && beforeBytes <= 0) {
             std::uint64_t sourceBytes = 0u;
             std::uint64_t inputBytes = 0u;
@@ -2466,13 +2487,21 @@ void igQtDataCodecCompressionWidget::startEncode() {
                     continue;
                 }
                 failureMessages.push_back(
-                    QStringLiteral("压缩失败：%1").arg(QString::fromStdString(message.text)));
+                    dataCodecHostLogText(
+                        logLanguage,
+                        iGame::iGameDataCodecHostMessageId::CompressionFailedWithDetail,
+                        {{"detail", message.text}}));
             }
             failureMessages.removeDuplicates();
             if (failureMessages.isEmpty()) {
-                failureMessages.push_back(QStringLiteral("压缩失败：未生成输出文件"));
+                failureMessages.push_back(
+                    dataCodecHostLogText(
+                        logLanguage,
+                        iGame::iGameDataCodecHostMessageId::CompressionNoOutputFile));
             }
-            complete(std::move(failureMessages));
+            complete(
+                std::move(failureMessages),
+                ::datacodec::DataCodecStatusSeverity::Error);
             return;
         }
 
@@ -2480,11 +2509,9 @@ void igQtDataCodecCompressionWidget::startEncode() {
         if (outputPerformance) {
             const qint64 afterBytes = totalWrittenBytes;
             const QString compressionRatio = formatCompressionRatio(beforeBytes, afterBytes);
-            const QString reportPath = QDir(reportDirectory).filePath(QStringLiteral("compression_report.txt"));
-
             QString decodeError;
             auto decodedObject = readDataCodecOutput(writtenInfo.filePath(), &decodeError);
-            const auto remapOrders = recordSinks.TakeRemapOrders();
+            const auto remapOrders = telemetryCapture.TakeRemapOrders();
             ::datacodec::log::AdapterSignatureOrderSet orderSet;
             orderSet.pointOrders = remapOrders.pointOrders;
             orderSet.cellOrders = remapOrders.cellOrders;
@@ -2502,46 +2529,88 @@ void igQtDataCodecCompressionWidget::startEncode() {
             const QString precisionReport = buildPrecisionReportText(precisionReports, compressorName);
             const QStringList precisionStatusLines = buildPrecisionStatusLines(precisionReports);
 
-            const bool reportWritten = writeCompressionReport(reportPath,
-                                                              beforeBytes,
-                                                              afterBytes,
-                                                              elapsedMs,
-                                                              compressionRatio,
-                                                              writtenInfo.filePath(),
-                                                              precisionReport,
-                                                              recordMessages);
-            if (!reportWritten) {
-                complete({QStringLiteral("压缩失败：无法写出报告文件")});
+            const auto reportResult = reportSink != nullptr
+                ? reportSink->WriteReportFile({
+                    .name = "compression_report",
+                    .mediaType = "text/plain; charset=utf-8",
+                    .preferredExtension = ".txt",
+                    .content = buildCompressionReportText(
+                        beforeBytes,
+                        afterBytes,
+                        elapsedMs,
+                        compressionRatio,
+                        writtenInfo.filePath(),
+                        precisionReport,
+                        recordMessages),
+                })
+                : ::datacodec::DataCodecReportWriteResult{};
+            if (!reportResult.success) {
+                complete(
+                    {dataCodecHostLogText(
+                        logLanguage,
+                        iGame::iGameDataCodecHostMessageId::WriteReportFailed)},
+                    ::datacodec::DataCodecStatusSeverity::Error);
                 return;
             }
 
             QStringList artifactPaths;
             if (!writeTelemetryArtifacts(
-                    reportDirectory,
+                    reportSink,
                     telemetryStem,
                     telemetrySessions,
                     &artifactPaths)) {
-                complete({QStringLiteral("压缩失败：无法写出检测数据")});
+                complete(
+                    {dataCodecHostLogText(
+                        logLanguage,
+                        iGame::iGameDataCodecHostMessageId::WriteTelemetryFailed)},
+                    ::datacodec::DataCodecStatusSeverity::Error);
                 return;
             }
 
-            messages.push_back(QStringLiteral("================ 压缩报告开始 ================"));
-            messages.push_back(QStringLiteral("压缩前文件大小：%1").arg(formatByteSize(beforeBytes)));
-            messages.push_back(QStringLiteral("压缩后文件大小：%1").arg(formatByteSize(afterBytes)));
-            messages.push_back(QStringLiteral("压缩后大小占比：%1").arg(compressionRatio));
-            messages.push_back(QStringLiteral("压缩时间：%1 ms").arg(elapsedMs));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::CompressionReportBegin));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::SizeBeforeCompression,
+                {{"size", toUtf8StdString(formatByteSize(beforeBytes))}}));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::SizeAfterCompression,
+                {{"size", toUtf8StdString(formatByteSize(afterBytes))}}));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::CompressedSizeRatio,
+                {{"ratio", toUtf8StdString(compressionRatio)}}));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::CompressionTime,
+                {{"milliseconds", std::to_string(elapsedMs)}}));
             messages.append(precisionStatusLines);
             for (const QString& path : artifactPaths) {
-                messages.push_back(QStringLiteral("检测数据：%1").arg(path));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::TelemetryDataPath,
+                    {{"path", toUtf8StdString(path)}}));
             }
-            messages.push_back(QStringLiteral("================ 压缩报告结束 ================"));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::CompressionReportEnd));
         }
         if (writtenPaths.size() > 1) {
-            messages.push_back(QStringLiteral("序列输出：%1 帧").arg(writtenPaths.size()));
-            messages.push_back(QStringLiteral("首帧文件：%1").arg(writtenPaths.front()));
-            messages.push_back(QStringLiteral("末帧文件：%1").arg(writtenPaths.back()));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::SequenceOutputCount,
+                {{"count", std::to_string(writtenPaths.size())}}));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::FirstFrameFile,
+                {{"path", toUtf8StdString(writtenPaths.front())}}));
+            messages.push_back(dataCodecHostLogText(
+                logLanguage,
+                iGame::iGameDataCodecHostMessageId::LastFrameFile,
+                {{"path", toUtf8StdString(writtenPaths.back())}}));
         }
-        messages.push_back(QStringLiteral("压缩完成"));
         complete(std::move(messages));
     });
     connect(worker, &QThread::finished, worker, &QObject::deleteLater);
@@ -2558,7 +2627,11 @@ void igQtDataCodecCompressionWidget::computeFeature() {
     const NumericFieldItem field = m_fields[fieldIndex];
     auto dataObject = field.sourceObject;
     if (dataObject == nullptr) {
-        appendLog(QStringLiteral("特征计算失败：未载入数据"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::FeatureComputationNoData),
+            ::datacodec::DataCodecStatusSeverity::Error);
         return;
     }
 
@@ -2576,9 +2649,14 @@ void igQtDataCodecCompressionWidget::computeFeature() {
     }
 
     const IGsize elementCount = numericFieldElementCount(fieldIndex);
-    appendLog(QStringLiteral("计算特征：%1 / %2，%3 个数据项")
-                      .arg(field.name, currentBasisName())
-                      .arg(static_cast<qulonglong>(elementCount)));
+    publishStatus(dataCodecHostLogText(
+        m_dataCodecLanguage,
+        iGame::iGameDataCodecHostMessageId::FeatureComputationStarted,
+        {
+            {"field", toUtf8StdString(field.name)},
+            {"basis", toUtf8StdString(currentBasisName())},
+            {"count", std::to_string(elementCount)},
+        }));
     m_featureComputationActive = true;
     const std::uint64_t requestSerial = ++m_featureRequestSerial;
     if (m_computeButton != nullptr) m_computeButton->setText(QStringLiteral("计算中..."));
@@ -2645,7 +2723,12 @@ void igQtDataCodecCompressionWidget::computeFeature() {
                 targetFeature.featureBasis = nullptr;
                 targetFeature.analysis = {};
                 targetFeature.basisComputed = false;
-                self->appendLog(QStringLiteral("特征计算失败：%1").arg(error));
+                self->publishStatus(
+                    dataCodecHostLogText(
+                        self->m_dataCodecLanguage,
+                        iGame::iGameDataCodecHostMessageId::FeatureComputationFailed,
+                        {{"detail", toUtf8StdString(error)}}),
+                    ::datacodec::DataCodecStatusSeverity::Error);
             } else {
                 for (int index = 0; index < targetField.features.size(); ++index) {
                     if (index == basisIndex) continue;
@@ -2663,7 +2746,10 @@ void igQtDataCodecCompressionWidget::computeFeature() {
                         region.rangeLower,
                         region.rangeUpper);
                 }
-                self->appendLog(QStringLiteral("特征计算完成"));
+                self->publishStatus(
+                    dataCodecHostLogText(
+                        self->m_dataCodecLanguage,
+                        iGame::iGameDataCodecHostMessageId::FeatureComputationCompleted));
             }
 
             self->refreshRegionRows();
@@ -2682,29 +2768,52 @@ void igQtDataCodecCompressionWidget::addRegion() {
     auto* regions = currentRegions();
     QStringList reasons;
     if (hasMultiFrameData()) {
-        reasons.push_back(QStringLiteral("时序数据暂不支持自定义区域"));
+        reasons.push_back(dataCodecHostLogText(
+            m_dataCodecLanguage,
+            iGame::iGameDataCodecHostMessageId::TimeSeriesCustomRegionUnsupported));
     } else {
         if (fieldState == nullptr || !fieldState->selected) {
-            reasons.push_back(QStringLiteral("请先选择当前数据"));
+            reasons.push_back(dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::SelectCurrentField));
         }
         if (fieldState != nullptr && fieldState->losslessMode) {
-            reasons.push_back(QStringLiteral("请先取消无损压缩"));
+            reasons.push_back(dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::DisableLosslessCompression));
         }
         if (m_featureComputationActive) {
-            reasons.push_back(QStringLiteral("请等待特征计算完成"));
+            reasons.push_back(dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::WaitUntilFeatureComputationCompleted));
         } else if (featureState == nullptr || !featureState->basisComputed ||
                    featureState->featureBasis == nullptr) {
-            reasons.push_back(QStringLiteral("请先计算当前特征"));
+            reasons.push_back(dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::ComputeCurrentFeature));
         }
         if (featureState != nullptr && customRegionCount(*featureState) >= kMaxCustomRegionCount) {
-            reasons.push_back(QStringLiteral("每个特征最多支持 8 个自定义区域"));
+            reasons.push_back(dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::CustomRegionLimitReached));
         }
     }
     if (regions == nullptr) {
-        reasons.push_back(QStringLiteral("当前区域状态不可用"));
+        reasons.push_back(dataCodecHostLogText(
+            m_dataCodecLanguage,
+            iGame::iGameDataCodecHostMessageId::CustomRegionStateUnavailable));
     }
     if (!reasons.isEmpty()) {
-        appendLog(QStringLiteral("无法添加自定义区域：%1").arg(reasons.join(QStringLiteral("；"))));
+        const auto separator = m_dataCodecLanguage ==
+                ::datacodec::DataCodecLanguage::English
+            ? QStringLiteral("; ")
+            : QStringLiteral("；");
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::CannotAddCustomRegion,
+                {{"reason", toUtf8StdString(reasons.join(separator))}}),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         return;
     }
 
@@ -2749,7 +2858,11 @@ void igQtDataCodecCompressionWidget::addRegion() {
         availableRange = QPair<int, int>{cursor, qMin(100, cursor + desiredSpan)};
     }
     if (!availableRange.has_value()) {
-        appendLog(QStringLiteral("无法添加自定义区域：全部特征值范围已被现有自定义区域占用"));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::CustomRegionRangeUnavailable),
+            ::datacodec::DataCodecStatusSeverity::Warning);
         return;
     }
     featureState->rangeLower = availableRange->first;
@@ -2772,7 +2885,12 @@ void igQtDataCodecCompressionWidget::addRegion() {
         region.ruleSummary = QString();
     }
     if (overlap > 0) {
-        appendLog(QStringLiteral("当前区域与已有区域重叠：%1 个数据项").arg(overlap));
+        publishStatus(
+            dataCodecHostLogText(
+                m_dataCodecLanguage,
+                iGame::iGameDataCodecHostMessageId::CustomRegionOverlap,
+                {{"count", std::to_string(overlap)}}),
+            ::datacodec::DataCodecStatusSeverity::Warning);
     }
     selectRegion(nextId);
     refreshFieldItemLabels();
@@ -2927,7 +3045,9 @@ void igQtDataCodecCompressionWidget::applyLosslessModeToAllFields() {
         state.losslessMode = true;
         syncDefaultRegionToFeatures(state);
     }
-    appendLog(QStringLiteral("已将全部数据设为无损压缩"));
+    publishStatus(dataCodecHostLogText(
+        m_dataCodecLanguage,
+        iGame::iGameDataCodecHostMessageId::AllFieldsLossless));
     refreshSelectedRegion();
     refreshRegionRows();
     refreshFieldItemLabels();
@@ -2949,7 +3069,9 @@ void igQtDataCodecCompressionWidget::applyHighPrecisionLossyModeToAllFields() {
             }
         }
     }
-    appendLog(QStringLiteral("已将全部数据设为高精度有损压缩：相对误差限 0.00001"));
+    publishStatus(dataCodecHostLogText(
+        m_dataCodecLanguage,
+        iGame::iGameDataCodecHostMessageId::AllFieldsHighPrecisionLossy));
     refreshSelectedRegion();
     refreshRegionRows();
     refreshFieldItemLabels();
@@ -2978,7 +3100,9 @@ void igQtDataCodecCompressionWidget::syncCurrentDefaultPrecisionToAllFields() {
         }
         syncDefaultRegionToFeatures(state);
     }
-    appendLog(QStringLiteral("已将当前默认误差限应用到全部数据"));
+    publishStatus(dataCodecHostLogText(
+        m_dataCodecLanguage,
+        iGame::iGameDataCodecHostMessageId::DefaultPrecisionApplied));
     refreshSelectedRegion();
     refreshRegionRows();
     refreshFieldItemLabels();

@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QWidget>
 #include <DataCodec/Common/DataCodecTypes.h>
+#include <DataCodec/API/Output/DataCodecOutputSinks.h>
 #include <FeatureExtraction/iGameRegionFeatureBasisData.h>
 #include <iGameDataObject.h>
 #include <iGameModel.h>
@@ -118,6 +119,10 @@ public:
     explicit igQtDataCodecCompressionWidget(QWidget* parent = nullptr);
 
     void SetModel(iGame::Model::Pointer model);
+    void SetDataCodecLanguage(
+        const ::datacodec::DataCodecLanguage language) noexcept {
+        m_dataCodecLanguage = language;
+    }
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -236,6 +241,10 @@ private:
     bool hasMultiFrameData() const;
     void appendPredictionEncodingRecommendation();
     void appendLog(const QString& text);
+    void publishStatus(
+        const QString& text,
+        ::datacodec::DataCodecStatusSeverity severity =
+            ::datacodec::DataCodecStatusSeverity::Info);
     void chooseOutputPath();
     void startEncode();
     void computeFeature();
@@ -355,4 +364,6 @@ private:
     bool m_temporalAttributePredictionPreferred{true};
     bool m_featureComputationActive{false};
     std::uint64_t m_featureRequestSerial{0u};
+    ::datacodec::DataCodecLanguage m_dataCodecLanguage{
+        ::datacodec::DataCodecLanguage::SimplifiedChinese};
 };
