@@ -76,9 +76,34 @@ if (NOT TARGET VTK::CommonCore)
             CommonDataModel
             IOLegacy
             IOXML
+            RenderingCore
+            RenderingOpenGL2
+            RenderingUI
+            RenderingFreeType
+            InteractionStyle
     )
 endif ()
 add_subdirectory(Filter/Codec/VTK)
+add_executable(testDataCodecVtkUnstructuredRoundTrip "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecVtkUnstructuredRoundTrip.cpp")
+target_link_libraries(testDataCodecVtkUnstructuredRoundTrip PRIVATE
+        dataCodecVtkAdapter
+        VTK::IOLegacy
+        VTK::IOXML
+        VTK::RenderingCore
+        VTK::RenderingOpenGL2
+        VTK::RenderingUI
+        VTK::RenderingFreeType
+        VTK::InteractionStyle
+)
+if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_link_options(testDataCodecVtkUnstructuredRoundTrip PRIVATE -fuse-ld=lld)
+endif ()
+vtk_module_autoinit(
+        TARGETS testDataCodecVtkUnstructuredRoundTrip
+        MODULES VTK::CommonCore VTK::CommonDataModel VTK::IOLegacy VTK::IOXML
+                VTK::RenderingCore VTK::RenderingOpenGL2 VTK::RenderingUI
+                VTK::RenderingFreeType VTK::InteractionStyle
+)
 add_executable(testScalarsToColorsRobustRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestScalarsToColorsRobustRange.cpp")
 
 add_executable(testConvertPolyhedralCells "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertPolyhedralCells.cpp")
