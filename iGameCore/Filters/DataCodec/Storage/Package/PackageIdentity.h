@@ -3,15 +3,17 @@
 
 #include "DataCodec/Runtime/Cache/DecodeCacheIdentity.h"
 
-#include <atomic>
-#include <chrono>
+#include <algorithm>
+#include <bit>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
-#include <exception>
-#include <functional>
-#include <random>
+#include <limits>
+#include <span>
 #include <string>
-#include <thread>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace datacodec {
 
@@ -46,59 +48,323 @@ namespace packageidentitydetail {
     return -1;
 }
 
+[[nodiscard]] inline PackageIdentity MakeSampleDigest(
+    const std::span<const std::uint8_t> bytes) noexcept;
+
 }
 
-inline bool GeneratePackageIdentity(
+class PackageIdentityBuilder final {
+public:
+    explicit PackageIdentityBuilder(const std::string_view domain = {}) noexcept {
+        if (!domain.empty()) {
+            AddString(domain);
+        }
+    }
+
+    void AddUnsigned(const std::uint64_t value) noexcept {
+        ++m_tokenCount;
+        const auto tokenSalt = m_tokenCount * 0x9e3779b97f4a7c15ull;
+        m_high = packageidentitydetail::Mix64(m_high ^ value ^ tokenSalt);
+        m_low = packageidentitydetail::Mix64(
+            m_low + std::rotl(value ^ tokenSalt, static_cast<int>(m_tokenCount & 63u)));
+    }
+
+    void AddIdentity(const PackageIdentity identity) noexcept {
+        AddUnsigned(identity.high);
+        AddUnsigned(identity.low);
+    }
+
+    void AddBytes(const std::span<const std::uint8_t> bytes) noexcept {
+        AddUnsigned(static_cast<std::uint64_t>(bytes.size()));
+        std::size_t offset = 0u;
+        while (offset < bytes.size()) {
+            std::uint64_t word = 0u;
+            const auto currentBytes = std::min<std::size_t>(sizeof(word), bytes.size() - offset);
+            for (std::size_t byteIndex = 0u; byteIndex < currentBytes; ++byteIndex) {
+                word |= static_cast<std::uint64_t>(bytes[offset + byteIndex]) << (byteIndex * 8u);
+            }
+            AddUnsigned(word ^ packageidentitydetail::Mix64(static_cast<std::uint64_t>(offset)));
+            offset += currentBytes;
+        }
+    }
+
+    void AddString(const std::string_view text) noexcept {
+        AddBytes(std::span<const std::uint8_t>(
+            reinterpret_cast<const std::uint8_t*>(text.data()),
+            text.size()));
+    }
+
+    [[nodiscard]] PackageIdentity Finish() const noexcept {
+        auto output = PackageIdentity{
+            .high = packageidentitydetail::Mix64(
+                m_high ^ (m_tokenCount * 0xd6e8feb86659fd93ull)),
+            .low = packageidentitydetail::Mix64(
+                m_low ^ std::rotl(m_high, 29) ^ (m_tokenCount * 0xa0761d6478bd642full)),
+        };
+        if (!output.IsValid()) {
+            output.low = 0xe7037ed1a0b428dbull;
+        }
+        return output;
+    }
+
+private:
+    std::uint64_t m_high{0x243f6a8885a308d3ull};
+    std::uint64_t m_low{0x13198a2e03707344ull};
+    std::uint64_t m_tokenCount{0u};
+};
+
+inline constexpr std::size_t kPackageIdentitySampleWindowBytes = 4u * 1024u;
+inline constexpr std::uint64_t kPackageIdentitySampleStrideBytes = 256ull * 1024ull * 1024ull;
+
+struct PackageIdentitySampleRange {
+    std::uint64_t offset{0u};
+    std::size_t byteCount{0u};
+
+    friend bool operator==(const PackageIdentitySampleRange&, const PackageIdentitySampleRange&) = default;
+};
+
+[[nodiscard]] inline std::vector<PackageIdentitySampleRange>
+BuildPackageIdentitySampleRanges(const std::uint64_t byteSize) {
+    std::vector<PackageIdentitySampleRange> ranges;
+    if (byteSize == 0u) {
+        return ranges;
+    }
+    const auto sampleBytes = static_cast<std::size_t>(std::min<std::uint64_t>(
+        byteSize,
+        static_cast<std::uint64_t>(kPackageIdentitySampleWindowBytes)));
+    ranges.push_back({.offset = 0u, .byteCount = sampleBytes});
+    for (std::uint64_t offset = kPackageIdentitySampleStrideBytes;
+         offset < byteSize;) {
+        ranges.push_back({
+            .offset = offset,
+            .byteCount = static_cast<std::size_t>(std::min<std::uint64_t>(
+                byteSize - offset,
+                static_cast<std::uint64_t>(kPackageIdentitySampleWindowBytes))),
+        });
+        if (offset > std::numeric_limits<std::uint64_t>::max() - kPackageIdentitySampleStrideBytes) {
+            break;
+        }
+        offset += kPackageIdentitySampleStrideBytes;
+    }
+    if (byteSize > static_cast<std::uint64_t>(sampleBytes)) {
+        ranges.push_back({
+            .offset = byteSize - static_cast<std::uint64_t>(sampleBytes),
+            .byteCount = sampleBytes,
+        });
+    }
+    std::sort(
+        ranges.begin(),
+        ranges.end(),
+        [](const auto& left, const auto& right) { return left.offset < right.offset; });
+    ranges.erase(
+        std::unique(
+            ranges.begin(),
+            ranges.end(),
+            [](const auto& left, const auto& right) {
+                return left.offset == right.offset && left.byteCount == right.byteCount;
+            }),
+        ranges.end());
+    return ranges;
+}
+
+template<typename ReadRange>
+inline bool ComputeSparsePackageContentIdentity(
+    const std::uint64_t byteSize,
+    ReadRange&& readRange,
     PackageIdentity& output,
     std::string* error = nullptr) {
-    output = {};
-    static std::atomic<std::uint64_t> sequence{0u};
-    PackageIdentity entropy;
-    try {
-        std::random_device random;
-        entropy.high = (static_cast<std::uint64_t>(random()) << 32u) ^
-            static_cast<std::uint64_t>(random());
-        entropy.low = (static_cast<std::uint64_t>(random()) << 32u) ^
-            static_cast<std::uint64_t>(random());
-    } catch (const std::exception& exception) {
-        if (error != nullptr) {
-            *error = std::string("package identity random entropy generation failed: ") +
-                exception.what();
+    PackageIdentityBuilder builder("igdc.sparse-content.v1");
+    builder.AddUnsigned(byteSize);
+    for (const auto& range : BuildPackageIdentitySampleRanges(byteSize)) {
+        std::vector<std::uint8_t> bytes(range.byteCount, 0u);
+        if (!readRange(
+                range.offset,
+                std::span<std::uint8_t>(bytes.data(), bytes.size()),
+                error)) {
+            output = {};
+            return false;
         }
-        return false;
-    } catch (...) {
-        if (error != nullptr) {
-            *error = "package identity random entropy generation failed";
-        }
-        return false;
+        builder.AddUnsigned(range.offset);
+        builder.AddUnsigned(static_cast<std::uint64_t>(range.byteCount));
+        builder.AddIdentity(packageidentitydetail::MakeSampleDigest(bytes));
     }
-    const auto sequenceValue = sequence.fetch_add(1u, std::memory_order_relaxed) + 1u;
-    const auto systemTicks = static_cast<std::uint64_t>(
-        std::chrono::system_clock::now().time_since_epoch().count());
-    const auto steadyTicks = static_cast<std::uint64_t>(
-        std::chrono::steady_clock::now().time_since_epoch().count());
-    const auto threadValue = static_cast<std::uint64_t>(
-        std::hash<std::thread::id>{}(std::this_thread::get_id()));
-    const auto processSalt = static_cast<std::uint64_t>(
-        reinterpret_cast<std::uintptr_t>(&sequence));
-
-    output = PackageIdentity{
-        .high = packageidentitydetail::Mix64(
-            systemTicks ^ entropy.high ^ processSalt ^ sequenceValue),
-        .low = packageidentitydetail::Mix64(
-            steadyTicks ^ entropy.low ^ threadValue ^
-            (sequenceValue * 0x9e3779b97f4a7c15ull)),
-    };
-    if (!output.IsValid()) {
-        if (error != nullptr) {
-            *error = "package identity generation produced an invalid identity";
-        }
-        return false;
-    }
+    output = builder.Finish();
     if (error != nullptr) {
         error->clear();
     }
     return true;
+}
+
+class StreamingPackageContentSampler final {
+public:
+    void Append(const std::span<const std::uint8_t> bytes) {
+        if (bytes.empty()) {
+            return;
+        }
+        const auto rangeBegin = m_byteSize;
+        const auto rangeEnd = rangeBegin + static_cast<std::uint64_t>(bytes.size());
+        CapturePrefix(rangeBegin, bytes);
+        CaptureInterior(rangeBegin, rangeEnd, bytes);
+        CaptureTail(bytes);
+        m_byteSize = rangeEnd;
+    }
+
+    [[nodiscard]] std::uint64_t ByteSize() const noexcept { return m_byteSize; }
+
+    [[nodiscard]] PackageIdentity Finish() const {
+        auto samples = m_samples;
+        if (!m_prefix.empty()) {
+            samples.push_back(MakeSample(0u, m_prefix));
+        }
+        if (!m_activeInterior.empty()) {
+            samples.push_back(MakeSample(m_nextInteriorOffset, m_activeInterior));
+        }
+        if (!m_tail.empty()) {
+            samples.push_back(MakeSample(
+                m_byteSize - static_cast<std::uint64_t>(m_tail.size()),
+                m_tail));
+        }
+        std::sort(
+            samples.begin(),
+            samples.end(),
+            [](const auto& left, const auto& right) { return left.offset < right.offset; });
+        samples.erase(
+            std::unique(
+                samples.begin(),
+                samples.end(),
+                [](const auto& left, const auto& right) {
+                    return left.offset == right.offset && left.byteCount == right.byteCount;
+                }),
+            samples.end());
+
+        PackageIdentityBuilder builder("igdc.sparse-content.v1");
+        builder.AddUnsigned(m_byteSize);
+        for (const auto& sample : samples) {
+            builder.AddUnsigned(sample.offset);
+            builder.AddUnsigned(static_cast<std::uint64_t>(sample.byteCount));
+            builder.AddIdentity(sample.digest);
+        }
+        return builder.Finish();
+    }
+
+private:
+    struct Sample {
+        std::uint64_t offset{0u};
+        std::size_t byteCount{0u};
+        PackageIdentity digest;
+    };
+
+    [[nodiscard]] static Sample MakeSample(
+        const std::uint64_t offset,
+        const std::vector<std::uint8_t>& bytes) {
+        return Sample{
+            .offset = offset,
+            .byteCount = bytes.size(),
+            .digest = packageidentitydetail::MakeSampleDigest(bytes),
+        };
+    }
+
+    void CapturePrefix(
+        const std::uint64_t rangeBegin,
+        const std::span<const std::uint8_t> bytes) {
+        if (rangeBegin >= kPackageIdentitySampleWindowBytes ||
+            m_prefix.size() >= kPackageIdentitySampleWindowBytes) {
+            return;
+        }
+        const auto available = kPackageIdentitySampleWindowBytes - m_prefix.size();
+        const auto currentBytes = std::min<std::size_t>(available, bytes.size());
+        m_prefix.insert(m_prefix.end(), bytes.begin(), bytes.begin() + currentBytes);
+    }
+
+    void CaptureInterior(
+        const std::uint64_t rangeBegin,
+        const std::uint64_t rangeEnd,
+        const std::span<const std::uint8_t> bytes) {
+        while (m_nextInteriorOffset < rangeEnd) {
+            const auto sampleEnd = m_nextInteriorOffset +
+                static_cast<std::uint64_t>(kPackageIdentitySampleWindowBytes);
+            if (rangeEnd <= m_nextInteriorOffset) {
+                return;
+            }
+            if (rangeBegin >= sampleEnd) {
+                m_nextInteriorOffset += kPackageIdentitySampleStrideBytes;
+                m_activeInterior.clear();
+                continue;
+            }
+            const auto overlapBegin = std::max(rangeBegin, m_nextInteriorOffset);
+            const auto overlapEnd = std::min(rangeEnd, sampleEnd);
+            if (overlapBegin < overlapEnd) {
+                const auto inputOffset = static_cast<std::size_t>(overlapBegin - rangeBegin);
+                const auto currentBytes = static_cast<std::size_t>(overlapEnd - overlapBegin);
+                m_activeInterior.insert(
+                    m_activeInterior.end(),
+                    bytes.begin() + inputOffset,
+                    bytes.begin() + inputOffset + currentBytes);
+            }
+            if (m_activeInterior.size() < kPackageIdentitySampleWindowBytes) {
+                return;
+            }
+            m_samples.push_back(MakeSample(m_nextInteriorOffset, m_activeInterior));
+            m_activeInterior.clear();
+            m_nextInteriorOffset += kPackageIdentitySampleStrideBytes;
+        }
+    }
+
+    void CaptureTail(const std::span<const std::uint8_t> bytes) {
+        if (bytes.size() >= kPackageIdentitySampleWindowBytes) {
+            m_tail.assign(
+                bytes.end() - static_cast<std::ptrdiff_t>(kPackageIdentitySampleWindowBytes),
+                bytes.end());
+            return;
+        }
+        const auto combinedBytes = m_tail.size() + bytes.size();
+        if (combinedBytes > kPackageIdentitySampleWindowBytes) {
+            m_tail.erase(
+                m_tail.begin(),
+                m_tail.begin() + static_cast<std::ptrdiff_t>(
+                    combinedBytes - kPackageIdentitySampleWindowBytes));
+        }
+        m_tail.insert(m_tail.end(), bytes.begin(), bytes.end());
+    }
+
+    std::vector<std::uint8_t> m_prefix;
+    std::vector<std::uint8_t> m_tail;
+    std::vector<std::uint8_t> m_activeInterior;
+    std::vector<Sample> m_samples;
+    std::uint64_t m_nextInteriorOffset{kPackageIdentitySampleStrideBytes};
+    std::uint64_t m_byteSize{0u};
+};
+
+namespace packageidentitydetail {
+
+[[nodiscard]] inline PackageIdentity MakeSampleDigest(
+    const std::span<const std::uint8_t> bytes) noexcept {
+    PackageIdentityBuilder builder("igdc.sample-window.v1");
+    builder.AddBytes(bytes);
+    return builder.Finish();
+}
+
+}
+
+[[nodiscard]] inline bool TryReadPackageIdentityPrefix(
+    const std::span<const std::uint8_t> bytes,
+    PackageIdentity& identity) noexcept {
+    constexpr std::size_t kIdentityOffset = sizeof(std::uint32_t) + sizeof(std::uint16_t);
+    constexpr std::size_t kIdentityBytes = sizeof(std::uint64_t) * 2u;
+    identity = {};
+    if (bytes.size() < kIdentityOffset + kIdentityBytes) {
+        return false;
+    }
+    const auto readHalf = [&](const std::size_t offset) {
+        std::uint64_t value = 0u;
+        for (std::size_t byteIndex = 0u; byteIndex < sizeof(value); ++byteIndex) {
+            value |= static_cast<std::uint64_t>(bytes[offset + byteIndex]) << (byteIndex * 8u);
+        }
+        return value;
+    };
+    identity.high = readHalf(kIdentityOffset);
+    identity.low = readHalf(kIdentityOffset + sizeof(std::uint64_t));
+    return identity.IsValid();
 }
 
 [[nodiscard]] inline std::string PackageIdentityToHex(const PackageIdentity identity) {

@@ -310,6 +310,58 @@ public:
         return true;
     }
 
+    static bool ComputeLeafPackageIdentity(
+        const LeafPackage& leafPackage,
+        PackageIdentity& identity,
+        std::string* error = nullptr) {
+        std::uint64_t leafPackageByteSize = 0u;
+        if (!ComputeLeafPackageByteSize(leafPackage, leafPackageByteSize, error)) {
+            identity = {};
+            return false;
+        }
+
+        PackageIdentityBuilder builder("igdc.leaf-package.v1");
+        builder.AddString(leafPackage.path);
+        builder.AddUnsigned(leafPackageByteSize);
+        builder.AddUnsigned(static_cast<std::uint64_t>(leafPackage.rawFieldBytes));
+        builder.AddUnsigned(static_cast<std::uint64_t>(leafPackage.fields.size()));
+        for (std::size_t fieldIndex = 0u; fieldIndex < leafPackage.fields.size(); ++fieldIndex) {
+            const auto& field = leafPackage.fields[fieldIndex];
+            const auto fieldByteSize = static_cast<std::uint64_t>(field.ByteSizeHint());
+            PackageIdentity contentIdentity;
+            if (fieldByteSize != 0u && (field.source == nullptr || !field.source->CanRead())) {
+                identity = {};
+                return validation::AssignError(
+                    error,
+                    "leaf package identity requires readable encoded field bytes");
+            }
+            if (!ComputeSparsePackageContentIdentity(
+                    fieldByteSize,
+                    [&field](
+                        const std::uint64_t offset,
+                        const std::span<std::uint8_t> output,
+                        std::string* readError) {
+                        return field.source != nullptr && field.source->Read(offset, output, readError);
+                    },
+                    contentIdentity,
+                    error)) {
+                identity = {};
+                return false;
+            }
+            builder.AddUnsigned(static_cast<std::uint64_t>(fieldIndex));
+            builder.AddUnsigned(static_cast<std::uint64_t>(field.type));
+            builder.AddUnsigned(static_cast<std::uint64_t>(field.compressionType));
+            builder.AddUnsigned(static_cast<std::uint64_t>(field.rawSize));
+            builder.AddUnsigned(fieldByteSize);
+            builder.AddIdentity(contentIdentity);
+        }
+        identity = builder.Finish();
+        if (error != nullptr) {
+            error->clear();
+        }
+        return true;
+    }
+
     static bool WriteLeafPackage(
         const LeafPackage& leafPackage,
         bytestore::IByteWriter& writer,
@@ -321,7 +373,7 @@ public:
             return false;
         }
         PackageIdentity identity;
-        if (!GeneratePackageIdentity(identity, error)) {
+        if (!ComputeLeafPackageIdentity(leafPackage, identity, error)) {
             return false;
         }
 
@@ -372,7 +424,8 @@ public:
     static std::shared_ptr<bytestore::SegmentedBinaryObject> BuildSegmentedLeafPackage(
         const LeafPackage& leafPackage,
         std::string* error = nullptr,
-        const bytestore::ByteSourceConsumptionMode replayMode = bytestore::ByteSourceConsumptionMode::OneShot) {
+        const bytestore::ByteSourceConsumptionMode replayMode = bytestore::ByteSourceConsumptionMode::OneShot,
+        PackageIdentity* identityOutput = nullptr) {
         using namespace detail;
 
         std::uint64_t leafPackageByteSize = 0u;
@@ -380,8 +433,11 @@ public:
             return nullptr;
         }
         PackageIdentity identity;
-        if (!GeneratePackageIdentity(identity, error)) {
+        if (!ComputeLeafPackageIdentity(leafPackage, identity, error)) {
             return nullptr;
+        }
+        if (identityOutput != nullptr) {
+            *identityOutput = identity;
         }
 
         std::vector<std::uint8_t> headerAndDescriptors;

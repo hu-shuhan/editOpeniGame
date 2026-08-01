@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 namespace datacodec {
@@ -24,7 +25,8 @@ public:
         const std::size_t descriptorCapacity,
         const std::size_t initialStreamCount,
         IByteRangeOutput& sink,
-        std::string* error = nullptr) {
+        std::string* error = nullptr,
+        const std::string_view identityName = {}) {
         if (initialStreamCount > descriptorCapacity) {
             return validation::AssignError(
                 error,
@@ -36,10 +38,7 @@ public:
         m_descriptors.resize(descriptorCapacity);
         m_descriptorCount = initialStreamCount;
         m_rawFieldBytes = 0u;
-        if (!GeneratePackageIdentity(m_identity, error)) {
-            Reset();
-            return false;
-        }
+        m_identityName = identityName;
         m_cursor = static_cast<std::uint64_t>(
             leafpackagewire::HeaderByteCount() +
             leafpackagewire::FieldDescriptorByteCount() * m_descriptors.size());
@@ -62,6 +61,7 @@ public:
         descriptor.rawSize = descriptor.schedule.rawSize;
         descriptor.offset = m_cursor;
         descriptor.byteSize = 0u;
+        descriptor.contentSampler = {};
         m_descriptorCount = std::max(m_descriptorCount, streamIndex + 1u);
         m_currentStreamIndex = streamIndex;
         m_streamOpen = true;
@@ -103,6 +103,7 @@ public:
         }
         descriptor.byteSize = nextDescriptorByteSize;
         m_cursor = nextCursor;
+        descriptor.contentSampler.Append(bytes);
         return true;
     }
 
@@ -155,6 +156,7 @@ public:
         if (m_descriptorCount == 0u) {
             m_cursor = leafpackagewire::HeaderByteCount();
         }
+        BuildIdentity();
         if (!WriteHeaderToSink(error)) {
             return false;
         }
@@ -177,6 +179,7 @@ private:
         std::uint64_t rawSize{0u};
         std::uint64_t offset{0u};
         std::uint64_t byteSize{0u};
+        StreamingPackageContentSampler contentSampler;
     };
 
     template<typename TValue>
@@ -229,11 +232,32 @@ private:
             error);
     }
 
+    void BuildIdentity() {
+        PackageIdentityBuilder builder("igdc.leaf-package.v1");
+        builder.AddString(m_identityName);
+        builder.AddUnsigned(m_cursor);
+        builder.AddUnsigned(m_rawFieldBytes);
+        builder.AddUnsigned(static_cast<std::uint64_t>(m_descriptorCount));
+        for (std::size_t descriptorIndex = 0u;
+             descriptorIndex < m_descriptorCount;
+             ++descriptorIndex) {
+            const auto& descriptor = m_descriptors[descriptorIndex];
+            builder.AddUnsigned(static_cast<std::uint64_t>(descriptorIndex));
+            builder.AddUnsigned(static_cast<std::uint64_t>(descriptor.schedule.fieldType));
+            builder.AddUnsigned(static_cast<std::uint64_t>(descriptor.compressionType));
+            builder.AddUnsigned(descriptor.rawSize);
+            builder.AddUnsigned(descriptor.byteSize);
+            builder.AddIdentity(descriptor.contentSampler.Finish());
+        }
+        m_identity = builder.Finish();
+    }
+
     void Reset() {
         m_descriptors.clear();
         m_descriptorCount = 0u;
         m_rawFieldBytes = 0u;
         m_identity = {};
+        m_identityName.clear();
         m_cursor = 0u;
         m_committedByteCount = 0u;
         m_streamOpen = false;
@@ -246,6 +270,7 @@ private:
     std::size_t m_descriptorCount{0u};
     std::uint64_t m_rawFieldBytes{0u};
     PackageIdentity m_identity;
+    std::string m_identityName;
     std::uint64_t m_cursor{0u};
     std::uint64_t m_committedByteCount{0u};
     std::size_t m_currentStreamIndex{0u};

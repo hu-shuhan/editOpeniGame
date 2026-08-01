@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <array>
+#include <bit>
 #include <istream>
 #include <limits>
 #include <memory>
@@ -27,6 +28,7 @@ public:
 
     struct LeafPackageWriter {
         std::uint64_t leafPackageByteSize{0};
+        PackageIdentity identity;
         std::function<bool(bytestore::IByteWriter&, std::string*)> appendLeafPackage;
     };
 
@@ -37,16 +39,13 @@ public:
         std::uint64_t* writtenBytes = nullptr,
         std::string* error = nullptr,
         WriteProgressCallback progressCallback = {}) {
-        std::uint64_t totalByteCount = framepackagewire::MetadataByteSize(container);
-        for (const auto& leafPackageWriter : leafPackageWriters) {
-            if (!validation::CheckedAddU64(
-                    totalByteCount,
-                    leafPackageWriter.leafPackageByteSize,
-                    totalByteCount,
-                    "frame package output byte count",
-                    error)) {
-                return false;
-            }
+        std::uint64_t totalByteCount = 0u;
+        if (!ComputeFramePackageByteSize(
+                container,
+                leafPackageWriters,
+                totalByteCount,
+                error)) {
+            return false;
         }
         ByteRangeOutputWriter writer(sink);
         CountingByteWriter progressWriter(
@@ -83,10 +82,18 @@ public:
             container.leaves.size() > std::numeric_limits<std::uint32_t>::max()) {
             return validation::AssignError(error, "frame package has too many records");
         }
-        PackageIdentity identity;
-        if (!GeneratePackageIdentity(identity, error)) {
+        std::uint64_t totalByteCount = 0u;
+        if (!ComputeFramePackageByteSize(
+                container,
+                leafPackageWriters,
+                totalByteCount,
+                error)) {
             return false;
         }
+        const auto identity = ComputeFramePackageIdentity(
+            container,
+            leafPackageWriters,
+            totalByteCount);
 
         if (!WriteScalarToWriter(output, framepackagewire::kFramePackageMagic, error) ||
             !WriteScalarToWriter(output, framepackagewire::kFramePackageVersion, error) ||
@@ -404,13 +411,19 @@ public:
         if (!LeafPackageIO::ComputeLeafPackageByteSize(*leafPackage, leafPackageByteSize, error)) {
             return false;
         }
-        auto segmentedLeafPackage = LeafPackageIO::BuildSegmentedLeafPackage(*leafPackage, error);
+        PackageIdentity identity;
+        auto segmentedLeafPackage = LeafPackageIO::BuildSegmentedLeafPackage(
+            *leafPackage,
+            error,
+            bytestore::ByteSourceConsumptionMode::OneShot,
+            &identity);
         if (segmentedLeafPackage == nullptr) {
             return false;
         }
 
         writer = LeafPackageWriter{
             .leafPackageByteSize = leafPackageByteSize,
+            .identity = identity,
             .appendLeafPackage = [segmentedLeafPackage](bytestore::IByteWriter& output, std::string* writeError) {
                 return segmentedLeafPackage->CopyTo(output, writeError);
             },
@@ -433,9 +446,17 @@ public:
             return validation::AssignError(error, "encoded data codec output bytes are empty");
         }
 
+        PackageIdentity identity;
+        if (!TryReadPackageIdentityPrefix(
+                std::span<const std::uint8_t>(leafPackageBytes.data(), leafPackageBytes.size()),
+                identity)) {
+            return validation::AssignError(error, "encoded leaf package identity is invalid");
+        }
+
         auto leafPackageBytesStorage = std::make_shared<std::vector<std::uint8_t>>(std::move(leafPackageBytes));
         writer = LeafPackageWriter{
             .leafPackageByteSize = static_cast<std::uint64_t>(leafPackageBytesStorage->size()),
+            .identity = identity,
             .appendLeafPackage = [leafPackageBytesStorage](bytestore::IByteWriter& output, std::string* writeError) {
                 return output.Write(
                     std::span<const std::uint8_t>(leafPackageBytesStorage->data(), leafPackageBytesStorage->size()),
@@ -457,8 +478,20 @@ public:
         if (leafPackageByteSize == 0u) {
             return validation::AssignError(error, "leaf package byte range reader is empty");
         }
+        constexpr std::size_t kPackageIdentityPrefixBytes =
+            sizeof(std::uint32_t) + sizeof(std::uint16_t) + sizeof(std::uint64_t) * 2u;
+        std::array<std::uint8_t, kPackageIdentityPrefixBytes> prefix{};
+        PackageIdentity identity;
+        if (!leafPackageReader->ReadAt(
+                0u,
+                std::span<std::uint8_t>(prefix.data(), prefix.size()),
+                error) ||
+            !TryReadPackageIdentityPrefix(prefix, identity)) {
+            return validation::AssignError(error, "leaf package byte range identity is invalid");
+        }
         writer = LeafPackageWriter{
             .leafPackageByteSize = leafPackageByteSize,
+            .identity = identity,
             .appendLeafPackage = [leafPackageReader, windowBytes](
                 bytestore::IByteWriter& output,
                 std::string* writeError) {
@@ -486,6 +519,59 @@ public:
     }
 
 private:
+    static bool ComputeFramePackageByteSize(
+        const FramePackage& container,
+        const std::span<const LeafPackageWriter> leafPackageWriters,
+        std::uint64_t& byteSize,
+        std::string* error) {
+        byteSize = framepackagewire::MetadataByteSize(container);
+        for (const auto& leafPackageWriter : leafPackageWriters) {
+            if (!validation::CheckedAddU64(
+                    byteSize,
+                    leafPackageWriter.leafPackageByteSize,
+                    byteSize,
+                    "frame package output byte count",
+                    error)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    [[nodiscard]] static PackageIdentity ComputeFramePackageIdentity(
+        const FramePackage& container,
+        const std::span<const LeafPackageWriter> leafPackageWriters,
+        const std::uint64_t byteSize) {
+        PackageIdentityBuilder builder("igdc.frame-package.v1");
+        builder.AddString(container.rootName);
+        builder.AddUnsigned(byteSize);
+        builder.AddUnsigned(container.frameIndex);
+        builder.AddUnsigned(std::bit_cast<std::uint32_t>(container.timeValue));
+        builder.AddUnsigned(static_cast<std::uint64_t>(container.geometryTemporalRole));
+        builder.AddUnsigned(container.geometryKeyFrameIndex);
+        builder.AddUnsigned(static_cast<std::uint64_t>(container.attributeTemporalRole));
+        builder.AddUnsigned(container.attributeKeyFrameIndex);
+        builder.AddUnsigned(static_cast<std::uint64_t>(container.branches.size()));
+        for (const auto& branch : container.branches) {
+            builder.AddString(branch.path);
+            builder.AddString(branch.name);
+        }
+        builder.AddUnsigned(static_cast<std::uint64_t>(container.leaves.size()));
+        for (std::size_t leafIndex = 0u; leafIndex < container.leaves.size(); ++leafIndex) {
+            const auto& leaf = container.leaves[leafIndex];
+            builder.AddUnsigned(static_cast<std::uint64_t>(leafIndex));
+            builder.AddString(leaf.path);
+            builder.AddString(leaf.name);
+            builder.AddUnsigned(leaf.ownerFrameIndex);
+            builder.AddUnsigned(static_cast<std::uint64_t>(leaf.topologyMode));
+            if (leafIndex < leafPackageWriters.size()) {
+                builder.AddUnsigned(leafPackageWriters[leafIndex].leafPackageByteSize);
+                builder.AddIdentity(leafPackageWriters[leafIndex].identity);
+            }
+        }
+        return builder.Finish();
+    }
+
     template<typename TValue>
     static bool ReadRangeScalar(
         IByteRangeReader& reader,

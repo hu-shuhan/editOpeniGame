@@ -113,7 +113,8 @@ public:
                 workspace.TransferCaches().Count(),
                 0u,
                 *outputSink,
-                error)) {
+                error,
+                context.path.empty() ? context.objectName : context.path)) {
             return false;
         }
 

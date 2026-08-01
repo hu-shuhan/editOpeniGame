@@ -45,16 +45,81 @@ inline bool CheckPackageIdentityTestHeader(
 
 [[nodiscard]] inline TestResult RunDataCodecFeaturePackageIdentity() noexcept {
     TestResult result;
-    PackageIdentity first;
-    PackageIdentity second;
-    std::string generationError;
-    const auto firstGenerated = GeneratePackageIdentity(first, &generationError);
-    const auto secondGenerated = GeneratePackageIdentity(second, &generationError);
+    PackageIdentityBuilder firstBuilder("package-identity-test");
+    firstBuilder.AddString("same-name");
+    firstBuilder.AddUnsigned(1234u);
+    const auto first = firstBuilder.Finish();
+    PackageIdentityBuilder repeatedBuilder("package-identity-test");
+    repeatedBuilder.AddString("same-name");
+    repeatedBuilder.AddUnsigned(1234u);
+    const auto repeated = repeatedBuilder.Finish();
+    PackageIdentityBuilder secondBuilder("package-identity-test");
+    secondBuilder.AddString("other-name");
+    secondBuilder.AddUnsigned(1234u);
+    const auto second = secondBuilder.Finish();
     Require(
         result,
-        firstGenerated && secondGenerated && first.IsValid() && second.IsValid() && first != second,
-        "packageIdentity.generate",
-        generationError.empty() ? "generated package identities are invalid or duplicated" : generationError);
+        first.IsValid() && second.IsValid() && first == repeated && first != second,
+        "packageIdentity.deterministic",
+        "package identity is not deterministic or name-sensitive");
+
+    constexpr std::uint64_t kTenGiB = 10ull * 1024ull * 1024ull * 1024ull;
+    const auto largeFileSampleRanges = BuildPackageIdentitySampleRanges(kTenGiB);
+    std::uint64_t sampledBytes = 0u;
+    for (const auto& range : largeFileSampleRanges) {
+        sampledBytes += static_cast<std::uint64_t>(range.byteCount);
+    }
+    Require(
+        result,
+        sampledBytes <= 192u * 1024u,
+        "packageIdentity.largeFileSampleBudget",
+        "10 GiB sparse identity sampling exceeds the fixed budget");
+
+    const auto makeContentLeaf = [](const std::uint8_t attributeMarker) {
+        constexpr std::size_t kFieldBytes = 16u * 1024u;
+        std::vector<std::uint8_t> topologyBytes(kFieldBytes, 0x5au);
+        std::vector<std::uint8_t> attributeBytes(kFieldBytes, 0x3cu);
+        attributeBytes.front() = attributeMarker;
+        LeafPackage leaf;
+        leaf.path = "content-identity-leaf";
+        leaf.rawFieldBytes = leafpackagewire::ComputeRawLeafPackageSize(
+            2u,
+            topologyBytes.size() + attributeBytes.size());
+        leaf.fields.push_back(LeafPackage::Field{
+            .type = FieldType::Topology,
+            .compressionType = EncodedFieldCompressionType::None,
+            .rawSize = topologyBytes.size(),
+            .source = std::make_shared<bytestore::VectorByteSource>(std::move(topologyBytes)),
+        });
+        leaf.fields.push_back(LeafPackage::Field{
+            .type = FieldType::Attribute,
+            .compressionType = EncodedFieldCompressionType::None,
+            .rawSize = attributeBytes.size(),
+            .source = std::make_shared<bytestore::VectorByteSource>(std::move(attributeBytes)),
+        });
+        return leaf;
+    };
+    auto firstContentLeaf = makeContentLeaf(0x11u);
+    auto secondContentLeaf = makeContentLeaf(0x22u);
+    PackageIdentity firstContentIdentity;
+    PackageIdentity secondContentIdentity;
+    std::string contentIdentityError;
+    const auto firstContentComputed = LeafPackageIO::ComputeLeafPackageIdentity(
+        firstContentLeaf,
+        firstContentIdentity,
+        &contentIdentityError);
+    const auto secondContentComputed = LeafPackageIO::ComputeLeafPackageIdentity(
+        secondContentLeaf,
+        secondContentIdentity,
+        &contentIdentityError);
+    Require(
+        result,
+        firstContentComputed && secondContentComputed &&
+            firstContentIdentity != secondContentIdentity,
+        "packageIdentity.attributeContent",
+        contentIdentityError.empty()
+            ? "attribute change did not alter package identity"
+            : contentIdentityError);
 
     const auto identityHex = PackageIdentityToHex(first);
     PackageIdentity parsed;
@@ -125,7 +190,12 @@ inline bool CheckPackageIdentityTestHeader(
     LeafPackageByteWriter leafWriter;
     std::string leafError;
     const auto leafWritten =
-        leafWriter.BeginPackageToSink(0u, 0u, leafOutput, &leafError) &&
+        leafWriter.BeginPackageToSink(
+            0u,
+            0u,
+            leafOutput,
+            &leafError,
+            "identity-test") &&
         leafWriter.EndPackage(&leafError);
     Require(result, leafWritten, "packageIdentity.leafWrite", leafError.empty() ? "leaf package write failed" : leafError);
     if (leafWritten) {
@@ -140,6 +210,29 @@ inline bool CheckPackageIdentityTestHeader(
         Require(result, leafRead, "packageIdentity.leafRead", leafError.empty() ? "leaf package read failed" : leafError);
         Require(result, decodedLeaf.identity.IsValid(), "packageIdentity.leafRoundTrip", "decoded leaf identity is invalid");
     }
+
+    MemoryByteRangeOutput repeatedLeafOutput;
+    LeafPackageByteWriter repeatedLeafWriter;
+    const auto repeatedLeafWritten =
+        repeatedLeafWriter.BeginPackageToSink(
+            0u,
+            0u,
+            repeatedLeafOutput,
+            &leafError,
+            "identity-test") &&
+        repeatedLeafWriter.EndPackage(&leafError);
+    PackageIdentity firstLeafIdentity;
+    PackageIdentity repeatedLeafIdentity;
+    const auto deterministicLeafIdentity =
+        leafWritten && repeatedLeafWritten &&
+        TryReadPackageIdentityPrefix(leafOutput.Bytes(), firstLeafIdentity) &&
+        TryReadPackageIdentityPrefix(repeatedLeafOutput.Bytes(), repeatedLeafIdentity) &&
+        firstLeafIdentity == repeatedLeafIdentity;
+    Require(
+        result,
+        deterministicLeafIdentity,
+        "packageIdentity.leafDeterministic",
+        "equivalent leaf packages produced different identities");
 
     FramePackage frame;
     frame.frameIndex = 7u;
@@ -158,6 +251,38 @@ inline bool CheckPackageIdentityTestHeader(
         Require(result, decodedFrame.frameIndex == frame.frameIndex, "packageIdentity.frameIndex", "decoded frame index mismatch");
         Require(result, decodedFrame.rootName == frame.rootName, "packageIdentity.frameName", "decoded frame name mismatch");
     }
+
+    MemoryByteRangeOutput repeatedFrameOutput;
+    const auto repeatedFrameWritten = FramePackageIO::WriteToSink(
+        frame,
+        {},
+        repeatedFrameOutput,
+        nullptr,
+        &frameError);
+    auto renamedFrame = frame;
+    renamedFrame.rootName = "identity-best";
+    MemoryByteRangeOutput renamedFrameOutput;
+    const auto renamedFrameWritten = FramePackageIO::WriteToSink(
+        renamedFrame,
+        {},
+        renamedFrameOutput,
+        nullptr,
+        &frameError);
+    PackageIdentity firstFrameIdentity;
+    PackageIdentity repeatedFrameIdentity;
+    PackageIdentity renamedFrameIdentity;
+    const auto frameIdentityContract =
+        frameWritten && repeatedFrameWritten && renamedFrameWritten &&
+        TryReadPackageIdentityPrefix(frameOutput.Bytes(), firstFrameIdentity) &&
+        TryReadPackageIdentityPrefix(repeatedFrameOutput.Bytes(), repeatedFrameIdentity) &&
+        TryReadPackageIdentityPrefix(renamedFrameOutput.Bytes(), renamedFrameIdentity) &&
+        firstFrameIdentity == repeatedFrameIdentity &&
+        firstFrameIdentity != renamedFrameIdentity;
+    Require(
+        result,
+        frameIdentityContract,
+        "packageIdentity.frameDeterministic",
+        "frame package identity is not deterministic or name-sensitive");
     return result;
 }
 
