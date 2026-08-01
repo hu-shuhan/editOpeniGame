@@ -45,6 +45,7 @@ enum class iGameDataCodecHostMessageId : std::uint8_t {
     SizeBeforeCompression,
     SizeAfterCompression,
     CompressedSizeRatio,
+    CompressionRatioCalculationNote,
     CompressionTime,
     TelemetryDataPath,
     CompressionReportEnd,

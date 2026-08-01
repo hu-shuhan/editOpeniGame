@@ -72,6 +72,7 @@ struct DataCodecProcessReport {
     double elapsedMs{0.0};
     std::uint64_t inputBytes{0u};
     std::uint64_t outputBytes{0u};
+    std::string summaryNote;
     DataCodecProcessMemory memory;
     std::vector<DataCodecProcessDetail> details;
     std::vector<DataCodecProcessNode> processes;

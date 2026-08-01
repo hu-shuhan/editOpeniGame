@@ -283,6 +283,43 @@ public:
         "outputSinks.processTreeAggregation",
         "process report should label measured task timing, retain peak memory, and preserve numeric JSON values");
 
+    const DataCodecProcessReport compressionReport{
+        .operation = TelemetryRunKind::Encode,
+        .generatedAtUtc = "2026-01-01T00:00:00Z",
+        .objectName = "compression.igc",
+        .success = true,
+        .inputBytes = 4000u,
+        .outputBytes = 1000u,
+        .summaryNote = "compressed output size divided by source file size",
+    };
+    const auto compressionJson = SerializeDataCodecProcessReportJson(compressionReport);
+    rapidjson::Document compressionDocument;
+    compressionDocument.Parse(compressionJson.data(), compressionJson.size());
+    bool hasCompressionStatistics = !compressionDocument.HasParseError() &&
+        compressionDocument.IsObject() && compressionDocument.HasMember("summary") &&
+        compressionDocument["summary"].IsObject();
+    if (hasCompressionStatistics) {
+        const auto& summary = compressionDocument["summary"];
+        hasCompressionStatistics =
+            summary.HasMember("sourceFileSizeBytes") &&
+            summary["sourceFileSizeBytes"].IsUint64() &&
+            summary["sourceFileSizeBytes"].GetUint64() == 4000u &&
+            summary.HasMember("compressedOutputSizeBytes") &&
+            summary["compressedOutputSizeBytes"].IsUint64() &&
+            summary["compressedOutputSizeBytes"].GetUint64() == 1000u &&
+            summary.HasMember("compressionRatio") &&
+            summary["compressionRatio"].IsDouble() &&
+            std::abs(summary["compressionRatio"].GetDouble() - 0.25) < 1.0e-12 &&
+            summary.HasMember("note") && summary["note"].IsString() &&
+            std::string(summary["note"].GetString()) ==
+                "compressed output size divided by source file size";
+    }
+    Require(
+        result,
+        hasCompressionStatistics,
+        "outputSinks.encodeCompressionStatistics",
+        "encode process report should expose source size, compressed size, decimal ratio, and calculation note");
+
     DataCodecProcessReport workflowMemoryReport{
         .operation = TelemetryRunKind::Encode,
         .generatedAtUtc = "2026-01-01T00:00:00Z",

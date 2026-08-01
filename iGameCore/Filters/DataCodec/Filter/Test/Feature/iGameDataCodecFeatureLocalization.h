@@ -40,6 +40,18 @@ namespace iGame::datacodec_test {
                 "iGame DataCodec decoding failed",
         "hostLocalization.languageSelection",
         "host message language selection should not depend on Qt translation state");
+    ::datacodec::test::Require(
+        result,
+        iGameDataCodecHostMessage(
+            ::datacodec::DataCodecLanguage::SimplifiedChinese,
+            iGameDataCodecHostMessageId::CompressionRatioCalculationNote) ==
+                "压缩率计算公式: 压缩结果文件大小 / 源文件大小" &&
+            iGameDataCodecHostMessage(
+                ::datacodec::DataCodecLanguage::English,
+                iGameDataCodecHostMessageId::CompressionRatioCalculationNote) ==
+                "The compression ratio is expressed as a decimal value and calculated by dividing the compressed output file size by the source file size.",
+        "hostLocalization.compressionRatioCalculationNote",
+        "compression ratio calculation note should provide equivalent Chinese and English wording");
 
     for (const auto& failure : result.failures) {
         std::cerr << failure.check << ": " << failure.message << '\n';

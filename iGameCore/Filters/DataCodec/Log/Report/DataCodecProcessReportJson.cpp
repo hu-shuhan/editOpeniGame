@@ -189,7 +189,24 @@ std::string SerializeDataCodecProcessReportJson(
     writer.Uint64(report.inputBytes);
     writer.Key("outputBytes");
     writer.Uint64(report.outputBytes);
-    if (report.inputBytes > 0u && report.outputBytes > 0u) {
+    if (report.operation == TelemetryRunKind::Encode) {
+        writer.Key("sourceFileSizeBytes");
+        writer.Uint64(report.inputBytes);
+        writer.Key("compressedOutputSizeBytes");
+        writer.Uint64(report.outputBytes);
+        writer.Key("compressionRatio");
+        if (report.inputBytes > 0u && report.outputBytes > 0u) {
+            writer.Double(
+                static_cast<double>(report.outputBytes) /
+                static_cast<double>(report.inputBytes));
+        } else {
+            writer.Null();
+        }
+        if (!report.summaryNote.empty()) {
+            writer.Key("note");
+            WriteJsonString(writer, report.summaryNote);
+        }
+    } else if (report.inputBytes > 0u && report.outputBytes > 0u) {
         writer.Key("outputToInputRatio");
         writer.Double(
             static_cast<double>(report.outputBytes) /

@@ -385,10 +385,16 @@ DataCodecRunReportWriteResult writeDataCodecRunReports(
 
 qint64 sourceFileSizeFromDataObject(const iGame::DataObject::Pointer& dataObject) {
     if (dataObject == nullptr || dataObject->GetProperties() == nullptr) return -1;
-    auto property = dataObject->GetProperties()->GetProperty("FilePath");
-    if (property == nullptr) return -1;
-    const QFileInfo sourceInfo(QString::fromStdString(property->Get<std::string>()));
-    return sourceInfo.isFile() ? sourceInfo.size() : -1;
+    auto properties = dataObject->GetProperties();
+    if (auto property = properties->GetProperty("FilePath"); property != nullptr) {
+        const QFileInfo sourceInfo(QString::fromStdString(property->Get<std::string>()));
+        if (sourceInfo.isFile()) return sourceInfo.size();
+    }
+    if (auto property = properties->GetProperty("FileSize"); property != nullptr) {
+        const auto bytes = property->Get<long long>();
+        return bytes >= 0 ? static_cast<qint64>(bytes) : -1;
+    }
+    return -1;
 }
 
 iGame::DataObject::Pointer readDataCodecOutput(
@@ -2305,6 +2311,14 @@ void igQtDataCodecCompressionWidget::startEncode() {
     }
     const bool outputPerformance = !multiFrame && m_emitPerformanceCheck != nullptr &&
         m_emitPerformanceCheck->isChecked();
+    const qint64 initialBeforeBytes = outputPerformance
+        ? sourceFileSizeFromDataObject(dataObject)
+        : -1;
+    const std::string compressionRatioNote = outputPerformance
+        ? iGame::iGameDataCodecHostMessage(
+            m_dataCodecLanguage,
+            iGame::iGameDataCodecHostMessageId::CompressionRatioCalculationNote)
+        : std::string{};
     QString reportDirectory;
     if (outputPerformance) {
         reportDirectory = makeCompressionReportDirectory(outputPath);
@@ -2332,6 +2346,9 @@ void igQtDataCodecCompressionWidget::startEncode() {
             .objectName = toUtf8StdString(outputInfo.fileName()),
             .completed = false,
             .success = false,
+            .inputBytes = static_cast<std::uint64_t>(
+                std::max<qint64>(initialBeforeBytes, 0)),
+            .summaryNote = compressionRatioNote,
             .details = {
                 {"outputPath", toUtf8StdString(outputPath)},
             },
@@ -2408,7 +2425,6 @@ void igQtDataCodecCompressionWidget::startEncode() {
         collectionRequests,
         ::datacodec::TelemetrySessionDetail::ProcessSummary);
     writer->SetTelemetrySink(telemetryCapture.Sink());
-    const qint64 initialBeforeBytes = outputPerformance ? sourceFileSizeFromDataObject(dataObject) : -1;
     QVector<NumericFieldItem> precisionFields;
     for (int index = 0; index < m_fields.size() && index < m_fieldStates.size(); ++index) {
         if (m_fieldStates[index].selected) {
@@ -2448,6 +2464,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
         outputPerformance,
         reportSink,
         reportFileTimestamp,
+        compressionRatioNote,
         initialBeforeBytes,
         precisionFields,
         compressorName,
@@ -2464,6 +2481,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
         const auto writeEncodeReports = [&outputPerformance,
                                          &reportSink,
                                          &reportFileTimestamp,
+                                         &compressionRatioNote,
                                          &telemetryCapture,
                                          &beforeBytes,
                                          &totalWrittenBytes,
@@ -2529,6 +2547,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
                 .elapsedMs = static_cast<double>(encodeElapsedMs),
                 .inputBytes = static_cast<std::uint64_t>(std::max<qint64>(beforeBytes, 0)),
                 .outputBytes = static_cast<std::uint64_t>(std::max<qint64>(totalWrittenBytes, 0)),
+                .summaryNote = compressionRatioNote,
                 .details = {
                     {"outputPath", toUtf8StdString(writtenPath)},
                     {"compressor", toUtf8StdString(compressorName)},

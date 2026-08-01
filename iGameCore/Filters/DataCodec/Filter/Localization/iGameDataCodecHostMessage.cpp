@@ -72,6 +72,8 @@ std::string_view EnglishMessage(const iGameDataCodecHostMessageId id) noexcept {
             return "Size after compression: {size}";
         case iGameDataCodecHostMessageId::CompressedSizeRatio:
             return "Compressed size ratio: {ratio}";
+        case iGameDataCodecHostMessageId::CompressionRatioCalculationNote:
+            return "The compression ratio is expressed as a decimal value and calculated by dividing the compressed output file size by the source file size.";
         case iGameDataCodecHostMessageId::CompressionTime:
             return "Compression time: {milliseconds} ms";
         case iGameDataCodecHostMessageId::TelemetryDataPath:
@@ -197,6 +199,8 @@ std::string_view SimplifiedChineseMessage(
             return "压缩后文件大小：{size}";
         case iGameDataCodecHostMessageId::CompressedSizeRatio:
             return "压缩后大小占比：{ratio}";
+        case iGameDataCodecHostMessageId::CompressionRatioCalculationNote:
+            return "压缩率采用小数表示，计算公式为：压缩结果文件大小 ÷ 源文件大小";
         case iGameDataCodecHostMessageId::CompressionTime:
             return "压缩时间：{milliseconds} ms";
         case iGameDataCodecHostMessageId::TelemetryDataPath:
