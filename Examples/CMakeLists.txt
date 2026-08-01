@@ -67,9 +67,10 @@ add_executable(testGetClosestCellsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Sel
 add_executable(testGetPointsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetPointsInFrustum.cpp")
 add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetCellsInFrustum.cpp")
 
-add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestSimplification.cpp")
-add_executable(testDataCodecEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDataCodecEncode.cpp")
-add_executable(testDataCodecDecode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDataCodecDecode.cpp")
+add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Simplification/TestSimplification.cpp")
+add_executable(testDataCodecEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecEncode.cpp")
+add_executable(testDataCodecDecode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecDecode.cpp")
+add_subdirectory(Filter/Codec/VTK)
 add_executable(testScalarsToColorsRobustRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestScalarsToColorsRobustRange.cpp")
 
 add_executable(testConvertPolyhedralCells "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertPolyhedralCells.cpp")
