@@ -1,11 +1,13 @@
 #ifndef DATACODEC_LOG_REPORT_DATACODECPROCESSREPORTJSON_H
 #define DATACODEC_LOG_REPORT_DATACODECPROCESSREPORTJSON_H
 
+#include "DataCodec/API/Params/CodecPerformancePresetParams.h"
 #include "DataCodec/Log/Telemetry/TelemetrySession.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -24,7 +26,7 @@ struct DataCodecProcessMemory {
 };
 
 struct DataCodecProcessDetail {
-    using Value = std::variant<std::string, std::uint64_t, double, bool>;
+    using Value = std::variant<std::string, std::int64_t, std::uint64_t, double, bool>;
 
     std::string name;
     Value value;
@@ -41,11 +43,25 @@ struct DataCodecProcessDetail {
     DataCodecProcessDetail(std::string detailName, const std::uint64_t detailValue)
         : name(std::move(detailName)), value(detailValue) {}
 
+    DataCodecProcessDetail(std::string detailName, const std::int64_t detailValue)
+        : name(std::move(detailName)), value(detailValue) {}
+
     DataCodecProcessDetail(std::string detailName, const double detailValue)
         : name(std::move(detailName)), value(detailValue) {}
 
     DataCodecProcessDetail(std::string detailName, const bool detailValue)
         : name(std::move(detailName)), value(detailValue) {}
+};
+
+struct DataCodecReportConfigurationSection {
+    std::string name;
+    std::vector<DataCodecProcessDetail> values;
+};
+
+struct DataCodecReportConfiguration {
+    std::string preset;
+    std::string runtimeProfile;
+    std::vector<DataCodecReportConfigurationSection> sections;
 };
 
 struct DataCodecProcessNode {
@@ -76,6 +92,7 @@ struct DataCodecProcessReport {
     DataCodecProcessMemory memory;
     std::vector<DataCodecProcessDetail> details;
     std::vector<DataCodecProcessNode> processes;
+    DataCodecReportConfiguration configuration;
 };
 
 struct DataCodecErrorReportEntry {
@@ -457,6 +474,16 @@ BuildDataCodecErrorReport(const TelemetryRunKind operation, std::string generate
 
 [[nodiscard]] std::string SerializeDataCodecProcessReportJson(
     const DataCodecProcessReport& report);
+
+[[nodiscard]] DataCodecReportConfiguration MakeDataCodecEncodeReportConfiguration(
+    DataCodecEncodeTier preset,
+    bool compressionEnhancementEnabled,
+    const DataCodecEncodeConfigurationParams& configuration);
+
+[[nodiscard]] DataCodecReportConfiguration MakeDataCodecDecodeReportConfiguration(
+    std::optional<DataCodecDecodeTier> preset,
+    const DataCodecDecodeConfigurationParams& configuration,
+    bool loadAllAvailableAttributes);
 
 [[nodiscard]] std::string SerializeDataCodecErrorReportJson(
     const DataCodecErrorReport& report);

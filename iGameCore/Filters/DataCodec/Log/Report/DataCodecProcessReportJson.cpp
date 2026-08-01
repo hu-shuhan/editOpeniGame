@@ -57,6 +57,10 @@ void WriteProcessDetailValueJson(
         WriteJsonString(writer, *text);
         return;
     }
+    if (const auto* integer = std::get_if<std::int64_t>(&value)) {
+        writer.Int64(*integer);
+        return;
+    }
     if (const auto* integer = std::get_if<std::uint64_t>(&value)) {
         writer.Uint64(*integer);
         return;
@@ -81,6 +85,83 @@ void WriteProcessDetailsJson(
         WriteProcessDetailValueJson(writer, detail.value);
     }
     writer.EndObject();
+}
+
+void WriteReportConfigurationJson(
+        ProcessReportJsonWriter& writer,
+        const DataCodecReportConfiguration& configuration) {
+    writer.StartObject();
+    writer.Key("preset");
+    WriteJsonString(writer, configuration.preset);
+    writer.Key("runtimeProfile");
+    WriteJsonString(writer, configuration.runtimeProfile);
+    for (const auto& section : configuration.sections) {
+        WriteJsonKey(writer, section.name);
+        WriteProcessDetailsJson(writer, section.values);
+    }
+    writer.EndObject();
+}
+
+[[nodiscard]] const char* EncodeStorageModeReportName(
+        const EncodeStorageMode mode) noexcept {
+    return mode == EncodeStorageMode::Memory ? "Memory" : "Managed";
+}
+
+[[nodiscard]] const char* DecodeStorageModeReportName(
+        const DecodeStorageMode mode) noexcept {
+    return mode == DecodeStorageMode::Memory ? "Memory" : "Managed";
+}
+
+[[nodiscard]] const char* AttributeDecodePayloadModeReportName(
+        const AttributeDecodePayloadMode mode) noexcept {
+    switch (mode) {
+        case AttributeDecodePayloadMode::Managed:
+            return "Managed";
+        case AttributeDecodePayloadMode::Memory:
+            return "Memory";
+        case AttributeDecodePayloadMode::OneShotZstd:
+            return "OneShotZstd";
+    }
+    return "Managed";
+}
+
+[[nodiscard]] const char* DecodeValidationModeReportName(
+        const DecodeValidationMode mode) noexcept {
+    return mode == DecodeValidationMode::Strict ? "Strict" : "Required";
+}
+
+[[nodiscard]] const char* TopologyDecodeOutputModeReportName(
+        const TopologyDecodeOutputMode mode) noexcept {
+    return mode == TopologyDecodeOutputMode::ObserverOnly
+        ? "ObserverOnly"
+        : "CommitToAdapter";
+}
+
+[[nodiscard]] const char* TemporalPredictorSearchStrategyReportName(
+        const TemporalPredictorSearchStrategy strategy) noexcept {
+    switch (strategy) {
+        case TemporalPredictorSearchStrategy::ExhaustiveL2:
+            return "ExhaustiveL2";
+        case TemporalPredictorSearchStrategy::ExhaustiveEstimatedBytes:
+            return "ExhaustiveEstimatedBytes";
+        case TemporalPredictorSearchStrategy::CoarseToFineL2:
+            return "CoarseToFineL2";
+        case TemporalPredictorSearchStrategy::CoarseToFineEstimatedBytes:
+            return "CoarseToFineEstimatedBytes";
+    }
+    return "ExhaustiveL2";
+}
+
+[[nodiscard]] std::vector<DataCodecProcessDetail> MakeCommonResourceBudgetDetails(
+        const ResourceBudgetControlParams& budget) {
+    return {
+        {"residentLimitMiB", budget.residentLimitMiB},
+        {"accessWindowMiB", budget.accessWindowMiB},
+        {"activeWindowMiB", budget.activeWindowMiB},
+        {"scratchRetainedBlockCount", static_cast<std::uint64_t>(budget.scratchRetainedBlockCount)},
+        {"scratchRetainedBlockMiB", budget.scratchRetainedBlockMiB},
+        {"scratchRetainedTotalMiB", budget.scratchRetainedTotalMiB},
+    };
 }
 
 void WriteProcessNodeJson(
@@ -167,6 +248,219 @@ std::string MakeDataCodecReportFileTimestampUtc() {
     return timestamp;
 }
 
+DataCodecReportConfiguration MakeDataCodecEncodeReportConfiguration(
+        const DataCodecEncodeTier preset,
+        const bool compressionEnhancementEnabled,
+        const DataCodecEncodeConfigurationParams& configuration) {
+    const auto& control = configuration.controlParams;
+    const auto& budget = control.resourceBudget;
+    auto resourceBudget = MakeCommonResourceBudgetDetails(budget);
+    resourceBudget.insert(resourceBudget.end(), {
+        {"attributeScratchQuotaMiB", budget.attributeScratchQuotaMiB},
+        {"attributeMemoryStagingLimitMiB", budget.attributeMemoryStagingLimitMiB},
+        {"attributeManagedStagingLogicalLimitMiB", budget.attributeManagedStagingLogicalLimitMiB},
+        {"encodeReferenceResidentLimitMiB", budget.encodeReferenceResidentLimitMiB},
+        {"remapMortonLeafMiB", budget.remapMortonLeafMiB},
+        {"remapMortonRunBufferMiB", budget.remapMortonRunBufferMiB},
+        {"remapScratchQuotaMiB", budget.remapScratchQuotaMiB},
+    });
+
+    return DataCodecReportConfiguration{
+        .preset = DataCodecEncodeTierName(preset),
+        .runtimeProfile = DataCodecRuntimeProfileName(
+            configuration.source.runtimeProfile),
+        .sections = {
+            DataCodecReportConfigurationSection{
+                .name = "pipeline",
+                .values = {
+                    {"compressionEnhancementEnabled", compressionEnhancementEnabled},
+                    {"pointOrder", EncodePointOrderModeName(configuration.pipelineControl.pointOrder)},
+                    {"cellOrder", EncodeCellOrderModeName(configuration.pipelineControl.cellOrder)},
+                    {"packageFieldEncodingMode", PackageFieldEncodingModeName(
+                        configuration.pipelineControl.packageFields.mode)},
+                    {"packageZstdLevel", static_cast<std::int64_t>(
+                        configuration.pipelineControl.packageFields.zstdLevel)},
+                    {"packageFieldWorkerCount", static_cast<std::uint64_t>(
+                        configuration.pipelineControl.packageFields.workerCount)},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "spatialBlocking",
+                .values = {
+                    {"pointElementCount", static_cast<std::uint64_t>(
+                        control.spatialBlockPolicy.pointElementCount)},
+                    {"cellElementCount", static_cast<std::uint64_t>(
+                        control.spatialBlockPolicy.cellElementCount)},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "references",
+                .values = {
+                    {"attributeReferenceEnabled", control.attrReference.enabled},
+                    {"geometryReferenceEnabled", control.geometryReference.enabled},
+                    {"topologyReferenceEnabled", control.topologyReference.enabled},
+                    {"attributeKeyFrameInterval", static_cast<std::uint64_t>(
+                        control.attrReference.temporalField.keyFrameInterval)},
+                    {"geometryKeyFrameInterval", static_cast<std::uint64_t>(
+                        control.geometryReference.temporalField.keyFrameInterval)},
+                    {"attributeLocalWindowSearchEnabled",
+                        control.attrReference.temporalField.predictor.enableLocalWindowSearch},
+                    {"geometryLocalWindowSearchEnabled",
+                        control.geometryReference.temporalField.predictor.enableLocalWindowSearch},
+                    {"attributePredictorSearchStrategy",
+                        TemporalPredictorSearchStrategyReportName(
+                            control.attrReference.temporalField.predictor.searchStrategy)},
+                    {"geometryPredictorSearchStrategy",
+                        TemporalPredictorSearchStrategyReportName(
+                            control.geometryReference.temporalField.predictor.searchStrategy)},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "parallelism",
+                .values = {
+                    {"parallelStagesEnabled", configuration.execution.enableParallelStages},
+                    {"attributeCompressionLanes", static_cast<std::uint64_t>(
+                        budget.AttributePressioLaneCount())},
+                    {"attributeReferenceLanes", static_cast<std::uint64_t>(
+                        budget.AttributeReferenceLaneCount())},
+                    {"topologyBlockLanes", static_cast<std::uint64_t>(
+                        budget.TopologyBlockLaneCount())},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "storage",
+                .values = {
+                    {"geometryTransferCacheMode", EncodeStorageModeReportName(
+                        budget.GeometryEncodeTransferCacheStorageMode())},
+                    {"geometryStagingMode", EncodeStorageModeReportName(
+                        budget.GeometryEncodeStagingStorageMode())},
+                    {"attributeTransferCacheMode", EncodeStorageModeReportName(
+                        budget.AttributeEncodeTransferCacheStorageMode())},
+                    {"attributeStagingMode", EncodeStorageModeReportName(
+                        budget.AttributeEncodeStagingStorageMode())},
+                    {"topologyTransferCacheMode", EncodeStorageModeReportName(
+                        budget.TopologyEncodeTransferCacheStorageMode())},
+                    {"remapMode", EncodeStorageModeReportName(
+                        budget.RemapEncodeStorageMode())},
+                    {"packageFieldStagingMode", EncodeStorageModeReportName(
+                        budget.PackageFieldStagingStorageMode())},
+                    {"attributeReferenceCacheMode", EncodeStorageModeReportName(
+                        budget.AttributeEncodeReferenceCacheStorageMode())},
+                    {"geometryReferenceCacheMode", EncodeStorageModeReportName(
+                        budget.GeometryEncodeReferenceCacheStorageMode())},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "resourceBudget",
+                .values = std::move(resourceBudget),
+            },
+        },
+    };
+}
+
+DataCodecReportConfiguration MakeDataCodecDecodeReportConfiguration(
+        const std::optional<DataCodecDecodeTier> preset,
+        const DataCodecDecodeConfigurationParams& configuration,
+        const bool loadAllAvailableAttributes) {
+    const auto& control = configuration.controlParams;
+    const auto& budget = control.resourceBudget;
+    auto resourceBudget = MakeCommonResourceBudgetDetails(budget);
+    resourceBudget.insert(resourceBudget.end(), {
+        {"attributeDecodeMemoryPayloadLimitMiB", budget.attributeDecodeMemoryPayloadLimitMiB},
+        {"attributeDecodeMemoryCacheLimitMiB", budget.attributeDecodeMemoryCacheLimitMiB},
+        {"geometryDecodeMemoryCacheLimitMiB", budget.geometryDecodeMemoryCacheLimitMiB},
+        {"geometryDecodeMemoryReferenceLimitMiB", budget.geometryDecodeMemoryReferenceLimitMiB},
+        {"topologyDecodeMemoryInputLimitMiB", budget.topologyDecodeMemoryInputLimitMiB},
+        {"topologyDecodeMemoryCacheLimitMiB", budget.topologyDecodeMemoryCacheLimitMiB},
+        {"topologyDecodeMemoryReferenceLimitMiB", budget.topologyDecodeMemoryReferenceLimitMiB},
+        {"decodeReferenceResidentLimitMiB", budget.decodeReferenceResidentLimitMiB},
+        {"decodeReferenceFrameLimit", static_cast<std::uint64_t>(
+            budget.decodeReferenceFrameLimit)},
+    });
+
+    return DataCodecReportConfiguration{
+        .preset = preset.has_value()
+            ? DataCodecDecodeTierName(*preset)
+            : "Custom",
+        .runtimeProfile = DataCodecRuntimeProfileName(
+            configuration.source.runtimeProfile),
+        .sections = {
+            DataCodecReportConfigurationSection{
+                .name = "validation",
+                .values = {
+                    {"mode", DecodeValidationModeReportName(
+                        control.validation.decodeMode)},
+                    {"topologyReferencesEnabled",
+                        control.validation.validateTopologyReferences},
+                    {"floatingPointValuesEnabled",
+                        control.validation.validateFloatingPointValues},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "execution",
+                .values = {
+                    {"parallelStagesEnabled", configuration.execution.enableParallelStages},
+                    {"fullInputPrefetchEnabled", configuration.execution.enableFullInputPrefetch},
+                    {"topologyOutputMode", TopologyDecodeOutputModeReportName(
+                        configuration.execution.topologyOutputMode)},
+                    {"loadAllAvailableAttributes", loadAllAvailableAttributes},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "caching",
+                .values = {
+                    {"decodedResultCacheEnabled", configuration.decodedFrameCachePolicy.enabled},
+                    {"decodedResultResidentFrameLimit", static_cast<std::uint64_t>(
+                        configuration.decodedFrameCachePolicy.residentFrameLimit)},
+                    {"decodedResultResidentLimitBytes",
+                        configuration.decodedFrameCachePolicy.residentLimitBytes},
+                    {"decodedResultPrefetchFrameCount", static_cast<std::uint64_t>(
+                        configuration.decodedFrameCachePolicy.prefetchFrameCount)},
+                    {"encodedInputCacheEnabled", configuration.encodedInputCachePolicy.enabled},
+                    {"encodedInputResidentLimit", static_cast<std::uint64_t>(
+                        configuration.encodedInputCachePolicy.residentInputLimit)},
+                    {"encodedInputResidentLimitBytes",
+                        configuration.encodedInputCachePolicy.residentLimitBytes},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "parallelism",
+                .values = {
+                    {"attributeDecodeLanes", static_cast<std::uint64_t>(
+                        budget.AttributeDecodeLaneCount())},
+                    {"attributeCommitLanes", static_cast<std::uint64_t>(
+                        budget.AttributeCommitLaneCount())},
+                    {"topologyBlockLanes", static_cast<std::uint64_t>(
+                        budget.TopologyBlockLaneCount())},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "storage",
+                .values = {
+                    {"attributePayloadMode", AttributeDecodePayloadModeReportName(
+                        budget.AttributeDecodePayloadStorageMode())},
+                    {"attributeCacheMode", DecodeStorageModeReportName(
+                        budget.AttributeDecodeCacheStorageMode())},
+                    {"geometryCacheMode", DecodeStorageModeReportName(
+                        budget.GeometryDecodeCacheStorageMode())},
+                    {"geometryReferenceCacheMode", DecodeStorageModeReportName(
+                        budget.GeometryDecodeReferenceCacheStorageMode())},
+                    {"topologyInputMode", DecodeStorageModeReportName(
+                        budget.TopologyDecodeInputStorageMode())},
+                    {"topologyCacheMode", DecodeStorageModeReportName(
+                        budget.TopologyDecodeCacheStorageMode())},
+                    {"topologyReferenceCacheMode", DecodeStorageModeReportName(
+                        budget.TopologyDecodeReferenceCacheStorageMode())},
+                },
+            },
+            DataCodecReportConfigurationSection{
+                .name = "resourceBudget",
+                .values = std::move(resourceBudget),
+            },
+        },
+    };
+}
+
 std::string SerializeDataCodecProcessReportJson(
         const DataCodecProcessReport& report) {
     ProcessReportJsonBuffer buffer;
@@ -220,6 +514,12 @@ std::string SerializeDataCodecProcessReportJson(
     if (!report.details.empty()) {
         writer.Key("details");
         WriteProcessDetailsJson(writer, report.details);
+    }
+    if (!report.configuration.preset.empty() ||
+        !report.configuration.runtimeProfile.empty() ||
+        !report.configuration.sections.empty()) {
+        writer.Key("configuration");
+        WriteReportConfigurationJson(writer, report.configuration);
     }
     writer.Key("processes");
     writer.StartArray();
