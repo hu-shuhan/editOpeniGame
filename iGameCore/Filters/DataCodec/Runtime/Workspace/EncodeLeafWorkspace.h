@@ -77,8 +77,8 @@ public:
 
     [[nodiscard]] CodecStorageParams& StorageParams() noexcept { return m_storageParams; }
     [[nodiscard]] const CodecStorageParams& StorageParams() const noexcept { return m_storageParams; }
-    [[nodiscard]] const ResourceBudgetControlParams& ResourceBudget() const noexcept { return m_resourceBudget; }
-    void SetResourceBudget(ResourceBudgetControlParams params) {
+    [[nodiscard]] const EncodeResourceBudgetControlParams& ResourceBudget() const noexcept { return m_resourceBudget; }
+    void SetResourceBudget(EncodeResourceBudgetControlParams params) {
         m_resourceBudget = std::move(params);
         m_byteStoreSession.ConfigureResidentLimit(m_resourceBudget.ResidentLimitBytes());
     }
@@ -100,16 +100,14 @@ public:
         const std::size_t scratchRetainedBlockCount = 16u,
         const std::size_t scratchRetainedBlockBytes = 64u * 1024u * 1024u,
         const std::uint64_t scratchRetainedTotalBytes = 1024ull * 1024ull * 1024ull,
-        const std::uint64_t topologyBufferBudgetBytes = 4u * 1024u * 1024u,
         const std::uint64_t remapScratchBudgetBytes = 256u * 1024u * 1024u) {
         m_cacheResources.Configure(
             accessWindowBytes,
             activeWindowBytes,
             scratchRetainedBlockCount,
             scratchRetainedBlockBytes,
-            scratchRetainedTotalBytes,
-            topologyBufferBudgetBytes,
-            remapScratchBudgetBytes);
+            scratchRetainedTotalBytes);
+        m_cacheResources.ConfigureRemapScratchBudget(remapScratchBudgetBytes);
     }
     void ConfigureAttributeEncodeResources(
         const bool collectTiming = false) {
@@ -472,7 +470,6 @@ private:
 
     void ApplyGeometryCacheShape(const NumericArrayView& view) {
         m_storageParams.geomParams.dataType = ToDataType(view.scalarType);
-        m_storageParams.geomParams.valueSize = view.ComponentSize();
         m_storageParams.geomParams.elementCount = view.tupleCount;
         m_storageParams.geomParams.dimension = 3;
     }
@@ -541,7 +538,7 @@ private:
 
     std::stop_source m_stopSource;
     CodecStorageParams m_storageParams;
-    ResourceBudgetControlParams m_resourceBudget;
+    EncodeResourceBudgetControlParams m_resourceBudget;
     CacheResources m_cacheResources;
     AttributeEncodeScheduler m_attributeEncodeScheduler;
     bytestore::ByteStoreSession m_byteStoreSession;

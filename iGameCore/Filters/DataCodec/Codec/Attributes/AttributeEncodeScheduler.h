@@ -170,15 +170,15 @@ private:
 class AttributeEncodeScheduler final {
 public:
     explicit AttributeEncodeScheduler(
-        const ResourceBudgetControlParams* params = nullptr,
+        const EncodeResourceBudgetControlParams* params = nullptr,
         const bool collectTiming = false) {
         Configure(params, collectTiming);
     }
 
     void Configure(
-        const ResourceBudgetControlParams* params,
+        const EncodeResourceBudgetControlParams* params,
         const bool collectTiming = false) {
-        ResourceBudgetControlParams defaults;
+        EncodeResourceBudgetControlParams defaults;
         const auto& resolved = params != nullptr ? *params : defaults;
         m_scratchQuota.Reset(resolved.AttributeScratchQuotaBytes(), collectTiming);
         m_stagingStorageMode = resolved.AttributeEncodeStagingStorageMode();

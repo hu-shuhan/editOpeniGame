@@ -30,11 +30,9 @@ struct RegionPlanQuality {
 };
 
 struct RegionPlan {
-    std::uint32_t regionId{0u};
     CompressorConfig refineCompressor;
     ParamSize originalElementCount{0u};
     ParamSize refinedElementCount{0u};
-    ParamSize expandedBackgroundCount{0u};
     std::vector<NumericArrayRegionRunLayoutParams> runs;
     RegionPlanQuality quality;
 };
@@ -143,25 +141,9 @@ inline PrecisionConfigComparison CompareCompressorPrecision(
         : PrecisionConfigComparison::Incomparable;
 }
 
-inline bool ValidateRegionPrecision(
-    const NumericArrayRegionPrecision& precision,
-    const std::string& name,
-    std::string* error) {
-    if (!precision.hasCompressor) {
-        return validation::AssignError(error, name + " is missing an explicit compressor");
-    }
-    return true;
-}
-
 inline bool ValidateRegionControlForEncode(
     const NumericArrayRegionControlParams& control,
     std::string* error = nullptr) {
-    if (!ValidateRegionPrecision(control.defaultPrecision, "default region precision", error)) {
-        return false;
-    }
-    if (control.regions.size() > control.runPolicy.maxRegionCount) {
-        return validation::AssignError(error, "region precision count exceeds the configured region limit");
-    }
     if (control.runPolicy.maxRunsPerRegion == 0u) {
         return validation::AssignError(error, "region run policy requires at least one run per precision layer");
     }
@@ -171,14 +153,6 @@ inline bool ValidateRegionControlForEncode(
         control.runPolicy.maxExpansionRatio > 1.0 ||
         control.runPolicy.maxRefinedElementRatio < 0.0) {
         return validation::AssignError(error, "region run policy ratio is invalid");
-    }
-    for (std::size_t index = 0u; index < control.regions.size(); ++index) {
-        if (!ValidateRegionPrecision(
-                control.regions[index],
-                "region " + std::to_string(index + 1u) + " precision",
-                error)) {
-            return false;
-        }
     }
     return true;
 }
@@ -682,10 +656,8 @@ inline bool BuildPrecisionLayerPlanFromRegionRuns(
         return false;
     }
 
-    plan.regionId = static_cast<std::uint32_t>(precisionLevel);
     plan.originalElementCount = targetElementCount;
     plan.refinedElementCount = refinedElementCount;
-    plan.expandedBackgroundCount = promotedElementCount;
     plan.runs = std::move(outputRuns);
     plan.quality = quality;
     return true;
@@ -756,12 +728,8 @@ inline bool BuildNormalizedRegionPlansFromRegionRuns(
 
 inline NumericArrayRegionLayerLayoutParams MakeRegionLayerLayoutFromPlan(const RegionPlan& plan) {
     NumericArrayRegionLayerLayoutParams layout;
-    layout.regionId = plan.regionId;
-    layout.originalElementCount = plan.originalElementCount;
     layout.refinedElementCount = plan.refinedElementCount;
-    layout.expandedBackgroundCount = plan.expandedBackgroundCount;
     layout.refineCompressor = plan.refineCompressor;
-    layout.residualBytesCodec = NumericArrayBytesCodec::NumericArrayCodec;
     layout.runs = plan.runs;
     return layout;
 }

@@ -116,7 +116,7 @@ inline bool WriteRawGeometryReferenceBlock(
         return true;
     }
     std::size_t localValueSize = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return validation::AssignError(error, "geometry metadata exceeds this platform size limit");
     }
     std::size_t tupleBytes = 0u;
@@ -160,7 +160,7 @@ inline bool WriteConvertedGeometryBlock(
     std::uint64_t& scratchPeakBytes,
     std::string* error = nullptr) {
     std::size_t localValueSize = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return validation::AssignError(error, "geometry metadata exceeds this platform size limit");
     }
     std::size_t sourceTupleBytes = 0u;
@@ -419,7 +419,7 @@ inline GeometryDecodeResult DecodeNumericArrayGeometryField(
     std::size_t count = 0u;
     std::size_t localValueSize = 0u;
     if (!TryParamSizeToSizeT(meta.elementCount, count) ||
-        !TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+        !TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return detail::MakeGeometryDecodeFailure(
             CodecErrorCode::UnsupportedPlatform,
             "geometry metadata exceeds this platform size limit");
@@ -513,7 +513,7 @@ inline GeometryDecodeResult DecodeReferenceGeometryField(
     std::size_t count = 0u;
     std::size_t localValueSize = 0u;
     if (!TryParamSizeToSizeT(meta.elementCount, count) ||
-        !TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+        !TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return detail::MakeGeometryDecodeFailure(
             CodecErrorCode::UnsupportedPlatform,
             "geometry metadata exceeds this platform size limit");

@@ -19,7 +19,7 @@ namespace datacodec {
 
 inline std::size_t DecodeAttributeTupleBytes(const AttrStorageParams& meta) {
     std::size_t localValueSize = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return 0u;
     }
     return static_cast<std::size_t>(std::max(meta.dimension, 0)) * localValueSize;
@@ -157,7 +157,7 @@ public:
             std::size_t localElementCount = 0u;
             std::size_t localValueSize = 0u;
             if (!TryParamSizeToSizeT(field.meta.elementCount, localElementCount) ||
-                !TryParamSizeToSizeT(field.meta.valueSize, localValueSize)) {
+                !TryParamSizeToSizeT(NumericArrayValueSize(field.meta), localValueSize)) {
                 validation::AssignError(error, "decoded attribute metadata exceeds this platform size limit");
                 Reset();
                 return false;
@@ -293,7 +293,7 @@ public:
         std::size_t localElementCount = 0u;
         std::size_t localValueSize = 0u;
         if (!TryParamSizeToSizeT(meta.elementCount, localElementCount) ||
-            !TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+            !TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
             return validation::AssignError(error, "decoded attribute metadata exceeds this platform size limit");
         }
         field.tupleBytes = static_cast<std::size_t>(std::max(meta.dimension, 0)) * localValueSize;

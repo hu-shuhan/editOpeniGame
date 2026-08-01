@@ -326,25 +326,6 @@ inline const char* DataTypeName(const DataType dataType) noexcept {
     }
 }
 
-inline const char* AttributeDecodeScheduleClassName(const AttributeDecodeScheduleClass scheduleClass) noexcept {
-    switch (scheduleClass) {
-        case AttributeDecodeScheduleClass::Unknown:
-            return "unknown";
-        case AttributeDecodeScheduleClass::SmallField:
-            return "small";
-        case AttributeDecodeScheduleClass::LargeIndependent:
-            return "large_independent";
-        case AttributeDecodeScheduleClass::ReferenceParent:
-            return "reference_parent";
-        case AttributeDecodeScheduleClass::ReferenceChild:
-            return "reference_child";
-        case AttributeDecodeScheduleClass::ReferenceChain:
-            return "reference_chain";
-        default:
-            return "unknown";
-    }
-}
-
 inline std::string FormatAttributeDecodeWorkerIndex(const std::size_t workerIndex) {
     return workerIndex == kInvalidParallelWorkerIndex
         ? std::string("unknown")
@@ -377,7 +358,6 @@ inline std::string FormatAttributeDecodeTimingScope(
             BytesPerElementMilli(detail.binaryCount, detail.elementCount)) +
         ";estimatedDecodeCost=" + std::to_string(detail.estimatedDecodeCost) +
         ";criticalPathCost=" + std::to_string(detail.criticalPathCost) +
-        ";scheduleClass=" + AttributeDecodeScheduleClassName(detail.scheduleClass) +
         ";readyOffsetMs=" + std::to_string(detail.readyOffsetMs) +
         ";startOffsetMs=" + std::to_string(detail.startOffsetMs) +
         ";finishOffsetMs=" + std::to_string(detail.finishOffsetMs) +

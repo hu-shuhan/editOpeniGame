@@ -168,17 +168,12 @@ public:
         context.runRecords.BeginRun();
         context.AddInfo(
             "DecodePipelineConfiguration",
-            "performance=" + std::string(DataCodecDecodeTierName(
-                request.configurationSource.performanceTier)) +
-                "; runtime=" + DataCodecRuntimeProfileName(
-                    request.configurationSource.runtimeProfile) +
+            "runtime=" + std::string(DataCodecRuntimeProfileName(
+                request.configurationSource.runtimeProfile)) +
                 "; validation=" +
-                    (request.configurationSource.validationProfile ==
-                            DataCodecDecodeValidationProfile::Audit
-                        ? "Audit"
-                        : "Required") +
-                "; customControlParams=" +
-                    (request.configurationSource.customControlParams ? "true" : "false"));
+                    (controlParams.validation.StrictDecodeEnabled()
+                        ? "Strict"
+                        : "Required"));
         if (context.runRecords.Requests(RunCollectionKind::MemoryTrace)) {
             std::string memoryTraceError;
             if (!memoryTrace.Start(context.runRecords.RunInfo(), &memoryTraceError)) {

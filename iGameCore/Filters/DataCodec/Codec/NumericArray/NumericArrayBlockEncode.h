@@ -534,7 +534,6 @@ inline bool ResolveEncodedLayeredResidualNumericArrayBlockBytes(
                 error)) {
             return false;
         }
-        layout.regionLayers[layerIndex].residualBytesCodec = NumericArrayBytesCodec::NumericArrayCodec;
         layout.regionLayers[layerIndex].residualEncodedByteLength =
             static_cast<ParamSize>(residualBundleBytes.size());
         encodedBytes.insert(encodedBytes.end(), residualBundleBytes.begin(), residualBundleBytes.end());
@@ -542,7 +541,6 @@ inline bool ResolveEncodedLayeredResidualNumericArrayBlockBytes(
 
     layout.mode = NumericArrayBlockMode::LayeredResidual;
     layout.referenceKind = NumericArrayReferenceKind::None;
-    layout.codecId = NumericArrayReferenceCodecId::NonReference;
     layout.localParentFieldIndex = 0xFFFFu;
     layout.elementOffset = elementOffset;
     layout.elementCount = elementCount;

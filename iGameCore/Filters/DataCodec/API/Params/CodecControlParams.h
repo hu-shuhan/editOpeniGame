@@ -4,7 +4,6 @@
 #include "DataCodec/Common/DataCodecTypes.h"
 #include "DataCodec/API/Params/ReferenceControlParams.h"
 #include "DataCodec/API/Params/NumericArrayParams.h"
-#include "DataCodec/Validation/Policy/CodecValidationPolicy.h"
 #include "DataCodec/API/Params/CodecPerformanceParams.h"
 
 #include <cstdint>
@@ -41,18 +40,11 @@ struct CodecControlParams {
     NumericArrayControlParams defaultAttrControl;
     // 属性 reference 策略
     AttrReferenceControlParams attrReference;
-    // 解码侧校验策略，默认只执行必需格式检查
-    CodecValidationPolicy validation;
     // 编码期共享预算和局部工作区预算
-    ResourceBudgetControlParams resourceBudget;
+    EncodeResourceBudgetControlParams resourceBudget;
 
-    CodecControlParams& SetResourceBudget(const ResourceBudgetControlParams& budget) noexcept {
+    CodecControlParams& SetResourceBudget(const EncodeResourceBudgetControlParams& budget) noexcept {
         resourceBudget = budget;
-        return *this;
-    }
-
-    CodecControlParams& SetDecodeValidationMode(const DecodeValidationMode mode) noexcept {
-        validation.decodeMode = mode;
         return *this;
     }
 

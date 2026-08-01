@@ -300,7 +300,7 @@ public:
         attribute.metadata = metadata;
         const auto elementCount = static_cast<std::size_t>(metadata.elementCount);
         const auto componentCount = static_cast<std::size_t>(metadata.dimension);
-        const auto valueSize = static_cast<std::size_t>(metadata.valueSize);
+        const auto valueSize = static_cast<std::size_t>(NumericArrayValueSize(metadata));
         attribute.bytes.assign(elementCount * componentCount * valueSize, 0u);
         return true;
     }
@@ -318,7 +318,7 @@ public:
         auto& attribute = m_attributes[attrIndex];
         const auto tupleByteSize =
             static_cast<std::size_t>(attribute.metadata.dimension) *
-            static_cast<std::size_t>(attribute.metadata.valueSize);
+            static_cast<std::size_t>(NumericArrayValueSize(attribute.metadata));
         const auto byteOffset = offset * tupleByteSize;
         if (byteSize != count * tupleByteSize ||
             byteOffset + byteSize > attribute.bytes.size()) {

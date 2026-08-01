@@ -46,7 +46,6 @@ inline NumericArrayStorageParams MakeReferenceTestMeta(
     const std::size_t componentCount) {
     NumericArrayStorageParams meta;
     meta.dataType = NumericValueDataType<TValue>();
-    meta.valueSize = sizeof(TValue);
     meta.elementCount = tupleCount;
     meta.dimension = static_cast<std::int32_t>(componentCount);
     return meta;

@@ -160,6 +160,16 @@ inline void RunPolyhedronTopologyEncode(
         input.context.progressCallback =
             MakeTopologyProgressTimingCallback(context, "TopoStage.polyhedron.progress");
     }
+    if (context.runRecords.Wants(RunRecordKind::ResourceUsage)) {
+        input.context.memoryCheckpoint =
+            [&context](const char* name, const std::uint64_t logicalBytes, std::string scope) {
+                context.runRecords.RecordResourceUsage(
+                    std::string(name),
+                    logicalBytes,
+                    TelemetryStageCategory::Topology,
+                    std::move(scope));
+            };
+    }
 
     polyhedron::PolyhedronTopologyEncodeResult result;
     std::string error;
@@ -211,17 +221,6 @@ public:
                 kTypeName,
                 CodecErrorCode::MissingInput,
                 "topology encode requires a valid adapter");
-            return EncodeStageExecutionStatus::Failed;
-        }
-        const auto& spatial = workspace.StorageParams().spatialBlockParams;
-        if (spatial.pointElementTotal != context.adapter->GetNumberOfPoints() ||
-            spatial.cellElementTotal != context.adapter->GetNumberOfCells()) {
-            FailEncodeStage(
-                context,
-                workspace,
-                kTypeName,
-                CodecErrorCode::InvalidInput,
-                "topology input does not match the shared spatial block layout");
             return EncodeStageExecutionStatus::Failed;
         }
         // Pipeline 已显式绑定 Original 或 Computed Order Source

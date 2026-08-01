@@ -18,17 +18,6 @@
 #include <vector>
 namespace datacodec {
 
-class NumericArrayStorageParamsFactory {
-public:
-    [[nodiscard]] static NumericArrayStorageParams FromControl(const NumericArrayControlParams& control) {
-        NumericArrayStorageParams params;
-        ApplyControl(params, control);
-        return params;
-    }
-
-    static void ApplyControl(NumericArrayStorageParams&, const NumericArrayControlParams&) {}
-};
-
 class AttrStorageParamsFactory {
 public:
     [[nodiscard]] static bool TryFromEncodeAttributeView(
@@ -46,27 +35,13 @@ public:
         params.attachmentType = attr.attachment;
         params.dimension = attr.values.componentCount;
         params.elementCount = attr.values.tupleCount;
-        params.valueSize = ScalarTypeSize(attr.values.scalarType);
         params.codecType = EncodedFieldCodecType::Unknown;
         return true;
-    }
-
-    static void ApplyControl(AttrStorageParams& storage, const NumericArrayControlParams& control) {
-        NumericArrayStorageParamsFactory::ApplyControl(storage, control);
     }
 };
 
 class GeometryStorageParamsFactory {
 public:
-    [[nodiscard]] static GeometryStorageParams FromControl(
-        const NumericArrayControlParams& control,
-        const std::size_t pointCount = 0) {
-        GeometryStorageParams params;
-        NumericArrayStorageParamsFactory::ApplyControl(params, control);
-        ApplyGeometryShape(params, pointCount);
-        return params;
-    }
-
     [[nodiscard]] static GeometryStorageParams MakeDefault(const std::size_t pointCount = 0) {
         GeometryStorageParams params;
         ApplyGeometryShape(params, pointCount);
@@ -79,7 +54,6 @@ private:
         params.dataType = DataType::Float32;
         params.elementCount = pointCount;
         params.dimension = 3;
-        params.valueSize = sizeof(float);
     }
 };
 
@@ -98,27 +72,12 @@ public:
         params.topoParams = {};
         // 拓扑规模属于输入固有元数据，复用拓扑的流水线也必须保留
         params.topoParams.cellCount = static_cast<ParamSize>(adapter.GetNumberOfCells());
-        params.geomParams = controlParams != nullptr
-            ? GeometryStorageParamsFactory::FromControl(controlParams->geomControl, adapter.GetNumberOfPoints())
-            : GeometryStorageParamsFactory::MakeDefault(adapter.GetNumberOfPoints());
+        params.geomParams = GeometryStorageParamsFactory::MakeDefault(adapter.GetNumberOfPoints());
         const auto spatialPolicy = controlParams != nullptr
             ? controlParams->spatialBlockPolicy
             : SpatialBlockPolicyParams{};
         params.spatialBlockParams.pointElementCount = spatialPolicy.pointElementCount;
         params.spatialBlockParams.cellElementCount = spatialPolicy.cellElementCount;
-        params.spatialBlockParams.pointElementTotal = static_cast<ParamSize>(adapter.GetNumberOfPoints());
-        params.spatialBlockParams.cellElementTotal = static_cast<ParamSize>(adapter.GetNumberOfCells());
-        const auto blockCount = [](const ParamSize elementTotal, const std::uint32_t blockElementCount) {
-            return elementTotal == 0u
-                ? 0u
-                : static_cast<std::uint32_t>(1u + (elementTotal - 1u) / blockElementCount);
-        };
-        params.spatialBlockParams.pointBlockCount = blockCount(
-            params.spatialBlockParams.pointElementTotal,
-            params.spatialBlockParams.pointElementCount);
-        params.spatialBlockParams.cellBlockCount = blockCount(
-            params.spatialBlockParams.cellElementTotal,
-            params.spatialBlockParams.cellElementCount);
 
         int axisSize[3]{0, 0, 0};
         if (adapter.GetStructuredAxisSize(axisSize)) {
@@ -133,7 +92,6 @@ public:
         if (!AppendSelectedAttrs(
                 params,
                 adapter,
-                controlParams,
                 selectedAttrIndices,
                 warnings,
                 error)) {
@@ -160,8 +118,8 @@ private:
     [[nodiscard]] static bool ValidateEncodableAttributeParams(
         const AttrStorageParams& params,
         std::string* error = nullptr) {
-        if (params.valueSize == 0u || params.valueSize != DataTypeSize(params.dataType)) {
-            validation::AssignError(error, "attribute value size does not match a supported data type");
+        if (DataTypeSize(params.dataType) == 0u) {
+            validation::AssignError(error, "attribute data type is unsupported");
             return false;
         }
         if (params.elementCount > 0u && params.dimension <= 0) {
@@ -171,18 +129,9 @@ private:
         return true;
     }
 
-    static void ApplyOptionalAttrControl(
-        AttrStorageParams& params,
-        const CodecControlParams* controlParams) {
-        if (controlParams != nullptr) {
-            AttrStorageParamsFactory::ApplyControl(params, controlParams->GetAttrControl(params.name));
-        }
-    }
-
     [[nodiscard]] static bool AppendAttribute(
         CodecStorageParams& params,
         const IEncodeAdapter& adapter,
-        const CodecControlParams* controlParams,
         const AttrAttachment attachment,
         const std::size_t sourceIndex,
         std::vector<std::string>* warnings,
@@ -212,7 +161,6 @@ private:
                 AttributeSourceLabel(attachmentName, sourceIndex, attrParams.name) +
                     " has unsupported params: " + attrError);
         }
-        ApplyOptionalAttrControl(attrParams, controlParams);
         params.attrParams.push_back(std::move(attrParams));
         params.attrSourceIndices.push_back(sourceIndex);
         return true;
@@ -221,7 +169,6 @@ private:
     [[nodiscard]] static bool AppendSelectedAttrs(
         CodecStorageParams& params,
         const IEncodeAdapter& adapter,
-        const CodecControlParams* controlParams,
         const std::span<const std::size_t> selectedAttrIndices,
         std::vector<std::string>* warnings,
         std::string* error) {
@@ -245,7 +192,6 @@ private:
             if (!AppendAttribute(
                     params,
                     adapter,
-                    controlParams,
                     attachment,
                     sourceIndex,
                     warnings,

@@ -166,15 +166,6 @@ enum class AttrRole : std::uint32_t {
     Unknown = 255,
 };
 
-enum class AttributeDecodeScheduleClass : std::uint8_t {
-    Unknown = 0,
-    SmallField = 1,
-    LargeIndependent = 2,
-    ReferenceParent = 3,
-    ReferenceChild = 4,
-    ReferenceChain = 5,
-};
-
 enum class FieldType : std::uint16_t {
     Params = 0x01,
     Geometry = 0x02,
@@ -229,6 +220,22 @@ enum class NumericArrayReferenceCodecId : std::uint16_t {
     Wavelet = 2,
     Predictor = 3,
 };
+
+[[nodiscard]] inline constexpr NumericArrayReferenceCodecId NumericArrayBlockModeCodecId(
+    const NumericArrayBlockMode mode) noexcept {
+    switch (mode) {
+        case NumericArrayBlockMode::AffineReference:
+            return NumericArrayReferenceCodecId::Affine;
+        case NumericArrayBlockMode::WaveletReference:
+            return NumericArrayReferenceCodecId::Wavelet;
+        case NumericArrayBlockMode::PredictorReference:
+            return NumericArrayReferenceCodecId::Predictor;
+        case NumericArrayBlockMode::NonReference:
+        case NumericArrayBlockMode::LayeredResidual:
+            return NumericArrayReferenceCodecId::NonReference;
+    }
+    return NumericArrayReferenceCodecId::NonReference;
+}
 
 enum class NumericArrayBytesCodec : std::uint8_t {
     RawBytes = 0,

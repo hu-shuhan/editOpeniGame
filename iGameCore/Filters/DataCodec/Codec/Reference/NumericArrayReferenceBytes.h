@@ -22,7 +22,7 @@ inline bool ValidateNumericArrayRawByteSpan(
     std::string* error = nullptr) {
     std::size_t localValueSize = 0u;
     std::size_t localElementCount = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize) ||
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize) ||
         !TryParamSizeToSizeT(meta.elementCount, localElementCount)) {
         return validation::AssignError(error, std::string(label) + " metadata exceeds this platform size limit");
     }
@@ -55,7 +55,7 @@ inline bool ValidateNumericArrayRawByteSpan(
     const std::string_view label,
     std::string* error = nullptr) {
     std::size_t localValueSize = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return validation::AssignError(error, std::string(label) + " metadata exceeds this platform size limit");
     }
     std::size_t tupleBytes = 0u;
@@ -97,7 +97,6 @@ inline bool BuildNumericArrayNormalizedResampledSourceRangeBytesTyped(
         return validation::AssignError(error, "numeric array resample component count is invalid");
     }
     if (referenceMeta.dimension != targetMeta.dimension ||
-        referenceMeta.valueSize != targetMeta.valueSize ||
         referenceMeta.dataType != targetMeta.dataType) {
         return validation::AssignError(error, "numeric array resample metadata does not match");
     }
@@ -213,7 +212,7 @@ inline bool BuildNumericArrayNormalizedResampledSourceRangeBytes(
     const std::size_t targetElementCount,
     ScratchByteBuffer& outputBytes,
     std::string* error = nullptr) {
-    if (targetMeta.valueSize == sizeof(float)) {
+    if (NumericArrayValueSize(targetMeta) == sizeof(float)) {
         return BuildNumericArrayNormalizedResampledSourceRangeBytesTyped<float>(
             referenceReader,
             referenceMeta,
@@ -225,7 +224,7 @@ inline bool BuildNumericArrayNormalizedResampledSourceRangeBytes(
             outputBytes,
             error);
     }
-    if (targetMeta.valueSize == sizeof(double)) {
+    if (NumericArrayValueSize(targetMeta) == sizeof(double)) {
         return BuildNumericArrayNormalizedResampledSourceRangeBytesTyped<double>(
             referenceReader,
             referenceMeta,
@@ -320,7 +319,7 @@ inline bool BuildNumericArrayShiftedPredictorBlockBytesFromRange(
     outputBytes.Release();
     std::size_t localValueSize = 0u;
     std::size_t localElementCount = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize) ||
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize) ||
         !TryParamSizeToSizeT(meta.elementCount, localElementCount)) {
         return validation::AssignError(error, "numeric array predictor metadata exceeds this platform size limit");
     }
@@ -411,7 +410,7 @@ inline bool BuildNumericArrayPredictorReferenceBlockBytes(
         return false;
     }
     std::size_t localValueSize = 0u;
-    if (!TryParamSizeToSizeT(targetMeta.valueSize, localValueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(targetMeta), localValueSize)) {
         return validation::AssignError(error, "numeric array predictor value size exceeds this platform size limit");
     }
     std::size_t tupleBytes = 0u;

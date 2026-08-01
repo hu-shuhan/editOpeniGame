@@ -82,7 +82,7 @@ inline bool MakeNumericArrayLayoutFromMeta(
     std::size_t elementCount = 0u;
     std::size_t valueSize = 0u;
     if (!TryParamSizeToSizeT(meta.elementCount, elementCount) ||
-        !TryParamSizeToSizeT(meta.valueSize, valueSize)) {
+        !TryParamSizeToSizeT(NumericArrayValueSize(meta), valueSize)) {
         return validation::AssignError(error, "numeric array metadata exceeds this platform size limit");
     }
     layout = MakeNumericArrayLayout(

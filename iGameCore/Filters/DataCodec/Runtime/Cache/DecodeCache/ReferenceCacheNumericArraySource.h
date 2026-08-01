@@ -95,7 +95,6 @@ inline bool BuildGeometryReferenceCacheNumericArraySource(
     referenceMeta = store->StorageParams();
     referenceMeta.codecType = EncodedFieldCodecType::Raw;
     if (referenceMeta.dataType != targetMeta.dataType ||
-        referenceMeta.valueSize != targetMeta.valueSize ||
         referenceMeta.dimension != targetMeta.dimension) {
         return validation::AssignError(error, "geometry reference metadata does not match current geometry");
     }

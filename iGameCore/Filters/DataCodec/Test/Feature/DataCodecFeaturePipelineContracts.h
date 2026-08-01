@@ -616,7 +616,6 @@ inline bool CheckSpatialReferenceBlockSelection(
 
     NumericArrayStorageParams meta;
     meta.dataType = DataType::Float32;
-    meta.valueSize = sizeof(float);
     meta.elementCount = current.size();
     meta.dimension = 1;
 
@@ -660,13 +659,15 @@ inline bool CheckSpatialReferenceBlockSelection(
         layouts.begin(),
         layouts.end(),
         [](const NumericArrayBlockLayoutParams& layout) {
-            return layout.codecId == NumericArrayReferenceCodecId::Affine;
+            return NumericArrayBlockModeCodecId(layout.mode) ==
+                NumericArrayReferenceCodecId::Affine;
         }));
     const auto ordinaryBlockCount = static_cast<std::size_t>(std::count_if(
         layouts.begin(),
         layouts.end(),
         [](const NumericArrayBlockLayoutParams& layout) {
-            return layout.codecId == NumericArrayReferenceCodecId::NonReference;
+            return NumericArrayBlockModeCodecId(layout.mode) ==
+                NumericArrayReferenceCodecId::NonReference;
         }));
     const auto selected = Require(
         result,
@@ -701,7 +702,6 @@ inline bool CheckSampledIntraParentSelection(
             ? "current"
             : (index == 1u ? "parent" : "unrelated");
         metas[index].dataType = DataType::Float32;
-        metas[index].valueSize = sizeof(float);
         metas[index].elementCount = kElementCount;
         metas[index].dimension = 1;
         metas[index].attachmentType = AttrAttachment::Point;
@@ -773,7 +773,6 @@ inline bool CheckForcedReferenceFailure(
     }
     NumericArrayStorageParams meta;
     meta.dataType = DataType::Float32;
-    meta.valueSize = sizeof(float);
     meta.elementCount = kElementCount;
     meta.dimension = 1;
     CacheResources resources;
@@ -875,19 +874,13 @@ inline TestResult RunDataCodecFeaturePipelineContracts() noexcept {
     spatialParams.meshType = MeshType::PointSet;
     spatialParams.spatialBlockParams.pointElementCount = 4u;
     spatialParams.spatialBlockParams.cellElementCount = 4u;
-    spatialParams.spatialBlockParams.pointElementTotal = 10u;
-    spatialParams.spatialBlockParams.cellElementTotal = 0u;
-    spatialParams.spatialBlockParams.pointBlockCount = 3u;
-    spatialParams.spatialBlockParams.cellBlockCount = 0u;
     spatialParams.geomParams.codecType = EncodedFieldCodecType::NumericArrayBlocks;
     spatialParams.geomParams.dataType = DataType::Float32;
-    spatialParams.geomParams.valueSize = sizeof(float);
     spatialParams.geomParams.elementCount = 10u;
     spatialParams.geomParams.dimension = 3;
     for (const auto& range : layout) {
         NumericArrayBlockLayoutParams block;
         block.mode = NumericArrayBlockMode::NonReference;
-        block.codecId = NumericArrayReferenceCodecId::NonReference;
         block.elementOffset = range.elementOffset;
         block.elementCount = range.elementCount;
         block.encodedByteLength = 3u;
@@ -1002,10 +995,7 @@ inline TestResult RunDataCodecFeaturePipelineContracts() noexcept {
                 TemporalPredictorSearchStrategy::ExhaustiveEstimatedBytes &&
             balancedEnhanced.controlParams.geometryReference.temporalField.predictor.enableLocalWindowSearch &&
             balancedEnhanced.controlParams.geometryReference.temporalField.predictor.searchStrategy ==
-                TemporalPredictorSearchStrategy::ExhaustiveEstimatedBytes &&
-            timeEnhanced.source.compressionEnhancementEnabled &&
-            balancedEnhanced.source.compressionEnhancementEnabled &&
-            memoryEnhanced.source.compressionEnhancementEnabled,
+                TemporalPredictorSearchStrategy::ExhaustiveEstimatedBytes,
         "pipeline.compressionEnhancementSemantics",
         "compression enhancement did not enable remap and exhaustive predictor search");
 
@@ -1035,9 +1025,7 @@ inline TestResult RunDataCodecFeaturePipelineContracts() noexcept {
                 memoryPriority.controlParams.resourceBudget.ResidentLimitBytes() &&
             memoryEnhanced.controlParams.resourceBudget.AttributePressioLaneCount() ==
                 memoryPriority.controlParams.resourceBudget.AttributePressioLaneCount() &&
-            explicitZstdEnhanced.pipelineControl.packageFields.zstdLevel == 17 &&
-            !balancedEnhanced.source.customControlParams &&
-            explicitZstdEnhanced.source.customControlParams,
+            explicitZstdEnhanced.pipelineControl.packageFields.zstdLevel == 17,
         "pipeline.compressionEnhancementComposition",
         "compression enhancement changed resource-tier or explicit ZSTD configuration");
 

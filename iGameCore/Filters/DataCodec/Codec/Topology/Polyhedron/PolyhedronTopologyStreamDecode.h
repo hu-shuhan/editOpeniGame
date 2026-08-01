@@ -525,16 +525,35 @@ inline bool DecodePolyhedronTopologyStreamsToCache(
     if (streamHeader.cellCount > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
         return validation::AssignError(error, "stateful polyhedron cell count is too large for this platform");
     }
+    if (topo.polyhedronStreamLayouts.size() != kStatefulPolyhedronTopologyStreamOrder.size()) {
+        return validation::AssignError(
+            error,
+            "stateful polyhedron stream layout count does not match the fixed stream order");
+    }
     std::vector<PolyhedronTopologyStreamSchedule> schedules;
     schedules.reserve(topo.polyhedronStreamLayouts.size());
-    for (const auto& layout : topo.polyhedronStreamLayouts) {
+    for (std::size_t index = 0u; index < topo.polyhedronStreamLayouts.size(); ++index) {
+        const auto& layout = topo.polyhedronStreamLayouts[index];
         PolyhedronTopologyStreamSchedule schedule;
-        schedule.kind = static_cast<PolyhedronTopologyStreamKind>(layout.kind);
-        schedule.codec = static_cast<PolyhedronTopologyStreamCodec>(layout.codec);
-        schedule.flags = static_cast<std::uint16_t>(layout.flags);
-        schedule.meshIndexPadding = layout.meshIndexPadding;
-        schedule.elementCount = layout.elementCount;
-        schedule.auxiliaryStreamByteSize = layout.auxiliaryByteSize;
+        schedule.kind = kStatefulPolyhedronTopologyStreamOrder[index];
+        schedule.codec = schedule.kind == PolyhedronTopologyStreamKind::LocalFaceVertexIds
+            ? PolyhedronTopologyStreamCodec::SegmentedBitpack
+            : PolyhedronTopologyStreamCodec::Varint;
+        switch (schedule.kind) {
+            case PolyhedronTopologyStreamKind::UniqueVertexCounts:
+            case PolyhedronTopologyStreamKind::CellFaceCounts:
+                schedule.elementCount = topo.cellCount;
+                break;
+            case PolyhedronTopologyStreamKind::FaceVertexCounts:
+                schedule.elementCount = topo.polyhedronFaceVertexCount;
+                break;
+            case PolyhedronTopologyStreamKind::CellUniqueVertexIds:
+                schedule.elementCount = topo.polyhedronVertexCount;
+                break;
+            case PolyhedronTopologyStreamKind::LocalFaceVertexIds:
+                schedule.elementCount = topo.cellBufferSize;
+                break;
+        }
         schedule.streamByteSize = layout.encodedByteLength;
         schedules.push_back(schedule);
     }

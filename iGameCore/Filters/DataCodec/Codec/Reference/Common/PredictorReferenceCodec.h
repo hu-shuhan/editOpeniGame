@@ -235,10 +235,10 @@ public:
         const NumericArrayReferenceCodecEncodeInput& input,
         NumericArrayReferencePreparedBlock& prepared,
         std::string* error = nullptr) const override {
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             return PreparePredictorReferenceBlockTyped<float>(input, prepared, error);
         }
-        if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             return PreparePredictorReferenceBlockTyped<double>(input, prepared, error);
         }
         prepared.Reset();
@@ -251,10 +251,10 @@ public:
         const NumericArrayReferencePreparedBlock& prepared,
         NumericArrayReferenceEncodedBlock& output,
         std::string* error = nullptr) const override {
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             return EncodePreparedPredictorReferenceBlockTyped<float>(input, prepared, output, error);
         }
-        if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             return EncodePreparedPredictorReferenceBlockTyped<double>(input, prepared, output, error);
         }
         output = {};
@@ -269,10 +269,10 @@ public:
         if (!DecodeNumericArrayReferenceValueBytes(input.meta, input.block, decodedBlockBytes, error)) {
             return false;
         }
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             return DecodePredictorReferenceBlockTyped<float>(input, decodedBlockBytes, error);
         }
-        if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             return DecodePredictorReferenceBlockTyped<double>(input, decodedBlockBytes, error);
         }
         decodedBlockBytes.clear();

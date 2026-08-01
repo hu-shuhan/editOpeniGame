@@ -61,7 +61,7 @@ struct PolyhedronTopologyData {
 };
 
 struct PolyhedronTopologySchedule {
-    const ResourceBudgetControlParams& resourceBudget;
+    const EncodeResourceBudgetControlParams& resourceBudget;
 };
 
 struct PolyhedronTopologyCache {
@@ -71,6 +71,7 @@ struct PolyhedronTopologyCache {
 struct PolyhedronTopologyContext {
     std::function<void(double)> progressCallback;
     std::function<void(std::string_view, double)> phaseTimingCallback;
+    std::function<void(const char*, std::uint64_t, std::string)> memoryCheckpoint;
 };
 
 struct PolyhedronTopologyEncodeInput {
@@ -442,12 +443,10 @@ inline bool EncodeAdapterPolyhedronStreamsToTransferCache(
 
 inline void UpdatePolyhedronStorageParamsFromStreamStats(
     TopoStorageParams& topo,
-    const PolyhedronTopologyStreamStats& stats,
-    const std::size_t streamCount) {
+    const PolyhedronTopologyStreamStats& stats) {
     topo.cellBufferSize = stats.localFaceVertexIdCount;
     topo.polyhedronVertexCount = stats.uniqueVertexIdCount;
     topo.polyhedronFaceVertexCount = stats.faceCount;
-    topo.polyhedronStreamCount = streamCount;
 }
 
 inline bool EncodePolyhedronTopologyToTransferCache(
@@ -475,9 +474,13 @@ inline bool EncodePolyhedronTopologyToTransferCache(
     const auto topologyPath =
         topology::MakePolyhedronAdapterTopologyEncodePath(input.data.adapter);
     phaseStart = callback::MarkPhase(input.context.phaseTimingCallback, "make_topology_path", phaseStart);
-    const auto topologyWorkBytes = topology::TopologyWorkBudget::Estimate(
-        topologyPath,
-        &input.schedule.resourceBudget);
+    const auto topologyWorkBytes = topology::TopologyWorkBudget::Estimate(topologyPath);
+    if (input.context.memoryCheckpoint) {
+        input.context.memoryCheckpoint(
+            "topology.work_budget.requested",
+            topologyWorkBytes,
+            "polyhedron");
+    }
     phaseStart = callback::MarkPhase(input.context.phaseTimingCallback, "estimate_budget", phaseStart);
 
     auto polyhedronStreamSpooler = topology::MakePolyhedronTopologyStreamSpooler(
@@ -515,8 +518,7 @@ inline bool EncodePolyhedronTopologyToTransferCache(
 
     UpdatePolyhedronStorageParamsFromStreamStats(
         topo,
-        streamStats,
-        kStatefulPolyhedronTopologyStreamOrder.size());
+        streamStats);
     InvokePolyhedronTopologyProgress(input, 0.90);
     phaseStart = callback::MarkPhase(input.context.phaseTimingCallback, "update_storage_params", phaseStart);
 

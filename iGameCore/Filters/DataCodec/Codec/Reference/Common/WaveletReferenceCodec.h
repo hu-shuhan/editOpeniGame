@@ -1180,17 +1180,17 @@ inline bool ComputeWaveletReferenceArithmeticError(
 inline bool ValidateWaveletReferenceBlockShape(
     const NumericArrayReferenceCodecEncodeInput& input,
     std::string* error = nullptr) {
-    if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+    if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
         return ValidateNumericArrayReferenceBlockBytes<float>(input, error);
     }
-    if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+    if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
         return ValidateNumericArrayReferenceBlockBytes<double>(input, error);
     }
     if (!numericarray::IsIntegerNumericArrayDataType(input.meta.dataType) ||
         input.componentCount == 0u ||
         input.meta.dimension <= 0 ||
         static_cast<std::size_t>(input.meta.dimension) != input.componentCount ||
-        input.meta.valueSize != DataTypeSize(input.meta.dataType)) {
+        NumericArrayValueSize(input.meta) != DataTypeSize(input.meta.dataType)) {
         return validation::AssignError(
             error,
             "wavelet reference codec requires float32, float64, or integer data");
@@ -1199,7 +1199,7 @@ inline bool ValidateWaveletReferenceBlockShape(
     std::size_t expectedBytes = 0u;
     if (!validation::CheckedMulSizeT(
             input.componentCount,
-            input.meta.valueSize,
+            static_cast<std::size_t>(NumericArrayValueSize(input.meta)),
             tupleBytes,
             "wavelet reference tuple bytes",
             error) ||
@@ -1235,14 +1235,14 @@ public:
         }
         constexpr double kWaveletReconstructionErrorAmplification = 1.41421356237309504880;
         double maximumArithmeticError = 0.0;
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             if (!ComputeWaveletReferenceArithmeticError<float>(
                     input,
                     maximumArithmeticError,
                     error)) {
                 return NumericArrayReferenceEncodeResult::Failed();
             }
-        } else if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        } else if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             if (!ComputeWaveletReferenceArithmeticError<double>(
                     input,
                     maximumArithmeticError,
@@ -1295,7 +1295,7 @@ public:
                 input.elementCount,
                 input.componentCount,
                 input.meta.dataType,
-                input.meta.valueSize,
+                static_cast<std::size_t>(NumericArrayValueSize(input.meta)),
                 input.scratchBytePool,
                 input.acquireScratchQuota,
                 prepared.residualCompressor,
@@ -1331,7 +1331,7 @@ public:
             input.block.header.elementCount,
             componentCount,
             input.meta.dataType,
-            input.meta.valueSize,
+            static_cast<std::size_t>(NumericArrayValueSize(input.meta)),
             input.block.backgroundCompressor,
             input.block.bytes,
             decodedBlockBytes,

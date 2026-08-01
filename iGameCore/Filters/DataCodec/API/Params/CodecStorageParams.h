@@ -41,13 +41,9 @@ struct StructuredMeshStorageParams {
 };
 
 struct SpatialBlockStorageParams {
-    // Point 与 Cell 的空间块边界由元素总量和固定块大小唯一确定
+    // Point 与 Cell 使用独立的固定块大小
     std::uint32_t pointElementCount{262144u};
     std::uint32_t cellElementCount{262144u};
-    ParamSize pointElementTotal{0u};
-    ParamSize cellElementTotal{0u};
-    std::uint32_t pointBlockCount{0u};
-    std::uint32_t cellBlockCount{0u};
 
     [[nodiscard]] std::uint32_t ElementCount(
         const AttrAttachment attachment) const noexcept {
@@ -58,13 +54,7 @@ struct SpatialBlockStorageParams {
 
     template<class Archive>
     void serialize(Archive& archive) {
-        archive(
-            pointElementCount,
-            cellElementCount,
-            pointElementTotal,
-            cellElementTotal,
-            pointBlockCount,
-            cellBlockCount);
+        archive(pointElementCount, cellElementCount);
     }
 };
 
@@ -83,18 +73,10 @@ struct GeometryStorageParams : public NumericArrayStorageParams {
 struct AttrDecodeScheduleHint {
     ParamSize estimatedDecodeCost{0u};
     ParamSize criticalPathCost{0u};
-    AttributeDecodeScheduleClass scheduleClass{AttributeDecodeScheduleClass::Unknown};
 
     template<class Archive>
-    void save(Archive& archive) const {
+    void serialize(Archive& archive) {
         archive(estimatedDecodeCost, criticalPathCost);
-        detail::SaveEnum(archive, scheduleClass);
-    }
-
-    template<class Archive>
-    void load(Archive& archive) {
-        archive(estimatedDecodeCost, criticalPathCost);
-        detail::LoadEnum(archive, scheduleClass);
     }
 };
 
@@ -164,42 +146,20 @@ struct TopologyConnectivityBlockLayoutParams {
 };
 
 struct TopologyConnectivityLayoutParams {
-    ParamSize connectivityByteCount{0};
-    ParamSize cellSizeByteCount{0};
-    ParamSize cellPolynomialOrderByteCount{0};
-    ParamSize cellTypeByteCount{0};
     std::vector<TopologyConnectivityBlockLayoutParams> blockLayouts;
 
     template<class Archive>
     void serialize(Archive& archive) {
-        archive(
-            connectivityByteCount,
-            cellSizeByteCount,
-            cellPolynomialOrderByteCount,
-            cellTypeByteCount,
-            blockLayouts);
+        archive(blockLayouts);
     }
 };
 
 struct TopologyStreamLayoutParams {
-    std::uint32_t kind{0};
-    std::uint32_t codec{0};
-    std::uint32_t flags{0};
-    std::uint32_t meshIndexPadding{0};
-    ParamSize elementCount{0};
-    ParamSize auxiliaryByteSize{0};
     ParamSize encodedByteLength{0};
 
     template<class Archive>
     void serialize(Archive& archive) {
-        archive(
-            kind,
-            codec,
-            flags,
-            meshIndexPadding,
-            elementCount,
-            auxiliaryByteSize,
-            encodedByteLength);
+        archive(encodedByteLength);
     }
 };
 
@@ -212,11 +172,9 @@ struct TopoStorageParams {
     std::int32_t fixedCellSize{0};
     ParamSize cellCount{0};
     ParamSize cellBufferSize{0};
-    ParamSize cellTypeCount{0};
     // 多面体专用的规模汇总，用于校验和分配
     ParamSize polyhedronVertexCount{0};
     ParamSize polyhedronFaceVertexCount{0};
-    ParamSize polyhedronStreamCount{0};
     ParamSize binaryCount{0};
     TopologyConnectivityLayoutParams connectivityLayout;
     std::vector<TopologyStreamLayoutParams> polyhedronStreamLayouts;
@@ -230,10 +188,8 @@ struct TopoStorageParams {
             fixedCellSize,
             cellCount,
             cellBufferSize,
-            cellTypeCount,
             polyhedronVertexCount,
             polyhedronFaceVertexCount,
-            polyhedronStreamCount,
             binaryCount,
             connectivityLayout,
             polyhedronStreamLayouts);
@@ -386,7 +342,7 @@ inline ParamSize NumericArrayRawValueBytes(const NumericArrayStorageParams& meta
     const auto componentCount = static_cast<ParamSize>(std::max(meta.dimension, 0));
     return SaturatingParamSizeMultiply(
         SaturatingParamSizeMultiply(meta.elementCount, componentCount),
-        meta.valueSize);
+        NumericArrayValueSize(meta));
 }
 
 inline ParamSize EstimateAttributeDecodeCost(const AttrStorageParams& meta) noexcept {
@@ -430,34 +386,6 @@ inline ParamSize EstimateAttributeDecodeCost(const AttrStorageParams& meta) noex
         cost = rawBytes;
     }
     return cost;
-}
-
-inline bool AttributeHasReferenceBlocks(const AttrStorageParams& meta) noexcept {
-    for (const auto& layout : meta.blockLayouts) {
-        if (layout.referenceKind != NumericArrayReferenceKind::None) {
-            return true;
-        }
-    }
-    return false;
-}
-
-inline AttributeDecodeScheduleClass ResolveAttributeDecodeScheduleClass(
-    const AttrStorageParams& meta,
-    const bool hasDependent) noexcept {
-    const auto hasReference = AttributeHasReferenceBlocks(meta);
-    if (hasDependent && hasReference) {
-        return AttributeDecodeScheduleClass::ReferenceChain;
-    }
-    if (hasDependent) {
-        return AttributeDecodeScheduleClass::ReferenceParent;
-    }
-    if (hasReference) {
-        return AttributeDecodeScheduleClass::ReferenceChild;
-    }
-    constexpr ParamSize kLargeIndependentCost = 32u * 1024u * 1024u;
-    return EstimateAttributeDecodeCost(meta) >= kLargeIndependentCost
-        ? AttributeDecodeScheduleClass::LargeIndependent
-        : AttributeDecodeScheduleClass::SmallField;
 }
 
 inline void RefreshAttributeDecodeScheduleHints(CodecStorageParams& params) {
@@ -505,13 +433,11 @@ inline void RefreshAttributeDecodeScheduleHints(CodecStorageParams& params) {
     for (std::size_t attrIndex = 0u; attrIndex < attrCount; ++attrIndex) {
         params.attrParams[attrIndex].decodeScheduleHint.estimatedDecodeCost = ownCosts[attrIndex];
         params.attrParams[attrIndex].decodeScheduleHint.criticalPathCost = resolveCriticalCost(attrIndex);
-        params.attrParams[attrIndex].decodeScheduleHint.scheduleClass =
-            ResolveAttributeDecodeScheduleClass(params.attrParams[attrIndex], !dependents[attrIndex].empty());
     }
 }
 
 inline constexpr std::uint32_t kCodecStorageParamsMagic = 0x50434744u;
-inline constexpr std::uint32_t kCodecStorageParamsVersion = 1u;
+inline constexpr std::uint32_t kCodecStorageParamsVersion = 2u;
 
 struct CodecStorageParamsHeader {
     // DataCodec params 魔数: DGCP
@@ -668,19 +594,6 @@ inline bool ValidateAttrAttachmentForParams(const AttrAttachment value) noexcept
     return false;
 }
 
-inline bool ValidateAttributeDecodeScheduleClassForParams(const AttributeDecodeScheduleClass value) noexcept {
-    switch (value) {
-        case AttributeDecodeScheduleClass::Unknown:
-        case AttributeDecodeScheduleClass::SmallField:
-        case AttributeDecodeScheduleClass::LargeIndependent:
-        case AttributeDecodeScheduleClass::ReferenceParent:
-        case AttributeDecodeScheduleClass::ReferenceChild:
-        case AttributeDecodeScheduleClass::ReferenceChain:
-            return true;
-    }
-    return false;
-}
-
 inline bool ValidateCompressorConfigForParams(
     const CompressorConfig& config,
     const std::string_view fieldName,
@@ -703,57 +616,6 @@ inline bool ValidateCompressorConfigForParams(
                 error,
                 fieldName,
                 "compressor error bound must be finite and non-negative");
-        }
-    }
-    return true;
-}
-
-inline bool ValidateNumericArrayRegionControlForParams(
-    const NumericArrayRegionControlParams& control,
-    const std::string_view fieldName,
-    bool& requires64Bit,
-    std::string* error) {
-    MarkRequires64Bit(static_cast<ParamSize>(control.regions.size()), requires64Bit);
-    MarkRequires64Bit(static_cast<ParamSize>(control.defaultPrecision.name.size()), requires64Bit);
-    if (!control.defaultPrecision.hasCompressor) {
-        return SetParamsFieldError(error, fieldName, "region control is missing default precision compressor");
-    }
-    if (!ValidateCompressorConfigForParams(
-            control.defaultPrecision.compressor,
-            std::string(fieldName) + ".defaultPrecision.compressor",
-            requires64Bit,
-            error)) {
-        return false;
-    }
-    if (control.regions.size() > control.runPolicy.maxRegionCount) {
-        return SetParamsFieldError(error, fieldName, "region precision count exceeds maxRegionCount");
-    }
-    if (control.runPolicy.maxRunsPerRegion == 0u) {
-        return SetParamsFieldError(error, fieldName, "maxRunsPerRegion is zero");
-    }
-    if (control.runPolicy.maxRefinedElementRatio < 0.0 ||
-        control.runPolicy.maxRefinedElementRatio < 0.0 ||
-        control.runPolicy.maxFragmentElementRatio < 0.0 ||
-        control.runPolicy.maxFragmentElementRatio > 1.0 ||
-        control.runPolicy.maxExpansionRatio < 0.0 ||
-        control.runPolicy.maxExpansionRatio > 1.0) {
-        return SetParamsFieldError(error, fieldName, "region ratio policy is invalid");
-    }
-    for (std::size_t index = 0u; index < control.regions.size(); ++index) {
-        const auto& region = control.regions[index];
-        MarkRequires64Bit(static_cast<ParamSize>(region.name.size()), requires64Bit);
-        if (!region.hasCompressor) {
-            return SetParamsFieldError(
-                error,
-                std::string(fieldName) + ".regions[" + std::to_string(index) + "]",
-                "is missing compressor");
-        }
-        if (!ValidateCompressorConfigForParams(
-                region.compressor,
-                std::string(fieldName) + ".regions[" + std::to_string(index) + "].compressor",
-                requires64Bit,
-                error)) {
-            return false;
         }
     }
     return true;
@@ -801,13 +663,6 @@ inline bool ValidateNumericArrayRegionLayerForParams(
     ParamSize& residualPayloadBytes,
     std::string* error) {
     residualPayloadBytes = 0u;
-    if (layer.regionId == 0u) {
-        return SetParamsFieldError(error, fieldName, "region id is invalid");
-    }
-    if (!ValidateNumericArrayBytesCodecForParams(layer.residualBytesCodec) ||
-        layer.residualBytesCodec != NumericArrayBytesCodec::NumericArrayCodec) {
-        return SetParamsFieldError(error, fieldName, "residual bytes codec is invalid");
-    }
     if (!ValidateCompressorConfigForParams(
             layer.refineCompressor,
             std::string(fieldName) + ".refineCompressor",
@@ -815,9 +670,7 @@ inline bool ValidateNumericArrayRegionLayerForParams(
             error)) {
         return false;
     }
-    MarkRequires64Bit(layer.originalElementCount, requires64Bit);
     MarkRequires64Bit(layer.refinedElementCount, requires64Bit);
-    MarkRequires64Bit(layer.expandedBackgroundCount, requires64Bit);
     MarkRequires64Bit(layer.residualEncodedByteLength, requires64Bit);
     MarkRequires64Bit(static_cast<ParamSize>(layer.runs.size()), requires64Bit);
     MarkRequires64Bit(static_cast<ParamSize>(layer.componentLayouts.size()), requires64Bit);
@@ -998,13 +851,9 @@ inline bool ValidateNumericArrayStorageParamsForParams(
     if (expectedValueSize == 0u) {
         return SetParamsFieldError(error, fieldName, "data type is unsupported");
     }
-    if (meta.valueSize != static_cast<ParamSize>(expectedValueSize)) {
-        return SetParamsFieldError(error, fieldName, "value size does not match data type");
-    }
     if (meta.elementCount > 0u && meta.dimension <= 0) {
         return SetParamsFieldError(error, fieldName, "dimension is invalid");
     }
-    MarkRequires64Bit(meta.valueSize, requires64Bit);
     MarkRequires64Bit(meta.elementCount, requires64Bit);
     const auto componentCount = static_cast<ParamSize>(std::max<std::int32_t>(meta.dimension, 0));
     ParamSize valueCount = 0u;
@@ -1017,7 +866,7 @@ inline bool ValidateNumericArrayStorageParamsForParams(
             std::string(fieldName) + ".valueCount") ||
         !CheckedParamSizeMultiply(
             valueCount,
-            meta.valueSize,
+            static_cast<ParamSize>(expectedValueSize),
             byteCount,
             error,
             std::string(fieldName) + ".byteCount")) {
@@ -1041,9 +890,6 @@ inline bool ValidateAttrStorageParamsForParams(
     }
     if (!ValidateAttrAttachmentForParams(meta.attachmentType)) {
         return SetParamsFieldError(error, fieldName, "attribute attachment is invalid");
-    }
-    if (!ValidateAttributeDecodeScheduleClassForParams(meta.decodeScheduleHint.scheduleClass)) {
-        return SetParamsFieldError(error, fieldName, "decode schedule class is invalid");
     }
     MarkRequires64Bit(static_cast<ParamSize>(meta.name.size()), requires64Bit);
     MarkRequires64Bit(meta.binaryCount, requires64Bit);
@@ -1075,54 +921,17 @@ inline bool ValidateTopologyConnectivityLayoutForParams(
     bool& requires64Bit,
     std::string* error) {
     const auto& layout = topo.connectivityLayout;
-    const ParamSize values[] = {
-        layout.connectivityByteCount,
-        layout.cellSizeByteCount,
-        layout.cellPolynomialOrderByteCount,
-        layout.cellTypeByteCount,
-    };
-    for (const auto value : values) {
-        MarkRequires64Bit(value, requires64Bit);
-    }
     MarkRequires64Bit(static_cast<ParamSize>(layout.blockLayouts.size()), requires64Bit);
 
-    ParamSize payloadBytes = 0u;
-    if (!CheckedParamSizeAdd(
-            payloadBytes,
-            layout.connectivityByteCount,
-            payloadBytes,
-            error,
-            "topo.connectivityLayout.payloadBytes") ||
-        !CheckedParamSizeAdd(
-            payloadBytes,
-            layout.cellSizeByteCount,
-            payloadBytes,
-            error,
-            "topo.connectivityLayout.payloadBytes") ||
-        !CheckedParamSizeAdd(
-            payloadBytes,
-            layout.cellPolynomialOrderByteCount,
-            payloadBytes,
-            error,
-            "topo.connectivityLayout.payloadBytes") ||
-        !CheckedParamSizeAdd(
-            payloadBytes,
-            layout.cellTypeByteCount,
-            payloadBytes,
-            error,
-            "topo.connectivityLayout.payloadBytes")) {
-        return false;
-    }
-
     if (topo.isStructured != 0u || topo.isPolyhedron != 0u || topo.cellCount == 0u) {
-        if (payloadBytes != 0u || !layout.blockLayouts.empty()) {
+        if (!layout.blockLayouts.empty()) {
             return SetParamsError(error, "non-connectivity topology params cannot carry connectivity stream layout");
         }
         return true;
     }
 
     // 时间序列复用拓扑只保留规模信息，真实拓扑由 owner frame 提供
-    if (topo.binaryCount == 0u && payloadBytes == 0u && layout.blockLayouts.empty()) {
+    if (topo.binaryCount == 0u && layout.blockLayouts.empty()) {
         return true;
     }
 
@@ -1133,9 +942,7 @@ inline bool ValidateTopologyConnectivityLayoutForParams(
     ParamSize blockPayloadBytes = 0u;
     ParamSize blockCellCount = 0u;
     ParamSize blockConnectivityCount = 0u;
-    ParamSize blockConnectivityBytes = 0u;
     ParamSize blockCellSizeBytes = 0u;
-    ParamSize blockOrderBytes = 0u;
     ParamSize blockTypeBytes = 0u;
     for (std::size_t blockIndex = 0u; blockIndex < layout.blockLayouts.size(); ++blockIndex) {
         const auto& block = layout.blockLayouts[blockIndex];
@@ -1166,36 +973,27 @@ inline bool ValidateTopologyConnectivityLayoutForParams(
             !CheckedParamSizeAdd(blockPayloadBytes, currentPayloadBytes, blockPayloadBytes, error, fieldName) ||
             !CheckedParamSizeAdd(blockCellCount, block.cellCount, blockCellCount, error, fieldName) ||
             !CheckedParamSizeAdd(blockConnectivityCount, block.connectivityCount, blockConnectivityCount, error, fieldName) ||
-            !CheckedParamSizeAdd(blockConnectivityBytes, block.connectivityByteCount, blockConnectivityBytes, error, fieldName) ||
             !CheckedParamSizeAdd(blockCellSizeBytes, block.cellSizeByteCount, blockCellSizeBytes, error, fieldName) ||
-            !CheckedParamSizeAdd(blockOrderBytes, block.cellPolynomialOrderByteCount, blockOrderBytes, error, fieldName) ||
             !CheckedParamSizeAdd(blockTypeBytes, block.cellTypeByteCount, blockTypeBytes, error, fieldName)) {
             return false;
         }
     }
     if (blockCellCount != topo.cellCount ||
         blockConnectivityCount != topo.cellBufferSize ||
-        blockPayloadBytes != topo.binaryCount ||
-        blockConnectivityBytes != layout.connectivityByteCount ||
-        blockCellSizeBytes != layout.cellSizeByteCount ||
-        blockOrderBytes != layout.cellPolynomialOrderByteCount ||
-        blockTypeBytes != layout.cellTypeByteCount) {
-        return SetParamsError(error, "connectivity topology block totals do not match aggregate layout");
+        blockPayloadBytes != topo.binaryCount) {
+        return SetParamsError(error, "connectivity topology block totals do not match topology params");
     }
 
-    if (payloadBytes != topo.binaryCount) {
-        return SetParamsError(error, "connectivity topology stream layout bytes do not match topology payload bytes");
-    }
-    if (topo.hasCellTypes == 0u && layout.cellTypeByteCount != 0u) {
+    if (topo.hasCellTypes == 0u && blockTypeBytes != 0u) {
         return SetParamsError(error, "connectivity topology layout has cell type bytes without cell types");
     }
-    if (topo.hasCellTypes != 0u && layout.cellTypeByteCount == 0u) {
+    if (topo.hasCellTypes != 0u && blockTypeBytes == 0u) {
         return SetParamsError(error, "connectivity topology cell types are missing their stream");
     }
-    if (topo.fixedCellSize > 0 && layout.cellSizeByteCount != 0u) {
+    if (topo.fixedCellSize > 0 && blockCellSizeBytes != 0u) {
         return SetParamsError(error, "fixed-size connectivity topology carries a cell-size stream");
     }
-    if (topo.fixedCellSize <= 0 && layout.cellSizeByteCount == 0u) {
+    if (topo.fixedCellSize <= 0 && blockCellSizeBytes == 0u) {
         return SetParamsError(error, "variable-size connectivity topology is missing its cell-size stream");
     }
     return true;
@@ -1219,50 +1017,14 @@ inline bool ValidateTopologyPolyhedronLayoutsForParams(
         return true;
     }
 
-    constexpr std::uint32_t kPolyhedronStreamKindUniqueVertexCounts = 0u;
-    constexpr std::uint32_t kPolyhedronStreamKindCellUniqueVertexIds = 1u;
-    constexpr std::uint32_t kPolyhedronStreamKindCellFaceCounts = 2u;
-    constexpr std::uint32_t kPolyhedronStreamKindFaceVertexCounts = 3u;
-    constexpr std::uint32_t kPolyhedronStreamKindLocalFaceVertexIds = 4u;
-    constexpr std::uint32_t kPolyhedronStreamCodecVarint = 1u;
-    constexpr std::uint32_t kPolyhedronStreamCodecSegmentedBitpack = 2u;
-    constexpr std::uint32_t kPolyhedronStreamFlagHasAuxBytes = 1u;
-
-    struct ExpectedStreamLayout {
-        std::uint32_t kind{0};
-        std::uint32_t codec{0};
-        ParamSize elementCount{0};
-    };
-    const std::array<ExpectedStreamLayout, 5u> expected{
-        ExpectedStreamLayout{kPolyhedronStreamKindUniqueVertexCounts, kPolyhedronStreamCodecVarint, topo.cellCount},
-        ExpectedStreamLayout{kPolyhedronStreamKindCellFaceCounts, kPolyhedronStreamCodecVarint, topo.cellCount},
-        ExpectedStreamLayout{kPolyhedronStreamKindFaceVertexCounts, kPolyhedronStreamCodecVarint, topo.polyhedronFaceVertexCount},
-        ExpectedStreamLayout{kPolyhedronStreamKindCellUniqueVertexIds, kPolyhedronStreamCodecVarint, topo.polyhedronVertexCount},
-        ExpectedStreamLayout{kPolyhedronStreamKindLocalFaceVertexIds, kPolyhedronStreamCodecSegmentedBitpack, topo.cellBufferSize},
-    };
-
-    if (topo.polyhedronStreamCount != expected.size() ||
-        topo.polyhedronStreamLayouts.size() != expected.size()) {
+    constexpr std::size_t kPolyhedronStreamCount = 5u;
+    if (topo.polyhedronStreamLayouts.size() != kPolyhedronStreamCount) {
         return SetParamsError(error, "polyhedron topology stream layout count is invalid");
     }
 
     ParamSize payloadBytes = 0u;
-    for (std::size_t index = 0u; index < expected.size(); ++index) {
-        const auto& layout = topo.polyhedronStreamLayouts[index];
-        const auto& expectedLayout = expected[index];
-        MarkRequires64Bit(layout.elementCount, requires64Bit);
-        MarkRequires64Bit(layout.auxiliaryByteSize, requires64Bit);
+    for (const auto& layout : topo.polyhedronStreamLayouts) {
         MarkRequires64Bit(layout.encodedByteLength, requires64Bit);
-        if (layout.kind != expectedLayout.kind ||
-            layout.codec != expectedLayout.codec ||
-            layout.elementCount != expectedLayout.elementCount) {
-            return SetParamsError(error, "polyhedron topology stream layout does not match params totals");
-        }
-        if ((layout.flags & ~kPolyhedronStreamFlagHasAuxBytes) != 0u ||
-            layout.flags != 0u ||
-            layout.auxiliaryByteSize != 0u) {
-            return SetParamsError(error, "polyhedron topology stream layout has unsupported auxiliary bytes");
-        }
         if (!CheckedParamSizeAdd(
                 payloadBytes,
                 layout.encodedByteLength,
@@ -1299,10 +1061,8 @@ inline bool ValidateTopoStorageParamsForParams(
     const ParamSize values[] = {
         topo.cellCount,
         topo.cellBufferSize,
-        topo.cellTypeCount,
         topo.polyhedronVertexCount,
         topo.polyhedronFaceVertexCount,
-        topo.polyhedronStreamCount,
         topo.binaryCount,
     };
     for (const auto value : values) {
@@ -1373,36 +1133,29 @@ inline bool ValidateSpatialBlockStorageParamsForParams(
     bool& requires64Bit,
     std::string* error) {
     const auto& spatial = params.spatialBlockParams;
-    MarkRequires64Bit(spatial.pointElementTotal, requires64Bit);
-    MarkRequires64Bit(spatial.cellElementTotal, requires64Bit);
+    const auto pointElementTotal = params.geomParams.elementCount;
+    const auto cellElementTotal = params.topoParams.cellCount;
     std::uint32_t expectedPointBlockCount = 0u;
     std::uint32_t expectedCellBlockCount = 0u;
     if (!ResolveSpatialBlockCountForParams(
-            spatial.pointElementTotal,
+            pointElementTotal,
             spatial.pointElementCount,
             expectedPointBlockCount,
             error) ||
         !ResolveSpatialBlockCountForParams(
-            spatial.cellElementTotal,
+            cellElementTotal,
             spatial.cellElementCount,
             expectedCellBlockCount,
             error)) {
         return false;
     }
-    if (spatial.pointBlockCount != expectedPointBlockCount ||
-        spatial.cellBlockCount != expectedCellBlockCount) {
-        return SetParamsError(error, "spatial block counts do not match their element ranges");
-    }
     if (!ValidateNumericArraySpatialBlockAlignmentForParams(
             params.geomParams,
             spatial.pointElementCount,
-            spatial.pointElementTotal,
+            pointElementTotal,
             "geom",
             error)) {
         return false;
-    }
-    if (params.topoParams.cellCount != spatial.cellElementTotal) {
-        return SetParamsError(error, "topology cell count does not match the shared cell spatial layout");
     }
     if (params.topoParams.binaryCount != 0u &&
         params.topoParams.isStructured == 0u &&
@@ -1416,7 +1169,7 @@ inline bool ValidateSpatialBlockStorageParamsForParams(
             const auto expectedOffset = static_cast<ParamSize>(blockIndex) * spatial.cellElementCount;
             const auto expectedCount = std::min<ParamSize>(
                 spatial.cellElementCount,
-                spatial.cellElementTotal - expectedOffset);
+                cellElementTotal - expectedOffset);
             if (topologyBlocks[blockIndex].cellOffset != expectedOffset ||
                 topologyBlocks[blockIndex].cellCount != expectedCount) {
                 return SetParamsError(error, "topology block range does not match the shared cell spatial layout");
@@ -1429,7 +1182,7 @@ inline bool ValidateSpatialBlockStorageParamsForParams(
         if (!ValidateNumericArraySpatialBlockAlignmentForParams(
                 attr,
                 isPoint ? spatial.pointElementCount : spatial.cellElementCount,
-                isPoint ? spatial.pointElementTotal : spatial.cellElementTotal,
+                isPoint ? pointElementTotal : cellElementTotal,
                 "attr[" + std::to_string(index) + "]",
                 error)) {
             return false;
@@ -1484,8 +1237,7 @@ inline bool CheckNumericArrayStorageParamsPlatformLimits(
     const std::string_view fieldName,
     std::string* error) {
     std::size_t ignored = 0u;
-    if (!CheckedSizeT(meta.valueSize, std::string(fieldName) + ".valueSize", ignored, error) ||
-        !CheckedSizeT(meta.elementCount, std::string(fieldName) + ".elementCount", ignored, error)) {
+    if (!CheckedSizeT(meta.elementCount, std::string(fieldName) + ".elementCount", ignored, error)) {
         return false;
     }
     const auto componentCount = static_cast<ParamSize>(std::max<std::int32_t>(meta.dimension, 0));
@@ -1499,7 +1251,7 @@ inline bool CheckNumericArrayStorageParamsPlatformLimits(
             std::string(fieldName) + ".valueCount") ||
         !CheckedParamSizeMultiply(
             valueCount,
-            meta.valueSize,
+            NumericArrayValueSize(meta),
             byteCount,
             error,
             std::string(fieldName) + ".byteCount")) {
@@ -1520,10 +1272,8 @@ inline bool CheckCodecStorageParamsPlatformLimits(
     const std::pair<ParamSize, const char*> topoFields[] = {
         {topo.cellCount, "topo.cellCount"},
         {topo.cellBufferSize, "topo.cellBufferSize"},
-        {topo.cellTypeCount, "topo.cellTypeCount"},
         {topo.polyhedronVertexCount, "topo.polyhedronVertexCount"},
         {topo.polyhedronFaceVertexCount, "topo.polyhedronFaceVertexCount"},
-        {topo.polyhedronStreamCount, "topo.polyhedronStreamCount"},
         {topo.binaryCount, "topo.binaryCount"},
     };
     for (const auto& field : topoFields) {
@@ -1532,17 +1282,6 @@ inline bool CheckCodecStorageParamsPlatformLimits(
         }
     }
     const auto& connectivityLayout = topo.connectivityLayout;
-    const std::pair<ParamSize, const char*> connectivityFields[] = {
-        {connectivityLayout.connectivityByteCount, "topo.connectivityLayout.connectivityByteCount"},
-        {connectivityLayout.cellSizeByteCount, "topo.connectivityLayout.cellSizeByteCount"},
-        {connectivityLayout.cellPolynomialOrderByteCount, "topo.connectivityLayout.cellPolynomialOrderByteCount"},
-        {connectivityLayout.cellTypeByteCount, "topo.connectivityLayout.cellTypeByteCount"},
-    };
-    for (const auto& field : connectivityFields) {
-        if (!CheckedSizeT(field.first, field.second, ignored, error)) {
-            return false;
-        }
-    }
     if (!CheckedSizeT(
             static_cast<ParamSize>(connectivityLayout.blockLayouts.size()),
             "topo.connectivityLayout.blockLayouts.size",
@@ -1579,9 +1318,7 @@ inline bool CheckCodecStorageParamsPlatformLimits(
     for (std::size_t index = 0u; index < topo.polyhedronStreamLayouts.size(); ++index) {
         const auto& layout = topo.polyhedronStreamLayouts[index];
         const auto fieldName = "topo.polyhedronStreamLayouts[" + std::to_string(index) + "]";
-        if (!CheckedSizeT(layout.elementCount, fieldName + ".elementCount", ignored, error) ||
-            !CheckedSizeT(layout.auxiliaryByteSize, fieldName + ".auxiliaryByteSize", ignored, error) ||
-            !CheckedSizeT(layout.encodedByteLength, fieldName + ".encodedByteLength", ignored, error)) {
+        if (!CheckedSizeT(layout.encodedByteLength, fieldName + ".encodedByteLength", ignored, error)) {
             return false;
         }
     }

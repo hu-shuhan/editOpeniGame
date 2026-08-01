@@ -369,12 +369,6 @@ inline bool ResolveDecodedLayeredResidualNumericArrayBlockBytes(
         return false;
     }
     for (const auto& layer : regionLayers) {
-        if (layer.regionId == 0u) {
-            return validation::AssignError(error, "region residual layer id is invalid");
-        }
-        if (layer.residualBytesCodec != NumericArrayBytesCodec::NumericArrayCodec) {
-            return validation::AssignError(error, "region residual layer uses an unsupported bytes codec");
-        }
         if (!ValidateRegionLayerDecodeRuns(layer, elementCount, error)) {
             return false;
         }
@@ -393,7 +387,7 @@ inline bool ResolveDecodedLayeredResidualNumericArrayBlockBytes(
                 residualParams,
                 layer.refineCompressor,
                 static_cast<std::uint32_t>(layer.refinedElementCount),
-                layer.residualBytesCodec,
+                NumericArrayBytesCodec::NumericArrayCodec,
                 layer.componentLayouts,
                 std::span<const std::uint8_t>(bytes.data() + cursor, residualByteLength),
                 residualBytes,

@@ -53,6 +53,11 @@ struct DataCodecEncodeOptions {
     DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
+struct DataCodecDecodeLogParams {
+    bool enableFileLog{false};
+    bool enableConsoleLog{true};
+};
+
 struct DataCodecDecodeOptions {
     DataCodecDecodeTier tier{DataCodecDecodeTier::Balanced};
     DataCodecDecodeValidationProfile validationProfile{
@@ -64,22 +69,16 @@ struct DataCodecDecodeOptions {
     std::optional<std::size_t> decodedResultCacheFrameLimit;
     // 未指定时沿用性能档位的完整输入预读策略
     std::optional<bool> enableFullInputPrefetch;
+    DataCodecDecodeLogParams logging;
     DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 };
 
 struct DataCodecEncodeConfigurationSource {
-    DataCodecEncodeTier performanceTier{DataCodecEncodeTier::Balanced};
     DataCodecRuntimeProfile runtimeProfile{DataCodecRuntimeProfile::Native};
-    bool compressionEnhancementEnabled{false};
-    bool customControlParams{false};
 };
 
 struct DataCodecDecodeConfigurationSource {
-    DataCodecDecodeTier performanceTier{DataCodecDecodeTier::Balanced};
     DataCodecRuntimeProfile runtimeProfile{DataCodecRuntimeProfile::Native};
-    DataCodecDecodeValidationProfile validationProfile{
-        DataCodecDecodeValidationProfile::Required};
-    bool customControlParams{false};
 };
 
 struct EncodeExecutionOptions {
@@ -121,6 +120,7 @@ struct DataCodecDecodeConfigurationParams {
     DecodedFrameCachePolicy decodedFrameCachePolicy;
     EncodedInputCachePolicy encodedInputCachePolicy;
     DataCodecDecodeConfigurationSource source;
+    DataCodecDecodeLogParams logging;
     DataCodecLanguage language{DataCodecLanguage::SimplifiedChinese};
 
     [[nodiscard]] DataCodecDecodePackageConfigurationParams PackageConfiguration() const {
@@ -249,8 +249,7 @@ public:
         if (options.packageZstdLevel.has_value()) {
             result.pipelineControl.packageFields.zstdLevel = *options.packageZstdLevel;
         }
-        if (options.temporalKeyFrameInterval.has_value() &&
-            *options.temporalKeyFrameInterval > 0u) {
+        if (options.temporalKeyFrameInterval.has_value()) {
             result.controlParams.attrReference.temporalField.keyFrameInterval =
                 *options.temporalKeyFrameInterval;
             result.controlParams.geometryReference.temporalField.keyFrameInterval =
@@ -259,12 +258,7 @@ public:
             result.controlParams.geometryReference.temporalField.forcePredFrames = false;
         }
         result.source = DataCodecEncodeConfigurationSource{
-            .performanceTier = options.tier,
             .runtimeProfile = runtimeProfile,
-            .compressionEnhancementEnabled = compressionEnhancementEnabled,
-            .customControlParams =
-                options.packageZstdLevel.has_value() ||
-                options.temporalKeyFrameInterval.has_value(),
         };
         result.language = options.language;
         return result;
@@ -357,14 +351,9 @@ public:
                     : 2u * 1024u * 1024u * 1024u;
         }
         result.source = DataCodecDecodeConfigurationSource{
-            .performanceTier = options.tier,
             .runtimeProfile = runtimeProfile,
-            .validationProfile = options.validationProfile,
-            .customControlParams =
-                options.enableDecodedResultCache.has_value() ||
-                options.decodedResultCacheFrameLimit.has_value() ||
-                options.enableFullInputPrefetch.has_value(),
         };
+        result.logging = options.logging;
         result.language = options.language;
         return result;
     }
@@ -382,7 +371,7 @@ public:
     }
 
     static bool ValidateEncodeRuntimeConstraint(
-        const ResourceBudgetControlParams& params,
+        const EncodeResourceBudgetControlParams& params,
         const DataCodecRuntimeProfile runtimeProfile,
         std::string* error = nullptr) {
         const auto capacityBytes = RuntimeProfileCapacityBytes(runtimeProfile);
@@ -395,7 +384,6 @@ public:
         AddRuntimeBound(upperBoundBytes, params.ActiveWindowBytes());
         AddRuntimeBound(upperBoundBytes, params.AttributeScratchQuotaBytes());
         AddRuntimeBound(upperBoundBytes, params.RemapScratchQuotaBytes());
-        AddRuntimeBound(upperBoundBytes, params.TopologyBufferBudgetBytes());
         AddRuntimeBound(upperBoundBytes, params.ScratchRetainedCapacityBytes());
         if (upperBoundBytes > capacityBytes) {
             return validation::AssignError(
@@ -406,7 +394,7 @@ public:
     }
 
     static bool ValidateDecodeRuntimeConstraint(
-        const ResourceBudgetControlParams& params,
+        const DecodeResourceBudgetControlParams& params,
         const DataCodecRuntimeProfile runtimeProfile,
         std::string* error = nullptr) {
         const auto capacityBytes = RuntimeProfileCapacityBytes(runtimeProfile);
@@ -454,10 +442,6 @@ private:
         params.resourceBudget.SetAttributeManagedStagingLogicalLimitMiB(1024u);
         params.resourceBudget.SetAttributePressioLanes(4u);
         params.resourceBudget.SetAttributeReferenceLanes(4u);
-        params.resourceBudget.SetAttributeDecodeLanes(4u);
-        params.resourceBudget.SetTopologyStreamBufferMiB(1u);
-        // 每个拓扑块编码器同时持有四个逻辑流缓冲，16 MiB 支持四路块并行
-        params.resourceBudget.SetTopologyBufferBudgetMiB(16u);
         params.resourceBudget.SetTopologyBlockLanes(4u);
         params.resourceBudget.SetRemapMortonLeafMiB(512u);
         params.resourceBudget.SetRemapMortonRunBufferMiB(64u);
@@ -512,9 +496,6 @@ private:
         params.resourceBudget.SetAttributeManagedStagingLogicalLimitMiB(128u);
         params.resourceBudget.SetAttributePressioLanes(2u);
         params.resourceBudget.SetAttributeReferenceLanes(2u);
-        params.resourceBudget.SetAttributeDecodeLanes(1u);
-        params.resourceBudget.SetTopologyStreamBufferMiB(1u);
-        params.resourceBudget.SetTopologyBufferBudgetMiB(4u);
         params.resourceBudget.SetTopologyBlockLanes(1u);
         params.resourceBudget.SetRemapMortonLeafMiB(128u);
         params.resourceBudget.SetRemapMortonRunBufferMiB(8u);
@@ -548,7 +529,6 @@ private:
                     EncodeStorageMode::Managed,
                     EncodeStorageMode::Managed);
                 result.controlParams.resourceBudget.SetScratchPoolRetention(2u, 32u, 64u);
-                result.controlParams.resourceBudget.SetTopologyBufferBudgetMiB(4u);
                 result.controlParams.resourceBudget.SetRemapMortonLeafMiB(128u);
                 result.controlParams.resourceBudget.SetRemapMortonRunBufferMiB(8u);
                 result.controlParams.resourceBudget.SetRemapScratchQuotaMiB(256u);

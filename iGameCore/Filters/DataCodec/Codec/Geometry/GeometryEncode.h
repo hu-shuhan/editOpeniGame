@@ -90,7 +90,8 @@ inline bool BuildGeometryNumericArrayInput(
         return validation::AssignError(error, "geometry view requires at least 3 components");
     }
     DataType geometryDataType = DataType::Float32;
-    if (!ResolveGeometryNumericArrayLayout(geometry, geometryDataType, result.meta.valueSize, error)) {
+    ParamSize geometryValueSize = 0u;
+    if (!ResolveGeometryNumericArrayLayout(geometry, geometryDataType, geometryValueSize, error)) {
         return false;
     }
     if (source.orderProvider != nullptr &&
@@ -103,7 +104,7 @@ inline bool BuildGeometryNumericArrayInput(
     result.meta.elementCount = geometry.tupleCount;
     source.layout = numericarray::MakeNumericArrayLayout(
         geometryDataType,
-        static_cast<std::size_t>(result.meta.valueSize),
+        static_cast<std::size_t>(geometryValueSize),
         static_cast<std::size_t>(result.meta.elementCount),
         3u);
     result.source = std::move(source);
@@ -180,7 +181,7 @@ inline bool WriteCurrentGeometryReferenceCache(
     }
     std::size_t localValueSize = 0u;
     std::size_t localElementCount = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize) ||
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize) ||
         !TryParamSizeToSizeT(meta.elementCount, localElementCount)) {
         return validation::AssignError(error, "geometry metadata exceeds this platform size limit");
     }
@@ -270,10 +271,7 @@ inline bool BuildGeometryTransferCache(
     }
     bool encodeOrdinary = !referenceDecision.hasReference;
     if (referenceDecision.hasReference) {
-        CompressorConfig defaultCompressor;
-        if (!ResolveDefaultRegionCompressor(regionControl, defaultCompressor, error)) {
-            return false;
-        }
+        const auto& defaultCompressor = regionControl.defaultPrecision.compressor;
         const auto createStagingStore =
             numericarrayreference::NumericArrayReferenceStagingStoreFactory{
                 [&runtime](
@@ -321,7 +319,8 @@ inline bool BuildGeometryTransferCache(
                 geometryMeta.blockLayouts.begin(),
                 geometryMeta.blockLayouts.end(),
                 [](const NumericArrayBlockLayoutParams& layout) {
-                    return layout.codecId != NumericArrayReferenceCodecId::NonReference;
+                    return NumericArrayBlockModeCodecId(layout.mode) !=
+                        NumericArrayReferenceCodecId::NonReference;
                 });
             geometryMeta.codecType = hasReferenceBlock
                 ? EncodedFieldCodecType::Delta

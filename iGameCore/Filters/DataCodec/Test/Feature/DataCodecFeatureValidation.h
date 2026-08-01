@@ -177,7 +177,6 @@ namespace datacodec::test {
     finiteAttributeParams.attrParams.resize(1u);
     finiteAttributeParams.attrParams[0].elementCount = 2u;
     finiteAttributeParams.attrParams[0].dimension = 1;
-    finiteAttributeParams.attrParams[0].valueSize = sizeof(float);
     finiteAttributeParams.attrParams[0].dataType = DataType::Float32;
     DecodedAttributeCacheSet finiteAttributes;
     const std::array<float, 2u> finiteAttributeValues{3.0f, 4.0f};

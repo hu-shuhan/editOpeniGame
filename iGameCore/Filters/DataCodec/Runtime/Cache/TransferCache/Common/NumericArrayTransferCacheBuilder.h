@@ -174,10 +174,7 @@ inline bool BuildNumericArrayTransferCache(
                 recordFloatingPointEncode && runtime->recordFloatingPointEncodeDuration);
             bool encodedBlockOk = false;
             if (regionControl->regions.empty()) {
-                CompressorConfig defaultCompressor;
-                if (!ResolveDefaultRegionCompressor(*regionControl, defaultCompressor, error)) {
-                    return false;
-                }
+                const auto& defaultCompressor = regionControl->defaultPrecision.compressor;
                 std::vector<NumericArrayComponentLayoutParams> componentLayouts;
                 encodedBlockOk = numericarray::ResolveEncodedNumericArrayBlockBytes(
                         params,

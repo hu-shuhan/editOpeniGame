@@ -5,7 +5,6 @@
 #include "DataCodec/Storage/ByteIO/Window/WindowRuntimeParams.h"
 #include "DataCodec/Codec/Topology/Common/TopologyEncodePath.h"
 #include "DataCodec/Validation/Common/DataCodecValidation.h"
-#include "DataCodec/API/Params/CodecControlParams.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -15,38 +14,32 @@ class TopologyWorkBudget final {
 public:
     [[nodiscard]] static std::uint64_t EstimateConnectivity(
         const TopologyInputDescriptor& descriptor,
-        const std::size_t connectivityCount,
-        const ResourceBudgetControlParams* params = nullptr) noexcept {
-        return Estimate(
-            MakeConnectivityTopologyEncodePath(descriptor, connectivityCount),
-            params);
+        const std::size_t connectivityCount) noexcept {
+        return Estimate(MakeConnectivityTopologyEncodePath(descriptor, connectivityCount));
     }
 
     [[nodiscard]] static std::uint64_t Estimate(
-        const TopologyEncodePath& path,
-        const ResourceBudgetControlParams* params = nullptr) noexcept {
+        const TopologyEncodePath& path) noexcept {
         switch (path.family) {
             case TopologyEncodeFamily::Structured:
             case TopologyEncodeFamily::Empty:
                 return 1u;
             case TopologyEncodeFamily::Connectivity:
-                return EstimateConnectivityPath(path, params);
+                return EstimateConnectivityPath(path);
             case TopologyEncodeFamily::Polyhedron:
-                return EstimatePolyhedronPath(path, params);
+                return EstimatePolyhedronPath(path);
         }
         return 1u;
     }
 
     [[nodiscard]] static std::uint64_t EstimatePolyhedronAdapter(
-        const IEncodeAdapter& adapter,
-        const ResourceBudgetControlParams* params = nullptr) noexcept {
-        return Estimate(MakePolyhedronAdapterTopologyEncodePath(adapter), params);
+        const IEncodeAdapter& adapter) noexcept {
+        return Estimate(MakePolyhedronAdapterTopologyEncodePath(adapter));
     }
 
 private:
     [[nodiscard]] static std::uint64_t EstimateConnectivityPath(
-        const TopologyEncodePath& path,
-        const ResourceBudgetControlParams* params) noexcept {
+        const TopologyEncodePath& path) noexcept {
         const auto& descriptor = path.descriptor;
         const auto cellCount = static_cast<std::uint64_t>(descriptor.cellCount);
         const auto indexBytes = validation::SaturatingMulU64(
@@ -68,10 +61,10 @@ private:
             validation::SaturatingAddU64(cellTypeBytes, polynomialOrderBytes));
         const auto streamBuffers = validation::SaturatingMulU64(
             static_cast<std::uint64_t>(path.streamCount),
-            StreamBufferBytes(params));
+            StreamBufferBytes());
         const auto scratchHeadroom = std::max<std::uint64_t>(
-            ScratchFloorBytes(params),
-            validation::SaturatingMulU64(logicalBytes, ScratchPercent(params)) / 100u);
+            ScratchFloorBytes(),
+            validation::SaturatingMulU64(logicalBytes, ScratchPercent()) / 100u);
         return std::max<std::uint64_t>(
             1u,
             validation::SaturatingAddU64(
@@ -80,8 +73,7 @@ private:
     }
 
     [[nodiscard]] static std::uint64_t EstimatePolyhedronPath(
-        const TopologyEncodePath& path,
-        const ResourceBudgetControlParams* params) noexcept {
+        const TopologyEncodePath& path) noexcept {
         const auto cellCount = static_cast<std::uint64_t>(path.cellCount);
         const auto faceCount = static_cast<std::uint64_t>(path.faceCount);
         const auto pointCount = static_cast<std::uint64_t>(path.pointCount);
@@ -94,11 +86,11 @@ private:
             static_cast<std::uint64_t>(sizeof(IndexType)));
         const auto streamBuffers = validation::SaturatingMulU64(
             static_cast<std::uint64_t>(path.streamCount),
-            StreamBufferBytes(params));
+            StreamBufferBytes());
         const auto scratchHeadroom = std::max<std::uint64_t>(
-            ScratchFloorBytes(params),
+            ScratchFloorBytes(),
             validation::SaturatingAddU64(
-                validation::SaturatingMulU64(logicalBytes, ScratchPercent(params)) / 100u,
+                validation::SaturatingMulU64(logicalBytes, ScratchPercent()) / 100u,
                 lookupBytes));
         return std::max<std::uint64_t>(
             1u,
@@ -128,23 +120,16 @@ private:
                     static_cast<std::uint64_t>(sizeof(IndexType)))));
     }
 
-    [[nodiscard]] static std::uint64_t ScratchFloorBytes(
-        const ResourceBudgetControlParams* params) noexcept {
-        (void)params;
+    [[nodiscard]] static std::uint64_t ScratchFloorBytes() noexcept {
         return 32u * kBytesPerMiB;
     }
 
-    [[nodiscard]] static std::uint64_t ScratchPercent(
-        const ResourceBudgetControlParams* params) noexcept {
-        (void)params;
+    [[nodiscard]] static std::uint64_t ScratchPercent() noexcept {
         return 50u;
     }
 
-    [[nodiscard]] static std::uint64_t StreamBufferBytes(
-        const ResourceBudgetControlParams* params) noexcept {
-        return params != nullptr
-            ? params->TopologyStreamBufferBytes()
-            : 1u * kBytesPerMiB;
+    [[nodiscard]] static std::uint64_t StreamBufferBytes() noexcept {
+        return 1u * kBytesPerMiB;
     }
 };
 

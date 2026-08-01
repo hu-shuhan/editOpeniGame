@@ -130,7 +130,7 @@ private:
 
 inline std::size_t DecodeGeometryTupleBytes(const GeometryStorageParams& meta) {
     std::size_t localValueSize = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize)) {
         return 0u;
     }
     return static_cast<std::size_t>(std::max(meta.dimension, 0)) * localValueSize;
@@ -215,7 +215,7 @@ public:
         std::size_t localElementCount = 0u;
         std::size_t localValueSize = 0u;
         if (!TryParamSizeToSizeT(storageParams.elementCount, localElementCount) ||
-            !TryParamSizeToSizeT(storageParams.valueSize, localValueSize)) {
+            !TryParamSizeToSizeT(NumericArrayValueSize(storageParams), localValueSize)) {
             validation::AssignError(error, "decoded geometry reference metadata exceeds this platform size limit");
             Reset();
             return false;
@@ -289,7 +289,7 @@ public:
         }
         std::size_t localElementCount = 0u;
         if (!TryParamSizeToSizeT(meta.elementCount, localElementCount) ||
-            !TryParamSizeToSizeT(meta.valueSize, m_tupleBytes)) {
+            !TryParamSizeToSizeT(NumericArrayValueSize(meta), m_tupleBytes)) {
             return validation::AssignError(error, "decoded geometry metadata exceeds this platform size limit");
         }
         m_storageParams = meta;

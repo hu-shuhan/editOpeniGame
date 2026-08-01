@@ -211,7 +211,6 @@ inline bool ValidateIntegerReferenceCodecAndLayout(
         return validation::AssignError(error, "integer numeric array reference requires wavelet codec");
     }
     if (referenceMeta.dataType != meta.dataType ||
-        referenceMeta.valueSize != meta.valueSize ||
         referenceMeta.dimension != meta.dimension ||
         referenceMeta.elementCount != meta.elementCount) {
         return validation::AssignError(
@@ -327,7 +326,8 @@ inline bool StageNumericArrayPredictorReferenceBlock(
     StagedNumericArrayReferenceBytes& staged,
     std::string* error = nullptr) {
     staged = {};
-    const auto tupleBytes = static_cast<std::size_t>(std::max(targetMeta.dimension, 0)) * targetMeta.valueSize;
+    const auto tupleBytes = static_cast<std::size_t>(std::max(targetMeta.dimension, 0)) *
+        static_cast<std::size_t>(NumericArrayValueSize(targetMeta));
     if (tupleBytes == 0u) {
         return validation::AssignError(error, "numeric array predictor staging requires a non-empty tuple layout");
     }
@@ -431,7 +431,7 @@ inline bool BuildNumericArrayReferenceTransferCache(
         std::size_t localMetaElementCount = 0u;
         std::size_t localMetaValueSize = 0u;
         if (!TryParamSizeToSizeT(meta.elementCount, localMetaElementCount) ||
-            !TryParamSizeToSizeT(meta.valueSize, localMetaValueSize)) {
+            !TryParamSizeToSizeT(NumericArrayValueSize(meta), localMetaValueSize)) {
             return validation::AssignError(error, "current numeric array metadata exceeds this platform size limit");
         }
         if (currentReader.source.layout.elementCount != localMetaElementCount) {

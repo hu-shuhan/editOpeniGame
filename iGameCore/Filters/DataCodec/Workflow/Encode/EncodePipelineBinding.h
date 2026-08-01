@@ -62,7 +62,7 @@ struct EncodePipelineDescriptor {
 };
 
 struct EncodePipelineExecutionProfile {
-    ResourceBudgetControlParams resourceBudget;
+    EncodeResourceBudgetControlParams resourceBudget;
     bool enableParallelStages{true};
     IParallelTaskRunner* parallelTaskRunner{nullptr};
 };
@@ -155,7 +155,7 @@ inline bool ValidateEncodePipelineDescriptor(
 inline bool ValidateEncodeAlgorithmParams(
     const CodecControlParams& params,
     std::string* error = nullptr) {
-    if (!ValidateResourceBudgetControlParams(params.resourceBudget, error)) {
+    if (!ValidateEncodeResourceBudgetControlParams(params.resourceBudget, error)) {
         return false;
     }
     if (params.spatialBlockPolicy.pointElementCount == 0u ||

@@ -108,7 +108,7 @@ public:
         context.language = runtimeConfiguration.language;
         const auto* controlParams = context.controlParams;
         std::string resourceValidationError;
-        if (!ValidateResourceBudgetControlParams(
+        if (!ValidateEncodeResourceBudgetControlParams(
                 controlParams->resourceBudget,
                 &resourceValidationError) ||
             !CodecControlParamsFactory::ValidateEncodeRuntimeConstraint(
@@ -179,14 +179,8 @@ public:
         const auto& pipelineDescriptor = pipelineBinding.descriptor;
         context.AddInfo(
             "EncodePipelineConfiguration",
-            "performance=" + std::string(DataCodecEncodeTierName(
-                request.configurationSource.performanceTier)) +
-                "; runtime=" + DataCodecRuntimeProfileName(
-                    request.configurationSource.runtimeProfile) +
-                "; compressionEnhancement=" +
-                    (request.configurationSource.compressionEnhancementEnabled ? "true" : "false") +
-                "; customControlParams=" +
-                    (request.configurationSource.customControlParams ? "true" : "false") +
+            "runtime=" + std::string(DataCodecRuntimeProfileName(
+                request.configurationSource.runtimeProfile)) +
                 "; pipeline=" + EncodePipelineBindingName(pipelineDescriptor.id) +
                 "; output=" + EncodePipelineOutputKindName(pipelineDescriptor.outputKind) +
                 "; pointOrder=" + EncodePointOrderModeName(pipelineDescriptor.pointOrder) +

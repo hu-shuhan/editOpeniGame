@@ -107,7 +107,7 @@ inline bool ResolveReferenceResidualCompressor(
         }
         const auto componentCount = static_cast<std::size_t>(std::max(meta.dimension, 0));
         double valueRange = 0.0;
-        if (meta.dataType == DataType::Float32 && meta.valueSize == sizeof(float)) {
+        if (meta.dataType == DataType::Float32 && NumericArrayValueSize(meta) == sizeof(float)) {
             if (!ComputeReferenceMinimumComponentValueRange<float>(
                     currentBytes,
                     componentCount,
@@ -115,7 +115,7 @@ inline bool ResolveReferenceResidualCompressor(
                     error)) {
                 return false;
             }
-        } else if (meta.dataType == DataType::Float64 && meta.valueSize == sizeof(double)) {
+        } else if (meta.dataType == DataType::Float64 && NumericArrayValueSize(meta) == sizeof(double)) {
             if (!ComputeReferenceMinimumComponentValueRange<double>(
                     currentBytes,
                     componentCount,
@@ -348,10 +348,10 @@ inline bool ValidateReferenceReconstructedPrecision(
         }
         return true;
     }
-    if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+    if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
         return ValidateReferenceReconstructedPrecisionTyped<float>(input, decodedBytes, error);
     }
-    if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+    if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
         return ValidateReferenceReconstructedPrecisionTyped<double>(input, decodedBytes, error);
     }
     return validation::AssignError(
@@ -493,7 +493,7 @@ inline bool ValidateNumericArrayReferenceBlockBytes(
     if (input.componentCount == 0u ||
         input.meta.dimension <= 0 ||
         static_cast<std::size_t>(input.meta.dimension) != input.componentCount ||
-        input.meta.valueSize != sizeof(TValue)) {
+        NumericArrayValueSize(input.meta) != sizeof(TValue)) {
         return validation::AssignError(error, "numeric array reference metadata shape is invalid");
     }
     std::size_t tupleBytes = 0u;

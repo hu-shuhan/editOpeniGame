@@ -206,7 +206,7 @@ struct TopologyEncodeData {
 };
 
 struct TopologyEncodeExecutionParams {
-    const ResourceBudgetControlParams& resourceBudget;
+    const EncodeResourceBudgetControlParams& resourceBudget;
     std::uint32_t cellElementCount{262144u};
     IParallelTaskRunner* parallelTaskRunner{nullptr};
     std::size_t workerCount{1u};
@@ -247,7 +247,7 @@ inline void RecordTopologyPathBudgetEstimate(
     if (input.context.memoryCheckpoint) {
         input.context.memoryCheckpoint(
             "topology.work_budget.requested",
-            topology::TopologyWorkBudget::Estimate(path, &input.execution.resourceBudget),
+            topology::TopologyWorkBudget::Estimate(path),
             scope);
     }
 }
@@ -514,7 +514,6 @@ inline bool EncodeTopologyToTransferCache(
         : 0;
     topo.cellBufferSize = connectivityCount;
     topo.hasCellTypes = hasCellTypes;
-    topo.cellTypeCount = hasCellTypes ? cellCount : 0u;
 
     if (topo.fixedCellSize > 0) {
         std::size_t expectedConnectivityCount = 0u;
@@ -657,10 +656,6 @@ inline bool EncodeTopologyToTransferCache(
                 error)) {
             return false;
         }
-        aggregate.connectivityByteCount += layout.connectivityByteCount;
-        aggregate.cellSizeByteCount += layout.cellSizeByteCount;
-        aggregate.cellPolynomialOrderByteCount += layout.cellPolynomialOrderByteCount;
-        aggregate.cellTypeByteCount += layout.cellTypeByteCount;
         if (!transferCache->AddSegment(std::move(artifacts[blockIndex].payload), error)) {
             return false;
         }

@@ -373,7 +373,12 @@ inline bool DecodeConnectivityTopologyBlocksToCache(
         decodeRuntime.cache.topologyMemoryCacheLimitBytes,
         decodeRuntime.cache.topologyCacheStorageMode);
     const auto hasOffsets = topo.fixedCellSize <= 0;
-    const auto hasOrders = topo.connectivityLayout.cellPolynomialOrderByteCount != 0u;
+    const auto hasOrders = std::any_of(
+        blocks.begin(),
+        blocks.end(),
+        [](const TopologyConnectivityBlockLayoutParams& block) {
+            return block.cellPolynomialOrderByteCount != 0u;
+        });
     if (!outputSink.BeginConnectivityTopology(
             cellCount,
             connectivityCount,

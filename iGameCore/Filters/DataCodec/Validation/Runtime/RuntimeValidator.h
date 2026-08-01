@@ -15,7 +15,7 @@ public:
         const DecodeControlParams& controlParams,
         const DataCodecRuntimeProfile runtimeProfile) {
         std::string error;
-        if (!ValidateResourceBudgetControlParams(
+        if (!ValidateDecodeResourceBudgetControlParams(
                 controlParams.resourceBudget,
                 &error) ||
             !CodecControlParamsFactory::ValidateDecodeRuntimeConstraint(

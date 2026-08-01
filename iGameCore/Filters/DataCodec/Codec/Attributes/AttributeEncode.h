@@ -42,8 +42,8 @@ inline bool BuildAttributeNumericArraySource(
     numericarray::NumericArraySource& source,
     std::string* error) {
     meta.dataType = ToDataType(attr.values.scalarType);
-    meta.valueSize = attr.values.ComponentSize();
-    if (meta.valueSize == 0u) {
+    const auto valueSize = attr.values.ComponentSize();
+    if (valueSize == 0u || valueSize != DataTypeSize(meta.dataType)) {
         return validation::AssignError(error, "attribute numeric array scalar type is unsupported");
     }
     if (!attr.values.IsValid()) {
@@ -61,7 +61,7 @@ inline bool BuildAttributeNumericArraySource(
         .orderProvider = orderProvider,
         .layout = numericarray::MakeNumericArrayLayout(
             meta.dataType,
-            static_cast<std::size_t>(meta.valueSize),
+            valueSize,
             static_cast<std::size_t>(meta.elementCount),
             static_cast<std::size_t>(std::max(0, meta.dimension))),
     };
@@ -138,7 +138,7 @@ struct AttributeEncodeData {
 
 struct AttributeEncodeSchedule {
     AttributeEncodeScheduler& attributeScheduler;
-    const ResourceBudgetControlParams& resourceBudget;
+    const EncodeResourceBudgetControlParams& resourceBudget;
     EncodeAttributeReferenceSchedule& pointReferenceSchedule;
     EncodeAttributeReferenceSchedule& cellReferenceSchedule;
 };
@@ -412,9 +412,6 @@ inline bool ValidateSupportedAttributeField(const AttrStorageParams& meta, std::
     if (!IsSupportedAttributeDataType(meta.dataType)) {
         return validation::AssignError(error, "attribute data type is unsupported");
     }
-    if (meta.valueSize != DataTypeSize(meta.dataType)) {
-        return validation::AssignError(error, "attribute value size does not match data type");
-    }
     if (meta.elementCount > 0u && meta.dimension <= 0) {
         return validation::AssignError(error, "attribute dimension is invalid");
     }
@@ -431,7 +428,7 @@ inline bool ResolveExpectedAttributeRawBytes(
     }
     std::size_t localValueSize = 0u;
     std::size_t localElementCount = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize) ||
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize) ||
         !TryParamSizeToSizeT(meta.elementCount, localElementCount)) {
         return validation::AssignError(error, "attribute metadata exceeds this platform size limit");
     }
@@ -578,7 +575,7 @@ inline bool SelectTemporalPredictorOffsetOnlyForBlock(
     std::int32_t& predictorOffset,
     std::string* error = nullptr) {
     const auto componentCount = static_cast<std::size_t>(std::max(meta.dimension, 0));
-    if (meta.valueSize == sizeof(float)) {
+    if (NumericArrayValueSize(meta) == sizeof(float)) {
         return SelectTemporalPredictorOffsetOnlyForBlockTyped<float>(
             meta,
             defaultCompressor,
@@ -596,7 +593,7 @@ inline bool SelectTemporalPredictorOffsetOnlyForBlock(
             predictorOffset,
             error);
     }
-    if (meta.valueSize == sizeof(double)) {
+    if (NumericArrayValueSize(meta) == sizeof(double)) {
         return SelectTemporalPredictorOffsetOnlyForBlockTyped<double>(
             meta,
             defaultCompressor,
@@ -780,7 +777,7 @@ inline bool WriteAttributeSourceToReferenceCache(
     }
     std::size_t localValueSize = 0u;
     std::size_t localElementCount = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize) ||
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize) ||
         !TryParamSizeToSizeT(meta.elementCount, localElementCount)) {
         return validation::AssignError(error, "attribute reference metadata exceeds this platform size limit");
     }
@@ -1157,7 +1154,6 @@ inline bool BuildAttributeReferenceDecision(
             dependency);
         if (codecId != NumericArrayReferenceCodecId::Wavelet ||
             decision.referenceSource.meta.dataType != field.meta.dataType ||
-            decision.referenceSource.meta.valueSize != field.meta.valueSize ||
             decision.referenceSource.meta.dimension != field.meta.dimension ||
             decision.referenceSource.meta.elementCount != field.meta.elementCount) {
             return validation::AssignError(
@@ -1222,10 +1218,7 @@ inline bool BuildReferenceTransferCache(
     };
     NumericArrayControlParams fallbackControl;
     const auto& controlParams = ResolveAttributeControlParams(data.controlParams, fallbackControl);
-    CompressorConfig defaultCompressor;
-    if (!ResolveDefaultRegionCompressor(controlParams.regionControl, defaultCompressor, error)) {
-        return false;
-    }
+    const auto& defaultCompressor = controlParams.regionControl.defaultPrecision.compressor;
     ScratchByteQuotaAcquire acquireScratchQuota = [&schedule](const std::uint64_t bytes) {
         return schedule.attributeScheduler.AcquireScratch(bytes);
     };
@@ -1434,7 +1427,8 @@ inline bool EncodeReferenceField(
         payload.meta.blockLayouts.begin(),
         payload.meta.blockLayouts.end(),
         [](const NumericArrayBlockLayoutParams& layout) {
-            return layout.codecId != NumericArrayReferenceCodecId::NonReference;
+            return NumericArrayBlockModeCodecId(layout.mode) !=
+                NumericArrayReferenceCodecId::NonReference;
         });
     payload.meta.codecType = hasReferenceBlock
         ? EncodedFieldCodecType::Delta

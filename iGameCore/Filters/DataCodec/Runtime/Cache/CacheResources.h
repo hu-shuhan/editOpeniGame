@@ -16,7 +16,6 @@ struct CacheResources {
     std::uint64_t activeWindowBytes{kDefaultEncodeActiveWindowBytes};
     mutable ScratchByteBufferPool scratchBytePool;
     mutable window::WindowBudget windowBudget{kDefaultEncodeActiveWindowBytes};
-    mutable resource::ActiveByteBudget topologyBufferBudget{4u * 1024u * 1024u};
     mutable resource::ActiveByteBudget remapScratchBudget{256u * 1024u * 1024u};
 
     void Configure(
@@ -24,9 +23,7 @@ struct CacheResources {
         const std::uint64_t requestedActiveWindowBytes,
         const std::size_t scratchRetainedBlockCount = 16u,
         const std::size_t scratchRetainedBlockBytes = 64u * 1024u * 1024u,
-        const std::uint64_t scratchRetainedTotalBytes = 1024ull * 1024ull * 1024ull,
-        const std::uint64_t topologyBufferBudgetBytes = 4u * 1024u * 1024u,
-        const std::uint64_t remapScratchBudgetBytes = 256u * 1024u * 1024u) {
+        const std::uint64_t scratchRetainedTotalBytes = 1024ull * 1024ull * 1024ull) {
         accessWindowBytes = std::max<std::size_t>(requestedAccessWindowBytes, 1u);
         activeWindowBytes = std::max<std::uint64_t>(requestedActiveWindowBytes, 1u);
         scratchBytePool.Clear();
@@ -35,14 +32,15 @@ struct CacheResources {
             scratchRetainedBlockBytes,
             scratchRetainedTotalBytes);
         windowBudget.Reset(activeWindowBytes);
-        topologyBufferBudget.Reset(topologyBufferBudgetBytes);
+    }
+
+    void ConfigureRemapScratchBudget(const std::uint64_t remapScratchBudgetBytes) {
         remapScratchBudget.Reset(remapScratchBudgetBytes);
     }
 
     void Clear() {
         scratchBytePool.Clear();
         windowBudget.Reset(activeWindowBytes);
-        topologyBufferBudget.Reset(topologyBufferBudget.MaxActiveBytes());
         remapScratchBudget.Reset(remapScratchBudget.MaxActiveBytes());
     }
 

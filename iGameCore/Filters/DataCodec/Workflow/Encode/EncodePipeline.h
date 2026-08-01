@@ -305,7 +305,8 @@ private:
         const auto appendLayouts = [&](const std::vector<NumericArrayBlockLayoutParams>& layouts) {
             for (const auto& layout : layouts) {
                 bool* recorded = nullptr;
-                switch (layout.codecId) {
+                const auto codecId = NumericArrayBlockModeCodecId(layout.mode);
+                switch (codecId) {
                     case NumericArrayReferenceCodecId::Affine:
                         recorded = &recordedAffine;
                         break;
@@ -322,7 +323,7 @@ private:
                 if (*recorded) {
                     continue;
                 }
-                const auto* stageName = ActualReferenceStageName(layout.codecId);
+                const auto* stageName = ActualReferenceStageName(codecId);
                 if (stageName == nullptr) {
                     continue;
                 }
@@ -484,7 +485,7 @@ private:
             : 0u;
         const auto tupleBytes = validation::SaturatingMulU64(
             componentCount,
-            static_cast<std::uint64_t>(meta.valueSize));
+            static_cast<std::uint64_t>(NumericArrayValueSize(meta)));
         return validation::SaturatingMulU64(
             static_cast<std::uint64_t>(meta.elementCount),
             tupleBytes);
@@ -1271,8 +1272,6 @@ private:
         const auto storeStats = workspace.ByteStoreSessionRef().SnapshotStats();
         const auto scratchStats = workspace.ScratchBytePool().SnapshotStats();
         const auto windowStats = workspace.CacheResourcesRef().windowBudget.SnapshotStats();
-        const auto topologyBufferStats =
-            workspace.CacheResourcesRef().topologyBufferBudget.SnapshotStats();
         const auto remapScratchStats =
             workspace.CacheResourcesRef().remapScratchBudget.SnapshotStats();
         context.runRecords.RecordResourceUsage("bytestore.logical_bytes", storeStats.logicalBytes);
@@ -1299,15 +1298,6 @@ private:
         context.runRecords.RecordResourceUsage("window.max_active_bytes", windowStats.maxActiveBytes);
         context.runRecords.RecordResourceUsage("window.peak_active_bytes", windowStats.peakActiveBytes);
         context.runRecords.RecordResourceUsage("window.wait_count", windowStats.waitCount);
-        context.runRecords.RecordResourceUsage(
-            "topology_buffer.max_active_bytes",
-            topologyBufferStats.maxActiveBytes);
-        context.runRecords.RecordResourceUsage(
-            "topology_buffer.peak_active_bytes",
-            topologyBufferStats.peakActiveBytes);
-        context.runRecords.RecordResourceUsage(
-            "topology_buffer.wait_count",
-            topologyBufferStats.waitCount);
         context.runRecords.RecordResourceUsage(
             "remap_scratch.max_active_bytes",
             remapScratchStats.maxActiveBytes);
@@ -1439,7 +1429,6 @@ private:
                 budget.ScratchRetainedBlockCount(),
                 budget.ScratchRetainedBlockBytes(),
                 budget.ScratchRetainedTotalBytes(),
-                budget.TopologyBufferBudgetBytes(),
                 budget.RemapScratchQuotaBytes());
             workspace.ConfigureAttributeEncodeResources(
                 context.runRecords.Wants(RunRecordKind::StageTiming));

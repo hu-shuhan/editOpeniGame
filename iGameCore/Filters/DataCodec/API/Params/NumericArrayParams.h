@@ -28,18 +28,15 @@ struct CompressorConfig {
 };
 
 struct NumericArrayRegionPrecision {
-    std::string name;
-    bool hasCompressor{false};
     CompressorConfig compressor;
 
     template<class Archive>
     void serialize(Archive& archive) {
-        archive(name, hasCompressor, compressor);
+        archive(compressor);
     }
 };
 
 struct NumericArrayRegionRunNormalizePolicy {
-    std::uint32_t maxRegionCount{8u};
     std::uint32_t maxRunsPerRegion{8u};
     ParamSize minCoreRunLength{4096u};
     double coreMinRatio{0.10};
@@ -53,7 +50,6 @@ struct NumericArrayRegionRunNormalizePolicy {
     template<class Archive>
     void serialize(Archive& archive) {
         archive(
-            maxRegionCount,
             maxRunsPerRegion,
             minCoreRunLength,
             coreMinRatio,
@@ -89,34 +85,18 @@ struct RegionRun {
 };
 
 inline NumericArrayRegionPrecision MakeNumericArrayRegionPrecision(
-    std::string name,
     CompressorConfig compressor) {
     NumericArrayRegionPrecision precision;
-    precision.name = std::move(name);
-    precision.hasCompressor = true;
     precision.compressor = std::move(compressor);
     return precision;
 }
 
 inline NumericArrayRegionControlParams MakeSingleRegionPrecisionControl(
-    CompressorConfig compressor,
-    std::string name = "default") {
+    CompressorConfig compressor) {
     NumericArrayRegionControlParams control;
-    control.defaultPrecision = MakeNumericArrayRegionPrecision(std::move(name), std::move(compressor));
+    control.defaultPrecision = MakeNumericArrayRegionPrecision(std::move(compressor));
     control.regions.clear();
     return control;
-}
-
-inline bool ResolveDefaultRegionCompressor(
-    const NumericArrayRegionControlParams& control,
-    CompressorConfig& compressor,
-    std::string* error = nullptr) {
-    compressor = {};
-    if (!control.defaultPrecision.hasCompressor) {
-        return validation::AssignError(error, "numeric array default region precision compressor is missing");
-    }
-    compressor = control.defaultPrecision.compressor;
-    return true;
 }
 
 struct NumericArrayControlParams {
@@ -159,24 +139,16 @@ struct NumericArrayRegionRunLayoutParams {
 };
 
 struct NumericArrayRegionLayerLayoutParams {
-    std::uint32_t regionId{0};
-    ParamSize originalElementCount{0};
     ParamSize refinedElementCount{0};
-    ParamSize expandedBackgroundCount{0};
     CompressorConfig refineCompressor;
-    NumericArrayBytesCodec residualBytesCodec{NumericArrayBytesCodec::NumericArrayCodec};
     ParamSize residualEncodedByteLength{0};
     std::vector<NumericArrayRegionRunLayoutParams> runs;
     std::vector<NumericArrayComponentLayoutParams> componentLayouts;
 
     template<class Archive>
     void save(Archive& archive) const {
-        detail::SaveEnum(archive, residualBytesCodec);
         archive(
-            regionId,
-            originalElementCount,
             refinedElementCount,
-            expandedBackgroundCount,
             refineCompressor,
             residualEncodedByteLength,
             runs,
@@ -185,12 +157,8 @@ struct NumericArrayRegionLayerLayoutParams {
 
     template<class Archive>
     void load(Archive& archive) {
-        detail::LoadEnum(archive, residualBytesCodec);
         archive(
-            regionId,
-            originalElementCount,
             refinedElementCount,
-            expandedBackgroundCount,
             refineCompressor,
             residualEncodedByteLength,
             runs,
@@ -201,7 +169,6 @@ struct NumericArrayRegionLayerLayoutParams {
 struct NumericArrayBlockLayoutParams {
     NumericArrayBlockMode mode{NumericArrayBlockMode::NonReference};
     NumericArrayReferenceKind referenceKind{NumericArrayReferenceKind::None};
-    NumericArrayReferenceCodecId codecId{NumericArrayReferenceCodecId::NonReference};
     std::uint16_t localParentFieldIndex{0xFFFFu};
     ParamSize elementOffset{0};
     ParamSize elementCount{0};
@@ -219,7 +186,6 @@ struct NumericArrayBlockLayoutParams {
     void save(Archive& archive) const {
         detail::SaveEnum(archive, mode);
         detail::SaveEnum(archive, referenceKind);
-        detail::SaveEnum(archive, codecId);
         detail::SaveEnum(archive, bytesCodec);
         archive(
             localParentFieldIndex,
@@ -239,7 +205,6 @@ struct NumericArrayBlockLayoutParams {
     void load(Archive& archive) {
         detail::LoadEnum(archive, mode);
         detail::LoadEnum(archive, referenceKind);
-        detail::LoadEnum(archive, codecId);
         detail::LoadEnum(archive, bytesCodec);
         archive(
             localParentFieldIndex,
@@ -261,8 +226,7 @@ struct NumericArrayStorageParams {
     EncodedFieldCodecType codecType{EncodedFieldCodecType::Unknown};
     // 源 NumericArray 的标量类型
     DataType dataType{DataType::Float32};
-    // 字段的标量字节宽度、元素个数和元组维度
-    ParamSize valueSize{sizeof(float)};
+    // 字段的元素个数和元组维度
     ParamSize elementCount{0};
     std::int32_t dimension{0};
     // payload 内每个 block 的解码布局
@@ -272,16 +236,21 @@ struct NumericArrayStorageParams {
     void save(Archive& archive) const {
         detail::SaveEnum(archive, codecType);
         detail::SaveEnum(archive, dataType);
-        archive(valueSize, elementCount, dimension, blockLayouts);
+        archive(elementCount, dimension, blockLayouts);
     }
 
     template<class Archive>
     void load(Archive& archive) {
         detail::LoadEnum(archive, codecType);
         detail::LoadEnum(archive, dataType);
-        archive(valueSize, elementCount, dimension, blockLayouts);
+        archive(elementCount, dimension, blockLayouts);
     }
 };
+
+[[nodiscard]] inline ParamSize NumericArrayValueSize(
+    const NumericArrayStorageParams& params) noexcept {
+    return static_cast<ParamSize>(DataTypeSize(params.dataType));
+}
 
 } // namespace datacodec
 

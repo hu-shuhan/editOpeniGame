@@ -188,8 +188,7 @@ public:
             topologyScope = std::string("input=") + topology->InputByteStoreModeName() +
                 " decoded=" + topology->ByteStoreModeName() +
                 " fixedCellSize=" + std::to_string(topoParams.fixedCellSize) +
-                " hasCellTypes=" + std::to_string(static_cast<int>(topoParams.hasCellTypes)) +
-                " orderBytes=" + std::to_string(topoParams.connectivityLayout.cellPolynomialOrderByteCount);
+                " hasCellTypes=" + std::to_string(static_cast<int>(topoParams.hasCellTypes));
         }
         RecordTopologyTiming(
             context,

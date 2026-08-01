@@ -338,7 +338,7 @@ inline bool WriteDecodedAttributeBlock(
     std::string* error = nullptr) {
     std::size_t localValueSize = 0u;
     std::size_t localElementCount = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, localValueSize) ||
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), localValueSize) ||
         !TryParamSizeToSizeT(meta.elementCount, localElementCount)) {
         return validation::AssignError(error, "attribute metadata exceeds this platform size limit");
     }
@@ -447,7 +447,7 @@ inline void ObserveAttributeReferenceRange(
     std::size_t targetElementCount = 0u;
     std::size_t targetValueSize = 0u;
     if (!TryParamSizeToSizeT(targetMeta.elementCount, targetElementCount) ||
-        !TryParamSizeToSizeT(targetMeta.valueSize, targetValueSize) ||
+        !TryParamSizeToSizeT(NumericArrayValueSize(targetMeta), targetValueSize) ||
         targetElementCount == 0u) {
         return;
     }
@@ -632,7 +632,6 @@ struct AttributeDecodeTimingDetail {
     std::size_t componentLayoutCount{0u};
     ParamSize estimatedDecodeCost{0u};
     ParamSize criticalPathCost{0u};
-    AttributeDecodeScheduleClass scheduleClass{AttributeDecodeScheduleClass::Unknown};
     double readyOffsetMs{0.0};
     double startOffsetMs{0.0};
     double finishOffsetMs{0.0};
@@ -758,7 +757,7 @@ inline ParamSize AttributeDecodeRuntimeCostForScheduling(const AttrStorageParams
     const auto rawBytes = NumericArrayRawValueBytes(meta);
     auto cost = EstimateAttributeDecodeCost(meta);
     cost = SaturatingParamSizeAdd(cost, rawBytes);
-    if (meta.valueSize >= 8u || meta.dataType == DataType::Float64) {
+    if (NumericArrayValueSize(meta) >= 8u || meta.dataType == DataType::Float64) {
         cost = SaturatingParamSizeAdd(cost, rawBytes);
     } else {
         cost = SaturatingParamSizeAdd(cost, rawBytes / 2u);
@@ -771,7 +770,7 @@ inline ParamSize AttributeDecodeRuntimeCostForScheduling(const AttrStorageParams
             cost,
             SaturatingParamSizeMultiply(
                 meta.elementCount,
-                static_cast<ParamSize>(std::max<ParamSize>(meta.valueSize, 1u))));
+                std::max<ParamSize>(NumericArrayValueSize(meta), 1u)));
     }
     return cost;
 }
@@ -794,10 +793,9 @@ inline AttributeDecodeTimingDetail BuildAttributeDecodeTimingDetail(
     detail.elementCount = meta.elementCount;
     detail.binaryCount = meta.binaryCount;
     detail.dimension = meta.dimension;
-    detail.valueSize = meta.valueSize;
+    detail.valueSize = NumericArrayValueSize(meta);
     detail.estimatedDecodeCost = AttributeDecodeRuntimeCostForScheduling(meta);
     detail.criticalPathCost = std::max(meta.decodeScheduleHint.criticalPathCost, detail.estimatedDecodeCost);
-    detail.scheduleClass = meta.decodeScheduleHint.scheduleClass;
     detail.readyOffsetMs = readyOffsetMs;
     detail.startOffsetMs = startOffsetMs;
     detail.finishOffsetMs = finishOffsetMs;
@@ -834,7 +832,7 @@ inline AttributeDecodeTimingDetail BuildAttributeDecodeTimingDetail(
     const auto tupleWidth = static_cast<ParamSize>(std::max(meta.dimension, 0));
     detail.rawValueBytes = SaturatingParamSizeMultiply(
         SaturatingParamSizeMultiply(meta.elementCount, tupleWidth),
-        meta.valueSize);
+        NumericArrayValueSize(meta));
 
     detail.blockCount = meta.blockLayouts.size();
     for (const auto& layout : meta.blockLayouts) {

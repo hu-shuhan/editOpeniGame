@@ -37,7 +37,7 @@ struct DecodePipelineOptions {
     // 为 false 时强制串行执行
     bool enableParallelStages{true};
     IParallelTaskRunner* parallelTaskRunner{nullptr};
-    ResourceBudgetControlParams resourceBudget;
+    DecodeResourceBudgetControlParams resourceBudget;
     CodecValidationPolicy validationPolicy;
 };
 
@@ -343,9 +343,7 @@ private:
             options.resourceBudget.ActiveWindowBytes(),
             options.resourceBudget.ScratchRetainedBlockCount(),
             options.resourceBudget.ScratchRetainedBlockBytes(),
-            options.resourceBudget.ScratchRetainedTotalBytes(),
-            options.resourceBudget.TopologyBufferBudgetBytes(),
-            options.resourceBudget.RemapScratchQuotaBytes());
+            options.resourceBudget.ScratchRetainedTotalBytes());
     }
 
     static std::vector<DecodeStageNode> BuildStageSchedule(

@@ -131,7 +131,6 @@ inline void AppendMessageTexts(
     IRunRecordSink* additionalSink = nullptr) {
     auto configuration = MakeDefaultEncodeConfigurationParams();
     configuration.controlParams = std::move(params);
-    configuration.source.customControlParams = true;
     return EncodeDataObjectToFile(
         sourceObject,
         std::move(outputHint),

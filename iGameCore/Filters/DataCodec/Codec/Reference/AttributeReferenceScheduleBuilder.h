@@ -23,11 +23,12 @@ inline bool IsReferenceEligibleAttributeField(const AttrStorageParams& meta) {
     const auto expectedValueSize = DataTypeSize(meta.dataType);
     const auto isFloat =
         (meta.dataType == DataType::Float32 || meta.dataType == DataType::Float64) &&
-        (meta.valueSize == sizeof(float) || meta.valueSize == sizeof(double));
+        (NumericArrayValueSize(meta) == sizeof(float) ||
+            NumericArrayValueSize(meta) == sizeof(double));
     const auto isInteger =
         numericarray::IsIntegerNumericArrayDataType(meta.dataType) &&
         expectedValueSize != 0u &&
-        meta.valueSize == expectedValueSize;
+        NumericArrayValueSize(meta) == expectedValueSize;
     return (isFloat || isInteger) &&
         meta.dimension > 0 &&
         meta.elementCount > 0;
@@ -37,7 +38,6 @@ inline bool HasMatchingAttributeReferenceSampleLayout(
     const AttrStorageParams& lhs,
     const AttrStorageParams& rhs) noexcept {
     return lhs.dataType == rhs.dataType &&
-        lhs.valueSize == rhs.valueSize &&
         lhs.elementCount == rhs.elementCount &&
         lhs.dimension == rhs.dimension;
 }
@@ -118,7 +118,7 @@ inline bool BuildAttributeReferenceFieldSample(
     std::string* error = nullptr) {
     sample = {};
     std::size_t valueSize = 0u;
-    if (!TryParamSizeToSizeT(meta.valueSize, valueSize)) {
+    if (!TryParamSizeToSizeT(NumericArrayValueSize(meta), valueSize)) {
         return validation::AssignError(
             error,
             "attribute reference sample value size exceeds this platform size limit");
@@ -372,13 +372,13 @@ inline bool ComputeAttributeReferenceSampleScore(
         score = ComputeIntegerAttributeReferenceSampleScore(meta, current, reference);
         return true;
     }
-    if (meta.dataType == DataType::Float32 && meta.valueSize == sizeof(float)) {
+    if (meta.dataType == DataType::Float32 && NumericArrayValueSize(meta) == sizeof(float)) {
         score = codec == IntraFieldReferenceCodec::Affine
             ? ComputeAffineAttributeReferenceSampleScore<float>(current, reference)
             : ComputeDeltaAttributeReferenceSampleScore<float>(current, reference);
         return true;
     }
-    if (meta.dataType == DataType::Float64 && meta.valueSize == sizeof(double)) {
+    if (meta.dataType == DataType::Float64 && NumericArrayValueSize(meta) == sizeof(double)) {
         score = codec == IntraFieldReferenceCodec::Affine
             ? ComputeAffineAttributeReferenceSampleScore<double>(current, reference)
             : ComputeDeltaAttributeReferenceSampleScore<double>(current, reference);

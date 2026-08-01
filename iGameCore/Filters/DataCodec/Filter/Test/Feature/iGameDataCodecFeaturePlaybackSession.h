@@ -282,9 +282,9 @@ bool TestTimeSeriesControlPolicy() {
     auto params = ::datacodec::MakeDefaultEncodeControlParams();
     ::datacodec::CompressorConfig compressor;
     params.defaultAttrControl.regionControl.defaultPrecision =
-        ::datacodec::MakeNumericArrayRegionPrecision("default", compressor);
+        ::datacodec::MakeNumericArrayRegionPrecision(compressor);
     params.defaultAttrControl.regionControl.regions.push_back(
-        ::datacodec::MakeNumericArrayRegionPrecision("region", compressor));
+        ::datacodec::MakeNumericArrayRegionPrecision(compressor));
     params.defaultAttrControl.regionRuns.push_back({.begin = 0u, .count = 1u, .regionId = 1u});
     params.attrControl["A"] = params.defaultAttrControl;
     params.attrReference.temporalField.keyFrameInterval = 0u;
@@ -293,8 +293,7 @@ bool TestTimeSeriesControlPolicy() {
     params.geometryReference.temporalField.forcePredFrames = true;
 
     ::datacodec::PrepareTimeSeriesControlParamsForRandomAccess(params);
-    return params.defaultAttrControl.regionControl.defaultPrecision.name == "default" &&
-        params.defaultAttrControl.regionControl.regions.empty() &&
+    return params.defaultAttrControl.regionControl.regions.empty() &&
         params.defaultAttrControl.regionRuns.empty() &&
         params.attrControl["A"].regionControl.regions.empty() &&
         params.attrControl["A"].regionRuns.empty() &&
@@ -551,7 +550,6 @@ inline int RunDataCodecFeaturePlaybackSession(const int argc = 0, char** argv = 
     writer->SetAttributeTargets(selectedTargets);
     auto encodeDefinition = ::datacodec::MakeDefaultEncodeConfigurationParams();
     encodeDefinition.controlParams = std::move(encodeParams);
-    encodeDefinition.source.customControlParams = true;
     writer->SetEncodeControls(encodeDefinition);
     writer->SetFilePath(outputPath.string());
     iGame::iGameDataCodecTelemetryCapture recordSinks;

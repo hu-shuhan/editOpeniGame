@@ -338,10 +338,10 @@ public:
         const NumericArrayReferenceCodecEncodeInput& input,
         NumericArrayReferencePreparedBlock& prepared,
         std::string* error = nullptr) const override {
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             return PrepareAffineReferenceBlockTyped<float>(input, CodecId(), prepared, error);
         }
-        if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             return PrepareAffineReferenceBlockTyped<double>(input, CodecId(), prepared, error);
         }
         prepared.Reset();
@@ -354,11 +354,11 @@ public:
         const NumericArrayReferencePreparedBlock& prepared,
         NumericArrayReferenceEncodedBlock& output,
         std::string* error = nullptr) const override {
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             return EncodePreparedAffineReferenceBlockTyped<float>(
                 input, CodecId(), prepared, output, error);
         }
-        if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             return EncodePreparedAffineReferenceBlockTyped<double>(
                 input, CodecId(), prepared, output, error);
         }
@@ -374,10 +374,10 @@ public:
         if (!DecodeNumericArrayReferenceValueBytes(input.meta, input.block, decodedBlockBytes, error)) {
             return false;
         }
-        if (input.meta.dataType == DataType::Float32 && input.meta.valueSize == sizeof(float)) {
+        if (input.meta.dataType == DataType::Float32 && NumericArrayValueSize(input.meta) == sizeof(float)) {
             return DecodeAffineReferenceBlockTyped<float>(input, decodedBlockBytes, error);
         }
-        if (input.meta.dataType == DataType::Float64 && input.meta.valueSize == sizeof(double)) {
+        if (input.meta.dataType == DataType::Float64 && NumericArrayValueSize(input.meta) == sizeof(double)) {
             return DecodeAffineReferenceBlockTyped<double>(input, decodedBlockBytes, error);
         }
         decodedBlockBytes.clear();

@@ -685,7 +685,6 @@ inline DataCodecEncodeConfigurationParams MakeRemapSemanticConfiguration() {
     params.attrReference.enabled = false;
     params.geometryReference.enabled = false;
     params.topologyReference.enabled = false;
-    configuration.source.customControlParams = true;
     return configuration;
 }
 

@@ -22,10 +22,8 @@ inline NumericArrayRegionControlParams MakeRegionPrecisionTestControl(
     const double customPrecision) {
     NumericArrayRegionControlParams control;
     control.defaultPrecision = MakeNumericArrayRegionPrecision(
-        "default",
         MakeRegionPrecisionTestCompressor(defaultPrecision));
     control.regions.push_back(MakeNumericArrayRegionPrecision(
-        "custom",
         MakeRegionPrecisionTestCompressor(customPrecision)));
     control.runPolicy.maxRunsPerRegion = 16u;
     control.runPolicy.minCoreRunLength = 1u;

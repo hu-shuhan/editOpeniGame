@@ -436,12 +436,6 @@ inline bool ExportPolyhedronTopologyStreamLayouts(
             return false;
         }
         layouts.push_back(TopologyStreamLayoutParams{
-            .kind = static_cast<std::uint32_t>(schedule->kind),
-            .codec = static_cast<std::uint32_t>(schedule->codec),
-            .flags = static_cast<std::uint32_t>(schedule->flags),
-            .meshIndexPadding = schedule->meshIndexPadding,
-            .elementCount = schedule->elementCount,
-            .auxiliaryByteSize = schedule->auxiliaryStreamByteSize,
             .encodedByteLength = schedule->streamByteSize,
         });
     }

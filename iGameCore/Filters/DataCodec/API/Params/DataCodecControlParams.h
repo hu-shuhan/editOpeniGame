@@ -7,15 +7,13 @@
 
 namespace datacodec {
 
-// encode 控制参数，沿用现有 CodecControlParams 全字段
-// 后续阶段按需剔除 decode-only 字段
+// encode 控制参数
 using EncodeCodecControlParams = CodecControlParams;
 
-// decode 控制参数，只含 decode 真正需要的控制项
-// 不接收区域精度表、region runs、encode reference/remap 策略
+// decode 控制参数
 struct DecodeControlParams {
     CodecValidationPolicy validation;
-    ResourceBudgetControlParams resourceBudget;
+    DecodeResourceBudgetControlParams resourceBudget;
 
     DecodeControlParams& SetDecodeValidationMode(const DecodeValidationMode mode) noexcept {
         validation.decodeMode = mode;

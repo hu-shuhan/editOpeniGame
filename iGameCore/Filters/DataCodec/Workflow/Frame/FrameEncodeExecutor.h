@@ -476,7 +476,7 @@ private:
         LeafPackage& leafPackage,
         EncodedLeafFieldBundle& fieldBundle,
         const PackageFieldEncodingParams& packageFields,
-        const ResourceBudgetControlParams& resourceBudget,
+        const EncodeResourceBudgetControlParams& resourceBudget,
         const std::function<void(std::uint64_t, std::uint64_t)>& progressCallback,
         std::string* error) {
         if (fieldBundle.byteStoreSession == nullptr) {

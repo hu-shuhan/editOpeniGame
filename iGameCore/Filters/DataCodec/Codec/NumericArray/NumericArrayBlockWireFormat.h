@@ -36,7 +36,6 @@ inline NumericArrayBlockLayoutParams MakeNumericArrayBlockLayoutParams(
     NumericArrayBlockLayoutParams layout;
     layout.mode = header.mode;
     layout.referenceKind = header.referenceKind;
-    layout.codecId = header.codecId;
     layout.localParentFieldIndex = header.localParentFieldIndex;
     layout.elementOffset = header.elementOffset;
     layout.elementCount = header.elementCount;
@@ -60,7 +59,7 @@ inline bool MakeNumericArrayBlockHeader(
     header = {};
     header.mode = layout.mode;
     header.referenceKind = layout.referenceKind;
-    header.codecId = layout.codecId;
+    header.codecId = NumericArrayBlockModeCodecId(layout.mode);
     header.localParentFieldIndex = layout.localParentFieldIndex;
     header.elementOffset = static_cast<std::uint32_t>(layout.elementOffset);
     header.elementCount = static_cast<std::uint32_t>(layout.elementCount);
@@ -93,35 +92,6 @@ inline std::int32_t DecodePredictorOffsetStorage(const std::uint16_t storedValue
         return 0;
     }
     return static_cast<std::int32_t>(storedValue) - 0x8000;
-}
-
-inline bool ResolveNumericArrayBlockHeaderValues(
-    const std::uint8_t modeValue,
-    const std::uint8_t referenceKindValue,
-    const std::uint16_t codecIdValue,
-    const std::uint16_t storedParentFieldIndex,
-    const std::uint8_t bytesCodecValue,
-    NumericArrayBlockHeader& header,
-    std::string* error = nullptr) {
-    if (modeValue > static_cast<std::uint8_t>(NumericArrayBlockMode::LayeredResidual) ||
-        referenceKindValue > static_cast<std::uint8_t>(NumericArrayReferenceKind::TemporalKeyFrame) ||
-        codecIdValue > static_cast<std::uint16_t>(NumericArrayReferenceCodecId::Predictor) ||
-        bytesCodecValue > static_cast<std::uint8_t>(NumericArrayBytesCodec::IntegerDeltaLiteralRunVarint)) {
-        return validation::AssignError(error, "invalid numeric array block enum value");
-    }
-
-    header.mode = static_cast<NumericArrayBlockMode>(modeValue);
-    header.referenceKind = static_cast<NumericArrayReferenceKind>(referenceKindValue);
-    header.codecId = static_cast<NumericArrayReferenceCodecId>(codecIdValue);
-    header.bytesCodec = static_cast<NumericArrayBytesCodec>(bytesCodecValue);
-    if (header.referenceKind == NumericArrayReferenceKind::TemporalKeyFrame) {
-        header.localParentFieldIndex = 0xFFFFu;
-        header.predictorOffset = DecodePredictorOffsetStorage(storedParentFieldIndex);
-    } else {
-        header.localParentFieldIndex = storedParentFieldIndex;
-        header.predictorOffset = 0;
-    }
-    return true;
 }
 
 inline void AppendNumericArrayBlock(

@@ -41,17 +41,13 @@ struct DecodeLeafWorkspace : IFailureCleanable {
         const std::uint64_t activeWindowBytes = kDefaultDecodeActiveWindowBytes,
         const std::size_t scratchRetainedBlockCount = 16u,
         const std::size_t scratchRetainedBlockBytes = 64u * 1024u * 1024u,
-        const std::uint64_t scratchRetainedTotalBytes = 1024ull * 1024ull * 1024ull,
-        const std::uint64_t topologyBufferBudgetBytes = 4u * 1024u * 1024u,
-        const std::uint64_t remapScratchBudgetBytes = 256u * 1024u * 1024u) {
+        const std::uint64_t scratchRetainedTotalBytes = 1024ull * 1024ull * 1024ull) {
         m_cacheResources.Configure(
             accessWindowBytes,
             activeWindowBytes,
             scratchRetainedBlockCount,
             scratchRetainedBlockBytes,
-            scratchRetainedTotalBytes,
-            topologyBufferBudgetBytes,
-            remapScratchBudgetBytes);
+            scratchRetainedTotalBytes);
     }
 
     void InheritCacheResourceConfigFrom(const DecodeLeafWorkspace& parent) {
@@ -61,9 +57,7 @@ struct DecodeLeafWorkspace : IFailureCleanable {
             parent.ActiveWindowBytes(),
             budget.ScratchRetainedBlockCount(),
             budget.ScratchRetainedBlockBytes(),
-            budget.ScratchRetainedTotalBytes(),
-            budget.TopologyBufferBudgetBytes(),
-            budget.RemapScratchQuotaBytes());
+            budget.ScratchRetainedTotalBytes());
     }
 
     [[nodiscard]] const CodecStorageParams& StorageParams() const noexcept { return m_storageParams; }
@@ -75,8 +69,8 @@ struct DecodeLeafWorkspace : IFailureCleanable {
     [[nodiscard]] CacheResources& CacheResourcesRef() noexcept { return m_cacheResources; }
     [[nodiscard]] const CodecValidationPolicy& ValidationPolicy() const noexcept { return m_validationPolicy; }
     void SetValidationPolicy(CodecValidationPolicy policy) noexcept { m_validationPolicy = policy; }
-    [[nodiscard]] const ResourceBudgetControlParams& ResourceBudget() const noexcept { return m_resourceBudget; }
-    void SetResourceBudget(ResourceBudgetControlParams params) {
+    [[nodiscard]] const DecodeResourceBudgetControlParams& ResourceBudget() const noexcept { return m_resourceBudget; }
+    void SetResourceBudget(DecodeResourceBudgetControlParams params) {
         m_resourceBudget = std::move(params);
         m_byteStoreSession.ConfigureResidentLimit(m_resourceBudget.ResidentLimitBytes());
     }
@@ -130,7 +124,7 @@ struct DecodeLeafWorkspace : IFailureCleanable {
 
     void PrepareSupplementRun(
         const CodecValidationPolicy validationPolicy,
-        const ResourceBudgetControlParams resourceBudget) {
+        const DecodeResourceBudgetControlParams resourceBudget) {
         m_failureCleanupCompleted.store(false, std::memory_order_release);
         ResetStopSource();
         m_validationPolicy = validationPolicy;
@@ -141,9 +135,7 @@ struct DecodeLeafWorkspace : IFailureCleanable {
             m_resourceBudget.ActiveWindowBytes(),
             m_resourceBudget.ScratchRetainedBlockCount(),
             m_resourceBudget.ScratchRetainedBlockBytes(),
-            m_resourceBudget.ScratchRetainedTotalBytes(),
-            m_resourceBudget.TopologyBufferBudgetBytes(),
-            m_resourceBudget.RemapScratchQuotaBytes());
+            m_resourceBudget.ScratchRetainedTotalBytes());
     }
 
     [[nodiscard]] bool HasField(const FieldType type, const std::size_t ordinal = 0u) const {
@@ -243,7 +235,7 @@ private:
     CodecStorageParams m_storageParams;
     std::vector<std::uint8_t> m_committedAttributes;
     CodecValidationPolicy m_validationPolicy;
-    ResourceBudgetControlParams m_resourceBudget;
+    DecodeResourceBudgetControlParams m_resourceBudget;
     CacheResources m_cacheResources;
     bytestore::ByteStoreSession m_byteStoreSession;
     const LeafPackage* m_leafPackage{nullptr};
