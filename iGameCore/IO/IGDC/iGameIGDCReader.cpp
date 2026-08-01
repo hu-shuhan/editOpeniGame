@@ -107,7 +107,8 @@ void SubmitDecodeProcessTimingToConsole(
 std::string WriteDecodeRunningReport(
     const std::shared_ptr<::datacodec::IDataCodecReportFileSink>& reportSink,
     const std::string& reportFileTimestamp,
-    const std::string& sourcePath) {
+    const std::string& sourcePath,
+    const ::datacodec::DataCodecReportConfiguration& configuration) {
     if (reportSink == nullptr) {
         return {};
     }
@@ -123,6 +124,7 @@ std::string WriteDecodeRunningReport(
                 .completed = false,
             },
         },
+        .configuration = configuration,
     };
     const auto result = reportSink->WriteReportFile({
         .name = "decode_process_" + reportFileTimestamp,
@@ -146,6 +148,7 @@ std::string WriteDecodeReports(
     const bool success,
     const double elapsedMs,
     const std::uint64_t inputBytes,
+    const ::datacodec::DataCodecReportConfiguration& configuration,
     const std::vector<::datacodec::TelemetrySession>& sessions,
     const std::vector<::datacodec::TelemetryMessageRecord>& messages) {
     if (reportSink == nullptr) {
@@ -180,6 +183,7 @@ std::string WriteDecodeReports(
         .elapsedMs = elapsedMs,
         .inputBytes = inputBytes,
         .processes = {std::move(decodeProcess)},
+        .configuration = configuration,
     };
     ::datacodec::CompleteDataCodecProcessReportMemory(processReport);
     const auto processResult = reportSink->WriteReportFile({
@@ -235,6 +239,7 @@ struct IGDCReader::State {
     ::datacodec::DecodeControlParams codecParams;
     ::datacodec::DecodeExecutionOptions executionOptions;
     ::datacodec::DataCodecDecodeConfigurationSource configurationSource;
+    std::optional<::datacodec::DataCodecDecodeTier> decodeTier;
     std::vector<::datacodec::TelemetryMessageRecord> messages;
     std::vector<std::string> selectedFramePaths;
     ::datacodec::DecodedFrameCachePolicy decodedFrameCachePolicy;
@@ -266,6 +271,7 @@ void IGDCReader::SetCodecControlParams(const ::datacodec::DecodeControlParams& p
     auto& state = *m_state;
     state.hasCodecParams = true;
     state.codecParams = params;
+    state.decodeTier.reset();
 }
 
 void IGDCReader::SetDecodeControls(
@@ -279,6 +285,7 @@ void IGDCReader::SetDecodeControls(
     state.configurationSource = definition.source;
     state.logging = definition.logging;
     state.language = definition.language;
+    state.decodeTier.reset();
 }
 
 void IGDCReader::SetDecodeTier(const ::datacodec::DataCodecDecodeTier tier) {
@@ -288,6 +295,7 @@ void IGDCReader::SetDecodeTier(const ::datacodec::DataCodecDecodeTier tier) {
 void IGDCReader::SetDecodeOptions(const ::datacodec::DataCodecDecodeOptions& options) {
     auto definition = ::datacodec::MakeDecodeConfigurationParams(options);
     SetDecodeControls(definition);
+    m_state->decodeTier = options.tier;
 }
 
 void IGDCReader::SetSelectedFramePaths(std::vector<std::string> framePaths) {
@@ -426,10 +434,27 @@ bool IGDCReader::DecodeInput() {
     const auto consoleLogSink = state.logging.enableConsoleLog
         ? outputBinding.OutputSinks().console
         : std::shared_ptr<::datacodec::IDataCodecConsoleSink>{};
+    const ::datacodec::DataCodecDecodeConfigurationParams effectiveConfiguration{
+        .controlParams = state.hasCodecParams
+            ? state.codecParams
+            : ::datacodec::MakeDefaultDecodeControlParams(),
+        .execution = state.executionOptions,
+        .decodedFrameCachePolicy = state.decodedFrameCachePolicy,
+        .encodedInputCachePolicy = state.encodedInputCachePolicy,
+        .source = state.configurationSource,
+        .logging = state.logging,
+        .language = state.language,
+    };
+    const auto reportConfiguration =
+        ::datacodec::MakeDataCodecDecodeReportConfiguration(
+            state.decodeTier,
+            effectiveConfiguration,
+            state.loadAllAvailableAttributes);
     (void)WriteDecodeRunningReport(
         decodeReportSink,
         decodeReportFileTimestamp,
-        m_FilePath);
+        m_FilePath,
+        reportConfiguration);
     const auto addStatus = [&state, &runRecordSink](
         ::datacodec::TelemetryMessageRecord message) {
         ::datacodec::SubmitRunMessage(runRecordSink.get(), message);
@@ -623,6 +648,7 @@ bool IGDCReader::DecodeInput() {
                 success,
                 elapsedMs,
                 static_cast<std::uint64_t>(m_FileSize),
+                reportConfiguration,
                 sessions,
                 state.messages);
             if (!writeError.empty()) {
