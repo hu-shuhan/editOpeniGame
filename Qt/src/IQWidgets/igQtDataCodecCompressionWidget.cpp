@@ -847,10 +847,6 @@ QWidget* igQtDataCodecCompressionWidget::createOutputPanel() {
     pathRow->addWidget(m_outputPathButton, 0);
     layout->addLayout(pathRow);
 
-    auto* codecLabel = new QLabel(QStringLiteral("浮点数据压缩算法：SZ3"), panel);
-    codecLabel->setObjectName(QStringLiteral("DataCodecLabel"));
-    layout->addWidget(codecLabel);
-
     auto* tierRow = new QHBoxLayout;
     auto* tierLabel = new QLabel(QStringLiteral("资源模式"), panel);
     tierLabel->setObjectName(QStringLiteral("DataCodecLabelStrong"));
@@ -2319,6 +2315,30 @@ void igQtDataCodecCompressionWidget::startEncode() {
             m_dataCodecLanguage,
             iGame::iGameDataCodecHostMessageId::CompressionRatioCalculationNote)
         : std::string{};
+    ::datacodec::DataCodecEncodeOptions options;
+    options.tier = selectedPerformanceTier();
+    options.enableCompressionEnhancement =
+        m_compressionEnhancementCheck != nullptr &&
+        m_compressionEnhancementCheck->isChecked();
+    if (m_zstdLevelSpin != nullptr) {
+        options.packageZstdLevel = m_zstdLevelSpin->value();
+    }
+    if (multiFrame && m_gopFrameCountSpin != nullptr) {
+        options.temporalKeyFrameInterval = static_cast<std::uint32_t>(
+            m_gopFrameCountSpin->value());
+    }
+
+    auto writer = iGame::IGDCWriter::New();
+    writer->SetAttributeTargets(selectedAttributeTargets());
+    auto definition = ::datacodec::MakeEncodeConfigurationParams(options);
+    definition.language = m_dataCodecLanguage;
+    applyCompressionControlToDataCodec(definition.controlParams);
+    const auto reportConfiguration =
+        ::datacodec::MakeDataCodecEncodeReportConfiguration(
+            options.tier,
+            options.enableCompressionEnhancement,
+            definition);
+    writer->SetEncodeControls(definition);
     QString reportDirectory;
     if (outputPerformance) {
         reportDirectory = makeCompressionReportDirectory(outputPath);
@@ -2358,6 +2378,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
                     .completed = false,
                 },
             },
+            .configuration = reportConfiguration,
         };
         const auto runningReportResult = writeDataCodecRunReports(
             reportSink,
@@ -2374,25 +2395,6 @@ void igQtDataCodecCompressionWidget::startEncode() {
         }
     }
 
-    ::datacodec::DataCodecEncodeOptions options;
-    options.tier = selectedPerformanceTier();
-    options.enableCompressionEnhancement =
-        m_compressionEnhancementCheck != nullptr &&
-        m_compressionEnhancementCheck->isChecked();
-    if (m_zstdLevelSpin != nullptr) {
-        options.packageZstdLevel = m_zstdLevelSpin->value();
-    }
-    if (multiFrame && m_gopFrameCountSpin != nullptr) {
-        options.temporalKeyFrameInterval = static_cast<std::uint32_t>(
-            m_gopFrameCountSpin->value());
-    }
-
-    auto writer = iGame::IGDCWriter::New();
-    writer->SetAttributeTargets(selectedAttributeTargets());
-    auto definition = ::datacodec::MakeEncodeConfigurationParams(options);
-    definition.language = m_dataCodecLanguage;
-    applyCompressionControlToDataCodec(definition.controlParams);
-    writer->SetEncodeControls(definition);
     QPointer<igQtDataCodecCompressionWidget> self(this);
     ::datacodec::DataCodecOutputSinks outputSinks;
     outputSinks.ui = std::make_shared<igQtDataCodecUiSink>(
@@ -2464,6 +2466,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
         outputPerformance,
         reportSink,
         reportFileTimestamp,
+        reportConfiguration,
         compressionRatioNote,
         initialBeforeBytes,
         precisionFields,
@@ -2481,6 +2484,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
         const auto writeEncodeReports = [&outputPerformance,
                                          &reportSink,
                                          &reportFileTimestamp,
+                                         &reportConfiguration,
                                          &compressionRatioNote,
                                          &telemetryCapture,
                                          &beforeBytes,
@@ -2552,6 +2556,7 @@ void igQtDataCodecCompressionWidget::startEncode() {
                     {"outputPath", toUtf8StdString(writtenPath)},
                     {"compressor", toUtf8StdString(compressorName)},
                 },
+                .configuration = reportConfiguration,
             };
             processReport.processes.push_back(std::move(encodeProcess));
             for (auto& process : additionalProcesses) {
