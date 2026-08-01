@@ -24,6 +24,7 @@ option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 option(ENABLE_WASM "Build WASM Target." OFF)
 option(IGAME_DATACODEC_BUILD_TESTS "Build DataCodec temporary test runner." OFF)
+option(IGAME_DATACODEC_VTK_EXAMPLE "Build DataCodec VTK round-trip example (requires VTK)." OFF)
 
 if (IGAME_DATACODEC_BUILD_TESTS)
     enable_testing()

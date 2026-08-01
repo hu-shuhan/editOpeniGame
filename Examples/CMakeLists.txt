@@ -70,40 +70,42 @@ add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selecti
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Simplification/TestSimplification.cpp")
 add_executable(testDataCodecEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecEncode.cpp")
 add_executable(testDataCodecDecode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecDecode.cpp")
-if (NOT TARGET VTK::CommonCore)
-    find_package(VTK 9 CONFIG REQUIRED COMPONENTS
-            CommonCore
-            CommonDataModel
-            IOLegacy
-            IOXML
-            RenderingCore
-            RenderingOpenGL2
-            RenderingUI
-            RenderingFreeType
-            InteractionStyle
+if (IGAME_DATACODEC_VTK_EXAMPLE)
+    if (NOT TARGET VTK::CommonCore)
+        find_package(VTK 9 CONFIG REQUIRED COMPONENTS
+                CommonCore
+                CommonDataModel
+                IOLegacy
+                IOXML
+                RenderingCore
+                RenderingOpenGL2
+                RenderingUI
+                RenderingFreeType
+                InteractionStyle
+        )
+    endif ()
+    add_subdirectory(Filter/Codec/VTK)
+    add_executable(testDataCodecVtkUnstructuredRoundTrip "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecVtkUnstructuredRoundTrip.cpp")
+    target_link_libraries(testDataCodecVtkUnstructuredRoundTrip PRIVATE
+            dataCodecVtkAdapter
+            VTK::IOLegacy
+            VTK::IOXML
+            VTK::RenderingCore
+            VTK::RenderingOpenGL2
+            VTK::RenderingUI
+            VTK::RenderingFreeType
+            VTK::InteractionStyle
+    )
+    if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_link_options(testDataCodecVtkUnstructuredRoundTrip PRIVATE -fuse-ld=lld)
+    endif ()
+    vtk_module_autoinit(
+            TARGETS testDataCodecVtkUnstructuredRoundTrip
+            MODULES VTK::CommonCore VTK::CommonDataModel VTK::IOLegacy VTK::IOXML
+                    VTK::RenderingCore VTK::RenderingOpenGL2 VTK::RenderingUI
+                    VTK::RenderingFreeType VTK::InteractionStyle
     )
 endif ()
-add_subdirectory(Filter/Codec/VTK)
-add_executable(testDataCodecVtkUnstructuredRoundTrip "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecVtkUnstructuredRoundTrip.cpp")
-target_link_libraries(testDataCodecVtkUnstructuredRoundTrip PRIVATE
-        dataCodecVtkAdapter
-        VTK::IOLegacy
-        VTK::IOXML
-        VTK::RenderingCore
-        VTK::RenderingOpenGL2
-        VTK::RenderingUI
-        VTK::RenderingFreeType
-        VTK::InteractionStyle
-)
-if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_link_options(testDataCodecVtkUnstructuredRoundTrip PRIVATE -fuse-ld=lld)
-endif ()
-vtk_module_autoinit(
-        TARGETS testDataCodecVtkUnstructuredRoundTrip
-        MODULES VTK::CommonCore VTK::CommonDataModel VTK::IOLegacy VTK::IOXML
-                VTK::RenderingCore VTK::RenderingOpenGL2 VTK::RenderingUI
-                VTK::RenderingFreeType VTK::InteractionStyle
-)
 add_executable(testScalarsToColorsRobustRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestScalarsToColorsRobustRange.cpp")
 
 add_executable(testConvertPolyhedralCells "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertPolyhedralCells.cpp")
@@ -204,6 +206,13 @@ set_target_properties(testSimplification testDataCodecEncode testDataCodecDecode
         VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 )
+if (TARGET testDataCodecVtkUnstructuredRoundTrip)
+    set_target_properties(testDataCodecVtkUnstructuredRoundTrip
+            PROPERTIES
+            VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+            DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    )
+endif ()
 
 target_link_libraries(testConvertPolyhedralCells PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testConvertToPointCloud PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
