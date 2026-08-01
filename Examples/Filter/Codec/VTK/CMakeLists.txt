@@ -1,9 +1,11 @@
-find_package(VTK 9 CONFIG REQUIRED COMPONENTS
-        CommonCore
-        CommonDataModel
-        IOLegacy
-        IOXML
-)
+if (NOT TARGET VTK::CommonCore)
+    find_package(VTK 9 CONFIG REQUIRED COMPONENTS
+            CommonCore
+            CommonDataModel
+            IOLegacy
+            IOXML
+    )
+endif ()
 
 set(IGAME_DATACODEC_VTK_MODULES
         VTK::CommonCore

@@ -70,6 +70,14 @@ add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selecti
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Simplification/TestSimplification.cpp")
 add_executable(testDataCodecEncode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecEncode.cpp")
 add_executable(testDataCodecDecode "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Codec/TestDataCodecDecode.cpp")
+if (NOT TARGET VTK::CommonCore)
+    find_package(VTK 9 CONFIG REQUIRED COMPONENTS
+            CommonCore
+            CommonDataModel
+            IOLegacy
+            IOXML
+    )
+endif ()
 add_subdirectory(Filter/Codec/VTK)
 add_executable(testScalarsToColorsRobustRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestScalarsToColorsRobustRange.cpp")
 
@@ -165,6 +173,12 @@ if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE STREQUA
     target_link_options(testDataCodecEncode PRIVATE -fuse-ld=lld)
     target_link_options(testDataCodecDecode PRIVATE -fuse-ld=lld)
 endif ()
+# DataCodec 示例以 ./Models、./comp.igc 等相对路径定位文件，调试工作目录必须指向构建目录
+set_target_properties(testSimplification testDataCodecEncode testDataCodecDecode
+        PROPERTIES
+        VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+        DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+)
 
 target_link_libraries(testConvertPolyhedralCells PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
 target_link_libraries(testConvertToPointCloud PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS} HDF5::HDF5)
