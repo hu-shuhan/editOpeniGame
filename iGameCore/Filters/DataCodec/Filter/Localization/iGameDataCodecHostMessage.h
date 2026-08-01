@@ -68,6 +68,9 @@ enum class iGameDataCodecHostMessageId : std::uint8_t {
     ComputeCurrentFeature,
     CustomRegionLimitReached,
     CustomRegionStateUnavailable,
+    DecodeStageTiming,
+    DecodeTime,
+    WriteDecodeTelemetryFailed,
 };
 
 struct iGameDataCodecHostMessageArgument {

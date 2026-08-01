@@ -13,6 +13,7 @@ constexpr auto kPerformanceTierKey = "PerformanceTier";
 constexpr auto kDecodeAttributesOnDemandKey = "DecodeAttributesOnDemand";
 constexpr auto kEnableDecodedResultCacheKey = "EnableDecodedResultCache";
 constexpr auto kDecodedResultCacheFrameLimitKey = "DecodedResultCacheFrameLimit";
+constexpr auto kOutputDecodeLogFileKey = "OutputDecodeLogFile";
 
 QSettings CreateSettings() {
     return QSettings(
@@ -53,12 +54,16 @@ igQtDataCodecDecodeSettings igQtDataCodecDecodeSettingsStore::Load() {
             QString::fromLatin1(kDecodedResultCacheFrameLimitKey),
             3).toInt(),
         10));
+    const auto outputDecodeLogFile = storage.value(
+        QString::fromLatin1(kOutputDecodeLogFileKey),
+        false).toBool();
     storage.endGroup();
     return igQtDataCodecDecodeSettings{
         .performanceTier = tier,
         .decodeAttributesOnDemand = decodeAttributesOnDemand,
         .enableDecodedResultCache = enableDecodedResultCache,
         .decodedResultCacheFrameLimit = decodedResultCacheFrameLimit,
+        .outputDecodeLogFile = outputDecodeLogFile,
     };
 }
 
@@ -78,6 +83,9 @@ void igQtDataCodecDecodeSettingsStore::Save(
     storage.setValue(
         QString::fromLatin1(kDecodedResultCacheFrameLimitKey),
         static_cast<qulonglong>(settings.decodedResultCacheFrameLimit));
+    storage.setValue(
+        QString::fromLatin1(kOutputDecodeLogFileKey),
+        settings.outputDecodeLogFile);
     storage.endGroup();
     storage.sync();
     Apply(settings);
@@ -89,6 +97,7 @@ void igQtDataCodecDecodeSettingsStore::Apply(
     options.tier = settings.performanceTier;
     options.enableDecodedResultCache = settings.enableDecodedResultCache;
     options.decodedResultCacheFrameLimit = settings.decodedResultCacheFrameLimit;
+    options.logging.enableFileLog = settings.outputDecodeLogFile;
     iGame::DataCodecIOSettings::SetDefaultDecodeOptions(options);
     iGame::DataCodecIOSettings::SetDefaultLoadAllAvailableAttributes(
         !settings.decodeAttributesOnDemand);

@@ -43,17 +43,30 @@ public:
         const ::datacodec::DataCodecStatusRecord& status) override;
 };
 
+enum class iGameDataCodecReportFileMode : std::uint8_t {
+    Unique,
+    Replace,
+};
+
 class iGameDataCodecReportFileSink final
     : public ::datacodec::IDataCodecReportFileSink {
 public:
-    explicit iGameDataCodecReportFileSink(std::filesystem::path directory)
-        : m_directory(std::move(directory)) {}
+    explicit iGameDataCodecReportFileSink(
+        std::filesystem::path directory,
+        const iGameDataCodecReportFileMode mode =
+            iGameDataCodecReportFileMode::Unique)
+        : m_directory(std::move(directory)), m_mode(mode) {}
 
     [[nodiscard]] ::datacodec::DataCodecReportWriteResult WriteReportFile(
         const ::datacodec::DataCodecReportFile& report) override;
 
+    [[nodiscard]] std::string RemoveReportFile(
+        const std::string& name,
+        const std::string& preferredExtension);
+
 private:
     std::filesystem::path m_directory;
+    iGameDataCodecReportFileMode m_mode{iGameDataCodecReportFileMode::Unique};
     std::mutex m_mutex;
     std::size_t m_nextIndex{0u};
 };

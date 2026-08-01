@@ -9,7 +9,7 @@
 #include "DataCodec/Filter/Test/Data/iGameDataCodecDataGenerator.h"
 #include "DataCodec/Filter/Test/Data/iGameDataCodecRealDatasetLoader.h"
 #include "DataCodec/Filter/Test/Common/iGameIGDCFileRoundTrip.h"
-#include "DataCodec/Test/Assertions/TelemetryArtifactAssertions.h"
+#include "DataCodec/Test/Assertions/ProcessReportAssertions.h"
 #include "iGameFileIO.h"
 
 #include <algorithm>
@@ -346,9 +346,9 @@ inline void ValidateScenarioDecodedShape(
     if (options.enableTelemetry) {
         Require(
             result,
-            HasSerializableTelemetryJson(encodeResult.telemetrySessions),
+            HasSerializableDataCodecProcessReport(encodeResult.telemetrySessions),
             "scenario.telemetry",
-            "telemetry sessions could not be serialized to json");
+            "telemetry sessions could not produce a valid process report");
     }
     if (!result.passed) {
         return result;

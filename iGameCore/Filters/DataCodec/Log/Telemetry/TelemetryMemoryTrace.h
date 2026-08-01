@@ -7,17 +7,29 @@
 
 #include <atomic>
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
-#include <exception>
-#include <locale>
 #include <mutex>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace datacodec {
+
+struct TelemetryMemoryModuleSummary {
+    std::string name;
+    std::uint64_t beforeWorkingSetBytes{0u};
+    std::uint64_t afterWorkingSetBytes{0u};
+    std::uint64_t peakWorkingSetBytes{0u};
+};
+
+struct TelemetryMemoryTraceSummary {
+    bool valid{false};
+    std::uint64_t beforeWorkingSetBytes{0u};
+    std::uint64_t afterWorkingSetBytes{0u};
+    std::uint64_t peakWorkingSetBytes{0u};
+    std::vector<TelemetryMemoryModuleSummary> modules;
+};
 
 class TelemetryMemoryTraceRecorder {
 public:
@@ -31,7 +43,7 @@ public:
     }
 
     bool Start(
-        const RunRecordInfo& run,
+        const RunRecordInfo&,
         std::string* error = nullptr) {
         std::string stopError;
         if (!Stop(&stopError)) {
@@ -44,16 +56,11 @@ public:
         }
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_csvText.clear();
-            m_runKind = TelemetryRunKindName(run.runKind);
-            m_objectName = run.objectName;
-            m_leafPath = run.leafPath;
-            m_startTime = std::chrono::steady_clock::now();
-            m_baselineResidentSetBytes = residentSetBytes;
-            m_csvText =
-                "elapsedMs,event,runKind,objectName,leafPath,stageName,moduleName,"
-                "residentSetBytes,residentSetDeltaBytes\n";
-            WriteRowLocked("begin", "run", "run", residentSetBytes);
+            m_summary = {};
+            m_summary.valid = true;
+            m_summary.beforeWorkingSetBytes = residentSetBytes;
+            m_summary.afterWorkingSetBytes = residentSetBytes;
+            m_summary.peakWorkingSetBytes = residentSetBytes;
         }
         m_active.store(true, std::memory_order_release);
         return true;
@@ -69,12 +76,15 @@ public:
         }
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            WriteRowLocked("end", "run", "run", residentSetBytes);
+            m_summary.afterWorkingSetBytes = residentSetBytes;
+            m_summary.peakWorkingSetBytes = std::max(
+                m_summary.peakWorkingSetBytes,
+                residentSetBytes);
         }
         return true;
     }
 
-    void EnterScope(std::string stageName, std::string moduleName) {
+    void EnterScope(std::string, std::string moduleName) {
         if (!Active()) {
             return;
         }
@@ -83,10 +93,10 @@ public:
             return;
         }
         std::lock_guard<std::mutex> lock(m_mutex);
-        WriteRowLocked("stage_enter", stageName, moduleName, residentSetBytes);
+        RecordModuleSampleLocked(std::move(moduleName), residentSetBytes);
     }
 
-    void LeaveScope(std::string stageName, std::string moduleName) {
+    void LeaveScope(std::string, std::string moduleName) {
         if (!Active()) {
             return;
         }
@@ -95,16 +105,16 @@ public:
             return;
         }
         std::lock_guard<std::mutex> lock(m_mutex);
-        WriteRowLocked("stage_leave", stageName, moduleName, residentSetBytes);
+        RecordModuleSampleLocked(std::move(moduleName), residentSetBytes);
     }
 
     [[nodiscard]] bool Active() const noexcept {
         return m_active.load(std::memory_order_acquire);
     }
 
-    [[nodiscard]] std::string CsvText() const {
+    [[nodiscard]] TelemetryMemoryTraceSummary Summary() const {
         std::lock_guard<std::mutex> lock(m_mutex);
-        return m_csvText;
+        return m_summary;
     }
 
 private:
@@ -112,66 +122,34 @@ private:
         return telemetrydetail::GetResidentSetMemoryBytes(residentSetBytes, error);
     }
 
-    static void AppendCsvString(std::string& output, const std::string& value) {
-        const bool needsQuotes =
-            value.find_first_of(",\"\r\n") != std::string::npos;
-        if (!needsQuotes) {
-            output += value;
+    void RecordModuleSampleLocked(
+        std::string moduleName,
+        const std::uint64_t residentSetBytes) {
+        m_summary.afterWorkingSetBytes = residentSetBytes;
+        m_summary.peakWorkingSetBytes = std::max(
+            m_summary.peakWorkingSetBytes,
+            residentSetBytes);
+        const auto iterator = std::find_if(
+            m_summary.modules.begin(),
+            m_summary.modules.end(),
+            [&moduleName](const auto& module) { return module.name == moduleName; });
+        if (iterator == m_summary.modules.end()) {
+            m_summary.modules.push_back({
+                .name = std::move(moduleName),
+                .beforeWorkingSetBytes = residentSetBytes,
+                .afterWorkingSetBytes = residentSetBytes,
+                .peakWorkingSetBytes = residentSetBytes,
+            });
             return;
         }
-        output.push_back('"');
-        for (const char ch : value) {
-            if (ch == '"') {
-                output += "\"\"";
-            } else {
-                output.push_back(ch);
-            }
-        }
-        output.push_back('"');
-    }
-
-    void WriteRowLocked(
-        const std::string& event,
-        const std::string& stageName,
-        const std::string& moduleName,
-        const std::uint64_t residentSetBytes) {
-        const auto elapsed = std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - m_startTime);
-        const auto delta =
-            static_cast<std::int64_t>(residentSetBytes) -
-            static_cast<std::int64_t>(m_baselineResidentSetBytes);
-        std::ostringstream numberStream;
-        numberStream.imbue(std::locale::classic());
-        numberStream.setf(std::ios::fixed, std::ios::floatfield);
-        numberStream.precision(6);
-        numberStream << elapsed.count();
-        m_csvText += numberStream.str();
-        m_csvText.push_back(',');
-        AppendCsvString(m_csvText, event);
-        m_csvText.push_back(',');
-        AppendCsvString(m_csvText, m_runKind);
-        m_csvText.push_back(',');
-        AppendCsvString(m_csvText, m_objectName);
-        m_csvText.push_back(',');
-        AppendCsvString(m_csvText, m_leafPath);
-        m_csvText.push_back(',');
-        AppendCsvString(m_csvText, stageName);
-        m_csvText.push_back(',');
-        AppendCsvString(m_csvText, moduleName);
-        m_csvText.push_back(',');
-        m_csvText += std::to_string(residentSetBytes);
-        m_csvText.push_back(',');
-        m_csvText += std::to_string(delta);
-        m_csvText.push_back('\n');
+        iterator->afterWorkingSetBytes = residentSetBytes;
+        iterator->peakWorkingSetBytes = std::max(
+            iterator->peakWorkingSetBytes,
+            residentSetBytes);
     }
 
     std::atomic_bool m_active{false};
-    std::string m_csvText;
-    std::string m_runKind;
-    std::string m_objectName;
-    BlockPath m_leafPath;
-    std::uint64_t m_baselineResidentSetBytes{0u};
-    std::chrono::steady_clock::time_point m_startTime{};
+    TelemetryMemoryTraceSummary m_summary;
     mutable std::mutex m_mutex;
 };
 
@@ -196,6 +174,56 @@ inline std::string ResolveTelemetryMemoryTraceModule(const std::string_view stag
         return "commit";
     }
     return "pipeline";
+}
+
+[[nodiscard]] inline TelemetryResourceUsage MakeTelemetryMemoryResourceUsage(
+    const std::uint64_t beforeWorkingSetBytes,
+    const std::uint64_t afterWorkingSetBytes,
+    const std::uint64_t peakWorkingSetBytes) {
+    return TelemetryResourceUsage{
+        .valid = true,
+        .workingSetBytes = peakWorkingSetBytes,
+        .workingSetBeforeBytes = beforeWorkingSetBytes,
+        .workingSetAfterBytes = afterWorkingSetBytes,
+        .peakWorkingSetBytes = peakWorkingSetBytes,
+    };
+}
+
+template <typename TRunRecords>
+inline void RecordTelemetryMemoryTraceSummary(
+    TRunRecords& records,
+    const TelemetryMemoryTraceSummary& summary) {
+    if (!summary.valid) {
+        return;
+    }
+    records.RecordResourceUsage(
+        "memory.run",
+        MakeTelemetryMemoryResourceUsage(
+            summary.beforeWorkingSetBytes,
+            summary.afterWorkingSetBytes,
+            summary.peakWorkingSetBytes));
+    for (const auto& module : summary.modules) {
+        const auto category = module.name == "topology"
+            ? TelemetryStageCategory::Topology
+            : module.name == "geometry"
+                ? TelemetryStageCategory::Geometry
+                : module.name == "attribute"
+                    ? TelemetryStageCategory::Attribute
+                    : module.name == "remap"
+                        ? TelemetryStageCategory::Remap
+                        : module.name == "params"
+                            ? TelemetryStageCategory::Params
+                            : module.name == "commit"
+                                ? TelemetryStageCategory::Commit
+                                : TelemetryStageCategory::General;
+        records.RecordResourceUsage(
+            "memory." + module.name,
+            MakeTelemetryMemoryResourceUsage(
+                module.beforeWorkingSetBytes,
+                module.afterWorkingSetBytes,
+                module.peakWorkingSetBytes),
+            category);
+    }
 }
 
 template <typename TContext>

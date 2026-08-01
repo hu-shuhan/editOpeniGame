@@ -13,6 +13,7 @@ struct IG_QT_MODULE_EXPORT igQtDataCodecDecodeSettings {
     bool decodeAttributesOnDemand{false};
     bool enableDecodedResultCache{false};
     std::size_t decodedResultCacheFrameLimit{3u};
+    bool outputDecodeLogFile{false};
 };
 
 class IG_QT_MODULE_EXPORT igQtDataCodecDecodeSettingsStore final {

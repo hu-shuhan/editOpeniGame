@@ -10,9 +10,11 @@ IGAME_NAMESPACE_BEGIN
 
 DataCodecStreamingFrameProvider::DataCodecStreamingFrameProvider(
         std::shared_ptr<::datacodec::PlaybackSession> session,
-        std::vector<std::uint32_t> playbackFrameOrder)
+        std::vector<std::uint32_t> playbackFrameOrder,
+        const bool enableConsoleLog)
     : m_session(std::move(session)),
-      m_playbackFrameOrder(std::move(playbackFrameOrder)) {}
+      m_playbackFrameOrder(std::move(playbackFrameOrder)),
+      m_enableConsoleLog(enableConsoleLog) {}
 
 std::vector<Object::Pointer> DataCodecStreamingFrameProvider::RequestFrame(
         const unsigned int ordinal) {
@@ -21,7 +23,11 @@ std::vector<Object::Pointer> DataCodecStreamingFrameProvider::RequestFrame(
             .frameIndex = m_playbackFrameOrder[ordinal],
             .progressFrameOrdinal = ordinal,
             .progressFrameCount = static_cast<std::uint32_t>(m_playbackFrameOrder.size()),
-            .runRecordSink = MakeiGameDataCodecOutputRecordSink({}, {}, true),
+            .runRecordSink = MakeiGameDataCodecOutputRecordSink(
+                {},
+                {},
+                true,
+                m_enableConsoleLog),
     });
     const auto output = DataObjectFromDecodedFrame(result.frame);
     if (result.success && output != nullptr) {

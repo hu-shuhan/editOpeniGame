@@ -36,6 +36,7 @@ struct FrameSequenceDecodeRequest {
     std::shared_ptr<::datacodec::IEncodedInputCache> encodedInputCache;
     std::shared_ptr<::datacodec::IParallelTaskRunner> parallelTaskRunner;
     bool loadAllAvailableAttributes{true};
+    bool enableConsoleLog{true};
     std::shared_ptr<::datacodec::IRunRecordSink> runRecordSink;
 };
 

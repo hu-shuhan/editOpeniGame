@@ -2001,13 +2001,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         static QCheckBox* onDemandAttributes = nullptr;
         static QCheckBox* decodedResultCache = nullptr;
         static QSpinBox* decodedResultCacheFrameLimit = nullptr;
+        static QCheckBox* outputDecodeLogFile = nullptr;
         if (dialog == nullptr) {
             dialog = new igQtChromeFramelessDialog(this);
             dialog->setDialogTitle(QStringLiteral("解压设置"));
             dialog->setMaximizeEnabled(false);
             dialog->setOpaqueShell(true);
             dialog->setWindowFlag(Qt::WindowStaysOnTopHint, true);
-            dialog->setFixedSize(360, 242);
+            dialog->setFixedSize(360, 276);
 
             auto* panel = new QWidget(dialog->contentHost());
             panel->setObjectName(QStringLiteral("DataCodecDecodeSettingsPanel"));
@@ -2103,11 +2104,17 @@ QPushButton#DataCodecDecodeSettingsPrimaryButton:hover {
             decodedResultCacheFrameLimit->setSuffix(QStringLiteral(" 帧"));
             decodedResultCacheFrameLimit->setToolTip(
                 QStringLiteral("完整解码结果 LRU 最多保留的帧数"));
+            outputDecodeLogFile = new QCheckBox(
+                QStringLiteral("输出解码日志文件"),
+                panel);
+            outputDecodeLogFile->setToolTip(
+                QStringLiteral("在 IGC 文件所在目录创建解码日志目录"));
 
             layout->addRow(QStringLiteral("性能模式"), performanceCombo);
             layout->addRow(QString(), onDemandAttributes);
             layout->addRow(QString(), decodedResultCache);
             layout->addRow(QStringLiteral("缓存帧数"), decodedResultCacheFrameLimit);
+            layout->addRow(QString(), outputDecodeLogFile);
 
             auto* buttons = new QDialogButtonBox(
                 QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
@@ -2126,6 +2133,7 @@ QPushButton#DataCodecDecodeSettingsPrimaryButton:hover {
                     .enableDecodedResultCache = decodedResultCache->isChecked(),
                     .decodedResultCacheFrameLimit = static_cast<std::size_t>(
                         decodedResultCacheFrameLimit->value()),
+                    .outputDecodeLogFile = outputDecodeLogFile->isChecked(),
                 });
                 dialog->close();
             });
@@ -2147,6 +2155,7 @@ QPushButton#DataCodecDecodeSettingsPrimaryButton:hover {
         decodedResultCacheFrameLimit->setValue(
             static_cast<int>(settings.decodedResultCacheFrameLimit));
         decodedResultCacheFrameLimit->setEnabled(settings.enableDecodedResultCache);
+        outputDecodeLogFile->setChecked(settings.outputDecodeLogFile);
         showSynchronizedToolWindow(dialog);
     });
 

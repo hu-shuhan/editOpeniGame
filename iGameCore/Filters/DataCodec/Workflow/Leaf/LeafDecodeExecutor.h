@@ -337,16 +337,9 @@ private:
         }
         std::string stopError;
         if (memoryTrace.Stop(&stopError)) {
-            auto csvText = memoryTrace.CsvText();
-            if (!csvText.empty()) {
-                context.runRecords.AddArtifact(TelemetryArtifactRecord{
-                    .name = "memory_trace",
-                    .mediaType = "text/csv",
-                    .preferredExtension = ".csv",
-                    .text = std::move(csvText),
-                });
-                context.AddInfo("TelemetryMemoryTrace", "prepared memory trace artifact");
-            }
+            RecordTelemetryMemoryTraceSummary(
+                context.runRecords,
+                memoryTrace.Summary());
         } else {
             context.AddWarning("TelemetryMemoryTrace", stopError);
         }

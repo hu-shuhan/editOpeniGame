@@ -187,12 +187,24 @@ public:
         const std::uint64_t logicalBytes,
         const TelemetryStageCategory category = TelemetryStageCategory::General,
         std::string scope = {}) {
+        RecordResourceUsage(
+            std::move(stageName),
+            MakeLogicalTelemetryResourceUsage(logicalBytes),
+            category,
+            std::move(scope));
+    }
+
+    void RecordResourceUsage(
+        std::string stageName,
+        TelemetryResourceUsage resource,
+        const TelemetryStageCategory category = TelemetryStageCategory::General,
+        std::string scope = {}) {
         TelemetryStageRecord stage{
             .name = std::move(stageName),
             .order = m_stageOrder.fetch_add(1u, std::memory_order_relaxed),
             .category = category,
             .scope = std::move(scope),
-            .resource = MakeLogicalTelemetryResourceUsage(logicalBytes),
+            .resource = std::move(resource),
         };
         Submit(
             RunRecordKind::ResourceUsage,

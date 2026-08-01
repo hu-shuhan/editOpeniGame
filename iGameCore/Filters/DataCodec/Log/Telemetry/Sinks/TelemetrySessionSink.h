@@ -20,16 +20,23 @@ inline constexpr RunRecordMask kTelemetrySessionRecordMask =
     RunRecordKind::ResourceUsage |
     RunRecordKind::Artifact;
 
+enum class TelemetrySessionDetail : std::uint8_t {
+    Full,
+    ProcessSummary,
+};
+
 class TelemetrySessionSink final : public IRunRecordSink {
 public:
     explicit TelemetrySessionSink(
         const RunRecordMask interests =
             kRunLifecycleRecordMask |
             RunRecordKind::Message,
-        const RunCollectionMask collectionRequests = 0u)
+        const RunCollectionMask collectionRequests = 0u,
+        const TelemetrySessionDetail detail = TelemetrySessionDetail::Full)
         : m_interests((interests & kTelemetrySessionRecordMask) |
               kRunLifecycleRecordMask),
-          m_collectionRequests(collectionRequests) {}
+          m_collectionRequests(collectionRequests),
+          m_detail(detail) {}
 
     [[nodiscard]] RunRecordMask Interests() const noexcept override {
         return m_interests;
@@ -95,6 +102,56 @@ public:
     }
 
 private:
+    [[nodiscard]] bool KeepStageTiming(
+        const TelemetryStageRecord& stage) const noexcept {
+        if (m_detail == TelemetrySessionDetail::Full) {
+            return true;
+        }
+        return stage.name.find('[') == std::string::npos &&
+            stage.name.find(".connectivity.") == std::string::npos &&
+            stage.name.find(".block_") == std::string::npos &&
+            stage.name.find(".component") == std::string::npos;
+    }
+
+    [[nodiscard]] bool KeepResourceUsage(
+        const TelemetryStageRecord& stage) const noexcept {
+        if (m_detail == TelemetrySessionDetail::Full) {
+            return true;
+        }
+        return stage.name.starts_with("memory.") ||
+            stage.name.find("peak_") != std::string::npos ||
+            stage.name.find("resident_limit_bytes") != std::string::npos ||
+            stage.name == "adapter.native_resident_bytes";
+    }
+
+    static void AddFoldedStageTiming(
+        TelemetrySession& session,
+        const TelemetryStageRecord& stage) {
+        auto category = stage.category;
+        if (category == TelemetryStageCategory::General) {
+            category = ResolveTelemetryStageCategory(stage.name);
+        }
+        const auto summaryName = std::string("folded.") +
+            TelemetryStageCategoryName(category);
+        const auto iterator = std::find_if(
+            session.stages.begin(),
+            session.stages.end(),
+            [&summaryName](const auto& existing) {
+                return existing.name == summaryName;
+            });
+        if (iterator == session.stages.end()) {
+            auto summary = stage;
+            summary.name = summaryName;
+            summary.category = category;
+            summary.scope.clear();
+            summary.sampleCount = std::max<std::uint64_t>(stage.sampleCount, 1u);
+            session.AddStageRecord(std::move(summary));
+            return;
+        }
+        iterator->elapsedMs = std::max(iterator->elapsedMs, stage.elapsedMs);
+        iterator->sampleCount += std::max<std::uint64_t>(stage.sampleCount, 1u);
+    }
+
     void Consume(const RunBeginRecord& record) {
         m_completedRunIds.erase(
             std::remove(
@@ -160,19 +217,27 @@ private:
 
     void Consume(const RunStageTimingRecord& record) {
         const auto iterator = m_sessions.find(record.runId);
-        if (iterator != m_sessions.end()) {
-            iterator->second.AddStageRecord(record.stage);
+        if (iterator == m_sessions.end()) {
+            return;
         }
+        if (KeepStageTiming(record.stage)) {
+            iterator->second.AddStageRecord(record.stage);
+            return;
+        }
+        AddFoldedStageTiming(iterator->second, record.stage);
     }
 
     void Consume(const RunResourceUsageRecord& record) {
         const auto iterator = m_sessions.find(record.runId);
-        if (iterator != m_sessions.end()) {
+        if (iterator != m_sessions.end() && KeepResourceUsage(record.stage)) {
             iterator->second.AddStageRecord(record.stage);
         }
     }
 
     void Consume(const RunArtifactRecord& record) {
+        if (m_detail == TelemetrySessionDetail::ProcessSummary) {
+            return;
+        }
         const auto iterator = m_sessions.find(record.runId);
         if (iterator != m_sessions.end()) {
             iterator->second.AddArtifact(record.artifact);
@@ -184,6 +249,7 @@ private:
 
     RunRecordMask m_interests{0u};
     RunCollectionMask m_collectionRequests{0u};
+    TelemetrySessionDetail m_detail{TelemetrySessionDetail::Full};
     mutable std::mutex m_mutex;
     std::unordered_map<std::uint64_t, TelemetrySession> m_sessions;
     std::vector<std::uint64_t> m_completedRunIds;

@@ -118,6 +118,12 @@ std::string_view EnglishMessage(const iGameDataCodecHostMessageId id) noexcept {
             return "Each feature supports at most 8 custom regions";
         case iGameDataCodecHostMessageId::CustomRegionStateUnavailable:
             return "The current region state is unavailable";
+        case iGameDataCodecHostMessageId::DecodeStageTiming:
+            return "Decode stage {stage}: {milliseconds} ms";
+        case iGameDataCodecHostMessageId::DecodeTime:
+            return "Decompression time: {milliseconds} ms";
+        case iGameDataCodecHostMessageId::WriteDecodeTelemetryFailed:
+            return "Failed to write decode telemetry data: {detail}";
     }
     return {};
 }
@@ -237,6 +243,12 @@ std::string_view SimplifiedChineseMessage(
             return "每个特征最多支持 8 个自定义区域";
         case iGameDataCodecHostMessageId::CustomRegionStateUnavailable:
             return "当前区域状态不可用";
+        case iGameDataCodecHostMessageId::DecodeStageTiming:
+            return "解码阶段 {stage}：{milliseconds} ms";
+        case iGameDataCodecHostMessageId::DecodeTime:
+            return "解压时间：{milliseconds} ms";
+        case iGameDataCodecHostMessageId::WriteDecodeTelemetryFailed:
+            return "无法写出解码检测数据：{detail}";
     }
     return {};
 }

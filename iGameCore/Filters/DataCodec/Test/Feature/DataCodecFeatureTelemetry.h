@@ -1,26 +1,24 @@
 #ifndef DATACODEC_TEST_FEATURE_DATACODECFEATURETELEMETRY_H
 #define DATACODEC_TEST_FEATURE_DATACODECFEATURETELEMETRY_H
 
-#include <DataCodec/Log/Telemetry/TelemetrySessionJson.h>
+#include <DataCodec/Log/Report/DataCodecProcessReportJson.h>
 #include <DataCodec/Log/Telemetry/Sinks/TelemetrySessionSink.h>
 #include <DataCodec/Runtime/Record/RunRecordEmitter.h>
+#include <DataCodec/Test/Assertions/ProcessReportAssertions.h>
 #include <DataCodec/Test/Common/DataCodecTestResult.h>
 
-#include <iostream>
+#include <cereal/external/rapidjson/document.h>
+
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace datacodec::test::feature_telemetry {
 
 using datacodec::test::Require;
 using datacodec::test::TestResult;
 
-inline void PrintResult(const TestResult& result) {
-    for (const auto& failure : result.failures) {
-        std::cerr << failure.check << ": " << failure.message << '\n';
-    }
-}
-
-inline bool TestInterestDrivenCollection() {
+inline TestResult TestInterestDrivenCollection() {
     TestResult result;
     TelemetrySessionSink statusSink;
     TelemetrySessionSink reportSink(
@@ -53,11 +51,10 @@ inline bool TestInterestDrivenCollection() {
     Require(result, !boundedSink.Wants(RunRecordKind::RemapOrder),
             "telemetry.interest.remap", "session sink should reject remap records");
 
-    PrintResult(result);
-    return result.passed;
+    return result;
 }
 
-inline bool TestSessionAndJsonSink() {
+inline TestResult TestSessionCaptureAndProcessReport() {
     TestResult result;
     TelemetrySessionSink sessionSink(
         kRunLifecycleRecordMask |
@@ -80,10 +77,10 @@ inline bool TestSessionAndJsonSink() {
     records.RecordStageTiming("TopoStage", 3.5, TelemetryStageCategory::Topology);
     records.RecordResourceUsage("AttrStage", 4096u, TelemetryStageCategory::Attribute);
     records.AddArtifact(TelemetryArtifactRecord{
-        .name = "memory_trace",
-        .mediaType = "text/csv",
-        .preferredExtension = ".csv",
-        .text = "elapsedMs,event\n0,begin\n",
+        .name = "diagnostic_note",
+        .mediaType = "text/plain",
+        .preferredExtension = ".txt",
+        .text = "telemetry artifact",
     });
     records.EndRun(RunEndRecord{
         .success = true,
@@ -103,28 +100,49 @@ inline bool TestSessionAndJsonSink() {
     Require(result, session.has_value(),
             "telemetry.session.present", "completed run should produce a session");
     if (session.has_value()) {
+        const std::vector<TelemetrySession> sessions{*session};
         Require(result, session->messages.size() == 1u,
                 "telemetry.session.messages", "session message count mismatch");
         Require(result, session->stages.size() == 2u,
                 "telemetry.session.stages", "session stage count mismatch");
         Require(result, session->artifacts.size() == 1u,
                 "telemetry.session.artifacts", "session artifact count mismatch");
-        const auto json = SerializeTelemetrySessionJson(*session);
+        Require(result, HasSerializableDataCodecProcessReport(sessions),
+                "telemetry.processReport.sharedAssertion",
+                "captured session should produce a valid process report");
+        auto processNodes = BuildTelemetryProcessNodes(
+            sessions,
+            TelemetryRunKind::Encode);
+        DataCodecProcessReport processReport{
+            .operation = TelemetryRunKind::Encode,
+            .generatedAtUtc = session->generatedAtUtc,
+            .objectName = session->objectName,
+            .success = session->success,
+            .elapsedMs = session->elapsedMs,
+            .inputBytes = session->inputBytes,
+            .outputBytes = session->outputBytes,
+            .processes = std::move(processNodes),
+        };
+        CompleteDataCodecProcessReportMemory(processReport);
+        const auto json = SerializeDataCodecProcessReportJson(processReport);
+        rapidjson::Document document;
+        document.Parse(json.data(), json.size());
+        Require(result, !document.HasParseError() && document.IsObject(),
+                "telemetry.processReport.validJson", "process report should be valid json");
         Require(result, json.find("telemetry-test") != std::string::npos,
-                "telemetry.json.object", "json should contain the object name");
-        Require(result, json.find("TopoStage") != std::string::npos,
-                "telemetry.json.stage", "json should contain stage timing");
-        Require(result, json.find("message") != std::string::npos,
-                "telemetry.json.message", "json should contain messages");
-        Require(result, json.find("memory_trace") != std::string::npos,
-                "telemetry.json.artifact", "json should contain artifact metadata");
+                "telemetry.processReport.object", "process report should contain the object name");
+        Require(result, json.find("\"Topology\"") != std::string::npos,
+                "telemetry.processReport.stage", "process report should contain grouped stage timing");
+        Require(result, json.find("diagnostic_note") == std::string::npos &&
+                json.find("telemetry artifact") == std::string::npos,
+                "telemetry.processReport.artifact",
+                "process report should not expose raw telemetry artifacts");
     }
 
-    PrintResult(result);
-    return result.passed;
+    return result;
 }
 
-inline bool TestStageCategoryResolution() {
+inline TestResult TestStageCategoryResolution() {
     TestResult result;
     Require(result, ResolveTelemetryStageCategory("ParamsEncodeStage") == TelemetryStageCategory::Params,
             "telemetry.category.params", "params stage category mismatch");
@@ -139,22 +157,28 @@ inline bool TestStageCategoryResolution() {
     Require(result, ResolveTelemetryStageCategory("DecodeCommitStage") == TelemetryStageCategory::Commit,
             "telemetry.category.commit", "commit stage category mismatch");
 
-    PrintResult(result);
-    return result.passed;
+    return result;
 }
 
 } // namespace datacodec::test::feature_telemetry
 
 namespace datacodec::test {
 
-inline int RunDataCodecFeatureTelemetry() {
-    if (!feature_telemetry::TestInterestDrivenCollection() ||
-        !feature_telemetry::TestSessionAndJsonSink() ||
-        !feature_telemetry::TestStageCategoryResolution()) {
-        return 1;
-    }
-    std::cout << "DataCodec telemetry feature tests passed\n";
-    return 0;
+inline TestResult RunDataCodecFeatureTelemetry() {
+    auto result = feature_telemetry::TestInterestDrivenCollection();
+    const auto appendResult = [&result](const TestResult& addition) {
+        if (!addition.passed) {
+            result.passed = false;
+            result.failures.insert(
+                result.failures.end(),
+                addition.failures.begin(),
+                addition.failures.end());
+        }
+        result.AppendDiagnostics(addition.diagnostics);
+    };
+    appendResult(feature_telemetry::TestSessionCaptureAndProcessReport());
+    appendResult(feature_telemetry::TestStageCategoryResolution());
+    return result;
 }
 
 } // namespace datacodec::test

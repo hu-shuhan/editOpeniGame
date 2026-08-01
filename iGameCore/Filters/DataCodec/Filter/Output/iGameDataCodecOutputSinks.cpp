@@ -219,9 +219,11 @@ iGameDataCodecReportFileSink::WriteReportFile(
     const auto stem = SanitizeFileComponent(report.name);
     const auto extension = NormalizeExtension(report.preferredExtension);
     auto path = m_directory / (stem + extension);
-    while (std::filesystem::exists(path, errorCode) && !errorCode) {
-        path = m_directory /
-            (stem + "_" + std::to_string(++m_nextIndex) + extension);
+    if (m_mode == iGameDataCodecReportFileMode::Unique) {
+        while (std::filesystem::exists(path, errorCode) && !errorCode) {
+            path = m_directory /
+                (stem + "_" + std::to_string(++m_nextIndex) + extension);
+        }
     }
     if (errorCode) {
         return {
@@ -250,6 +252,19 @@ iGameDataCodecReportFileSink::WriteReportFile(
         .success = true,
         .path = PathToUtf8(path),
     };
+}
+
+std::string iGameDataCodecReportFileSink::RemoveReportFile(
+    const std::string& name,
+    const std::string& preferredExtension) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const auto path = m_directory /
+        (SanitizeFileComponent(name) + NormalizeExtension(preferredExtension));
+    std::error_code errorCode;
+    std::filesystem::remove(path, errorCode);
+    return errorCode
+        ? "failed to remove stale report file: " + errorCode.message()
+        : std::string{};
 }
 
 IGAME_NAMESPACE_END

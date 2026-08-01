@@ -159,7 +159,9 @@ FrameSequenceDecodeResult DecodeFrameSequence(const FrameSequenceDecodeRequest& 
         return result;
     }
     timeFrames->SetFrameProvider(std::make_shared<DataCodecStreamingFrameProvider>(
-        std::move(playback), request.selectedFrameOrder));
+        std::move(playback),
+        request.selectedFrameOrder,
+        request.enableConsoleLog));
     root->SetTimeFrames(timeFrames);
     result.success = true;
     result.output = root;

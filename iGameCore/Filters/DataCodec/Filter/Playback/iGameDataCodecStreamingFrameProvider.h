@@ -16,7 +16,8 @@ class DataCodecStreamingFrameProvider final : public IStreamingFrameProvider {
 public:
     DataCodecStreamingFrameProvider(
             std::shared_ptr<::datacodec::PlaybackSession> session,
-            std::vector<std::uint32_t> playbackFrameOrder);
+            std::vector<std::uint32_t> playbackFrameOrder,
+            bool enableConsoleLog);
 
     [[nodiscard]] std::vector<Object::Pointer> RequestFrame(unsigned int ordinal) override;
     void NotifyFramePresented(unsigned int ordinal) override;
@@ -27,6 +28,7 @@ public:
 private:
     std::shared_ptr<::datacodec::PlaybackSession> m_session;
     std::vector<std::uint32_t> m_playbackFrameOrder;
+    bool m_enableConsoleLog{true};
     std::atomic_uint m_currentOrdinal{std::numeric_limits<unsigned int>::max()};
 };
 

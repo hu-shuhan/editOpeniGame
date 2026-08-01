@@ -308,9 +308,6 @@ private:
         const iGame::DataObject::Pointer& decoded,
         const ::datacodec::log::AdapterSignatureOrderSet& orderSet);
     static QStringList buildPrecisionStatusLines(const QVector<PrecisionFieldReport>& reports);
-    static QString buildPrecisionReportText(
-        const QVector<PrecisionFieldReport>& reports,
-        const QString& compressorName);
     double precisionValueForMode(const RegionItem& region, int mode) const;
     void setPrecisionValueForMode(RegionItem& region, int mode, double value) const;
     double normalizedPrecisionValue(int fieldIndex, int mode, double value) const;

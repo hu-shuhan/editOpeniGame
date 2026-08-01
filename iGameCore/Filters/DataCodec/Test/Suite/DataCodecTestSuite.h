@@ -10,6 +10,7 @@
 #include "DataCodec/Test/Feature/DataCodecFeaturePipelineContracts.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureReferenceCodecs.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureRegionPrecision.h"
+#include "DataCodec/Test/Feature/DataCodecFeatureTelemetry.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureTopologyObserver.h"
 #include "DataCodec/Test/Feature/DataCodecFeatureValidation.h"
 
@@ -37,6 +38,7 @@ namespace datacodec::test {
     appendResult(RunDataCodecFeatureOutputSinks());
     appendResult(RunDataCodecFeaturePackageIdentity());
     appendResult(RunDataCodecFeatureRegionPrecision());
+    appendResult(RunDataCodecFeatureTelemetry());
     appendResult(RunDataCodecFeatureTopologyObserver());
     appendResult(RunDataCodecFeatureValidation());
     return result;

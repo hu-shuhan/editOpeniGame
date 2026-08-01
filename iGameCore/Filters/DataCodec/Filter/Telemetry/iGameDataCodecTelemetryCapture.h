@@ -21,13 +21,16 @@ public:
 
     void CaptureSessions(
         const ::datacodec::RunRecordMask interests,
-        const ::datacodec::RunCollectionMask collectionRequests = 0u) {
+        const ::datacodec::RunCollectionMask collectionRequests = 0u,
+        const ::datacodec::TelemetrySessionDetail detail =
+            ::datacodec::TelemetrySessionDetail::Full) {
         if (m_sessionCapture != nullptr) {
             return;
         }
         m_sessionCapture = std::make_shared<::datacodec::TelemetrySessionSink>(
             interests,
-            collectionRequests);
+            collectionRequests,
+            detail);
         m_dispatcher->AddSink(m_sessionCapture);
     }
 

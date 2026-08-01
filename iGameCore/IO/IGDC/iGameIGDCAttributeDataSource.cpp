@@ -50,7 +50,11 @@ bool IGDCAttributeDataSource::Open(const std::string& filePath, std::string* err
         .controlParams = &definition.controlParams,
         .executionOptions = &definition.execution,
         .configurationSource = &definition.source,
-        .runRecordSink = MakeiGameDataCodecOutputRecordSink({}, {}, true),
+        .runRecordSink = MakeiGameDataCodecOutputRecordSink(
+            {},
+            {},
+            true,
+            definition.logging.enableConsoleLog),
     });
     if (!result.success || result.output == nullptr) {
         if (error != nullptr) {

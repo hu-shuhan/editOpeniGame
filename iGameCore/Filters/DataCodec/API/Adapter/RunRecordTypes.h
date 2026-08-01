@@ -128,6 +128,9 @@ struct TelemetryResourceUsage {
     std::uint64_t logicalBytes{0};
     std::uint64_t privateBytes{0};
     std::uint64_t workingSetBytes{0};
+    std::uint64_t workingSetBeforeBytes{0};
+    std::uint64_t workingSetAfterBytes{0};
+    std::uint64_t peakWorkingSetBytes{0};
 };
 
 inline TelemetryResourceUsage MakeLogicalTelemetryResourceUsage(const std::uint64_t logicalBytes) {
@@ -140,6 +143,7 @@ inline TelemetryResourceUsage MakeLogicalTelemetryResourceUsage(const std::uint6
 struct TelemetryStageRecord {
     std::string name;
     std::uint64_t order{0};
+    std::uint64_t sampleCount{1u};
     double elapsedMs{0.0};
     TelemetryStageCategory category{TelemetryStageCategory::General};
     std::string scope;

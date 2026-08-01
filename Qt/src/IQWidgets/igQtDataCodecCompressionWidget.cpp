@@ -36,7 +36,6 @@
 #include <QStyledItemDelegate>
 #include <QStyleOptionViewItem>
 #include <QStringList>
-#include <QTextStream>
 #include <QThread>
 #include <QVariant>
 #include <QVBoxLayout>
@@ -51,8 +50,9 @@
 #include <DataCodec/API/Params/ReferenceControlParams.h>
 #include <DataCodec/Log/Analysis/AdapterPrecisionMetrics.h>
 #include <DataCodec/Filter/Adapter/iGameBlockTreeAdapter.h>
-#include <DataCodec/Log/Telemetry/TelemetrySessionJson.h>
+#include <DataCodec/Log/Report/DataCodecProcessReportJson.h>
 #include <FeatureExtraction/iGameRegionFeatureBasisFilter.h>
+#include <IGDC/iGameDataCodecIOSettings.h>
 #include <IGDC/iGameIGDCReader.h>
 #include <IGDC/iGameIGDCWriter.h>
 #include <IQWidgets/igQtDataCodecUiSink.h>
@@ -67,6 +67,7 @@
 #include <cstdint>
 #include <functional>
 #include <filesystem>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <map>
@@ -332,54 +333,54 @@ QString dataCodecHostLogText(
     return QString::fromUtf8(text.data(), static_cast<int>(text.size()));
 }
 
-bool writeTelemetryArtifacts(
+struct DataCodecRunReportWriteResult {
+    bool success{false};
+    QStringList writtenPaths;
+    std::string error;
+};
+
+DataCodecRunReportWriteResult writeDataCodecRunReports(
                              const std::shared_ptr<iGame::iGameDataCodecReportFileSink>& reportSink,
-                             const QString& telemetryStem,
-                             const std::vector<::datacodec::TelemetrySession>& sessions,
-                             QStringList* writtenPaths) {
+                             const std::string& reportFileTimestamp,
+                             const ::datacodec::DataCodecProcessReport& processReport,
+                             const std::optional<::datacodec::DataCodecErrorReport>& errorReport) {
+    DataCodecRunReportWriteResult outcome;
     if (reportSink == nullptr) {
-        return false;
+        outcome.error = "report sink is unavailable";
+        return outcome;
     }
-    int artifactIndex = 0;
-    int sessionIndex = 0;
-    for (const auto& session : sessions) {
-        const auto sessionResult = reportSink->WriteReportFile({
-            .name = toUtf8StdString(
-                QStringLiteral("%1_%2")
-                    .arg(sessionIndex, 2, 10, QLatin1Char('0'))
-                    .arg(telemetryStem)),
+    const auto operationName = std::string(
+        ::datacodec::TelemetryRunKindName(processReport.operation));
+    const auto processResult = reportSink->WriteReportFile({
+        .name = operationName + "_process_" + reportFileTimestamp,
+        .mediaType = "application/json",
+        .preferredExtension = ".json",
+        .content = ::datacodec::SerializeDataCodecProcessReportJson(processReport),
+    });
+    if (!processResult.success) {
+        outcome.error = processResult.error.empty()
+            ? "failed to write process report"
+            : processResult.error;
+        return outcome;
+    }
+    outcome.writtenPaths.push_back(QString::fromUtf8(processResult.path.c_str()));
+    if (errorReport.has_value() && !errorReport->errors.empty()) {
+        const auto errorResult = reportSink->WriteReportFile({
+            .name = operationName + "_errors_" + reportFileTimestamp,
             .mediaType = "application/json",
             .preferredExtension = ".json",
-            .content = ::datacodec::SerializeTelemetrySessionJson(session),
+            .content = ::datacodec::SerializeDataCodecErrorReportJson(*errorReport),
         });
-        if (!sessionResult.success) {
-            return false;
+        if (!errorResult.success) {
+            outcome.error = errorResult.error.empty()
+                ? "failed to write error report"
+                : errorResult.error;
+            return outcome;
         }
-        if (writtenPaths != nullptr) {
-            writtenPaths->push_back(QString::fromUtf8(sessionResult.path.c_str()));
-        }
-        ++sessionIndex;
-
-        for (const auto& artifact : session.artifacts) {
-            if (artifact.text.empty()) {
-                continue;
-            }
-            const auto artifactResult = reportSink->WriteReportFile({
-                .name = std::to_string(artifactIndex) + "_" + artifact.name,
-                .mediaType = artifact.mediaType,
-                .preferredExtension = artifact.preferredExtension,
-                .content = artifact.text,
-            });
-            if (!artifactResult.success) {
-                return false;
-            }
-            if (writtenPaths != nullptr) {
-                writtenPaths->push_back(QString::fromUtf8(artifactResult.path.c_str()));
-            }
-            ++artifactIndex;
-        }
+        outcome.writtenPaths.push_back(QString::fromUtf8(errorResult.path.c_str()));
     }
-    return true;
+    outcome.success = true;
+    return outcome;
 }
 
 qint64 sourceFileSizeFromDataObject(const iGame::DataObject::Pointer& dataObject) {
@@ -390,8 +391,16 @@ qint64 sourceFileSizeFromDataObject(const iGame::DataObject::Pointer& dataObject
     return sourceInfo.isFile() ? sourceInfo.size() : -1;
 }
 
-iGame::DataObject::Pointer readDataCodecOutput(const QString& path, QString* error) {
+iGame::DataObject::Pointer readDataCodecOutput(
+        const QString& path,
+        QString* error,
+        std::shared_ptr<::datacodec::IRunRecordSink> telemetrySink) {
     auto reader = iGame::IGDCReader::New();
+    auto options = iGame::DataCodecIOSettings::GetDefaultDecodeOptions();
+    options.logging.enableFileLog = false;
+    options.logging.enableConsoleLog = false;
+    reader->SetDecodeOptions(options);
+    reader->SetTelemetrySink(std::move(telemetrySink));
     reader->SetFilePath(toUtf8StdString(path));
     if (!reader->Execute()) {
         QStringList messages;
@@ -414,36 +423,6 @@ iGame::DataObject::Pointer readDataCodecOutput(const QString& path, QString* err
 QString formatPrecisionMetric(double value) {
     if (!std::isfinite(value)) return QStringLiteral("无法计算");
     return QString::number(value, 'g', 8);
-}
-
-std::string buildCompressionReportText(
-                            qint64 beforeBytes,
-                            qint64 afterBytes,
-                            qint64 elapsedMs,
-                            const QString& ratio,
-                            const QString& outputPath,
-                            const QString& precisionReport,
-                            const std::vector<::datacodec::TelemetryMessageRecord>& messages) {
-    QString reportText;
-    QTextStream stream(&reportText);
-    stream << QStringLiteral("DataCodec 压缩报告\n");
-    stream << QStringLiteral("输出文件：") << outputPath << '\n';
-    stream << QStringLiteral("压缩前文件大小：") << formatByteSize(beforeBytes) << '\n';
-    stream << QStringLiteral("压缩后文件大小：") << formatByteSize(afterBytes) << '\n';
-    stream << QStringLiteral("压缩后大小占比：") << ratio << '\n';
-    stream << QStringLiteral("压缩时间：") << elapsedMs << QStringLiteral(" ms\n");
-    if (!precisionReport.isEmpty()) {
-        stream << '\n' << precisionReport << '\n';
-    }
-    stream << '\n' << QStringLiteral("详细信息\n");
-    if (messages.empty()) {
-        stream << QStringLiteral("无\n");
-    } else {
-        for (const auto& message : messages) {
-            stream << QString::fromStdString(message.text) << '\n';
-        }
-    }
-    return toUtf8StdString(reportText);
 }
 
 void configurePrecisionSpin(QDoubleSpinBox* spin) {
@@ -2340,9 +2319,42 @@ void igQtDataCodecCompressionWidget::startEncode() {
         }
     }
     std::shared_ptr<iGame::iGameDataCodecReportFileSink> reportSink;
+    std::string reportFileTimestamp;
     if (outputPerformance) {
         reportSink = std::make_shared<iGame::iGameDataCodecReportFileSink>(
-            std::filesystem::u8path(toUtf8StdString(reportDirectory)));
+            std::filesystem::u8path(toUtf8StdString(reportDirectory)),
+            iGame::iGameDataCodecReportFileMode::Replace);
+        reportFileTimestamp = ::datacodec::MakeDataCodecReportFileTimestampUtc();
+        const ::datacodec::DataCodecProcessReport runningReport{
+            .operation = ::datacodec::TelemetryRunKind::Encode,
+            .generatedAtUtc = toUtf8StdString(
+                QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)),
+            .objectName = toUtf8StdString(outputInfo.fileName()),
+            .completed = false,
+            .success = false,
+            .details = {
+                {"outputPath", toUtf8StdString(outputPath)},
+            },
+            .processes = {
+                ::datacodec::DataCodecProcessNode{
+                    .name = "EncodeData",
+                    .completed = false,
+                },
+            },
+        };
+        const auto runningReportResult = writeDataCodecRunReports(
+            reportSink,
+            reportFileTimestamp,
+            runningReport,
+            std::nullopt);
+        if (!runningReportResult.success) {
+            publishStatus(
+                dataCodecHostLogText(
+                    m_dataCodecLanguage,
+                    iGame::iGameDataCodecHostMessageId::WriteReportFailed),
+                ::datacodec::DataCodecStatusSeverity::Error);
+            return;
+        }
     }
 
     ::datacodec::DataCodecEncodeOptions options;
@@ -2362,7 +2374,6 @@ void igQtDataCodecCompressionWidget::startEncode() {
     writer->SetAttributeTargets(selectedAttributeTargets());
     auto definition = ::datacodec::MakeEncodeConfigurationParams(options);
     definition.language = m_dataCodecLanguage;
-    definition.source.customControlParams = true;
     applyCompressionControlToDataCodec(definition.controlParams);
     writer->SetEncodeControls(definition);
     QPointer<igQtDataCodecCompressionWidget> self(this);
@@ -2392,7 +2403,10 @@ void igQtDataCodecCompressionWidget::startEncode() {
             ::datacodec::RunCollectionKind::MemoryTrace);
         telemetryCapture.CaptureRemapOrders();
     }
-    telemetryCapture.CaptureSessions(sessionInterests, collectionRequests);
+    telemetryCapture.CaptureSessions(
+        sessionInterests,
+        collectionRequests,
+        ::datacodec::TelemetrySessionDetail::ProcessSummary);
     writer->SetTelemetrySink(telemetryCapture.Sink());
     const qint64 initialBeforeBytes = outputPerformance ? sourceFileSizeFromDataObject(dataObject) : -1;
     QVector<NumericFieldItem> precisionFields;
@@ -2433,185 +2447,442 @@ void igQtDataCodecCompressionWidget::startEncode() {
         outputPath,
         outputPerformance,
         reportSink,
+        reportFileTimestamp,
         initialBeforeBytes,
         precisionFields,
         compressorName,
         logLanguage = m_dataCodecLanguage,
-        telemetryStem = outputInfo.completeBaseName() + QStringLiteral("_telemetry"),
         telemetryCapture,
         complete = std::move(complete)]() mutable {
         qint64 beforeBytes = initialBeforeBytes;
-        QElapsedTimer timer;
-        timer.start();
-        const bool ok = writer->WriteToFile(dataObject, toUtf8StdString(outputPath));
-        const qint64 elapsedMs = timer.elapsed();
-
-        const auto writerPaths = writer->GetWrittenFilePaths();
         QStringList writtenPaths;
         qint64 totalWrittenBytes = 0;
-        bool allOutputsValid = !writerPaths.empty();
-        for (const auto& writerPath: writerPaths) {
-            const QFileInfo info(QString::fromUtf8(writerPath.c_str()));
-            if (!info.isFile() || info.size() <= 0) {
-                allOutputsValid = false;
-                break;
-            }
-            writtenPaths.push_back(info.filePath());
-            totalWrittenBytes += info.size();
-        }
-        const QString writtenPath = writtenPaths.isEmpty()
-            ? resolveWrittenDataCodecPath(outputPath)
-            : writtenPaths.front();
-        const QFileInfo writtenInfo(writtenPath);
-        const auto recordMessages = telemetryCapture.SnapshotMessages();
-        const auto telemetrySessions = telemetryCapture.SnapshotCompletedTelemetrySessions();
-        if (outputPerformance && beforeBytes <= 0) {
-            std::uint64_t sourceBytes = 0u;
-            std::uint64_t inputBytes = 0u;
-            for (const auto& session : telemetrySessions) {
-                sourceBytes += session.sourceBytes;
-                inputBytes += session.inputBytes;
-            }
-            if (sourceBytes > 0u) {
-                beforeBytes = static_cast<qint64>(sourceBytes);
-            } else if (inputBytes > 0u) {
-                beforeBytes = static_cast<qint64>(inputBytes);
-            }
-        }
+        qint64 encodeElapsedMs = 0;
+        bool encodeSucceeded = false;
+        QString writtenPath = outputPath;
 
-        if (!ok || !allOutputsValid || !writtenInfo.isFile() || writtenInfo.size() <= 0) {
-            QStringList failureMessages;
-            for (const auto& message : recordMessages) {
-                if (message.severity != ::datacodec::TelemetryMessageSeverity::Error ||
-                    message.text.empty()) {
-                    continue;
+        const auto writeEncodeReports = [&outputPerformance,
+                                         &reportSink,
+                                         &reportFileTimestamp,
+                                         &telemetryCapture,
+                                         &beforeBytes,
+                                         &totalWrittenBytes,
+                                         &encodeElapsedMs,
+                                         &encodeSucceeded,
+                                         &writtenPath,
+                                         &compressorName](
+                const bool reportSuccess,
+                std::vector<::datacodec::DataCodecProcessNode> additionalProcesses,
+                std::vector<::datacodec::TelemetryMessageRecord> additionalMessages,
+                std::string fallbackError) {
+            DataCodecRunReportWriteResult skipped{.success = true};
+            if (!outputPerformance) {
+                return skipped;
+            }
+            const auto sessions = telemetryCapture.SnapshotCompletedTelemetrySessions();
+            auto messages = telemetryCapture.SnapshotMessages();
+            messages.insert(
+                messages.end(),
+                std::make_move_iterator(additionalMessages.begin()),
+                std::make_move_iterator(additionalMessages.end()));
+            if (beforeBytes <= 0) {
+                std::uint64_t sourceBytes = 0u;
+                std::uint64_t inputBytes = 0u;
+                for (const auto& session : sessions) {
+                    if (session.runKind != ::datacodec::TelemetryRunKind::Encode) {
+                        continue;
+                    }
+                    sourceBytes = std::max(sourceBytes, session.sourceBytes);
+                    inputBytes = std::max(inputBytes, session.inputBytes);
                 }
-                failureMessages.push_back(
-                    dataCodecHostLogText(
+                beforeBytes = static_cast<qint64>(
+                    sourceBytes > 0u ? sourceBytes : inputBytes);
+            }
+            auto generatedAtUtc = toUtf8StdString(
+                QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+            const auto firstEncodeSession = std::find_if(
+                sessions.begin(),
+                sessions.end(),
+                [](const auto& session) {
+                    return session.runKind == ::datacodec::TelemetryRunKind::Encode &&
+                        !session.generatedAtUtc.empty();
+                });
+            if (firstEncodeSession != sessions.end()) {
+                generatedAtUtc = firstEncodeSession->generatedAtUtc;
+            }
+            ::datacodec::DataCodecProcessNode encodeProcess{
+                .name = "EncodeData",
+                .success = encodeSucceeded,
+                .elapsedMs = static_cast<double>(encodeElapsedMs),
+                .inputBytes = static_cast<std::uint64_t>(std::max<qint64>(beforeBytes, 0)),
+                .outputBytes = static_cast<std::uint64_t>(std::max<qint64>(totalWrittenBytes, 0)),
+                .children = ::datacodec::BuildTelemetryProcessNodes(
+                    sessions,
+                    ::datacodec::TelemetryRunKind::Encode),
+            };
+            ::datacodec::CompleteDataCodecProcessNodeMemory(encodeProcess);
+            ::datacodec::DataCodecProcessReport processReport{
+                .operation = ::datacodec::TelemetryRunKind::Encode,
+                .generatedAtUtc = generatedAtUtc,
+                .objectName = QFileInfo(writtenPath).fileName().toUtf8().toStdString(),
+                .success = reportSuccess,
+                .elapsedMs = static_cast<double>(encodeElapsedMs),
+                .inputBytes = static_cast<std::uint64_t>(std::max<qint64>(beforeBytes, 0)),
+                .outputBytes = static_cast<std::uint64_t>(std::max<qint64>(totalWrittenBytes, 0)),
+                .details = {
+                    {"outputPath", toUtf8StdString(writtenPath)},
+                    {"compressor", toUtf8StdString(compressorName)},
+                },
+            };
+            processReport.processes.push_back(std::move(encodeProcess));
+            for (auto& process : additionalProcesses) {
+                processReport.elapsedMs += process.elapsedMs;
+                processReport.processes.push_back(std::move(process));
+            }
+            ::datacodec::CompleteDataCodecProcessReportMemory(processReport);
+            std::optional<::datacodec::DataCodecErrorReport> errorReport;
+            if (!reportSuccess) {
+                auto builtErrorReport = ::datacodec::BuildDataCodecErrorReport(
+                    ::datacodec::TelemetryRunKind::Encode,
+                    generatedAtUtc,
+                    processReport.objectName,
+                    sessions,
+                    messages,
+                    std::move(fallbackError));
+                for (auto& error : builtErrorReport.errors) {
+                    if (error.code == "encode.verification.decode") {
+                        error.phasePath = {"Encode", "Verification", "DecodeOutput"};
+                    } else if (error.code == "encode.verification.precision") {
+                        error.phasePath = {"Encode", "Verification", "PrecisionCompare"};
+                    }
+                }
+                errorReport = std::move(builtErrorReport);
+            }
+            return writeDataCodecRunReports(
+                reportSink,
+                reportFileTimestamp,
+                processReport,
+                errorReport);
+        };
+
+        try {
+            QElapsedTimer encodeTimer;
+            encodeTimer.start();
+            const bool ok = writer->WriteToFile(dataObject, toUtf8StdString(outputPath));
+            encodeElapsedMs = encodeTimer.elapsed();
+
+            const auto writerPaths = writer->GetWrittenFilePaths();
+            bool allOutputsValid = !writerPaths.empty();
+            for (const auto& writerOutputPath: writerPaths) {
+                const QFileInfo info(QString::fromUtf8(writerOutputPath.c_str()));
+                if (!info.isFile() || info.size() <= 0) {
+                    allOutputsValid = false;
+                    break;
+                }
+                writtenPaths.push_back(info.filePath());
+                totalWrittenBytes += info.size();
+            }
+            writtenPath = writtenPaths.isEmpty()
+                ? resolveWrittenDataCodecPath(outputPath)
+                : writtenPaths.front();
+            const QFileInfo writtenInfo(writtenPath);
+            encodeSucceeded = ok && allOutputsValid &&
+                writtenInfo.isFile() && writtenInfo.size() > 0;
+
+            if (!encodeSucceeded) {
+                const auto recordMessages = telemetryCapture.SnapshotMessages();
+                const auto reportOutcome = writeEncodeReports(
+                    false,
+                    {},
+                    {},
+                    "encoding did not produce a valid output file");
+                QStringList failureMessages;
+                for (const auto& message : recordMessages) {
+                    if (message.severity != ::datacodec::TelemetryMessageSeverity::Error ||
+                        message.text.empty()) {
+                        continue;
+                    }
+                    failureMessages.push_back(dataCodecHostLogText(
                         logLanguage,
                         iGame::iGameDataCodecHostMessageId::CompressionFailedWithDetail,
                         {{"detail", message.text}}));
-            }
-            failureMessages.removeDuplicates();
-            if (failureMessages.isEmpty()) {
-                failureMessages.push_back(
-                    dataCodecHostLogText(
+                }
+                failureMessages.removeDuplicates();
+                if (failureMessages.isEmpty()) {
+                    failureMessages.push_back(dataCodecHostLogText(
                         logLanguage,
                         iGame::iGameDataCodecHostMessageId::CompressionNoOutputFile));
+                }
+                if (!reportOutcome.success) {
+                    failureMessages.push_back(dataCodecHostLogText(
+                        logLanguage,
+                        iGame::iGameDataCodecHostMessageId::WriteReportFailed));
+                }
+                complete(
+                    std::move(failureMessages),
+                    ::datacodec::DataCodecStatusSeverity::Error);
+                return;
+            }
+
+            QStringList messages;
+            if (outputPerformance) {
+                const qint64 afterBytes = totalWrittenBytes;
+                const QString compressionRatio = formatCompressionRatio(beforeBytes, afterBytes);
+                QString decodeError;
+                QElapsedTimer decodeTimer;
+                decodeTimer.start();
+                auto decodedObject = readDataCodecOutput(
+                    writtenInfo.filePath(),
+                    &decodeError,
+                    telemetryCapture.Sink());
+                const qint64 decodeElapsedMs = decodeTimer.elapsed();
+                const auto remapOrders = telemetryCapture.TakeRemapOrders();
+                ::datacodec::log::AdapterSignatureOrderSet orderSet;
+                orderSet.pointOrders = remapOrders.pointOrders;
+                orderSet.cellOrders = remapOrders.cellOrders;
+                QElapsedTimer precisionTimer;
+                precisionTimer.start();
+                auto precisionReports = buildPrecisionReports(
+                    precisionFields,
+                    dataObject,
+                    decodedObject,
+                    orderSet);
+                const qint64 precisionElapsedMs = precisionTimer.elapsed();
+                if (!decodeError.isEmpty()) {
+                    for (auto& report : precisionReports) {
+                        report.ok = false;
+                        report.error = decodeError;
+                    }
+                }
+                const QStringList precisionStatusLines = buildPrecisionStatusLines(precisionReports);
+                const auto failedPrecisionCount = static_cast<std::size_t>(std::count_if(
+                    precisionReports.begin(),
+                    precisionReports.end(),
+                    [](const auto& report) { return !report.ok; }));
+                std::uint64_t checkedValueCount = 0u;
+                double maxAbsoluteError = 0.0;
+                double maxRmsAbsoluteError = 0.0;
+                double maxPointRelativeError = 0.0;
+                double maxRangeRelativeError = 0.0;
+                bool hasRangeRelativeError = false;
+                for (const auto& report : precisionReports) {
+                    if (report.ok) {
+                        const auto elementCount = static_cast<std::uint64_t>(report.elementCount);
+                        const auto componentCount = static_cast<std::uint64_t>(
+                            std::max(report.componentCount, 0));
+                        const auto maximumCount = std::numeric_limits<std::uint64_t>::max();
+                        const auto fieldValueCount = componentCount > 0u &&
+                                elementCount <= maximumCount / componentCount
+                            ? elementCount * componentCount
+                            : maximumCount;
+                        checkedValueCount = fieldValueCount <= maximumCount - checkedValueCount
+                            ? checkedValueCount + fieldValueCount
+                            : maximumCount;
+                        maxAbsoluteError = std::max(
+                            maxAbsoluteError,
+                            report.maxAbsError);
+                        maxRmsAbsoluteError = std::max(
+                            maxRmsAbsoluteError,
+                            report.rmsAbsError);
+                        maxPointRelativeError = std::max(
+                            maxPointRelativeError,
+                            report.maxPointRelativeError);
+                        if (report.hasRangeRelativeError) {
+                            hasRangeRelativeError = true;
+                            maxRangeRelativeError = std::max(
+                                maxRangeRelativeError,
+                                report.rangeRelativeError);
+                        }
+                    }
+                }
+                const bool decodeSucceeded = decodedObject != nullptr && decodeError.isEmpty();
+                const bool precisionSucceeded = failedPrecisionCount == 0u;
+                ::datacodec::DataCodecProcessNode decodeProcess{
+                    .name = "DecodeOutput",
+                    .success = decodeSucceeded,
+                    .elapsedMs = static_cast<double>(decodeElapsedMs),
+                    .inputBytes = static_cast<std::uint64_t>(std::max<qint64>(afterBytes, 0)),
+                    .children = ::datacodec::BuildTelemetryProcessNodes(
+                        telemetryCapture.SnapshotCompletedTelemetrySessions(),
+                        ::datacodec::TelemetryRunKind::Decode),
+                };
+                ::datacodec::CompleteDataCodecProcessNodeMemory(decodeProcess);
+                ::datacodec::DataCodecProcessNode precisionProcess{
+                    .name = "PrecisionCompare",
+                    .success = precisionSucceeded,
+                    .elapsedMs = static_cast<double>(precisionElapsedMs),
+                    .details = {
+                        {"fieldCount", static_cast<std::uint64_t>(precisionReports.size())},
+                        {"failedFieldCount", static_cast<std::uint64_t>(failedPrecisionCount)},
+                        {"checkedValueCount", checkedValueCount},
+                        {"maxAbsoluteError", maxAbsoluteError},
+                        {"maxRmsAbsoluteError", maxRmsAbsoluteError},
+                        {"maxPointRelativeError", maxPointRelativeError},
+                        {"hasRangeRelativeError", hasRangeRelativeError},
+                        {"maxRangeRelativeError", maxRangeRelativeError},
+                    },
+                };
+                ::datacodec::DataCodecProcessNode verificationProcess{
+                    .name = "Verification",
+                    .success = decodeSucceeded && precisionSucceeded,
+                    .elapsedMs = static_cast<double>(decodeElapsedMs + precisionElapsedMs),
+                    .children = {
+                        std::move(decodeProcess),
+                        std::move(precisionProcess),
+                    },
+                };
+                ::datacodec::CompleteDataCodecProcessNodeMemory(verificationProcess);
+
+                std::vector<::datacodec::TelemetryMessageRecord> verificationErrors;
+                if (!decodeSucceeded) {
+                    verificationErrors.push_back({
+                        .severity = ::datacodec::TelemetryMessageSeverity::Error,
+                        .origin = "EncodeVerification",
+                        .code = "encode.verification.decode",
+                        .language = logLanguage,
+                        .text = "编码输出验证解码失败",
+                        .technicalDetail = toUtf8StdString(decodeError),
+                    });
+                }
+                if (!precisionSucceeded) {
+                    const auto firstFailure = std::find_if(
+                        precisionReports.begin(),
+                        precisionReports.end(),
+                        [](const auto& report) { return !report.ok; });
+                    std::string detail = "failedFieldCount=" +
+                        std::to_string(failedPrecisionCount);
+                    if (firstFailure != precisionReports.end()) {
+                        detail += "; firstField=" + toUtf8StdString(firstFailure->fieldName) +
+                            "; reason=" + toUtf8StdString(firstFailure->error);
+                    }
+                    verificationErrors.push_back({
+                        .severity = ::datacodec::TelemetryMessageSeverity::Error,
+                        .origin = "EncodeVerification",
+                        .code = "encode.verification.precision",
+                        .language = logLanguage,
+                        .text = "编码输出精度验证失败",
+                        .technicalDetail = std::move(detail),
+                    });
+                }
+                const auto reportOutcome = writeEncodeReports(
+                    verificationProcess.success,
+                    {std::move(verificationProcess)},
+                    std::move(verificationErrors),
+                    "encoding verification failed without a detailed error record");
+                if (!reportOutcome.success) {
+                    complete(
+                        {dataCodecHostLogText(
+                            logLanguage,
+                            iGame::iGameDataCodecHostMessageId::WriteReportFailed)},
+                        ::datacodec::DataCodecStatusSeverity::Error);
+                    return;
+                }
+
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::CompressionReportBegin));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::SizeBeforeCompression,
+                    {{"size", toUtf8StdString(formatByteSize(beforeBytes))}}));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::SizeAfterCompression,
+                    {{"size", toUtf8StdString(formatByteSize(afterBytes))}}));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::CompressedSizeRatio,
+                    {{"ratio", toUtf8StdString(compressionRatio)}}));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::CompressionTime,
+                    {{"milliseconds", std::to_string(encodeElapsedMs)}}));
+                messages.append(precisionStatusLines);
+                for (const QString& path : reportOutcome.writtenPaths) {
+                    messages.push_back(dataCodecHostLogText(
+                        logLanguage,
+                        iGame::iGameDataCodecHostMessageId::TelemetryDataPath,
+                        {{"path", toUtf8StdString(path)}}));
+                }
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::CompressionReportEnd));
+            }
+            if (writtenPaths.size() > 1) {
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::SequenceOutputCount,
+                    {{"count", std::to_string(writtenPaths.size())}}));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::FirstFrameFile,
+                    {{"path", toUtf8StdString(writtenPaths.front())}}));
+                messages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::LastFrameFile,
+                    {{"path", toUtf8StdString(writtenPaths.back())}}));
+            }
+            complete(std::move(messages));
+        } catch (const std::exception& exception) {
+            std::vector<::datacodec::TelemetryMessageRecord> errors{
+                {
+                    .severity = ::datacodec::TelemetryMessageSeverity::Critical,
+                    .origin = "EncodeWorker",
+                    .code = "encode.worker.exception",
+                    .language = logLanguage,
+                    .text = "编码任务发生未处理异常",
+                    .technicalDetail = exception.what(),
+                },
+            };
+            const auto reportOutcome = writeEncodeReports(
+                false,
+                {},
+                std::move(errors),
+                exception.what());
+            QStringList failureMessages{
+                dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::CompressionFailedWithDetail,
+                    {{"detail", exception.what()}}),
+            };
+            if (!reportOutcome.success) {
+                failureMessages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::WriteReportFailed));
             }
             complete(
                 std::move(failureMessages),
                 ::datacodec::DataCodecStatusSeverity::Error);
-            return;
-        }
-
-        QStringList messages;
-        if (outputPerformance) {
-            const qint64 afterBytes = totalWrittenBytes;
-            const QString compressionRatio = formatCompressionRatio(beforeBytes, afterBytes);
-            QString decodeError;
-            auto decodedObject = readDataCodecOutput(writtenInfo.filePath(), &decodeError);
-            const auto remapOrders = telemetryCapture.TakeRemapOrders();
-            ::datacodec::log::AdapterSignatureOrderSet orderSet;
-            orderSet.pointOrders = remapOrders.pointOrders;
-            orderSet.cellOrders = remapOrders.cellOrders;
-            auto precisionReports = buildPrecisionReports(
-                precisionFields,
-                dataObject,
-                decodedObject,
-                orderSet);
-            if (!decodeError.isEmpty()) {
-                for (auto& report : precisionReports) {
-                    report.ok = false;
-                    report.error = decodeError;
-                }
-            }
-            const QString precisionReport = buildPrecisionReportText(precisionReports, compressorName);
-            const QStringList precisionStatusLines = buildPrecisionStatusLines(precisionReports);
-
-            const auto reportResult = reportSink != nullptr
-                ? reportSink->WriteReportFile({
-                    .name = "compression_report",
-                    .mediaType = "text/plain; charset=utf-8",
-                    .preferredExtension = ".txt",
-                    .content = buildCompressionReportText(
-                        beforeBytes,
-                        afterBytes,
-                        elapsedMs,
-                        compressionRatio,
-                        writtenInfo.filePath(),
-                        precisionReport,
-                        recordMessages),
-                })
-                : ::datacodec::DataCodecReportWriteResult{};
-            if (!reportResult.success) {
-                complete(
-                    {dataCodecHostLogText(
-                        logLanguage,
-                        iGame::iGameDataCodecHostMessageId::WriteReportFailed)},
-                    ::datacodec::DataCodecStatusSeverity::Error);
-                return;
-            }
-
-            QStringList artifactPaths;
-            if (!writeTelemetryArtifacts(
-                    reportSink,
-                    telemetryStem,
-                    telemetrySessions,
-                    &artifactPaths)) {
-                complete(
-                    {dataCodecHostLogText(
-                        logLanguage,
-                        iGame::iGameDataCodecHostMessageId::WriteTelemetryFailed)},
-                    ::datacodec::DataCodecStatusSeverity::Error);
-                return;
-            }
-
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::CompressionReportBegin));
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::SizeBeforeCompression,
-                {{"size", toUtf8StdString(formatByteSize(beforeBytes))}}));
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::SizeAfterCompression,
-                {{"size", toUtf8StdString(formatByteSize(afterBytes))}}));
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::CompressedSizeRatio,
-                {{"ratio", toUtf8StdString(compressionRatio)}}));
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::CompressionTime,
-                {{"milliseconds", std::to_string(elapsedMs)}}));
-            messages.append(precisionStatusLines);
-            for (const QString& path : artifactPaths) {
-                messages.push_back(dataCodecHostLogText(
+        } catch (...) {
+            std::vector<::datacodec::TelemetryMessageRecord> errors{
+                {
+                    .severity = ::datacodec::TelemetryMessageSeverity::Critical,
+                    .origin = "EncodeWorker",
+                    .code = "encode.worker.unknown-exception",
+                    .language = logLanguage,
+                    .text = "编码任务发生未知异常",
+                },
+            };
+            const auto reportOutcome = writeEncodeReports(
+                false,
+                {},
+                std::move(errors),
+                "encoding failed with an unknown exception");
+            QStringList failureMessages{
+                dataCodecHostLogText(
                     logLanguage,
-                    iGame::iGameDataCodecHostMessageId::TelemetryDataPath,
-                    {{"path", toUtf8StdString(path)}}));
+                    iGame::iGameDataCodecHostMessageId::CompressionFailedWithDetail,
+                    {{"detail", "unknown exception"}}),
+            };
+            if (!reportOutcome.success) {
+                failureMessages.push_back(dataCodecHostLogText(
+                    logLanguage,
+                    iGame::iGameDataCodecHostMessageId::WriteReportFailed));
             }
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::CompressionReportEnd));
+            complete(
+                std::move(failureMessages),
+                ::datacodec::DataCodecStatusSeverity::Error);
         }
-        if (writtenPaths.size() > 1) {
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::SequenceOutputCount,
-                {{"count", std::to_string(writtenPaths.size())}}));
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::FirstFrameFile,
-                {{"path", toUtf8StdString(writtenPaths.front())}}));
-            messages.push_back(dataCodecHostLogText(
-                logLanguage,
-                iGame::iGameDataCodecHostMessageId::LastFrameFile,
-                {{"path", toUtf8StdString(writtenPaths.back())}}));
-        }
-        complete(std::move(messages));
     });
     connect(worker, &QThread::finished, worker, &QObject::deleteLater);
     worker->start();
@@ -2798,6 +3069,7 @@ void igQtDataCodecCompressionWidget::addRegion() {
                 iGame::iGameDataCodecHostMessageId::CustomRegionLimitReached));
         }
     }
+    const QString compressorName = QStringLiteral("SZ3");
     if (regions == nullptr) {
         reasons.push_back(dataCodecHostLogText(
             m_dataCodecLanguage,
@@ -3743,7 +4015,6 @@ igQtDataCodecCompressionWidget::applyCompressionControlToDataCodec(
             controlParams.defaultAttrControl;
         numericControl.regionControl.defaultPrecision =
             ::datacodec::MakeNumericArrayRegionPrecision(
-                "默认区域",
                 makeCompressorConfig(defaultMode, precisionValueForMode(defaultRegion, defaultMode)));
         numericControl.regionControl.regions.clear();
         numericControl.regionRuns.clear();
@@ -3786,7 +4057,6 @@ igQtDataCodecCompressionWidget::applyCompressionControlToDataCodec(
                     const int regionMode = effectivePrecisionMode(region.precisionMode);
                     numericControl.regionControl.regions.push_back(
                         ::datacodec::MakeNumericArrayRegionPrecision(
-                            toUtf8StdString(region.name),
                             makeCompressorConfig(
                                 regionMode,
                                 precisionValueForMode(region, regionMode))));
@@ -3962,43 +4232,6 @@ QStringList igQtDataCodecCompressionWidget::buildPrecisionStatusLines(
                                 .arg(report.fieldName, formatPrecisionMetric(report.maxPointRelativeError)));
     }
     return lines;
-}
-
-QString igQtDataCodecCompressionWidget::buildPrecisionReportText(
-        const QVector<PrecisionFieldReport>& reports,
-        const QString& compressorName) {
-    if (reports.isEmpty()) return QString();
-
-    QString report;
-    QTextStream stream(&report);
-    stream << QStringLiteral("数据误差报告\n");
-    stream << QStringLiteral("报告来源: DataCodec Test PrecisionProbe，按编码 remap 顺序对齐后逐值比较\n");
-    stream << QStringLiteral("状态栏最大逐值相对误差：max(|原值-回读值| / max(|原值|, 1e-30))\n");
-    stream << QStringLiteral("压缩算法：") << compressorName << '\n';
-
-    for (const auto& item : reports) {
-        stream << '\n';
-        stream << QStringLiteral("数据：") << item.fieldName << '\n';
-        stream << QStringLiteral("类型信息：") << item.detail << '\n';
-        if (!item.ok) {
-            stream << QStringLiteral("误差统计：失败\n");
-            stream << QStringLiteral("失败原因：") << item.error << '\n';
-            continue;
-        }
-        stream << QStringLiteral("数据项数：") << item.elementCount << '\n';
-        stream << QStringLiteral("分量数：") << item.componentCount << '\n';
-        stream << QStringLiteral("原始最小值：") << formatPrecisionMetric(item.originalMin) << '\n';
-        stream << QStringLiteral("原始最大值：") << formatPrecisionMetric(item.originalMax) << '\n';
-        stream << QStringLiteral("最大绝对误差：") << formatPrecisionMetric(item.maxAbsError) << '\n';
-        stream << QStringLiteral("均方根绝对误差：") << formatPrecisionMetric(item.rmsAbsError) << '\n';
-        stream << QStringLiteral("最大逐值相对误差：")
-               << formatPrecisionMetric(item.maxPointRelativeError) << '\n';
-        stream << QStringLiteral("最大值域归一化误差：")
-               << (item.hasRangeRelativeError ? formatPrecisionMetric(item.rangeRelativeError)
-                                               : QStringLiteral("无法计算"))
-               << '\n';
-    }
-    return report;
 }
 
 double igQtDataCodecCompressionWidget::precisionValueForMode(const RegionItem& region, int mode) const {
