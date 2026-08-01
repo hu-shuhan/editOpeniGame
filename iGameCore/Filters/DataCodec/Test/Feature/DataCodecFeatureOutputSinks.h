@@ -320,6 +320,123 @@ public:
         "outputSinks.encodeCompressionStatistics",
         "encode process report should expose source size, compressed size, decimal ratio, and calculation note");
 
+    DataCodecEncodeOptions encodeOptions;
+    encodeOptions.tier = DataCodecEncodeTier::TimePriority;
+    encodeOptions.enableCompressionEnhancement = true;
+    encodeOptions.packageZstdLevel = 7;
+    const auto encodeDefinition = MakeEncodeConfigurationParams(encodeOptions);
+    const DataCodecProcessReport encodeConfigurationReport{
+        .operation = TelemetryRunKind::Encode,
+        .generatedAtUtc = "2026-01-01T00:00:00Z",
+        .objectName = "configuration.igc",
+        .success = true,
+        .configuration = MakeDataCodecEncodeReportConfiguration(
+            encodeOptions.tier,
+            encodeOptions.enableCompressionEnhancement,
+            encodeDefinition),
+    };
+    const auto encodeConfigurationJson =
+        SerializeDataCodecProcessReportJson(encodeConfigurationReport);
+    rapidjson::Document encodeConfigurationDocument;
+    encodeConfigurationDocument.Parse(
+        encodeConfigurationJson.data(),
+        encodeConfigurationJson.size());
+    bool hasEncodeConfiguration = !encodeConfigurationDocument.HasParseError() &&
+        encodeConfigurationDocument.IsObject() &&
+        encodeConfigurationDocument.HasMember("configuration") &&
+        encodeConfigurationDocument["configuration"].IsObject();
+    if (hasEncodeConfiguration) {
+        const auto& configuration = encodeConfigurationDocument["configuration"];
+        hasEncodeConfiguration =
+            configuration.HasMember("preset") &&
+            configuration["preset"].IsString() &&
+            std::string(configuration["preset"].GetString()) == "TimePriority" &&
+            configuration.HasMember("runtimeProfile") &&
+            configuration["runtimeProfile"].IsString() &&
+            std::string(configuration["runtimeProfile"].GetString()) == "Native" &&
+            configuration.HasMember("pipeline") &&
+            configuration["pipeline"].IsObject() &&
+            configuration["pipeline"].HasMember("compressionEnhancementEnabled") &&
+            configuration["pipeline"]["compressionEnhancementEnabled"].IsBool() &&
+            configuration["pipeline"]["compressionEnhancementEnabled"].GetBool() &&
+            configuration["pipeline"].HasMember("packageZstdLevel") &&
+            configuration["pipeline"]["packageZstdLevel"].IsInt64() &&
+            configuration["pipeline"]["packageZstdLevel"].GetInt64() == 7 &&
+            configuration.HasMember("parallelism") &&
+            configuration["parallelism"].IsObject() &&
+            configuration["parallelism"].HasMember("attributeCompressionLanes") &&
+            configuration["parallelism"]["attributeCompressionLanes"].IsUint64() &&
+            configuration.HasMember("storage") &&
+            configuration["storage"].IsObject() &&
+            configuration.HasMember("resourceBudget") &&
+            configuration["resourceBudget"].IsObject();
+    }
+    Require(
+        result,
+        hasEncodeConfiguration,
+        "outputSinks.encodeConfiguration",
+        "encode process report should expose the preset and resolved key configuration values");
+
+    DataCodecDecodeOptions decodeOptions;
+    decodeOptions.tier = DataCodecDecodeTier::Fast;
+    decodeOptions.validationProfile = DataCodecDecodeValidationProfile::Audit;
+    const auto decodeDefinition = MakeDecodeConfigurationParams(decodeOptions);
+    const DataCodecProcessReport decodeConfigurationReport{
+        .operation = TelemetryRunKind::Decode,
+        .generatedAtUtc = "2026-01-01T00:00:00Z",
+        .objectName = "configuration.igc",
+        .success = true,
+        .configuration = MakeDataCodecDecodeReportConfiguration(
+            std::optional<DataCodecDecodeTier>{decodeOptions.tier},
+            decodeDefinition,
+            true),
+    };
+    const auto decodeConfigurationJson =
+        SerializeDataCodecProcessReportJson(decodeConfigurationReport);
+    rapidjson::Document decodeConfigurationDocument;
+    decodeConfigurationDocument.Parse(
+        decodeConfigurationJson.data(),
+        decodeConfigurationJson.size());
+    bool hasDecodeConfiguration = !decodeConfigurationDocument.HasParseError() &&
+        decodeConfigurationDocument.IsObject() &&
+        decodeConfigurationDocument.HasMember("configuration") &&
+        decodeConfigurationDocument["configuration"].IsObject();
+    if (hasDecodeConfiguration) {
+        const auto& configuration = decodeConfigurationDocument["configuration"];
+        hasDecodeConfiguration =
+            configuration.HasMember("preset") &&
+            configuration["preset"].IsString() &&
+            std::string(configuration["preset"].GetString()) == "Fast" &&
+            configuration.HasMember("validation") &&
+            configuration["validation"].IsObject() &&
+            configuration["validation"].HasMember("mode") &&
+            configuration["validation"]["mode"].IsString() &&
+            std::string(configuration["validation"]["mode"].GetString()) == "Strict" &&
+            configuration.HasMember("execution") &&
+            configuration["execution"].IsObject() &&
+            configuration["execution"].HasMember("fullInputPrefetchEnabled") &&
+            configuration["execution"]["fullInputPrefetchEnabled"].IsBool() &&
+            configuration["execution"]["fullInputPrefetchEnabled"].GetBool() &&
+            configuration.HasMember("caching") &&
+            configuration["caching"].IsObject() &&
+            configuration.HasMember("storage") &&
+            configuration["storage"].IsObject() &&
+            configuration["storage"].HasMember("attributePayloadMode") &&
+            configuration["storage"]["attributePayloadMode"].IsString() &&
+            std::string(configuration["storage"]["attributePayloadMode"].GetString()) ==
+                "OneShotZstd" &&
+            configuration.HasMember("resourceBudget") &&
+            configuration["resourceBudget"].IsObject() &&
+            configuration["resourceBudget"].HasMember("residentLimitMiB") &&
+            configuration["resourceBudget"]["residentLimitMiB"].IsUint64() &&
+            configuration["resourceBudget"]["residentLimitMiB"].GetUint64() == 16384u;
+    }
+    Require(
+        result,
+        hasDecodeConfiguration,
+        "outputSinks.decodeConfiguration",
+        "decode process report should expose the preset and resolved key configuration values");
+
     DataCodecProcessReport workflowMemoryReport{
         .operation = TelemetryRunKind::Encode,
         .generatedAtUtc = "2026-01-01T00:00:00Z",
