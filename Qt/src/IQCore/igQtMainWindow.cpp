@@ -50,7 +50,7 @@
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <iGameBlockMapping.h>
-#include <P3SAM/iGameP3SAMClient.h>
+#include <P3SAM/iGameP3SAMSegmenter.h>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -1932,73 +1932,34 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
 #else
-            //测试P3SAM连接
-            // 1. 获取当前选中模型
+            // 测试P3SAM分割器
             auto model = rendererWidget->GetScene()->GetCurrentModel();
             if (!model) {
-                QMessageBox::warning(this, "P3SAM Test", "No model selected.");
+                std::cout << "[P3SAM Test] No model selected." << std::endl;
                 return;
             }
 
-            // 2. 导出为临时OBJ文件
-            QString tmpObjPath = QDir::tempPath() + "/p3sam_input.obj";
             auto dataObj = model->GetDataObject();
-            if (!iGame::FileIO::WriteFile(tmpObjPath.toStdString(), dataObj)) {
-                QMessageBox::warning(this, "P3SAM Test", "Failed to export OBJ.");
+
+            std::cout << "[P3SAM Test] Starting P3SAM segmentation..." << std::endl;
+            P3SAMSegmenter::Pointer segmenter = P3SAMSegmenter::New();
+            segmenter->SetInput(dataObj);
+            segmenter->SetSimplificationRatio(0.1f);  // 简化到10%
+            segmenter->SetPointNum(10000);
+            segmenter->SetPromptNum(100);
+            segmenter->SetSeed(42);
+            segmenter->SetPostProcess(false);
+            segmenter->SetTimeout(300000);  // 5分钟超时
+
+            if (!segmenter->Execute()) {
+                std::cout << "[P3SAM Test] Segmentation failed: "
+                          << segmenter->GetErrorMessage() << std::endl;
                 return;
             }
 
-            // 3. 读取OBJ文件到内存
-            QFile objFile(tmpObjPath);
-            if (!objFile.open(QIODevice::ReadOnly)) {
-                QMessageBox::warning(this, "P3SAM Test", "Failed to read temp OBJ.");
-                return;
-            }
-            QByteArray objBytes = objFile.readAll();
-            objFile.close();
-
-            // 4. 调用P3SAM服务
-            iGame::P3SAMClient client("127.0.0.1", 8765);
-            client.setTimeout(300000);
-            if (!client.connect()) {
-                QMessageBox::warning(this, "P3SAM Test", "Failed to connect to P3SAM server at 127.0.0.1:8765.\nMake sure the server is running.");
-                return;
-            }
-
-            iGame::P3SAMRequest req;
-            req.objData.assign(objBytes.begin(), objBytes.end());
-            req.pointNum  = 10000;
-            req.promptNum = 100;
-            req.seed      = 42;
-            req.postProcess = false;
-
-            iGame::P3SAMResponse resp;
-            if (!client.requestSegmentation(req, resp)) {
-                QMessageBox::warning(this, "P3SAM Test",
-                    QString("Segmentation failed: %1").arg(QString::fromStdString(resp.errorMessage)));
-                return;
-            }
-            client.disconnect();
-
-            // 5. 从内存读取VTK结果
-            auto segResult = iGame::FileIO::ReadVTKFromMemory(resp.vtkData.data(), resp.vtkData.size());
-            if (!segResult) {
-                QMessageBox::warning(this, "P3SAM Test", "Failed to parse VTK result.");
-                return;
-            }
-
-            // 6. 映射回原mesh
-            auto drawObj = DynamicCast<DrawObject>(dataObj);
-            drawObj->ConvertToDrawableData();
-            auto surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
-            auto resultArray = BlockMapping::GetMappingBlockCellsArray(
-                surfaceMesh,
-                DynamicCast<UnstructuredMesh>(segResult));
-            resultArray->SetName("part_id");
-            dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
-
-            QMessageBox::information(this, "P3SAM Test", "Segmentation complete! 'part_id' attribute added.");
+            std::cout << "[P3SAM Test] Segmentation complete! Parts: "
+                      << segmenter->GetPartCount() << std::endl;
 #endif // TEST_MAP_BACK
         });
     }

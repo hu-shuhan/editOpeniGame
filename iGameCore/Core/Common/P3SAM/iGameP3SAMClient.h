@@ -59,9 +59,10 @@ struct P3SAMResponse {
  * @brief P3SAM TCP客户端
  */
 class P3SAMClient : public Object {
-    I_OBJECT(P3SAMClient);
-
 public:
+    I_OBJECT(P3SAMClient);
+    static Pointer New() { return new P3SAMClient; }
+
     /**
      * @brief 构造函数
      * @param host 服务器地址
