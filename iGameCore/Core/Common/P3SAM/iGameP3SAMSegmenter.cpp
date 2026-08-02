@@ -8,7 +8,7 @@
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "OBJ/iGameOBJWriter.h"
-#include <iostream>
+#include "Log/iGameLogger.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -78,7 +78,7 @@ bool P3SAMSegmenter::Execute() {
         return false;
     }
 
-    std::cout << "[P3SAMSegmenter] Starting segmentation pipeline..." << std::endl;
+    igDebug("P3SAMSegmenter: Starting segmentation pipeline...");
 
     // 1. 三角化
     DataObject::Pointer triangulated = nullptr;
@@ -116,12 +116,12 @@ bool P3SAMSegmenter::Execute() {
     }
 
     m_output = m_input;
-    std::cout << "[P3SAMSegmenter] Segmentation complete! Parts: " << m_partCount << std::endl;
+    igDebug("P3SAMSegmenter: Segmentation complete! Parts: {}", m_partCount);
     return true;
 }
 
 bool P3SAMSegmenter::triangulateInput(DataObject::Pointer input, DataObject::Pointer& triangulated) {
-    std::cout << "[P3SAMSegmenter] Triangulating mesh..." << std::endl;
+    igDebug("P3SAMSegmenter: Triangulating mesh...");
 
     MeshTriangulationFilter::Pointer filter = MeshTriangulationFilter::New();
     filter->SetInput(input);
@@ -141,8 +141,7 @@ bool P3SAMSegmenter::triangulateInput(DataObject::Pointer input, DataObject::Poi
 }
 
 bool P3SAMSegmenter::simplifyMesh(DataObject::Pointer input, DataObject::Pointer& simplified) {
-    std::cout << "[P3SAMSegmenter] Fast simplifying mesh to "
-              << (m_simplificationRatio * 100.0f) << "%..." << std::endl;
+    igDebug("P3SAMSegmenter: Fast simplifying mesh to {}%...", m_simplificationRatio * 100.0f);
 
     MeshSimplificationFilterPro::Pointer filter = MeshSimplificationFilterPro::New();
     filter->SetInput(input);
@@ -167,7 +166,7 @@ bool P3SAMSegmenter::simplifyMesh(DataObject::Pointer input, DataObject::Pointer
 }
 
 bool P3SAMSegmenter::exportToOBJ(DataObject::Pointer mesh, std::vector<uint8_t>& objData) {
-    std::cout << "[P3SAMSegmenter] Exporting mesh to OBJ format..." << std::endl;
+    igDebug("P3SAMSegmenter: Exporting mesh to OBJ format...");
 
     OBJWriter::Pointer writer = OBJWriter::New();
     if (!writer->WriteToMemory(mesh, objData)) {
@@ -180,13 +179,12 @@ bool P3SAMSegmenter::exportToOBJ(DataObject::Pointer mesh, std::vector<uint8_t>&
         return false;
     }
 
-    std::cout << "[P3SAMSegmenter] OBJ data size: " << objData.size() << " bytes" << std::endl;
+    igDebug("P3SAMSegmenter: OBJ data size: {} bytes", objData.size());
     return true;
 }
 
 bool P3SAMSegmenter::sendToServer(const std::vector<uint8_t>& objData, std::vector<uint8_t>& vtkData) {
-    std::cout << "[P3SAMSegmenter] Connecting to P3SAM server at "
-              << m_serverHost << ":" << m_serverPort << "..." << std::endl;
+    igDebug("P3SAMSegmenter: Connecting to P3SAM server at {}:{}...", m_serverHost, m_serverPort);
 
     P3SAMClient client(m_serverHost, m_serverPort);
     client.setTimeout(m_timeoutMs);
@@ -196,7 +194,7 @@ bool P3SAMSegmenter::sendToServer(const std::vector<uint8_t>& objData, std::vect
         return false;
     }
 
-    std::cout << "[P3SAMSegmenter] Sending segmentation request..." << std::endl;
+    igDebug("P3SAMSegmenter: Sending segmentation request...");
 
     P3SAMRequest request;
     request.objData = objData;
@@ -220,12 +218,12 @@ bool P3SAMSegmenter::sendToServer(const std::vector<uint8_t>& objData, std::vect
     }
 
     vtkData = response.vtkData;
-    std::cout << "[P3SAMSegmenter] Received VTK data: " << vtkData.size() << " bytes" << std::endl;
+    igDebug("P3SAMSegmenter: Received VTK data: {} bytes", vtkData.size());
     return true;
 }
 
 bool P3SAMSegmenter::parseVTKResult(const std::vector<uint8_t>& vtkData, DataObject::Pointer& segmented) {
-    std::cout << "[P3SAMSegmenter] Parsing VTK result..." << std::endl;
+    igDebug("P3SAMSegmenter: Parsing VTK result...");
 
     segmented = FileIO::ReadVTKFromMemory(vtkData.data(), vtkData.size());
     if (!segmented) {
@@ -237,7 +235,7 @@ bool P3SAMSegmenter::parseVTKResult(const std::vector<uint8_t>& vtkData, DataObj
 }
 
 bool P3SAMSegmenter::mapBackToOriginal(DataObject::Pointer original, DataObject::Pointer segmented) {
-    std::cout << "[P3SAMSegmenter] Mapping segmentation back to original mesh..." << std::endl;
+    igDebug("P3SAMSegmenter: Mapping segmentation back to original mesh...");
 
     // 将原始网格转换为SurfaceMesh
     DrawObject::Pointer drawObj = DynamicCast<DrawObject>(original);
@@ -278,7 +276,7 @@ bool P3SAMSegmenter::mapBackToOriginal(DataObject::Pointer original, DataObject:
         }
     }
 
-    std::cout << "[P3SAMSegmenter] Mapping complete. Total parts: " << m_partCount << std::endl;
+    igDebug("P3SAMSegmenter: Mapping complete. Total parts: {}", m_partCount);
     return true;
 }
 
