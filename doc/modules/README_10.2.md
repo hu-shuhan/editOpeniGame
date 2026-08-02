@@ -33,8 +33,8 @@
 
 ### 源码路径
 
-| 路径 | 类 | 说明 |
-|------|-----|------|
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
 | `iGameCore/Filters/FeatureExtraction/iGameGradientFilter.*` | `GradientFilter` | 梯度 |
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | 曲率 |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
@@ -43,8 +43,10 @@
 
 ### 调用方式
 
+对应示例 `Examples/Filter/FeatureExtraction/GradientExtraction.cpp`：
+
 ```cpp
-auto dataObj = iGame::FileIO::ReadFile(fileName);
+auto dataObj = iGame::FileIO::ReadFile("./Models/pipedcylinder2d_gt.vtk");
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
 
 auto filter = iGame::GradientFilter::New();  // 或 CurvatureFilter / LaplacianFilter / VortexFilter
@@ -60,27 +62,26 @@ drawObj->ViewCloudPicture(scene, newIndex);
 
 ### GUI
 
-菜单 **「过滤器 → 特征提取」**：
+| 入口 | 说明 |
+|------|------|
+| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `GradientFilter` |
+| 菜单「算法处理」→ 特征提取 → 计算 Laplacian | `LaplacianFilter` |
+| 菜单「算法处理」→ 特征提取 → 计算曲率 | `CurvatureFilter` |
+| 菜单「算法处理」→ 特征提取 → 计算涡量 | `VortexFilter` |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 提取结果出现在模型树属性列表中，在此切换云图 |
 
-| 菜单项 | 对应 Filter |
-|--------|-------------|
-| 计算梯度 (ComputeGradient) | `GradientFilter` |
-| 计算 Laplacian | `LaplacianFilter` |
-| 计算曲率 | `CurvatureFilter` |
-| 计算涡量 | `VortexFilter` |
+![经典物理特征提取云图](../../Resources/Images/特征提取云图.png)
 
-提取结果出现在模型树属性列表中，可通过 `dockWidget_ScalarField` / `igQtScalarViewWidget` 切换云图。
+> 图中为 `pipedcylinder2d` 结构化网格（200×30×200）的涡量 `vorticities` 云图（按 magnitude 着色）；模型树中可见提取结果与原有属性并列，可随时切换显示。
 
-### 相关示例
+### 测试用例
 
-| 示例 Target | 说明 |
-|-------------|------|
-| `testGradientExtraction` | 梯度 |
-| `testCurvatureExtraction` | 曲率 |
-| `testLaplacianExtraction` | Laplacian |
-| `testVortexExtraction` | 经典涡量 |
-
-测试数据目录：`test/Feature Extraction Test/`。
+| Target | 源文件 | 默认数据 |
+|--------|--------|----------|
+| `testGradientExtraction` | `Examples/Filter/FeatureExtraction/GradientExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
+| `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
+| `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
+| `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
 
 ---
 
@@ -127,7 +128,10 @@ drawObj->ViewCloudPicture(scene, newIndex);
 
 ### 调用方式
 
+对应示例 `Examples/Filter/FeatureExtraction/VortexDetection.cpp`：
+
 ```cpp
+auto dataObj = iGame::FileIO::ReadFile("./Models/pipedcylinder2d_gt.vtk");
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
 // 人工标注（可选）：AttributeSet 中需有名为 "PredictedLabel" 的点标量
 
@@ -147,17 +151,44 @@ if (filter->Execute()) {
 
 ### GUI
 
-菜单 **「过滤器 → 特征提取 → 涡旋预测 (PredictVortex)」**：对当前模型当前属性执行 `VortexDetection`，结果挂到模型树。
+| 入口 | 说明 |
+|------|------|
+| 菜单「算法处理」→ 特征提取 → 涡旋预测 (PredictVortex) | 对当前模型当前属性执行 `VortexDetection`，结果挂到模型树 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 切换到 `vortexPredict` 属性查看预测云图 |
 
 > 主窗口中 `vortexMetricsLabel` 与 Precision/Recall 浮层显示逻辑已预留，当前为注释状态；评估数值仍可通过 API / 控制台获取。
 
-### 相关示例
+![神经网络涡预测结果](../../Resources/Images/神经网络涡预测.png)
 
-| 示例 Target | 说明 | 条件 |
-|-------------|------|------|
-| `testVortexDetection` | NN 涡检测 + 云图 | `ENABLE_LIBTORCH_MODULE=ON` |
+> `vortexPredict` 点标量的体渲染显示，可见圆柱绕流尾迹中周期性脱落的涡结构。
 
-示例参考数据：`./Models/pipedcylinder2d_gt.vtk`（含标注场景）。
+### 精度实测
+
+在 `3_pipedcylinder2d_uni_gc.vtk`（120 万点，均匀网格 200×30×200，含 `PredictedLabel` 人工标注）上的实测结果：
+
+![涡检测精度评估](../../Resources/Images/涡检测精度评估.png)
+
+| 指标 | 实测值 | 指标要求 | 结论 |
+|------|--------|----------|------|
+| Accuracy | 0.995763 | — | — |
+| **Precision** | **0.93696** | ≥ 0.90 | ✅ 达标 |
+| **Recall** | **0.902198** | ≥ 0.90 | ✅ 达标 |
+
+运行环境与耗时（CUDA 推理）：
+
+| 阶段 | 耗时 |
+|------|------|
+| `process_blocks`（分块预处理） | 2.746 s |
+| `predict`（网络推理） | 4.280 s |
+| **`VortexDetection::Execute` 总计** | **8.184 s** |
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 条件 |
+|--------|--------|----------|------|
+| `testVortexDetection` | `Examples/Filter/FeatureExtraction/VortexDetection.cpp` | `./Models/pipedcylinder2d_gt.vtk`（含标注） | `ENABLE_LIBTORCH_MODULE=ON` |
+
+> 精度评估需数据中带有人工标注属性 `PredictedLabel`；无标注时仅输出 `vortexPredict` 云图，不计算对比指标。
 
 ---
 
@@ -175,18 +206,26 @@ if (filter->Execute()) {
 
 ### 源码路径
 
-| 路径 | 说明 |
-|------|------|
-| `iGameCore/Core/Common/iGameSelection.*` | 选区数据模型 |
-| `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | 点 / 单元选择交互 |
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | 框选包围盒 |
-| `doc/modules/README_10.3.md` | 刷选 ↔ 3D 联动（并行坐标、密度等） |
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
+| `iGameCore/Core/Common/iGameSelection.*` | `Selection` | 选区数据模型 |
+| `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | `SelectionStyle` | 点 / 单元选择交互 |
+| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle` | 框选包围盒 |
+| `doc/modules/README_10.3.md` | — | 刷选 ↔ 3D 联动（并行坐标、密度等） |
 
 ### 使用要点
 
 1. 在视图中启用选择样式，点击或框选得到点 / 单元 ID。
 2. 对全场执行特征提取（子功能 1 / 2），再以云图查看 `vortexPredict` 等属性。
 3. 需要局部分析时，将选区 bounding box 交给 10.1 图表或 10.3 刷选管线。
+
+### GUI
+
+| 入口 | 说明 |
+|------|------|
+| 工具栏「选择」/ `action_Select` | 启用点 / 单元拾取 |
+| 「选择」面板 → 选择盒（`SelectBox` / `BoxStyle`） | 拖拽框选关键区域，得到包围盒 |
+| 模型树 | 查看选中集合与派生属性 |
 
 ![框选关键区域高亮示例](../../Resources/Images/car_feaure_select.png)
 
@@ -236,10 +275,26 @@ if (filter->Execute()) {
 
 ### GUI
 
-| 面板 | 说明 |
+| 入口 | 说明 |
 |------|------|
-| 动画 / 时序相关 Dock | 关键特征场随时间播放（11.3） |
-| `dockWidget` 形变 / `igQtDeformationWidget` | 位移矢量、缩放因子、开关形变 |
+| 菜单「可视化」→ 动画输出可视化 / `action_ExportAnimation` | 打开底部动画 Dock，关键特征场随时间播放（11.3） |
+| `dockWidget_Animation` | 时间轴播放、缓存帧数、导出 |
+| 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
+| `DeformationDockWidget` / `igQtDeformationWidget` | 位移矢量、缩放因子、开关形变 |
+
+<!-- 待补充截图：关键事件时域演化
+![关键特征时域演化](../../Resources/Images/关键特征时域演化.png)
+-->
+
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 条件 |
+|--------|--------|----------|------|
+| `testTimeVaryingVector` | `Examples/Filter/Vector/TestTimeVaryingVector.cpp` | `./Models/redsea/1.pvd`（需自备） | 时序帧切换 |
+| `testDeformationCode` | `Examples/Filter/Deformation/TestStressDeformationFilterCode.cpp` | `./Models/sukong_Step-1_2.vtu`（需自备） | 显式 DSF + `Execute` |
+| `testAnimation` | `Examples/Animation/TestAnimation.cpp` | `./Models/CAD11/_frames.pvd`（需自备） | 动画播放 |
+
+> 上述示例归属 **11.3**，此处列出以说明本子功能依赖的通用能力入口。
 
 ---
 
@@ -249,18 +304,21 @@ if (filter->Execute()) {
 |------|------|
 | 指标目标 | Precision ≥ 90% **且** Recall ≥ 90%（指标表述中的「精度」按二者验收） |
 | 标注属性名 | `PredictedLabel`（点标量，与网格点数一致） |
-| 阈值阈值 | 标注 `> 0`；预测 `> 0.5` |
+| 判正阈值 | 标注 `> 0`；预测 `> 0.5` |
 | 读取 API | `VortexDetection::GetPrecision()` / `GetRecall()` / `GetAccuracy()` |
 | 无标注时 | 上述 getter 保持 `-1`，仅输出 `vortexPredict` 云图，不计算对比指标 |
+| **实测结果** | `3_pipedcylinder2d_uni_gc.vtk`：Precision **0.93696**、Recall **0.902198**、Accuracy 0.995763 → **达标** |
+
+实测控制台输出见子功能 2 的「精度实测」章节。
 
 ---
 
 ## 相关示例汇总
 
-| 示例 Target | 说明 | 条件 |
-|-------------|------|------|
-| `testGradientExtraction` | 梯度 | 默认 |
-| `testCurvatureExtraction` | 曲率 | 默认 |
-| `testLaplacianExtraction` | Laplacian | 默认 |
-| `testVortexExtraction` | 经典涡量 | 默认 |
-| `testVortexDetection` | NN 涡检测 | `ENABLE_LIBTORCH_MODULE=ON` |
+| 示例 Target | 源文件 | 默认数据 | 说明 | 条件 |
+|-------------|--------|----------|------|------|
+| `testGradientExtraction` | `Examples/Filter/FeatureExtraction/GradientExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` | 梯度 | 默认 |
+| `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` | 曲率 | 默认 |
+| `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` | Laplacian | 默认 |
+| `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` | 经典涡量 | 默认 |
+| `testVortexDetection` | `Examples/Filter/FeatureExtraction/VortexDetection.cpp` | `./Models/pipedcylinder2d_gt.vtk` | NN 涡检测 | `ENABLE_LIBTORCH_MODULE=ON` |

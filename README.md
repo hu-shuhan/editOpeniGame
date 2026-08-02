@@ -31,6 +31,8 @@ iGameVis is a CAE simulation result visualization platform built on the `iGameCo
 | 指标 | 模块 | 中文 | English |
 |------|------|------|---------|
 | 7.1 | 高阶可视化 | [README_7.1.md](doc/modules/README_7.1.md) | [README_7.1.en.md](doc/modules/README_7.1.en.md) |
+| 8.1 | Lightweight CAE visualization and high-performance rendering | [README_8.1.md](doc/modules/README_8.1.md) | [README_8.1.en.md](doc/modules/README_8.1.en.md) |
+| 9.1 | Adaptive compression for large-scale CAE data | [README_9.1.md](doc/modules/README_9.1.md) | [README_9.1.en.md](doc/modules/README_9.1.en.md) |
 | 10.1 | 智能可视分析 | [README_10.1.md](doc/modules/README_10.1.md) | [README_10.1.en.md](doc/modules/README_10.1.en.md) |
 | 10.2 | 特征提取 | [README_10.2.md](doc/modules/README_10.2.md) | [README_10.2.en.md](doc/modules/README_10.2.en.md) |
 | 10.3 | 物理场特征可视交互 | [README_10.3.md](doc/modules/README_10.3.md) | [README_10.3.en.md](doc/modules/README_10.3.en.md) |

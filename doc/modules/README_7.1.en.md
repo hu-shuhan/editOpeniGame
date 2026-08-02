@@ -54,6 +54,14 @@ auto obj = reader->GetOutput();
 | `testSplineReaderCPU` | CPU spline visualization | default |
 | `testSplineReaderGPU` | GPU spline visualization | `ENABLE_GPSCUDA_MODULE=ON` |
 
+Figure 1: High-order visualization_Surface_CPU (surface mode)
+
+![High-order visualization_Surface_CPU](../../Resources/Images/高阶可视化_Surface_CPU.png)
+
+Figure 2: High-order visualization_Volume_CPU (volume mode)
+
+![High-order visualization_Volume_CPU](../../Resources/Images/高阶可视化_Volume_CPU.png)
+
 ## Known Limitations
 
 - VTK high-order cell types are parsed at IO level, but end-to-end VTK high-order visualization is **not yet fully adapted** (`iGameVisNoticeToUsers.md`).

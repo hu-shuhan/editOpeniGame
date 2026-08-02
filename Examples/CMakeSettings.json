@@ -2,11 +2,11 @@
     "configurations": [
         {
             "name": "x64-Release",
-            "generator": "Visual Studio 17 2022",
+            "generator": "Ninja",
             "configurationType": "Release",
             "buildRoot": "${projectDir}\\..\\cmake-build-examples-vs",
             "installRoot": "${projectDir}\\..\\cmake-build-examples-vs\\install",
-            "cmakeCommandArgs": "-DiGameCore_DIR=\"${projectDir}/../cmake-build-release/install/lib/cmake/iGameCore\"",
+            "cmakeCommandArgs": "",
             "buildCommandArgs": "",
             "ctestCommandArgs": "",
             "inheritEnvironments": [ "msvc_x64_x64" ],
