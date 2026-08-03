@@ -235,7 +235,7 @@ if (simp->Execute()) {
 
 | Target | 源文件 | 默认数据 | 说明 |
 |--------|--------|----------|------|
-| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/driver-1.vtk` | 先生成流线，再对输出调用 `StreamlineSimplifier` |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/StreamTest.vtk` | 先生成流线，再对输出调用 `StreamlineSimplifier` |
 
 > 筛选功能当前无独立示例 Target；GUI 路径见上表，代码路径见「调用方式」。
 
