@@ -25,7 +25,6 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QKeyEvent>
-#include <QCoreApplication>
 #include <IQWidgets/igQtAiChat/igQtChatManager.h>
 
 igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
@@ -86,6 +85,8 @@ void igQtAiChatWidget::setupUI()
 {
     setWindowTitle("iGameAiTool - AI聊天助手");
     setMinimumSize(600, 500);
+    setObjectName("aiChatWidget");
+    setAttribute(Qt::WA_StyledBackground, true);
     
     // 加载样式表
     loadStyleSheet();
@@ -122,7 +123,8 @@ void igQtAiChatWidget::setupChatPanel()
     chatScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     
     chatContentWidget = new QWidget();
-    chatContentWidget->setStyleSheet("background-color: white;");
+    chatContentWidget->setObjectName("chatContentWidget");
+    chatContentWidget->setAttribute(Qt::WA_StyledBackground, true);
     chatContentLayout = new QVBoxLayout(chatContentWidget);
     chatContentLayout->setContentsMargins(10, 10, 10, 10);
     chatContentLayout->setSpacing(10);
@@ -812,17 +814,13 @@ void igQtAiChatWidget::updateMcpPathLabel()
 
 void igQtAiChatWidget::loadStyleSheet()
 {
-    // 获取qss文件路径
-    QString qssPath = QDir(QCoreApplication::applicationDirPath()).filePath("../../../Qt/src/IQWidgets/igQtAiChat/igQtAiChatWidget.qss");
-    qssPath = QDir::cleanPath(qssPath);
-    
-    QFile qssFile(qssPath);
+    QFile qssFile(":/Styles/AiChatWidget.qss");
     if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
         QString styleSheet = QString::fromUtf8(qssFile.readAll());
         this->setStyleSheet(styleSheet);
         qssFile.close();
     } else {
-        //qWarning() << "[AiChatWidget] 无法加载样式表:" << qssPath;
+        qWarning() << "[AiChatWidget] Unable to load embedded chat stylesheet.";
     }
 }
 

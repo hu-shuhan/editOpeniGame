@@ -33,6 +33,7 @@
 
 ### 调用方式
 
+对应示例 `Examples/Filter/Compression/TestEncoder.cpp`：
 ```cpp
 auto source = iGame::FileIO::ReadFile("./Models/Quad_Plane_Tensor.vtk");
 
@@ -41,6 +42,25 @@ writer->SetCodecControlParams(
     iGame::MeshEncoderFilter<iGame::EncodeOutputBinaryArray>::GenerateDefaultCodecParams(source));
 writer->WriteToFile(source, "./Models/comp.igc");
 ```
+
+### GUI
+
+| 入口                                 | 说明                   |
+| ------------------------------------ | ---------------------- |
+| 菜单「文件」→ 压缩/`action_compress` | 打开「压缩」面板       |
+| `igQtMeshCodecDialog`                | 调整编码参数并执行压缩 |
+
+![image-20260729185004497](../../Resources/Images/image-20260729185004497.png)
+
+### 效果图
+
+![](../../Resources/Images/image-20260729192510189.png)
+
+|                            压缩前                            |                            压缩后                            |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20260729191415859](../../Resources/Images/image-20260729191415859.png) | ![image-20260729192536836](../../Resources/Images/image-20260729192536836.png) |
+
+
 
 ### 测试用例
 
@@ -69,6 +89,8 @@ writer->WriteToFile(source, "./Models/comp.igc");
 
 ### 调用方式
 
+对应示例 `Examples/Filter/Compression/TestDecoder.cpp`：
+
 ```cpp
 auto object = iGame::FileIO::ReadFile("./Models/comp.igc");
 if (object != nullptr) {
@@ -76,6 +98,8 @@ if (object != nullptr) {
 }
 ```
 
+### 效果图
+![image-20260729192721858](../../Resources/Images/image-20260729192721858.png)
 ### 测试用例
 
 | Target | 源文件 | 前置条件 | 说明 |

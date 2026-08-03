@@ -96,8 +96,25 @@ private:
     QPoint m_dragOffset;
 };
 
-// Build sub-dataobject hierarchy under a given parent tree item
-static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, iGame::DataObject::Pointer obj) {
+constexpr int SubObjectLoadedRole = Qt::UserRole + 1;
+
+static bool HasSubObjectTreeChildren(iGame::DataObject::Pointer obj) {
+    if (!obj) return false;
+    if (obj->HasSubDataObject()) return true;
+
+    auto attrSet = obj->GetAttributeSet();
+    if (!attrSet) return false;
+
+    auto all = attrSet->GetAllAttributes();
+    for (int i = 0; i < all->GetNumberOfElements(); ++i) {
+        if (!all->GetElement(i).isDeleted) return true;
+    }
+    return false;
+}
+
+// Build only the immediate sub-object rows. Their contents are populated on expansion.
+static void BuildSubObjectTreeSkeleton(
+        QTreeWidgetItem* parentItem, iGame::DataObject::Pointer obj) {
     if (!obj || !obj->HasSubDataObject()) return;
 
     for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it) {
@@ -108,29 +125,43 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
         std::string subName = sub->GetName();
         if (subName.empty()) { subName = std::string("Block_") + std::to_string(sub->GetDataObjectId()); }
         childItem->setName(QString::fromStdString(subName));
-        // set initial eye icon by current visibility
-        if (auto draw = DynamicCast<iGame::DrawObject>(sub)) { childItem->changeVisibility(draw->GetVisibility()); }
-
-        // add attribute children under this sub-object
-        if (auto attrSet = sub->GetAttributeSet()) {
-            auto all = attrSet->GetAllAttributes();
-            for (int i = 0; i < all->GetNumberOfElements(); ++i) {
-                auto& attr = all->GetElement(i);
-                if (attr.isDeleted) continue;
-                auto* aitem = new SubAttribTreeWidgetItem(i, tree, childItem);
-                const QString attrName = QString::fromStdString(attr.pointer->GetName());
-                aitem->setText(0, attrName);
-                aitem->setToolTip(0, attrName);
-                if (attr.attachmentType == IG_POINT) aitem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
-                else if (attr.attachmentType == IG_CELL)
-                    aitem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
-                aitem->setDimension(attr.pointer->GetDimension());
-            }
-        }
-
-        // recurse into deeper hierarchy
-        BuildSubObjectTree(tree, childItem, sub);
+        childItem->SyncIconWithVisibility(false);
+        childItem->setData(0, SubObjectLoadedRole, false);
+        childItem->setChildIndicatorPolicy(HasSubObjectTreeChildren(sub)
+                                                   ? QTreeWidgetItem::ShowIndicator
+                                                   : QTreeWidgetItem::DontShowIndicatorWhenChildless);
     }
+}
+
+static void PopulateSubObjectTreeItem(
+        QTreeWidget* tree, SubObjectTreeWidgetItem* item) {
+    if (!item || item->data(0, SubObjectLoadedRole).toBool()) return;
+    item->setData(0, SubObjectLoadedRole, true);
+
+    auto obj = item->getDataObject();
+    if (!obj) return;
+
+    if (auto attrSet = obj->GetAttributeSet()) {
+        auto all = attrSet->GetAllAttributes();
+        for (int i = 0; i < all->GetNumberOfElements(); ++i) {
+            auto& attr = all->GetElement(i);
+            if (attr.isDeleted) continue;
+
+            auto* attrItem = new SubAttribTreeWidgetItem(i, tree, item);
+            const QString attrName = QString::fromStdString(attr.pointer->GetName());
+            attrItem->setText(0, attrName);
+            attrItem->setToolTip(0, attrName);
+            if (attr.attachmentType == IG_POINT) {
+                attrItem->setIcon(0, igQtModelTreeIcons::Point());
+            } else if (attr.attachmentType == IG_CELL) {
+                attrItem->setIcon(0, igQtModelTreeIcons::Cell());
+            }
+            attrItem->setDimension(attr.pointer->GetDimension());
+        }
+    }
+
+    BuildSubObjectTreeSkeleton(item, obj);
+    item->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicatorWhenChildless);
 }
 } // namespace
 
@@ -220,6 +251,16 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     modelTreeWidget->setIconSize(QSize(20, 24));
     modelTreeWidget->setStyleSheet(modelTreeWidget->styleSheet() +
                                    QStringLiteral("QTreeView::item{height:28px;}"));
+
+    connect(modelTreeWidget, &QTreeWidget::itemExpanded, this, [this](QTreeWidgetItem* treeItem) {
+        auto* subItem = dynamic_cast<SubObjectTreeWidgetItem*>(treeItem);
+        if (!subItem || subItem->data(0, SubObjectLoadedRole).toBool()) return;
+
+        modelTreeWidget->setUpdatesEnabled(false);
+        PopulateSubObjectTreeItem(modelTreeWidget, subItem);
+        modelTreeWidget->setUpdatesEnabled(true);
+        modelTreeWidget->viewport()->update();
+    });
 
 
     propertyWidget->setHeaderVisible(false);
@@ -318,9 +359,9 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         child->setText(0, attrName);
         child->setToolTip(0, attrName);
         if (attr.attachmentType == IG_POINT)
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
+            child->setIcon(0, igQtModelTreeIcons::Point());
         else if (attr.attachmentType == IG_CELL)
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
+            child->setIcon(0, igQtModelTreeIcons::Cell());
         child->setDimension(attr.pointer->GetDimension());
         // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
@@ -330,7 +371,7 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
             obj->GetBlockMappingAttrIndex(), modelTreeWidget, item);
         child->setText(0, QString::fromStdString(obj->GetBlockMapping()->GetName()));
         child->setToolTip(0, child->text(0));
-        child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
+        child->setIcon(0, igQtModelTreeIcons::Cell());
         child->setDimension(1);
     }
 
@@ -361,14 +402,14 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         const QString attrName = QString::fromStdString(attr.pointer->GetName());
         child->setText(0, attrName);
         child->setToolTip(0, attrName);
-        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
+        if (attr.attachmentType == IG_POINT) child->setIcon(0, igQtModelTreeIcons::Point());
         else if (attr.attachmentType == IG_CELL)
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
+            child->setIcon(0, igQtModelTreeIcons::Cell());
         child->setDimension(attr.pointer->GetDimension());
     }
 
     // build sub-data objects hierarchy
-    BuildSubObjectTree(modelTreeWidget, item, obj);
+    BuildSubObjectTreeSkeleton(item, obj);
 
     modelTreeWidget->addTopLevelItem(item);
     modelTreeWidget->setCurrentItem(item);
@@ -390,7 +431,7 @@ int igQtModelDialogWidget::addModelToModelTree(iGame::Model::Pointer model) {
     item->setModel(model);
 
     // build sub-data objects hierarchy
-    BuildSubObjectTree(modelTreeWidget, item, model->GetDataObject());
+    BuildSubObjectTreeSkeleton(item, model->GetDataObject());
 
     modelTreeWidget->addTopLevelItem(item);
     modelTreeWidget->setCurrentItem(item);

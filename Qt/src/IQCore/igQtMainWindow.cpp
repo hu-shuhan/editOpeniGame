@@ -50,6 +50,7 @@
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <iGameBlockMapping.h>
+#include <P3SAM/iGameP3SAMSegmenter.h>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -1912,10 +1913,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         testAction->setObjectName(QString::fromUtf8("testAction"));
         testAction->setText(QString::fromUtf8("testAction"));
         ui->menu_DataAnalysis->addAction(testAction);
-        testAction->setVisible(false);
+        testAction->setVisible(true);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
+//#define TEST_MAP_BACK
+#ifdef TEST_MAP_BACK
             auto model = rendererWidget->GetScene()->GetCurrentModel();
-            auto obj = iGame::FileIO::ReadFile("D:/TestModels/segment_result.vtk");
+            //auto obj = iGame::FileIO::ReadFile("D:/TestModels/segment_result.vtk");
+            auto obj = iGame::FileIO::ReadFile(
+                    "D:/Codes/PyCharm/Hunyuan3DPart/Hunyuan3D-Part/P3-SAM/SplitServer/output.vtk");
             auto drawObj = DynamicCast<DrawObject>(model->GetDataObject());
             drawObj->ConvertToDrawableData();
             auto surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
@@ -1926,6 +1931,36 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             auto dataObj = model->GetDataObject();
             dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
+#else
+            // 测试P3SAM分割器
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (!model) {
+                std::cout << "[P3SAM Test] No model selected." << std::endl;
+                return;
+            }
+
+            auto dataObj = model->GetDataObject();
+
+            std::cout << "[P3SAM Test] Starting P3SAM segmentation..." << std::endl;
+            P3SAMSegmenter::Pointer segmenter = P3SAMSegmenter::New();
+            segmenter->SetInput(dataObj);
+            segmenter->SetSimplificationRatio(0.1f);  // 简化到10%
+            segmenter->SetPointNum(10000);
+            segmenter->SetPromptNum(100);
+            segmenter->SetSeed(42);
+            segmenter->SetPostProcess(false);
+            segmenter->SetTimeout(300000);  // 5分钟超时
+
+            if (!segmenter->Execute()) {
+                std::cout << "[P3SAM Test] Segmentation failed: "
+                          << segmenter->GetErrorMessage() << std::endl;
+                return;
+            }
+
+            modelTreeWidget->updateAllAttriubute(dataObj);
+            std::cout << "[P3SAM Test] Segmentation complete! Parts: "
+                      << segmenter->GetPartCount() << std::endl;
+#endif // TEST_MAP_BACK
         });
     }
     //############# TESTS ED #############

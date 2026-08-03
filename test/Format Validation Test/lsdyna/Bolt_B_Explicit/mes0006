@@ -1,0 +1,415 @@
+
+
+ ***************************************************************
+ *            ANSYS 2021 R1          LEGAL NOTICES             *
+ ***************************************************************
+ *                                                             *
+ * Copyright 1971-2021 ANSYS, Inc.  All rights reserved.       *
+ * Unauthorized use, distribution or duplication is            *
+ * prohibited.                                                 *
+ *                                                             *
+ * Ansys is a registered trademark of ANSYS, Inc. or its       *
+ * subsidiaries in the United States or other countries.       *
+ * See the ANSYS, Inc. online documentation or the ANSYS, Inc. *
+ * documentation CD or online help for the complete Legal      *
+ * Notice.                                                     *
+ *                                                             *
+ ***************************************************************
+ *                                                             *
+ * THIS ANSYS SOFTWARE PRODUCT AND PROGRAM DOCUMENTATION       *
+ * INCLUDE TRADE SECRETS AND CONFIDENTIAL AND PROPRIETARY      *
+ * PRODUCTS OF ANSYS, INC., ITS SUBSIDIARIES, OR LICENSORS.    *
+ * The software products and documentation are furnished by    *
+ * ANSYS, Inc. or its subsidiaries under a software license    *
+ * agreement that contains provisions concerning               *
+ * non-disclosure, copying, length and nature of use,          *
+ * compliance with exporting laws, warranties, disclaimers,    *
+ * limitations of liability, and remedies, and other           *
+ * provisions.  The software products and documentation may be *
+ * used, disclosed, transferred, or copied only in accordance  *
+ * with the terms and conditions of that software license      *
+ * agreement.                                                  *
+ *                                                             *
+ * ANSYS, Inc. is a UL registered                              *
+ * ISO 9001:2015 company.                                      *
+ *                                                             *
+ ***************************************************************
+ *                                                             *
+ * This product is subject to U.S. laws governing export and   *
+ * re-export.                                                  *
+ *                                                             *
+ * For U.S. Government users, except as specifically granted   *
+ * by the ANSYS, Inc. software license agreement, the use,     *
+ * duplication, or disclosure by the United States Government  *
+ * is subject to restrictions stated in the ANSYS, Inc.        *
+ * software license agreement and FAR 12.212 (for non-DOD      *
+ * licenses).                                                  *
+ *                                                             *
+ ***************************************************************
+
+      Date: 04/11/2026      Time: 19:19:04  
+
+     ___________________________________________________
+     |                                                 |
+     |  Livermore Software Technology, LLC             |
+     |                                                 |
+     |  7374 Las Positas Road                          |
+     |  Livermore, CA 94551                            |
+     |  Tel: (925) 449-2500  Fax: (925) 449-2507       |
+     |  www.lstc.com                                   |
+     |_________________________________________________|
+     |                                                 |
+     |  LS-DYNA, A Program for Nonlinear Dynamic       |
+     |  Analysis of Structures in Three Dimensions     |
+     |  Date    : 10/29/2021    Time: 15:50:06         |
+     |  Version : mpp s R12                            |
+     |  Revision: R12.1-190-gadfcdf9018                |
+     |                                                 |
+     |  Features enabled in this version:              |
+     |    Distributed Memory Parallel                  |
+     |    FFTW (multi-dimensional FFTW Library)        |
+     |    ANSYSLIC enabled                             |
+     |                                                 |
+     |  Licensed to:                                   |
+     |  Issued by  : ANSYS                             |
+     |                                                 |
+     |  Platform   : WINX64 (INTEL MPI 2017.2.187 )    |
+     |  OS Level   : Windows 7/8/10 & Server 2016/2019 |
+     |  Compiler   : Intel Fortran XE 2017 MSVC++ 2017 |
+     |  Hostname   : KAIYUMA-NB2                       |
+     |  Precision  : Single precision (I4R4)           |
+     |                                                 |
+     |  Unauthorized use infringes LSTC copyrights     |
+     |_________________________________________________|
+
+
+ Command line options: i=D:\Resource\testLSDYNA_ANSYS\lsdyna\Bolt_B_Explicit\mainboltbexpl.k 
+                       memory=20m
+
+ Input file: D:\Resource\testLSDYNA_ANSYS\lsdyna\Bolt_B_Explicit\mainboltbexpl.k             
+
+ The native file format       : 32-bit small endian
+ allocating  memory to    20000000 d         948 Initial allocation
+
+ LS-DYNA will perform a structural only analysis 
+
+ expanding   memory to         785 d        1004 hex ownership chunk
+ contracting memory to         649 d        1060 shell ownership chunk
+ contracting memory to          71 d        1336 beam ownership chunk
+ contracting memory to           8 d        1336 material sort chunk
+ expanding   memory to          17 d        3372 nodal force sharing lists 1
+ expanding   memory to          24 d        3347 mat scratch
+ expanding   memory to          28 d     1003614 time history scratch
+ contracting memory to          26 d     1003614 beam time history scratch
+ contracting memory to          24 d     1003614 cross section scratch
+ expanding   memory to          25 d     1004983 tied nodes scratch
+ expanding   memory to          32 d     1004983 tied node scratch
+ contracting memory to          24 d     1004983 nodal rigid body scratch
+ contracting memory to           1 d        4660 Performing Decomposition -- Phase 3
+ Bolted Connection Type b                                                
+                         ls-dyna mpp.190 s              date 10/29/2021
+ expanding   memory to        4717 d        4660 material, node and element data
+ expanding   memory to        4815 d        4686 mat add general damage 0
+ expanding   memory to        4885 d        4686 material added airbag porosity leakage 
+ expanding   memory to        4913 d        4686 material properties
+ expanding   memory to        4934 d        7192 element data for composite material
+ expanding   memory to        4949 d       18530 gradient of damage data
+ expanding   memory to        5670 d       22946 user control for contact interfaces
+ contracting memory to        5657 d       22946 thermal expansion 0
+ expanding   memory to        5664 d       22946 state of charge expansion 0
+ expanding   memory to        5666 d       22946 cross-sectional force definitions 0
+ expanding   memory to        5929 d       22988 temp index array for node sorting
+ contracting memory to        5666 d       22988 just because?
+ expanding   memory to        5804 d       23570 arbitrary element numbering input
+ contracting memory to        5674 d       24305 d3thdt storage
+ expanding   memory to        5675 d       61451 process element material data
+ expanding   memory to        7688 d       61444 load curve data
+ expanding   memory to       13739 d       61444 user_define_loading_set
+ expanding   memory to       13947 d       61444 regularize time history data
+ contracting memory to       13743 d       61444 *DEFINE_ELEMENT_DEATH
+ expanding   memory to       14014 d       62244 contact interfaces
+ expanding   memory to       15540 d       62244 implicit contact 1
+ expanding   memory to       15766 d       62244 implicit contact 2
+ contracting memory to       15014 d       64783 contact segment data 1
+ expanding   memory to       16329 d       72311 contact segment data 3
+ contracting memory to       14014 d      132030 contact definition
+ expanding   memory to       14024 d      134951 contact history
+ expanding   memory to       14087 d      135671 rigid body
+ expanding   memory to       14108 d      136471 rbe2 scratch
+ contracting memory to       14091 d      137572 contact friction
+ expanding   memory to       14196 d      137579 joints
+ expanding   memory to       14296 d      143987 rigid bodies for disp. termination
+ expanding   memory to       14303 d      145009 mat add cohesive 0
+ expanding   memory to       14307 d      145009 sensor_control for curve
+ expanding   memory to       14314 d      145009 flexible body 2
+ expanding   memory to       14578 d      145011 slave-master force transducer
+ expanding   memory to       15062 d      145011 slave-master force transducer
+ expanding   memory to       15068 d      145017 ipoint table for force transducer
+ expanding   memory to       15331 d      145011 iface table for force transducer
+ contracting memory to       15089 d      145011 remove interface array
+ expanding   memory to       15616 d      145011 weld node list 1
+ expanding   memory to       15778 d      145011 weld node list 2
+ contracting memory to       15354 d      145011 global pointers for welds
+ contracting memory to       15090 d      145011 global shared weld node list 1
+ expanding   memory to       15172 d      145011 global shared weld node list 2
+ expanding   memory to       15205 d      153371 mpp general scratch
+
+     slave surface of interface   = 10001
+     type                         =        13
+     surface timestep             = 3.179E-04
+     controlling slave node ID    = 100030
+     part ID of slave node        = 10
+     current minimum time step    = 3.179E-04
+
+     slave surface of interface   = 2
+     type                         =        25
+     surface timestep             = 3.179E-04
+     controlling slave node ID    = 100030
+     part ID of slave node        = 10
+     current minimum time step    = 3.179E-04
+
+     master surface of interface  = 2
+     type                         =        25
+     surface timestep             = 4.860E-04
+     controlling master node ID   = 200616
+     part ID of master node       = 20
+     current minimum time step    = 3.179E-04
+
+ S t o r a g e   a l l o c a t i o n   
+
+ Memory required to begin solution      :      17K
+ Additional dynamically allocated memory:    1094K
+                                   Total:    1110K
+
+ 100 smallest timesteps
+ ------------------------------------------------
+ element       number                part    timestep
+ solid         100125                  10  2.1187E-04
+ solid         100100                  10  2.1187E-04
+ solid         100098                  10  2.1187E-04
+ solid         100013                  10  2.1187E-04
+ solid         100009                  10  2.1187E-04
+ solid         100510                  10  2.1187E-04
+ solid         100492                  10  2.1187E-04
+ solid         100490                  10  2.1187E-04
+ solid         100118                  10  2.1187E-04
+ solid         100018                  10  2.1187E-04
+ solid         100004                  10  2.1187E-04
+ solid         100494                  10  2.1187E-04
+ solid         100410                  10  2.1187E-04
+ solid         100401                  10  2.1187E-04
+ solid         100396                  10  2.1187E-04
+ solid         100111                  10  2.1187E-04
+ solid         100102                  10  2.1187E-04
+ solid         100028                  10  2.1187E-04
+ solid         100006                  10  2.1187E-04
+ solid         100517                  10  2.1187E-04
+ solid         100503                  10  2.1187E-04
+ solid         100420                  10  2.1187E-04
+ solid         100405                  10  2.1187E-04
+ solid         100023                  10  2.1187E-04
+ solid         100415                  10  2.1187E-04
+ solid         100398                  10  2.1187E-04
+ solid         100106                  10  2.1187E-04
+ solid         100498                  10  2.1187E-04
+ shell         200489                  20  4.6895E-04
+ shell         200460                  20  4.6931E-04
+ shell         200487                  20  4.6973E-04
+ shell         200455                  20  4.7008E-04
+ shell         200490                  20  4.7028E-04
+ shell         200456                  20  4.7063E-04
+ shell         200488                  20  4.7095E-04
+ shell         200447                  20  4.7129E-04
+ shell         200494                  20  4.7235E-04
+ shell         200492                  20  4.7271E-04
+ shell         200448                  20  4.7271E-04
+ shell         200441                  20  4.7305E-04
+ shell         200499                  20  4.7457E-04
+ shell         200496                  20  4.7467E-04
+ shell         200442                  20  4.7486E-04
+ shell         200436                  20  4.7495E-04
+ shell         200501                  20  4.7672E-04
+ shell         200554                  20  4.7693E-04
+ shell         200555                  20  4.7698E-04
+ shell         200407                  20  4.7717E-04
+ shell         200518                  20  4.7827E-04
+ shell         200422                  20  4.7838E-04
+ shell         200506                  20  4.7846E-04
+ shell         200427                  20  4.7856E-04
+ shell         200512                  20  4.7891E-04
+ shell         200424                  20  4.7906E-04
+ shell         200268                  20  4.8807E-04
+ shell         200106                  20  4.8807E-04
+ shell         200281                  20  4.8807E-04
+ shell         200260                  20  4.8807E-04
+ shell         200088                  20  4.8807E-04
+ shell         200115                  20  4.8807E-04
+ shell         200242                  20  4.8807E-04
+ shell         200233                  20  4.8807E-04
+ shell         200224                  20  4.8807E-04
+ shell         200139                  20  4.8807E-04
+ shell         200132                  20  4.8807E-04
+ shell         200145                  20  4.8807E-04
+ shell         200124                  20  4.8807E-04
+ shell         200251                  20  4.8807E-04
+ shell         200097                  20  4.8807E-04
+ shell         200275                  20  4.8807E-04
+ shell         200146                  20  4.8807E-04
+ shell         200277                  20  4.8807E-04
+ shell         200130                  20  4.8807E-04
+ shell         200289                  20  4.8807E-04
+ shell         200128                  20  4.8807E-04
+ shell         200123                  20  4.8807E-04
+ shell         200120                  20  4.8807E-04
+ shell         200113                  20  4.8807E-04
+ shell         200290                  20  4.8807E-04
+ shell         200285                  20  4.8807E-04
+ shell         200283                  20  4.8807E-04
+ shell         200280                  20  4.8807E-04
+ shell         200270                  20  4.8807E-04
+ shell         200267                  20  4.8807E-04
+ shell         200253                  20  4.8807E-04
+ shell         200244                  20  4.8807E-04
+ shell         200136                  20  4.8807E-04
+ shell         200129                  20  4.8807E-04
+ shell         200122                  20  4.8807E-04
+ shell         200112                  20  4.8807E-04
+ shell         200105                  20  4.8807E-04
+ shell         200099                  20  4.8807E-04
+ shell         200096                  20  4.8807E-04
+ shell         200090                  20  4.8807E-04
+ shell         200072                  20  4.8807E-04
+ shell         200291                  20  4.8807E-04
+ shell         200284                  20  4.8807E-04
+ shell         200279                  20  4.8807E-04
+ shell         200278                  20  4.8807E-04
+ shell         200273                  20  4.8807E-04
+
+ S t o r a g e   a l l o c a t i o n   
+
+ Memory required to complete solution   :      17K
+ Additional dynamically allocated memory:    1107K
+                                   Total:    1124K
+
+
+ P r o c e s s o r   #         6
+
+ T i m i n g   i n f o r m a t i o n
+                        CPU(seconds)   %CPU  Clock(seconds) %Clock
+  ----------------------------------------------------------------
+  Keyword Processing ... 0.0000E+00    0.00     3.3000E-02    0.18
+  MPP Decomposition .... 0.0000E+00    0.00     9.8000E-02    0.55
+    Init Proc .......... 0.0000E+00    0.00     3.1000E-02    0.17
+    Decomposition ...... 0.0000E+00    0.00     1.1000E-02    0.06
+    Translation ........ 0.0000E+00    0.00     5.6000E-02    0.31
+  Initialization ....... 5.0000E+00   27.78     5.2810E+00   29.43
+    Init Proc Phase 1 .. 0.0000E+00    0.00     4.8000E-02    0.27
+    Init Proc Phase 2 .. 0.0000E+00    0.00     1.6000E-02    0.09
+  Init solver .......... 0.0000E+00    0.00     2.0000E-03    0.01
+  Element processing ... 6.0000E+00   33.33     7.7160E+00   42.99
+    Solids ............. 0.0000E+00    0.00     9.4100E-01    5.24
+    Shells ............. 6.0000E+00   33.33     6.4390E+00   35.88
+    E Other ............ 0.0000E+00    0.00     2.7100E-01    1.51
+  Binary databases ..... 1.0000E+00    5.56     5.7600E-01    3.21
+  ASCII database ....... 0.0000E+00    0.00     5.9900E-01    3.34
+  Contact algorithm .... 1.0000E+00    5.56     1.6780E+00    9.35
+    Interf. ID     10001 1.0000E+00    5.56     1.2990E+00    7.24
+    Interf. ID         2 0.0000E+00    0.00     1.0700E-01    0.60
+  Rigid Bodies ......... 1.0000E+00    5.56     4.6000E-02    0.26
+  Time step size ....... 0.0000E+00    0.00     3.2400E-01    1.81
+  Group force file ..... 0.0000E+00    0.00     1.1000E-02    0.06
+  Others ............... 1.0000E+00    5.56     4.4200E-01    2.46
+    Force Sharing ...... 1.0000E+00    5.56     3.6600E-01    2.04
+  Misc. 1 .............. 1.0000E+00    5.56     4.4600E-01    2.49
+    Scale Masses ....... 0.0000E+00    0.00     2.0000E-03    0.01
+    Force Constraints .. 0.0000E+00    0.00     5.0000E-03    0.03
+    Force to Accel ..... 0.0000E+00    0.00     1.1000E-02    0.06
+    Constraint Sharing . 0.0000E+00    0.00     5.0000E-03    0.03
+    Update RB nodes .... 0.0000E+00    0.00     9.0000E-03    0.05
+  Misc. 2 .............. 0.0000E+00    0.00     8.3000E-02    0.46
+  Misc. 3 .............. 1.0000E+00    5.56     5.5000E-01    3.06
+  Misc. 4 .............. 1.0000E+00    5.56     6.2000E-02    0.35
+    Timestep Init ...... 0.0000E+00    0.00     2.3000E-02    0.13
+    Apply Loads ........ 1.0000E+00    5.56     2.9000E-02    0.16
+  ----------------------------------------------------------------
+  T o t a l s            1.8000E+01  100.00     1.7947E+01  100.00
+
+
+ A v e r a g e s
+
+ T i m i n g   i n f o r m a t i o n
+                        CPU(seconds)   %CPU  Clock(seconds) %Clock
+  ----------------------------------------------------------------
+  Keyword Processing ... 0.0000E+00    0.00     3.3625E-02    0.19
+    KW Reading ......... 0.0000E+00    0.00     1.7500E-03    0.01
+    KW Writing ......... 0.0000E+00    0.00     7.5000E-04    0.00
+  MPP Decomposition .... 0.0000E+00    0.00     9.8125E-02    0.55
+    Init Proc .......... 0.0000E+00    0.00     3.1000E-02    0.17
+    Decomposition ...... 0.0000E+00    0.00     1.1125E-02    0.06
+    Translation ........ 0.0000E+00    0.00     5.6000E-02    0.31
+  Initialization ....... 5.0000E+00   27.78     5.2803E+00   29.42
+    Init Proc Phase 1 .. 0.0000E+00    0.00     4.8000E-02    0.27
+    Init Proc Phase 2 .. 0.0000E+00    0.00     1.6000E-02    0.09
+  Init solver .......... 0.0000E+00    0.00     1.7500E-03    0.01
+  Element processing ... 6.0000E+00   33.33     5.8626E+00   32.67
+    Solids ............. 1.1250E+00    6.25     1.4580E+00    8.12
+    Shells ............. 2.7500E+00   15.28     2.8260E+00   15.75
+    Beams .............. 1.2500E-01    0.69     1.4625E-02    0.08
+    E Other ............ 2.0000E+00   11.11     1.5340E+00    8.55
+  Binary databases ..... 5.0000E-01    2.78     5.7012E-01    3.18
+  ASCII database ....... 6.2500E-01    3.47     6.4012E-01    3.57
+  Contact algorithm .... 1.6250E+00    9.03     1.5874E+00    8.84
+    Interf. ID     10001 1.2500E+00    6.94     1.1786E+00    6.57
+    Interf. ID         2 0.0000E+00    0.00     6.4125E-02    0.36
+    Interf. ID     10013 1.2500E-01    0.69     1.1350E-01    0.63
+  Rigid Bodies ......... 1.2500E-01    0.69     3.0875E-02    0.17
+  Time step size ....... 2.2500E+00   12.50     2.2135E+00   12.33
+  Bnd prescribed opt ... 0.0000E+00    0.00     4.3750E-03    0.02
+  Group force file ..... 1.2500E-01    0.69     1.6125E-02    0.09
+  Others ............... 3.7500E-01    2.08     4.1162E-01    2.29
+    Force Sharing ...... 2.5000E-01    1.39     3.7975E-01    2.12
+  Misc. 1 .............. 3.7500E-01    2.08     5.4900E-01    3.06
+    Scale Masses ....... 0.0000E+00    0.00     2.5000E-03    0.01
+    Force Constraints .. 0.0000E+00    0.00     2.0000E-03    0.01
+    Force to Accel ..... 0.0000E+00    0.00     1.1500E-02    0.06
+    Constraint Sharing . 0.0000E+00    0.00     2.6250E-03    0.01
+    Update RB nodes .... 0.0000E+00    0.00     6.0000E-03    0.03
+  Misc. 2 .............. 3.7500E-01    2.08     4.7000E-02    0.26
+  Misc. 3 .............. 5.0000E-01    2.78     5.6375E-01    3.14
+  Misc. 4 .............. 1.2500E-01    0.69     3.6750E-02    0.20
+    Timestep Init ...... 0.0000E+00    0.00     1.5750E-02    0.09
+    Apply Loads ........ 1.2500E-01    0.69     1.4750E-02    0.08
+  ----------------------------------------------------------------
+  T o t a l s            1.8000E+01  100.00     1.7947E+01  100.00
+
+ Problem time       =    5.0001E+00
+ Problem cycle      =     23928
+ Total CPU time     =        18 seconds (   0 hours  0 minutes 18 seconds)
+ CPU time per zone cycle  =        361.715 nanoseconds
+ Clock time per zone cycle=        348.777 nanoseconds
+
+ Parallel execution with      8 MPP proc
+ NLQ used/max               136/   136
+
+  C P U   T i m i n g   i n f o r m a t i o n
+
+  Processor   Hostname                              CPU/Avg_CPU  CPU(seconds)
+  ---------------------------------------------------------------------------
+  #       0   KAIYUMA-NB2                               0.77066   1.3094E+01
+  #       1   KAIYUMA-NB2                               1.02908   1.7484E+01
+  #       2   KAIYUMA-NB2                               1.05391   1.7906E+01
+  #       3   KAIYUMA-NB2                               1.05116   1.7859E+01
+  #       4   KAIYUMA-NB2                               1.05391   1.7906E+01
+  #       5   KAIYUMA-NB2                               1.04656   1.7781E+01
+  #       6   KAIYUMA-NB2                               0.99966   1.6984E+01
+  #       7   KAIYUMA-NB2                               0.99506   1.6906E+01
+  ---------------------------------------------------------------------------
+  T o t a l s                                                     1.3592E+02
+
+
+ Start time   04/11/2026 19:19:04  
+ End time     04/11/2026 19:19:17  
+ Elapsed time      13 seconds for   23928 cycles using     8 MPP procs
+             (      0 hour   0 minute  13 seconds)
+
+ N o r m a l    t e r m i n a t i o n                          04/11/26 19:19:17

@@ -101,8 +101,17 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                 PATTERN "*/" EXCLUDE
                 PATTERN "2024/win_b64" EXCLUDE
         )
-        file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
-        file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
+        if (WIN32 AND AbqSDK_DLL_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
+            install(CODE "
+                execute_process(
+                    COMMAND \"${CMAKE_COMMAND}\"
+                    \"-DIGAME_RUNTIME_SEARCH_DIR=${AbqSDK_DLL_DIR}\"
+                    \"-DIGAME_RUNTIME_DESTINATION=\${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK\"
+                    \"-DIGAME_RUNTIME_LIBRARY_NAMES=${IGAME_ABQ_RUNTIME_LIBRARY_NAMES}\"
+                    -P \"${IGAMEVIS_ROOT_DIR}/Cmake/DeployAbqRuntime.cmake\"
+                    COMMAND_ERROR_IS_FATAL ANY)
+            ")
+        endif ()
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
 
         foreach (LIB ${ABQ_LIB_LIST})
