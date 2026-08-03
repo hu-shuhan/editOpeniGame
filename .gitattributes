@@ -3,3 +3,5 @@ test/FeatureExtraction[[:space:]]Test/*.vtk filter=lfs diff=lfs merge=lfs -text
 test/streamtest/*.vtk filter=lfs diff=lfs merge=lfs -text
 *.vtk filter=lfs diff=lfs merge=lfs -text
 "test/Streamline Test/StreamTest.vtk" -filter
+"test/Format Validation Test/ansys/*.rth" filter=lfs diff=lfs merge=lfs -text
+"test/Format Validation Test/ansys/*.rst" filter=lfs diff=lfs merge=lfs -text
