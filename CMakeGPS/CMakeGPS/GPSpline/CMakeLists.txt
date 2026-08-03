@@ -28,16 +28,17 @@ target_compile_features(GPU_header_lib INTERFACE cxx_std_17)
 
 # Provide input/output macros as compile definitions (quoted path)
 target_compile_definitions(GPU_header_lib
-		INTERFACE
-		INPUT_DIR=\"${PROJECT_SOURCE_DIR}/input/\"
-		OUTPUT_DIR=\"${PROJECT_SOURCE_DIR}/output/\"
+        INTERFACE
+        $<BUILD_INTERFACE:INPUT_DIR=\"${PROJECT_SOURCE_DIR}/input/\">
+        $<BUILD_INTERFACE:OUTPUT_DIR=\"${PROJECT_SOURCE_DIR}/output/\">
 )
 
 # Include current dir (headers) and CUDA toolkit include directories
+include(GNUInstallDirs)
+
 target_include_directories(GPU_header_lib
-		INTERFACE
-		${CMAKE_CURRENT_LIST_DIR}
-		$<$<BOOL:${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}>:${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}>
+        INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
 )
 
 # -----------------------
@@ -72,7 +73,10 @@ target_compile_options(developer_flags INTERFACE
 		$<$<COMPILE_LANGUAGE:CUDA>:${cuda_flags}>
 )
 
-target_link_libraries(GPU_header_lib INTERFACE developer_flags)
+target_link_libraries(GPU_header_lib
+        INTERFACE
+        $<BUILD_INTERFACE:developer_flags>
+)
 
 # -----------------------
 # Main library (OBJECT + STATIC) to ensure CUDA device registration is preserved
@@ -122,11 +126,9 @@ set_target_properties(${LibraryName} PROPERTIES
 
 # Propagate compile/link settings to the final library
 target_link_libraries(${LibraryName}
-		PRIVATE
-		GPU_header_lib
-		PUBLIC
-		Geom
-		TBB::tbb
+        PUBLIC
+        Geom
+        TBB::tbb
 )
 
 # If you want the library to also link the CUDA runtime (optional; final exe can link too)
