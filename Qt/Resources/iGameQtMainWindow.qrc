@@ -81,5 +81,6 @@
     </qresource>
     <qresource prefix="/Styles">
         <file>Styles/SourceHanSansCN-Normal.otf</file>
+        <file alias="AiChatWidget.qss">../src/IQWidgets/igQtAiChat/igQtAiChatWidget.qss</file>
     </qresource>
 </RCC>
