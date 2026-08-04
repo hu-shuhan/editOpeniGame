@@ -1910,9 +1910,9 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     {
         QAction* testAction{};
         testAction = new QAction(this);
-        testAction->setObjectName(QString::fromUtf8("testAction"));
-        testAction->setText(QString::fromUtf8("testAction"));
-        ui->menu_DataAnalysis->addAction(testAction);
+        testAction->setObjectName(QString::fromUtf8("MeshSplit"));
+        testAction->setText(QString::fromUtf8("MeshSplit"));
+        ui->menu_filters->addAction(testAction);
         testAction->setVisible(true);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
 //#define TEST_MAP_BACK
@@ -1945,8 +1945,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             P3SAMSegmenter::Pointer segmenter = P3SAMSegmenter::New();
             segmenter->SetInput(dataObj);
             segmenter->SetSimplificationRatio(0.1f);  // 简化到10%
-            segmenter->SetPointNum(10000);
-            segmenter->SetPromptNum(100);
+            segmenter->SetPointNum(20000);
+            segmenter->SetPromptNum(500);
             segmenter->SetSeed(42);
             segmenter->SetPostProcess(false);
             segmenter->SetTimeout(300000);  // 5分钟超时
