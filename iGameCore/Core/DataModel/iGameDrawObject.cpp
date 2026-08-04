@@ -13,6 +13,7 @@
     #include <sstream>
 #endif
 
+#include <iostream>
 #include <utility>
 
 IGAME_NAMESPACE_BEGIN
@@ -286,7 +287,9 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
 
     // Share parent's dataRange to RenderableMesh BEFORE processing
     // This ensures RenderableMesh uses the full model's calculated range
-    if (index >= 0) {
+    //
+    if (index >= 0 && this->GetAttributeSet() &&
+        static_cast<int>(this->GetAttributeSet()->GetNumberOfAttributes()) > index) {
         auto& parentAttr = this->GetAttributeSet()->GetAttribute(index);
         auto parentDataRange = parentAttr.GetDataRange();
 
@@ -316,9 +319,11 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         m_AttributeIndex = index;
         m_AttributeDimension = dimension;
         m_UseColor = true;
-    } else {
-        std::cout << "[Warning] The specified attribute index is out of range." << std::endl;
+
+        auto& curAttr = GetAttributeSet()->GetAttribute(index);
+        if (curAttr.pointer) { m_ColorWithCell = (curAttr.attachmentType == IG_CELL); }
     }
+
     m_AttributeChanged = true;
 
     scene->Update();

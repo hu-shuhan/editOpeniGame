@@ -14,6 +14,9 @@
 #include <QFileDialog>
 #include <IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <Deformation/iGameStressDeformationFilter.h>
+#include <FeatureExtraction/iGameVortexFilter.h>
+#include <iGameProgressObserver.h>
+#include <iostream>
 
 /**
  * @class   igQtAnimationWidget
@@ -182,23 +185,67 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_idx);
     ui->comboBoxCurrentAnimation->blockSignals(false);
 
+
+    if (m_VortexAutoCompute && !m_VortexSourceAttr.empty()) {
+        if (auto frames = currentDrawObject->PeekTimeFrames()) {
+            auto frameData = frames->GetTargetTimeFrameData(keyframe_idx);
+            for (auto& o: frameData) {
+                auto sub = DynamicCast<DataObject>(o);
+                if (!sub) continue;
+                auto a = sub->GetAttributeSet();
+                if (a && a->GetAttributeIndex("vorticities") >= 0) continue; // 已算过，命中缓存
+                auto f = VortexFilter::New();
+                f->SetInput(sub);
+                f->SetAttributeByName(m_VortexSourceAttr);
+                if (!f->Execute()) {
+                    std::cout << "[Vortex][frame " << keyframe_idx << "] pre-compute failed: " << f->GetMessage()
+                              << std::endl;
+                }
+            }
+        }
+    }
+
     // 缓存设置由 comboBox_AnimationCacheNum 控制，不在播放时覆盖
     currentDrawObject->UpdateAnimation(keyframe_idx);
 
     currentScene->MakeCurrent();
-    currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
-    if (currentDrawObject->GetAttributeIndex() != -1) {
-        currentDrawObject->ViewCloudPicture(
-                currentScene, currentDrawObject->GetAttributeIndex() - 1);
-        currentDrawObject->ViewCloudPicture(
-                currentScene, currentDrawObject->GetAttributeIndex() + 1);
+
+
+    if (m_VortexAutoCompute && !m_VortexSourceAttr.empty()) {
+        const int vi = ensureVortexForCurrentFrame(currentDrawObject, m_VortexSourceAttr,
+                                                   static_cast<int>(keyframe_idx));
+        if (vi < 0) {
+            std::cout << "[Vortex][frame " << keyframe_idx << "] NO vorticity attribute -> frame will be blank"
+                      << std::endl;
+        }
     }
-    
+
+    currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
+
+
+    const int curAttrIdx = currentDrawObject->GetAttributeIndex();
+    const int curAttrDim = currentDrawObject->GetAttributeDimension();
+    if (curAttrIdx != -1) {
+        int probeIdx = -1;
+        if (auto attrSet = currentDrawObject->GetAttributeSet()) {
+            const int cnt = static_cast<int>(attrSet->GetNumberOfAttributes());
+            if (curAttrIdx > 0) {
+                probeIdx = curAttrIdx - 1;
+            } else if (cnt > 1) {
+                probeIdx = 1;
+            }
+        }
+        if (probeIdx >= 0) {
+            currentDrawObject->ViewCloudPicture(currentScene, probeIdx, curAttrDim);
+        }
+        currentDrawObject->ViewCloudPicture(currentScene, curAttrIdx, curAttrDim);
+    }
+
     // Force reconvert to generate new shell data for this frame
     currentDrawObject->ForceReConvertToDrawableData();
     // Explicitly call ConvertToDrawableData NOW to create the shell (RenderableMesh)
     currentDrawObject->ConvertToDrawableData();
-    
+
     // CRITICAL: Also call the RenderableMesh's ConvertToDrawableData to populate
     // its m_Positions. Otherwise GetRenderPoints() returns an empty array and
     // the RenderableMesh's ConvertToDrawableData would run during render,
@@ -225,6 +272,13 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         }
     }
     
+    // 抽壳网格重建后再同步一次值域：UpdateSubDataObjectDataRange 按下标把父容器的
+    // dataRange 写给子对象与抽壳网格，而抽壳发生在其之后时新壳会拿不到值域。
+    if (curAttrIdx != -1 && currentDrawObject->HasSubDataObject()) {
+        currentDrawObject->ReCollectSubDataObjectDataRange();
+        currentDrawObject->UpdateSubDataObjectDataRange();
+    }
+
     // Apply deformation AFTER both parent and RenderableMesh have been converted
     // but BEFORE the render pass
     if(currentDrawObject->GetDeformationData()->GetEnableStatus()){
@@ -232,6 +286,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         deformFilter->SetInput(currentDrawObject);
         if(!deformFilter->Execute()) std::cout << " deformation error \n";
     }
+
 
     currentScene->DoneCurrent();
 
@@ -426,12 +481,154 @@ void igQtAnimationWidget::onCacheNumChanged(int cacheNum) {
     }
 }
 
+void igQtAnimationWidget::setVortexAutoCompute(bool enabled, const std::string& sourceAttrName) {
+    using namespace iGame;
+    m_VortexAutoCompute = enabled;
+    if (!sourceAttrName.empty()) { m_VortexSourceAttr = sourceAttrName; }
+    if (!enabled) {
+        m_VortexSourceAttr.clear();
+        m_VortexBoundModel = nullptr;
+        return;
+    }
+    // 记住绑定到哪个模型，供 initAnimationComponents 判断是否发生了模型切换
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    if (scene && scene->GetCurrentModel()) {
+        m_VortexBoundModel = scene->GetCurrentModel()->GetDataObject().GetPointer();
+    }
+}
+
+int igQtAnimationWidget::ensureVortexForCurrentFrame(iGame::DataObject::Pointer obj,
+                                                     const std::string& sourceAttrName,
+                                                     int frameIndexForDisplay) {
+    using namespace iGame;
+    if (!obj || sourceAttrName.empty()) return -1;
+
+    static const std::string kOutName = "vorticities";
+
+    // 1) 幂等检查：当前帧的每个子对象是否都已带 vorticities。
+    //    缓存命中时帧对象上还留着上次算好的结果，直接复用，避免重复计算。
+    bool needCompute = false;
+    if (obj->HasSubDataObject()) {
+        for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it) {
+            if (!it->second) continue;
+            auto a = it->second->GetAttributeSet();
+            if (!a || a->GetAttributeIndex(kOutName) < 0) {
+                needCompute = true;
+                break;
+            }
+        }
+    } else {
+        auto a = obj->GetAttributeSet();
+        needCompute = (!a || a->GetAttributeIndex(kOutName) < 0);
+    }
+
+    // 2) 缺失才算。同步执行——调用方（切帧回调）需要等它算完再渲染本帧。
+    //    命中缓存时这里整段跳过，不做计算也不触碰进度条
+    //    （进度条收到 100% 会自动复位，每帧无条件写会导致它反复闪动）。
+    if (needCompute) {
+        auto progressObserver = ProgressObserver::Instance();
+        progressObserver->UpdateText(
+                frameIndexForDisplay >= 0
+                        ? QStringLiteral("计算涡量 第 %1 帧").arg(frameIndexForDisplay + 1).toStdString()
+                        : std::string("计算涡量"));
+
+        auto filter = VortexFilter::New();
+        filter->SetInput(obj);
+        filter->SetAttributeByName(sourceAttrName);
+        const bool ok = filter->Execute();
+
+        progressObserver->UpdateText("");
+        progressObserver->UpdateProgress(1.0);
+
+        if (!ok) {
+            std::cout << "[Vortex] frame compute failed: " << filter->GetMessage() << std::endl;
+            return -1;
+        }
+    }
+
+    // 3) 父容器登记：vorticities 是写进子对象的，而模型树与云图按父容器的属性下标寻址
+    //    （见 DataObject::ReCollectSubDataObjectDataRange），必须补一条同名同维占位。
+    int parIdx = -1;
+    auto parentAttr = obj->GetAttributeSet();
+    if (!parentAttr) return -1;
+    parIdx = parentAttr->GetAttributeIndex(kOutName);
+
+    if (parIdx < 0 && obj->HasSubDataObject()) {
+        auto firstSub = obj->SubDataObjectIteratorBegin()->second;
+        auto subAttr = firstSub ? firstSub->GetAttributeSet() : nullptr;
+        int subIdx = subAttr ? subAttr->GetAttributeIndex(kOutName) : -1;
+        if (subIdx >= 0) {
+            auto& sa = subAttr->GetAttribute(subIdx);
+            const int vdim = sa.pointer->GetDimension();
+
+            DoubleArray::Pointer placeholder = DoubleArray::New();
+            placeholder->SetName(kOutName);
+            placeholder->SetDimension(vdim);
+
+            DoubleArray::Pointer range = DoubleArray::New();
+            range->SetDimension(2);
+            range->Resize(vdim + 1);
+
+            parIdx = static_cast<int>(parentAttr->AddScalar(sa.attachmentType, placeholder, range));
+        }
+    }
+
+    // 4) 用本帧实际数值刷新父容器值域，否则色条范围是空的
+    if (parIdx >= 0 && obj->HasSubDataObject()) {
+        obj->ReCollectSubDataObjectDataRange();
+        obj->UpdateSubDataObjectDataRange();
+    }
+
+    if (needCompute && parIdx >= 0) {
+        if (auto drawObj = DynamicCast<DrawObject>(obj)) { drawObj->ForceReConvertToDrawableData(); }
+    }
+
+    return parIdx;
+}
+
+void igQtAnimationWidget::setPreferredCacheNum(int n) {
+    using namespace iGame;
+    m_PreferredCacheNum = n > 0 ? n : 0;
+    if (m_PreferredCacheNum <= 0) return;
+
+    // 同步下拉框显示（不触发 onCacheNumChanged，避免与下面的 EnableCache 重复）
+    if (ui->comboBox_AnimationCacheNum->count() > m_PreferredCacheNum) {
+        ui->comboBox_AnimationCacheNum->blockSignals(true);
+        ui->comboBox_AnimationCacheNum->setCurrentIndex(m_PreferredCacheNum);
+        ui->comboBox_AnimationCacheNum->blockSignals(false);
+    }
+
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    if (!scene || !scene->GetCurrentModel()) return;
+    auto drawObj = DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+    if (!drawObj) return;
+    auto frames = drawObj->PeekTimeFrames();
+    if (!frames) return;
+    // +1：下拉框语义是「当前帧之外额外缓存的帧数」
+    frames->EnableCache(m_PreferredCacheNum + 1);
+}
+
 void igQtAnimationWidget::initAnimationComponents() {
     // 如果正在播放动画，跳过初始化以避免中断播放
     if (m_IsAnimationPlaying) {
         return;
     }
-    
+
+
+    {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        iGame::DataObject* curObj =
+                (scene && scene->GetCurrentModel())
+                        ? scene->GetCurrentModel()->GetDataObject().GetPointer()
+                        : nullptr;
+        if (m_VortexAutoCompute && curObj != m_VortexBoundModel) {
+            m_VortexAutoCompute = false;
+            m_VortexSourceAttr.clear();
+            m_VortexBoundModel = nullptr;
+        }
+    }
+
+
     if (iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() ==
                 nullptr ||
         iGame::SceneManager::Instance()
@@ -466,7 +663,8 @@ void igQtAnimationWidget::initAnimationComponents() {
     // 初始化缓存ComboBox: 选项 [0, 1, 2, ..., 时间帧数量], 默认值为 数量 * 0.1
     int frameCount = static_cast<int>(timeValues.size());
 //    int defaultCacheNum = std::max(0, frameCount / 10); // 默认10%，至少为0
-    int defaultCacheNum = 0; // 默认为0
+
+    int defaultCacheNum = m_PreferredCacheNum < frameCount ? m_PreferredCacheNum : frameCount;
     ui->comboBox_AnimationCacheNum->blockSignals(true);
     ui->comboBox_AnimationCacheNum->clear();
     for (int i = 0; i <= frameCount; i++) {
