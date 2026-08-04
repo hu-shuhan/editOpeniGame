@@ -132,6 +132,16 @@ if (ENABLE_QT_MODULE)
     if (WIN32)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+        if (IGAME_ABQ_RUNTIME_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND}
+                    "-DIGAME_RUNTIME_SEARCH_DIR=${IGAME_ABQ_RUNTIME_DIR}"
+                    "-DIGAME_RUNTIME_DESTINATION=$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                    "-DIGAME_RUNTIME_LIBRARY_NAMES=${IGAME_ABQ_RUNTIME_LIBRARY_NAMES}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/Cmake/DeployAbqRuntime.cmake"
+                    COMMENT "Deploying Abaqus runtime dependencies"
+                    VERBATIM)
+        endif ()
     endif ()
 
     if (ENABLE_LIBTORCH_MODULE AND WIN32)
