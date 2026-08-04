@@ -46,6 +46,10 @@ public:
 	// Switch to the next task. Progress will be reset.
     void ResetProgress();
     void ResetProgress(double scale);
+    // 把本 filter 内部的 0→1 进度映射到全局进度的 [shift, shift + scale] 区间。
+    // 用于「逐帧 / 逐块批量执行」这类组合场景：让多次 Execute 拼成一条连续进度条，
+    // 而不是每个子任务都把进度条从头拉一遍。
+    void SetProgressRange(double shift, double scale);
 	
 	void SetModel(Model::Pointer model);
 

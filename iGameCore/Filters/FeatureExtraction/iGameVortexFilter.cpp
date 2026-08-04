@@ -8,11 +8,81 @@
 #include "iGameUnstructuredMesh.h"
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <string>
 IGAME_NAMESPACE_BEGIN
 bool VortexFilter::Execute()  {
 
     auto input = GetInput(0);
     if (input == nullptr) return false;
+
+
+    if (input->HasSubDataObject()) {
+        std::string attrName = name;
+        if (attrName.empty() && curIndex >= 0) {
+            auto parentAttr = input->GetAttributeSet();
+            if (parentAttr && curIndex < parentAttr->GetNumberOfAttributes()) {
+                auto ptr = parentAttr->GetAttribute(curIndex).pointer;
+                if (ptr) attrName = ptr->GetName();
+            }
+            if (attrName.empty()) {
+                auto first = input->SubDataObjectIteratorBegin();
+                if (first != input->SubDataObjectIteratorEnd() && first->second) {
+                    auto subAttr = first->second->GetAttributeSet();
+                    if (subAttr && curIndex < subAttr->GetNumberOfAttributes()) {
+                        auto ptr = subAttr->GetAttribute(curIndex).pointer;
+                        if (ptr) attrName = ptr->GetName();
+                    }
+                }
+            }
+        }
+        if (attrName.empty()) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
+
+        int blockCount = 0;
+        for (auto it = input->SubDataObjectIteratorBegin(); it != input->SubDataObjectIteratorEnd(); ++it) {
+            if (it->second) ++blockCount;
+        }
+        if (blockCount == 0) {
+            m_Message = "the multi-block input has no sub data object";
+            return false;
+        }
+
+        const double blockSlice = m_ProgressScale / blockCount;
+
+        int done = 0, okCount = 0;
+        for (auto it = input->SubDataObjectIteratorBegin(); it != input->SubDataObjectIteratorEnd(); ++it) {
+            auto sub = it->second;
+            if (!sub) continue;
+
+            auto subFilter = VortexFilter::New();
+            subFilter->SetInput(sub);
+            subFilter->SetAttributeByName(attrName);
+            subFilter->SetProgressRange(m_ProgressShift + done * blockSlice, blockSlice);
+            if (subFilter->Execute()) {
+                ++okCount;
+            } else {
+                std::cout << "[VortexFilter] sub-block \"" << sub->GetName()
+                          << "\" failed: " << subFilter->GetMessage() << std::endl;
+            }
+            ++done;
+            UpdateProgress(static_cast<double>(done) / blockCount);
+        }
+
+        SetOutput(input);
+        UpdateProgress(1.0);
+        if (okCount == 0) {
+            m_Message = "vorticity computation failed on all " + std::to_string(blockCount) + " sub-blocks";
+            return false;
+        }
+        if (okCount < blockCount) {
+            m_Message = "vorticity computed on " + std::to_string(okCount) + " / " +
+                        std::to_string(blockCount) + " sub-blocks";
+        }
+        return true;
+    }
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
@@ -61,19 +131,28 @@ bool VortexFilter::Execute()  {
         } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
-
-            surface_Mesh = mesh->TransferToSurfaceMesh();
-            if (surface_Mesh) {
+            if (!mesh) {
+                m_Message = "invalid unstructured mesh input";
                 return false;
-                // if (!CheckType()) return false;
-                // return ComputeVorticityWithSurfaceMesh2(surface_Mesh, attributeSet, curIndex);
             }
 
-            if (mesh) {
-                if (!CheckType()) return false;
-                return ComputeVorticityWithUnstructuredMesh(mesh, attributeSet, curIndex);
+            // 判定是否为纯面网格（全部 2D 单元）。这里不调用 TransferToSurfaceMesh：
+            // 它仅用于探测却会构造对象并向控制台打印失败信息，逐帧批量执行时形成噪音。
+            const igIndex cellNum = static_cast<igIndex>(mesh->GetNumberOfCells());
+            bool allSurfaceCells = cellNum > 0;
+            for (igIndex i = 0; i < cellNum; ++i) {
+                if (Cell::GetCellDimension(mesh->GetCellType(i)) != 2) {
+                    allSurfaceCells = false;
+                    break;
+                }
+            }
+            if (allSurfaceCells) {
+                m_Message = "vorticity requires 3D volume cells; the input contains only surface cells";
+                return false;
             }
 
+            if (!CheckType()) return false;
+            return ComputeVorticityWithUnstructuredMesh(mesh, attributeSet, curIndex);
         } break;
         default:
             return false;
