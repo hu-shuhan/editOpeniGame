@@ -218,8 +218,8 @@ if (simp->Execute()) {
 | 入口 | 说明 |
 |------|------|
 | 模型树 → 选中流线对象（名称含 `_StreamLine`） | 指定筛选目标 |
-| `dockWidget_FlowField` → `clusterSpin` / `perClusterSpin` | 聚类类别数 / 保留流线总数 |
-| `dockWidget_FlowField` → **Cluster** 按钮 | 触发 `Simplifier()` |
+| `dockWidget_FlowField` → `簇数` / `采样总数` | 聚类类别数 / 保留流线总数 |
+| `dockWidget_FlowField` → **智能简化** 按钮 | 触发 `Simplifier()` |
 
 首次筛选会缓存原始流线快照，后续可反复调参而不丢失原始数据；结果按 `ClusterLabel` 云图着色。每次生成都会产出独立的流线对象（命名为 `<模型名>_StreamLine_<序号>_<模式>`），可分别对不同流线对象施加不同筛选参数，互不影响。
 
