@@ -236,8 +236,8 @@ scene->AddModel(res);
 
 | 入口 | 说明 |
 |------|------|
-| 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
-| `DeformationDockWidget`（代码创建，并入左侧 Tab） | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
+| 工具栏 结构形变按钮 | 打开形变面板 |
+| `DeformationDockWidget` | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
 
 ![结构形变](../../Resources/Images/结构形变.PNG)
 
