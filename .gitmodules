@@ -6,7 +6,7 @@
 	url = https://github.com/USCiLab/cereal.git
 [submodule "ThirdParty/libpressio"]
 	path = ThirdParty/libpressio
-	url = https://github.com/robertu94/libpressio.git
+	url = https://github.com/hKJGkUs76A7m/libpressio.git
 [submodule "ThirdParty/std_compat"]
 	path = ThirdParty/std_compat
 	url = https://github.com/robertu94/std_compat.git
@@ -15,4 +15,4 @@
 	url = https://github.com/mandreyel/mio.git
 [submodule "ThirdParty/SZ3"]
 	path = ThirdParty/SZ3
-	url = https://github.com/szcompressor/SZ3.git
+	url = https://github.com/hKJGkUs76A7m/SZ3.git
