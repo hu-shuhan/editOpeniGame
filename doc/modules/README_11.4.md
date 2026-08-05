@@ -33,14 +33,6 @@
 | 渲染 | `iGameCore/Rendering/` | Scene、OpenGL、Meshlet、交互器 |
 | GUI | `Qt/` | 主窗口、Dock、模型树、过滤器菜单 |
 
-典型 GUI 数据流：
-
-```text
-main.cpp → igQtMainWindow → igQtFileLoader::OpenFile()
-         → FileIO::ReadFile() → Scene::AddModel()
-         → Dock / 菜单调用 Filters / DrawObject / Meshlet
-```
-
 ---
 
 ## 子功能 1：高精并行可视化内核
