@@ -103,4 +103,8 @@ private:
     void ensureStreamBase();
     // 选取合适的源 Model：跳过流线结果对象、必须是含体单元的 VolumeMesh
     iGame::Model::Pointer pickSourceModel();
+    // 判定一个 Model 能否作为流线源：非流线结果、且含 3D 体单元
+    static bool isUsableSource(const iGame::Model::Pointer& m, const iGame::DataObject::Pointer& curResult);
+    // 统一的"不支持该输入"提示。所有种子模式共用，返回 false 表示调用方应中止
+    bool warnUnsupportedSource(const iGame::Model::Pointer& model);
 };

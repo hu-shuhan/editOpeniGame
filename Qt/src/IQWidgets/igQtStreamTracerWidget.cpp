@@ -7,36 +7,53 @@
 
 using namespace iGame;
 
+bool igQtStreamTracerWidget::isUsableSource(const iGame::Model::Pointer& m,
+                                           const iGame::DataObject::Pointer& curResult) {
+    if (!m) return false;
+    auto obj = m->GetDataObject();
+    if (!obj) return false;
+    // 排除当前那个流线结果本身
+    if (curResult && obj.GetPointer() == curResult.GetPointer()) return false;
+    // 排除任何以前生成的流线结果（名字里含 _StreamLine）——
+    // 它们通常是仅有 line cell 的 UnstructuredMesh，走 TransferToVolumeMesh 会得到 0 体单元
+    if (obj->GetName().find("_StreamLine") != std::string::npos) return false;
+    // 必须是含体单元的 VolumeMesh / UnstructuredMesh
+    if (auto vol = iGame::DynamicCast<iGame::VolumeMesh>(obj)) { return vol->GetNumberOfVolumes() > 0; }
+    if (auto um = iGame::DynamicCast<iGame::UnstructuredMesh>(obj)) {
+        // 流线积分要求 3D 体单元：逐个单元判维度，只要有非 3D 单元就不是合法流场输入
+        //（TransferToVolumeMesh 用的是同一条判据，这里提前判掉以便给出明确提示）
+        auto cells = um->GetCells();
+        auto types = um->GetCellTypes();
+        if (!cells || cells->GetNumberOfCells() == 0) return false;
+        const igIndex cellNum = static_cast<igIndex>(um->GetNumberOfCells());
+        for (igIndex i = 0; i < cellNum; ++i) {
+            if (iGame::Cell::GetCellDimension(um->GetCellType(i)) != 3) return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+// 所有种子模式共用的输入校验：不是 3D 体网格就弹同一个提示。
+// 之前这个判断依赖 initStreamTracer 之后 GetMesh() 为空，而 pickSourceModel 会在
+// 用户选中 2D 模型时"体贴地"回退到场景里另一个 3D 模型，于是既不报错也不是用户要的结果。
+bool igQtStreamTracerWidget::warnUnsupportedSource(const iGame::Model::Pointer& model) {
+    if (isUsableSource(model, m_ResultObject)) return true;
+
+    QString name;
+    if (model && model->GetDataObject()) { name = QString::fromStdString(model->GetDataObject()->GetName()); }
+    QMessageBox::warning(this, tr("Stream Tracer"),
+                         tr("模型「%1」不包含 3D 体单元（可能是 2D / 面流场），"
+                            "现版本的流线追踪只支持 3D 体网格。已取消生成。")
+                                 .arg(name.isEmpty() ? tr("(未命名)") : name));
+    return false;
+}
+
 iGame::Model::Pointer igQtStreamTracerWidget::pickSourceModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     if (!scene) return nullptr;
 
-    auto isUsable = [&](iGame::Model::Pointer m) -> bool {
-        if (!m) return false;
-        auto obj = m->GetDataObject();
-        if (!obj) return false;
-        // 排除当前那个流线结果本身
-        if (m_ResultObject && obj.GetPointer() == m_ResultObject.GetPointer()) return false;
-        // 排除任何以前生成的流线结果（名字里含 _StreamLine）——
-        // 它们通常是仅有 line cell 的 UnstructuredMesh，走 TransferToVolumeMesh 会得到 0 体单元
-        if (obj->GetName().find("_StreamLine") != std::string::npos) return false;
-        // 必须是含体单元的 VolumeMesh / UnstructuredMesh
-        if (auto vol = iGame::DynamicCast<iGame::VolumeMesh>(obj)) {
-            return vol->GetNumberOfVolumes() > 0;
-        }
-        if (auto um = iGame::DynamicCast<iGame::UnstructuredMesh>(obj)) {
-            // UnstructuredMesh 里必须有非 line / vertex 的高维单元才可能是有效流场
-            auto cells = um->GetCells();
-            auto types = um->GetCellTypes();
-            if (!cells || cells->GetNumberOfCells() == 0) return false;
-            if (types && types->GetNumberOfValues() > 0) {
-                auto t = types->GetValue(0);
-                if (t == IG_LINE || t == IG_VERTEX) return false;
-            }
-            return true;
-        }
-        return false;
-    };
+    auto isUsable = [&](iGame::Model::Pointer m) -> bool { return isUsableSource(m, m_ResultObject); };
 
     auto cur = scene->GetCurrentModel();
     auto list = scene->GetModelList();
@@ -54,6 +71,21 @@ iGame::Model::Pointer igQtStreamTracerWidget::pickSourceModel() {
                 newestHandle = it->first;
             }
         }
+    }
+
+    // 用户当前选中的是一个"真实模型但不是 3D 体网格"（典型：导入了 2D / 面流场）时，
+    // 直接把它返回给调用方，由调用方弹出统一提示 —— 而不是悄悄换成场景里别的 3D 模型。
+    // 只有当 current 是流线结果对象或为空时，下面的回退规则才是用户想要的"体贴"。
+    auto isStreamResult = [&](const iGame::Model::Pointer& m) -> bool {
+        if (!m || !m->GetDataObject()) return true; // 空的按"可替换"处理
+        auto obj = m->GetDataObject();
+        if (m_ResultObject && obj.GetPointer() == m_ResultObject.GetPointer()) return true;
+        return obj->GetName().find("_StreamLine") != std::string::npos;
+    };
+    if (cur && !isUsable(cur) && !isStreamResult(cur)) {
+        std::cout << "[pickSourceModel] current model is not a 3D volume mesh -> return it so the caller can warn: "
+                  << cur->GetDataObject()->GetName() << std::endl;
+        return cur;
     }
 
     // 规则：
@@ -385,7 +417,13 @@ void igQtStreamTracerWidget::generateStreamline() {
     ensureStreamBase();
     iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
     Model::Pointer model = pickSourceModel();
-    if (!model) return;
+    if (!model) {
+        QMessageBox::warning(this, tr("Stream Tracer"), tr("场景中没有可用于流线追踪的模型。"));
+        return;
+    }
+    // 输入校验放在最前面，且与种子模式无关：任何模式拿到非 3D 体网格都给同一个提示。
+    // 放在 initStreamTracer 之前还能省掉一次注定失败的 TransferToVolumeMesh / 邻接构建。
+    if (!warnUnsupportedSource(model)) return;
     // 当前 model 的 DataObject 与上次绑定不同 / 上次绑定失败（mesh 为空），都强制重新绑定
     if (modelBound) {
         if (!streamtracer->GetMesh() || m_DataObject.GetPointer() != model->GetDataObject().GetPointer()) {
@@ -484,21 +522,19 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         _AttributeSet = tem->GetAttributeSet();
     }
-    if (!_AttributeSet) return;
-    auto allAttributes = _AttributeSet->GetAllAttributes();
-    if (!allAttributes) return;
+    auto allAttributes = _AttributeSet ? _AttributeSet->GetAllAttributes() : nullptr;
+    if (!allAttributes) {
+        QMessageBox::warning(this, tr("Stream Tracer"), tr("当前模型没有属性数据，无法生成流线。"));
+        return;
+    }
 
     std::cout << vectorName << std::endl;
     std::vector<Vector3f> seeds;
-    if (!streamtracer->GetMesh()) {
+    // 兜底：warnUnsupportedSource 已在函数开头挡掉非 3D 输入，这里覆盖 initStreamTracer
+    // 自身失败（如多面体邻接构建异常）导致 mesh 为空的情况，同样对所有模式生效。
+    if (!streamtracer->GetMesh() || streamtracer->GetMesh()->GetNumberOfVolumes() <= 0) {
         QMessageBox::warning(this, tr("Stream Tracer"),
-                             tr("当前模型不包含 3D 体单元（可能是 2D / 面流场），"
-                                "现版本的流线追踪只支持 3D 体网格。已取消生成。"));
-        return;
-    }
-    if (streamtracer->GetMesh()->GetNumberOfVolumes() <= 0) {
-        QMessageBox::warning(this, tr("Stream Tracer"),
-                             tr("输入网格的体单元数量为 0（2D / 面流场），"
+                             tr("初始化流场失败：未能从当前模型得到 3D 体网格。"
                                 "现版本的流线追踪只支持 3D 体网格。已取消生成。"));
         return;
     }
