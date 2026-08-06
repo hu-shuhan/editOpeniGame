@@ -1716,30 +1716,95 @@ void igQtMainWindow::initAllFilters() {
     QAction* vortex = view->addAction(QStringLiteral("计算涡量 (ComputeVorticity)"));
     connect(vortex, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        VortexFilter::Pointer filter = VortexFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetAttributeByIndex(data->GetAttributeIndex());
-        filter->SetInput(data);
         int index = data->GetAttributeIndex();
-        if (filter->Execute()) {
+
+        // 结果刷新到模型树 + 云图，单帧 / 时序共用
+        auto refreshTree = [this, data, index]() {
             modelTreeWidget->updateAllAttriubute(data);
-            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
             auto drawObject = DynamicCast<DrawObject>(data);
-            if (drawObject) {
-                auto item = modelTreeWidget->getItemFromObject(data);
-                if (item && item->childCount() > 0) {
-                    item->setExpanded(true);
-                    auto child = item->child(index);
-                    if (child) {
-                        item->setCurrentChild(child);
-                        item->setSelected(false);
-                        item->viewAttribute(index, -1);
-                        child->setSelected(true);
-                        modelTreeWidget->setCurrentItem(child);
-                    }
+            if (!drawObject) return;
+            drawObject->ConvertToDrawableData();
+            auto item = modelTreeWidget->getItemFromObject(data);
+            if (item && item->childCount() > 0) {
+                item->setExpanded(true);
+                auto child = item->child(index);
+                if (child) {
+                    item->setCurrentChild(child);
+                    item->setSelected(false);
+                    item->viewAttribute(index, -1);
+                    child->setSelected(true);
+                    modelTreeWidget->setCurrentItem(child);
                 }
             }
-        }else {
+        };
+
+        // 时序数据（PVD / 多选 VTU 等 MultiSubFiles）：
+        // 这里只算「当前帧」，随后开启播放期按需计算——切帧时若该帧已带 vorticities
+        // （缓存命中）就直接复用，否则同步算完再渲染该帧。
+        // 这样既不用一次性等全部帧算完，也不会因缓存被清而出现空白帧。
+        auto frames = data->PeekTimeFrames();
+        const int frameNum = frames ? static_cast<int>(frames->GetTimeNum()) : 0;
+        if (frameNum > 1) {
+            // 属性按名字下传：各帧 AttributeSet 独立，索引不保证一致
+            std::string attrName;
+            if (auto attrSet = data->GetAttributeSet()) {
+                if (index >= 0 && index < attrSet->GetNumberOfAttributes()) {
+                    if (auto ptr = attrSet->GetAttribute(index).pointer) { attrName = ptr->GetName(); }
+                }
+            }
+            if (attrName.empty()) {
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("请先选择一个矢量属性"));
+                return;
+            }
+
+            // 尽量把算过的帧留在缓存里，避免播放时反复重算。
+            // 在这里声明诉求，可使后续任何 initAnimationComponents
+            //（如选中属性触发 CurrendModelChanged）都不会把缓存关掉。
+            ui->widget_Animation->setPreferredCacheNum(frameNum);
+            if (frames->GetMaxCacheSize() < static_cast<unsigned int>(frameNum)) {
+                frames->EnableCache(frameNum);
+            }
+
+            // 只算当前帧；父容器属性登记、值域刷新与进度条都在该函数内部完成
+            const int vortIndex = ui->widget_Animation->ensureVortexForCurrentFrame(data, attrName, 0);
+
+            if (vortIndex < 0) {
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("当前帧的涡量计算失败"));
+                return;
+            }
+
+            modelTreeWidget->updateAllAttriubute(data);
+            if (auto drawObj = DynamicCast<DrawObject>(data)) { drawObj->ConvertToDrawableData(); }
+            auto item = modelTreeWidget->getItemFromObject(data);
+            if (item && item->childCount() > vortIndex) {
+                item->setExpanded(true);
+                auto child = item->child(vortIndex);
+                if (child) {
+                    item->setCurrentChild(child);
+                    item->setSelected(false);
+                    item->viewAttribute(vortIndex, -1);
+                    child->setSelected(true);
+                    modelTreeWidget->setCurrentItem(child);
+                }
+            }
+
+            // 必须放在模型树操作之后：setCurrentItem 会触发 CurrendModelChanged →
+            // initAnimationComponents，那里会按模型是否变化决定关闭按需计算。
+            // 若提前开启，会被这条链路当成「尚未绑定模型」而立即关掉。
+            ui->widget_Animation->setVortexAutoCompute(true, attrName);
+            return;
+        }
+
+        // 非时序：保持原有单次计算行为
+        VortexFilter::Pointer filter = VortexFilter::New();
+        filter->SetAttributeByIndex(index);
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            refreshTree();
+        } else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }

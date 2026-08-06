@@ -112,6 +112,23 @@ if (${AbqSDK_FOUND})
     message("Find abqsdk")
     target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+
+    # Abaqus 2024 has legacy diamond inheritance in odb_Repository. MSVC's
+    # C++20 conformance mode diagnoses its generated copy constructor as
+    # C2594, which is a compiler error and cannot be disabled with /wd2594.
+    # Keep the compatibility mode local to the Abaqus translation unit.
+    if (MSVC)
+        set_property(SOURCE
+                "${CMAKE_CURRENT_SOURCE_DIR}/IO/Abaqus/iGameODBReader.cpp"
+                APPEND PROPERTY COMPILE_OPTIONS /permissive)
+    endif ()
+
+    if (WIN32 AND AbqSDK_DLL_DIR)
+        string(JOIN "," IGAME_ABQ_RUNTIME_LIBRARY_NAMES ${ABQ_LIB_LIST})
+        set(IGAME_ABQ_RUNTIME_DIR "${AbqSDK_DLL_DIR}" PARENT_SCOPE)
+        set(IGAME_ABQ_RUNTIME_LIBRARY_NAMES
+                "${IGAME_ABQ_RUNTIME_LIBRARY_NAMES}" PARENT_SCOPE)
+    endif ()
 endif ()
 
 find_package(FFMPEG)

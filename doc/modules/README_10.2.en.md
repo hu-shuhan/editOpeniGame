@@ -13,7 +13,6 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 
 > This document covers sub-features **1** and **2** in full, and how **3** / **4** connect to existing interaction and visualization modules.
 > Difference from **10.1**: 10.1 focuses on **analysis data generation**; 10.2 focuses on **feature-field extraction and vortex detection evaluation**.
-> Difference from **10.3**: 10.3 focuses on **brush ↔ 3D linking**; 10.2 feature scalars can feed cloud maps and selection analysis.
 > Difference from **11.3**: 11.3 provides generic **time switching, structural deformation, and animation export**; 10.2 key-event temporal views rely on those capabilities.
 
 ---
@@ -167,7 +166,7 @@ Reference data: `./Models/pipedcylinder2d_gt.vtk` (annotated scenario).
 
 Users can **click points / select cells / box-select regions** on the 3D model to obtain key-region IDs or a bounding box, used to:
 
-- limit downstream analysis scope (aligned with 10.1 local charts and 10.3 brushing);
+- limit downstream analysis scope (aligned with 10.1 local charts and brushing);
 - focus cloud-map inspection near key structures;
 - feed region input for temporal evolution / deformation (sub-feature 4).
 
@@ -180,13 +179,12 @@ Feature-extraction filters themselves operate on the **full current attribute fi
 | `iGameCore/Core/Common/iGameSelection.*` | Selection data model |
 | `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | Point / cell selection |
 | `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | Box selection |
-| `doc/modules/README_10.3.md` | Brush ↔ 3D linking |
 
 ### Usage Notes
 
 1. Enable a selection style; click or box-select to obtain point / cell IDs.
 2. Run feature extraction (sub-features 1 / 2) on the full field, then inspect attributes such as `vortexPredict`.
-3. For local analysis, pass the selection bounding box into 10.1 charts or 10.3 brushing.
+3. For local analysis, pass the selection bounding box into 10.1 charts or the brushing pipeline.
 
 ---
 

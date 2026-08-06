@@ -1,0 +1,1 @@
+call "D:\dev\ANSYS Inc\v221\ansys\bin\winx64\lsprepost47\lsdynaintelvar.bat" && mpiexec -localonly -np 8 "D:\dev\ANSYS Inc\v221\ansys\bin\winx64\lsdyna_mpp_sp_impi.exe" i=D:\Resource\testLSDYNA_ANSYS\lsdyna\Bolt_B_Explicit\mainboltbexpl.k memory=20m > lsrun.out.txt 2>&1

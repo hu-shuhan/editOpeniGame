@@ -72,7 +72,22 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
         std::vector<iGame::DataObject::Pointer> results(frameData->GetNumberOfElements());
         if(frameData->GetNumberOfElements() == 1){
-            results[0] = FileIO::ReadFile(frameData->GetElement(0));
+            // 与下面的多文件分支保持一致：切帧读盘属于「后台加载」，不应占用全局进度条。
+            // 否则每帧都会把进度推到 1.0，而进度条到 100% 会自动归零
+            // （见 igQtProgressBarWidget::updateProgressBar），
+            // 导致批量逐帧处理时进度条一帧一循环，而不是整体连续推进。
+            const std::string& onlyFile = frameData->GetElement(0);
+            const char* dotPos = strrchr(onlyFile.data(), '.');
+            std::string suffix = dotPos ? std::string(dotPos + 1, onlyFile.data() + onlyFile.size()) : std::string();
+            if (suffix == "vtu") {
+                iGameVTUReader::Pointer rd = iGameVTUReader::New();
+                rd->SetUpdateProgressIndependent(true);
+                rd->SetFilePath(onlyFile);
+                rd->Execute();
+                results[0] = rd->GetOutput();
+            } else {
+                results[0] = FileIO::ReadFile(onlyFile);
+            }
         }
         else
         {

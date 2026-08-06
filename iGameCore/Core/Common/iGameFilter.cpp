@@ -1,4 +1,5 @@
 #include "iGameFilter.h"
+#include <algorithm>
 #include <cassert>
 
 IGAME_NAMESPACE_BEGIN
@@ -118,6 +119,12 @@ void Filter::ResetProgress(double scale) {
 
     m_ProgressShift = m_Progress;
     m_ProgressScale = scale;
+}
+
+void Filter::SetProgressRange(double shift, double scale) {
+    m_ProgressShift = std::min(1.0, std::max(0.0, shift));
+    m_ProgressScale = std::min(1.0 - m_ProgressShift, std::max(0.0, scale));
+    m_Progress = m_ProgressShift;
 }
 
 void Filter::SetModel(Model::Pointer model) { m_Model = model; }

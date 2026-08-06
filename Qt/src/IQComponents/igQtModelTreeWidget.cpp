@@ -94,7 +94,7 @@ bool ModelTreeWidgetItem::getVisibility() const { return visibility; }
 
 void ModelTreeWidgetItem::show() {
     visibility = true;
-    this->setIcon(0, QIcon(":/Ticon/Icons/select/eye-open.png"));
+    this->setIcon(0, igQtModelTreeIcons::EyeOpen());
     if (!model) { return; }
 
     model->Show();
@@ -103,7 +103,7 @@ void ModelTreeWidgetItem::show() {
 
 void ModelTreeWidgetItem::hide() {
     visibility = false;
-    this->setIcon(0, QIcon(":/Ticon/Icons/select/eye-close.png"));
+    this->setIcon(0, igQtModelTreeIcons::EyeClose());
     if (!model) { return; }
 
     model->Hide();

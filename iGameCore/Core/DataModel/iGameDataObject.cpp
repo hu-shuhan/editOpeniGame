@@ -156,17 +156,30 @@ bool DataObject::UpdateSubDataObjectDataRange() {
     for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
         if (!it->second->IsDrawable()) continue;
         const auto& obj = DynamicCast<DrawObject>(it->second);
+        if (!obj) continue;
         const auto& display_obj = obj->GetRenderableObject();
+
+        auto subAttrSet = obj->GetAttributeSet();
+        auto dispAttrSet = display_obj != nullptr ? display_obj->GetAttributeSet() : nullptr;
+        const size_t subCount = subAttrSet ? subAttrSet->GetNumberOfAttributes() : 0;
+        const size_t dispCount = dispAttrSet ? dispAttrSet->GetNumberOfAttributes() : 0;
 
         for (int i = 0; i < attributes->GetNumberOfElements(); i++) {
             auto& par = attributes->GetElement(i);
+            if (!par.pointer) continue;
             if (par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()) {
                 par.UpdateAllDataRange();
             }
-            obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
+            // GetAttribute 不做边界检查且此处是写操作，越界会破坏堆内存，
+
+            if (static_cast<size_t>(i) < subCount) {
+                subAttrSet->GetAttribute(i).dataRange = par.GetDataRange();
+            }
 
             /* Process Display mesh's DataRange. */
-            if (display_obj != nullptr) display_obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
+            if (static_cast<size_t>(i) < dispCount) {
+                dispAttrSet->GetAttribute(i).dataRange = par.GetDataRange();
+            }
         }
         obj->ConvertToDrawableData();
     }
@@ -180,19 +193,31 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
     for (IGsize k = 0; k < attributes->GetNumberOfElements(); k++) {
         double dataRange_max[64]{DBL_MIN}, dataRange_min[64]{DBL_MAX};
         auto par_attr = attributes->GetElement(k);
+        if (!par_attr.pointer) continue;
         int dim = par_attr.pointer->GetDimension();
+        bool anyCollected = false;
         for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
             if (!it->second->IsDrawable()) continue;
             const auto& obj = DynamicCast<DrawObject>(it->second);
-            auto subAttribute = obj->GetAttributeSet()->GetAttribute(k);
+            if (!obj) continue;
+            auto subAttrSet = obj->GetAttributeSet();
+
+            if (!subAttrSet || static_cast<size_t>(k) >= subAttrSet->GetNumberOfAttributes()) continue;
+            auto& subAttribute = subAttrSet->GetAttribute(k);
+            if (!subAttribute.pointer) continue;
             subAttribute.UpdateAllDataRange();
             const auto& ScalarDataRange = subAttribute.GetDataRange();
-            for (int j = 0; j < subAttribute.pointer->GetDimension() + 1; j++) {
+            if (!ScalarDataRange) continue;
+            const int subDim = subAttribute.pointer->GetDimension();
+            for (int j = 0; j < subDim + 1 && j < 64; j++) {
                 dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
                 dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
             }
+            anyCollected = true;
         }
+        if (!anyCollected) continue; // 没有任何子对象提供该属性，保留父容器原值域
         auto  parent_dataRange = par_attr.GetDataRange();
+        if (!parent_dataRange) continue;
         parent_dataRange->SetDimension(2);
         parent_dataRange->Resize(dim + 1);
         for (int j = 0; j < dim + 1; j++) { parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]}); }

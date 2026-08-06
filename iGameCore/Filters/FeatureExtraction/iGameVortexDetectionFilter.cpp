@@ -321,7 +321,23 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     bool uniform = IsAxisAlignedUniformGrid(gridPoints, dims, origin, spacing, 1e-10f);
     std::cout << "Is uniform grid: " << uniform << std::endl;
-    int split = 4;
+
+    // 采样体素总量按输入规模自适应，而不是固定 split=4（= 64 块 × 96³ ≈ 5660 万体素）。
+    // 固定值对大规模流场是合理的，但小模型（如 8k 点的 Tet_Plane）会被放大几千倍，
+    // 推理量随之暴涨到上千个 64³ patch，表现为「长时间无响应且不报错」。
+    // 规则：目标总体素 ≈ 8 × 点数（每个数据点约 2 体素/轴），并夹在 [64³, 384³] 之间；
+    // 由它反推分块数与每块体素上限，大数据仍会落到原来的 split=4 / 96³。
+    const long long kVoxPerPoint = 8;
+    const long long kTotalVoxMin = 64LL * 64LL * 64LL;
+    const long long kTotalVoxMax = 384LL * 384LL * 384LL; // 与旧行为 4³ × 96³ 一致
+    const long long kBlockVoxMax = 96LL * 96LL * 96LL;
+    long long totalVoxBudget = kVoxPerPoint * static_cast<long long>(gridPoints.size());
+    totalVoxBudget = std::min(kTotalVoxMax, std::max(kTotalVoxMin, totalVoxBudget));
+
+    int split = static_cast<int>(std::ceil(std::cbrt(double(totalVoxBudget) / double(kBlockVoxMax))));
+    split = std::max(1, std::min(4, split));
+    const long long blockVoxCap =
+            std::min(kBlockVoxMax, std::max(12LL * 12LL * 12LL, totalVoxBudget / (1LL * split * split * split)));
     int nx, ny, nz;
 
     if (!uniform) {
@@ -434,7 +450,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         ny = std::max(N_MIN, std::min(ny, N_MAX));
         nz = std::max(N_MIN, std::min(nz, N_MAX));
 
-        constexpr long long VOX_CAP = 96LL * 96LL * 96LL;
+        const long long VOX_CAP = blockVoxCap; // 由输入规模决定，见上面 totalVoxBudget
         long long vox = 1LL * nx * ny * nz;
         if (vox > VOX_CAP) {
             const double s = std::cbrt(double(VOX_CAP) / double(vox));
@@ -448,6 +464,21 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         split = 1;
         GetGridXYZCounts(gridPoints, nx, ny, nz);
         std::cout << "all-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+    }
+
+    // 让用户在开跑前就能估出工作量：块数 / 总体素 / 需要推理的 64³ patch 数
+    {
+        const int kPatch = 64, kStride = 32;
+        auto padded = [&](int n) {
+            n = std::max(1, n);
+            return n + (kPatch - n % kPatch) % kPatch;
+        };
+        auto patchesAlongAxis = [&](int n) { return (padded(n) - kPatch) / kStride + 1; };
+        const long long blocks = 1LL * split * split * split;
+        const long long patchesPerBlock =
+                1LL * patchesAlongAxis(nx) * patchesAlongAxis(ny) * patchesAlongAxis(nz);
+        std::cout << "[VortexDetection] blocks = " << blocks << " (split=" << split << "), total voxels = "
+                  << blocks * nx * ny * nz << ", patches to infer = " << blocks * patchesPerBlock << std::endl;
     }
 
     int progress = 10;
@@ -2151,9 +2182,10 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
     // static std::counting_semaphore<> infer_slots(25);
     static SimpleSemaphore infer_slots(4);
-    std::mutex progress_mutex;
+    constexpr int kInferConcurrency = 4; // 与 infer_slots 的许可数一致
     auto t3 = std::chrono::high_resolution_clock::now();
-    std::cout << "[RUNTIME] processing using device: " << (device.type() == torch::kCUDA ? "CUDA" : "CPU") << std::endl;
+    std::cout << "[RUNTIME] processing using device: " << (device.type() == torch::kCUDA ? "CUDA" : "CPU")
+              << ", blocks = " << total_blocks << std::endl;
     auto processing = [&](int begin, int end) {
         for (int id = begin; id < end; ++id) {
             torch::Tensor arr = all_grid_tensors[id];
@@ -2165,7 +2197,22 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             all_results_1[id] = std::move(pred_block_1);
         }
     };
-    ThreadPool::parallelFor(0, total_blocks, processing, total_blocks);
+    // 按批推进而不是一次性把 total_blocks 全部提交：并发度本来就被 infer_slots 限制在 4，
+    // 分批不损失吞吐，却能在每批之间回到主线程更新进度 —— 否则这段循环期间既无进度也无输出，
+    // 大模型上会连续数分钟看不出程序是在算还是卡死。
+    // 进度落在 [15%, 75%]：15% 之前是重采样，75% 之后是拼装 / 高斯滤波。
+    constexpr double kProgressBegin = 0.15, kProgressEnd = 0.75;
+    for (int base = 0; base < total_blocks; base += kInferConcurrency) {
+        const int waveEnd = std::min(total_blocks, base + kInferConcurrency);
+        ThreadPool::parallelFor(base, waveEnd, processing, waveEnd - base);
+
+        const double done = double(waveEnd) / double(total_blocks);
+        UpdateProgress(kProgressBegin + (kProgressEnd - kProgressBegin) * done);
+        const auto now = std::chrono::high_resolution_clock::now();
+        const double used = std::chrono::duration<double>(now - t3).count();
+        std::cout << "[VortexDetection] predict " << waveEnd << " / " << total_blocks << " blocks, " << used
+                  << " s used, ~" << (used / done - used) << " s left" << std::endl;
+    }
 
     auto t4 = std::chrono::high_resolution_clock::now();
     double elapsed_2 = std::chrono::duration<double>(t4 - t3).count();

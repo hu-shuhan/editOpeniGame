@@ -13,7 +13,6 @@
 
 > 本文档记录子功能 **1**、**2** 的完整实现，以及 **3**、**4** 与现有交互 / 可视化模块的衔接说明。
 > 与 **10.1** 的区别：10.1 侧重**分析数据生成**（局部图表、熵种子、流线筛选）；10.2 侧重**特征场提取与涡结构检测评估**。
-> 与 **10.3** 的区别：10.3 侧重**刷选 ↔ 3D 联动**；10.2 产出的特征标量可作为云图 / 选区分析的输入。
 > 与 **11.3** 的区别：11.3 提供**时序切换、结构形变、动画导出**通用能力；10.2 的关键事件时域演化依赖这些能力展示检测结果。
 
 ---
@@ -78,9 +77,9 @@ drawObj->ViewCloudPicture(scene, newIndex);
 
 | Target | 源文件 | 默认数据 |
 |--------|--------|----------|
-| `testGradientExtraction` | `Examples/Filter/FeatureExtraction/GradientExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
-| `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
-| `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
+| `testGradientExtraction` | `Examples/Filter/FeatureExtraction/GradientExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
+| `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
+| `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
 
 ---
@@ -198,7 +197,7 @@ if (filter->Execute()) {
 
 用户可通过交互在 3D 模型上**点击点 / 选单元 / 框选区域**，得到关键区域 ID 集合或包围盒，用于：
 
-- 限制后续分析范围（与 10.1 局部图表、10.3 刷选联动一致）；
+- 限制后续分析范围（与 10.1 局部图表、刷选联动一致）；
 - 将特征云图观察聚焦到关键结构附近；
 - 作为时域演化 / 形变作用的区域输入（见子功能 4）。
 
@@ -211,13 +210,12 @@ if (filter->Execute()) {
 | `iGameCore/Core/Common/iGameSelection.*` | `Selection` | 选区数据模型 |
 | `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | `SelectionStyle` | 点 / 单元选择交互 |
 | `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle` | 框选包围盒 |
-| `doc/modules/README_10.3.md` | — | 刷选 ↔ 3D 联动（并行坐标、密度等） |
 
 ### 使用要点
 
 1. 在视图中启用选择样式，点击或框选得到点 / 单元 ID。
 2. 对全场执行特征提取（子功能 1 / 2），再以云图查看 `vortexPredict` 等属性。
-3. 需要局部分析时，将选区 bounding box 交给 10.1 图表或 10.3 刷选管线。
+3. 需要局部分析时，将选区 bounding box 交给 10.1 图表或刷选管线。
 
 ### GUI
 

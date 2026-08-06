@@ -8,6 +8,7 @@
 
 #include <QComboBox>
 #include <QDockWidget>
+#include <QIcon>
 #include <QMouseEvent>
 #include <QObject>
 #include <QPushButton>
@@ -17,6 +18,29 @@
 #include <iostream>
 
 class igQtModelTreeWidget; // forward declaration for dynamic_cast in SubAttribTreeWidgetItem
+
+namespace igQtModelTreeIcons
+{
+inline const QIcon& EyeOpen() {
+    static const QIcon icon(":/Ticon/Icons/select/eye-open.png");
+    return icon;
+}
+
+inline const QIcon& EyeClose() {
+    static const QIcon icon(":/Ticon/Icons/select/eye-close.png");
+    return icon;
+}
+
+inline const QIcon& Point() {
+    static const QIcon icon(":/Ticon/Icons/select/point.png");
+    return icon;
+}
+
+inline const QIcon& Cell() {
+    static const QIcon icon(":/Ticon/Icons/select/hex.png");
+    return icon;
+}
+} // namespace igQtModelTreeIcons
 
 class IG_QT_MODULE_EXPORT ModelTreeWidgetItem : public QTreeWidgetItem {
 public:
@@ -130,8 +154,6 @@ public:
     void show() {
         auto draw = DynamicCast<iGame::DrawObject>(m_DataObject);
         if (draw) { draw->SetVisibility(true); }
-        this->setIcon(0, QIcon(":/Ticon/Icons/select/eye-open.png"));
-        // sync descendants' icons to current (data already recursively set by DrawObject::SetVisibility)
         SyncIconWithVisibility(true);
         updateScene();
     }
@@ -139,8 +161,6 @@ public:
     void hide() {
         auto draw = DynamicCast<iGame::DrawObject>(m_DataObject);
         if (draw) { draw->SetVisibility(false); }
-        this->setIcon(0, QIcon(":/Ticon/Icons/select/eye-close.png"));
-        // sync descendants' icons to current (data already recursively set by DrawObject::SetVisibility)
         SyncIconWithVisibility(true);
         updateScene();
     }
@@ -152,8 +172,8 @@ public:
     void SyncIconWithVisibility(bool deep = true) {
         auto draw = DynamicCast<iGame::DrawObject>(m_DataObject);
         if (draw) {
-            this->setIcon(0, QIcon(draw->GetVisibility() ? ":/Ticon/Icons/select/eye-open.png"
-                                                         : ":/Ticon/Icons/select/eye-close.png"));
+            this->setIcon(0, draw->GetVisibility() ? igQtModelTreeIcons::EyeOpen()
+                                                   : igQtModelTreeIcons::EyeClose());
         }
         if (deep) {
             for (int i = 0; i < childCount(); ++i) {
