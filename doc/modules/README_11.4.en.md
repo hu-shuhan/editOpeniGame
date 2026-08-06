@@ -9,13 +9,12 @@ This metric builds a **high-precision parallel visualization platform** for CAE 
 | 1 | High-precision parallel kernel (VTK-class: Meshlet GPU accel, thread pool, render-pressure pacing) | ✅ Implemented | **This document** |
 | 2 | IGA / high-order high-fidelity visualization (spectral methods: see Known gaps) | ✅ Partial (Spline / Lagrange) | [README_7.1.en.md](README_7.1.en.md) |
 | 3 | Cloud maps / adaptive vectors / tensors and related field visualization | ✅ Implemented | [README_11.3.en.md](README_11.3.en.md) |
-| 4 | Large-scale multi-scale physical-field visual interaction | ✅ Implemented | [README_10.3.en.md](README_10.3.en.md) |
+| 4 | Large-scale multi-scale physical-field visual interaction | ✅ Implemented | This overview |
 | 5 | Multi-level critical-feature intelligent extraction | ✅ Implemented | [README_10.2.en.md](README_10.2.en.md) |
 | 6 | Visualization-result intelligent evaluation (expert / annotation fusion) | ✅ Partial (vortex Precision/Recall; mesh metrics pending stronger GUI) | This overview + [README_10.2.en.md](README_10.2.en.md) |
 
 > **Doc style**: 11.4 is a **platform umbrella**. Sub-features 1 and 6 are expanded here; 2–5 are mainly cross-links to avoid duplicating 7.1 / 10.x / 11.3.  
 > Differs from **11.3**: 11.3 answers “how to draw fields”; 11.4 answers “how the platform parallelizes / accelerates and integrates those modules”.  
-> Differs from **11.2**: 11.2 is multi-format IO; 11.4 is parallel rendering and whole-product integration.
 
 ![Architecture](../../Resources/Images/架构图.png)
 
@@ -164,8 +163,6 @@ Full detail, screenshots, call sites, and tests: **[README_11.3.en.md](README_11
 
 Brush/box selection in parallel coordinates, correlation, density, and plot-line views links to 3D highlight/filter via `Selection`.
 
-Full detail: **[README_10.3.en.md](README_10.3.en.md)**.
-
 ### Test Cases (entry points)
 
 | Target | Source |
@@ -179,7 +176,7 @@ Full detail: **[README_10.3.en.md](README_10.3.en.md)**.
 
 ### Description
 
-Classical features (gradient / curvature / Laplacian / vorticity) plus NN vortex detection; results land in `AttributeSet` for 11.3 cloud maps and 10.3 selection.
+Classical features (gradient / curvature / Laplacian / vorticity) plus NN vortex detection; results land in `AttributeSet` for 11.3 cloud maps and selection analysis.
 
 Detail and Precision/Recall ≥ 90% target: **[README_10.2.en.md](README_10.2.en.md)**.
 
@@ -249,8 +246,6 @@ double recall    = filter->GetRecall();
 | 7.1 | [README_7.1.en.md](README_7.1.en.md) | High-order / IGA fidelity |
 | 10.1 | [README_10.1.en.md](README_10.1.en.md) | Analysis data generation |
 | 10.2 | [README_10.2.en.md](README_10.2.en.md) | Critical features & evaluation |
-| 10.3 | [README_10.3.en.md](README_10.3.en.md) | Multi-scale interaction |
-| 11.2 | [README_11.2.en.md](README_11.2.en.md) | Multi-format IO |
 | 11.3 | [README_11.3.en.md](README_11.3.en.md) | Field visualization output |
 
 Index: [README.md](README.md)

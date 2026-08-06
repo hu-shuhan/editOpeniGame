@@ -12,7 +12,6 @@
 | 4 | 基于语义分割的 table 属性 | ⏳ 规划中 |
 
 > 本文档记录已完成的子功能 **1**、**2**、**3**。4 待实现后补充。
-> 与 **10.3** 的区别：10.1 侧重**数据特征引导的分析数据生成**；10.3 侧重**刷选交互与 3D 模型联动**。
 
 ---
 
@@ -235,7 +234,7 @@ if (simp->Execute()) {
 
 | Target | 源文件 | 默认数据 | 说明 |
 |--------|--------|----------|------|
-| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/StreamTest.vtk` | 先生成流线，再对输出调用 `StreamlineSimplifier` |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/StreamTest.vtk` | 先生成流线，再对输出调用 `StreamlineSimplifier` |
 
 > 筛选功能当前无独立示例 Target；GUI 路径见上表，代码路径见「调用方式」。
 
@@ -249,4 +248,4 @@ if (simp->Execute()) {
 | `testParallelCoordinatesData` | `Examples/Filter/VisualizationData/TestParallelCoordinatesData.cpp` | `./Models/Tet_Plane.vtk` | 并行坐标 | 默认 |
 | `testVariableCorrelationData` | `Examples/Filter/VisualizationData/TestVariableCorrelationData.cpp` | `./Models/Tet_Plane.vtk` | 变量相关性 | 默认 |
 | `testVariableDensityData` | `Examples/Filter/VisualizationData/TestVariableDensityData.cpp` | `./Models/Tet_Plane.vtk` | 变量密度 | 默认 |
-| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/Driver/driver-1.vtk` | 流线积分 / 熵种子 / 筛选输入 | 默认 |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns` | 流线积分 / 熵种子 / 筛选输入 | 默认 |

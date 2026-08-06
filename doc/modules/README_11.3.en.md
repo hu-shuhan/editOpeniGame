@@ -16,7 +16,6 @@ For CAE simulation results, this metric provides multi-type field visualization 
 > This document covers source paths, APIs, GUI, and examples for the above.
 > Difference from **10.1**: 10.1 focuses on **analysis data generation** (entropy seeds, streamline filtering); 11.3 focuses on **field display and time playback**.
 > Difference from **10.2**: 10.2 produces feature scalars / vortex predict; 11.3 visualizes them via cloud maps, time series, and deformation.
-> Difference from **10.3**: 10.3 focuses on brush ↔ 3D linking; 11.3 focuses on standard field-visualization panels.
 
 ---
 

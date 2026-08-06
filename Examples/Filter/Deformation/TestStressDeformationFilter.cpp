@@ -9,7 +9,7 @@
 #include "Deformation/iGameStressDeformationFilter.h"
 int main() {
     iGame::StressDeformationFilter::Pointer filter = iGame::StressDeformationFilter::New();
-    const std::string fileName = "./Models/sukong_Step-1_2.vtu";
+    const std::string fileName = "./Models/sukong_Step-1_10.vtu";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj == nullptr) {
         std::cerr << "Failed to read " << fileName << '\n';

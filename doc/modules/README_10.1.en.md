@@ -12,7 +12,6 @@ For multi-dimensional CAE physical-field data, this metric provides interaction-
 | 4 | Semantic-segmentation-based table attributes | ⏳ Planned |
 
 > This document covers the completed sub-features **1**, **2**, **3**. Sub-feature 4 will be added once implemented.
-> Difference from **10.3**: 10.1 focuses on **data-feature-guided analysis data generation**; 10.3 focuses on **brush/selection interaction linked to the 3D model**.
 
 ---
 
