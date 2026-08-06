@@ -7,6 +7,7 @@ find_path(AbqSDK_PRIVATE_INCLUDE_DIR
         PATHS
         /usr/local/include
         /usr/include
+        "C:/SIMULIA/EstProducts/2024/win_b64/code/include"
         "E:/SIMULIA/EstProducts/2024/win_b64/code/include"
         "D:/SIMULIA/EstProducts/2024/win_b64/code/include"
 )
@@ -17,6 +18,7 @@ find_path(AbqSDK_PRIVATE_PUBLIC_DIR
         PATHS
         /usr/local/include
         /usr/include
+        "C:/SIMULIA/EstProducts/2024"
         "E:/SIMULIA/EstProducts/2024"
         "D:/SIMULIA/EstProducts/2024"
 )
@@ -25,6 +27,7 @@ find_path(AbqSDK_PRIVATE_LIB
         NAMES
         ABQSMAOdbApi.lib
         PATHS
+        "C:/SIMULIA/EstProducts/2024/win_b64/code/lib"
         "E:/SIMULIA/EstProducts/2024/win_b64/code/lib"
         "D:/SIMULIA/EstProducts/2024/win_b64/code/lib"
 )
@@ -32,6 +35,7 @@ find_path(AbqSDK_DLL_DIR
         NAMES
         ABQSMAOdbApi.dll
         PATHS
+        "C:/SIMULIA/EstProducts/2024/win_b64/code/bin"
         "E:/SIMULIA/EstProducts/2024/win_b64/code/bin"
         "D:/SIMULIA/EstProducts/2024/win_b64/code/bin"
         "D:/SIMULIA/SDK/bin"
@@ -81,6 +85,36 @@ set(ABQ_LIB_LIST
         "ABQSMAUzlZlib"
 )
 mark_as_advanced(ABQ_LIB_LIST)
+
+# Runtime dependency closure of the linked Abaqus 2024 libraries on Windows.
+# These DLLs are imported transitively and therefore do not appear in the
+# linker's input list, but they must be deployed beside consumers at runtime.
+set(ABQ_RUNTIME_LIB_LIST
+        ${ABQ_LIB_LIST}
+        "ABQDMP_Core"
+        "ABQMPI_api"
+        "ABQSMAAspCommunications"
+        "ABQSMAAspDiagExtractor"
+        "ABQSMAAspSchemaSupport"
+        "ABQSMAAspSupport"
+        "ABQSMAEliLicenseModule"
+        "ABQSMAFeoModules"
+        "ABQSMAFsmShared"
+        "ABQSMAMsgCommModules"
+        "ABQSMAMsgModules"
+        "ABQSMASfsModule"
+        "CATSysCommunication"
+        "CATSysTS"
+        "DSYSysWMIDriver"
+        "ExperienceKernel"
+        "JS0GROUP"
+        "libifcoremd"
+        "libifportmd"
+        "libmmd"
+        "msmpi"
+        "SMAFeaBackbone"
+)
+mark_as_advanced(ABQ_RUNTIME_LIB_LIST)
 set(AbqSDK_PRIVATE_INCLUDE_DIRS "${AbqSDK_PRIVATE_INCLUDE_DIR}" "${AbqSDK_PRIVATE_PUBLIC_DIR}")
 
 

@@ -1,5 +1,17 @@
 #include "iGameVTKWriter.h"
 
+#include <iomanip>
+#include <limits>
+#include <sstream>
+
+namespace {
+std::string ToPreciseString(double value) {
+    std::ostringstream stream;
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10) << value;
+    return stream.str();
+}
+}
+
 IGAME_NAMESPACE_BEGIN
 bool VTKWriter::GenerateBuffers() {
     m_Buffers.resize(10, nullptr);
@@ -106,7 +118,7 @@ const void VTKWriter::WritePointsToBuffer(Points::Pointer Points) {
                 p = Points->GetPoint(i);
                 for (int j = 0; j < 3; j++) {
                     if (j) buffer->AddValue(' ');
-                    AddStringToBuffer(std::to_string(p[j]), buffer);
+                    AddStringToBuffer(ToPreciseString(p[j]), buffer);
                 }
                 buffer->AddValue('\n');
             }
@@ -356,7 +368,7 @@ const void VTKWriter::WriteArrayToBuffer(ArrayObject::Pointer array) {
                 array->GetElement(i, values);
                 for (int j = 0; j < Component; j++) {
                     if (j) buffer->AddValue(' ');
-                    AddStringToBuffer(std::to_string(values[j]), buffer);
+                    AddStringToBuffer(ToPreciseString(values[j]), buffer);
                 }
                 buffer->AddValue('\n');
             }

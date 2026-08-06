@@ -31,13 +31,12 @@ static void ImportSplineFileWithGpuCompute() {
     }
 
     // Change the display style to surface mode
-    auto sg = DynamicCast<iGame::SplineGeometry>(dataObj);
-    if (sg) {
+    auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
+    if (drawObj) {
         // Set the display style to combine wireframe and surface modes for the object
-        sg->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
-        sg->SetSamples(0);
+        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
     } else {
-        igError("Not a spline object"); // Error if the object is not drawable
+        igError("The GPU spline reader output is not drawable");
     }
 
     // Set up the render window

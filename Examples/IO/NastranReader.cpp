@@ -13,11 +13,12 @@ int main(){
     rd->SetOP2FileName(op2Path);
     rd->Execute();
     auto obj = rd->GetOutput();
-    std::cout << "Attributes Num : " << obj->GetAttributeSet()->GetNumberOfAttributes() << std::endl;
     if (obj == nullptr) {
         std::cerr << "Error: Failed to load model" << std::endl;
         return -1;
     }
+    auto attributes = obj->GetAttributeSet();
+    std::cout << "Attributes Num : " << (attributes ? attributes->GetNumberOfAttributes() : 0) << std::endl;
     /* Launch window Settings */
     auto scene = iGame::Scene::New();
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();

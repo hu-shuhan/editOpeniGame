@@ -17,10 +17,10 @@ endif ()
 
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
-option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
-option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
-option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
-option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
+option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" ON)
+option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" ON)
+option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." ON)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 option(ENABLE_WASM "Build WASM Target." OFF)
 
@@ -40,7 +40,7 @@ endif ()
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable iGameVis Core Module to install as lib or not." FORCE)
-option(EXAMPLE_COMPILE "Enable iGameVis Core Module's Example Compilation." OFF)
+option(EXAMPLE_COMPILE "Enable iGameVis Core Module's Example Compilation." ON)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 
 # 如果检测到 Anaconda 环境，尝试忽略其路径
@@ -64,14 +64,18 @@ if (NOT ENABLE_GPSCUDA_MODULE)
     #    #    add_compile_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
     #    #    add_link_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
     #endif()
-    if (WIN32)
-        add_definitions(-D_WINDOWS_SOURCE)
-    endif ()
 else ()
     project(iGameVis LANGUAGES C CXX CUDA)
     set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_ARCHITECTURES "86")
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
+endif ()
+
+# Required by Windows-specific third-party headers (notably Abaqus).  Keep
+# this independent of the CUDA switch so the native platform contract is the
+# same in both project() branches.
+if (WIN32)
+    add_compile_definitions(_WINDOWS_SOURCE)
 endif ()
 
 add_compile_options(
@@ -110,6 +114,17 @@ if (ENABLE_LIBTORCH_MODULE)
             set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Linux/Release/GPU")
         endif ()
     endif ()
+    # CUDA 12 ships NVTX as the header-only nvtx3 API.  Some LibTorch
+    # packages only probe their own source tree and otherwise request the
+    # removed CUDA::nvToolsExt import library.  Seed the probe with the
+    # toolkit include directory so those packages select nvtx3.
+    if (WIN32)
+        find_package(CUDAToolkit REQUIRED)
+        if (EXISTS "${CUDAToolkit_INCLUDE_DIRS}/nvtx3")
+            set(nvtx3_dir "${CUDAToolkit_INCLUDE_DIRS}" CACHE PATH
+                    "NVTX3 include root used by LibTorch" FORCE)
+        endif ()
+    endif ()
     set(Torch_DIR "${LIBTORCH_DIR}/share/cmake/Torch")
     find_package(Torch REQUIRED)
 endif ()
@@ -132,6 +147,16 @@ if (ENABLE_QT_MODULE)
     if (WIN32)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+        if (IGAME_ABQ_RUNTIME_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND}
+                    "-DIGAME_RUNTIME_SEARCH_DIR=${IGAME_ABQ_RUNTIME_DIR}"
+                    "-DIGAME_RUNTIME_DESTINATION=$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                    "-DIGAME_RUNTIME_LIBRARY_NAMES=${IGAME_ABQ_RUNTIME_LIBRARY_NAMES}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/Cmake/DeployAbqRuntime.cmake"
+                    COMMENT "Deploying Abaqus runtime dependencies"
+                    VERBATIM)
+        endif ()
     endif ()
 
     if (ENABLE_LIBTORCH_MODULE AND WIN32)
