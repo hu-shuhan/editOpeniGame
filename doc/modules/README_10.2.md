@@ -30,6 +30,30 @@
 | Laplacian | `laplacians` | 离散 Laplacian |
 | 涡量 | `vorticities` | 经典涡量 \(\omega = \nabla \times v\)（非神经网络） |
 
+### 适用网格类型（重要）
+
+四个特征分两类，对输入网格的要求正好相反：
+
+| 特征 | 要求的输入 | 体网格（含 3D 单元）怎么办 |
+|------|------------|----------------------------|
+| 梯度 / 曲率 / Laplacian | **表面网格**（全 2D 单元） | 先做一次**表面提取**，再在提取出的面网格上计算 |
+| 涡量 | **3D 体单元** | 直接在体网格上计算；纯面网格反而不支持 |
+
+**表面网格**（`IG_SURFACE_MESH`，或全部由 2D 单元构成的 `IG_UNSTRUCTURED_MESH`）可以直接执行梯度 / 曲率 / Laplacian。
+
+**体网格**（`IG_VOLUME_MESH`，或含四面体、六面体等 3D 单元的 `IG_UNSTRUCTURED_MESH`）不能直接算这三项，必须先走一步：
+
+> 菜单「Filters」→ **数据处理 (Data Processing)** → **表面提取 (Surface Extraction)**
+
+该操作把模型的边界面提取成一个独立的面网格对象，命名为 `<原名>_surface`，并加入模型树。在模型树中选中这个 `_surface` 对象后，再执行梯度 / 曲率 / Laplacian 即可。
+
+注意两点：
+
+- **渲染时看到的"抽壳"不等于表面网格。** 抽壳结果存放在 `DrawObject` 的 `m_RenderableMesh.SurfaceMesh` 中，只供渲染器使用；数据对象本身仍是体网格，filter 读到的是它。必须显式执行一次表面提取，把面网格作为独立对象加入模型树。
+- **提取后算的是边界面上的量。** 面网格上的梯度是沿曲面的切向梯度，与体内标量场的三维梯度不是同一个量，解读结果时需要注意。
+
+若在体网格上直接执行这三项，会弹出 `Not Surface Mesh !` —— 这是 filter 的默认提示文案，含义即"当前输入不是面网格"（体网格分支尚未接通，见 `iGameGradientFilter.cpp` 中 `ComputeGradientWithVolumeMesh` 的调用处）。
+
 ### 源码路径
 
 | 路径 | 类 / API | 说明 |
@@ -61,13 +85,20 @@ drawObj->ViewCloudPicture(scene, newIndex);
 
 ### GUI
 
-| 入口 | 说明 |
-|------|------|
-| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `GradientFilter` |
-| 菜单「算法处理」→ 特征提取 → 计算 Laplacian | `LaplacianFilter` |
-| 菜单「算法处理」→ 特征提取 → 计算曲率 | `CurvatureFilter` |
-| 菜单「算法处理」→ 特征提取 → 计算涡量 | `VortexFilter` |
-| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 提取结果出现在模型树属性列表中，在此切换云图 |
+| 入口 | 说明 | 输入要求 |
+|------|------|----------|
+| 菜单「算法处理」→ 数据处理 → 表面提取 (Surface Extraction) | 体网格 → `<原名>_surface` 面网格对象 | 体网格上做下面前三项的**前置步骤** |
+| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `GradientFilter` | 面网格 |
+| 菜单「算法处理」→ 特征提取 → 计算 Laplacian | `LaplacianFilter` | 面网格 |
+| 菜单「算法处理」→ 特征提取 → 计算曲率 | `CurvatureFilter` | 面网格 |
+| 菜单「算法处理」→ 特征提取 → 计算涡量 | `VortexFilter` | 3D 体单元 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 提取结果出现在模型树属性列表中，在此切换云图 | — |
+
+典型操作顺序：
+
+- **面网格**：模型树选中模型 → 选中要处理的属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
+- **体网格**：模型树选中模型 → 数据处理 → 表面提取 → 在模型树中选中新出现的 `<原名>_surface` → 选中属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
+- **涡量**：不需要表面提取，直接在体网格上选中速度矢量属性后执行
 
 ![经典物理特征提取云图](../../Resources/Images/特征提取云图.png)
 
