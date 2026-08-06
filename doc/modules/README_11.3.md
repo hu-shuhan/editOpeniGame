@@ -16,7 +16,6 @@
 > 本文档记录上述子功能的源码路径、API、GUI 与示例。
 > 与 **10.1** 的区别：10.1 侧重熵种子 / 流线筛选等**分析数据生成**；11.3 侧重**场显示与时序播放**。
 > 与 **10.2** 的区别：10.2 产出特征标量 / 涡预测；11.3 用云图、时序、形变把结果可视化出来。
-> 与 **10.3** 的区别：10.3 侧重刷选 ↔ 3D 联动；11.3 侧重标准场可视化面板。
 
 ---
 
@@ -236,8 +235,8 @@ scene->AddModel(res);
 
 | 入口 | 说明 |
 |------|------|
-| 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
-| `DeformationDockWidget`（代码创建，并入左侧 Tab） | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
+| 工具栏 结构形变按钮 | 打开形变面板 |
+| `DeformationDockWidget` | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
 
 ![结构形变](../../Resources/Images/结构形变.PNG)
 
@@ -252,16 +251,13 @@ scene->AddModel(res);
 
 ---
 
-## 子功能 5：时序流场与流线
+## 子功能 5：时序流场
 
 ### 功能说明
 
-两部分能力：
 
-1. **时序数据切换**：多时间步仿真（PVD 等）在帧之间切换网格或属性集，用于观察流场随时间变化。
-2. **流线可视化**：在矢量场上布种并积分，得到流线；GUI 还可结合信息熵种子与流线筛选（算法细节见 **10.1**）。
+ **时序流场涡量计算**：多时间步仿真（PVD 等）在播放时实时计算涡量，用于观察涡量随时间变化。
 
-菜单中「时序流场」打开的是**流线 / 流场面板**；时间轴播放在「动画」面板（子功能 6）。
 
 ### 时序数据模型
 
@@ -270,19 +266,20 @@ scene->AddModel(res);
 | `MultiSubFiles` | 每帧对应子网格 / 文件（典型 PVD） |
 | `SingleFieldAttributes` | 同一网格，每帧切换 `AttributeSet` |
 
-关键 API：`DataObject::UpdateAnimation(keyframeIdx)`、`GetTimeFrames()`。
+关键 API：`DataObject::UpdateAnimation(keyframeIdx)`、`GetTimeFrames() / PeekTimeFrames()`、`StreamingData::EnableCache(n)。`、`GetTimeFrames()`。
 
 ### 源码路径
 
-| 路径 | 类 | 说明 |
-|------|-----|------|
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
 | `iGameCore/Core/DataModel/iGameDataObject.*` | `UpdateAnimation` | 时序帧切换 |
+| 同上 | `ReCollectSubDataObjectDataRange` / `UpdateSubDataObjectDataRange` | 父子值域同步 |
 | `iGameCore/Core/Common/iGameStreamingData.*` | `StreamingData` / `TimeFrame` | 帧列表与缓存 |
 | `iGameCore/IO/VTK XML/iGamePVDReader.*` | `iGamePVDReader` | PVD → MultiSubFiles |
-| `iGameCore/Filters/StreamView/iGameStreamTracer.*` | `StreamTracer` | 积分 / 布种 |
-| `iGameCore/Filters/StreamView/iGameStreamBase.*` | `StreamBase` | 可绘制流线容器 |
-| `iGameCore/Filters/StreamView/iGameStreamlineSimplifier.*` | `StreamlineSimplifier` | 流线筛选（10.1） |
-| `Qt/src/IQWidgets/igQtStreamTracerWidget.*` | `igQtStreamTracerWidget` | 流场 Dock |
+| `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | 涡量计算 + MultiBlock 递归 |
+| `iGameCore/Core/Common/iGameFilter.*` | `Filter::SetProgressRange` | 进度分段映射 |
+| `Qt/src/IQWidgets/igQtAnimationWidget.*` | `setPreferredCacheNum` / `setVortexAutoCompute` / `ensureVortexForCurrentFrame` | 缓存声明与逐帧按需计算 |
+| `Qt/src/IQCore/igQtMainWindow.cpp` | 菜单「计算涡量」 | 时序 / 非时序分流 |
 
 ### 调用方式
 
@@ -303,42 +300,53 @@ m_VectorBase->DrawVector(vectorName, dataObj);
 scene->AddModel(m_VectorBase);
 ```
 
-**流线**（`Examples/Filter/Vector/TestStreamline.cpp`）：
+**单帧涡量**（`Examples/Filter/FeatureExtraction/VortexExtraction.cpp`）：
 
 ```cpp
-auto m_StreamBase = iGame::StreamBase::New();
-auto streamtracer = m_StreamBase->streamFilter;
-streamtracer->initStreamTracer(dataObj);
+auto filter = iGame::VortexFilter::New();
+filter->SetInput(drawObj);
+filter->SetAttributeByName("velocity");   // 或 SetAttributeByIndex(idx)
+filter->Execute();                        // 输出属性 vorticities（3 维）
 
-auto boundMax = streamtracer->GetMesh()->GetBoundingBox().max;
-auto boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
-auto centerMax = (boundMax - boundMin) / 5 + boundMin;
-auto seeds = streamtracer->getAllSubBlockCenters(
-    boundMax, boundMin, centerMax, boundMin, 2, 4, 2, 2, 4, 2);
+int d = drawObj->GetAttributeSet()->GetNumberOfAttributes();
+drawObj->ViewCloudPicture(scene, d - 1);
+```
 
-streamtracer->SetInput(seeds, vectorName, /*length*/5.f, /*step*/0.3f,
-                       /*terminalSpeed*/0.005f, /*maxSteps*/1000.f);
-streamtracer->Execute();
-m_StreamBase->SetUpdate(true);
-scene->AddModel(m_StreamBase);
+**逐帧涡量**（时序对象；GUI 中由动画面板自动完成）：
+
+```cpp
+auto frames = drawObj->GetTimeFrames();
+frames->EnableCache(frames->GetTimeNum());     // 保住已算过的帧
+
+for (unsigned i = 0; i < frames->GetTimeNum(); ++i) {
+    drawObj->UpdateAnimation(i);
+    auto filter = iGame::VortexFilter::New();
+    filter->SetInput(drawObj);                 // 含子块时内部逐块递归
+    filter->SetAttributeByName("velocity");    // 按名字，索引各帧不一致
+    filter->SetProgressRange(double(i) / frames->GetTimeNum(),
+                             1.0 / frames->GetTimeNum());
+    if (!filter->Execute()) std::cout << filter->GetMessage() << std::endl;
+
+    drawObj->ReCollectSubDataObjectDataRange();
+    drawObj->UpdateSubDataObjectDataRange();
+}
 ```
 
 ### GUI
 
 | 入口 | 说明 |
 |------|------|
-| 菜单「可视化」→ 时序流场 / `action_FlowField` | 打开「流场」流线面板 |
-| `dockWidget_FlowField` | 布种、积分参数、筛选（Cluster） |
-| 工具栏 Streamline | 同上 |
+| 菜单「算法处理」→ 特征提取 → 计算涡量 (ComputeVorticity) | 时序数据上算当前帧并开启播放期按需计算 |
+| 菜单 「可视化」→ 动画输出可视化| 时间轴播放；缓存帧数下拉框（会被自动置为帧数） |
+| 模型树 `vorticities` 子项 | 切换云图显示涡量（模长或分量） |
 
-![流线提取](../../Resources/Images/流线提取.PNG)
+![时序涡量动画播放](../../Resources/Images/时序流场.png)
 
 ### 测试用例
 
 | Target | 源文件 | 默认数据 | 说明 |
 |--------|--------|----------|------|
 | `testTimeVaryingVector` | `Examples/Filter/Vector/TestTimeVaryingVector.cpp` | `./Models/redsea/1.pvd`（需自备） | 时序帧 + 矢量 Glyph |
-| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | `./Models/kit.vtk` | 流线积分 |
 
 ---
 
