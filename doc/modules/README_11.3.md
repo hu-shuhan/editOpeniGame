@@ -56,6 +56,7 @@ drawObj->ViewCloudPicture(scene, 1, -1);
 | 菜单「可视化」→ 标量场 / `action_Scalar` | 打开左侧「标量场」面板 |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | 云图类型、色带、数值范围 |
 
+测试模型为DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns
 ![标量场云图](../../Resources/Images/标量场云图.PNG)
 
 ### 测试用例
@@ -113,6 +114,7 @@ scene->ChangeModelVisibility(0, false);         // 可选：隐藏原网格只�
 | 菜单「可视化」→ 矢量场 / Glyph | 打开「矢量场」面板 |
 | `dockWidget_VectorField` | 模式：0=All，1=Range，2=EveryNth |
 
+测试模型为DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns
 ![矢量场](../../Resources/Images/矢量场.PNG)
 
 ### 测试用例
@@ -185,6 +187,7 @@ GUI 路径也可通过 `iGameTensorBase::ShowTensorField()` 显示。
 | 菜单「可视化」→ 张量场 / `action_Tensor` | 打开「张量场」面板 |
 | `dockWidget_TensorField` | Glyph 类型、缩放、着色 |
 
+测试模型为s_StressTensor_ASCII.vtk
 ![张量场可视化](../../Resources/Images/张量场可视化.png)
 
 > 当前 Glyph 仅实现椭球与立方体；表示类中预留了后续扩展注释。
@@ -238,6 +241,7 @@ scene->AddModel(res);
 | 工具栏 结构形变按钮 | 打开形变面板 |
 | `DeformationDockWidget` | 矢量属性、自动/均匀/非均匀 DSF、启用偏移、执行 |
 
+测试模型为sukong_Step-1_*.vtu
 ![结构形变](../../Resources/Images/结构形变.PNG)
 
 > **选中区域单独形变**尚未接入；当前为整模偏移。与选区绑定的增强见 `README_10.2.md` 子功能 4。
@@ -340,6 +344,7 @@ for (unsigned i = 0; i < frames->GetTimeNum(); ++i) {
 | 菜单 「可视化」→ 动画输出可视化| 时间轴播放；缓存帧数下拉框（会被自动置为帧数） |
 | 模型树 `vorticities` 子项 | 切换云图显示涡量（模长或分量） |
 
+测试模型为redsea/1.pvd
 ![时序涡量动画播放](../../Resources/Images/时序流场.png)
 
 ### 测试用例
