@@ -9,13 +9,12 @@
 | 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | **本文详写** |
 | 2 | 等几何 / 高阶单元高保真可视化（谱方法专项见「已知缺口」） | ✅ 部分实现（Spline / Lagrange） | [README_7.1.md](README_7.1.md) |
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
-| 4 | 大规模多尺度物理场特征可视交互 | ✅ 已实现 | [README_10.3.md](README_10.3.md) |
+| 4 | 大规模多尺度物理场特征可视交互 | ✅ 已实现 | 本文概述 |
 | 5 | 多层次关键特征智能提取 | ✅ 已实现 | [README_10.2.md](README_10.2.md) |
 | 6 | 融合专家知识 / 标注的可视化结果智能评测 | ✅ 部分实现（涡预测 Precision/Recall；网格质量度量待强化） | 本文概述 + [README_10.2.md](README_10.2.md) |
 
 > **写法说明**：11.4 是**平台总指标**。子功能 1、6 在本文展开；2～5 以交叉引用为主，避免与 7.1 / 10.x / 11.3 重复粘贴。  
 > 与 **11.3** 的区别：11.3 写「场怎么画」；11.4 写「平台如何并行、加速，以及各专项如何拼成整机能力」。  
-> 与 **11.2** 的区别：11.2 侧重多格式 IO；11.4 侧重渲染并行与整机集成。
 
 ![架构图](../../Resources/Images/架构图.png)
 
@@ -32,14 +31,6 @@
 | 读写 | `iGameCore/IO/` | VTK / CGNS / PVD / Spline 等 |
 | 渲染 | `iGameCore/Rendering/` | Scene、OpenGL、Meshlet、交互器 |
 | GUI | `Qt/` | 主窗口、Dock、模型树、过滤器菜单 |
-
-典型 GUI 数据流：
-
-```text
-main.cpp → igQtMainWindow → igQtFileLoader::OpenFile()
-         → FileIO::ReadFile() → Scene::AddModel()
-         → Dock / 菜单调用 Filters / DrawObject / Meshlet
-```
 
 ---
 
@@ -164,8 +155,6 @@ iGame::ThreadPool::parallelFor(0, count, [&](int i) {
 
 通过并行坐标、相关矩阵、密度图、探针线等 2D 分析视图刷选，经 `Selection` 回调与 3D 模型高亮 / 筛选联动，形成「多尺度」感知驱动交互。
 
-细节见 **[README_10.3.md](README_10.3.md)**。
-
 ### 测试用例（入口）
 
 | Target | 源文件 |
@@ -179,7 +168,7 @@ iGame::ThreadPool::parallelFor(0, count, [&](int i) {
 
 ### 功能说明
 
-提供经典物理特征（梯度 / 曲率 / Laplacian / 涡量）与基于神经网络的涡结构检测；结果写入 `AttributeSet`，可接 11.3 云图与 10.3 选区分析。
+提供经典物理特征（梯度 / 曲率 / Laplacian / 涡量）与基于神经网络的涡结构检测；结果写入 `AttributeSet`，可接 11.3 云图与选区分析。
 
 细节与精度指标（Precision / Recall ≥ 90%）见 **[README_10.2.md](README_10.2.md)**。
 
@@ -249,8 +238,6 @@ double recall    = filter->GetRecall();
 | 7.1 | [README_7.1.md](README_7.1.md) | 高阶 / 等几何高保真 |
 | 10.1 | [README_10.1.md](README_10.1.md) | 分析数据生成（熵种子、流线筛选等） |
 | 10.2 | [README_10.2.md](README_10.2.md) | 关键特征提取与评测 |
-| 10.3 | [README_10.3.md](README_10.3.md) | 多尺度可视交互 |
-| 11.2 | [README_11.2.md](README_11.2.md) | 多格式 IO |
 | 11.3 | [README_11.3.md](README_11.3.md) | 场可视化输出 |
 
 模块索引：[README.md](README.md)

@@ -13,7 +13,6 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 
 > This document covers sub-features **1** and **2** in full, and how **3** / **4** connect to existing interaction and visualization modules.
 > Difference from **10.1**: 10.1 focuses on **analysis data generation**; 10.2 focuses on **feature-field extraction and vortex detection evaluation**.
-> Difference from **10.3**: 10.3 focuses on **brush ↔ 3D linking**; 10.2 feature scalars can feed cloud maps and selection analysis.
 > Difference from **11.3**: 11.3 provides generic **time switching, structural deformation, and animation export**; 10.2 key-event temporal views rely on those capabilities.
 
 ---
@@ -30,6 +29,30 @@ From the currently selected physical attribute (scalar / vector), compute classi
 | Curvature | `curvatures` | Surface curvature (cotangent-style discrete) |
 | Laplacian | `laplacians` | Discrete Laplacian |
 | Vorticity | `vorticities` | Classical \(\omega = \nabla \times v\) (not neural) |
+
+### Supported Mesh Types (important)
+
+The four features split into two groups whose input requirements are opposite:
+
+| Feature | Required input | What to do with a volume mesh (3D cells) |
+|---------|----------------|------------------------------------------|
+| Gradient / Curvature / Laplacian | **Surface mesh** (all 2D cells) | Run **Surface Extraction** first, then compute on the extracted surface |
+| Vorticity | **3D volume cells** | Compute directly on the volume mesh; a surface-only mesh is not supported |
+
+A **surface mesh** (`IG_SURFACE_MESH`, or an `IG_UNSTRUCTURED_MESH` made entirely of 2D cells) takes gradient / curvature / Laplacian directly.
+
+A **volume mesh** (`IG_VOLUME_MESH`, or an `IG_UNSTRUCTURED_MESH` containing tets, hexes, … ) needs one extra step first:
+
+> Menu **Filters → Data Processing → Surface Extraction**
+
+This extracts the model's boundary faces into a standalone surface-mesh object named `<name>_surface` and adds it to the model tree. Select that `_surface` object in the tree, then run gradient / curvature / Laplacian on it.
+
+Two caveats:
+
+- **The "shell" you see while rendering is not a surface mesh.** The shell lives in `DrawObject`'s `m_RenderableMesh.SurfaceMesh` and exists only for the renderer; the data object itself is still a volume mesh, and that is what filters read. Surface Extraction must be run explicitly so the surface becomes its own object in the model tree.
+- **After extraction you are computing on the boundary.** A gradient on a surface mesh is the tangential gradient along that surface, which is not the same quantity as the 3D gradient of the volumetric field — keep that in mind when reading the result.
+
+Running these three directly on a volume mesh raises `Not Surface Mesh !`. That is the filter's default message and simply means "this input is not a surface mesh" (the volume-mesh branch is not wired up — see the `ComputeGradientWithVolumeMesh` call site in `iGameGradientFilter.cpp`).
 
 ### Source Paths
 
@@ -60,14 +83,19 @@ Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByI
 
 ### GUI
 
-Menu **Filters → Feature Extraction**:
+| Menu item | Filter | Required input |
+|-----------|--------|----------------|
+| Filters → Data Processing → Surface Extraction | → `<name>_surface` surface object | **Prerequisite** for the next three on a volume mesh |
+| Filters → Feature Extraction → ComputeGradient | `GradientFilter` | Surface mesh |
+| Filters → Feature Extraction → Compute Laplacian | `LaplacianFilter` | Surface mesh |
+| Filters → Feature Extraction → Compute Curvature | `CurvatureFilter` | Surface mesh |
+| Filters → Feature Extraction → Compute Vorticity | `VortexFilter` | 3D volume cells |
 
-| Menu item | Filter |
-|-----------|--------|
-| ComputeGradient | `GradientFilter` |
-| Compute Laplacian | `LaplacianFilter` |
-| Compute Curvature | `CurvatureFilter` |
-| Compute Vorticity | `VortexFilter` |
+Typical order of operations:
+
+- **Surface mesh**: select the model → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
+- **Volume mesh**: select the model → Data Processing → Surface Extraction → select the new `<name>_surface` node → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
+- **Vorticity**: no extraction needed — select the velocity vector attribute on the volume mesh and run it
 
 Results appear in the model-tree attribute list and can be shown via `dockWidget_ScalarField` / `igQtScalarViewWidget`.
 
@@ -167,7 +195,7 @@ Reference data: `./Models/pipedcylinder2d_gt.vtk` (annotated scenario).
 
 Users can **click points / select cells / box-select regions** on the 3D model to obtain key-region IDs or a bounding box, used to:
 
-- limit downstream analysis scope (aligned with 10.1 local charts and 10.3 brushing);
+- limit downstream analysis scope (aligned with 10.1 local charts and brushing);
 - focus cloud-map inspection near key structures;
 - feed region input for temporal evolution / deformation (sub-feature 4).
 
@@ -180,13 +208,12 @@ Feature-extraction filters themselves operate on the **full current attribute fi
 | `iGameCore/Core/Common/iGameSelection.*` | Selection data model |
 | `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | Point / cell selection |
 | `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | Box selection |
-| `doc/modules/README_10.3.md` | Brush ↔ 3D linking |
 
 ### Usage Notes
 
 1. Enable a selection style; click or box-select to obtain point / cell IDs.
 2. Run feature extraction (sub-features 1 / 2) on the full field, then inspect attributes such as `vortexPredict`.
-3. For local analysis, pass the selection bounding box into 10.1 charts or 10.3 brushing.
+3. For local analysis, pass the selection bounding box into 10.1 charts or the brushing pipeline.
 
 ---
 

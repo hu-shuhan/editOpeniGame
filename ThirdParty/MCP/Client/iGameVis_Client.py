@@ -12,14 +12,24 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import logging
 
+# 设置Windows控制台编码为UTF-8
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except AttributeError:
+        pass
+
 # 导入配置
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
-# 配置日志
+# 配置日志（输出到stderr，供C++捕获；强制UTF-8避免乱码）
+_log_handler = logging.StreamHandler(stream=open(sys.stderr.fileno(), mode='w', encoding='utf-8', closefd=False))
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL),
-    format=config.LOG_FORMAT
+    format=config.LOG_FORMAT,
+    handlers=[_log_handler]
 )
 logger = logging.getLogger(__name__)
 

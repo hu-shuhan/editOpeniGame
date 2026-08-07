@@ -501,6 +501,19 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     // 获取当前选中的QTreeWidgetItem
     ModelTreeWidgetItem* currentItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem());
+
+    // Fallback: if no UI selection, find item by scene's current model ID (for MCP/programmatic calls)
+    if (currentItem == nullptr) {
+        unsigned int currentModelId = scene->GetCurrentModelID();
+        for (int i = 0; i < modelTreeWidget->topLevelItemCount(); ++i) {
+            auto* item = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->topLevelItem(i));
+            if (item && static_cast<unsigned int>(item->getModelId()) == currentModelId) {
+                currentItem = item;
+                break;
+            }
+        }
+    }
+
     if (currentItem == nullptr) return;
 
     int id = currentItem->getModelId();
