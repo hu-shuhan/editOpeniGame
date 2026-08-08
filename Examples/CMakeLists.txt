@@ -25,6 +25,38 @@ find_package(FFMPEG QUIET)
 find_package(AbqSDK QUIET)
 find_package(OpenMP QUIET)
 
+if (WIN32)
+    set(_IGAME_EXAMPLE_ABQ_RUNTIME_NAMES "")
+    if (AbqSDK_FOUND AND ABQ_RUNTIME_LIB_LIST)
+        string(JOIN "," _IGAME_EXAMPLE_ABQ_RUNTIME_NAMES
+                ${ABQ_RUNTIME_LIB_LIST})
+    elseif (AbqSDK_FOUND AND ABQ_LIB_LIST)
+        string(JOIN "," _IGAME_EXAMPLE_ABQ_RUNTIME_NAMES
+                ${ABQ_LIB_LIST})
+    endif ()
+
+    set(_IGAME_EXAMPLE_HDF5_RUNTIME "")
+    if (TARGET hdf5::hdf5-shared)
+        set(_IGAME_EXAMPLE_HDF5_RUNTIME "$<TARGET_FILE:hdf5::hdf5-shared>")
+    endif ()
+
+    add_custom_target(iGameDeployExampleRuntime
+        COMMAND "${CMAKE_COMMAND}"
+            "-DIGAME_RUNTIME_DESTINATION=${CMAKE_CURRENT_BINARY_DIR}"
+            "-DIGAME_TORCH_RUNTIME_DIR=${LIBTORCH_DIR}/lib"
+            "-DIGAME_TORCH_BIN_DIR=${LIBTORCH_DIR}/bin"
+            "-DIGAME_FFMPEG_RUNTIME_DIR=${FFMPEG_DLL_DIR}"
+            "-DIGAME_ABQ_RUNTIME_DIR=${AbqSDK_DLL_DIR}"
+            "-DIGAME_ABQ_RUNTIME_LIBRARY_NAMES=${_IGAME_EXAMPLE_ABQ_RUNTIME_NAMES}"
+            "-DIGAME_HDF5_RUNTIME_FILE=${_IGAME_EXAMPLE_HDF5_RUNTIME}"
+            "-DIGAME_GPS_RUNTIME_DIR=${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL"
+            -P "${CMAKE_SOURCE_DIR}/Cmake/DeployExampleRuntime.cmake"
+        COMMENT "Deploying runtime DLLs for Examples"
+        VERBATIM)
+else ()
+    add_custom_target(iGameDeployExampleRuntime)
+endif ()
+
 # 必须与编译 iGameCore 时一致，否则 Scene 等类型布局不同（如 GL_SUPPORT_MSAA），
 # Scene::New 会在运行期直接堆损坏崩溃。裸链 ${IGAMEVIS_CORE_LIB_TARGETS} 不会自动带上这些宏。
 add_compile_definitions(
@@ -46,6 +78,44 @@ if (EXISTS "${_IGAME_EXAMPLE_RESOURCES_DIR}")
             "${CMAKE_CURRENT_BINARY_DIR}/Resources"
     )
 endif ()
+
+set(_IGAME_EXAMPLE_RENDERING_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/../iGameCore/Rendering")
+if (EXISTS "${_IGAME_EXAMPLE_RENDERING_DIR}/Shaders/GLSL")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${_IGAME_EXAMPLE_RENDERING_DIR}/Shaders/GLSL"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/Shaders"
+    )
+endif ()
+if (EXISTS "${_IGAME_EXAMPLE_RENDERING_DIR}/Assests")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${_IGAME_EXAMPLE_RENDERING_DIR}/Assests"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/Assests"
+    )
+endif ()
+
+set(_IGAME_EXAMPLE_PYTHON_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/Python")
+if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyFluentLib/cas_converter.exe")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyFluentLib"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${_IGAME_EXAMPLE_PYTHON_DIR}/pyFluentLib/cas_converter.exe"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyFluentLib/cas_converter.exe"
+    )
+endif ()
+if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyNastranLib/nastran_to_vtk_cli.exe")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyNastranLib"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${_IGAME_EXAMPLE_PYTHON_DIR}/pyNastranLib/nastran_to_vtk_cli.exe"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyNastranLib/nastran_to_vtk_cli.exe"
+    )
+endif ()
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Models")
     list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -59,7 +129,9 @@ set(IGAME_EXAMPLE_TARGETS "")
 
 function(igame_add_example EXAMPLE_TARGET SOURCE)
     add_executable(${EXAMPLE_TARGET} ${SOURCE})
-    add_dependencies(${EXAMPLE_TARGET} iGameCopyExampleAssets)
+    add_dependencies(${EXAMPLE_TARGET}
+        iGameCopyExampleAssets
+        iGameDeployExampleRuntime)
     set_property(DIRECTORY APPEND PROPERTY IGAME_EXAMPLE_TARGETS ${EXAMPLE_TARGET})
 endfunction()
 

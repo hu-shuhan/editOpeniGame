@@ -5,7 +5,6 @@
 #include "iGameStreamTracer.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
-#include "iGameSceneManager.h"
 IGAME_NAMESPACE_BEGIN
 class Scene;
 class StreamBase : virtual public DrawObject {
