@@ -73,7 +73,11 @@ public:
 	int ReadPointCoordinates(Points::Pointer ps, int numPts);
 
 	const void TransferVtkCellToiGameCell(ArrayObject::Pointer, ArrayObject::Pointer, IntArray::Pointer VtkCellsType);
-	static void TransferVtkCellToiGameCell(DataObject::Pointer& mesh,ArrayObject::Pointer, ArrayObject::Pointer, ArrayObject::Pointer VtkCellsType);
+	static void TransferVtkCellToiGameCell(
+		DataObject::Pointer& mesh, ArrayObject::Pointer, ArrayObject::Pointer, ArrayObject::Pointer VtkCellsType, 
+		ArrayObject::Pointer FacesConnect, ArrayObject::Pointer FacesOffset, 
+		ArrayObject::Pointer PolyToFaces, ArrayObject::Pointer PolysOffset
+	);
 	CellArray::Pointer CreateCellArray(ArrayObject::Pointer, ArrayObject::Pointer);
 
 	int ReadPointData(int numPts);
