@@ -28,6 +28,11 @@ protected:
     ArrayObject::Pointer ReadCellConnectivity();
     ArrayObject::Pointer ReadCellOffsets();
     ArrayObject::Pointer ReadCellTypes();
+    ArrayObject::Pointer ReadCellFacesConnectivity();
+    ArrayObject::Pointer ReadCellFacesOffset();
+    ArrayObject::Pointer ReadCellPolyhedronToFaces();
+    ArrayObject::Pointer ReadCellPolyhedronOffsets();
+
 protected:
 
 	iGameVTUReader() = default;

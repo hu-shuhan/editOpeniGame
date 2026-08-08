@@ -1071,19 +1071,22 @@ const void VTKAbstractReader::TransferVtkCellToiGameCell(ArrayObject::Pointer Ce
                                                          IntArray::Pointer VtkCellsType) {
     DataObject::Pointer Mesh = m_UnstructuredMesh;
     this->m_DataObjectType = IG_UNSTRUCTURED_MESH;
-    TransferVtkCellToiGameCell(Mesh, CellsID, CellsConnect, VtkCellsType);
+    TransferVtkCellToiGameCell(Mesh, CellsID, CellsConnect, VtkCellsType, nullptr, nullptr, nullptr, nullptr);
     m_UnstructuredMesh = DynamicCast<UnstructuredMesh>(Mesh);
     this->UpdateReadProgress();
 }
 
 void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, ArrayObject::Pointer CellsID,
                                                    ArrayObject::Pointer CellsConnect,
-                                                   ArrayObject::Pointer VtkCellsType) {
+                                                   ArrayObject::Pointer VtkCellsType,
+                                                   ArrayObject::Pointer FacesConnect,
+                                                   ArrayObject::Pointer FacesOffset,
+                                                   ArrayObject::Pointer PolyToFaces,
+                                                   ArrayObject::Pointer PolysOffset) {
     if (CellsID == nullptr || CellsConnect == nullptr || VtkCellsType == nullptr) {
         igError("Invalid input arrays in TransferVtkCellToiGameCell.");
         return;
     }
-
     UnstructuredMesh::Pointer mesh = _mesh == nullptr ? UnstructuredMesh::New() : DynamicCast<UnstructuredMesh>(_mesh);
     const int CellNum = static_cast<int>(VtkCellsType->GetNumberOfElements());
     const int offsetsCount = static_cast<int>(CellsID->GetNumberOfElements());
@@ -1098,16 +1101,51 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
 
         const int st = static_cast<int>(CellsID->GetValue(i));
         const int ed = static_cast<int>(CellsID->GetValue(i + 1));
-        const int size = ed - st;
+        int size = ed - st;
         if (st < 0 || ed < st || ed > connectCount || size <= 0) {
             skippedCells++;
             continue;
         }
 
         std::vector<igIndex> vhs(size);
-        for (int j = 0; j < size; j++) { vhs[j] = static_cast<igIndex>(CellsConnect->GetValue(st + j)); }
 
         VTKTYPE type = (VTKTYPE) VtkCellsType->GetValue(i);
+
+        if (type == POLYHEDRON 
+            && FacesConnect && FacesConnect->GetNumberOfElements() > 0 
+            && FacesOffset  && FacesOffset->GetNumberOfElements() > 0 
+            && PolyToFaces  && PolyToFaces->GetNumberOfElements() > 0 
+            && PolysOffset  && PolysOffset->GetNumberOfElements() > 0) {
+            int fSt = static_cast<int>(PolysOffset->GetValue(i));
+            int fEd = static_cast<int>(PolysOffset->GetValue(i + 1));
+            int numFaces = fEd - fSt;
+
+            // compute the vhs size in advance
+            int totalSize = 1; // numFaces
+            for (int f = fSt; f < fEd; f++) {
+                int faceId = PolyToFaces->GetValue(f);
+                int pSt = static_cast<int>(FacesOffset->GetValue(faceId));
+                int pEd = static_cast<int>(FacesOffset->GetValue(faceId + 1));
+                totalSize += 1 + (pEd - pSt); // 1(fSize) + facePointCount
+            }
+            vhs.resize(totalSize);
+
+            // make sure the vhs structure is: [numFaces, fSize0, v0..vN, fSize1, v0..vM, ...]
+            int idx = 0;
+            vhs[idx++] = numFaces;
+            for (int f = fSt; f < fEd; f++) {
+                int faceId = PolyToFaces->GetValue(f);
+                int pSt = static_cast<int>(FacesOffset->GetValue(faceId));
+                int pEd = static_cast<int>(FacesOffset->GetValue(faceId + 1));
+                int numPts = pEd - pSt;
+                vhs[idx++] = numPts;
+                for (int k = pSt; k < pSt + numPts; k++) { vhs[idx++] = static_cast<igIndex>(FacesConnect->GetValue(k)); }
+            }
+            size = totalSize;
+        } else {
+            for (int j = 0; j < size; j++) { vhs[j] = static_cast<igIndex>(CellsConnect->GetValue(st + j)); }
+        }
+
         switch (type) {
             case iGame::VTKAbstractReader::T0:
                 break;
