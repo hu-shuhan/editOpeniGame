@@ -1071,9 +1071,15 @@ const void VTKAbstractReader::TransferVtkCellToiGameCell(ArrayObject::Pointer Ce
                                                          IntArray::Pointer VtkCellsType) {
     DataObject::Pointer Mesh = m_UnstructuredMesh;
     this->m_DataObjectType = IG_UNSTRUCTURED_MESH;
-    TransferVtkCellToiGameCell(Mesh, CellsID, CellsConnect, VtkCellsType, nullptr, nullptr, nullptr, nullptr);
+    TransferVtkCellToiGameCell(Mesh, CellsID, CellsConnect, VtkCellsType);
     m_UnstructuredMesh = DynamicCast<UnstructuredMesh>(Mesh);
     this->UpdateReadProgress();
+}
+
+void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, ArrayObject::Pointer CellsID,
+                                                   ArrayObject::Pointer CellsConnect,
+                                                   ArrayObject::Pointer VtkCellsType) {
+    TransferVtkCellToiGameCell(_mesh, CellsID, CellsConnect, VtkCellsType, nullptr, nullptr, nullptr, nullptr);
 }
 
 void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, ArrayObject::Pointer CellsID,
