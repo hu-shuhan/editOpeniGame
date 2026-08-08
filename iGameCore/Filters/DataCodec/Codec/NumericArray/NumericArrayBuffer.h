@@ -12,12 +12,9 @@
 #include <utility>
 #include <vector>
 
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
 #include <libpressio.h>
-#endif
 namespace datacodec::numericarray {
 
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
 struct PressioDataDeleter {
     void operator()(pressio_data* data) const {
         if (data != nullptr) {
@@ -27,7 +24,6 @@ struct PressioDataDeleter {
 };
 
 using PressioDataHandle = std::unique_ptr<pressio_data, PressioDataDeleter>;
-#endif
 
 struct NumericArrayBufferLayout : public NumericArrayLayout {
     std::vector<std::size_t> shape;
@@ -77,11 +73,9 @@ struct NumericArraySegmentSpec {
 class NumericArrayEncodedBytes {
 public:
     [[nodiscard]] std::span<const std::uint8_t> Bytes() const noexcept {
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
         if (this->pressioData != nullptr) {
             return this->pressioBytes;
         }
-#endif
         return std::span<const std::uint8_t>(this->ownedBytes.data(), this->ownedBytes.size());
     }
 
@@ -95,10 +89,8 @@ public:
 
     void Reset() {
         std::vector<std::uint8_t>().swap(this->ownedBytes);
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
         this->pressioBytes = {};
         this->pressioData.reset();
-#endif
     }
 
     void TakeVector(std::vector<std::uint8_t>&& bytes) {
@@ -116,20 +108,16 @@ public:
         return std::vector<std::uint8_t>(bytes.begin(), bytes.end());
     }
 
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
     void TakePressioData(PressioDataHandle data, const std::span<const std::uint8_t> bytes) {
         this->Reset();
         this->pressioBytes = bytes;
         this->pressioData = std::move(data);
     }
-#endif
 
 private:
     std::vector<std::uint8_t> ownedBytes;
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
     PressioDataHandle pressioData;
     std::span<const std::uint8_t> pressioBytes;
-#endif
 };
 
 struct NumericArrayCompressedSegment {

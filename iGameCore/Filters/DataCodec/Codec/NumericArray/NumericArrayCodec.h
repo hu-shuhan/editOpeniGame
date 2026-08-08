@@ -16,9 +16,7 @@
 #include <string>
 #include <vector>
 
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
 #include <libpressio.h>
-#endif
 namespace datacodec::numericarray {
 
 class NumericArrayEncode {
@@ -160,8 +158,6 @@ inline MutableNumericArrayBufferView SliceBufferView(
     }
     return slice;
 }
-
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
 
 struct PressioLibraryDeleter {
     void operator()(pressio* library) const {
@@ -439,24 +435,14 @@ inline bool DecompressWithLibPressio(
     return true;
 }
 
-#endif
-
 } // namespace detail::numericarraycodec
 
 inline bool NumericArrayEncode::IsAvailable() {
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
     return true;
-#else
-    return false;
-#endif
 }
 
 inline const char* NumericArrayEncode::BackendSummary() {
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
     return "libpressio";
-#else
-    return "disabled";
-#endif
 }
 
 inline bool NumericArrayEncode::Compress(
@@ -473,12 +459,7 @@ inline bool NumericArrayEncode::Compress(
         return true;
     }
 
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
     return detail::numericarraycodec::CompressWithLibPressio(input, compressor, output, error);
-#else
-    validation::AssignError(error, "libpressio support is disabled");
-    return false;
-#endif
 }
 
 inline bool NumericArrayDecode::IsAvailable() {
@@ -513,12 +494,7 @@ inline bool NumericArrayDecode::Decompress(
         return output.layout.ByteCount() == 0;
     }
 
-#ifdef DATACODEC_ENABLE_LIBPRESSIO
     return detail::numericarraycodec::DecompressWithLibPressio(input, layout, compressor, output.data, error);
-#else
-    validation::AssignError(error, "libpressio support is disabled");
-    return false;
-#endif
 }
 
 inline bool NumericArrayEncode::CompressSegments(
