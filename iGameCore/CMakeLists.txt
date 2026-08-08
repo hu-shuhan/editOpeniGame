@@ -125,8 +125,6 @@ if (ENABLE_LIBTORCH_MODULE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
 endif ()
 
-target_compile_definitions(${MODULE_NAME} PUBLIC DATACODEC_ENABLE_LIBPRESSIO)
-
 find_package(AbqSDK)
 if (${AbqSDK_FOUND})
     message("Find abqsdk")

@@ -103,9 +103,28 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             PATTERN "*/cereal/*" EXCLUDE
             PATTERN "*/libpressio/*" EXCLUDE
             PATTERN "*/mio/*" EXCLUDE
-            PATTERN "*/SZ3/*" EXCLUDE
+            PATTERN "SZ3" EXCLUDE
             PATTERN "*/std_compat/*" EXCLUDE
             PATTERN "*/zstd/*" EXCLUDE)
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/cereal/include/"
+            DESTINATION include/ThirdParty/cereal)
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/libpressio/include/"
+            DESTINATION include/ThirdParty/libpressio)
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/ThirdParty/libpressio/include/"
+            DESTINATION include/ThirdParty/libpressio)
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/mio/include/"
+            DESTINATION include/ThirdParty/mio)
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/ThirdParty/std_compat/include/"
+            DESTINATION include/ThirdParty/std_compat)
+    install(FILES
+            "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/zstd/lib/zstd.h"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/zstd/lib/zdict.h"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/zstd/lib/zstd_errors.h"
+            DESTINATION include/ThirdParty/zstd)
+    install(TARGETS libpressio std_compat libzstd_static
+            ARCHIVE DESTINATION lib/ThirdParty
+            LIBRARY DESTINATION lib/ThirdParty
+            RUNTIME DESTINATION bin)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Filters" DESTINATION include FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/IO" DESTINATION include FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering" DESTINATION include FILES_MATCHING PATTERN "*.h")
@@ -289,6 +308,59 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                 RUNTIME DESTINATION bin/ThirdParty/CMakeGPS
                 #                INCLUDES DESTINATION include/ThirdParty/CMakeGPS
         )
+    endif ()
+
+    function(igame_get_target_output_name target_name output_variable)
+        get_target_property(_IGAME_TARGET_OUTPUT_NAME
+                ${target_name} OUTPUT_NAME_RELEASE)
+        if (NOT _IGAME_TARGET_OUTPUT_NAME
+                OR _IGAME_TARGET_OUTPUT_NAME MATCHES "-NOTFOUND$")
+            get_target_property(_IGAME_TARGET_OUTPUT_NAME
+                    ${target_name} OUTPUT_NAME)
+        endif ()
+        if (NOT _IGAME_TARGET_OUTPUT_NAME
+                OR _IGAME_TARGET_OUTPUT_NAME MATCHES "-NOTFOUND$")
+            set(_IGAME_TARGET_OUTPUT_NAME "${target_name}")
+        endif ()
+        set(${output_variable} "${_IGAME_TARGET_OUTPUT_NAME}" PARENT_SCOPE)
+    endfunction()
+
+    set(IGAME_SDK_THIRDPARTY_LIB_DEPENDENCY
+            ${ThirdParty_lib_dependency})
+    if (TARGET zlibstatic)
+        igame_get_target_output_name(zlibstatic
+                _IGAME_ZLIB_STATIC_OUTPUT_NAME)
+        list(REMOVE_ITEM IGAME_SDK_THIRDPARTY_LIB_DEPENDENCY zlibstatic)
+        list(APPEND IGAME_SDK_THIRDPARTY_LIB_DEPENDENCY
+                "${_IGAME_ZLIB_STATIC_OUTPUT_NAME}")
+    endif ()
+    list(REMOVE_DUPLICATES IGAME_SDK_THIRDPARTY_LIB_DEPENDENCY)
+
+    set(IGAME_SDK_INTERNAL_LIBRARY_NAMES)
+    foreach (_IGAME_SDK_LIBRARY_TARGET IN ITEMS
+            libpressio std_compat libzstd_static)
+        if (TARGET ${_IGAME_SDK_LIBRARY_TARGET})
+            igame_get_target_output_name(${_IGAME_SDK_LIBRARY_TARGET}
+                    _IGAME_SDK_LIBRARY_OUTPUT_NAME)
+            list(APPEND IGAME_SDK_INTERNAL_LIBRARY_NAMES
+                    "${_IGAME_SDK_LIBRARY_OUTPUT_NAME}")
+        endif ()
+    endforeach ()
+    list(REMOVE_DUPLICATES IGAME_SDK_INTERNAL_LIBRARY_NAMES)
+
+    set(IGAME_SDK_REQUIRES_OPENMP OFF)
+    if (TARGET SZ3)
+        get_target_property(_IGAME_SZ3_LINK_LIBRARIES
+                SZ3 INTERFACE_LINK_LIBRARIES)
+        if (_IGAME_SZ3_LINK_LIBRARIES
+                AND "OpenMP::OpenMP_CXX" IN_LIST _IGAME_SZ3_LINK_LIBRARIES)
+            set(IGAME_SDK_REQUIRES_OPENMP ON)
+        endif ()
+    endif ()
+
+    set(IGAME_SDK_REQUIRES_THREADS OFF)
+    if (ZSTD_MULTITHREAD_SUPPORT AND UNIX)
+        set(IGAME_SDK_REQUIRES_THREADS ON)
     endif ()
 
     # 生成和安装 ${MODULE_NAME}Config.cmake 文件

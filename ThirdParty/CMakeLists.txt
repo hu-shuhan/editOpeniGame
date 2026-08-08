@@ -5,7 +5,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build third-party shared libraries." FORCE
 macro(igame_add_noninstall_subdirectory directory)
     set(IGAME_PREVIOUS_CMAKE_SKIP_INSTALL_RULES "${CMAKE_SKIP_INSTALL_RULES}")
     set(CMAKE_SKIP_INSTALL_RULES TRUE)
-    add_subdirectory(${directory})
+    add_subdirectory(${directory} EXCLUDE_FROM_ALL)
     set(CMAKE_SKIP_INSTALL_RULES "${IGAME_PREVIOUS_CMAKE_SKIP_INSTALL_RULES}")
     unset(IGAME_PREVIOUS_CMAKE_SKIP_INSTALL_RULES)
 endmacro()

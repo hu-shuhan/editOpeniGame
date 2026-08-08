@@ -31,6 +31,11 @@ set(IGAMEVIS_CORE_INCLUDE_DIRS
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.22/src
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/tinyXML2
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/vtkkwiml
+     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/cereal
+     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/libpressio
+     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/mio
+     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/std_compat
+     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/zstd
 )
 
 if(@AbqSDK_FOUND@)
@@ -114,13 +119,18 @@ mark_as_advanced(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR)
 mark_as_advanced(IGAMEVIS_CORE_INCLUDE_DIRS)
 mark_as_advanced(IGAMEVIS_CORE_PRIVATE_LIB)
 
+set(IGAMEVIS_CORE_INTERNAL_LIB_LIST
+        @IGAME_SDK_INTERNAL_LIBRARY_NAMES@
+)
 set(IGAMEVIS_CORE_LIB_LIST
         @MODULE_NAME@
-        @ThirdParty_lib_dependency@
+        @IGAME_SDK_THIRDPARTY_LIB_DEPENDENCY@
+        ${IGAMEVIS_CORE_INTERNAL_LIB_LIST}
         glfw3
 )
 set(FOUND_IGAMEVIS_CORE_LIB_FULL_PATH)
 set(IGAMEVIS_CORE_LIB_TARGETS)
+set(IGAMEVIS_CORE_MISSING_INTERNAL_LIBRARIES)
 
 #----------------------------------------------
 # Find CUDA Package
@@ -169,9 +179,16 @@ if(@ENABLE_LIBTORCH_MODULE@)
     list(APPEND IGAMEVIS_CORE_LIB_LIST ${_IGV_TORCH_LIBS})
 endif()
 
-if (UNIX AND NOT APPLE)
-    find_package(OpenMP REQUIRED)
-endif ()
+if(@IGAME_SDK_REQUIRES_OPENMP@)
+    find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
+
+if(@IGAME_SDK_REQUIRES_THREADS@)
+    find_package(Threads REQUIRED)
+    list(APPEND IGAMEVIS_CORE_LIB_TARGETS
+            Threads::Threads
+    )
+endif()
 
 if (OpenMP_CXX_FOUND)
     list(APPEND IGAMEVIS_CORE_LIB_TARGETS
@@ -188,6 +205,8 @@ foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
     if(WIN32)
         find_library(temp${LIB}
             NAMES
+            ${LIB}
+            "lib${LIB}"
             "${LIB}.lib"
             HINTS
             ${IGAMEVIS_CORE_PRIVATE_LIB}
@@ -214,8 +233,17 @@ foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
                     INTERFACE_INCLUDE_DIRECTORIES "${IGAMEVIS_CORE_INCLUDE_DIRS}")
             list(APPEND IGAMEVIS_CORE_LIB_TARGETS @MODULE_NAME@::${LIB})
         endif ()
+    elseif("${LIB}" IN_LIST IGAMEVIS_CORE_INTERNAL_LIB_LIST)
+        list(APPEND IGAMEVIS_CORE_MISSING_INTERNAL_LIBRARIES ${LIB})
     endif()
 endforeach()
+
+set(IGAMEVIS_CORE_INTERNAL_LIBRARIES_FOUND TRUE)
+if(IGAMEVIS_CORE_MISSING_INTERNAL_LIBRARIES)
+    set(IGAMEVIS_CORE_INTERNAL_LIBRARIES_FOUND FALSE)
+    message(STATUS
+            "iGameCore: Missing required internal libraries: ${IGAMEVIS_CORE_MISSING_INTERNAL_LIBRARIES}")
+endif()
 
 if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
     find_library(CUDA_cudart_lib NAMES cudart
@@ -258,4 +286,5 @@ find_package_handle_standard_args(@MODULE_NAME@
     REQUIRED_VARS
     FOUND_IGAMEVIS_CORE_LIB_FULL_PATH
     IGAMEVIS_CORE_INCLUDE_DIRS
+    IGAMEVIS_CORE_INTERNAL_LIBRARIES_FOUND
 )
