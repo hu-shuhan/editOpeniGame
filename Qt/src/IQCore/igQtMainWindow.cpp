@@ -47,6 +47,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQWidgets/igQtPartFocusWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <iGameBlockMapping.h>
@@ -1978,7 +1979,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         testAction->setObjectName(QString::fromUtf8("MeshSplit"));
         testAction->setText(QString::fromUtf8("MeshSplit"));
         ui->menu_filters->addAction(testAction);
-        testAction->setVisible(true);
+        testAction->setVisible(false);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
 //#define TEST_MAP_BACK
 #ifdef TEST_MAP_BACK
@@ -2029,7 +2030,69 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         });
     }
     //############# TESTS ED #############
+    {
+        // PartSegmentation零件分割
+        QAction* partSegmentationAction{};
+        partSegmentationAction = new QAction(this);
+        partSegmentationAction->setObjectName(QString::fromUtf8("零件分割"));
+        partSegmentationAction->setText(QString::fromUtf8("零件分割"));
+        ui->menu_filters->addAction(partSegmentationAction);
+        partSegmentationAction->setVisible(true);
+        connect(partSegmentationAction, &QAction::triggered, this, [&](bool checked) {
+            // P3SAM分割器
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (!model) {
+                std::cout << "[PartSegmentation] No model selected." << std::endl;
+                return;
+            }
 
+            auto dataObj = model->GetDataObject();
+
+            std::cout << "[PartSegmentation] Starting P3SAM segmentation..." << std::endl;
+            P3SAMSegmenter::Pointer segmenter = P3SAMSegmenter::New();
+            segmenter->SetInput(dataObj);
+            segmenter->SetSimplificationRatio(0.1f);  // 简化到10%
+            segmenter->SetPointNum(10000);
+            segmenter->SetPromptNum(250);
+            segmenter->SetSeed(42);
+            segmenter->SetPostProcess(false);
+            segmenter->SetTimeout(300000);  // 5分钟超时
+
+            if (!segmenter->Execute()) {
+                std::cout << "PartSegmentation] Segmentation failed: "
+                          << segmenter->GetErrorMessage() << std::endl;
+                return;
+            }
+
+            modelTreeWidget->updateAllAttriubute(dataObj);
+            std::cout << "[PartSegmentation] Segmentation complete! Parts: "
+                      << segmenter->GetPartCount() << std::endl;
+        });
+    }
+    // 零件聚焦弹窗
+    {
+        QAction* partFocusAction = new QAction(this);
+        partFocusAction->setObjectName(QString::fromUtf8("零件聚焦"));
+        partFocusAction->setText(QString::fromUtf8("零件聚焦"));
+        ui->menu_filters->addAction(partFocusAction);
+        partFocusAction->setVisible(true);
+        connect(partFocusAction, &QAction::triggered, this, [&]() {
+            static igQtChromeFramelessDialog* dialog = nullptr;
+            static igQtPartFocusWidget* widget = nullptr;
+            if (!dialog) {
+                dialog = new igQtChromeFramelessDialog(this);
+                dialog->setDialogTitle(QStringLiteral("零件聚焦"));
+                dialog->setMaximizeEnabled(false);
+                widget = new igQtPartFocusWidget(dialog->contentHost());
+                dialog->setContentWidget(widget);
+                dialog->resize(340, 380);
+            }
+            widget->SetScene(rendererWidget->GetScene(), rendererWidget);
+            dialog->show();
+            dialog->raise();
+            dialog->activateWindow();
+        });
+    }
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
             [&]() {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
