@@ -791,11 +791,21 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
     return CellTypes;
 }
 
+/**
+ * @brief 读取face_connectivity数据项（版本>=2.3）
+ *        读取faces数据项（版本<2.3）
+ *       （仅适用于含有Polyhedron单元类型的vtu文件）
+*/
 ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
     ArrayObject::Pointer Faces = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
     m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_connectivity");
-    if (m_CurrentElem == nullptr) return Faces;
+    if (m_CurrentElem == nullptr)
+    {
+        m_CurrentElem = FindTargetItem(root, "Cells");
+        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faces");
+        if (m_CurrentElem == nullptr) return Faces;
+    }
 
     const char* data;
     const char* attribute;
@@ -866,6 +876,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
     return Faces;
 }
 
+/**
+ * @brief 读取face_offsets数据项（仅适用于含有Polyhedron单元类型的、版本>=2.3的vtu文件）
+*/
 ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
     ArrayObject::Pointer FaceOffsets = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
@@ -946,6 +959,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
     return FaceOffsets;
 }
 
+/**
+ * @brief 读取polyhedron_to_faces数据项（仅适用于含有Polyhedron单元类型的、版本>=2.3的vtu文件）
+*/
 ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
     ArrayObject::Pointer PolyToFaces = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
@@ -1019,11 +1035,21 @@ ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
     return PolyToFaces;
 }
 
+/**
+ * @brief 读取polyhedron_offsets数据项（版本>=2.3）
+ *        读取faceoffsets数据项（版本<2.3）
+ *       （仅适用于含有Polyhedron单元类型的vtu文件）
+*/
 ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronOffsets() {
     ArrayObject::Pointer PolyOffsets = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
     m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_offsets");
-    if (m_CurrentElem == nullptr) return PolyOffsets;
+    if (m_CurrentElem == nullptr)
+    {
+        m_CurrentElem = FindTargetItem(root, "Cells");
+        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faceoffsets");
+        if (m_CurrentElem == nullptr) return PolyOffsets;
+    }
 
     const char* data;
     const char* attribute;

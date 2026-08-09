@@ -1117,39 +1117,67 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
 
         VTKTYPE type = (VTKTYPE) VtkCellsType->GetValue(i);
 
-        if (type == POLYHEDRON 
-            && FacesConnect && FacesConnect->GetNumberOfElements() > 0 
-            && FacesOffset  && FacesOffset->GetNumberOfElements() > 0 
-            && PolyToFaces  && PolyToFaces->GetNumberOfElements() > 0 
-            && PolysOffset  && PolysOffset->GetNumberOfElements() > 0) {
-            int fSt = static_cast<int>(PolysOffset->GetValue(i));
-            int fEd = static_cast<int>(PolysOffset->GetValue(i + 1));
-            int numFaces = fEd - fSt;
-
-            // compute the vhs size in advance
-            int totalSize = 1; // numFaces
-            for (int f = fSt; f < fEd; f++) {
-                int faceId = PolyToFaces->GetValue(f);
-                int pSt = static_cast<int>(FacesOffset->GetValue(faceId));
-                int pEd = static_cast<int>(FacesOffset->GetValue(faceId + 1));
-                totalSize += 1 + (pEd - pSt); // 1(fSize) + facePointCount
-            }
-            vhs.resize(totalSize);
-
-            // make sure the vhs structure is: [numFaces, fSize0, v0..vN, fSize1, v0..vM, ...]
-            int idx = 0;
-            vhs[idx++] = numFaces;
-            for (int f = fSt; f < fEd; f++) {
-                int faceId = PolyToFaces->GetValue(f);
-                int pSt = static_cast<int>(FacesOffset->GetValue(faceId));
-                int pEd = static_cast<int>(FacesOffset->GetValue(faceId + 1));
-                int numPts = pEd - pSt;
-                vhs[idx++] = numPts;
-                for (int k = pSt; k < pSt + numPts; k++) { vhs[idx++] = static_cast<igIndex>(FacesConnect->GetValue(k)); }
-            }
-            size = totalSize;
-        } else {
+        if (type != POLYHEDRON) {
             for (int j = 0; j < size; j++) { vhs[j] = static_cast<igIndex>(CellsConnect->GetValue(st + j)); }
+        } else {
+            // for celltype == 42
+            bool isValid = (FacesConnect && FacesConnect->GetNumberOfElements() > 0 && PolysOffset &&
+                            PolysOffset->GetNumberOfElements() > 0);
+            if (!isValid) {
+                igError("no faces/face_connectivity/faceoffsets/polyhedron_offsets data array found in POLYHEDRON "
+                        "cell");
+                return;
+            }
+
+            if (PolyToFaces && PolyToFaces->GetNumberOfElements() > 0) {
+                // >= 2.3 version
+                isValid = (FacesOffset && FacesOffset->GetNumberOfElements() > 0);
+                if (!isValid) {
+                    igError("no face_offsets data array found in POLYHEDRON cell (>=2.3 version)");
+                    return;
+                }
+
+                int fSt = static_cast<int>(PolysOffset->GetValue(i));
+                int fEd = static_cast<int>(PolysOffset->GetValue(i + 1));
+                int numFaces = fEd - fSt;
+
+                // compute the vhs size in advance
+                int totalSize = 1; // numFaces
+                for (int f = fSt; f < fEd; f++) {
+                    int faceId = PolyToFaces->GetValue(f);
+                    int pSt = static_cast<int>(FacesOffset->GetValue(faceId));
+                    int pEd = static_cast<int>(FacesOffset->GetValue(faceId + 1));
+                    totalSize += 1 + (pEd - pSt); // 1(fSize) + facePointCount
+                }
+                vhs.resize(totalSize);
+
+                // make sure the vhs structure is: [numFaces, fSize0, v0..vN, fSize1, v0..vM, ...]
+                int idx = 0;
+                vhs[idx++] = numFaces;
+                for (int f = fSt; f < fEd; f++) {
+                    int faceId = PolyToFaces->GetValue(f);
+                    if (faceId + 1 >= FacesOffset->GetNumberOfElements()) {
+                        skippedCells++;
+                        continue;
+                    }
+                    int pSt = static_cast<int>(FacesOffset->GetValue(faceId));
+                    int pEd = static_cast<int>(FacesOffset->GetValue(faceId + 1));
+                    int numPts = pEd - pSt;
+                    vhs[idx++] = numPts;
+                    for (int k = pSt; k < pSt + numPts; k++) {
+                        vhs[idx++] = static_cast<igIndex>(FacesConnect->GetValue(k));
+                    }
+                }
+                size = totalSize;
+            } else {
+                // < 2.3 version
+                int fSt = static_cast<int>(PolysOffset->GetValue(i));
+                int fEd = static_cast<int>(PolysOffset->GetValue(i + 1));
+                int totalSize = fEd - fSt;
+                vhs.resize(totalSize);
+                for (int k = 0; k < totalSize; k++) { vhs[k] = static_cast<igIndex>(FacesConnect->GetValue(fSt + k)); }
+                size = totalSize;
+            }
         }
 
         switch (type) {
