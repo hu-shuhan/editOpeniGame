@@ -294,29 +294,47 @@ bool igQtPartFocusWidget::computeBoundingBoxForSelected(iGame::BoundingBox& outB
 
 void igQtPartFocusWidget::onFocusCamera() {
     if (!m_scene || !m_rendererWidget) return;
-
     BoundingBox bbox;
     if (!computeBoundingBoxForSelected(bbox)) {
         setStatus(QStringLiteral("请先在列表中勾选至少一个零件"));
         return;
     }
-
-    m_scene->ResetCameraView(bbox);
-    m_rendererWidget->update();
+    applyFocusCamera(bbox);
     emit SIGNAL_FocusApplied();
 }
 
 void igQtPartFocusWidget::onSetSelectionBox() {
     if (!m_scene || !m_rendererWidget) return;
-
     BoundingBox bbox;
     if (!computeBoundingBoxForSelected(bbox)) {
         setStatus(QStringLiteral("请先在列表中勾选至少一个零件"));
         return;
     }
+    applySelectionBox(bbox);
+    emit SIGNAL_FocusApplied();
+}
 
+void igQtPartFocusWidget::onFocusBoth() {
+    if (!m_scene || !m_rendererWidget) return;
+    BoundingBox bbox;
+    if (!computeBoundingBoxForSelected(bbox)) {
+        setStatus(QStringLiteral("请先在列表中勾选至少一个零件"));
+        return;
+    }
+    applyFocusCamera(bbox);
+    applySelectionBox(bbox);
+    emit SIGNAL_FocusApplied();
+}
+
+bool igQtPartFocusWidget::applyFocusCamera(const iGame::BoundingBox& bbox) {
+    m_scene->ResetCameraView(bbox);
+    m_rendererWidget->update();
+    return true;
+}
+
+bool igQtPartFocusWidget::applySelectionBox(const iGame::BoundingBox& bbox) {
     auto interactor = m_scene->GetInteractor();
-    if (!interactor) return;
+    if (!interactor) return false;
 
     Point pMin(bbox.min[0], bbox.min[1], bbox.min[2]);
     Point pMax(bbox.max[0], bbox.max[1], bbox.max[2]);
@@ -333,10 +351,5 @@ void igQtPartFocusWidget::onSetSelectionBox() {
 
     SelectionParameter::Instance().SetHaveBox(true);
     m_rendererWidget->update();
-    emit SIGNAL_FocusApplied();
-}
-
-void igQtPartFocusWidget::onFocusBoth() {
-    onFocusCamera();
-    onSetSelectionBox();
+    return true;
 }

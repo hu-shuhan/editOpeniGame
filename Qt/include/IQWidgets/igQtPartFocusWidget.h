@@ -50,6 +50,9 @@ private:
     // 计算选中 part 的合并包围盒，返回 false 表示无有效 part
     bool computeBoundingBoxForSelected(iGame::BoundingBox& outBBox) const;
 
+    bool applyFocusCamera(const iGame::BoundingBox& bbox);
+    bool applySelectionBox(const iGame::BoundingBox& bbox);
+
     void setupUI();
     void setStatus(const QString& msg);
 
