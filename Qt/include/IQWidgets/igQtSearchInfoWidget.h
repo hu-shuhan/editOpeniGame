@@ -13,6 +13,8 @@ class QLabel;
 namespace iGame
 {
 class DataObject;
+class Model;
+class Selection;
 }
 
 namespace Ui
@@ -32,6 +34,9 @@ public:
 
     // 设置当前模型数据
     void setCurrentModelData(iGame::DataObject* modelData);
+
+    // 设置当前模型，并监听其选择状态
+    void setCurrentModel(iGame::Model* model);
 
     // 刷新属性列表
     void refreshProperties();
@@ -57,6 +62,7 @@ private:
 
     // 当前模型数据
     iGame::DataObject* m_currentModelData;
+    iGame::Selection* m_currentSelection{nullptr};
 
     QVector<PropertyDescriptor> m_properties;
     QVector<int> m_filteredItemIds;
@@ -84,6 +90,9 @@ private:
     void executeQuery();
 
     int currentItemCount() const;
+    bool hasSelectionForCurrentDataType() const;
+    void updateFromSelection(int dataType);
+    bool propertyValue(int itemId, const PropertyDescriptor& descriptor, double& value) const;
     bool currentPropertyValue(int itemId, double& value) const;
     void rebuildFilteredItems(const QString& operatorStr = QString(), bool hasFilter = false, double filterValue = 0.0);
     void renderCurrentPage();

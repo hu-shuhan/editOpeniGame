@@ -4,11 +4,14 @@
 #include <QDockWidget>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPointer>
 #include <QSignalBlocker>
 #include <QStringList>
 #include <QTableWidgetItem>
 
 #include <iGameDataObject.h>
+#include <iGameModel.h>
+#include <iGameSelection.h>
 
 #include <algorithm>
 #include <utility>
@@ -34,6 +37,7 @@ QDockWidget* igQtSearchInfoWidget::createDockWidget(QWidget* parent) {
 }
 
 void igQtSearchInfoWidget::setCurrentModelData(iGame::DataObject* modelData) {
+    m_currentSelection = nullptr;
     m_currentModelData = modelData;
 
     // BlockMapping is an IG_CELL attribute, so mapped models open on cell data.
@@ -50,6 +54,66 @@ void igQtSearchInfoWidget::setCurrentModelData(iGame::DataObject* modelData) {
     refreshData();
 }
 
+void igQtSearchInfoWidget::setCurrentModel(iGame::Model* model) {
+    m_currentModelData = model ? model->GetDataObject().GetPointer() : nullptr;
+    auto selectionPointer = model ? model->GetSelection() : Selection::Pointer{};
+    m_currentSelection = selectionPointer.GetPointer();
+
+    if (m_currentSelection) {
+        auto* selection = m_currentSelection;
+        const QPointer<igQtSearchInfoWidget> self(this);
+        selection->_SetSelectionCallBackEvent_(
+                "igQtSearchInfoWidget",
+                [self, selection](IGenum itemType, const std::vector<igIndex>&, Selection::Operate) {
+                    if (!self || self->m_currentSelection != selection) return;
+                    if (itemType == IG_POINT) self->updateFromSelection(0);
+                    else if (itemType == IG_CELL)
+                        self->updateFromSelection(1);
+                    else if (itemType == IG_CHANGE)
+                        self->refreshData();
+                });
+        selection->_SetClearSelectionCallBackEvent_("igQtSearchInfoWidget", [self, selection]() {
+            if (!self || self->m_currentSelection != selection) return;
+            self->refreshData();
+        });
+    }
+
+    const bool hasSelectedCells =
+            m_currentSelection && !m_currentSelection->GetSelectedItems(IG_CELL).empty();
+    const bool hasSelectedPoints =
+            m_currentSelection && !m_currentSelection->GetSelectedItems(IG_POINT).empty();
+    if (hasSelectedCells || (!hasSelectedPoints && m_currentModelData && m_currentModelData->HasBlockMapping())) {
+        const QSignalBlocker blockPoints(ui->radioButton_Points);
+        const QSignalBlocker blockCells(ui->radioButton_Cells);
+        ui->radioButton_Cells->setChecked(true);
+        m_currentDataType = 1;
+    } else if (hasSelectedPoints) {
+        const QSignalBlocker blockPoints(ui->radioButton_Points);
+        const QSignalBlocker blockCells(ui->radioButton_Cells);
+        ui->radioButton_Points->setChecked(true);
+        m_currentDataType = 0;
+    } else {
+        m_currentDataType = ui->radioButton_Cells->isChecked() ? 1 : 0;
+    }
+
+    refreshProperties();
+    refreshData();
+}
+
+void igQtSearchInfoWidget::updateFromSelection(int dataType) {
+    m_currentDataType = dataType;
+    {
+        const QSignalBlocker blockPoints(ui->radioButton_Points);
+        const QSignalBlocker blockCells(ui->radioButton_Cells);
+        ui->radioButton_Points->setChecked(dataType == 0);
+        ui->radioButton_Cells->setChecked(dataType == 1);
+    }
+
+    ui->lineEdit_Value->clear();
+    refreshProperties();
+    refreshData();
+}
+
 void igQtSearchInfoWidget::refreshProperties() {
     const QSignalBlocker blockCombo(ui->comboBox_Property);
     ui->comboBox_Property->clear();
@@ -60,6 +124,7 @@ void igQtSearchInfoWidget::refreshProperties() {
         const int propertyIndex = m_properties.size();
         m_properties.push_back(std::move(descriptor));
         ui->comboBox_Property->addItem(m_properties.back().displayName, propertyIndex);
+        return propertyIndex;
     };
 
     if (m_currentDataType == 0) {
@@ -79,6 +144,8 @@ void igQtSearchInfoWidget::refreshProperties() {
 
     auto attributes = attributeSet->GetAllAttributes();
     const IGenum expectedAttachment = m_currentDataType == 0 ? IG_POINT : IG_CELL;
+    int firstAttributePropertyIndex = -1;
+    int preferredAttributePropertyIndex = -1;
     for (int attributeIndex = 0; attributeIndex < attributes->GetNumberOfElements(); ++attributeIndex) {
         auto& attribute = attributes->GetElement(attributeIndex);
         if (attribute.isDeleted || !attribute.pointer || attribute.attachmentType != expectedAttachment) continue;
@@ -89,13 +156,14 @@ void igQtSearchInfoWidget::refreshProperties() {
         QString baseName = QString::fromStdString(attribute.pointer->GetName());
         if (baseName.isEmpty()) baseName = QStringLiteral("属性 %1").arg(attributeIndex);
 
+        int attributePropertyIndex = -1;
         if (dimension > 1) {
             PropertyDescriptor magnitude;
             magnitude.kind = PropertyDescriptor::Kind::Attribute;
             magnitude.displayName = QStringLiteral("%1（模）").arg(baseName);
             magnitude.attributeIndex = attributeIndex;
             magnitude.component = -1;
-            addProperty(std::move(magnitude));
+            attributePropertyIndex = addProperty(std::move(magnitude));
         }
 
         for (int component = 0; component < dimension; ++component) {
@@ -104,9 +172,20 @@ void igQtSearchInfoWidget::refreshProperties() {
             descriptor.displayName = dimension == 1 ? baseName : QStringLiteral("%1[%2]").arg(baseName).arg(component);
             descriptor.attributeIndex = attributeIndex;
             descriptor.component = component;
-            addProperty(std::move(descriptor));
+            const int propertyIndex = addProperty(std::move(descriptor));
+            if (attributePropertyIndex < 0) attributePropertyIndex = propertyIndex;
         }
+
+        if (firstAttributePropertyIndex < 0) firstAttributePropertyIndex = attributePropertyIndex;
+        const bool isBlockProperty =
+                attribute.type == IG_BLOCK_MAPPING || baseName.compare(QStringLiteral("block_id"), Qt::CaseInsensitive) == 0 ||
+                baseName.compare(QStringLiteral("part_id"), Qt::CaseInsensitive) == 0;
+        if (isBlockProperty) preferredAttributePropertyIndex = attributePropertyIndex;
     }
+
+    const int initialPropertyIndex =
+            preferredAttributePropertyIndex >= 0 ? preferredAttributePropertyIndex : firstAttributePropertyIndex;
+    if (initialPropertyIndex >= 0) ui->comboBox_Property->setCurrentIndex(initialPropertyIndex);
 }
 
 void igQtSearchInfoWidget::onQueryButtonClicked() { executeQuery(); }
@@ -231,12 +310,8 @@ int igQtSearchInfoWidget::currentItemCount() const {
     return attribute.pointer ? static_cast<int>(attribute.pointer->GetNumberOfElements()) : 0;
 }
 
-bool igQtSearchInfoWidget::currentPropertyValue(int itemId, double& value) const {
+bool igQtSearchInfoWidget::propertyValue(int itemId, const PropertyDescriptor& descriptor, double& value) const {
     if (!m_currentModelData || itemId < 0) return false;
-    const int propertyIndex = ui->comboBox_Property->currentIndex();
-    if (propertyIndex < 0 || propertyIndex >= m_properties.size()) return false;
-    const auto& descriptor = m_properties[propertyIndex];
-
     if (descriptor.kind == PropertyDescriptor::Kind::Coordinate) {
         auto points = m_currentModelData->GetPoints();
         if (!points || itemId >= static_cast<int>(points->GetNumberOfPoints())) return false;
@@ -254,12 +329,35 @@ bool igQtSearchInfoWidget::currentPropertyValue(int itemId, double& value) const
     return true;
 }
 
+bool igQtSearchInfoWidget::hasSelectionForCurrentDataType() const {
+    if (!m_currentSelection) return false;
+    return !m_currentSelection->GetSelectedItems(m_currentDataType == 0 ? IG_POINT : IG_CELL).empty();
+}
+
+bool igQtSearchInfoWidget::currentPropertyValue(int itemId, double& value) const {
+    const int propertyIndex = ui->comboBox_Property->currentIndex();
+    if (propertyIndex < 0 || propertyIndex >= m_properties.size()) return false;
+    return propertyValue(itemId, m_properties[propertyIndex], value);
+}
+
 void igQtSearchInfoWidget::rebuildFilteredItems(const QString& operatorStr, bool hasFilter, double filterValue) {
     m_filteredItemIds.clear();
     const int itemCount = currentItemCount();
-    m_filteredItemIds.reserve(itemCount);
+    QVector<int> candidateIds;
+    if (hasSelectionForCurrentDataType()) {
+        const auto& selectedItems =
+                m_currentSelection->GetSelectedItems(m_currentDataType == 0 ? IG_POINT : IG_CELL);
+        candidateIds.reserve(static_cast<int>(selectedItems.size()));
+        for (igIndex itemId: selectedItems) {
+            if (itemId >= 0 && itemId < itemCount) candidateIds.push_back(static_cast<int>(itemId));
+        }
+    } else {
+        candidateIds.reserve(itemCount);
+        for (int itemId = 0; itemId < itemCount; ++itemId) candidateIds.push_back(itemId);
+    }
 
-    for (int itemId = 0; itemId < itemCount; ++itemId) {
+    m_filteredItemIds.reserve(candidateIds.size());
+    for (int itemId: candidateIds) {
         bool match = !hasFilter;
         if (hasFilter) {
             double value = 0.0;
@@ -289,25 +387,26 @@ void igQtSearchInfoWidget::renderCurrentPage() {
     const int end = std::min(start + pageSize, totalCount);
     const int displayedCount = end - start;
 
-    const int propertyIndex = ui->comboBox_Property->currentIndex();
-    const PropertyDescriptor* property =
-            propertyIndex >= 0 && propertyIndex < m_properties.size() ? &m_properties[propertyIndex] : nullptr;
+    QVector<const PropertyDescriptor*> displayedProperties;
+    displayedProperties.reserve(m_properties.size());
+    for (const auto& property: m_properties) {
+        if (property.kind == PropertyDescriptor::Kind::Attribute) displayedProperties.push_back(&property);
+    }
 
     auto* table = ui->tableWidget_Results;
     table->setSortingEnabled(false);
     table->clearContents();
 
     const bool isPointData = m_currentDataType == 0;
-    const bool showAttributeColumn = property && property->kind == PropertyDescriptor::Kind::Attribute;
     if (isPointData) {
-        table->setColumnCount(showAttributeColumn ? 5 : 4);
+        table->setColumnCount(4 + displayedProperties.size());
         QStringList headers{QStringLiteral("点 ID"), "X", "Y", "Z"};
-        if (showAttributeColumn) headers.push_back(property->displayName);
+        for (const auto* property: displayedProperties) headers.push_back(property->displayName);
         table->setHorizontalHeaderLabels(headers);
     } else {
-        table->setColumnCount(property ? 2 : 1);
+        table->setColumnCount(1 + displayedProperties.size());
         QStringList headers{QStringLiteral("单元 ID")};
-        if (property) headers.push_back(property->displayName);
+        for (const auto* property: displayedProperties) headers.push_back(property->displayName);
         table->setHorizontalHeaderLabels(headers);
     }
     table->setRowCount(displayedCount);
@@ -328,18 +427,21 @@ void igQtSearchInfoWidget::renderCurrentPage() {
             }
         }
 
-        if (property && (!isPointData || showAttributeColumn)) {
+        const int firstPropertyColumn = isPointData ? 4 : 1;
+        for (int propertyOffset = 0; propertyOffset < displayedProperties.size(); ++propertyOffset) {
             double value = 0.0;
             auto* valueItem = new QTableWidgetItem;
-            if (currentPropertyValue(itemId, value)) valueItem->setData(Qt::DisplayRole, value);
+            if (propertyValue(itemId, *displayedProperties[propertyOffset], value))
+                valueItem->setData(Qt::DisplayRole, value);
             else
                 valueItem->setText(QStringLiteral("—"));
-            table->setItem(row, isPointData ? 4 : 1, valueItem);
+            table->setItem(row, firstPropertyColumn + propertyOffset, valueItem);
         }
     }
 
+    const QString resultScope = hasSelectionForCurrentDataType() ? QStringLiteral("选中数据") : QStringLiteral("全部数据");
     ui->groupBox_Results->setTitle(
-            QStringLiteral("查询结果：当前页 %1 条，共 %2 条").arg(displayedCount).arg(totalCount));
+            QStringLiteral("%1：当前页 %2 条，共 %3 条").arg(resultScope).arg(displayedCount).arg(totalCount));
     m_pageInfoLabel->setText(
             pageCount == 0
                     ? QStringLiteral("第 0 / 0 页，共 0 条")

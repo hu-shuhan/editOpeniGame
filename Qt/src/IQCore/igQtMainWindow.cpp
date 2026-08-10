@@ -1946,9 +1946,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        auto dataObject = model->GetDataObject();
-        if (dataObject == nullptr) return;
-        ui->widget_SearchInfo->setCurrentModelData(dataObject);
+        ui->widget_SearchInfo->setCurrentModel(model);
+    });
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
+        if (!ui->dockWidget_SearchInfo || !ui->dockWidget_SearchInfo->isVisible()) return;
+        QTimer::singleShot(0, this, [this]() {
+            ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
+        });
     });
     connect(ui->action_Scalar, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
@@ -2014,7 +2018,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             auto dataObj = model->GetDataObject();
             dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
-            ui->widget_SearchInfo->setCurrentModelData(dataObj);
+            ui->widget_SearchInfo->setCurrentModel(model);
             std::cout << "[Block Mapping Test] Mapping complete. Cells: " << resultArray->GetNumberOfValues()
                       << std::endl;
 #else
