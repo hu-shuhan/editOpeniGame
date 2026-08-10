@@ -124,7 +124,12 @@ if (${AbqSDK_FOUND})
     endif ()
 
     if (WIN32 AND AbqSDK_DLL_DIR)
-        string(JOIN "," IGAME_ABQ_RUNTIME_LIBRARY_NAMES ${ABQ_LIB_LIST})
+        if (ABQ_RUNTIME_LIB_LIST)
+            string(JOIN "," IGAME_ABQ_RUNTIME_LIBRARY_NAMES
+                    ${ABQ_RUNTIME_LIB_LIST})
+        else ()
+            string(JOIN "," IGAME_ABQ_RUNTIME_LIBRARY_NAMES ${ABQ_LIB_LIST})
+        endif ()
         set(IGAME_ABQ_RUNTIME_DIR "${AbqSDK_DLL_DIR}" PARENT_SCOPE)
         set(IGAME_ABQ_RUNTIME_LIBRARY_NAMES
                 "${IGAME_ABQ_RUNTIME_LIBRARY_NAMES}" PARENT_SCOPE)

@@ -72,7 +72,7 @@ void StreamBase::ConvertToDrawableData() {
 
     // 提取速度属性作为颜色数据
     if (attrSet) {
-        auto velocityAttr = attrSet->GetVector("velocityArray");
+        auto velocityAttr = attrSet->GetVector("Velocity");
         float step1=0.0f;
         float step2=FLT_MAX;
         int count1 = 0;
@@ -82,6 +82,7 @@ void StreamBase::ConvertToDrawableData() {
             for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) {
                 float velocity[3] = {0.0f, 0.0f, 0.0f};
                 velocityAttr.pointer->GetElement(i, velocity);
+                m_PositionColors->AddElement3(velocity[0], velocity[1], velocity[2]);
                 auto temV1= sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1] + velocity[2] * velocity[2]);
                 if (temV1 > 40) { count2++;
                 }
@@ -97,7 +98,7 @@ void StreamBase::ConvertToDrawableData() {
         }
     
         std::cout << "Velocity Magnitude Range: [" << step2 << "," << step1 << "]" << std::endl;
-        std::cout << (float)count2/(float)count1 << std::endl;
+        std::cout << (count1 > 0 ? static_cast<float>(count2) / static_cast<float>(count1) : 0.0f) << std::endl;
 
     } else {
         // 如果没有属性集，使用默认颜色
@@ -120,8 +121,6 @@ void StreamBase::ConvertToDrawableData() {
     m_Colors->Modified();
 
     if (m_Colors != nullptr) { m_UseColor = true; }
-    auto m_Manager=iGame::SceneManager::Instance();
-    auto painter = m_Manager->GetCurrentScene()->GetPainter3D();
     m_Painter->Clear();
 
     // 创建画笔

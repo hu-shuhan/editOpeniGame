@@ -107,7 +107,16 @@ bool iGame::iGameVTUReader::Parsing() {
     //   find Cell types;
 
     auto CellTypes = ReadCellTypes();
-    VTKAbstractReader::TransferVtkCellToiGameCell(m_Output, CellOffsets, CellConnects, CellTypes);
+
+    //   find Cell faces connectivity;
+    auto CellFacesConnect = ReadCellFacesConnectivity();
+    //   find Cell faces offset;
+    auto CellFacesOffset = ReadCellFacesOffset();
+    //   find Cell poly to faces;
+    auto CellPolyToFaces = ReadCellPolyhedronToFaces();
+    //   find Cell poly offset;
+    auto CellPolyOffset = ReadCellPolyhedronOffsets();
+    VTKAbstractReader::TransferVtkCellToiGameCell(m_Output, CellOffsets, CellConnects, CellTypes, CellFacesConnect, CellFacesOffset, CellPolyToFaces, CellPolyOffset);
     if(!m_IndependentUpdate) UpdateProgress(1.0);
     m_Output->GetBoundingBox();
 //    DynamicCast<DrawObject>(m_Output)->SetShellRenderingOption(false);
@@ -141,6 +150,12 @@ bool iGameVTUReader::ReadPointData() {
     char* context = nullptr;
 
     m_CurrentElem = FindTargetItem(m_CurrentElem, "Points")->FirstChildElement("DataArray");
+    // information key for now is useless
+    auto infoKey = m_CurrentElem->FirstChildElement("InformationKey");
+    while (infoKey) { // this deletes some information like *L2 norm*
+        m_CurrentElem->DeleteChild(infoKey);
+        infoKey = m_CurrentElem->FirstChildElement("InformationKey");
+    }
     data = m_CurrentElem->GetText();
     attribute = m_CurrentElem->Attribute("format");
     const char* type = m_CurrentElem->Attribute("type");
@@ -229,6 +244,12 @@ bool iGameVTUReader::ReadPointAttribute() {
         const char* type = m_CurrentElem->Attribute("type");
 
         int scalarComponents = data ? mAtoi(data) : 1;
+        // information key for now is useless
+        auto infoKey = m_CurrentElem->FirstChildElement("InformationKey");
+        while (infoKey) { // this deletes some information like *L2 norm*
+            m_CurrentElem->DeleteChild(infoKey);
+            infoKey = m_CurrentElem->FirstChildElement("InformationKey");
+        }
         data = m_CurrentElem->GetText();
         /*Progress Appended Data.*/
         const char* offset = m_CurrentElem->Attribute("offset");
@@ -412,6 +433,12 @@ bool iGameVTUReader::ReadCellData() {
         const char* type = m_CurrentElem->Attribute("type");
 
         int scalarComponents = data ? mAtoi(data) : 1;
+        // information key for now is useless
+        auto infoKey = m_CurrentElem->FirstChildElement("InformationKey");
+        while (infoKey) { // this deletes some information like *L2 norm*
+            m_CurrentElem->DeleteChild(infoKey);
+            infoKey = m_CurrentElem->FirstChildElement("InformationKey");
+        }
         data = m_CurrentElem->GetText();
         /*For Process Appended data*/
         const char* offset = m_CurrentElem->Attribute("offset");
@@ -762,6 +789,338 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
     }
 
     return CellTypes;
+}
+
+/**
+ * @brief 读取face_connectivity数据项（版本>=2.3）
+ *        读取faces数据项（版本<2.3）
+ *       （仅适用于含有Polyhedron单元类型的vtu文件）
+*/
+ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
+    ArrayObject::Pointer Faces = IntArray::New();
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_connectivity");
+    if (m_CurrentElem == nullptr)
+    {
+        m_CurrentElem = FindTargetItem(root, "Cells");
+        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faces");
+        if (m_CurrentElem == nullptr) return Faces;
+    }
+
+    const char* data;
+    const char* attribute;
+    const char* delimiters = " \n";
+    char* token;
+    char* data_p;
+    char* context = nullptr;
+
+    const char* offset = m_CurrentElem->Attribute("offset");
+    if ((data = m_CurrentElem->GetText()) != nullptr || offset) {
+        data_p = data ? const_cast<char*>(data) : GetAppendDataHead();
+        while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t') data_p++;
+
+        attribute = m_CurrentElem->Attribute("format");
+        if (attribute == nullptr) return Faces;
+
+        if (strcmp(attribute, "ascii") == 0) {
+            LongLongArray::Pointer arr = LongLongArray::New();
+            token = ig_strtok(data_p, delimiters, &context);
+            while (token) {
+                arr->AddValue(mAtoi(token));
+                token = ig_strtok(nullptr, delimiters, &context);
+            }
+            Faces = arr;
+        }
+        else if (strcmp(attribute, "binary") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                Faces = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                Faces = arr;
+            }
+        }
+        else if (strcmp(attribute, "appended") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            long long offsetVal = std::atoll(offset);
+            data_p = data_p + offsetVal;
+
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<int>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                }
+                Faces = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                }
+                Faces = arr;
+            }
+        }
+    }
+    return Faces;
+}
+
+/**
+ * @brief 读取face_offsets数据项（仅适用于含有Polyhedron单元类型的、版本>=2.3的vtu文件）
+*/
+ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
+    ArrayObject::Pointer FaceOffsets = IntArray::New();
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_offsets");
+    if (m_CurrentElem == nullptr) return FaceOffsets;
+
+    const char* data;
+    const char* attribute;
+    const char* delimiters = " \n";
+    char* token;
+    char* data_p;
+    char* context = nullptr;
+
+    const char* offset = m_CurrentElem->Attribute("offset");
+    if ((data = m_CurrentElem->GetText()) != nullptr || offset) {
+        data_p = data ? const_cast<char*>(data) : GetAppendDataHead();
+        while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t') data_p++;
+
+        attribute = m_CurrentElem->Attribute("format");
+        if (attribute == nullptr) return FaceOffsets;
+
+        if (strcmp(attribute, "ascii") == 0) {
+            LongLongArray::Pointer arr = LongLongArray::New();
+            arr->AddValue(0); // Notice here adding a 0 at the first
+            token = ig_strtok(data_p, delimiters, &context);
+            while (token) {
+                arr->AddValue(mAtoi(token));
+                token = ig_strtok(nullptr, delimiters, &context);
+            }
+            FaceOffsets = arr;
+        }
+        else if (strcmp(attribute, "binary") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                arr->AddValue(0);
+                ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                FaceOffsets = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                arr->AddValue(0);
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                FaceOffsets = arr;
+            }
+        }
+        else if (strcmp(attribute, "appended") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            long long offsetVal = std::atoll(offset);
+            data_p = data_p + offsetVal;
+
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                arr->AddValue(0);
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<int>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                }
+                FaceOffsets = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                arr->AddValue(0);
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                }
+                FaceOffsets = arr;
+            }
+        }
+    }
+    return FaceOffsets;
+}
+
+/**
+ * @brief 读取polyhedron_to_faces数据项（仅适用于含有Polyhedron单元类型的、版本>=2.3的vtu文件）
+*/
+ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
+    ArrayObject::Pointer PolyToFaces = IntArray::New();
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_to_faces");
+    if (m_CurrentElem == nullptr) return PolyToFaces;
+
+    const char* data;
+    const char* attribute;
+    const char* delimiters = " \n";
+    char* token;
+    char* data_p;
+    char* context = nullptr;
+
+    const char* offset = m_CurrentElem->Attribute("offset");
+    if ((data = m_CurrentElem->GetText()) != nullptr || offset) {
+        data_p = data ? const_cast<char*>(data) : GetAppendDataHead();
+        while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t') data_p++;
+
+        attribute = m_CurrentElem->Attribute("format");
+        if (attribute == nullptr) return PolyToFaces;
+
+        if (strcmp(attribute, "ascii") == 0) {
+            LongLongArray::Pointer arr = LongLongArray::New();
+            token = ig_strtok(data_p, delimiters, &context);
+            while (token) {
+                arr->AddValue(mAtoi(token));
+                token = ig_strtok(nullptr, delimiters, &context);
+            }
+            PolyToFaces = arr;
+        } else if (strcmp(attribute, "binary") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                PolyToFaces = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                PolyToFaces = arr;
+            }
+        } else if (strcmp(attribute, "appended") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            long long offsetVal = std::atoll(offset);
+            data_p = data_p + offsetVal;
+
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<int>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                }
+                PolyToFaces = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                }
+                PolyToFaces = arr;
+            }
+        }
+    }
+    return PolyToFaces;
+}
+
+/**
+ * @brief 读取polyhedron_offsets数据项（版本>=2.3）
+ *        读取faceoffsets数据项（版本<2.3）
+ *       （仅适用于含有Polyhedron单元类型的vtu文件）
+*/
+ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronOffsets() {
+    ArrayObject::Pointer PolyOffsets = IntArray::New();
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_offsets");
+    if (m_CurrentElem == nullptr)
+    {
+        m_CurrentElem = FindTargetItem(root, "Cells");
+        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faceoffsets");
+        if (m_CurrentElem == nullptr) return PolyOffsets;
+    }
+
+    const char* data;
+    const char* attribute;
+    const char* delimiters = " \n";
+    char* token;
+    char* data_p;
+    char* context = nullptr;
+
+    const char* offset = m_CurrentElem->Attribute("offset");
+    if ((data = m_CurrentElem->GetText()) != nullptr || offset) {
+        data_p = data ? const_cast<char*>(data) : GetAppendDataHead();
+        while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t') data_p++;
+
+        attribute = m_CurrentElem->Attribute("format");
+        if (attribute == nullptr) return PolyOffsets;
+
+        if (strcmp(attribute, "ascii") == 0) {
+            LongLongArray::Pointer arr = LongLongArray::New();
+            arr->AddValue(0); // Notice here adding a 0 at the first
+            token = ig_strtok(data_p, delimiters, &context);
+            while (token) {
+                arr->AddValue(mAtoi(token));
+                token = ig_strtok(nullptr, delimiters, &context);
+            }
+            PolyOffsets = arr;
+        } else if (strcmp(attribute, "binary") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                arr->AddValue(0); // Add 0 for Int32 binary
+                ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                PolyOffsets = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                arr->AddValue(0); // Add 0 for Int64 binary
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                PolyOffsets = arr;
+            }
+        } else if (strcmp(attribute, "appended") == 0) {
+            attribute = m_CurrentElem->Attribute("type");
+            long long offsetVal = std::atoll(offset);
+            data_p = data_p + offsetVal;
+
+            // Int32
+            if (attribute && !strncmp(attribute, "Int32", 5)) {
+                IntArray::Pointer arr = IntArray::New();
+                arr->AddValue(0); // Add 0 for Int32 appended
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<int>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<int>(m_Header_8_byte_flag, data_p, arr);
+                }
+                PolyOffsets = arr;
+            }
+            // Int64
+            else {
+                LongLongArray::Pointer arr = LongLongArray::New();
+                arr->AddValue(0); // Add 0 for Int64 appended
+                if (m_parseRawBinaryData) {
+                    ReadRawBinaryArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                }
+                PolyOffsets = arr;
+            }
+        }
+    }
+    return PolyOffsets;
 }
 
 char *iGameVTUReader::GetAppendDataHead() {

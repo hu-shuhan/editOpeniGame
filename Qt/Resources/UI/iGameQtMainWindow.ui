@@ -1827,7 +1827,7 @@ QLabel#CustomTitleLabel {
      <normaloff>:/Ticon/Icons/StreamTracer.png</normaloff>:/Ticon/Icons/StreamTracer.png</iconset>
    </property>
    <property name="text">
-    <string>时序流场</string>
+    <string>流线型</string>
    </property>
   </action>
   <action name="action_ExportAnimation">

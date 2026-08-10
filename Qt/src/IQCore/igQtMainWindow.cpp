@@ -1947,11 +1947,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        auto dataObject = model->GetDataObject();
-        if (dataObject == nullptr) return;
-        ui->widget_SearchInfo->setCurrentModelData(dataObject);
+        ui->widget_SearchInfo->setCurrentModel(model);
     });
-
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
+        if (!ui->dockWidget_SearchInfo || !ui->dockWidget_SearchInfo->isVisible()) return;
+        QTimer::singleShot(0, this, [this]() {
+            ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
+        });
+    });
     connect(ui->action_Scalar, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
     connect(ui->action_Vector, &QAction::triggered, this,
@@ -1969,7 +1972,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
     //############# HIDE SOMETHING ST #############
     ui->action_ParallelCoordinates->setVisible(false);
-    ui->action_SearchInfo->setVisible(false);
+    ui->action_SearchInfo->setVisible(true);
     //############# HIDE SOMETHING ED #############
 
     //############# TESTS ST #############
@@ -1981,22 +1984,44 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->menu_filters->addAction(testAction);
         testAction->setVisible(false);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
-//#define TEST_MAP_BACK
+#define TEST_MAP_BACK
 #ifdef TEST_MAP_BACK
             auto model = rendererWidget->GetScene()->GetCurrentModel();
-            //auto obj = iGame::FileIO::ReadFile("D:/TestModels/segment_result.vtk");
-            auto obj = iGame::FileIO::ReadFile(
-                    "D:/Codes/PyCharm/Hunyuan3DPart/Hunyuan3D-Part/P3-SAM/SplitServer/output.vtk");
+            if (!model || !model->GetDataObject()) {
+                std::cout << "[Block Mapping Test] No model selected." << std::endl;
+                return;
+            }
+
+            auto obj = iGame::FileIO::ReadFile("D:/RealStudy/editOpeniGame/Examples/Models/segment_result.vtk");
+            if (!obj) {
+                std::cout << "[Block Mapping Test] Failed to read segment_result.vtk." << std::endl;
+                return;
+            }
+
             auto drawObj = DynamicCast<DrawObject>(model->GetDataObject());
+            if (!drawObj) {
+                std::cout << "[Block Mapping Test] Current model is not drawable." << std::endl;
+                return;
+            }
             drawObj->ConvertToDrawableData();
             auto surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
-            auto resultArray = BlockMapping::GetMappingBlockCellsArray(
-                    surfaceMesh,
-                    DynamicCast<UnstructuredMesh>(obj));
+            auto segmentedMesh = DynamicCast<UnstructuredMesh>(obj);
+            if (!surfaceMesh || !segmentedMesh) {
+                std::cout << "[Block Mapping Test] Unsupported original or segmented mesh type." << std::endl;
+                return;
+            }
+            auto resultArray = BlockMapping::GetMappingBlockCellsArray(surfaceMesh, segmentedMesh);
+            if (!resultArray) {
+                std::cout << "[Block Mapping Test] Failed to map block IDs." << std::endl;
+                return;
+            }
             resultArray->SetName("block_id");
             auto dataObj = model->GetDataObject();
             dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
+            ui->widget_SearchInfo->setCurrentModel(model);
+            std::cout << "[Block Mapping Test] Mapping complete. Cells: " << resultArray->GetNumberOfValues()
+                      << std::endl;
 #else
             // 测试P3SAM分割器
             auto model = rendererWidget->GetScene()->GetCurrentModel();

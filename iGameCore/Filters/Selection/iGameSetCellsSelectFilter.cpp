@@ -11,7 +11,7 @@ bool SetCellsSelectFilter::Execute() {
 
 void SetCellsSelectFilter::Run() {
     auto selection = m_Mesh->GetSelection();
-    m_Model->GetSelection()->SelectionCallBackEvent(IG_CELL, m_Ids, m_Operate);
+    if (selection) { selection->SelectionCallBackEvent(IG_CELL, m_Ids, m_Operate); }
 }
 
 SetCellsSelectFilter::SetCellsSelectFilter(Selection::Operate ope, const std::vector<int>& ids,

@@ -28,6 +28,7 @@ layout(std140, binding = 2) uniform UniformBufferObjectBlock {
 // 0:blinnPhong shading, 1:no light shading, 2:pure color shading
 uniform int colorMode;
 uniform vec3 inputColor = vec3(1.0f, 1.0f, 1.0f);
+uniform int uUseLighting = 1;
 
 // Atomic counter, used to allocate data to the linked list
 layout(binding = 0, offset = 0) uniform atomic_uint indexCounter;
@@ -106,7 +107,8 @@ vec3 ShadeFragment() {
 void main() {
     vec4 fragColor;
     if (colorMode == 0) {
-        fragColor = vec4(ShadeFragment(), objectData.transparent);
+        vec3 color = uUseLighting == 1 ? ShadeFragment() : in_Color;
+        fragColor = vec4(color, objectData.transparent);
     } else if (colorMode == 1) {
         fragColor = vec4(in_Color, objectData.transparent);
     } else if (colorMode == 2) {

@@ -18,12 +18,14 @@ static void VortexDetectionExtract() {
         scene->AddModel(dataObj);
     } else {
         igError("Error reading the file");
+        return;
     }
 
     // Change the display style to wireframe and surface mode
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (!drawObj) {
         igError("Not a drawable object"); // Error if the object is not drawable
+        return;
     }
 
     // Select a scalar to extract features
