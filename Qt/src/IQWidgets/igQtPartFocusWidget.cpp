@@ -122,6 +122,14 @@ void igQtPartFocusWidget::setStatus(const QString& msg) {
     m_statusLabel->setText(msg);
 }
 
+std::vector<int> igQtPartFocusWidget::GetSelectedPartIds() const {
+    std::vector<int> result;
+    for (const auto& [pid, cb] : m_partCheckBoxes) {
+        if (cb && cb->isChecked()) result.push_back(pid);
+    }
+    return result;
+}
+
 void igQtPartFocusWidget::RefreshPartList() {
     // 清空旧的 checkbox
     m_partCheckBoxes.clear();

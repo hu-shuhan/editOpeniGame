@@ -2077,20 +2077,18 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->menu_filters->addAction(partFocusAction);
         partFocusAction->setVisible(true);
         connect(partFocusAction, &QAction::triggered, this, [&]() {
-            static igQtChromeFramelessDialog* dialog = nullptr;
-            static igQtPartFocusWidget* widget = nullptr;
-            if (!dialog) {
-                dialog = new igQtChromeFramelessDialog(this);
-                dialog->setDialogTitle(QStringLiteral("零件聚焦"));
-                dialog->setMaximizeEnabled(false);
-                widget = new igQtPartFocusWidget(dialog->contentHost());
-                dialog->setContentWidget(widget);
-                dialog->resize(340, 380);
+            if (!partFocusDialog) {
+                partFocusDialog = new igQtChromeFramelessDialog(this);
+                partFocusDialog->setDialogTitle(QStringLiteral("零件聚焦"));
+                partFocusDialog->setMaximizeEnabled(false);
+                partFocusWidget = new igQtPartFocusWidget(partFocusDialog->contentHost());
+                partFocusDialog->setContentWidget(partFocusWidget);
+                partFocusDialog->resize(340, 380);
             }
-            widget->SetScene(rendererWidget->GetScene(), rendererWidget);
-            dialog->show();
-            dialog->raise();
-            dialog->activateWindow();
+            partFocusWidget->SetScene(rendererWidget->GetScene(), rendererWidget);
+            partFocusDialog->show();
+            partFocusDialog->raise();
+            partFocusDialog->activateWindow();
         });
     }
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,

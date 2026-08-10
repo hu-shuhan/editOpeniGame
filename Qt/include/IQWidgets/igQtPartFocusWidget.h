@@ -11,6 +11,7 @@
 #include <QVector>
 #include <QPair>
 #include <QWidget>
+#include <vector>
 
 /**
  * igQtPartFocusWidget
@@ -29,6 +30,9 @@ public:
 
     // 设置场景和渲染窗口（必须在使用前调用）
     void SetScene(iGame::Scene* scene, QWidget* rendererWidget);
+
+    // 返回当前勾选的 part id 列表
+    std::vector<int> GetSelectedPartIds() const;
 
 public slots:
     // 刷新零件列表（读取当前模型的 BlockMapping）
