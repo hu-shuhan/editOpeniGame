@@ -58,23 +58,8 @@ public:
      */
     void SetSimplificationRatio(float ratio);
 
-    /**
-     * 设置P3SAM点数
-     * @param pointNum 默认10000
-     */
-    void SetPointNum(int pointNum);
-
-    /**
-     * 设置P3SAM提示点数
-     * @param promptNum 默认100
-     */
-    void SetPromptNum(int promptNum);
-
-    /**
-     * 设置随机种子
-     * @param seed 默认42
-     */
-    void SetSeed(int seed);
+    void SetServerHost(const std::string& host) { m_serverHost = host; }
+    void SetServerPort(int port) { m_serverPort = port; }
 
     /**
      * 设置是否后处理
@@ -113,9 +98,6 @@ protected:
 
     // P3SAM参数
     float m_simplificationRatio;
-    int m_pointNum;
-    int m_promptNum;
-    int m_seed;
     bool m_postProcess;
     int m_timeoutMs;
     bool m_preserveBoundary;

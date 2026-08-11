@@ -14,8 +14,7 @@ IGAME_NAMESPACE_BEGIN
 
 P3SAMSegmenter::P3SAMSegmenter(const std::string& serverHost, int serverPort)
     : m_serverHost(serverHost), m_serverPort(serverPort),
-      m_simplificationRatio(0.1f), m_pointNum(10000), m_promptNum(100),
-      m_seed(42), m_postProcess(false), m_timeoutMs(300000),
+      m_simplificationRatio(0.1f), m_postProcess(false), m_timeoutMs(300000),
       m_preserveBoundary(false), m_partCount(0) {}
 
 P3SAMSegmenter::~P3SAMSegmenter() = default;
@@ -34,18 +33,6 @@ DataObject::Pointer P3SAMSegmenter::GetOutput() {
 
 void P3SAMSegmenter::SetSimplificationRatio(float ratio) {
     m_simplificationRatio = ratio;
-}
-
-void P3SAMSegmenter::SetPointNum(int pointNum) {
-    m_pointNum = pointNum;
-}
-
-void P3SAMSegmenter::SetPromptNum(int promptNum) {
-    m_promptNum = promptNum;
-}
-
-void P3SAMSegmenter::SetSeed(int seed) {
-    m_seed = seed;
 }
 
 void P3SAMSegmenter::SetPostProcess(bool postProcess) {
@@ -198,9 +185,6 @@ bool P3SAMSegmenter::sendToServer(const std::vector<uint8_t>& objData, std::vect
 
     P3SAMRequest request;
     request.objData = objData;
-    request.pointNum = m_pointNum;
-    request.promptNum = m_promptNum;
-    request.seed = m_seed;
     request.postProcess = m_postProcess;
 
     P3SAMResponse response;

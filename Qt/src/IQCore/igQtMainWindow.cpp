@@ -99,6 +99,11 @@
 #include <QEasingCurve>
 #include <QStyle>
 #include <QFontMetrics>
+#include <QSettings>
+#include <QDialog>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QDialogButtonBox>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
@@ -2064,7 +2069,55 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->menu_filters->addAction(partSegmentationAction);
         partSegmentationAction->setVisible(true);
         connect(partSegmentationAction, &QAction::triggered, this, [&](bool checked) {
-            // P3SAM分割器
+            // 弹出 IP/Port 配置对话框
+            QSettings settings("iGame", "iGameVis");
+            QString savedHost = settings.value("P3SAM/host", "127.0.0.1").toString();
+            int     savedPort = settings.value("P3SAM/port", 8765).toInt();
+
+            igQtChromeFramelessDialog cfgDlg(this);
+            cfgDlg.setDialogTitle(QStringLiteral("零件分割 - 服务器配置"));
+            cfgDlg.setMaximizeEnabled(false);
+
+            auto* body = new QWidget(cfgDlg.contentHost());
+            body->setAttribute(Qt::WA_StyledBackground, true);
+            body->setStyleSheet(
+                "QWidget { background-color: transparent; color: #EAEAEA; }"
+                "QLabel { color: #D8D8D8; }"
+                "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+                "            padding: 4px 6px; border-radius: 3px; }"
+                "QLineEdit:focus { border: 1px solid #5A7FA8; }"
+                "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+                "              padding: 6px 16px; border-radius: 4px; }"
+                "QPushButton:hover { background-color: #3A3A3A; }"
+                "QPushButton:pressed { background-color: #252526; }");
+
+            auto* form = new QFormLayout(body);
+            form->setContentsMargins(12, 12, 12, 12);
+            form->setSpacing(10);
+            auto* hostEdit = new QLineEdit(savedHost, body);
+            auto* portEdit = new QLineEdit(QString::number(savedPort), body);
+            portEdit->setValidator(new QIntValidator(1, 65535, body));
+            form->addRow(QStringLiteral("服务器 IP："), hostEdit);
+            form->addRow(QStringLiteral("端口："), portEdit);
+            auto* btns = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, body);
+            form->addRow(btns);
+
+            cfgDlg.setContentWidget(body);
+            cfgDlg.resize(300, 160);
+
+            bool accepted = false;
+            QObject::connect(btns, &QDialogButtonBox::accepted, &cfgDlg, [&]() { accepted = true; cfgDlg.accept(); });
+            QObject::connect(btns, &QDialogButtonBox::rejected, &cfgDlg, &QDialog::reject);
+            cfgDlg.exec();
+            if (!accepted) return;
+
+            QString host = hostEdit->text().trimmed();
+            int     port = portEdit->text().toInt();
+            if (host.isEmpty()) host = "127.0.0.1";
+            settings.setValue("P3SAM/host", host);
+            settings.setValue("P3SAM/port", port);
+
+            // 检查当前模型
             auto model = rendererWidget->GetScene()->GetCurrentModel();
             if (!model) {
                 std::cout << "[PartSegmentation] No model selected." << std::endl;
@@ -2075,16 +2128,15 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
             std::cout << "[PartSegmentation] Starting P3SAM segmentation..." << std::endl;
             P3SAMSegmenter::Pointer segmenter = P3SAMSegmenter::New();
+            segmenter->SetServerHost(host.toStdString());
+            segmenter->SetServerPort(port);
             segmenter->SetInput(dataObj);
-            segmenter->SetSimplificationRatio(0.1f);  // 简化到10%
-            segmenter->SetPointNum(10000);
-            segmenter->SetPromptNum(250);
-            segmenter->SetSeed(42);
+            segmenter->SetSimplificationRatio(0.1f);
             segmenter->SetPostProcess(false);
             segmenter->SetTimeout(300000);  // 5分钟超时
 
             if (!segmenter->Execute()) {
-                std::cout << "PartSegmentation] Segmentation failed: "
+                std::cout << "[PartSegmentation] Segmentation failed: "
                           << segmenter->GetErrorMessage() << std::endl;
                 return;
             }

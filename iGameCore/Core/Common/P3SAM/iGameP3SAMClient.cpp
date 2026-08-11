@@ -118,12 +118,8 @@ bool P3SAMClient::requestSegmentation(const P3SAMRequest& request, P3SAMResponse
     }
 
     // 协议：
-    // 发送: [4B point_num][4B prompt_num][4B seed][1B post_process][4B obj_size][obj_data]
+    // 发送: [1B post_process][4B obj_size][obj_data]
     // 接收: [1B success][4B vtk_size][vtk_data] 或 [1B=0][4B msg_size][error_msg]
-
-    if (!sendUint32(static_cast<uint32_t>(request.pointNum))) return false;
-    if (!sendUint32(static_cast<uint32_t>(request.promptNum))) return false;
-    if (!sendUint32(static_cast<uint32_t>(request.seed))) return false;
 
     uint8_t postProcess = request.postProcess ? 1 : 0;
     if (send(m_socket, reinterpret_cast<const char*>(&postProcess), 1, 0) != 1) {

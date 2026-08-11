@@ -40,9 +40,6 @@ IGAME_NAMESPACE_BEGIN
  */
 struct P3SAMRequest {
     std::vector<uint8_t> objData;   ///< OBJ文件二进制数据
-    int pointNum = 10000;            ///< 采样点数量
-    int promptNum = 100;             ///< 提示点数量
-    int seed = 42;                   ///< 随机种子
     bool postProcess = true;         ///< 是否后处理
 };
 
