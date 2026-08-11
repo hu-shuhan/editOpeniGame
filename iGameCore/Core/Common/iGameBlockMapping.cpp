@@ -2,7 +2,6 @@
 #include <iGamePointFinder.h>
 #include <iGameThreadPool.h>
 #include <iGameBoundingBox.h>
-#include <unordered_map>
 #include <cmath>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
@@ -75,7 +74,7 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
     double dy = diag[1] / ny;
     double dz = diag[2] / nz;
 
-    // 4. 用 PointFinder 为每个体素找最近质心并存 part_id（单线程）
+    // 4. 用 PointFinder 为每个体素找最近质心并存 part_id（并行，FindClosestPoint 只读线程安全）
     auto finder = PointFinder::New();
     finder->SetPoints(pts);
     finder->Initialize();
@@ -86,21 +85,22 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
     grid.rcpDy = 1.0 / dy;
     grid.rcpDz = 1.0 / dz;
     grid.nx = nx; grid.ny = ny; grid.nz = nz;
-    grid.data.resize(static_cast<size_t>(nx) * ny * nz);
+    const int totalVoxels = nx * ny * nz;
+    grid.data.resize(static_cast<size_t>(totalVoxels));
 
-    for (int iz = 0; iz < nz; iz++) {
-        for (int iy = 0; iy < ny; iy++) {
-            for (int ix = 0; ix < nx; ix++) {
-                Vector3d center;
-                center[0] = bbox.min[0] + (ix + 0.5) * dx;
-                center[1] = bbox.min[1] + (iy + 0.5) * dy;
-                center[2] = bbox.min[2] + (iz + 0.5) * dz;
-                igIndex nearest = finder->FindClosestPoint(center);
-                grid.data[static_cast<size_t>(iz) * ny * nx + iy * nx + ix] =
-                    (nearest >= 0) ? seedPartIds[nearest] : 0;
-            }
+    ThreadPool::parallelFor(0, totalVoxels, [&](int s, int e) {
+        for (int idx = s; idx < e; idx++) {
+            int iz = idx / (ny * nx);
+            int iy = (idx % (ny * nx)) / nx;
+            int ix = idx % nx;
+            Vector3d center;
+            center[0] = bbox.min[0] + (ix + 0.5) * dx;
+            center[1] = bbox.min[1] + (iy + 0.5) * dy;
+            center[2] = bbox.min[2] + (iz + 0.5) * dz;
+            igIndex nearest = finder->FindClosestPoint(center);
+            grid.data[idx] = (nearest >= 0) ? seedPartIds[nearest] : 0;
         }
-    }
+    });
 
     return grid;
 }
