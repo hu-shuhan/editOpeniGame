@@ -110,8 +110,19 @@ bool P3SAMSegmenter::Execute() {
 bool P3SAMSegmenter::triangulateInput(DataObject::Pointer input, DataObject::Pointer& triangulated) {
     igDebug("P3SAMSegmenter: Triangulating mesh...");
 
+    // 先将任意类型转换为 SurfaceMesh（VolumeMesh 等非 SurfaceMesh 类型走此路径）
+    DataObject::Pointer toTriangulate = input;
+    auto drawObj = DynamicCast<DrawObject>(input);
+    if (drawObj) {
+        drawObj->ConvertToDrawableData();
+        SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
+        if (surfaceMesh) {
+            toTriangulate = surfaceMesh;
+        }
+    }
+
     MeshTriangulationFilter::Pointer filter = MeshTriangulationFilter::New();
-    filter->SetInput(input);
+    filter->SetInput(toTriangulate);
 
     if (!filter->Execute()) {
         m_errorMessage = "Triangulation failed";
