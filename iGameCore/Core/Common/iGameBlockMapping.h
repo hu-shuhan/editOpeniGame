@@ -4,7 +4,6 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameSurfaceMesh.h>
 #include <iGameVolumeMesh.h>
-#include <iGamePointFinder.h>
 #include <iGameFlatArray.h>
 #include <vector>
 #include <iGameType.h>
@@ -24,6 +23,5 @@ public:
 
 private:
     static ArrayObject::Pointer GetPartId(UnstructuredMesh::Pointer partedMesh);
-    static PointFinder::Pointer BuildCentroidFinder(UnstructuredMesh::Pointer partedMesh);
 };
 IGAME_NAMESPACE_END
