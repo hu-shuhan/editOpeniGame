@@ -32,6 +32,7 @@ public:
         INP,
         ODB,
         CAS,
+        CCM,
         BDF,
         IGCM,
         FILETYPE_COUNT
