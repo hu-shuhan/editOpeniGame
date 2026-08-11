@@ -4,6 +4,7 @@
 #include "iGameFileIO.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
+#include "iGameVolumeMesh.h"
 #include "iGameDrawObject.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
@@ -232,28 +233,39 @@ bool P3SAMSegmenter::parseVTKResult(const std::vector<uint8_t>& vtkData, DataObj
 bool P3SAMSegmenter::mapBackToOriginal(DataObject::Pointer original, DataObject::Pointer segmented) {
     igDebug("P3SAMSegmenter: Mapping segmentation back to original mesh...");
 
-    // 将原始网格转换为SurfaceMesh
-    DrawObject::Pointer drawObj = DynamicCast<DrawObject>(original);
-    if (!drawObj) {
-        m_errorMessage = "Original mesh is not a DrawObject";
-        return false;
-    }
-
-    drawObj->ConvertToDrawableData();
-    SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
-    if (!surfaceMesh) {
-        m_errorMessage = "Failed to get SurfaceMesh from original mesh";
-        return false;
-    }
-
-    // 将分割结果转换为UnstructuredMesh
     UnstructuredMesh::Pointer unstructuredMesh = DynamicCast<UnstructuredMesh>(segmented);
     if (!unstructuredMesh) {
         m_errorMessage = "Segmented result is not an UnstructuredMesh";
         return false;
     }
 
-    IntArray::Pointer resultArray = BlockMapping::GetMappingBlockCellsArray(surfaceMesh, unstructuredMesh);
+    IntArray::Pointer resultArray;
+    IGenum type = original->GetDataObjectType();
+
+    switch (type) {
+        case IG_SURFACE_MESH: {
+            SurfaceMesh::Pointer sm = DynamicCast<SurfaceMesh>(original);
+            if (!sm) { m_errorMessage = "Failed to cast to SurfaceMesh"; return false; }
+            resultArray = BlockMapping::GetMappingBlockCellsArray(sm, unstructuredMesh);
+            break;
+        }
+        case IG_UNSTRUCTURED_MESH: {
+            UnstructuredMesh::Pointer um = DynamicCast<UnstructuredMesh>(original);
+            if (!um) { m_errorMessage = "Failed to cast to UnstructuredMesh"; return false; }
+            resultArray = BlockMapping::GetMappingBlockCellsArray(um, unstructuredMesh);
+            break;
+        }
+        case IG_VOLUME_MESH: {
+            VolumeMesh::Pointer vm = DynamicCast<VolumeMesh>(original);
+            if (!vm) { m_errorMessage = "Failed to cast to VolumeMesh"; return false; }
+            resultArray = BlockMapping::GetMappingBlockCellsArray(vm, unstructuredMesh);
+            break;
+        }
+        default:
+            m_errorMessage = "Unsupported mesh type for block mapping";
+            return false;
+    }
+
     if (!resultArray) {
         m_errorMessage = "Block mapping failed";
         return false;
