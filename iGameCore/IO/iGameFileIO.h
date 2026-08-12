@@ -33,6 +33,8 @@ public:
         ODB,
         CAS,
         CCM,
+        RST,
+        RTH,
         BDF,
         IGCM,
         FILETYPE_COUNT

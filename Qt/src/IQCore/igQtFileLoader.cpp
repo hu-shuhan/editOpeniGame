@@ -50,7 +50,7 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas *.ccm)",
+                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas *.ccm *.rst *.rth)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
@@ -58,7 +58,8 @@ void igQtFileLoader::LoadOnlineC() {
                            "Compression file(*.igc)",
                            "Compression Manifest file(*.igcm)",
                            "Fluent file(*.cas)",
-                           "STAR-CCM+ file(*.ccm)"};
+                           "STAR-CCM+ file(*.ccm)",
+                           "Ansys file(*.rst *.rth)"};
     QString selectedFilter;
     std::string filePath =
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
@@ -88,7 +89,7 @@ void igQtFileLoader::LoadOnlineC() {
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
         "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-        "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.xml"
+        "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.rst *.rth *.xml"
 #if defined(AbqSDK_ENABLE)
         " *.odb"
 #endif
@@ -108,7 +109,8 @@ void igQtFileLoader::LoadFile() {
         "Compression file(*.igc)",
         "Compression Manifest file(*.igcm)",
         "Fluent file(*.cas)",
-        "STAR-CCM+ file(*.ccm)"
+        "STAR-CCM+ file(*.ccm)",
+        "Ansys file(*.rst *.rth)"
     };
     QString selectedFilter;
     QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
