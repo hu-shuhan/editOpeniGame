@@ -6,7 +6,7 @@
 
 | # | 子功能 | 状态 |
 |---|--------|------|
-| 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 | ✅ 已实现 |
+| 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 / 等值线与等值面 | ✅ 已实现 |
 | 2 | 基于神经网络的涡提取，与人工标注对比，计算准确率 / 精确率 / 召回率（精度 ≥ 90%） | ✅ 已实现（评估逻辑）；GUI 指标浮层待恢复 |
 | 3 | 关键区域点击 / 选中（点、单元、框选） | ✅ 已实现（交互在 Selection / 10.3；特征提取作用于当前属性场） |
 | 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（时序 / 形变见 11.3；区域限定形变待增强） |
@@ -21,7 +21,9 @@
 
 ### 功能说明
 
-从当前选中的物理属性（标量 / 矢量）出发，在网格上计算经典微分几何与流体力学特征标量，写入 `AttributeSet`，可直接以云图显示，供后续涡检测、选区分析等使用。
+从当前选中的物理属性（标量 / 矢量）出发，在网格上提取经典微分几何与流体力学特征，供后续涡检测、选区分析等使用。按**输出形态**分为两类：
+
+**A. 特征标量场**：结果写入原模型的 `AttributeSet`，可直接以云图显示。
 
 | 特征 | 输出属性名 | 说明 |
 |------|------------|------|
@@ -30,14 +32,28 @@
 | Laplacian | `laplacians` | 离散 Laplacian |
 | 涡量 | `vorticities` | 经典涡量 \(\omega = \nabla \times v\)（非神经网络） |
 
-### 适用网格类型（重要）
+**B. 特征几何**：结果是一个**新的网格对象**，作为独立模型加入模型树，而不是追加属性。
 
-四个特征分两类，对输入网格的要求正好相反：
+| 特征 | 输出 | 说明 |
+|------|------|------|
+| 等值线 / 等值面 | 新的 `UnstructuredMesh`，命名为 `<原名>_Contour` | 由标量场的指定等值数值抽取轮廓，支持一次传入多个等值数值 |
+
+等值线与等值面是**同一个算法**（`ContourFilter`）按输入单元维度自动分派的两种结果：
+
+| 输入单元 | 输出单元 | 结果 |
+|----------|----------|------|
+| 2D 单元（三角形 / 四边形 / 多边形及其二次单元） | `IG_LINE` | **等值线**（marching squares 型 case 表） |
+| 3D 单元（四面体 / 六面体 / 棱柱 / 棱锥 / 多面体及其二次单元） | `IG_TRIANGLE` | **等值面**（marching tetrahedra 型 case 表） |
+
+多边形先扇形三角化后按三角形处理，多面体先 `clipCelltoTetra()` 拆成四面体后按四面体处理；混合网格的输出会在同一个 `UnstructuredMesh` 中同时包含线段与三角面。原模型的点 / 单元属性会按插值边与来源单元重映射到轮廓结果上，因此轮廓对象自身也能着色显示。
+
+### 适用网格类型（重要）
 
 | 特征 | 要求的输入 | 体网格（含 3D 单元）怎么办 |
 |------|------------|----------------------------|
 | 梯度 / 曲率 / Laplacian | **表面网格**（全 2D 单元） | 先做一次**表面提取**，再在提取出的面网格上计算 |
 | 涡量 | **3D 体单元** | 直接在体网格上计算；纯面网格反而不支持 |
+| 等值线 / 等值面 | 面网格、体网格、非结构网格、结构化网格**均可** | 直接算：2D 单元出等值线，3D 单元出等值面，无需表面提取 |
 
 **表面网格**（`IG_SURFACE_MESH`，或全部由 2D 单元构成的 `IG_UNSTRUCTURED_MESH`）可以直接执行梯度 / 曲率 / Laplacian。
 
@@ -62,6 +78,9 @@
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | 曲率 |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
 | `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | 经典涡量 |
+| `iGameCore/Filters/Contour/iGameContourFilter.*` | `ContourFilter` | 等值线 / 等值面（按单元维度分派） |
+| `iGameCore/Filters/Contour/iGameCellContour.h` | `CellContour::Contour` | 各类单元的 case 表与边插值 |
+| `Qt/src/IQWidgets/igQtContourExtractWidget.*` | `igQtContourExtractWidget` | 轮廓提取 Dock |
 | `iGameCore/Filters/iGameFilterIncludes.h` | — | 统一 include |
 
 ### 调用方式
@@ -83,6 +102,39 @@ drawObj->ViewCloudPicture(scene, newIndex);
 
 统一模式：`Filter::New()` → `SetInput()` →（可选）`SetAttributeByIndex/Name` → `Execute()`，结果追加到 `AttributeSet`。
 
+**等值线 / 等值面**走的是另一套接口——按数值而非属性索引驱动，且产出的是新网格。对应示例 `Examples/Filter/TestContourLine.cpp`：
+
+```cpp
+auto obj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
+
+auto pointAttributes = obj->GetAttributeSet()->GetAllPointAttributes();  // 仅支持点标量
+auto& attr = pointAttributes->GetElement(index);
+auto array = attr.pointer;
+auto range = attr.GetDataRange();
+int dimension = 0;                      // 多分量属性取哪个分量
+
+// 支持一次传入多个等值数值，结果合并在同一个输出网格里
+std::vector<double> values;
+values.push_back(range->GetValue(dimension * 2 + 2) * 2 / 3 + range->GetValue(dimension * 2 + 3) / 3);
+values.push_back(range->GetValue(dimension * 2 + 2) / 3 + range->GetValue(dimension * 2 + 3) * 2 / 3);
+
+auto filter = iGame::ContourFilter::New();
+filter->SetInput(obj);
+filter->SetIsoScalarData(array, values, dimension);   // 单个数值用 SetIsoScalarData(array, value, dimension)
+filter->Execute();
+
+auto res = filter->GetContourMesh();    // 或 GetOutput()，类型为 UnstructuredMesh
+scene->AddModel(res);
+auto draw = iGame::DynamicCast<iGame::DrawObject>(res);
+draw->SetViewStyle(IG_SURFACE | IG_WIREFRAME);        // 等值线只有线单元，必须带 IG_WIREFRAME 才可见
+draw->ViewCloudPicture(scene, index, dimension);
+```
+
+
+- **只支持点标量**：GUI 的属性下拉框来自 `GetAllPointAttributes()`，单元属性不在候选中。
+- **显示样式**：`DrawObject` 默认 view style 只有 `IG_SURFACE`，而等值线的输出全是线单元、一个三角形都没有；不加 `IG_WIREFRAME` 会出现"点数单元数都对但画面为空"。GUI 侧已按输出单元维度自动设置。
+- **等值数值落在数据范围外**时不与任何单元相交，输出为空，GUI 会给出提示而不是产生空模型。
+
 ### GUI
 
 | 入口 | 说明 | 输入要求 |
@@ -92,6 +144,7 @@ drawObj->ViewCloudPicture(scene, newIndex);
 | 菜单「算法处理」→ 特征提取 → 计算 Laplacian | `LaplacianFilter` | 面网格 |
 | 菜单「算法处理」→ 特征提取 → 计算曲率 | `CurvatureFilter` | 面网格 |
 | 菜单「算法处理」→ 特征提取 → 计算涡量 | `VortexFilter` | 3D 体单元 |
+| 工具面板 → 轮廓提取（等值线/等值面）/ `action_ContourExtract` | `dockWidget_ContourExtract`：选点标量、选分量、填等值数值 | 任意网格 |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | 提取结果出现在模型树属性列表中，在此切换云图 | — |
 
 典型操作顺序：
@@ -99,6 +152,7 @@ drawObj->ViewCloudPicture(scene, newIndex);
 - **面网格**：模型树选中模型 → 选中要处理的属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
 - **体网格**：模型树选中模型 → 数据处理 → 表面提取 → 在模型树中选中新出现的 `<原名>_surface` → 选中属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
 - **涡量**：不需要表面提取，直接在体网格上选中速度矢量属性后执行
+- **等值线 / 等值面**：模型树选中模型 → 打开「轮廓提取」面板 → 选点标量与分量（面板会显示该分量的数值范围）→ 填等值数值 → 执行；结果作为独立模型 `<原名>_Contour` 加入模型树，可单独显示 / 隐藏 / 着色，反复改数值会原地更新同一个结果对象
 
 ![经典物理特征提取云图](../../Resources/Images/特征提取云图.png)
 
@@ -112,6 +166,7 @@ drawObj->ViewCloudPicture(scene, newIndex);
 | `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
+| `testContourLine` | `Examples/Filter/TestContourLine.cpp` | `./Models/Tet_Plane.vtk`（一次取三档等值数值） |
 
 ---
 
