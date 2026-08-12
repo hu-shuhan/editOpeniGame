@@ -1530,15 +1530,6 @@ void igQtMainWindow::initAllFilters() {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
 
-        // 这里必须真正抽取一份独立的表面网格，不能拿 GetRenderableObject()。
-        // 后者返回的是源模型内部那个"渲染用抽壳对象"：
-        //   1) 它被 SyncRenderableState 打上了 m_IsMainRenderableObject = false，
-        //      于是它自己的 ConvertToDrawableData 会跳过 SetRenderableObject(this)，
-        //      m_RenderableMesh.mMeshleter 永远为空，开启加速渲染时既画不出来也可能空指针；
-        //   2) 源模型任何一次重转（换属性 / 裁剪 / 切帧 / 形变）都会用新对象覆盖
-        //      m_RenderableMesh.SurfaceMesh，模型树里那份就成了不再更新的孤儿；
-        //   3) 源模型若还没渲染过，抽壳尚未构建，GetRenderableObject() 直接返回 this，
-        //      等于把源模型改名成 _surface 再加进模型树一次，看起来就是"没提取出东西"。
         auto filter = ConvertToSurfaceMeshFilter::New();
         filter->SetInput(obj);
         filter->SetConvertMethod(ConvertToSurfaceMeshFilter::IG_EXTRACT_SURFACE_MESH);
@@ -1553,7 +1544,6 @@ void igQtMainWindow::initAllFilters() {
             showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
             return;
         }
-        // 输入本身就是表面网格时，filter 会把输入原样输出，此时不应再加一份到模型树
         if (surface.GetPointer() == obj.GetPointer()) {
             showDarkFramelessMessage(QStringLiteral("Warning"),
                                      QStringLiteral("当前模型已经是表面网格，无需提取。"));

@@ -167,9 +167,6 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             }
             initSubmodelLinks();
         } else {
-            // 既不是 UnstructuredMesh / VolumeMesh，也没有子对象（典型：SurfaceMesh 面流场）。
-            // 这里必须把 mesh 清空：否则上一次绑定的 3D 网格会残留下来，
-            // 调用方看到 GetMesh() 非空就以为绑定成功，于是在旧网格上"静默地"算出流线。
             std::cout << "[StreamTracer] unsupported input: not a volume mesh (2D/surface data?). Aborting init."
                       << std::endl;
             SetMesh(nullptr);

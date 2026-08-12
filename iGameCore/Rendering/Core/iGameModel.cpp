@@ -450,7 +450,6 @@ void Model::Draw() {
 #ifdef __EMSCRIPTEN__
                     m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
-                    // 默认仍是黑色（见 DrawObject 构造函数），只有显式设过线色的对象才不同
                     shader->SetUniform3f("inputColor",
                                          renderableObject->GetLineColor());
                 }

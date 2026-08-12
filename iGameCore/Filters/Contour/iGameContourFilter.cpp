@@ -86,7 +86,6 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
         Cell::Pointer cell = nullptr;
         double CellContourValue[IGAME_CELL_MAX_SIZE] = {0};
 
-        // 进度：把 [0, 0.95] 均分给每个等值面数值，剩下的留给属性拷贝
         const double valueSliceBegin = 0.95 * double(valueIdx) / double(m_ContourValues.size());
         const double valueSliceSize = 0.95 / double(m_ContourValues.size());
         const igIndex progressStep = inCellNum > 100 ? inCellNum / 100 : 1;
