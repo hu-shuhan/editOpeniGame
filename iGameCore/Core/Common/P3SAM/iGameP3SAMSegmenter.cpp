@@ -4,6 +4,7 @@
 #include "iGameFileIO.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
+#include "iGameVolumeMesh.h"
 #include "iGameDrawObject.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
@@ -14,8 +15,7 @@ IGAME_NAMESPACE_BEGIN
 
 P3SAMSegmenter::P3SAMSegmenter(const std::string& serverHost, int serverPort)
     : m_serverHost(serverHost), m_serverPort(serverPort),
-      m_simplificationRatio(0.1f), m_pointNum(10000), m_promptNum(100),
-      m_seed(42), m_postProcess(false), m_timeoutMs(300000),
+      m_simplificationRatio(0.1f), m_postProcess(false), m_timeoutMs(300000),
       m_preserveBoundary(false), m_partCount(0) {}
 
 P3SAMSegmenter::~P3SAMSegmenter() = default;
@@ -34,18 +34,6 @@ DataObject::Pointer P3SAMSegmenter::GetOutput() {
 
 void P3SAMSegmenter::SetSimplificationRatio(float ratio) {
     m_simplificationRatio = ratio;
-}
-
-void P3SAMSegmenter::SetPointNum(int pointNum) {
-    m_pointNum = pointNum;
-}
-
-void P3SAMSegmenter::SetPromptNum(int promptNum) {
-    m_promptNum = promptNum;
-}
-
-void P3SAMSegmenter::SetSeed(int seed) {
-    m_seed = seed;
 }
 
 void P3SAMSegmenter::SetPostProcess(bool postProcess) {
@@ -123,8 +111,19 @@ bool P3SAMSegmenter::Execute() {
 bool P3SAMSegmenter::triangulateInput(DataObject::Pointer input, DataObject::Pointer& triangulated) {
     igDebug("P3SAMSegmenter: Triangulating mesh...");
 
+    // 先将任意类型转换为 SurfaceMesh（VolumeMesh 等非 SurfaceMesh 类型走此路径）
+    DataObject::Pointer toTriangulate = input;
+    auto drawObj = DynamicCast<DrawObject>(input);
+    if (drawObj) {
+        drawObj->ConvertToDrawableData();
+        SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
+        if (surfaceMesh) {
+            toTriangulate = surfaceMesh;
+        }
+    }
+
     MeshTriangulationFilter::Pointer filter = MeshTriangulationFilter::New();
-    filter->SetInput(input);
+    filter->SetInput(toTriangulate);
 
     if (!filter->Execute()) {
         m_errorMessage = "Triangulation failed";
@@ -198,9 +197,6 @@ bool P3SAMSegmenter::sendToServer(const std::vector<uint8_t>& objData, std::vect
 
     P3SAMRequest request;
     request.objData = objData;
-    request.pointNum = m_pointNum;
-    request.promptNum = m_promptNum;
-    request.seed = m_seed;
     request.postProcess = m_postProcess;
 
     P3SAMResponse response;
@@ -237,28 +233,39 @@ bool P3SAMSegmenter::parseVTKResult(const std::vector<uint8_t>& vtkData, DataObj
 bool P3SAMSegmenter::mapBackToOriginal(DataObject::Pointer original, DataObject::Pointer segmented) {
     igDebug("P3SAMSegmenter: Mapping segmentation back to original mesh...");
 
-    // 将原始网格转换为SurfaceMesh
-    DrawObject::Pointer drawObj = DynamicCast<DrawObject>(original);
-    if (!drawObj) {
-        m_errorMessage = "Original mesh is not a DrawObject";
-        return false;
-    }
-
-    drawObj->ConvertToDrawableData();
-    SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
-    if (!surfaceMesh) {
-        m_errorMessage = "Failed to get SurfaceMesh from original mesh";
-        return false;
-    }
-
-    // 将分割结果转换为UnstructuredMesh
     UnstructuredMesh::Pointer unstructuredMesh = DynamicCast<UnstructuredMesh>(segmented);
     if (!unstructuredMesh) {
         m_errorMessage = "Segmented result is not an UnstructuredMesh";
         return false;
     }
 
-    IntArray::Pointer resultArray = BlockMapping::GetMappingBlockCellsArray(surfaceMesh, unstructuredMesh);
+    IntArray::Pointer resultArray;
+    IGenum type = original->GetDataObjectType();
+
+    switch (type) {
+        case IG_SURFACE_MESH: {
+            SurfaceMesh::Pointer sm = DynamicCast<SurfaceMesh>(original);
+            if (!sm) { m_errorMessage = "Failed to cast to SurfaceMesh"; return false; }
+            resultArray = BlockMapping::GetMappingBlockCellsArray(sm, unstructuredMesh);
+            break;
+        }
+        case IG_UNSTRUCTURED_MESH: {
+            UnstructuredMesh::Pointer um = DynamicCast<UnstructuredMesh>(original);
+            if (!um) { m_errorMessage = "Failed to cast to UnstructuredMesh"; return false; }
+            resultArray = BlockMapping::GetMappingBlockCellsArray(um, unstructuredMesh);
+            break;
+        }
+        case IG_VOLUME_MESH: {
+            VolumeMesh::Pointer vm = DynamicCast<VolumeMesh>(original);
+            if (!vm) { m_errorMessage = "Failed to cast to VolumeMesh"; return false; }
+            resultArray = BlockMapping::GetMappingBlockCellsArray(vm, unstructuredMesh);
+            break;
+        }
+        default:
+            m_errorMessage = "Unsupported mesh type for block mapping";
+            return false;
+    }
+
     if (!resultArray) {
         m_errorMessage = "Block mapping failed";
         return false;

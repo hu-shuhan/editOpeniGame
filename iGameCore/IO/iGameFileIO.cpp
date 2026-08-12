@@ -4,6 +4,8 @@
 #include "CGNS/iGameCGNSReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "Fluent/iGameCASReader.h"
+#include "Ansys/iGameAnsysReader.h"
+#include "CCM/iGameCCMReader.h"
 #include "IGC/iGameIGCMReader.h"
 #include "IGC/iGameIGCMTimeSeriesWriter.h"
 #include "IGC/iGameIGCMWriter.h"
@@ -85,6 +87,12 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return CAS;
     } else if (FileSuffix == "bdf") {
         return BDF;
+    } else if (FileSuffix == "ccm") {
+        return CCM;
+    } else if (FileSuffix == "rst") {
+        return RST;
+    } else if (FileSuffix == "rth") {
+        return RTH;
     }
     return NONE;
 }
@@ -133,6 +141,12 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "BDF";
         case CAS:
             return "CAS";
+        case CCM:
+            return "CCM";
+        case RST:
+            return "RST";
+        case RTH:
+            return "RTH";
         default:
             return "NONE";
     }
@@ -419,6 +433,21 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
         }
         case iGame::FileIO::CAS: {
             CASReader::Pointer reader = CASReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
+        case iGame::FileIO::CCM: {
+            CCMReader::Pointer reader = CCMReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
+        case iGame::FileIO::RST:
+        case iGame::FileIO::RTH: {
+            AnsysReader::Pointer reader = AnsysReader::New();
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();

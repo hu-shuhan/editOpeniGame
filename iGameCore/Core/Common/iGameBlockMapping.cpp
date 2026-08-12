@@ -1,104 +1,150 @@
-﻿#include "iGameBlockMapping.h"
+#include "iGameBlockMapping.h"
 #include <iGamePointFinder.h>
-#include <unordered_map>
+#include <iGameThreadPool.h>
+#include <iGameBoundingBox.h>
+#include <cmath>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
-std::vector<int> BlockMapping::GetMappingBlockCells(SurfaceMesh::Pointer oriMesh,
-                                                    UnstructuredMesh::Pointer partedMesh) {
-    // 写给AI
-    // 这个函数用于将简化后的含有分块信息的partedMesh的分块信息，映射回原mesh：oriMesh
-    // 具体的，关于partedMesh的来源：oriMesh简化->发送给分块服务器->分块并返回
-    // partedMesh中，有一个attribute，名为part_id，表示各个cell对应的块的序号
-    // 这个函数返回的vector，就代表了原mesh中各个cell所对应的序号。因此，不要修改oriMesh和partedMesh
-    // 有关的函数的调用方法：
-    // part_id获取：auto partIdArray = GetPartId(partedMesh);
-    // 获取某个cell的part_id：double cellPartId = partIdArray->GetElementValue(cellId, 0);
-    // 获取cell数：auto cellNum = partedMesh->GetNumberOfCells();
-    // 遍历cellId：for (int cellId = 0; cellId < cellNum; cellId++)
-    // 获取cell对象：auto cell = partedMesh->GetCell(cellId);
-    // 获取cell点数：int pointSize = cell->GetNumberOfPoints();
-    // 遍历cell中的各点：
-    // for (int cellPointIdx = 0; cellPointIdx < pointSize; cellPointIdx++) {
-    //  auto& point = cell->GetPoint(cellPointIdx);
-    // }
-    // 获取点的坐标：
-    // point[0];
-    // point[1];
-    // point[2];
-    //
-    //
 
-    auto partIdArray = GetPartId(partedMesh);
-    auto partedCellNum = partedMesh->GetNumberOfCells();
+// ---------------------------------------------------------------------------
+// 体素网格：预计算每个体素对应的 part_id，查询 O(1)
+// ---------------------------------------------------------------------------
+namespace {
 
-    // 为 partedMesh 的每个 cell 计算质心，建立空间索引
-    auto centroids = Points::New();
-    centroids->Reserve(partedCellNum);
-    for (int cellId = 0; cellId < partedCellNum; cellId++) {
-        auto cell = partedMesh->GetCell(cellId);
-        int pointSize = cell->GetNumberOfPoints();
-        Vector3d centroid(0.0, 0.0, 0.0);
-        for (int pi = 0; pi < pointSize; pi++) {
+struct VoxelGrid {
+    Vector3d origin;
+    double rcpDx, rcpDy, rcpDz;
+    int nx, ny, nz;
+    std::vector<int> data;  // [iz*ny*nx + iy*nx + ix]
+
+    int query(const Vector3d& p) const {
+        int ix = static_cast<int>((p[0] - origin[0]) * rcpDx);
+        int iy = static_cast<int>((p[1] - origin[1]) * rcpDy);
+        int iz = static_cast<int>((p[2] - origin[2]) * rcpDz);
+        ix = std::max(0, std::min(nx - 1, ix));
+        iy = std::max(0, std::min(ny - 1, iy));
+        iz = std::max(0, std::min(nz - 1, iz));
+        return data[static_cast<size_t>(iz) * ny * nx + iy * nx + ix];
+    }
+};
+
+// 从 partedMesh 的质心和 part_id 构建体素网格
+// 单线程（PointFinder 非线程安全），但体素数远少于 oriMesh cell 数
+VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
+                          ArrayObject::Pointer partIdArray) {
+    const int M = static_cast<int>(partedMesh->GetNumberOfCells());
+
+    // 1. 收集 partedMesh 各 cell 的质心和 part_id
+    auto pts = Points::New();
+    pts->Reserve(M);
+    std::vector<int> seedPartIds(M);
+
+    for (int i = 0; i < M; i++) {
+        auto cell = partedMesh->GetCell(i);
+        int n = cell->GetNumberOfPoints();
+        Vector3d c(0.0, 0.0, 0.0);
+        for (int pi = 0; pi < n; pi++) {
             auto& p = cell->GetPoint(pi);
-            centroid[0] += p[0];
-            centroid[1] += p[1];
-            centroid[2] += p[2];
+            c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
         }
-        if (pointSize > 0) {
-            centroid[0] /= pointSize;
-            centroid[1] /= pointSize;
-            centroid[2] /= pointSize;
-        }
-        centroids->AddPoint(centroid);
+        if (n > 0) { c[0] /= n; c[1] /= n; c[2] /= n; }
+        pts->AddPoint(c);
+        seedPartIds[i] = static_cast<int>(partIdArray->GetElementValue(i, 0));
     }
 
+    // 2. 建包围盒
+    BoundingBox bbox;
+    bbox.reset();
+    for (int i = 0; i < M; i++) bbox.add(pts->GetPoint(i));
+    double pad = bbox.diagVector().maxCoeff() * 0.01;
+    bbox.min -= pad;
+    bbox.max += pad;
+
+    // 3. 确定体素分辨率：目标体素数 ≈ 4×M，按包围盒比例分配各轴
+    Vector3d diag = bbox.diagVector();
+    double bboxVol = diag[0] * diag[1] * diag[2];
+    double targetVoxels = std::max(static_cast<double>(M) * 4.0, 32768.0); // 至少 32^3
+    double voxelSide = std::cbrt(bboxVol / targetVoxels);
+
+    int nx = std::max(1, std::min(256, static_cast<int>(std::ceil(diag[0] / voxelSide))));
+    int ny = std::max(1, std::min(256, static_cast<int>(std::ceil(diag[1] / voxelSide))));
+    int nz = std::max(1, std::min(256, static_cast<int>(std::ceil(diag[2] / voxelSide))));
+
+    double dx = diag[0] / nx;
+    double dy = diag[1] / ny;
+    double dz = diag[2] / nz;
+
+    // 4. 用 PointFinder 为每个体素找最近质心并存 part_id（并行，FindClosestPoint 只读线程安全）
     auto finder = PointFinder::New();
-    finder->SetPoints(centroids);
+    finder->SetPoints(pts);
     finder->Initialize();
 
-    // 对 oriMesh 每个 cell，用顶点+质心多点查询投票决定 part_id
-    // 仅用质心时，贴近分区边界的 cell 可能因邻区 partedMesh cell 较小而误判；
-    // 对所有顶点各自查询后多数投票，可大幅降低边界误判率。
+    VoxelGrid grid;
+    grid.origin = bbox.min;
+    grid.rcpDx = 1.0 / dx;
+    grid.rcpDy = 1.0 / dy;
+    grid.rcpDz = 1.0 / dz;
+    grid.nx = nx; grid.ny = ny; grid.nz = nz;
+    const int totalVoxels = nx * ny * nz;
+    grid.data.resize(static_cast<size_t>(totalVoxels));
+
+    ThreadPool::parallelFor(0, totalVoxels, [&](int s, int e) {
+        for (int idx = s; idx < e; idx++) {
+            int iz = idx / (ny * nx);
+            int iy = (idx % (ny * nx)) / nx;
+            int ix = idx % nx;
+            Vector3d center;
+            center[0] = bbox.min[0] + (ix + 0.5) * dx;
+            center[1] = bbox.min[1] + (iy + 0.5) * dy;
+            center[2] = bbox.min[2] + (iz + 0.5) * dz;
+            igIndex nearest = finder->FindClosestPoint(center);
+            grid.data[idx] = (nearest >= 0) ? seedPartIds[nearest] : 0;
+        }
+    });
+
+    return grid;
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
+// 公共辅助
+// ---------------------------------------------------------------------------
+ArrayObject::Pointer BlockMapping::GetPartId(UnstructuredMesh::Pointer partedMesh) {
+    auto attrs = partedMesh->GetAttributeSet()->GetAllAttributes();
+    ArrayObject::Pointer result;
+    for (int i = 0; i < attrs->Size(); i++) {
+        auto& attr = attrs->GetElement(i);
+        if (attr.pointer->GetName() != "part_id") continue;
+        result = attr.pointer;
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// SurfaceMesh
+// ---------------------------------------------------------------------------
+std::vector<int> BlockMapping::GetMappingBlockCells(SurfaceMesh::Pointer oriMesh,
+                                                    UnstructuredMesh::Pointer partedMesh) {
+    auto partIdArray = GetPartId(partedMesh);
+    auto grid = buildVoxelGrid(partedMesh, partIdArray);
+
     auto oriCellNum = oriMesh->GetNumberOfFaces();
     std::vector<int> result(oriCellNum, 0);
-    for (int cellId = 0; cellId < oriCellNum; cellId++) {
-        auto cell = oriMesh->GetFace(cellId);
-        int pointSize = cell->GetNumberOfPoints();
-        std::unordered_map<int, int> votes;
-
-        Vector3d centroid(0.0, 0.0, 0.0);
-        for (int pi = 0; pi < pointSize; pi++) {
-            auto& p = cell->GetPoint(pi);
-            centroid[0] += p[0];
-            centroid[1] += p[1];
-            centroid[2] += p[2];
-
-            // 对每个顶点单独投票
-            Vector3d vp(p[0], p[1], p[2]);
-            igIndex nearest = finder->FindClosestPoint(vp);
-            votes[static_cast<int>(partIdArray->GetElementValue(nearest, 0))]++;
-        }
-
-        // 质心也参与投票
-        if (pointSize > 0) {
-            centroid[0] /= pointSize;
-            centroid[1] /= pointSize;
-            centroid[2] /= pointSize;
-            igIndex nearest = finder->FindClosestPoint(centroid);
-            votes[static_cast<int>(partIdArray->GetElementValue(nearest, 0))]++;
-        }
-
-        // 取票数最多的 part_id
-        int bestId = 0, bestCount = 0;
-        for (auto& [id, count] : votes) {
-            if (count > bestCount) {
-                bestCount = count;
-                bestId = id;
+    ThreadPool::parallelFor(0, static_cast<int>(oriCellNum), [&](int s, int e) {
+        igIndex ptIds[64];
+        for (int cellId = s; cellId < e; cellId++) {
+            int nPts = oriMesh->GetFacePointIds(cellId, ptIds);
+            if (nPts == 0) continue;
+            Vector3d c(0.0, 0.0, 0.0);
+            for (int pi = 0; pi < nPts; pi++) {
+                auto& p = oriMesh->GetPoint(ptIds[pi]);
+                c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
             }
+            c[0] /= nPts; c[1] /= nPts; c[2] /= nPts;
+            result[cellId] = grid.query(c);
         }
-        result[cellId] = bestId;
-    }
-
+    });
     return result;
 }
 
@@ -108,20 +154,81 @@ IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(SurfaceMesh::Pointer o
     auto result = IntArray::New();
     result->SetDimension(1);
     result->Reserve(static_cast<IGsize>(vec.size()));
-    for (int v : vec) {
-        result->AddValue(v);
-    }
+    for (int v : vec) result->AddValue(v);
     return result;
 }
 
-ArrayObject::Pointer BlockMapping::GetPartId(UnstructuredMesh::Pointer partedMesh) {
-    auto attrs = partedMesh->GetAttributeSet()->GetAllAttributes();
-    ArrayObject::Pointer result;
-    for (int i = 0; i < attrs->Size(); i++) {
-        auto& attr = attrs->GetElement(i);
-        if (attr.pointer->GetName() != "part_id") continue;
-        result = attr.pointer;
-    }
+// ---------------------------------------------------------------------------
+// UnstructuredMesh
+// ---------------------------------------------------------------------------
+std::vector<int> BlockMapping::GetMappingBlockCells(UnstructuredMesh::Pointer oriMesh,
+                                                    UnstructuredMesh::Pointer partedMesh) {
+    auto partIdArray = GetPartId(partedMesh);
+    auto grid = buildVoxelGrid(partedMesh, partIdArray);
+
+    auto oriCellNum = oriMesh->GetNumberOfCells();
+    std::vector<int> result(oriCellNum, 0);
+    ThreadPool::parallelFor(0, static_cast<int>(oriCellNum), [&](int s, int e) {
+        for (int cellId = s; cellId < e; cellId++) {
+            const igIndex* ptIds = nullptr;
+            int nPts = oriMesh->GetCellPointIds(cellId, ptIds);
+            if (nPts == 0) continue;
+            Vector3d c(0.0, 0.0, 0.0);
+            for (int pi = 0; pi < nPts; pi++) {
+                auto& p = oriMesh->GetPoint(ptIds[pi]);
+                c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
+            }
+            c[0] /= nPts; c[1] /= nPts; c[2] /= nPts;
+            result[cellId] = grid.query(c);
+        }
+    });
+    return result;
+}
+
+IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(UnstructuredMesh::Pointer oriMesh,
+                                                          UnstructuredMesh::Pointer partedMesh) {
+    auto vec = GetMappingBlockCells(oriMesh, partedMesh);
+    auto result = IntArray::New();
+    result->SetDimension(1);
+    result->Reserve(static_cast<IGsize>(vec.size()));
+    for (int v : vec) result->AddValue(v);
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// VolumeMesh
+// ---------------------------------------------------------------------------
+std::vector<int> BlockMapping::GetMappingBlockCells(VolumeMesh::Pointer oriMesh,
+                                                    UnstructuredMesh::Pointer partedMesh) {
+    auto partIdArray = GetPartId(partedMesh);
+    auto grid = buildVoxelGrid(partedMesh, partIdArray);
+
+    auto oriCellNum = oriMesh->GetNumberOfVolumes();
+    std::vector<int> result(oriCellNum, 0);
+    ThreadPool::parallelFor(0, static_cast<int>(oriCellNum), [&](int s, int e) {
+        igIndex ptIds[64];
+        for (int cellId = s; cellId < e; cellId++) {
+            int nPts = oriMesh->GetVolumePointIds(cellId, ptIds);
+            if (nPts == 0) continue;
+            Vector3d c(0.0, 0.0, 0.0);
+            for (int pi = 0; pi < nPts; pi++) {
+                auto& p = oriMesh->GetPoint(ptIds[pi]);
+                c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
+            }
+            c[0] /= nPts; c[1] /= nPts; c[2] /= nPts;
+            result[cellId] = grid.query(c);
+        }
+    });
+    return result;
+}
+
+IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(VolumeMesh::Pointer oriMesh,
+                                                          UnstructuredMesh::Pointer partedMesh) {
+    auto vec = GetMappingBlockCells(oriMesh, partedMesh);
+    auto result = IntArray::New();
+    result->SetDimension(1);
+    result->Reserve(static_cast<IGsize>(vec.size()));
+    for (int v : vec) result->AddValue(v);
     return result;
 }
 

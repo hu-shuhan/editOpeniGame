@@ -3,6 +3,7 @@
 #include <iGameDataObject.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameSurfaceMesh.h>
+#include <iGameVolumeMesh.h>
 #include <iGameFlatArray.h>
 #include <vector>
 #include <iGameType.h>
@@ -14,8 +15,13 @@ public:
     static std::vector<int> GetMappingBlockCells(SurfaceMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
     static IntArray::Pointer GetMappingBlockCellsArray(SurfaceMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
 
+    static std::vector<int> GetMappingBlockCells(UnstructuredMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
+    static IntArray::Pointer GetMappingBlockCellsArray(UnstructuredMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
+
+    static std::vector<int> GetMappingBlockCells(VolumeMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
+    static IntArray::Pointer GetMappingBlockCellsArray(VolumeMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
+
 private:
-    // 获取part_id
     static ArrayObject::Pointer GetPartId(UnstructuredMesh::Pointer partedMesh);
 };
 IGAME_NAMESPACE_END

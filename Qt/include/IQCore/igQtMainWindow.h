@@ -35,6 +35,8 @@ class igQtModelClipWidget;
 class igQtDeformationWidget;
 class igQtAiChatWidget;
 class igQtCommandManager;
+class igQtChromeFramelessDialog;
+class igQtPartFocusWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -95,9 +97,13 @@ public:
     // AI Chat DockWidget
     QDockWidget* aiChatDockWidget;
     igQtAiChatWidget* aiChatWidget;
-    
+
     // Command Manager for MCP Server (端口 12345)
     igQtCommandManager* commandManager;
+
+    // 零件聚焦弹窗
+    igQtChromeFramelessDialog* partFocusDialog{nullptr};
+    igQtPartFocusWidget* partFocusWidget{nullptr};
 
 private slots:
     void updateRecentFilePaths();

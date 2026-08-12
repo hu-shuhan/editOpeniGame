@@ -47,6 +47,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQWidgets/igQtPartFocusWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <iGameBlockMapping.h>
@@ -98,6 +99,11 @@
 #include <QEasingCurve>
 #include <QStyle>
 #include <QFontMetrics>
+#include <QSettings>
+#include <QDialog>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QDialogButtonBox>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
@@ -1946,11 +1952,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        auto dataObject = model->GetDataObject();
-        if (dataObject == nullptr) return;
-        ui->widget_SearchInfo->setCurrentModelData(dataObject);
+        ui->widget_SearchInfo->setCurrentModel(model);
     });
-
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
+        if (!ui->dockWidget_SearchInfo || !ui->dockWidget_SearchInfo->isVisible()) return;
+        QTimer::singleShot(0, this, [this]() {
+            ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
+        });
+    });
     connect(ui->action_Scalar, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
     connect(ui->action_Vector, &QAction::triggered, this,
@@ -1968,7 +1977,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
     //############# HIDE SOMETHING ST #############
     ui->action_ParallelCoordinates->setVisible(false);
-    ui->action_SearchInfo->setVisible(false);
+    ui->action_SearchInfo->setVisible(true);
     //############# HIDE SOMETHING ED #############
 
     //############# TESTS ST #############
@@ -1978,24 +1987,46 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         testAction->setObjectName(QString::fromUtf8("MeshSplit"));
         testAction->setText(QString::fromUtf8("MeshSplit"));
         ui->menu_filters->addAction(testAction);
-        testAction->setVisible(true);
+        testAction->setVisible(false);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
-//#define TEST_MAP_BACK
+#define TEST_MAP_BACK
 #ifdef TEST_MAP_BACK
             auto model = rendererWidget->GetScene()->GetCurrentModel();
-            //auto obj = iGame::FileIO::ReadFile("D:/TestModels/segment_result.vtk");
-            auto obj = iGame::FileIO::ReadFile(
-                    "D:/Codes/PyCharm/Hunyuan3DPart/Hunyuan3D-Part/P3-SAM/SplitServer/output.vtk");
+            if (!model || !model->GetDataObject()) {
+                std::cout << "[Block Mapping Test] No model selected." << std::endl;
+                return;
+            }
+
+            auto obj = iGame::FileIO::ReadFile("D:/RealStudy/editOpeniGame/Examples/Models/segment_result.vtk");
+            if (!obj) {
+                std::cout << "[Block Mapping Test] Failed to read segment_result.vtk." << std::endl;
+                return;
+            }
+
             auto drawObj = DynamicCast<DrawObject>(model->GetDataObject());
+            if (!drawObj) {
+                std::cout << "[Block Mapping Test] Current model is not drawable." << std::endl;
+                return;
+            }
             drawObj->ConvertToDrawableData();
             auto surfaceMesh = DynamicCast<SurfaceMesh>(drawObj->GetRenderableObject(false));
-            auto resultArray = BlockMapping::GetMappingBlockCellsArray(
-                    surfaceMesh,
-                    DynamicCast<UnstructuredMesh>(obj));
+            auto segmentedMesh = DynamicCast<UnstructuredMesh>(obj);
+            if (!surfaceMesh || !segmentedMesh) {
+                std::cout << "[Block Mapping Test] Unsupported original or segmented mesh type." << std::endl;
+                return;
+            }
+            auto resultArray = BlockMapping::GetMappingBlockCellsArray(surfaceMesh, segmentedMesh);
+            if (!resultArray) {
+                std::cout << "[Block Mapping Test] Failed to map block IDs." << std::endl;
+                return;
+            }
             resultArray->SetName("block_id");
             auto dataObj = model->GetDataObject();
             dataObj->SetBlockMapping(resultArray);
             modelTreeWidget->updateAllAttriubute(dataObj);
+            ui->widget_SearchInfo->setCurrentModel(model);
+            std::cout << "[Block Mapping Test] Mapping complete. Cells: " << resultArray->GetNumberOfValues()
+                      << std::endl;
 #else
             // 测试P3SAM分割器
             auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -2029,7 +2060,114 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         });
     }
     //############# TESTS ED #############
+    {
+        // PartSegmentation零件分割
+        QAction* partSegmentationAction{};
+        partSegmentationAction = new QAction(this);
+        partSegmentationAction->setObjectName(QString::fromUtf8("零件分割"));
+        partSegmentationAction->setText(QString::fromUtf8("零件分割"));
+        ui->menu_filters->addAction(partSegmentationAction);
+        partSegmentationAction->setVisible(true);
+        connect(partSegmentationAction, &QAction::triggered, this, [&](bool checked) {
+            // 弹出 IP/Port 配置对话框
+            QSettings settings("iGame", "iGameVis");
+            QString savedHost = settings.value("P3SAM/host", "127.0.0.1").toString();
+            int     savedPort = settings.value("P3SAM/port", 8765).toInt();
 
+            igQtChromeFramelessDialog cfgDlg(this);
+            cfgDlg.setDialogTitle(QStringLiteral("零件分割 - 服务器配置"));
+            cfgDlg.setMaximizeEnabled(false);
+
+            auto* body = new QWidget(cfgDlg.contentHost());
+            body->setAttribute(Qt::WA_StyledBackground, true);
+            body->setStyleSheet(
+                "QWidget { background-color: transparent; color: #EAEAEA; }"
+                "QLabel { color: #D8D8D8; }"
+                "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+                "            padding: 4px 6px; border-radius: 3px; }"
+                "QLineEdit:focus { border: 1px solid #5A7FA8; }"
+                "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+                "              padding: 6px 16px; border-radius: 4px; }"
+                "QPushButton:hover { background-color: #3A3A3A; }"
+                "QPushButton:pressed { background-color: #252526; }");
+
+            auto* form = new QFormLayout(body);
+            form->setContentsMargins(12, 12, 12, 12);
+            form->setSpacing(10);
+            auto* hostEdit = new QLineEdit(savedHost, body);
+            auto* portEdit = new QLineEdit(QString::number(savedPort), body);
+            portEdit->setValidator(new QIntValidator(1, 65535, body));
+            form->addRow(QStringLiteral("服务器 IP："), hostEdit);
+            form->addRow(QStringLiteral("端口："), portEdit);
+            auto* btns = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, body);
+            form->addRow(btns);
+
+            cfgDlg.setContentWidget(body);
+            cfgDlg.resize(300, 160);
+
+            bool accepted = false;
+            QObject::connect(btns, &QDialogButtonBox::accepted, &cfgDlg, [&]() { accepted = true; cfgDlg.accept(); });
+            QObject::connect(btns, &QDialogButtonBox::rejected, &cfgDlg, &QDialog::reject);
+            cfgDlg.exec();
+            if (!accepted) return;
+
+            QString host = hostEdit->text().trimmed();
+            int     port = portEdit->text().toInt();
+            if (host.isEmpty()) host = "127.0.0.1";
+            settings.setValue("P3SAM/host", host);
+            settings.setValue("P3SAM/port", port);
+
+            // 检查当前模型
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (!model) {
+                std::cout << "[PartSegmentation] No model selected." << std::endl;
+                return;
+            }
+
+            auto dataObj = model->GetDataObject();
+
+            std::cout << "[PartSegmentation] Starting P3SAM segmentation..." << std::endl;
+            P3SAMSegmenter::Pointer segmenter = P3SAMSegmenter::New();
+            segmenter->SetServerHost(host.toStdString());
+            segmenter->SetServerPort(port);
+            segmenter->SetInput(dataObj);
+            segmenter->SetSimplificationRatio(0.1f);
+            segmenter->SetPostProcess(false);
+            segmenter->SetTimeout(300000);  // 5分钟超时
+
+            if (!segmenter->Execute()) {
+                std::cout << "[PartSegmentation] Segmentation failed: "
+                          << segmenter->GetErrorMessage() << std::endl;
+                return;
+            }
+
+            modelTreeWidget->updateAllAttriubute(dataObj);
+            std::cout << "[PartSegmentation] Segmentation complete! Parts: "
+                      << segmenter->GetPartCount() << std::endl;
+        });
+    }
+    // 零件聚焦弹窗
+    {
+        QAction* partFocusAction = new QAction(this);
+        partFocusAction->setObjectName(QString::fromUtf8("零件聚焦"));
+        partFocusAction->setText(QString::fromUtf8("零件聚焦"));
+        ui->menu_filters->addAction(partFocusAction);
+        partFocusAction->setVisible(true);
+        connect(partFocusAction, &QAction::triggered, this, [&]() {
+            if (!partFocusDialog) {
+                partFocusDialog = new igQtChromeFramelessDialog(this);
+                partFocusDialog->setDialogTitle(QStringLiteral("零件聚焦"));
+                partFocusDialog->setMaximizeEnabled(false);
+                partFocusWidget = new igQtPartFocusWidget(partFocusDialog->contentHost());
+                partFocusDialog->setContentWidget(partFocusWidget);
+                partFocusDialog->resize(340, 380);
+            }
+            partFocusWidget->SetScene(rendererWidget->GetScene(), rendererWidget);
+            partFocusDialog->show();
+            partFocusDialog->raise();
+            partFocusDialog->activateWindow();
+        });
+    }
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
             [&]() {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
