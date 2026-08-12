@@ -117,6 +117,7 @@ DrawObject::DrawObject() {
 
     m_Clipper = iGameClipper::New();
     m_DefaultColor = igm::vec3{0.85f, 0.85f, 0.85f};
+    m_LineColor = igm::vec3{0.0f, 0.0f, 0.0f};
 }
 
 void DrawObject::SetDefaultColor(const igm::vec3& color) {
@@ -127,6 +128,15 @@ void DrawObject::SetDefaultColor(const igm::vec3& color) {
 }
 
 igm::vec3 DrawObject::GetDefaultColor() const { return m_DefaultColor; }
+
+void DrawObject::SetLineColor(const igm::vec3& color) {
+    m_LineColor = color;
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetLineColor(color); }
+    if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetLineColor(color); }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetLineColor, color); }
+}
+
+igm::vec3 DrawObject::GetLineColor() const { return m_LineColor; }
 
 void DrawObject::ConvertToDrawableData() {
     // 当多子块文件时，父节点为DrawObject，在这里处理子块
@@ -494,6 +504,7 @@ void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject
     renderableObject->m_UseColor = this->m_UseColor;
     renderableObject->m_ColorMapper = m_ColorMapper;
     renderableObject->m_DefaultColor = this->m_DefaultColor;
+    renderableObject->m_LineColor = this->m_LineColor;
     renderableObject->m_IsMainRenderableObject = false;
 }
 
