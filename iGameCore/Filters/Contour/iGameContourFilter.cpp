@@ -85,8 +85,16 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
         igIndex i = 0;
         Cell::Pointer cell = nullptr;
         double CellContourValue[IGAME_CELL_MAX_SIZE] = {0};
-        
+
+        // 进度：把 [0, 0.95] 均分给每个等值面数值，剩下的留给属性拷贝
+        const double valueSliceBegin = 0.95 * double(valueIdx) / double(m_ContourValues.size());
+        const double valueSliceSize = 0.95 / double(m_ContourValues.size());
+        const igIndex progressStep = inCellNum > 100 ? inCellNum / 100 : 1;
+
         for (CellId = 0; CellId < inCellNum; CellId++) {
+            if (CellId % progressStep == 0) {
+                UpdateProgress(valueSliceBegin + valueSliceSize * double(CellId) / double(inCellNum));
+            }
             if (cellVisible[CellId]) { continue; }
             cell = input->GetCell(CellId);
             vhs = cell->m_PointIds->RawPointer();
@@ -148,8 +156,9 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
     this->SetOutput(0, OutMesh);
     std::vector<igIndex>().swap(OriginCell);
     std::vector<CellContour::InterpolateEdge>().swap(OriginEdge);
+    UpdateProgress(1.0);
 
-    return true;        
+    return true;
 
 
 }
@@ -203,7 +212,15 @@ bool ContourFilter::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer 
         igIndex CellId = 0;
         Cell::Pointer cell = nullptr;
         double CellClipValue[IGAME_CELL_MAX_SIZE] = {0};
+
+        const double valueSliceBegin = 0.95 * double(valueIdx) / double(m_ContourValues.size());
+        const double valueSliceSize = 0.95 / double(m_ContourValues.size());
+        const igIndex progressStep = inVolumeNum > 100 ? inVolumeNum / 100 : 1;
+
         for (CellId = 0; CellId < inVolumeNum; CellId++) {
+            if (CellId % progressStep == 0) {
+                UpdateProgress(valueSliceBegin + valueSliceSize * double(CellId) / double(inVolumeNum));
+            }
             if (cellVisible[CellId]) { continue; }
             cell = m_VolumeMesh->GetCell(CellId);
             vhs = cell->m_PointIds->RawPointer();
@@ -223,6 +240,7 @@ bool ContourFilter::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer 
     this->SetOutput(0, OutMesh);
     std::vector<igIndex>().swap(OriginCell);
     std::vector<CellContour::InterpolateEdge>().swap(OriginEdge);
+    UpdateProgress(1.0);
 
     return true;
 }

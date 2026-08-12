@@ -105,6 +105,11 @@ public:
     void SetDefaultColor(const igm::vec3& color);
     igm::vec3 GetDefaultColor() const;
 
+    // 线框 / 线单元的绘制颜色。默认黑色，与改动前写死的行为一致；
+    // 只有显式调用过的对象才会变色（例如等值线结果用灰色，避免和模型线框混淆）。
+    void SetLineColor(const igm::vec3& color);
+    igm::vec3 GetLineColor() const;
+
 protected:
     // OpenGL资源管理
     void CreateDrawBuffer();
@@ -188,6 +193,7 @@ protected:
     float m_Transparency;            // 透明度
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
     igm::vec3 m_DefaultColor;        // 默认颜色，范围 0.0-1.0
+    igm::vec3 m_LineColor;           // 线框 / 线单元颜色，范围 0.0-1.0，默认黑色
 
     friend class Model;
     friend class Scene;

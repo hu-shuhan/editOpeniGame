@@ -450,8 +450,9 @@ void Model::Draw() {
 #ifdef __EMSCRIPTEN__
                     m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
+                    // 默认仍是黑色（见 DrawObject 构造函数），只有显式设过线色的对象才不同
                     shader->SetUniform3f("inputColor",
-                                         igm::vec3{0.0f, 0.0f, 0.0f});
+                                         renderableObject->GetLineColor());
                 }
 
                 // 如果是样条对象，强制用黑色绘制控制线
@@ -581,7 +582,7 @@ void Model::DrawWithTransparency() {
                 #endif
                 shader->SetUniformi("uUseLighting", 0);
                 shader->SetUniformi("colorMode", 2);
-                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+                shader->SetUniform3f("inputColor", renderableObject->GetLineColor());
             }
 
             glLineWidth(renderableObject->m_LineWidth);
