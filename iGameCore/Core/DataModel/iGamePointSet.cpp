@@ -137,7 +137,7 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray:
             m_ColorMapper->InitRange(attr, dimension);
         }
     }
-    m_Colors = m_ColorMapper->MapScalars(attr, dimension);
+    m_Colors = m_ColorMapper->MapScalars(attr, dimension, 4);
     m_Colors->Modified();
     if (m_Colors == nullptr) { return; }
 }

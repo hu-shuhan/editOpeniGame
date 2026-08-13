@@ -27,13 +27,13 @@ layout(std140, binding = 2) uniform UniformBufferObjectBlock {
 } ubo;
 
 layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Color;
+layout(location = 1) in vec4 in_Color;
 layout(location = 2) in vec3 in_Normal;
 layout(location = 3) in vec2 in_UV;
 
 layout(location = 0) out vec3 out_MCPosition;
 layout(location = 1) out vec3 out_VCPosition;
-layout(location = 2) out vec3 out_Color;
+layout(location = 2) out vec4 out_Color;
 layout(location = 3) out vec3 out_Normal;
 layout(location = 4) out vec2 out_UV;
 
@@ -46,7 +46,7 @@ void main() {
     if (ubo.useColor == 1) {
         out_Color = in_Color;
     } else {
-        out_Color = vec3(1.0f, 1.0f, 1.0f);
+        out_Color = vec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
     out_Normal = mat3(objectData.normal) * in_Normal;
     out_UV = in_UV;

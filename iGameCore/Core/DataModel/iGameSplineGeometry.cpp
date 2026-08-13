@@ -75,7 +75,7 @@ void SplineGeometry::ConvertToDrawableData() {
                 } else {
                     m_ColorMapper->InitRange(m_ScalarArray, m_AttributeDimension);
                 }
-                m_Colors = m_ColorMapper->MapScalars(m_ScalarArray, m_AttributeDimension);
+                m_Colors = m_ColorMapper->MapScalars(m_ScalarArray, m_AttributeDimension, 4);
                 m_Colors->Modified();
                 if (m_Colors == nullptr) { return; }
             }

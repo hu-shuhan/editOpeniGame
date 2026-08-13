@@ -59,12 +59,24 @@ vec3 blend(vec3 currentColor, vec4 newColor) {
 }
 
 vec3 CalculateFinalColor(int fragCount) {
-    vec3 finalColor = vec3(0.0f, 0.0f, 0.0f);
-    float tau = 0.0f;
+    vec3 background = GetResolveColor();
+
+    if (fragCount == 1) {
+        vec4 frag = unpackUnorm4x8(fragments[0].y);
+        return mix(background, frag.rgb, frag.a);
+    }
 
     float start_t = uintBitsToFloat(fragments[0].z);
     float end_t = uintBitsToFloat(fragments[fragCount - 1].z);
     float interval_t = end_t - start_t;
+
+    if (interval_t * interval_t < 1e-12f) {
+        vec4 frag = unpackUnorm4x8(fragments[0].y);
+        return mix(background, frag.rgb, frag.a);
+    }
+
+    vec3 finalColor = vec3(0.0f, 0.0f, 0.0f);
+    float tau = 0.0f;
 
     for (int i = 0; i < fragCount - 1; i++) {
         vec3 color1 = unpackUnorm4x8(fragments[i].y).xyz;
@@ -84,6 +96,8 @@ vec3 CalculateFinalColor(int fragCount) {
         }
     }
 
+    // remaining transmittance reveals the background color instead of black
+    finalColor += exp(-tau) * background;
     return finalColor;
 }
 

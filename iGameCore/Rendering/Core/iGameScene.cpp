@@ -1856,6 +1856,20 @@ void Scene::SetVolumeRendering(bool toggled) {
         if (!model->GetDataObject()->IsDrawable()) { continue; }
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         drawObject->SetShellRenderingOption(!toggled);
+
+        // 开启体绘制，启用不透明度绘制
+        if (toggled) {
+            auto mapper = drawObject->GetColorMapper();
+            int attrIdx = drawObject->GetAttributeIndex();
+            auto attrSet = drawObject->GetAttributeSet();
+            if (mapper && attrIdx >= 0 && attrSet &&
+                attrIdx < attrSet->GetNumberOfAttributes()) {
+                auto& attr = attrSet->GetAttribute(attrIdx);
+                if (attr.pointer) {
+                    mapper->EnableOpacityMapping();
+                }
+            }
+        }
     }
     Update();
 }
