@@ -16,6 +16,8 @@
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
+#include "DataProcessing/iGameVolumeMeshSimplification.h"
+#include "DataProcessing/iGameMeshTetrahedralize.h"
 
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
@@ -1546,6 +1548,120 @@ void igQtMainWindow::initAllFilters() {
             modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
             rendererWidget->update();
         }
+    });
+
+    connect(mesh_processing->addAction("Tetrahedralize"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        MeshTetrahedralize::Pointer filter = MeshTetrahedralize::New();
+        filter->SetInput(obj);
+        filter->Execute();
+        auto newMesh = filter->GetOutput();
+
+        modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
+        rendererWidget->update();
+    });
+
+    connect(mesh_processing->addAction("四面体边坍缩简化"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto in = DynamicCast<DataObject>(obj);
+        if (!in) return;
+
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        dialog->setFilterTitle("四面体边坍缩简化");
+        dialog->setFilterDescription("基于ADQ的边坍缩体网格简化（保留属性）");
+
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
+        int tetCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Tetra Count", "0");
+        int boundaryPenaltyId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Boundary Penalty", "100.0");
+        int lambdaId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Lambda", "0.1");
+        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary", "false");
+        int allAttrId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Use All Point Attributes", "true");
+        int stretchId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Stretch Factor", "10.0");
+        int aspectId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Max Aspect Ratio", "30.0");
+
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            // ─── 1. 获取当前场景对象 ───
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            if (!obj) {
+                QMessageBox::information(this, "错误", "未选择任何模型");
+                dialog->close();
+                return;
+            }
+
+
+            // ─── 2. 判断是否为纯四面体体网格 ───
+            bool isPureTetMesh = false;
+
+            if (obj->GetDataObjectType() == IG_VOLUME_MESH) {
+                auto mesh = DynamicCast<VolumeMesh>(obj);
+                if (mesh) {
+                    isPureTetMesh = true;
+                    igIndex ids[IGAME_CELL_MAX_SIZE];
+                    const IGsize nVol = mesh->GetNumberOfVolumes();
+                    for (IGsize i = 0; i < nVol; ++i) {
+                        if (mesh->GetVolumePointIds(i, ids) != 4) {
+                            isPureTetMesh = false;
+                            break;
+                        }
+                    }
+                }
+            } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+                auto um = DynamicCast<UnstructuredMesh>(obj);
+                if (um) {
+                    isPureTetMesh = true;
+                    const IGsize nCells = um->GetNumberOfCells();
+                    for (IGsize i = 0; i < nCells; ++i) {
+                        if (um->GetCellType(i) != IG_TETRA) {
+                            isPureTetMesh = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!isPureTetMesh) {
+                QMessageBox::information(this, "非纯四面体网格",
+                                         "该简化算法只支持纯四面体体网格。\n"
+                                         "请先执行「Tetrahedralize」将当前对象四面体化。");
+                dialog->close();
+                return;
+            }
+
+
+            bool ok = false;
+
+            TetraEdgeSimplification::Pointer filter = TetraEdgeSimplification::New();
+            filter->SetInput(in);
+            filter->SetTargetReduction(float(dialog->getDouble(reductionId, ok)));
+            filter->SetTargetTetraCount(dialog->getInt(tetCountId, ok));
+            filter->SetBoundaryPenalty(dialog->getDouble(boundaryPenaltyId, ok));
+            filter->SetLambda(dialog->getDouble(lambdaId, ok));
+            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+            filter->SetUseAllPointAttributes(dialog->getChecked(allAttrId, ok));
+            filter->SetStretchFactor(dialog->getDouble(stretchId, ok));
+            filter->SetMaxAspectRatio(dialog->getDouble(aspectId, ok));
+
+            if (!filter->Execute()) {
+                QMessageBox::information(this, "执行出错", "边坍缩简化失败");
+                dialog->close();
+                return;
+            }
+
+            auto out = filter->GetOutput(0);
+            if (!out) {
+                QMessageBox::information(this, "执行出错", "未生成输出结果");
+                dialog->close();
+                return;
+            }
+
+            modelTreeWidget->addDataObjectToModelTree(out, Algorithm);
+            rendererWidget->update();
+            dialog->close();
+        });
     });
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
