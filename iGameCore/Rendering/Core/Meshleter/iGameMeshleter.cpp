@@ -135,9 +135,10 @@ void Meshleter::SyncGpuBuffers() {
                 m_ColorVBO->Modified();
 
                 m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                            3 * sizeof(float));
+                                            colors->GetDimension() * sizeof(float));
                 GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1,
-                                  GL_VBO_IDX_1, 3, GL_FLOAT, GL_FALSE, 0);
+                                  GL_VBO_IDX_1, colors->GetDimension(),
+                                  GL_FLOAT, GL_FALSE, 0);
             }
 
             if (cellColors->GetMTime() > m_CellColorVBO->GetMTime() ||

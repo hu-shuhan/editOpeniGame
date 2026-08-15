@@ -105,6 +105,9 @@ public:
     void SetDefaultColor(const igm::vec3& color);
     igm::vec3 GetDefaultColor() const;
 
+    void SetLineColor(const igm::vec3& color);
+    igm::vec3 GetLineColor() const;
+
 protected:
     // OpenGL资源管理
     void CreateDrawBuffer();
@@ -188,6 +191,7 @@ protected:
     float m_Transparency;            // 透明度
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
     igm::vec3 m_DefaultColor;        // 默认颜色，范围 0.0-1.0
+    igm::vec3 m_LineColor;
 
     friend class Model;
     friend class Scene;

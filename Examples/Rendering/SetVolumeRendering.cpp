@@ -36,6 +36,14 @@ static void SetVolumeRendering() {
     // Rendering larger datasets or using full-screen mode may cause rendering errors or performance issues.
     scene->SetVolumeRendering(true); // Enable volume rendering for 3D visualization
 
+    // Enable scalar->opacity mapping: opacity follows the physical quantity linearly.
+    // The range is taken from the current scalar field (same as the color mapping range).
+    auto mapper = drawObj->GetColorMapper();
+    if (mapper) {
+        double* rng = mapper->GetRange();
+        mapper->EnableOpacityMapping();
+    }
+
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);

@@ -86,6 +86,8 @@ public:
 
     bool DeepCopy(const ColorMap::Pointer other);
 
+    void MapOpacity(float value, float& opacity);
+
 protected:
     ColorMap();
     ~ColorMap();

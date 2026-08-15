@@ -1528,26 +1528,38 @@ void igQtMainWindow::initAllFilters() {
     });
 
     connect(mesh_processing->addAction(QStringLiteral("表面提取 (Surface Extraction)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
 
-        if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) {
-            auto new_mesh = mesh->GetRenderableObject();
-            new_mesh->SetName(mesh->GetName() + "_surface");
-            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();
-
-        } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)) {
-            auto new_mesh = mesh->GetRenderableObject();
-            new_mesh->SetName(mesh->GetName() + "_surface");
-            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();
-
-        } else if (DrawObject::Pointer mesh = DynamicCast<DrawObject>(obj)) {
-            auto new_mesh = mesh->GetRenderableObject();
-            new_mesh->SetName(mesh->GetName() + "_surface");
-            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();
+        auto filter = ConvertToSurfaceMeshFilter::New();
+        filter->SetInput(obj);
+        filter->SetConvertMethod(ConvertToSurfaceMeshFilter::IG_EXTRACT_SURFACE_MESH);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("当前数据类型不支持表面提取。"));
+            return;
         }
+
+        auto surface = filter->GetSurfaceMesh();
+        if (!surface) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
+            return;
+        }
+        if (surface.GetPointer() == obj.GetPointer()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("当前模型已经是表面网格，无需提取。"));
+            return;
+        }
+        if (surface->GetNumberOfFaces() == 0) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("提取结果为空，当前模型没有可提取的表面单元。"));
+            return;
+        }
+
+        surface->SetName(obj->GetName() + "_surface");
+        modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
+        rendererWidget->update();
     });
 
     connect(mesh_processing->addAction("Tetrahedralize"), &QAction::triggered, this, [&](bool checked) {

@@ -219,4 +219,10 @@ bool ColorMap::DeepCopy(const ColorMap::Pointer other) {
     return true;
 }
 
+void ColorMap::MapOpacity(float value, float& opacity) {
+    value = value < 0.0 ? 0.0 : (value > 0.999999 ? 0.999999 : value);
+    // opacity = 0.1f + 0.899999f * value;
+    opacity = value;
+}
+
 IGAME_NAMESPACE_END

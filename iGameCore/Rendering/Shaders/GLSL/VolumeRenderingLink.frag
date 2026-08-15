@@ -33,7 +33,7 @@ layout(binding = 1, rgba32ui) uniform uimageBuffer listBuffer;
 
 layout(location = 0) in vec3 in_MCPosition;
 layout(location = 1) in vec3 in_VCPosition;
-layout(location = 2) in vec3 in_Color;
+layout(location = 2) in vec4 in_Color;
 layout(location = 3) in vec3 in_Normal;
 layout(location = 4) in vec2 in_UV;
 
@@ -42,16 +42,29 @@ layout(location = 0) out vec4 out_ScreenColor;
 #define MAX_FRAGMENTS 512
 
 void main() {
-    vec4 fragColor = vec4(in_Color, objectData.transparent);
+    vec4 fragColor = vec4(in_Color.rgb, in_Color.a * objectData.transparent);
 
-    uint newHead = atomicCounterIncrement(indexCounter);
-    uint oldHead = imageAtomicExchange(headPointerImage, ivec2(gl_FragCoord.xy), newHead);
 
     // in_VCPosition.length() will return wrong value
     float dist = length(in_VCPosition);
     if (in_VCPosition.z > 0.0f || dist < 0.01f) {
         return;
     }
+
+    // check whether this pixel's linked list is already full; if so, discard the fragment
+    // without allocating a node or touching the head pointer (avoids out-of-bounds writes)
+    uint currentHead = imageLoad(headPointerImage, ivec2(gl_FragCoord.xy)).x;
+    uint currentCount = 1;
+    if (currentHead != 0xFFFFFFFFu) {
+        uvec4 currentItem = imageLoad(listBuffer, int(currentHead));
+        currentCount = currentItem.w + 1u;
+    }
+    if (currentCount > MAX_FRAGMENTS) {
+        return;
+    }
+
+    uint newHead = atomicCounterIncrement(indexCounter);
+    uint oldHead = imageAtomicExchange(headPointerImage, ivec2(gl_FragCoord.xy), newHead);
 
     uvec4 item = uvec4(0.0f);// 初始化 item
     item.x = oldHead;
@@ -69,28 +82,8 @@ void main() {
     if (fragmentCount <= MAX_FRAGMENTS) {
         item.w = fragmentCount;
         imageStore(listBuffer, int(newHead), item);
-    } else {
-        // 超过 MAX_FRAGMENTS，找到最远距离片段
-        float maxDist = 0.0f;// 设定一个足够小的初始值
-        uint maxDistIndex = newHead;// 初始化为当前片段
-        uint head = oldHead;
-
-        for (uint i = 0; i < MAX_FRAGMENTS; i++) {
-            uvec4 fragment = imageLoad(listBuffer, int(head));
-            float dist = uintBitsToFloat(fragment.z);
-            if (dist > maxDist) {
-                maxDist = dist;
-                maxDistIndex = head;
-            }
-            head = fragment.x;// 前往下一个片段
-            if (head == 0xFFFFFFFF) break;// 终止条件
-        }
-
-        // 如果当前片段距离值比最大距离小，替换最大距离片段
-        float currentDist = uintBitsToFloat(item.z);
-        if (currentDist < maxDist) {
-            item.w = MAX_FRAGMENTS;// 设置片段数量为 MAX_FRAGMENTS
-            imageStore(listBuffer, int(maxDistIndex), item);// 替换最大距离片段
-        }
+        } else {
+        // race fallback: the list filled up between check and insert; roll back head and drop this fragment
+        imageAtomicExchange(headPointerImage, ivec2(gl_FragCoord.xy), oldHead);
     }
 }
