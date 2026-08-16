@@ -1388,6 +1388,15 @@ void Scene::TransparentPass() {
     // Bind framebuffer
     m_Framebuffer->Bind();
 
+    // 先把不透明前景结果拷贝到备份纹理，排序阶段采样它，
+    // 避免“写入 m_ColorTexture 的同时采样同一纹理”的反馈回路
+    {
+        auto viewport = m_Camera->GetScaledViewPort();
+        GLFramebuffer::Blit(m_Framebuffer, m_FramebufferBackup, 0, 0,
+                            viewport.x, viewport.y, 0, 0, viewport.x,
+                            viewport.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
+
     // Enable blending to use the alpha channel for transparency.
     // Without blending, the alpha value in the color will be ignored.
     // glEnable(GL_BLEND);
@@ -1437,7 +1446,7 @@ void Scene::TransparentPass() {
         auto shader = this->GetShader(ShaderType::TRANSPARENCYSORT);
         shader->Use();
 
-        m_ColorTexture->Active(GL_TEXTURE1);
+        m_ColorTextureBackup->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColor", 1);
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
@@ -1739,22 +1748,15 @@ bool Scene::GetColorBarVisible() const { return m_ColorBarVisible; }
 void Scene::ToggleOpacityMappingEnabled() { SetOpacityMappingEnabled(!m_OpacityMappingEnabled); }
 
 void Scene::SetOpacityMappingEnabled(bool enabled) {
-    if (m_OpacityMappingEnabled == enabled)
-        return ;
+    m_OpacityMappingEnabled = enabled;
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); it++) {
         auto model = it->second;
         if (!model->GetDataObject()->IsDrawable()) { continue; }
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        auto mapper = drawObject->GetColorMapper();
-        int attrIdx = drawObject->GetAttributeIndex();
-        auto attrSet = drawObject->GetAttributeSet();
-        if (mapper && attrIdx >= 0 && attrSet &&
-            attrIdx < attrSet->GetNumberOfAttributes()) {
-            auto& attr = attrSet->GetAttribute(attrIdx);
-            if (attr.pointer) { mapper->SetOpacityMappingEnabled(enabled); }
-        }
+        drawObject->SetOpacityMappingEnabled(enabled);
+        drawObject->ProcessSubDataObjects(&DrawObject::SetOpacityMappingEnabled,
+                                          enabled);
     }
-    m_OpacityMappingEnabled = enabled;
     this->Modified();
 }
 
@@ -1880,21 +1882,8 @@ void Scene::SetVolumeRendering(bool toggled) {
         if (!model->GetDataObject()->IsDrawable()) { continue; }
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         drawObject->SetShellRenderingOption(!toggled);
-
-        // 开启体绘制，启用不透明度绘制
-        // if (toggled) {
-        //     auto mapper = drawObject->GetColorMapper();
-        //     int attrIdx = drawObject->GetAttributeIndex();
-        //     auto attrSet = drawObject->GetAttributeSet();
-        //     if (mapper && attrIdx >= 0 && attrSet &&
-        //         attrIdx < attrSet->GetNumberOfAttributes()) {
-        //         auto& attr = attrSet->GetAttribute(attrIdx);
-        //         if (attr.pointer) {
-        //             mapper->SetOpacityMappingEnabled(true);
-        //         }
-        //     }
-        // }
     }
+    // 默认关闭不透明度映射
     SetOpacityMappingEnabled(false);
     Update();
 }

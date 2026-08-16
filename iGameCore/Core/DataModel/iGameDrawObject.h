@@ -85,6 +85,7 @@ public:
 
     void SetShellRenderingOption(bool option);
     bool GetShellRenderingOption();
+    void SetOpacityMappingEnabled(bool enabled);
     bool GetOpacityMappingEnabled() {
         return GetColorMapper() ? GetColorMapper()->GetOpacityMappingEnabled() : false;
     }

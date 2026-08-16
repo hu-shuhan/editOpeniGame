@@ -306,7 +306,7 @@ public:
      */
     void ToggleOpacityMappingEnabled();
     /**
-     * @brief 设置ColorBar的显示状态（仅Web端）
+     * @brief 设置是否启用不透明度映射
      */
     void SetOpacityMappingEnabled(bool enabled);
     /**
