@@ -17,3 +17,4 @@
 [submodule "ThirdParty/SZ3"]
 	path = ThirdParty/SZ3
 	url = https://github.com/hKJGkUs76A7m/SZ3.git
+	branch = datacodec-dev
