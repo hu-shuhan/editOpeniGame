@@ -28,16 +28,19 @@
 #define SOCKET_TYPE SOCKET
 #define SOCKET_ERROR_CODE WSAGetLastError()
 #define SOCKET_CLOSE closesocket
+using socket_length_type = int;
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <cerrno>
 #define SOCKET_TYPE int
 #define SOCKET_ERROR_CODE errno
 #define SOCKET_CLOSE close
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
+using socket_length_type = socklen_t;
 #endif
 #endif
 

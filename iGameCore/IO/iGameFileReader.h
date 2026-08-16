@@ -10,11 +10,11 @@
 #include <cfloat>
 #include <cstdio>
 
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
 #include <stdio.h>
 #include <tchar.h>
 #include <windows.h>
-#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(__linux__) || defined(__APPLE__)
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -95,10 +95,10 @@ protected:
     bool m_UseMemoryBuffer{false};
     bool m_OwnsBuffer{false};
 
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
     HANDLE m_File{nullptr};
     HANDLE m_MapFile{nullptr};
-#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(__linux__) || defined(__APPLE__)
     int m_File = -1;
 #endif
 

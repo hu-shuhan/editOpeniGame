@@ -89,11 +89,11 @@ bool FileReader::Open() {
     if (m_FilePath.empty()) { return false; }
     bool isOpenOK = false;
 
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
     isOpenOK = OpenWithWindowsSystem();
-#elif defined(PLATFORM_LINUX)
+#elif defined(PLATFORM_LINUX) || defined(__linux__)
     isOpenOK = OpenWithLinuxOrMacSystem();
-#elif defined(PLATFORM_MAC)
+#elif defined(PLATFORM_MAC) || defined(__APPLE__)
     isOpenOK = OpenWithLinuxOrMacSystem();
 #endif
     if (!isOpenOK) { return OpenWithFreadType(); }
@@ -148,7 +148,7 @@ bool FileReader::OpenWithFreadType() {
     return true;
 }
 bool FileReader::OpenWithWindowsSystem() {
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
     // 打开文件
     this->m_File = CreateFile(m_FilePath.data(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                               FILE_ATTRIBUTE_NORMAL, NULL);
@@ -188,7 +188,7 @@ bool FileReader::OpenWithWindowsSystem() {
     return true;
 }
 bool FileReader::OpenWithLinuxOrMacSystem() {
-#if defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+#if defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(__linux__) || defined(__APPLE__)
     // 打开文件
     m_File = open(m_FilePath.c_str(), O_RDONLY);
     if (m_File == -1) {
@@ -227,14 +227,14 @@ bool FileReader::Close() {
         m_OwnsBuffer = false;
     }
 
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
     if (this->m_MapFile) {
         UnmapViewOfFile(this->IS);
         CloseHandle(this->m_MapFile);
         CloseHandle(this->m_File);
     }
 
-#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(__linux__) || defined(__APPLE__)
     if (m_File != -1) { close(m_File); }
 #endif
     return true;

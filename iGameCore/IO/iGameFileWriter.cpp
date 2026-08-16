@@ -1,11 +1,11 @@
 #include "iGameFileWriter.h"
 #include "Log/iGameLogger.h"
 
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
 #include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
-#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
+#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(__linux__) || defined(__APPLE__)
 #include <fcntl.h>    
 #include <sys/mman.h> 
 #include <unistd.h>   
@@ -88,17 +88,17 @@ bool FileWriter::SaveBufferDataToFile()
                 fileSize);
 	return true;
 //下面的是内存映射方式，效率没有fwrite高
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
 	return SaveBufferDataToFileWithWindows();
-#elif defined(PLATFORM_LINUX)
+#elif defined(PLATFORM_LINUX) || defined(__linux__)
 	return SaveBufferDataToFileWithLinux();
-#elif defined(PLATFORM_MAC)
+#elif defined(PLATFORM_MAC) || defined(__APPLE__)
 	return SaveBufferDataToFileWithMac();
 #endif
 }
 bool FileWriter::SaveBufferDataToFileWithWindows()
 {
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS) || defined(_WIN32)
 	clock_t time_1 = clock();
 	// 打开文件
 
@@ -155,7 +155,7 @@ bool FileWriter::SaveBufferDataToFileWithWindows()
 
 bool FileWriter::SaveBufferDataToFileWithLinux()
 {
-#ifdef PLATFORM_LINUX
+#if defined(PLATFORM_LINUX) || defined(__linux__)
 
 	// 打开文件
 	int fd = open(this->m_FilePath.c_str(), O_RDWR | O_CREAT, 0666);
@@ -209,7 +209,7 @@ bool FileWriter::SaveBufferDataToFileWithLinux()
 }
 bool FileWriter::SaveBufferDataToFileWithMac()
 {
-#ifdef PLATFORM_MAC
+#if defined(PLATFORM_MAC) || defined(__APPLE__)
 	// 使用mmap在macOS实现文件映射
 	int fd = open(this->m_FilePath.c_str(), O_RDWR | O_CREAT, 0666);
 	if (fd == -1) {

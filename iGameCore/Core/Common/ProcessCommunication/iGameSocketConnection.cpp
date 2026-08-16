@@ -300,7 +300,7 @@ void iGameSocketConnection::serverThreadFunction() {
 
 void iGameSocketConnection::handleClientConnection() {
     sockaddr_in clientAddr{};
-    socklen_t clientAddrLen = sizeof(clientAddr);
+    socket_length_type clientAddrLen = sizeof(clientAddr);
 
     m_clientSocket = accept(m_serverSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
 
