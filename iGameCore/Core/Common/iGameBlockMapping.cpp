@@ -3,6 +3,7 @@
 #include <iGameThreadPool.h>
 #include <iGameBoundingBox.h>
 #include <cmath>
+#include <mutex>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
 
@@ -29,33 +30,41 @@ struct VoxelGrid {
 };
 
 // 从 partedMesh 的质心和 part_id 构建体素网格
-// 单线程（PointFinder 非线程安全），但体素数远少于 oriMesh cell 数
 VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
                           ArrayObject::Pointer partIdArray) {
     const int M = static_cast<int>(partedMesh->GetNumberOfCells());
 
-    // 1. 收集 partedMesh 各 cell 的质心和 part_id
+    // 1. 并行收集 partedMesh 各 cell 的质心和 part_id
+    //    使用 GetCellPointIds（只读指针版本）保证线程安全，避免 GetCell() 内部的共享缓存写入
     auto pts = Points::New();
-    pts->Reserve(M);
+    pts->SetNumberOfPoints(M);
     std::vector<int> seedPartIds(M);
 
-    for (int i = 0; i < M; i++) {
-        auto cell = partedMesh->GetCell(i);
-        int n = cell->GetNumberOfPoints();
-        Vector3d c(0.0, 0.0, 0.0);
-        for (int pi = 0; pi < n; pi++) {
-            auto& p = cell->GetPoint(pi);
-            c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
-        }
-        if (n > 0) { c[0] /= n; c[1] /= n; c[2] /= n; }
-        pts->AddPoint(c);
-        seedPartIds[i] = static_cast<int>(partIdArray->GetElementValue(i, 0));
-    }
-
-    // 2. 建包围盒
+    std::mutex bboxMutex;
     BoundingBox bbox;
     bbox.reset();
-    for (int i = 0; i < M; i++) bbox.add(pts->GetPoint(i));
+
+    ThreadPool::parallelFor(0, M, [&](int s, int e) {
+        BoundingBox localBbox;
+        localBbox.reset();
+        for (int i = s; i < e; i++) {
+            const igIndex* ptIds = nullptr;
+            int n = partedMesh->GetCellPointIds(i, ptIds);
+            Vector3d c(0.0, 0.0, 0.0);
+            for (int pi = 0; pi < n; pi++) {
+                auto& p = partedMesh->GetPoint(ptIds[pi]);
+                c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
+            }
+            if (n > 0) { c[0] /= n; c[1] /= n; c[2] /= n; }
+            pts->SetPoint(i, c);
+            localBbox.add(c);
+            seedPartIds[i] = static_cast<int>(partIdArray->GetElementValue(i, 0));
+        }
+        std::lock_guard<std::mutex> lock(bboxMutex);
+        bbox.add(localBbox);
+    });
+
+    // 2. 包围盒加 padding
     double pad = bbox.diagVector().maxCoeff() * 0.01;
     bbox.min -= pad;
     bbox.max += pad;
