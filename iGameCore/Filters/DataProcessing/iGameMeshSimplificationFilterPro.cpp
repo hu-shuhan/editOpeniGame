@@ -6,6 +6,7 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <iomanip>
+#include <numeric>
 
 IGAME_NAMESPACE_BEGIN
 namespace meshsmp
@@ -420,7 +421,8 @@ private:
 
 class TriMeshInternalSimplifier {
 public:
-    TriMeshInternalSimplifier(std::vector<int_t>& Indices, const std::vector<Point3>& VertexPositions,
+    TriMeshInternalSimplifier(std::vector<int_t>& Indices, std::vector<int_t>& FaceId,
+                              const std::vector<Point3>& VertexPositions,
                               const std::vector<Attribute>& VertexAttributes,
                               const std::vector<float>& AttributeWeights, size_t TargetCount, float TargetError,
                               bool PreserveBoundary = true);
@@ -482,6 +484,7 @@ private:
 
     //-------------- Input's Data--------------//
     std::vector<int_t>& Indices;                    // 三角形索引数组
+    std::vector<int_t>& FaceId;                     // 每个三角形对应的原始面ID，随Indices同步压缩
     const std::vector<Point3>& VertexPositions;     // 顶点数组
     const std::vector<Attribute>& VertexAttributes; // 顶点的属性数组
     const std::vector<float>& AttributeWeights;     // 属性权重数组
@@ -506,14 +509,14 @@ private:
     std::vector<unsigned char> VertexBoundary;// 用于标记顶点是否是边界顶点
 };
 
-TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices,
+TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices, std::vector<int_t>& FaceId,
                                                      const std::vector<Point3>& VertexPositions,
                                                      const std::vector<Attribute>& VertexAttributes,
                                                      const std::vector<float>& AttributeWeights, size_t TargetCount,
                                                      float TargetError, bool PreserveBoundary)
-    : Indices(Indices), VertexPositions(VertexPositions), VertexAttributes(VertexAttributes),
+    : Indices(Indices), FaceId(FaceId), VertexPositions(VertexPositions), VertexAttributes(VertexAttributes),
       AttributeWeights(AttributeWeights), TargetCount(TargetCount), TargetError(TargetError),
-      PreserveBoundary(PreserveBoundary) 
+      PreserveBoundary(PreserveBoundary)
 {
     IndexCount = Indices.size();
     VertexCount = VertexPositions.size();
@@ -1118,6 +1121,7 @@ size_t TriMeshInternalSimplifier::RemapIndices() {
             Indices[k + 0] = v0;
             Indices[k + 1] = v1;
             Indices[k + 2] = v2;
+            FaceId[k / 3] = FaceId[i / 3];
             k += 3;
         }
     }
@@ -2369,6 +2373,8 @@ bool MeshSimplificationFilterPro::Execute() {
         std::vector<unsigned char> PointDegree(Mesh->GetNumberOfPoints(), 0);
         std::vector<std::vector<float>> AttrData;
         AttributeSet::Pointer AttrSet = AttributeSet::New();
+        // 记录被精确直通的分类属性(如part_id/blockid)：<原始面属性数组, 在AttrSet中的占位下标>
+        std::vector<std::pair<ArrayObject::Pointer, IGsize>> BlockMappingAttrs;
 
         if (TargetFaceCount != 0) {
             TargetCount = TargetFaceCount * 3;
@@ -2390,8 +2396,24 @@ bool MeshSimplificationFilterPro::Execute() {
         }
         RescalePositions(VertexPositions, Mesh->GetPoints());
 
+        // 每个三角形对应的原始面ID，随简化过程中的三角形压缩同步更新，
+        // 用于简化后精确回填分类属性(如blockid)，避免被当成连续数值插值
+        std::vector<int_t> FaceId(Mesh->GetNumberOfFaces());
+        std::iota(FaceId.begin(), FaceId.end(), 0);
+
         for (int i = 0; Mesh->GetAttributeSet() && i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
             auto& attr = Mesh->GetAttributeSet()->GetAttribute(i);
+            if (attr.type == IG_BLOCK_MAPPING) {
+                // 分类型属性(如part_id/blockid)：不参与quadric误差计算与点属性摊平，
+                // 简化结束后按FaceId精确直通取值，见Simplifier.DoWork()之后的回填逻辑
+                int dim = attr.pointer->GetDimension();
+                IntArray::Pointer placeholder = IntArray::New();
+                placeholder->SetDimension(dim);
+                placeholder->SetName(attr.pointer->GetName());
+                IGsize idx = AttrSet->AddAttribute(attr.type, IG_CELL, placeholder);
+                BlockMappingAttrs.push_back({attr.pointer, idx});
+                continue;
+            }
             if (attr.attachmentType == IG_POINT) {
                 int dim = attr.pointer->GetDimension();
 
@@ -2447,9 +2469,24 @@ bool MeshSimplificationFilterPro::Execute() {
 
         TargetError = 1.f;
 
-        TriMeshInternalSimplifier Simplifier(Indices, VertexPositions, VertexAttributes, AttributeWeights, TargetCount,
-                                             TargetError);
+        TriMeshInternalSimplifier Simplifier(Indices, FaceId, VertexPositions, VertexAttributes, AttributeWeights,
+                                             TargetCount, TargetError);
         size_t IndexCount = Simplifier.DoWork();
+
+        // 精确直通分类属性(blockid等)：简化不会合成新三角形，每个存活三角形都对应FaceId记录的
+        // 某个原始面，直接按原始面的属性值取值即可，避免任何插值/量化导致的浮点误差
+        {
+            size_t NewFaceCount = IndexCount / 3;
+            int buf[IGAME_CELL_MAX_SIZE];
+            for (auto& [source, attrIndex] : BlockMappingAttrs) {
+                auto& target = AttrSet->GetAttribute(attrIndex);
+                target.pointer->Resize(NewFaceCount);
+                for (size_t j = 0; j < NewFaceCount; ++j) {
+                    source->GetElement(FaceId[j], buf);
+                    target.pointer->SetElement(j, buf);
+                }
+            }
+        }
 
         SurfaceMesh::Pointer NewMesh = SurfaceMesh::New();
         NewMesh->SetName(Mesh->GetName());
@@ -2477,10 +2514,11 @@ bool MeshSimplificationFilterPro::Execute() {
                 }
             }
 
-            for (int i = 0; i < AttrSet->GetNumberOfAttributes(); ++i) { 
+            for (int i = 0; i < AttrSet->GetNumberOfAttributes(); ++i) {
                 auto& attr = AttrSet->GetAttribute(i);
+                if (attr.type == IG_BLOCK_MAPPING) continue; // 按面存储，已在上面精确回填，不做按点压缩
                 for (int j = 0; j < IsDeleted.size(); j++) {
-                    if (!IsDeleted[j]) { 
+                    if (!IsDeleted[j]) {
                         attr.pointer->GetElement(j, cell);
                         attr.pointer->SetElement(PointMap[j], cell);
                     }
@@ -2506,6 +2544,7 @@ bool MeshSimplificationFilterPro::Execute() {
         {
             for (int i = 0; Mesh->GetAttributeSet() && i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
                 const auto& oldAttr = Mesh->GetAttributeSet()->GetAttribute(i);
+                if (oldAttr.type == IG_BLOCK_MAPPING) continue; // 已是精确的按面数据，无需按面平均重新推导
                 auto& attr = AttrSet->GetAttribute(i);
                 if (oldAttr.attachmentType == IG_CELL) {
                     int dim = attr.pointer->GetDimension();
