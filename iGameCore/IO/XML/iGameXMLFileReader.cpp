@@ -197,6 +197,26 @@ tinyxml2::XMLElement* iGameXMLFileReader::FindTargetAttributeItem(tinyxml2::XMLE
 	return res;
 }
 
+tinyxml2::XMLElement* iGameXMLFileReader::FindDirectChildAttributeItem(tinyxml2::XMLElement* parent,
+                                                                       const char* itemName,
+                                                                       const char* attributeName,
+                                                                       const char* attributeData) {
+    if (parent == nullptr) return nullptr;
+
+    for (tinyxml2::XMLElement* element = parent->FirstChildElement(itemName); element != nullptr;
+         element = element->NextSiblingElement(itemName)) {
+        const char* value = element->Attribute(attributeName);
+        if (value == nullptr) {
+            igDebug("XML element <{}> directly under <{}> has no '{}' attribute.", itemName, parent->Value(),
+                    attributeName);
+            continue;
+        }
+        if (strcmp(value, attributeData) == 0) return element;
+    }
+
+    return nullptr;
+}
+
 
 
 
