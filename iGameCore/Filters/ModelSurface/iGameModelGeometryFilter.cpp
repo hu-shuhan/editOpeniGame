@@ -467,28 +467,38 @@ struct ExtractCellBoundaries {
         std::fill(this->PointMap, this->PointMap + numPts, -1);
     }
 
-    void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints, Points::Pointer newPoints) {
-        auto ids = Polygons->GetCellIdArray()->RawPointer();
-        IGsize num = Polygons->GetNumberOfCellIds(); // 使用实际填充的数据量，而不是 buffer 的大小
-        igIndex id = 0;
-        igIndex oldId = 0;
+    void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints, Points::Pointer newPoints,
+                        CellArray::Pointer Edges = nullptr) {
         igIndex newId = 0;
-        Point p;
-        for (IGsize i = 0; i < num; i++) {
-            oldId = ids[i];
-            if (this->PointMap[oldId] == -1) {
-                //p = oldPoints->GetPoint(oldId);
-                //newPoints->AddPoint(p);
-                this->PointMap[oldId] = newId++;
+        const IGsize oldPointCount = oldPoints->GetNumberOfPoints();
+        auto markUsedPoints = [&](CellArray::Pointer cells) {
+            if (!cells) { return; }
+            auto ids = cells->GetCellIdArray()->RawPointer();
+            const IGsize num = cells->GetNumberOfCellIds();
+            for (IGsize i = 0; i < num; i++) {
+                const igIndex oldId = ids[i];
+                if (oldId >= 0 && oldId < oldPointCount && this->PointMap[oldId] == -1) {
+                    this->PointMap[oldId] = newId++;
+                }
             }
-        }
-        for (IGsize i = 0; i < num; i++) {
-            oldId = ids[i];
-            ids[i] = this->PointMap[oldId];
-        }
+        };
+        markUsedPoints(Polygons);
+        markUsedPoints(Edges);
+
+        auto remapCells = [&](CellArray::Pointer cells) {
+            if (!cells) { return; }
+            auto ids = cells->GetCellIdArray()->RawPointer();
+            const IGsize num = cells->GetNumberOfCellIds();
+            for (IGsize i = 0; i < num; i++) {
+                const igIndex oldId = ids[i];
+                ids[i] = (oldId >= 0 && oldId < oldPointCount) ? this->PointMap[oldId] : -1;
+            }
+        };
+        remapCells(Polygons);
+        remapCells(Edges);
+
         newPoints->Resize(newId);
-        auto pNum = oldPoints->GetNumberOfPoints();
-        for (IGsize i = 0; i < pNum; i++) {
+        for (IGsize i = 0; i < oldPointCount; i++) {
             if (this->PointMap[i] != -1) { newPoints->SetPoint(PointMap[i], oldPoints->GetPoint(i)); }
         }
     }
@@ -1040,7 +1050,8 @@ struct ExtractUG : public ExtractCellBoundaries {
                 //如果是虚拟Cell
                 if (isGhost && (Cell::GetCellDimension(cellType) < 3 || !this->RemoveGhostInterFaces)) { continue; }
                 if (!this->CellVis || this->CellVis[cellId]) {
-                    Mesh->GetCellPointIds(cellId, pts);
+                    npts = Mesh->GetCellPointIds(cellId, pts);
+                    if (npts <= 0) { continue; }
                     ExtractCellGeometry(this->Mesh, cellId, cellType, npts, pts, FacePool, FaceMap, isGhost);
                 }
             }
@@ -1116,14 +1127,70 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
     }
     std::vector<igIndex> f2c;
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
+
+    // A VTK unstructured grid may mix volumes, shells and beams.  The volume
+    // pass above intentionally uses a face hash to remove internal volume
+    // faces, but lower-dimensional cells must not participate in that
+    // cancellation: an explicit shell can legitimately coincide with a
+    // volume boundary.  Append shells separately and retain beams as drawable
+    // edges.
+    CellArray::Pointer explicitEdges = CellArray::New();
+    igIndex cellPoints[IGAME_CELL_MAX_SIZE];
+    for (igIndex sourceCellId = 0; sourceCellId < numCells; ++sourceCellId) {
+        if (CellVisible && !CellVisible[sourceCellId]) { continue; }
+
+        const IGenum cellType = Mesh->GetCellType(sourceCellId);
+        const int pointCount = Mesh->GetCellPointIds(sourceCellId, cellPoints);
+        if (pointCount <= 0) { continue; }
+
+        switch (cellType) {
+            case IG_FACE:
+            case IG_TRIANGLE:
+            case IG_QUAD:
+            case IG_POLYGON:
+                if (pointCount >= 3) {
+                    Polygons->AddCellIds(cellPoints, pointCount);
+                    f2c.emplace_back(sourceCellId);
+                }
+                break;
+            case IG_LINE:
+                if (pointCount >= 2) { explicitEdges->AddCellIds(cellPoints, 2); }
+                break;
+            case IG_POLY_LINE:
+                for (int pointId = 1; pointId < pointCount; ++pointId) {
+                    explicitEdges->AddCellId2(cellPoints[pointId - 1], cellPoints[pointId]);
+                }
+                break;
+            case IG_QUADRATIC_EDGE:
+                if (pointCount >= 3) {
+                    explicitEdges->AddCellId2(cellPoints[0], cellPoints[2]);
+                    explicitEdges->AddCellId2(cellPoints[2], cellPoints[1]);
+                } else if (pointCount == 2) {
+                    explicitEdges->AddCellIds(cellPoints, 2);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
     if (Merging) {
-        ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray);
+        ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray, explicitEdges);
     } else {
         m_PointMap = nullptr;
     }
     output->SetPoints(outPoints);
     output->SetFaces(Polygons);
+    if (explicitEdges->GetNumberOfCells() > 0) {
+        output->BuildEdges();
+        auto drawableEdges = output->GetEdges();
+        const igIndex* edgePoints = nullptr;
+        for (IGsize edgeId = 0; edgeId < explicitEdges->GetNumberOfCells(); ++edgeId) {
+            const int edgePointCount = explicitEdges->GetCellIds(edgeId, edgePoints);
+            drawableEdges->AddCellIds(edgePoints, edgePointCount);
+        }
+    }
     output->SetAttributeSet(outAllDataArray);
     output->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
     //igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
@@ -1428,9 +1495,9 @@ char* ModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& CellVisib
 }
 void ModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract, Points::Pointer inPoints,
                                              Points::Pointer& outPoints, CellArray::Pointer Polygons,
-                                             AttributeSet::Pointer outAllDataArray) {
+                                             AttributeSet::Pointer outAllDataArray, CellArray::Pointer Edges) {
     outPoints = Points::New();
-    extract->UpdatePointMap(Polygons, inPoints, outPoints);
+    extract->UpdatePointMap(Polygons, inPoints, outPoints, Edges);
     CompositePointAttribute(extract->GetPointMap()->RawPointer(), inPoints->GetNumberOfPoints(),
                             outPoints->GetNumberOfPoints(), outAllDataArray);
     m_PointMap = extract->GetPointMap();
