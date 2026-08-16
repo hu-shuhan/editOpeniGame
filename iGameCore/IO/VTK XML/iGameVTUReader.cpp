@@ -599,7 +599,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
     char* context = nullptr;
     m_CurrentElem = FindTargetItem(root, "Cells");
     ArrayObject::Pointer CellConnects = IntArray::New();
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "connectivity");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "connectivity");
     if(m_CurrentElem == nullptr) return CellConnects;
     /*For Process Appended data*/
     const char* offset = m_CurrentElem->Attribute("offset");
@@ -674,7 +674,8 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
     ArrayObject::Pointer CellOffsets = IntArray::New();
     //  Note that it need to add a zero index.
 
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
     if(m_CurrentElem == nullptr) return CellOffsets;
     /*For Process Appended data*/
     const char* offset = m_CurrentElem->Attribute("offset");
@@ -750,10 +751,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
     char* token;
     char* context = nullptr;
 
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
-
-    UnsignedCharArray::Pointer CellTypes = UnsignedCharArray::New();
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "types");
+    ArrayObject::Pointer CellTypes = UnsignedCharArray::New();
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "types");
     if(m_CurrentElem == nullptr) return CellTypes;
     /*For Process Appended data*/
     const char* offset = m_CurrentElem->Attribute("offset");
@@ -882,7 +882,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
 ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
     ArrayObject::Pointer FaceOffsets = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_offsets");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "face_offsets");
     if (m_CurrentElem == nullptr) return FaceOffsets;
 
     const char* data;
@@ -965,7 +965,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
 ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
     ArrayObject::Pointer PolyToFaces = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_to_faces");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_to_faces");
     if (m_CurrentElem == nullptr) return PolyToFaces;
 
     const char* data;
@@ -1043,11 +1043,11 @@ ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
 ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronOffsets() {
     ArrayObject::Pointer PolyOffsets = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_offsets");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_offsets");
     if (m_CurrentElem == nullptr)
     {
         m_CurrentElem = FindTargetItem(root, "Cells");
-        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faceoffsets");
+        m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "faceoffsets");
         if (m_CurrentElem == nullptr) return PolyOffsets;
     }
 
