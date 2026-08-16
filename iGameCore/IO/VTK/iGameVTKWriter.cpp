@@ -303,6 +303,7 @@ std::string VTKWriter::GenerateAttributeHeader(AttributeSet::Attribute attribute
     }
     switch (attribute.type) {
         case IG_SCALAR:
+        case IG_BLOCK_MAPPING:
             return "SCALARS " + ArrayName + type + ' ' + std::to_string(array->GetDimension()) +
                    "\nLOOKUP_TABLE default\n";
         case IG_VECTOR:
