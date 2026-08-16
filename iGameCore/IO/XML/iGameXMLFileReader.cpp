@@ -188,8 +188,13 @@ tinyxml2::XMLElement* iGameXMLFileReader::FindTargetItem(tinyxml2::XMLElement* r
 tinyxml2::XMLElement* iGameXMLFileReader::FindTargetAttributeItem(tinyxml2::XMLElement* root, const char* itemName, const char* attributeName,
 	const char* attributeData) {
 	if (root == nullptr) return nullptr;
-	if (strcmp(root->Value(), itemName) == 0 && strcmp(root->Attribute(attributeName), attributeData) == 0) {
-		return root;
+	if (strcmp(root->Value(), itemName) == 0) {
+        const char* value = root->Attribute(attributeName);
+        if (value == nullptr) {
+            igDebug("XML element <{}> has no '{}' attribute.", itemName, attributeName);
+        } else if (strcmp(value, attributeData) == 0) {
+            return root;
+        }
 	}
 	tinyxml2::XMLElement* res = FindTargetAttributeItem(root->FirstChildElement(), itemName, attributeName, attributeData);
 	if (res) return res;
