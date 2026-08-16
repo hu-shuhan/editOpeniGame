@@ -44,6 +44,11 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
         else this->m_ColorMapper->SetMapTypeToRGBSTEP();
         showScalarView();
     });
+	connect(ui->checkBox_EnableOpacityMapping, &QCheckBox::toggled, this,
+        [&](bool checked) {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (scene) { scene->SetOpacityMappingEnabled(checked); }
+        });
 }
 void igQtScalarViewWidget::loadScalarData() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -68,6 +73,8 @@ void igQtScalarViewWidget::loadScalarData() {
 		->GetAttribute(currentSelectedScalarIdx)
 		.pointer->GetName();
 	this->scalarDimension = obj->GetAttributeDimension();
+    QSignalBlocker blocker(ui->checkBox_EnableOpacityMapping);
+    ui->checkBox_EnableOpacityMapping->setChecked(scene->GetOpacityMappingEnabled());
 
 	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
 	if (dataRange) {
@@ -191,6 +198,7 @@ void igQtScalarViewWidget::showCustomScaleRangeWidget() {
 		QString::fromStdString(ossMax.str()));
 	this->SetCustomScaleRangeWidget->show();
 }
+
 void igQtScalarViewWidget::isShowColorLegend() { Q_EMIT changeColorBarShow(); }
 
 int igQtScalarViewWidget::getCurrentSelectedScalarIdx() {

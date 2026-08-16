@@ -108,7 +108,7 @@ void main() {
     vec4 fragColor;
     if (colorMode == 0) {
         vec3 color = uUseLighting == 1 ? ShadeFragment() : in_Color.rgb;
-        fragColor = vec4(color, objectData.transparent);
+        fragColor = vec4(color, in_Color.a * objectData.transparent);
     } else if (colorMode == 1) {
         fragColor = vec4(in_Color.rgb, in_Color.a * objectData.transparent);
     } else if (colorMode == 2) {

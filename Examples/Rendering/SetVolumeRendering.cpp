@@ -36,12 +36,11 @@ static void SetVolumeRendering() {
     // Rendering larger datasets or using full-screen mode may cause rendering errors or performance issues.
     scene->SetVolumeRendering(true); // Enable volume rendering for 3D visualization
 
-    // Enable scalar->opacity mapping: opacity follows the physical quantity linearly.
-    // The range is taken from the current scalar field (same as the color mapping range).
+    // Enable scalar->opacity mapping: opacity follows the physical quantity linearly,
+    // using the same normalization range as the color mapping.
     auto mapper = drawObj->GetColorMapper();
     if (mapper) {
-        double* rng = mapper->GetRange();
-        mapper->EnableOpacityMapping();
+        mapper->SetOpacityMappingEnabled(true);
     }
 
     // Set up the render window

@@ -304,6 +304,20 @@ public:
      * @brief 获取ColorBar2DActor对象（仅Web端）
      * @return ColorBar2DActor对象的智能指针
      */
+    void ToggleOpacityMappingEnabled();
+    /**
+     * @brief 设置是否启用不透明度映射
+     */
+    void SetOpacityMappingEnabled(bool enabled);
+    /**
+     * @brief 获取ColorBar的显示状态（仅Web端）
+     * @return 是否显示ColorBar
+     */
+    bool GetOpacityMappingEnabled() const;
+    /**
+     * @brief 获取ColorBar2DActor对象（仅Web端）
+     * @return ColorBar2DActor对象的智能指针
+     */
     SmartPointer<ColorBar2DActor> GetColorBar2DActor() const;
     /**
      * @brief 设置角标文本内容
@@ -494,6 +508,7 @@ protected:
     bool m_AxesVisible {true};
     SmartPointer<Axes> m_Axes;
     bool m_ColorBarVisible {false};
+    bool m_OpacityMappingEnabled {false};
     SmartPointer<ColorBar2DActor> m_ColorBar2DActor;
     SmartPointer<TextOverlay2DActor> m_TextOverlay2DActor;
 
