@@ -77,6 +77,12 @@ public:
     void SetPreserveBoundary(bool preserve);
 
     /**
+     * 设置指定要分析的属性场名称（与网格上通过 SetName 命名的属性一致）
+     * @param fields 属性场名称列表，为空表示分析所有属性场（默认）
+     */
+    void SetSpecifiedFields(const std::vector<std::string>& fields);
+
+    /**
      * 获取错误信息
      */
     std::string GetErrorMessage() const;
@@ -97,6 +103,9 @@ protected:
     float m_simplificationRatio;
     int m_timeoutMs;
     bool m_preserveBoundary;
+
+    // 指定要分析的属性场名称
+    std::vector<std::string> m_specifiedFields;
 
     // 状态
     std::string m_errorMessage;

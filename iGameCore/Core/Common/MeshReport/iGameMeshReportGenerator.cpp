@@ -40,6 +40,10 @@ void MeshReportGenerator::SetPreserveBoundary(bool preserve) {
     m_preserveBoundary = preserve;
 }
 
+void MeshReportGenerator::SetSpecifiedFields(const std::vector<std::string>& fields) {
+    m_specifiedFields = fields;
+}
+
 std::string MeshReportGenerator::GetErrorMessage() const {
     return m_errorMessage;
 }
@@ -214,6 +218,7 @@ bool MeshReportGenerator::sendToServer(const std::vector<uint8_t>& vtkData, std:
 
     MeshReportRequest request;
     request.vtkData = vtkData;
+    request.specifiedFields = m_specifiedFields;
 
     MeshReportResponse response;
     if (!client.requestReport(request, response)) {
