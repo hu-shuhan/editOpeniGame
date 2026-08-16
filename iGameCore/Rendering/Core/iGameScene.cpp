@@ -1736,6 +1736,30 @@ void Scene::SetColorBarVisible(bool visible) {
 
 bool Scene::GetColorBarVisible() const { return m_ColorBarVisible; }
 
+void Scene::ToggleOpacityMappingEnabled() { SetOpacityMappingEnabled(!m_OpacityMappingEnabled); }
+
+void Scene::SetOpacityMappingEnabled(bool enabled) {
+    if (m_OpacityMappingEnabled == enabled)
+        return ;
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); it++) {
+        auto model = it->second;
+        if (!model->GetDataObject()->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        auto mapper = drawObject->GetColorMapper();
+        int attrIdx = drawObject->GetAttributeIndex();
+        auto attrSet = drawObject->GetAttributeSet();
+        if (mapper && attrIdx >= 0 && attrSet &&
+            attrIdx < attrSet->GetNumberOfAttributes()) {
+            auto& attr = attrSet->GetAttribute(attrIdx);
+            if (attr.pointer) { mapper->SetOpacityMappingEnabled(enabled); }
+        }
+    }
+    m_OpacityMappingEnabled = enabled;
+    this->Modified();
+}
+
+bool Scene::GetOpacityMappingEnabled() const { return m_OpacityMappingEnabled; }
+
 SmartPointer<ColorBar2DActor> Scene::GetColorBar2DActor() const {
     return m_ColorBar2DActor;
 }
@@ -1858,19 +1882,20 @@ void Scene::SetVolumeRendering(bool toggled) {
         drawObject->SetShellRenderingOption(!toggled);
 
         // 开启体绘制，启用不透明度绘制
-        if (toggled) {
-            auto mapper = drawObject->GetColorMapper();
-            int attrIdx = drawObject->GetAttributeIndex();
-            auto attrSet = drawObject->GetAttributeSet();
-            if (mapper && attrIdx >= 0 && attrSet &&
-                attrIdx < attrSet->GetNumberOfAttributes()) {
-                auto& attr = attrSet->GetAttribute(attrIdx);
-                if (attr.pointer) {
-                    mapper->EnableOpacityMapping();
-                }
-            }
-        }
+        // if (toggled) {
+        //     auto mapper = drawObject->GetColorMapper();
+        //     int attrIdx = drawObject->GetAttributeIndex();
+        //     auto attrSet = drawObject->GetAttributeSet();
+        //     if (mapper && attrIdx >= 0 && attrSet &&
+        //         attrIdx < attrSet->GetNumberOfAttributes()) {
+        //         auto& attr = attrSet->GetAttribute(attrIdx);
+        //         if (attr.pointer) {
+        //             mapper->SetOpacityMappingEnabled(true);
+        //         }
+        //     }
+        // }
     }
+    SetOpacityMappingEnabled(false);
     Update();
 }
 
