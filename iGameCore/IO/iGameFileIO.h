@@ -37,6 +37,7 @@ public:
         RTH,
         BDF,
         IGCM,
+        D3PLOT,
         FILETYPE_COUNT
     };
 

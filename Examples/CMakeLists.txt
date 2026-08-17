@@ -134,6 +134,15 @@ if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyAnsysLib/ansys_to_pvd_converter.exe")
             "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyAnsysLib/ansys_to_pvd_converter.exe"
     )
 endif ()
+if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyLsDynaLib/lsdyna_to_pvd_converter.exe")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyLsDynaLib"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${_IGAME_EXAMPLE_PYTHON_DIR}/pyLsDynaLib/lsdyna_to_pvd_converter.exe"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyLsDynaLib/lsdyna_to_pvd_converter.exe"
+    )
+endif ()
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Models")
     list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -269,6 +278,7 @@ igame_add_example(testCASReader IO/CASReader.cpp)
 igame_add_example(testCCMReader IO/CCMReader.cpp)
 igame_add_example(testAnsysRSTReader IO/AnsysRSTReader.cpp)
 igame_add_example(testAnsysRTHReader IO/AnsysRTHReader.cpp)
+igame_add_example(testLsDynaReader IO/LsDynaReader.cpp)
 
 # Animation / Filters
 igame_add_example(testAnimation Animation/TestAnimation.cpp)

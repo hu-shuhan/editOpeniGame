@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by m_ky on 2024/4/22.
 //
 /**
@@ -101,6 +101,7 @@ void igQtFileLoader::LoadFile() {
 #if defined(NASTRAN_ENABLE)
         " *.bdf *.op2"
 #endif
+        " d3plot* *.d3plot"
         ")",
         "VTK file(*.vtk)",
         "CGNS file(*.cgns)",
@@ -115,7 +116,8 @@ void igQtFileLoader::LoadFile() {
         "Compression Manifest file(*.igcm)",
         "Fluent file(*.cas)",
         "STAR-CCM+ file(*.ccm)",
-        "Ansys file(*.rst *.rth)"
+        "Ansys file(*.rst *.rth)",
+        "LS-DYNA file(d3plot* *.d3plot)"
     };
     QString selectedFilter;
     QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
@@ -149,7 +151,10 @@ void igQtFileLoader::LoadFile() {
 //static DataObject::Pointer _obj;
 void igQtFileLoader::OpenFile(const std::string& filePath) {
     using namespace iGame;
-    if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
+    if (filePath.empty()) return;
+    // d3plot 文件无扩展名（d3plot / d3plot01 / ...），需放行；其余无扩展名文件仍拒绝
+    if (strrchr(filePath.data(), '.') == nullptr &&
+        FileIO::GetFileType(filePath) != FileIO::D3PLOT) return;
 
 #if defined(AbqSDK_ENABLE)
     // ODB 走专用读取路径（IsRuntimeAvailable 守卫 + step 弹窗），避免通用路径崩溃
@@ -204,7 +209,9 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     }
 
     const std::string& first_file_path = filePaths[0].toStdString();
-    if(strrchr(first_file_path.data(), '.') == nullptr) return;
+    // d3plot 文件无扩展名（d3plot / d3plot01 / ...），需放行；其余无扩展名文件仍拒绝
+    if (strrchr(first_file_path.data(), '.') == nullptr &&
+        FileIO::GetFileType(first_file_path) != FileIO::D3PLOT) return;
 
     // 检测 XML 后缀，使用 Spline 弹窗处理
     const char* ext = strrchr(first_file_path.data(), '.');
