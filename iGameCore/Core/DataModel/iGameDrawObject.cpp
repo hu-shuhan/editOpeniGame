@@ -67,7 +67,7 @@ DrawObject::DrawObject() {
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
     m_Colors = FloatArray::New();
-    m_Colors->SetDimension(3);
+    m_Colors->SetDimension(4);
     m_Normals = FloatArray::New();
     m_Normals->SetDimension(3);
     m_Textures = FloatArray::New();
@@ -89,7 +89,7 @@ DrawObject::DrawObject() {
     m_CellPositions = FloatArray::New();
     m_CellPositions->SetDimension(3);
     m_CellColors = FloatArray::New();
-    m_CellColors->SetDimension(3);
+    m_CellColors->SetDimension(4);
     m_CellTriangleEdgeMasks = UnsignedCharArray::New();
     m_CellTriangleEdgeMasks->SetDimension(1);
     m_CellEdgeMaskBuffer = GLBuffer::New();
@@ -117,6 +117,7 @@ DrawObject::DrawObject() {
 
     m_Clipper = iGameClipper::New();
     m_DefaultColor = igm::vec3{0.85f, 0.85f, 0.85f};
+    m_LineColor = igm::vec3{0.0f, 0.0f, 0.0f};
 }
 
 void DrawObject::SetDefaultColor(const igm::vec3& color) {
@@ -127,6 +128,15 @@ void DrawObject::SetDefaultColor(const igm::vec3& color) {
 }
 
 igm::vec3 DrawObject::GetDefaultColor() const { return m_DefaultColor; }
+
+void DrawObject::SetLineColor(const igm::vec3& color) {
+    m_LineColor = color;
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetLineColor(color); }
+    if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetLineColor(color); }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetLineColor, color); }
+}
+
+igm::vec3 DrawObject::GetLineColor() const { return m_LineColor; }
 
 void DrawObject::ConvertToDrawableData() {
     // 当多子块文件时，父节点为DrawObject，在这里处理子块
@@ -494,6 +504,7 @@ void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject
     renderableObject->m_UseColor = this->m_UseColor;
     renderableObject->m_ColorMapper = m_ColorMapper;
     renderableObject->m_DefaultColor = this->m_DefaultColor;
+    renderableObject->m_LineColor = this->m_LineColor;
     renderableObject->m_IsMainRenderableObject = false;
 }
 
@@ -509,6 +520,17 @@ void DrawObject::SetShellRenderingOption(bool option) {
 }
 
 bool DrawObject::GetShellRenderingOption() { return m_ShellRendering; }
+
+void DrawObject::SetOpacityMappingEnabled(bool enabled) {
+    auto mapper = this->GetColorMapper();
+    int attrIdx = this->GetAttributeIndex();
+    auto attrSet = this->GetAttributeSet();
+    if (mapper && attrIdx >= 0 && attrSet &&
+        attrIdx < attrSet->GetNumberOfAttributes()) {
+        auto& attr = attrSet->GetAttribute(attrIdx);
+        if (attr.pointer) { mapper->SetOpacityMappingEnabled(enabled); }
+    }
+}
 
 void DrawObject::SetAccelerationOption(bool enabled) {
 #ifdef IGAME_OPENGL_VERSION_330
@@ -817,8 +839,8 @@ void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Po
     GLSetVertexAttrib(VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT, GL_FALSE, 0);
 }
 void DrawObject::SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
-    VAO->VertexBuffer(GL_VBO_IDX_1, VBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT, GL_FALSE, 0);
+    VAO->VertexBuffer(GL_VBO_IDX_1, VBO, 0, 4 * sizeof(float));
+    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 4, GL_FLOAT, GL_FALSE, 0);
 }
 void DrawObject::SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
     VAO->VertexBuffer(GL_VBO_IDX_2, VBO, 0, 3 * sizeof(float));

@@ -1475,17 +1475,17 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
         }
     }
 
-    FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
+    FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension, 4);
     if (colors == nullptr) { return; }
 
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
     UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
     newPositions->SetDimension(3);
-    newColors->SetDimension(3);
+    newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
-    float color[3]{};
+    float color[4]{};
     for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
         Volume* volume = this->GetVolume(i);
         const igIndex* face;
@@ -1500,9 +1500,9 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
                 auto& p2 = volume->m_Points->GetPoint(face[k + 1]);
                 newPositions->AddElement3(p2[0], p2[1], p2[2]);
 
-                newColors->AddElement3(color[0], color[1], color[2]);
-                newColors->AddElement3(color[0], color[1], color[2]);
-                newColors->AddElement3(color[0], color[1], color[2]);
+                newColors->AddElement4(color[0], color[1], color[2], color[3]);
+                newColors->AddElement4(color[0], color[1], color[2], color[3]);
+                newColors->AddElement4(color[0], color[1], color[2], color[3]);
 
                 int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
                 newEdgeMasks->AddValue(mask);

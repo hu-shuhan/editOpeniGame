@@ -116,6 +116,24 @@ if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyNastranLib/nastran_to_vtk_cli.exe")
             "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyNastranLib/nastran_to_vtk_cli.exe"
     )
 endif ()
+if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyCCMLib/ccm_to_vtu_converter.exe")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyCCMLib"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${_IGAME_EXAMPLE_PYTHON_DIR}/pyCCMLib/ccm_to_vtu_converter.exe"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyCCMLib/ccm_to_vtu_converter.exe"
+    )
+endif ()
+if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyAnsysLib/ansys_to_pvd_converter.exe")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyAnsysLib"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${_IGAME_EXAMPLE_PYTHON_DIR}/pyAnsysLib/ansys_to_pvd_converter.exe"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyAnsysLib/ansys_to_pvd_converter.exe"
+    )
+endif ()
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Models")
     list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -248,6 +266,9 @@ if (ENABLE_NASTRAN_MODULE)
 endif ()
 
 igame_add_example(testCASReader IO/CASReader.cpp)
+igame_add_example(testCCMReader IO/CCMReader.cpp)
+igame_add_example(testAnsysRSTReader IO/AnsysRSTReader.cpp)
+igame_add_example(testAnsysRTHReader IO/AnsysRTHReader.cpp)
 
 # Animation / Filters
 igame_add_example(testAnimation Animation/TestAnimation.cpp)

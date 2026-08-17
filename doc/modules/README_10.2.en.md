@@ -6,7 +6,7 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 
 | # | Sub-feature | Status |
 |---|-------------|--------|
-| 1 | Classical physical features: gradient / curvature / Laplacian / vorticity | ✅ Implemented |
+| 1 | Classical physical features: gradient / curvature / Laplacian / vorticity / isolines and isosurfaces | ✅ Implemented |
 | 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
 | 3 | Key-region click / selection (points, cells, box) | ✅ Implemented (via Selection / 10.3; extractors run on the current attribute field) |
 | 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (time series / deformation in 11.3; region-limited deformation TBD) |
@@ -21,7 +21,9 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 
 ### Description
 
-From the currently selected physical attribute (scalar / vector), compute classical differential-geometry and fluid-mechanics feature scalars on the mesh, write them into `AttributeSet`, and display them as cloud maps for downstream vortex detection and region analysis.
+From the currently selected physical attribute (scalar / vector), extract classical differential-geometry and fluid-mechanics features on the mesh for downstream vortex detection and region analysis. They fall into two groups by **output form**:
+
+**A. Feature scalar fields**: written into the source model's `AttributeSet` and displayable as cloud maps.
 
 | Feature | Output attribute | Notes |
 |---------|------------------|-------|
@@ -30,14 +32,30 @@ From the currently selected physical attribute (scalar / vector), compute classi
 | Laplacian | `laplacians` | Discrete Laplacian |
 | Vorticity | `vorticities` | Classical \(\omega = \nabla \times v\) (not neural) |
 
+**B. Feature geometry**: the result is a **new mesh object** added to the model tree as its own model, rather than an appended attribute.
+
+| Feature | Output | Notes |
+|---------|--------|-------|
+| Isolines / isosurfaces | New `UnstructuredMesh` named `<name>_Contour` | Contours of a scalar field at given iso values; several iso values may be passed at once |
+
+Isolines and isosurfaces are the **same algorithm** (`ContourFilter`) dispatching on the dimension of each input cell:
+
+| Input cell | Output cell | Result |
+|------------|-------------|--------|
+| 2D cells (triangle / quad / polygon and their quadratic forms) | `IG_LINE` | **Isolines** (marching-squares style case tables) |
+| 3D cells (tet / hex / prism / pyramid / polyhedron and their quadratic forms) | `IG_TRIANGLE` | **Isosurfaces** (marching-tetrahedra style case tables) |
+
+Polygons are fan-triangulated first and then treated as triangles; polyhedra go through `clipCelltoTetra()` and are then treated as tetrahedra. A mixed mesh yields both line segments and triangles in the same output `UnstructuredMesh`. Point / cell attributes of the source model are remapped onto the contour via the interpolated edges and originating cells, so the contour object itself can be colored.
+
 ### Supported Mesh Types (important)
 
-The four features split into two groups whose input requirements are opposite:
+Input requirements differ per feature — the first two groups are in fact opposites:
 
 | Feature | Required input | What to do with a volume mesh (3D cells) |
 |---------|----------------|------------------------------------------|
 | Gradient / Curvature / Laplacian | **Surface mesh** (all 2D cells) | Run **Surface Extraction** first, then compute on the extracted surface |
 | Vorticity | **3D volume cells** | Compute directly on the volume mesh; a surface-only mesh is not supported |
+| Isolines / isosurfaces | Surface, volume, unstructured and structured meshes — **all accepted** | Run it directly: 2D cells give isolines, 3D cells give isosurfaces; no surface extraction needed |
 
 A **surface mesh** (`IG_SURFACE_MESH`, or an `IG_UNSTRUCTURED_MESH` made entirely of 2D cells) takes gradient / curvature / Laplacian directly.
 
@@ -62,6 +80,9 @@ Running these three directly on a volume mesh raises `Not Surface Mesh !`. That 
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | Curvature |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
 | `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | Classical vorticity |
+| `iGameCore/Filters/Contour/iGameContourFilter.*` | `ContourFilter` | Isolines / isosurfaces (dispatched by cell dimension) |
+| `iGameCore/Filters/Contour/iGameCellContour.h` | `CellContour::Contour` | Per-cell case tables and edge interpolation |
+| `Qt/src/IQWidgets/igQtContourExtractWidget.*` | `igQtContourExtractWidget` | Contour-extraction dock |
 | `iGameCore/Filters/iGameFilterIncludes.h` | — | Shared includes |
 
 ### How It Is Called
@@ -81,6 +102,40 @@ drawObj->ViewCloudPicture(scene, newIndex);
 
 Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByIndex/Name` → `Execute()`; results are appended to `AttributeSet`.
 
+**Isolines / isosurfaces** use a different interface — driven by values rather than an attribute index, and producing a new mesh. From `Examples/Filter/TestContourLine.cpp`:
+
+```cpp
+auto obj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
+
+auto pointAttributes = obj->GetAttributeSet()->GetAllPointAttributes();  // point scalars only
+auto& attr = pointAttributes->GetElement(index);
+auto array = attr.pointer;
+auto range = attr.GetDataRange();
+int dimension = 0;                      // which component of a multi-component attribute
+
+// Several iso values may be passed at once; results are merged into one output mesh
+std::vector<double> values;
+values.push_back(range->GetValue(dimension * 2 + 2) * 2 / 3 + range->GetValue(dimension * 2 + 3) / 3);
+values.push_back(range->GetValue(dimension * 2 + 2) / 3 + range->GetValue(dimension * 2 + 3) * 2 / 3);
+
+auto filter = iGame::ContourFilter::New();
+filter->SetInput(obj);
+filter->SetIsoScalarData(array, values, dimension);   // single value: SetIsoScalarData(array, value, dimension)
+filter->Execute();
+
+auto res = filter->GetContourMesh();    // or GetOutput(); an UnstructuredMesh
+scene->AddModel(res);
+auto draw = iGame::DynamicCast<iGame::DrawObject>(res);
+draw->SetViewStyle(IG_SURFACE | IG_WIREFRAME);        // isolines are line cells — IG_WIREFRAME is required
+draw->ViewCloudPicture(scene, index, dimension);
+```
+
+Three caveats:
+
+- **Point scalars only**: the GUI's attribute combo box comes from `GetAllPointAttributes()`; cell attributes are not offered.
+- **View style**: `DrawObject` defaults to `IG_SURFACE` only, while an isoline output is all line cells with no triangles — without `IG_WIREFRAME` you get the right point/cell counts and an empty viewport. The GUI sets this automatically from the output cell dimensions.
+- **Iso values outside the data range** intersect no cell, so the output is empty; the GUI reports this instead of producing an empty model.
+
 ### GUI
 
 | Menu item | Filter | Required input |
@@ -90,12 +145,14 @@ Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByI
 | Filters → Feature Extraction → Compute Laplacian | `LaplacianFilter` | Surface mesh |
 | Filters → Feature Extraction → Compute Curvature | `CurvatureFilter` | Surface mesh |
 | Filters → Feature Extraction → Compute Vorticity | `VortexFilter` | 3D volume cells |
+| Tool panel → Contour Extraction (isolines/isosurfaces) / `action_ContourExtract` | `dockWidget_ContourExtract`: pick a point scalar, a component, and an iso value | Any mesh |
 
 Typical order of operations:
 
 - **Surface mesh**: select the model → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
 - **Volume mesh**: select the model → Data Processing → Surface Extraction → select the new `<name>_surface` node → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
 - **Vorticity**: no extraction needed — select the velocity vector attribute on the volume mesh and run it
+- **Isolines / isosurfaces**: select the model → open the Contour Extraction panel → pick a point scalar and component (the panel shows that component's value range) → enter an iso value → run. The result joins the model tree as its own model `<name>_Contour`, can be shown / hidden / colored independently, and re-running with a new value updates the same result object in place
 
 Results appear in the model-tree attribute list and can be shown via `dockWidget_ScalarField` / `igQtScalarViewWidget`.
 
@@ -107,6 +164,7 @@ Results appear in the model-tree attribute list and can be shown via `dockWidget
 | `testCurvatureExtraction` | Curvature |
 | `testLaplacianExtraction` | Laplacian |
 | `testVortexExtraction` | Classical vorticity |
+| `testContourLine` | Isolines / isosurfaces (`./Models/Tet_Plane.vtk`, three iso values at once) |
 
 Test data: `test/Feature Extraction Test/`.
 
@@ -288,4 +346,5 @@ Click / box-select key region → write deformation offsets only for that set �
 | `testCurvatureExtraction` | Curvature | default |
 | `testLaplacianExtraction` | Laplacian | default |
 | `testVortexExtraction` | Classical vorticity | default |
+| `testContourLine` | Isolines / isosurfaces | default |
 | `testVortexDetection` | NN vortex detection | `ENABLE_LIBTORCH_MODULE=ON` |
