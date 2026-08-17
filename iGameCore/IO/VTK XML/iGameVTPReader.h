@@ -7,8 +7,6 @@
 
 #include "iGameVTUReader.h"
 
-#include <vector>
-
 namespace tinyxml2 {
 class XMLElement;
 }
@@ -34,7 +32,6 @@ private:
     bool ReadVTPCellData();
     bool ReadPolyDataCells(const char* sectionName, bool asLines, bool asTriangleStrips);
     ArrayObject::Pointer ReadPolyDataIndexArray(tinyxml2::XMLElement* section, const char* arrayName, bool prependZero);
-    bool ReadRawAppendedPayloadFromSource(size_t offset, std::vector<unsigned char>& output);
 };
 
 IGAME_NAMESPACE_END
