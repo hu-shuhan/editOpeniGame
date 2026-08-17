@@ -1987,7 +1987,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         testAction->setObjectName(QString::fromUtf8("MeshSplit"));
         testAction->setText(QString::fromUtf8("MeshSplit"));
         ui->menu_filters->addAction(testAction);
-        testAction->setVisible(false);
+        testAction->setVisible(true);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
 #define TEST_MAP_BACK
 #ifdef TEST_MAP_BACK
@@ -1997,7 +1997,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 return;
             }
 
-            auto obj = iGame::FileIO::ReadFile("D:/RealStudy/editOpeniGame/Examples/Models/segment_result.vtk");
+            auto obj = iGame::FileIO::ReadFile("C:\\Users\\26280\\Downloads\\output_p600000_pr4000_t0.95_s42_npp.vtk");
             if (!obj) {
                 std::cout << "[Block Mapping Test] Failed to read segment_result.vtk." << std::endl;
                 return;
@@ -2060,8 +2060,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         });
     }
     //############# TESTS ED #############
+    // PartSegmentation零件分割
     {
-        // PartSegmentation零件分割
         QAction* partSegmentationAction{};
         partSegmentationAction = new QAction(this);
         partSegmentationAction->setObjectName(QString::fromUtf8("零件分割"));
@@ -2144,6 +2144,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             modelTreeWidget->updateAllAttriubute(dataObj);
             std::cout << "[PartSegmentation] Segmentation complete! Parts: "
                       << segmenter->GetPartCount() << std::endl;
+        });
+    }
+    // 零件分割（自文件）
+    {
+        QAction* partSegmentationAction_fromFile{};
+        partSegmentationAction_fromFile = new QAction(this);
+        partSegmentationAction_fromFile->setObjectName(QString::fromUtf8("零件分割(自文件)"));
+        partSegmentationAction_fromFile->setText(QString::fromUtf8("零件分割(自文件)"));
+        ui->menu_filters->addAction(partSegmentationAction_fromFile);
+        partSegmentationAction_fromFile->setVisible(true);
+        connect(partSegmentationAction_fromFile, &QAction::triggered, this, [&](bool checked) {
         });
     }
     // 零件聚焦弹窗
