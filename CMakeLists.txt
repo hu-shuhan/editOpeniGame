@@ -23,6 +23,9 @@ option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" ON)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." ON)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 option(ENABLE_WASM "Build WASM Target." OFF)
+option(IGAME_DEPLOY_ABAQUS_RUNTIME
+        "Copy Abaqus runtime DLLs beside built/installed binaries (normally keep OFF and use the user's installation)."
+        OFF)
 
 set(IGAME_RENDER_BACKEND "DesktopGL" CACHE STRING "Rendering backend: DesktopGL or GLES2")
 set_property(CACHE IGAME_RENDER_BACKEND PROPERTY STRINGS DesktopGL GLES2)
@@ -147,7 +150,8 @@ if (ENABLE_QT_MODULE)
     if (WIN32)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-        if (IGAME_ABQ_RUNTIME_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
+        if (IGAME_DEPLOY_ABAQUS_RUNTIME AND
+                IGAME_ABQ_RUNTIME_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
             add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                     COMMAND ${CMAKE_COMMAND}
                     "-DIGAME_RUNTIME_SEARCH_DIR=${IGAME_ABQ_RUNTIME_DIR}"

@@ -54,7 +54,7 @@ public:
             return;
         }
         int chunkSize = (range + numThreads - 1) / numThreads;
-        // std::cout << "The number of threads uesd  is " << numThreads << '\n';
+        std::cout << "The number of threads uesd  is " << numThreads << '\n';
         std::vector<std::future<void>> futures;
         for (int i = 0; i < numThreads; ++i) {
             int chunkStart = start + i * chunkSize;
@@ -62,7 +62,7 @@ public:
             int chunkEnd = (i == numThreads - 1) ? end : std::min(end, chunkStart + chunkSize);
             if (chunkStart == chunkEnd) { continue; }
             // 使用线程池提交任务
-            //std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
+            std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
             futures.emplace_back(ThreadPool::Instance()->Commit([=]() { process(chunkStart, chunkEnd); }));
         }
         // 等待所有任务完成
@@ -96,7 +96,7 @@ public:
             return;
         }
         int chunkSize = (range + numThreads - 1) / numThreads;
-        // std::cout << "The number of threads uesd  is " << numThreads << '\n';
+        std::cout << "The number of threads uesd  is " << numThreads << '\n';
         std::vector<std::thread> threads;
         for (int i = 0; i < numThreads; ++i) {
             int chunkStart = start + i * chunkSize;
@@ -134,7 +134,7 @@ public:
 
 private:
     ThreadPool(unsigned int num = std::thread::hardware_concurrency()) : stop_(false) {
-        //std::cout << "Thread number: " << num << std::endl;
+        std::cout << "Thread number: " << num << std::endl;
 #if IGAME_EMSCRIPTEN_SINGLE_THREAD
         thread_num_ = 1;
 #else

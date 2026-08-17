@@ -1,4 +1,4 @@
-﻿#include "iGameLagrangeUnstructuredMesh.h"
+#include "iGameLagrangeUnstructuredMesh.h"
 #include "iGameDataObject.h"
 #include "iGameVolume.h"
 #include <cmath>
@@ -625,7 +625,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
     UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
 
     newPositions->SetDimension(3);
-    newColors->SetDimension(3);
+    newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
     IGsize numTriangles = m_TriangleIndices->GetNumberOfElements() / 3;
@@ -633,7 +633,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
     newColors->Reserve(numTriangles * 3);
     newEdgeMasks->Reserve(numTriangles);
 
-    float color[3]{};
+    float color[4]{};
     igIndex vertexIds[3]{};
 
     for (int i = 0; i < GetNumberOfCells(); ++i) {
@@ -673,7 +673,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
             tesselateEachFace(face_cell);
     }
 
-    FloatArray::Pointer trianglePointRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
+    FloatArray::Pointer trianglePointRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension, 4);
     if (trianglePointRGBColors == nullptr) { return; }
 
     // 遍历所有细分后的三角形
@@ -689,7 +689,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
             float p[3];
             m_Positions->GetElement(vertexIds[j], p);
             newPositions->AddElement3(p[0], p[1], p[2]);
-            newColors->AddElement3(color[0], color[1], color[2]);
+            newColors->AddElement4(color[0], color[1], color[2], color[3]);
             // TODO: 这里的边掩码需要根据具体需求进行调整
             // newEdgeMasks.AddValue();
         }
@@ -734,7 +734,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
     UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
 
     newPositions->SetDimension(3);
-    newColors->SetDimension(3);
+    newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
     IGsize numTriangles = m_TriangleIndices->GetNumberOfElements() / 3;
@@ -742,7 +742,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
     newColors->Reserve(numTriangles * 3);
     newEdgeMasks->Reserve(numTriangles);
 
-    float color[3]{};
+    float color[4]{};
     igIndex vertexIds[3]{};
 
     for (int i = 0; i < GetNumberOfCells(); ++i) {
@@ -775,7 +775,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
             tesselateEachFace(face_cell);
     }
 
-    FloatArray::Pointer triangleRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
+    FloatArray::Pointer triangleRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension, 4);
     if (triangleRGBColors == nullptr) { return; }
 
     // 遍历所有细分后的三角形
@@ -790,7 +790,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
             float p[3];
             m_Positions->GetElement(vertexIds[j], p);
             newPositions->AddElement3(p[0], p[1], p[2]);
-            newColors->AddElement3(color[0], color[1], color[2]);
+            newColors->AddElement4(color[0], color[1], color[2], color[3]);
             // TODO: 这里的边掩码需要根据具体需求进行调整
             // newEdgeMasks.AddValue();
         }

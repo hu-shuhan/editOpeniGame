@@ -13,6 +13,7 @@
 #include "VTK/iGameVTKAbstractReader.h"
 
 #include <tinyxml2.h>
+#include <fstream>
 
 namespace {
     // Platform-specific tokenizer
@@ -61,6 +62,12 @@ namespace {
 
 IGAME_NAMESPACE_BEGIN
 bool iGame::iGameVTUReader::Parsing() {
+	m_Header_8_byte_flag = false;
+    m_parseRawBinaryData = false;
+    m_AppendedDataHead = nullptr;
+    m_DataArrayDecodeFailed = false;
+    m_DataArrayDecodeError.clear();
+    m_DataArraySourceBuffer.clear();
 	const char* data;
 	const char* attribute;
 	const char* delimiters = " \n";
@@ -91,13 +98,16 @@ bool iGame::iGameVTUReader::Parsing() {
         if(!m_IndependentUpdate) UpdateProgress(0.1);
         //  find Points' position Data
         ReadPointData();
+        if (m_DataArrayDecodeFailed) return false;
         if(!m_IndependentUpdate) UpdateProgress(0.3);
         // find Points' Scalar Data
         ReadPointAttribute();
+        if (m_DataArrayDecodeFailed) return false;
     }
     // find Piece's Cell data.
     if(!m_IndependentUpdate) UpdateProgress(0.6);
     ReadCellData();
+    if (m_DataArrayDecodeFailed) return false;
     //   find Cell connectivity;
     if(!m_IndependentUpdate) UpdateProgress(0.8);
     auto CellConnects = ReadCellConnectivity();
@@ -107,6 +117,43 @@ bool iGame::iGameVTUReader::Parsing() {
     //   find Cell types;
 
     auto CellTypes = ReadCellTypes();
+    if (m_DataArrayDecodeFailed) return false;
+
+    // A VTK XML offsets array stores one end offset per cell. ReadCellOffsets
+    // prepends the zero required by iGame, so it must contain cellCount + 1
+    // entries here. Reject inconsistent topology before it can reach surface
+    // extraction, where a wrong cell type/arity would otherwise cause an
+    // out-of-bounds point-id access.
+    if (m_CellsNum >= 0) {
+        const auto expectedCellCount = static_cast<IGsize>(m_CellsNum);
+        if (CellTypes == nullptr || CellTypes->GetNumberOfElements() != expectedCellCount) {
+            igError("VTU cell type count mismatch: expected {}, got {}.", m_CellsNum,
+                    CellTypes == nullptr ? 0 : CellTypes->GetNumberOfElements());
+            return false;
+        }
+        if (CellOffsets == nullptr || CellOffsets->GetNumberOfElements() != expectedCellCount + 1) {
+            igError("VTU cell offset count mismatch: expected {}, got {}.", m_CellsNum + 1,
+                    CellOffsets == nullptr ? 0 : CellOffsets->GetNumberOfElements());
+            return false;
+        }
+        if (CellConnects == nullptr ||
+            static_cast<IGsize>(CellOffsets->GetValue(expectedCellCount)) !=
+                    CellConnects->GetNumberOfElements()) {
+            igError("VTU connectivity size does not match the final cell offset.");
+            return false;
+        }
+    }
+
+    if (m_PointsNum >= 0 && CellConnects != nullptr) {
+        for (IGsize i = 0; i < CellConnects->GetNumberOfElements(); ++i) {
+            const auto pointId = static_cast<int64_t>(CellConnects->GetValue(i));
+            if (pointId < 0 || pointId >= m_PointsNum) {
+                igError("VTU connectivity contains invalid point id {} at index {} (point count {}).", pointId, i,
+                        m_PointsNum);
+                return false;
+            }
+        }
+    }
 
     //   find Cell faces connectivity;
     auto CellFacesConnect = ReadCellFacesConnectivity();
@@ -116,11 +163,61 @@ bool iGame::iGameVTUReader::Parsing() {
     auto CellPolyToFaces = ReadCellPolyhedronToFaces();
     //   find Cell poly offset;
     auto CellPolyOffset = ReadCellPolyhedronOffsets();
+    if (m_DataArrayDecodeFailed) return false;
     VTKAbstractReader::TransferVtkCellToiGameCell(m_Output, CellOffsets, CellConnects, CellTypes, CellFacesConnect, CellFacesOffset, CellPolyToFaces, CellPolyOffset);
     if(!m_IndependentUpdate) UpdateProgress(1.0);
     m_Output->GetBoundingBox();
 //    DynamicCast<DrawObject>(m_Output)->SetShellRenderingOption(false);
 	return true;
+}
+
+bool iGameVTUReader::DecodeDataArrayPayload(tinyxml2::XMLElement* element, vtkxml::ByteBuffer& output) {
+    const char* format = element ? element->Attribute("format") : nullptr;
+    const char* appended = nullptr;
+    if (format != nullptr && std::strcmp(format, "appended") == 0) { appended = GetAppendDataHead(); }
+
+    vtkxml::DataArrayDecodeContext context;
+    context.root = root;
+    context.appendedData = appended;
+    context.sourceData = m_MemoryBuffer;
+    context.sourceSize = m_MemoryBufferSize;
+    if (format != nullptr && std::strcmp(format, "appended") == 0 && m_parseRawBinaryData &&
+        (context.sourceData == nullptr || context.sourceSize == 0)) {
+        if (m_DataArraySourceBuffer.empty()) {
+            std::ifstream stream(m_FilePath, std::ios::binary | std::ios::ate);
+            if (!stream) {
+                SetDataArrayDecodeError("cannot open the source file for raw AppendedData");
+                return false;
+            }
+            const std::streamsize size = stream.tellg();
+            if (size <= 0) {
+                SetDataArrayDecodeError("cannot determine the raw AppendedData source size");
+                return false;
+            }
+            m_DataArraySourceBuffer.resize(static_cast<std::size_t>(size));
+            stream.seekg(0, std::ios::beg);
+            if (!stream.read(m_DataArraySourceBuffer.data(), size)) {
+                m_DataArraySourceBuffer.clear();
+                SetDataArrayDecodeError("cannot read the source file for raw AppendedData");
+                return false;
+            }
+        }
+        context.sourceData = m_DataArraySourceBuffer.data();
+        context.sourceSize = m_DataArraySourceBuffer.size();
+    }
+    std::string error;
+    if (!vtkxml::DecodeDataArray(element, context, output, error)) {
+        const char* name = element ? element->Attribute("Name") : nullptr;
+        SetDataArrayDecodeError(std::string("DataArray '") + (name ? name : "<unnamed>") + "': " + error);
+        return false;
+    }
+    return true;
+}
+
+void iGameVTUReader::SetDataArrayDecodeError(const std::string& message) {
+    if (!m_DataArrayDecodeFailed) { igError("VTK XML data decode failed: {}", message); }
+    m_DataArrayDecodeFailed = true;
+    m_DataArrayDecodeError = message;
 }
 bool iGameVTUReader::CreateDataObject()
 {
@@ -189,8 +286,6 @@ bool iGameVTUReader::ReadPointData() {
                 dataSetPoints->AddPoint(p);
             }
         } else if(strcmp(attribute, "appended") == 0){
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
             if (!strncmp(type, "Float", 5)) {
                 //  Float32
                 if (!strncmp(type + 5, "32", 2)){
@@ -293,8 +388,6 @@ bool iGameVTUReader::ReadPointAttribute() {
                     delete[] ps;
                 }
                 else if(strcmp(attribute, "appended") == 0){
-                    long long offsetVal = std::atoll(offset);
-                    data_p = data_p + offsetVal;
                     //  Float32
                     if (!strncmp(type + 5, "32", 2)) {
                         FloatArray::Pointer arr = FloatArray::New();
@@ -352,8 +445,6 @@ bool iGameVTUReader::ReadPointAttribute() {
                     delete[] ps;
                 }
                 else if(strcmp(attribute, "appended") == 0){
-                    long long offsetVal = std::atoll(offset);
-                    data_p = data_p + offsetVal;
                     //  Int32
                     if (!strncmp(type + 3, "32", 2)) {
                         IntArray::Pointer arr = IntArray::New();
@@ -482,8 +573,6 @@ bool iGameVTUReader::ReadCellData() {
                     delete[] ps;
                 }
                 else if (strcmp(attribute, "appended") == 0) {
-                    long long offsetVal = std::atoll(offset);
-                    data_p = data_p + offsetVal;
                     //  Float32
                     if (!strncmp(type + 5, "32", 2)) {
                         FloatArray::Pointer arr = FloatArray::New();
@@ -541,8 +630,6 @@ bool iGameVTUReader::ReadCellData() {
                     delete[] ps;
                 }
                 else if (strcmp(attribute, "appended") == 0) {
-                    long long offsetVal = std::atoll(offset);
-                    data_p = data_p + offsetVal;
                     //  Int32
                     if (!strncmp(type + 3, "32", 2)) {
                         IntArray::Pointer arr = IntArray::New();
@@ -599,7 +686,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
     char* context = nullptr;
     m_CurrentElem = FindTargetItem(root, "Cells");
     ArrayObject::Pointer CellConnects = IntArray::New();
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "connectivity");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "connectivity");
     if(m_CurrentElem == nullptr) return CellConnects;
     /*For Process Appended data*/
     const char* offset = m_CurrentElem->Attribute("offset");
@@ -637,8 +724,6 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
             //  Int32
             if (!strncmp(attribute, "Int32", 5)) {
                 IntArray::Pointer arr = IntArray::New();
@@ -674,7 +759,8 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
     ArrayObject::Pointer CellOffsets = IntArray::New();
     //  Note that it need to add a zero index.
 
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
     if(m_CurrentElem == nullptr) return CellOffsets;
     /*For Process Appended data*/
     const char* offset = m_CurrentElem->Attribute("offset");
@@ -715,8 +801,6 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
             //  Int32
             if (!strncmp(attribute, "Int32", 5)) {
                 IntArray::Pointer arr = IntArray::New();
@@ -750,40 +834,76 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
     char* token;
     char* context = nullptr;
 
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
-
-    UnsignedCharArray::Pointer CellTypes = UnsignedCharArray::New();
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "types");
+    ArrayObject::Pointer CellTypes = UnsignedCharArray::New();
+    m_CurrentElem = FindTargetItem(root, "Cells");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "types");
     if(m_CurrentElem == nullptr) return CellTypes;
     /*For Process Appended data*/
     const char* offset = m_CurrentElem->Attribute("offset");
     if ((data = m_CurrentElem->GetText()) != nullptr || offset)
     {
-        CellTypes = UnsignedCharArray::New();
         char* data_p = data ? const_cast<char*>(data) : GetAppendDataHead();
         while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t') data_p++;
 
         attribute = m_CurrentElem->Attribute("format");
+        if (attribute == nullptr) {
+            igError("VTU cell types DataArray has no format attribute.");
+            return CellTypes;
+        }
         if (strcmp(attribute, "ascii") == 0) {
+            UnsignedCharArray::Pointer arr = UnsignedCharArray::New();
             int type = -1;
             token = ig_strtok(data_p, delimiters, &context);
             while (token)
             {
                 type = mAtoi(token);
-                CellTypes->AddValue(type);
+                arr->AddValue(type);
                 token = ig_strtok(nullptr, delimiters, &context);
             }
+            CellTypes = arr;
         }
-        else if (strcmp(attribute, "binary") == 0) {
-            ReadBase64EncodedArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
-        }
-        else if (strcmp(attribute, "appended") == 0) {
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
-            if(m_parseRawBinaryData){
-                ReadRawBinaryArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
+        else if (strcmp(attribute, "binary") == 0 || strcmp(attribute, "appended") == 0) {
+            const bool isAppended = strcmp(attribute, "appended") == 0;
+            if (isAppended && offset == nullptr) {
+                igError("Appended VTU cell types DataArray has no offset attribute.");
+                return CellTypes;
+            }
+
+            const bool readRaw = isAppended && m_parseRawBinaryData;
+            auto readArray = [&](auto arr, auto valueTag) -> ArrayObject::Pointer {
+                using ValueType = decltype(valueTag);
+                if (readRaw) {
+                    ReadRawBinaryArray<ValueType>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<ValueType>(m_Header_8_byte_flag, data_p, arr);
+                }
+                return arr;
+            };
+
+            const char* valueType = m_CurrentElem->Attribute("type");
+            if (valueType == nullptr) {
+                igError("VTU cell types DataArray has no type attribute.");
+                return CellTypes;
+            }
+
+            if (strcmp(valueType, "UInt8") == 0) {
+                CellTypes = readArray(UnsignedCharArray::New(), static_cast<unsigned char>(0));
+            } else if (strcmp(valueType, "Int8") == 0) {
+                CellTypes = readArray(CharArray::New(), static_cast<char>(0));
+            } else if (strcmp(valueType, "UInt16") == 0) {
+                CellTypes = readArray(UnsignedShortArray::New(), static_cast<unsigned short>(0));
+            } else if (strcmp(valueType, "Int16") == 0) {
+                CellTypes = readArray(ShortArray::New(), static_cast<short>(0));
+            } else if (strcmp(valueType, "UInt32") == 0) {
+                CellTypes = readArray(UnsignedIntArray::New(), static_cast<unsigned int>(0));
+            } else if (strcmp(valueType, "Int32") == 0) {
+                CellTypes = readArray(IntArray::New(), static_cast<int>(0));
+            } else if (strcmp(valueType, "UInt64") == 0) {
+                CellTypes = readArray(UnsignedLongLongArray::New(), static_cast<unsigned long long>(0));
+            } else if (strcmp(valueType, "Int64") == 0) {
+                CellTypes = readArray(LongLongArray::New(), static_cast<long long>(0));
             } else {
-                ReadBase64EncodedArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
+                igError("Unsupported VTU cell types DataArray type: {}", valueType);
             }
         }
     }
@@ -799,11 +919,11 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
 ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
     ArrayObject::Pointer Faces = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_connectivity");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "face_connectivity");
     if (m_CurrentElem == nullptr)
     {
         m_CurrentElem = FindTargetItem(root, "Cells");
-        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faces");
+        m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "faces");
         if (m_CurrentElem == nullptr) return Faces;
     }
 
@@ -848,8 +968,6 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
 
             // Int32
             if (attribute && !strncmp(attribute, "Int32", 5)) {
@@ -882,7 +1000,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
 ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
     ArrayObject::Pointer FaceOffsets = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_offsets");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "face_offsets");
     if (m_CurrentElem == nullptr) return FaceOffsets;
 
     const char* data;
@@ -929,8 +1047,6 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
 
             // Int32
             if (attribute && !strncmp(attribute, "Int32", 5)) {
@@ -965,7 +1081,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellFacesOffset() {
 ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
     ArrayObject::Pointer PolyToFaces = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_to_faces");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_to_faces");
     if (m_CurrentElem == nullptr) return PolyToFaces;
 
     const char* data;
@@ -1007,8 +1123,6 @@ ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
             }
         } else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
 
             // Int32
             if (attribute && !strncmp(attribute, "Int32", 5)) {
@@ -1043,11 +1157,11 @@ ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronToFaces() {
 ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronOffsets() {
     ArrayObject::Pointer PolyOffsets = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_offsets");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "polyhedron_offsets");
     if (m_CurrentElem == nullptr)
     {
         m_CurrentElem = FindTargetItem(root, "Cells");
-        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faceoffsets");
+        m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "faceoffsets");
         if (m_CurrentElem == nullptr) return PolyOffsets;
     }
 
@@ -1093,8 +1207,6 @@ ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronOffsets() {
             }
         } else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
 
             // Int32
             if (attribute && !strncmp(attribute, "Int32", 5)) {
@@ -1124,22 +1236,19 @@ ArrayObject::Pointer iGameVTUReader::ReadCellPolyhedronOffsets() {
 }
 
 char *iGameVTUReader::GetAppendDataHead() {
+    static char empty = '\0';
     if(m_AppendedDataHead == nullptr) {
         auto elem = FindTargetItem(root, "AppendedData");
-        auto attribute = elem->Attribute("encoding");
-        if(strncmp(attribute, "raw", 3) == 0) {
-            m_parseRawBinaryData = true;
-            m_AppendedDataHead = const_cast<char*>(FindTargetItem(root, "AppendedData")->GetText());
-            while (*m_AppendedDataHead == '\n' || *m_AppendedDataHead == ' ' || *m_AppendedDataHead == '\t') m_AppendedDataHead++;
-            if(*m_AppendedDataHead == '_') m_AppendedDataHead ++;
-//            IGAME_ERROR("Currently not Support XML mixed with raw Binary data and UTF-8 data.");
-//            return m_AppendedDataHead;
+        if (elem == nullptr) return &empty;
+        const char* encoding = elem->Attribute("encoding");
+        m_parseRawBinaryData = encoding != nullptr && std::strcmp(encoding, "raw") == 0;
+        m_AppendedDataHead = const_cast<char*>(elem->GetText());
+        if (m_AppendedDataHead == nullptr) return &empty;
+        while (*m_AppendedDataHead == '\n' || *m_AppendedDataHead == '\r' ||
+               *m_AppendedDataHead == ' ' || *m_AppendedDataHead == '\t') {
+            ++m_AppendedDataHead;
         }
-        else if(strncmp(attribute, "base64", 6) == 0){
-            m_AppendedDataHead = const_cast<char*>(FindTargetItem(root, "AppendedData")->GetText());
-            while (*m_AppendedDataHead == '\n' || *m_AppendedDataHead == ' ' || *m_AppendedDataHead == '\t') m_AppendedDataHead++;
-            if(*m_AppendedDataHead == '_') m_AppendedDataHead ++;
-        }
+        if(*m_AppendedDataHead == '_') ++m_AppendedDataHead;
     }
     return m_AppendedDataHead;
 }

@@ -14,7 +14,135 @@
 
 #include <utility>
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <mutex>
+#include <set>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+
 IGAME_NAMESPACE_BEGIN
+
+namespace {
+#if defined(_WIN32)
+std::mutex s_abaqusRuntimeMutex;
+bool s_abaqusRuntimeLoaded = false;
+std::string s_abaqusRuntimeError;
+std::vector<HMODULE> s_abaqusRuntimeModules;
+
+std::filesystem::path EnvironmentPath(const char* name) {
+    char* value = nullptr;
+    size_t valueLength = 0;
+    if (_dupenv_s(&value, &valueLength, name) != 0 || value == nullptr) {
+        return {};
+    }
+    std::filesystem::path result = std::filesystem::u8path(value);
+    free(value);
+    return result;
+}
+
+void AddRuntimeCandidate(std::vector<std::filesystem::path>& candidates,
+                         const std::filesystem::path& path) {
+    if (path.empty()) return;
+    candidates.push_back(path);
+    candidates.push_back(path / "win_b64" / "code" / "bin");
+    candidates.push_back(path / "code" / "bin");
+    candidates.push_back(path / "bin");
+}
+
+std::vector<std::filesystem::path> AbaqusRuntimeCandidates() {
+    std::vector<std::filesystem::path> candidates;
+
+    wchar_t executablePath[MAX_PATH] = {};
+    const DWORD pathLength = GetModuleFileNameW(nullptr, executablePath, MAX_PATH);
+    if (pathLength > 0 && pathLength < MAX_PATH) {
+        candidates.emplace_back(std::filesystem::path(executablePath).parent_path());
+    }
+
+    AddRuntimeCandidate(candidates, EnvironmentPath("IGAME_ABAQUS_RUNTIME_DIR"));
+    AddRuntimeCandidate(candidates, EnvironmentPath("ABAQUS_HOME"));
+    AddRuntimeCandidate(candidates, EnvironmentPath("ABAQUS_DIR"));
+    AddRuntimeCandidate(candidates, EnvironmentPath("SIMULIA_HOME"));
+
+    // The ODB C++ ABI is version-specific. Only auto-discover the version
+    // against which this executable was built; explicit environment variables
+    // above remain available for non-standard installation layouts.
+    for (const auto* drive : {L"C:", L"D:", L"E:"}) {
+        candidates.push_back(std::filesystem::path(drive) / "SIMULIA" /
+                "EstProducts" / IGAME_ABAQUS_VERSION /
+                "win_b64" / "code" / "bin");
+    }
+
+    std::set<std::filesystem::path> uniqueCandidates;
+    std::vector<std::filesystem::path> result;
+    for (auto& candidate : candidates) {
+        candidate = candidate.lexically_normal();
+        if (uniqueCandidates.insert(candidate).second) result.push_back(candidate);
+    }
+    return result;
+}
+
+bool LoadAbaqusRuntimeFrom(const std::filesystem::path& runtimeDirectory) {
+    const auto odbApiPath = runtimeDirectory / "ABQSMAOdbApi.dll";
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(odbApiPath, error)) return false;
+
+    // LOAD_WITH_ALTERED_SEARCH_PATH makes dependencies resolve beside the
+    // user's ABQSMAOdbApi.dll without permanently modifying process PATH.
+    HMODULE module = LoadLibraryExW(odbApiPath.c_str(), nullptr,
+                                    LOAD_WITH_ALTERED_SEARCH_PATH);
+    if (module == nullptr) {
+        s_abaqusRuntimeError = "Found Abaqus at " + runtimeDirectory.string() +
+                ", but its ODB runtime or one of its dependencies could not be loaded " +
+                "(Windows error " + std::to_string(GetLastError()) + ").";
+        return false;
+    }
+    s_abaqusRuntimeModules.push_back(module);
+    return true;
+}
+#endif
+} // namespace
+
+bool ODBReader::IsRuntimeAvailable(std::string* errorMessage) {
+#if defined(_WIN32)
+    std::lock_guard<std::mutex> lock(s_abaqusRuntimeMutex);
+    if (s_abaqusRuntimeLoaded) return true;
+
+    // First respect the normal Windows loader search path (application folder
+    // and PATH). This supports users who launch from an Abaqus command shell.
+    if (HMODULE module = LoadLibraryW(L"ABQSMAOdbApi.dll")) {
+        s_abaqusRuntimeModules.push_back(module);
+        s_abaqusRuntimeLoaded = true;
+        return true;
+    }
+
+    for (const auto& candidate : AbaqusRuntimeCandidates()) {
+        if (LoadAbaqusRuntimeFrom(candidate)) {
+            s_abaqusRuntimeLoaded = true;
+            s_abaqusRuntimeError.clear();
+            return true;
+        }
+    }
+
+    if (s_abaqusRuntimeError.empty()) {
+        s_abaqusRuntimeError =
+                "A compatible Abaqus ODB runtime was not found. Install the Abaqus "
+                "version used by this build, launch iGameVis from an Abaqus command "
+                "shell, or set IGAME_ABAQUS_RUNTIME_DIR to win_b64/code/bin.";
+    }
+    if (errorMessage != nullptr) *errorMessage = s_abaqusRuntimeError;
+    return false;
+#else
+    (void)errorMessage;
+    return true;
+#endif
+}
+
 /* Used for Update Progress : [0, 1]*/
 float s_current_progress = 0.f;
 float s_progress_coefficient = 1.f;
@@ -136,6 +264,7 @@ public:
 
 /* Public API: */
 DataObject::Pointer ODBReader::ReadOdbRawMesh(const std::string &filePath) {
+    if (!IsRuntimeAvailable()) return nullptr;
     m_NeedRequestMap = m_NeedRequestInstance = true;
     m_NeedRequestStep = false;
     SetFilePath(filePath);
@@ -144,6 +273,7 @@ DataObject::Pointer ODBReader::ReadOdbRawMesh(const std::string &filePath) {
     return this->GetOutput();
 }
 DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath) {
+    if (!IsRuntimeAvailable()) return nullptr;
     m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = true;
     SetFilePath(filePath);
     SetProgressCoefficient(0.5f);
@@ -159,6 +289,7 @@ DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath
     return outputObj;
 }
 DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath, const std::string &stepName) {
+    if (!IsRuntimeAvailable()) return nullptr;
     m_NeedRequestMap = m_NeedRequestInstance = true;
     m_NeedRequestStep = true;
     SetFilePath(filePath);
@@ -177,6 +308,7 @@ DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath
 }
 
 AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, int frame_idx) {
+    if (!IsRuntimeAvailable()) return nullptr;
     SetFilePath(filePath);
     m_NeedRequestInstance = m_NeedRequestStep = true;
     m_NeedRequestMap = true;
@@ -185,6 +317,7 @@ AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, i
     return nullptr;
 }
 AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, const std::string& stepName, int frame_idx) {
+    if (!IsRuntimeAvailable()) return nullptr;
     SetFilePath(filePath);
     m_NeedRequestInstance = true;
     m_NeedRequestStep = false;
@@ -818,6 +951,7 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
 
 std::vector<std::string> ODBReader::ReadOdbAllStep(const std::string &filePath) {
     std::vector<std::string> res;
+    if (!IsRuntimeAvailable()) return res;
     odb_initializeAPI();
     auto odb_ptr =&openOdb(odb_String(filePath.c_str()));
     odb_StepRepositoryIT stepIt(odb_ptr->steps());

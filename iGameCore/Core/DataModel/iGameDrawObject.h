@@ -85,6 +85,10 @@ public:
 
     void SetShellRenderingOption(bool option);
     bool GetShellRenderingOption();
+    void SetOpacityMappingEnabled(bool enabled);
+    bool GetOpacityMappingEnabled() {
+        return GetColorMapper() ? GetColorMapper()->GetOpacityMappingEnabled() : false;
+    }
 
     /**
      * @brief 设置是否启用加速渲染模式。
@@ -104,6 +108,9 @@ public:
     // 默认颜色（当未启用颜色映射时使用）
     void SetDefaultColor(const igm::vec3& color);
     igm::vec3 GetDefaultColor() const;
+
+    void SetLineColor(const igm::vec3& color);
+    igm::vec3 GetLineColor() const;
 
 protected:
     // OpenGL资源管理
@@ -188,6 +195,7 @@ protected:
     float m_Transparency;            // 透明度
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
     igm::vec3 m_DefaultColor;        // 默认颜色，范围 0.0-1.0
+    igm::vec3 m_LineColor;
 
     friend class Model;
     friend class Scene;

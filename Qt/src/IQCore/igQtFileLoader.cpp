@@ -50,14 +50,16 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas)",
+                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas *.ccm *.rst *.rth)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
                            "Compression file(*.igc)",
                            "Compression Manifest file(*.igcm)",
-                           "Fluent file(*.cas)"};
+                           "Fluent file(*.cas)",
+                           "STAR-CCM+ file(*.ccm)",
+                           "Ansys file(*.rst *.rth)"};
     QString selectedFilter;
     std::string filePath =
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
@@ -85,9 +87,14 @@ void igQtFileLoader::LoadOnlineC() {
 #endif
 }
 void igQtFileLoader::LoadFile() {
+    #if defined(AbqSDK_ENABLE)
+        igDebug("ABAQUS SDK is enabled.");
+    #else
+        igDebug("ABAQUS SDK is not enabled.");
+    #endif
     QStringList filters = {
         "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-        "*.vtm *.cgns *.igc *.igcm *.cas *.xml"
+        "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.rst *.rth *.xml"
 #if defined(AbqSDK_ENABLE)
         " *.odb"
 #endif
@@ -106,7 +113,9 @@ void igQtFileLoader::LoadFile() {
 #endif
         "Compression file(*.igc)",
         "Compression Manifest file(*.igcm)",
-        "Fluent file(*.cas)"
+        "Fluent file(*.cas)",
+        "STAR-CCM+ file(*.ccm)",
+        "Ansys file(*.rst *.rth)"
     };
     QString selectedFilter;
     QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
@@ -141,6 +150,20 @@ void igQtFileLoader::LoadFile() {
 void igQtFileLoader::OpenFile(const std::string& filePath) {
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
+
+#if defined(AbqSDK_ENABLE)
+    // ODB 走专用读取路径（IsRuntimeAvailable 守卫 + step 弹窗），避免通用路径崩溃
+    // 覆盖"最近文件/在线客户端"等经 OpenFile 打开的入口
+    const char* ext = strrchr(filePath.data(), '.');
+    if (ext != nullptr) {
+        std::string suffix(ext + 1);
+        std::transform(suffix.begin(), suffix.end(), suffix.begin(), ::tolower);
+        if (suffix == "odb") {
+            this->OpenODBFile(filePath);
+            return;
+        }
+    }
+#endif
 
     auto obj = iGame::FileIO::ReadFile(filePath);
     //_obj = obj;
@@ -193,6 +216,13 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
             this->OpenSplineFile(first_file_path);
             return;
         }
+#if defined(AbqSDK_ENABLE)
+        // ODB 走专用读取路径：带 IsRuntimeAvailable 守卫 + step 弹窗，避免通用路径崩溃
+        if (suffix == "odb") {
+            this->OpenODBFile(first_file_path);
+            return;
+        }
+#endif
     }
 
     auto obj = iGame::FileIO::ReadFile(first_file_path);
@@ -277,11 +307,25 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     emit FinishReading();
 }
 void igQtFileLoader::OpenODBFile(const std::string& filePath) {
+    igDebug("Open ODB file: {}", filePath);
 #if defined(AbqSDK_ENABLE)
+    igDebug("ABAQUS SDK is enabled.");
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
+    std::string runtimeError;
+    if (!ODBReader::IsRuntimeAvailable(&runtimeError)) {
+        igDebug("Abaqus ODB runtime unavailable: {}", runtimeError);
+        QMessageBox::warning(nullptr, "Abaqus ODB unavailable",
+                             QString::fromStdString(runtimeError));
+        return;
+    }
     igQtBasicListOptionDialog dialog;
     auto stepNames = ODBReader::ReadOdbAllStep(filePath);
+    if (stepNames.empty()) {
+        QMessageBox::warning(nullptr, "ODB read failed",
+                             "No analysis steps could be read from this ODB file.");
+        return;
+    }
     dialog.setInfoList(stepNames);
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     dialog.setWindowTitle("ODB Reader Info");
@@ -291,7 +335,13 @@ void igQtFileLoader::OpenODBFile(const std::string& filePath) {
         stepIdx = dialog.getDialogOutput();
         if (~stepIdx) {
             auto reader = iGame::ODBReader::New();
+            igDebug("Reading ODB file: {}, Step: {}", filePath, stepNames[stepIdx]);
             DataObject::Pointer obj = reader->ReadOdbFirstFrameMesh(filePath, stepNames[stepIdx]);
+            if (obj == nullptr) {
+                QMessageBox::warning(nullptr, "ODB read failed",
+                                     "The selected ODB file could not be read.");
+                return;
+            }
             obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
             obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
             //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));

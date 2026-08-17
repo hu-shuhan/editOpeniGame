@@ -188,13 +188,38 @@ tinyxml2::XMLElement* iGameXMLFileReader::FindTargetItem(tinyxml2::XMLElement* r
 tinyxml2::XMLElement* iGameXMLFileReader::FindTargetAttributeItem(tinyxml2::XMLElement* root, const char* itemName, const char* attributeName,
 	const char* attributeData) {
 	if (root == nullptr) return nullptr;
-	if (strcmp(root->Value(), itemName) == 0 && strcmp(root->Attribute(attributeName), attributeData) == 0) {
-		return root;
+	if (strcmp(root->Value(), itemName) == 0) {
+        const char* value = root->Attribute(attributeName);
+        if (value == nullptr) {
+            igDebug("XML element <{}> has no '{}' attribute.", itemName, attributeName);
+        } else if (strcmp(value, attributeData) == 0) {
+            return root;
+        }
 	}
 	tinyxml2::XMLElement* res = FindTargetAttributeItem(root->FirstChildElement(), itemName, attributeName, attributeData);
 	if (res) return res;
 	res = FindTargetAttributeItem(root->NextSiblingElement(), itemName, attributeName, attributeData);
 	return res;
+}
+
+tinyxml2::XMLElement* iGameXMLFileReader::FindDirectChildAttributeItem(tinyxml2::XMLElement* parent,
+                                                                       const char* itemName,
+                                                                       const char* attributeName,
+                                                                       const char* attributeData) {
+    if (parent == nullptr) return nullptr;
+
+    for (tinyxml2::XMLElement* element = parent->FirstChildElement(itemName); element != nullptr;
+         element = element->NextSiblingElement(itemName)) {
+        const char* value = element->Attribute(attributeName);
+        if (value == nullptr) {
+            igDebug("XML element <{}> directly under <{}> has no '{}' attribute.", itemName, parent->Value(),
+                    attributeName);
+            continue;
+        }
+        if (strcmp(value, attributeData) == 0) return element;
+    }
+
+    return nullptr;
 }
 
 

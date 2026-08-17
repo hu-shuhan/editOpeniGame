@@ -80,7 +80,8 @@ private:
     char* ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints,
                                   CellArray::Pointer Cells, UnsignedIntArray::Pointer Types = nullptr);
     void ProcessPointMergin(ExtractCellBoundaries* extract, Points::Pointer inPoints, Points::Pointer& outPoints,
-                            CellArray::Pointer Polygons, AttributeSet::Pointer outAllDataArray);
+                            CellArray::Pointer Polygons, AttributeSet::Pointer outAllDataArray,
+                            CellArray::Pointer Edges = nullptr);
 
 protected:
     ModelGeometryFilter();

@@ -47,6 +47,9 @@ protected:
     tinyxml2::XMLElement* FindTargetAttributeItem(tinyxml2::XMLElement* root, const char* itemName,
                                           const char* attributeName, const char* attributeData);
 
+    tinyxml2::XMLElement* FindDirectChildAttributeItem(tinyxml2::XMLElement* parent, const char* itemName,
+                                                       const char* attributeName, const char* attributeData);
+
     DataCollection m_Data;
 protected:
     iGameXMLFileReader();

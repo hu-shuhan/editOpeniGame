@@ -237,7 +237,8 @@ void Model::Draw() {
 #if !defined(IGAME_OPENGL_VERSION_330) || defined(__EMSCRIPTEN__)
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
-        if (hasTransparency || hasAcceleration) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (hasTransparency || hasAcceleration || hasOpacityMapping) { return; }
 #endif
 
         // Render
@@ -451,7 +452,7 @@ void Model::Draw() {
                     m_Scene->m_ShaderManager->ApplyWebFallbackUniforms(shader);
 #endif
                     shader->SetUniform3f("inputColor",
-                                         igm::vec3{0.0f, 0.0f, 0.0f});
+                                         renderableObject->GetLineColor());
                 }
 
                 // 如果是样条对象，强制用黑色绘制控制线
@@ -504,7 +505,8 @@ void Model::DrawWithTransparency() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (!hasTransparency) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (!hasTransparency && !hasOpacityMapping) { return; }
 
         // Render
         bool useSimplified = false;
@@ -581,7 +583,7 @@ void Model::DrawWithTransparency() {
                 #endif
                 shader->SetUniformi("uUseLighting", 0);
                 shader->SetUniformi("colorMode", 2);
-                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+                shader->SetUniform3f("inputColor", renderableObject->GetLineColor());
             }
 
             glLineWidth(renderableObject->m_LineWidth);
@@ -691,7 +693,8 @@ void Model::DrawPhase1() {
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
-        if (hasTransparency || !hasAcceleration) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (hasTransparency || hasOpacityMapping || !hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
@@ -825,7 +828,8 @@ void Model::DrawPhase1() {
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
-        if (hasTransparency || !hasAcceleration) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (hasTransparency || hasOpacityMapping || !hasAcceleration) { return; }
 
         // Render
         auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
@@ -977,7 +981,8 @@ void Model::DrawPhase2() {
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
-        if (hasTransparency || !hasAcceleration) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (hasTransparency || hasOpacityMapping || !hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
@@ -1112,7 +1117,8 @@ void Model::DrawPhase2() {
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
-        if (hasTransparency || !hasAcceleration) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (hasTransparency || hasOpacityMapping || !hasAcceleration) { return; }
 
         // Render
         auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
@@ -1304,7 +1310,8 @@ void Model::TestOcclusionResults() {
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
-        if (hasTransparency || !hasAcceleration) { return; }
+        bool hasOpacityMapping = drawObject->GetOpacityMappingEnabled();
+        if (hasTransparency || hasOpacityMapping || !hasAcceleration) { return; }
 
         // compute
         auto meshleter = drawObject->m_RenderableMesh.mMeshleter;

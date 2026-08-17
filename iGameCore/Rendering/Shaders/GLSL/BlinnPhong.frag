@@ -34,7 +34,7 @@ uniform vec3 inputColor = vec3(1.0f, 1.0f, 1.0f);
 
 layout(location = 0) in vec3 in_MCPosition;
 layout(location = 1) in vec3 in_VCPosition;
-layout(location = 2) in vec3 in_Color;
+layout(location = 2) in vec4 in_Color;
 layout(location = 3) in vec3 in_Normal;
 layout(location = 4) in vec2 in_UV;
 
@@ -93,7 +93,7 @@ void main() {
     }
 
     //use in_Color if exist, if not ,use default color
-    vec3 baseColor = (ubo.useColor == 1) ? in_Color : inputColor;
+    vec3 baseColor = (ubo.useColor == 1) ? in_Color.rgb : inputColor;
 
     // ambient
     color += ambient * baseColor;

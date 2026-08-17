@@ -184,6 +184,19 @@ QPushButton:pressed { background-color: #4A4A4A; }</string>
               </item>
              </layout>
             </item>
+
+            <!-- 不透明度映射 -->
+            <item>
+              <widget class="QCheckBox" name="checkBox_EnableOpacityMapping">
+                <property name="text">
+                <string>不透明度映射</string>
+                </property>
+                <property name="styleSheet">
+                <string notr="true">QCheckBox { font-size: 14px; color: #CCCCCC; }</string>
+                </property>
+             </widget>
+            </item>
+
             <item>
              <widget class="igQtDataRangeSlider" name="widget_DataRangeSlider" native="true">
               <property name="minimumSize">
