@@ -2,6 +2,7 @@
 #include <iGamePointFinder.h>
 #include <iGameThreadPool.h>
 #include <iGameBoundingBox.h>
+#include "Log/iGameLogger.h"
 #include <cmath>
 #include <mutex>
 using namespace std;
@@ -159,6 +160,10 @@ std::vector<int> BlockMapping::GetMappingBlockCells(SurfaceMesh::Pointer oriMesh
 
 IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(SurfaceMesh::Pointer oriMesh,
                                                           UnstructuredMesh::Pointer partedMesh) {
+    if (!GetPartId(partedMesh)) {
+        igError("BlockMapping: partedMesh has no 'part_id' attribute.");
+        return nullptr;
+    }
     auto vec = GetMappingBlockCells(oriMesh, partedMesh);
     auto result = IntArray::New();
     result->SetDimension(1);
@@ -196,6 +201,10 @@ std::vector<int> BlockMapping::GetMappingBlockCells(UnstructuredMesh::Pointer or
 
 IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(UnstructuredMesh::Pointer oriMesh,
                                                           UnstructuredMesh::Pointer partedMesh) {
+    if (!GetPartId(partedMesh)) {
+        igError("BlockMapping: partedMesh has no 'part_id' attribute.");
+        return nullptr;
+    }
     auto vec = GetMappingBlockCells(oriMesh, partedMesh);
     auto result = IntArray::New();
     result->SetDimension(1);
@@ -233,6 +242,10 @@ std::vector<int> BlockMapping::GetMappingBlockCells(VolumeMesh::Pointer oriMesh,
 
 IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(VolumeMesh::Pointer oriMesh,
                                                           UnstructuredMesh::Pointer partedMesh) {
+    if (!GetPartId(partedMesh)) {
+        igError("BlockMapping: partedMesh has no 'part_id' attribute.");
+        return nullptr;
+    }
     auto vec = GetMappingBlockCells(oriMesh, partedMesh);
     auto result = IntArray::New();
     result->SetDimension(1);

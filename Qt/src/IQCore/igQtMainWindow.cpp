@@ -1987,7 +1987,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         testAction->setObjectName(QString::fromUtf8("MeshSplit"));
         testAction->setText(QString::fromUtf8("MeshSplit"));
         ui->menu_filters->addAction(testAction);
-        testAction->setVisible(true);
+        testAction->setVisible(false);
         connect(testAction, &QAction::triggered, this, [&](bool checked) {
 #define TEST_MAP_BACK
 #ifdef TEST_MAP_BACK
@@ -2155,6 +2155,60 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->menu_filters->addAction(partSegmentationAction_fromFile);
         partSegmentationAction_fromFile->setVisible(true);
         connect(partSegmentationAction_fromFile, &QAction::triggered, this, [&](bool checked) {
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (!model) {
+                std::cout << "[PartSegFromFile] No model selected." << std::endl;
+                return;
+            }
+            auto dataObj = model->GetDataObject();
+
+            QString path = QFileDialog::getOpenFileName(
+                this, QStringLiteral("选择分割结果文件"), QString(), "VTK Files (*.vtk);;All Files (*)");
+            if (path.isEmpty()) return;
+
+            DataObject::Pointer segmented = FileIO::ReadFile(path.toStdString());
+            UnstructuredMesh::Pointer segMesh = DynamicCast<UnstructuredMesh>(segmented);
+            if (!segMesh) {
+                std::cout << "[PartSegFromFile] File is not an UnstructuredMesh: "
+                          << path.toStdString() << std::endl;
+                return;
+            }
+
+            IntArray::Pointer resultArray;
+            IGenum type = dataObj->GetDataObjectType();
+            switch (type) {
+                case IG_SURFACE_MESH: {
+                    SurfaceMesh::Pointer sm = DynamicCast<SurfaceMesh>(dataObj);
+                    if (!sm) { std::cout << "[PartSegFromFile] Failed to cast to SurfaceMesh." << std::endl; return; }
+                    resultArray = BlockMapping::GetMappingBlockCellsArray(sm, segMesh);
+                    break;
+                }
+                case IG_UNSTRUCTURED_MESH: {
+                    UnstructuredMesh::Pointer um = DynamicCast<UnstructuredMesh>(dataObj);
+                    if (!um) { std::cout << "[PartSegFromFile] Failed to cast to UnstructuredMesh." << std::endl; return; }
+                    resultArray = BlockMapping::GetMappingBlockCellsArray(um, segMesh);
+                    break;
+                }
+                case IG_VOLUME_MESH: {
+                    VolumeMesh::Pointer vm = DynamicCast<VolumeMesh>(dataObj);
+                    if (!vm) { std::cout << "[PartSegFromFile] Failed to cast to VolumeMesh." << std::endl; return; }
+                    resultArray = BlockMapping::GetMappingBlockCellsArray(vm, segMesh);
+                    break;
+                }
+                default:
+                    std::cout << "[PartSegFromFile] Unsupported mesh type." << std::endl;
+                    return;
+            }
+
+            if (!resultArray) {
+                std::cout << "[PartSegFromFile] Block mapping failed." << std::endl;
+                return;
+            }
+
+            resultArray->SetName("part_id");
+            dataObj->SetBlockMapping(resultArray);
+            modelTreeWidget->updateAllAttriubute(dataObj);
+            std::cout << "[PartSegFromFile] Done." << std::endl;
         });
     }
     // 零件聚焦弹窗
