@@ -101,7 +101,8 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                 PATTERN "*/" EXCLUDE
                 PATTERN "2024/win_b64" EXCLUDE
         )
-        if (WIN32 AND AbqSDK_DLL_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
+        if (IGAME_DEPLOY_ABAQUS_RUNTIME AND WIN32 AND
+                AbqSDK_DLL_DIR AND IGAME_ABQ_RUNTIME_LIBRARY_NAMES)
             install(CODE "
                 execute_process(
                     COMMAND \"${CMAKE_COMMAND}\"

@@ -18,6 +18,10 @@ public:
 
     static Pointer New(){return new ODBReader;}
 
+    // Abaqus is optional at runtime. On Windows this locates and preloads the
+    // user's local ODB runtime before any delayed Abaqus import is called.
+    static bool IsRuntimeAvailable(std::string* errorMessage = nullptr);
+
     /* Read Odb file's Mesh WITH first keyframe's field data without specific stepName.
     * Therefore, the first one step is readed by default */
     DataObject::Pointer ReadOdbFirstFrameMesh(const std::string& filePath);
@@ -96,7 +100,7 @@ private:
     std::string m_FileName;
     std::string m_FileDir;
     /*Odb stuff.*/
-    odb_Odb* m_ODB;
+    odb_Odb* m_ODB{nullptr};//防止未加载AbqSDK时读取ODB文件导致崩溃
     std::vector<const char*> m_Instance_names;
     std::map<std::string, int> m_StepFrameMap;
 

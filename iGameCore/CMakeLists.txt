@@ -113,6 +113,25 @@ if (${AbqSDK_FOUND})
     target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
 
+    get_filename_component(_ABQ_SDK_VERSION
+            "${AbqSDK_PRIVATE_PUBLIC_DIR}" NAME)
+    set_property(SOURCE
+            "${CMAKE_CURRENT_SOURCE_DIR}/IO/Abaqus/iGameODBReader.cpp"
+            APPEND PROPERTY COMPILE_DEFINITIONS
+            IGAME_ABAQUS_VERSION="${_ABQ_SDK_VERSION}")
+
+    # Abaqus is an optional runtime integration.  A release built with the
+    # SDK must still start on machines where Abaqus is not installed.  Delay
+    # the Windows imports until an ODB file is actually opened; ODBReader then
+    # locates and preloads the user's local Abaqus runtime.
+    if (MSVC AND WIN32)
+        target_link_libraries(${MODULE_NAME} PUBLIC delayimp)
+        foreach (_ABQ_DELAYLOAD_LIBRARY IN LISTS ABQ_LIB_LIST)
+            target_link_options(${MODULE_NAME} PUBLIC
+                    "/DELAYLOAD:${_ABQ_DELAYLOAD_LIBRARY}.dll")
+        endforeach ()
+    endif ()
+
     # Abaqus 2024 has legacy diamond inheritance in odb_Repository. MSVC's
     # C++20 conformance mode diagnoses its generated copy constructor as
     # C2594, which is a compiler error and cannot be disabled with /wd2594.

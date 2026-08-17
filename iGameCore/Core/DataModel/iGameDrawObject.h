@@ -85,6 +85,10 @@ public:
 
     void SetShellRenderingOption(bool option);
     bool GetShellRenderingOption();
+    void SetOpacityMappingEnabled(bool enabled);
+    bool GetOpacityMappingEnabled() {
+        return GetColorMapper() ? GetColorMapper()->GetOpacityMappingEnabled() : false;
+    }
 
     /**
      * @brief 设置是否启用加速渲染模式。

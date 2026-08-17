@@ -1562,7 +1562,7 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    connect(mesh_processing->addAction("Tetrahedralize"), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction("四面体化 (Tetrahedralize)"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
         MeshTetrahedralize::Pointer filter = MeshTetrahedralize::New();
@@ -1574,7 +1574,7 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    connect(mesh_processing->addAction("四面体边坍缩简化"), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction("体网格简化 (Volume Mesh Simplification)"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         auto in = DynamicCast<DataObject>(obj);
         if (!in) return;
@@ -1583,23 +1583,24 @@ void igQtMainWindow::initAllFilters() {
         dialog->setFilterTitle("四面体边坍缩简化");
         dialog->setFilterDescription("基于ADQ的边坍缩体网格简化（保留属性）");
 
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
-        int tetCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Tetra Count", "0");
-        int boundaryPenaltyId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Boundary Penalty", "100.0");
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "简化比例 (0..1)", "0.5");
+        int tetCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "目标四面体数量", "0");
+        /*int boundaryPenaltyId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "边界惩罚", "100.0");
         int lambdaId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Lambda", "0.1");
-        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary", "false");
+        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "保留边界", "false");*/
         int allAttrId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Use All Point Attributes", "true");
-        int stretchId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Stretch Factor", "10.0");
-        int aspectId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Max Aspect Ratio", "30.0");
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "使用所有点属性", "true");
+        /*int stretchId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "拉伸因子", "10.0");
+        int aspectId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "最大纵横比", "30.0");*/
 
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             // ─── 1. 获取当前场景对象 ───
             auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
             if (!obj) {
-                QMessageBox::information(this, "错误", "未选择任何模型");
+                QString result = QString("未选择任何模型");
+                showDarkFramelessMessage(QStringLiteral("错误"), result);
                 dialog->close();
                 return;
             }
@@ -1636,9 +1637,14 @@ void igQtMainWindow::initAllFilters() {
             }
 
             if (!isPureTetMesh) {
-                QMessageBox::information(this, "非纯四面体网格",
+                /*QMessageBox::information(this, "非纯四面体网格",
                                          "该简化算法只支持纯四面体体网格。\n"
-                                         "请先执行「Tetrahedralize」将当前对象四面体化。");
+                                         "请先执行「Tetrahedralize」将当前对象四面体化。");*/
+                
+                QString result = QString("该简化算法只支持纯四面体体网格。\n请先执行「Tetrahedralize」将当前对象四面体化。");
+                showDarkFramelessMessage(QStringLiteral("非纯四面体网格"), result);
+                    
+                
                 dialog->close();
                 return;
             }
@@ -1650,12 +1656,12 @@ void igQtMainWindow::initAllFilters() {
             filter->SetInput(in);
             filter->SetTargetReduction(float(dialog->getDouble(reductionId, ok)));
             filter->SetTargetTetraCount(dialog->getInt(tetCountId, ok));
-            filter->SetBoundaryPenalty(dialog->getDouble(boundaryPenaltyId, ok));
-            filter->SetLambda(dialog->getDouble(lambdaId, ok));
-            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+            //filter->SetBoundaryPenalty(dialog->getDouble(boundaryPenaltyId, ok));
+            //filter->SetLambda(dialog->getDouble(lambdaId, ok));
+            //filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
             filter->SetUseAllPointAttributes(dialog->getChecked(allAttrId, ok));
-            filter->SetStretchFactor(dialog->getDouble(stretchId, ok));
-            filter->SetMaxAspectRatio(dialog->getDouble(aspectId, ok));
+            //filter->SetStretchFactor(dialog->getDouble(stretchId, ok));
+            //filter->SetMaxAspectRatio(dialog->getDouble(aspectId, ok));
 
             if (!filter->Execute()) {
                 QMessageBox::information(this, "执行出错", "边坍缩简化失败");

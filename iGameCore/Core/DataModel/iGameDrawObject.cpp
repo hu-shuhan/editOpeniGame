@@ -521,6 +521,17 @@ void DrawObject::SetShellRenderingOption(bool option) {
 
 bool DrawObject::GetShellRenderingOption() { return m_ShellRendering; }
 
+void DrawObject::SetOpacityMappingEnabled(bool enabled) {
+    auto mapper = this->GetColorMapper();
+    int attrIdx = this->GetAttributeIndex();
+    auto attrSet = this->GetAttributeSet();
+    if (mapper && attrIdx >= 0 && attrSet &&
+        attrIdx < attrSet->GetNumberOfAttributes()) {
+        auto& attr = attrSet->GetAttribute(attrIdx);
+        if (attr.pointer) { mapper->SetOpacityMappingEnabled(enabled); }
+    }
+}
+
 void DrawObject::SetAccelerationOption(bool enabled) {
 #ifdef IGAME_OPENGL_VERSION_330
     IGAME_RENDERING_WARN("Acceleration rendering disabled (OpenGL 3.3 detected). Requires "

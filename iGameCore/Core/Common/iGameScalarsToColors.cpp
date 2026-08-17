@@ -40,9 +40,13 @@ void ScalarsToColors::SetVectorModeToRGBColors() { this->SetVectorMode(ScalarsTo
 // do not use SetMacro() because we do not want the table to rebuild.
 void ScalarsToColors::SetAlpha(float alpha) { this->Alpha = (alpha < 0.0 ? 0.0 : (alpha > 1.0 ? 1.0 : alpha)); }
 
-void ScalarsToColors::EnableOpacityMapping() {
-    if (!this->m_OpacityRangeSet) {
+void ScalarsToColors::SetOpacityMappingEnabled(bool enabled) {
+    if (enabled && !this->m_OpacityRangeSet) {
         this->m_OpacityRangeSet = true;
+        this->Modified();
+    }
+    else if (!enabled && this->m_OpacityRangeSet) {
+        this->m_OpacityRangeSet = false;
         this->Modified();
     }
 }
