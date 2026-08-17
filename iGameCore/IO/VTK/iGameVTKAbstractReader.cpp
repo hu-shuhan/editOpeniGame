@@ -3,6 +3,55 @@
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 
+namespace {
+bool IsVtkCellSizeValid(VTKAbstractReader::VTKTYPE type, int size) {
+    switch (type) {
+        case VTKAbstractReader::VERTEX:
+            return size == 1;
+        case VTKAbstractReader::LINE:
+            return size == 2;
+        case VTKAbstractReader::POLYLINE:
+            return size >= 2;
+        case VTKAbstractReader::TRIANGLE:
+            return size == 3;
+        case VTKAbstractReader::POLYGON:
+            return size >= 3;
+        case VTKAbstractReader::PIXEL:
+        case VTKAbstractReader::QUAD:
+        case VTKAbstractReader::TETRA:
+            return size == 4;
+        case VTKAbstractReader::VOXEL:
+        case VTKAbstractReader::HEXAHEDRON:
+            return size == 8;
+        case VTKAbstractReader::WEDGE:
+            return size == 6;
+        case VTKAbstractReader::PYRAMID:
+            return size == 5;
+        case VTKAbstractReader::PENTAGONAL_PRISM:
+            return size == 10;
+        case VTKAbstractReader::HEXAGONAL_PRISM:
+            return size == 12;
+        case VTKAbstractReader::QUADRATIC_EDGE:
+            return size == 3;
+        case VTKAbstractReader::QUADRATIC_TRIANGLE:
+            return size == 6;
+        case VTKAbstractReader::QUADRATIC_QUAD:
+            return size == 8;
+        case VTKAbstractReader::QUADRATIC_TETRA:
+            return size == 10;
+        case VTKAbstractReader::QUADRATIC_HEXAHEDRON:
+            return size == 20;
+        case VTKAbstractReader::QUADRATIC_WEDGE:
+            return size == 15;
+        case VTKAbstractReader::QUADRATIC_PYRAMID:
+            return size == 13;
+        default:
+            // Polyhedra and Lagrange cells have variable connectivity sizes.
+            return true;
+    }
+}
+} // namespace
+
 VTKAbstractReader::VTKAbstractReader() {
     this->Header = nullptr;
     this->FileMajorVersion = 0;
@@ -1113,9 +1162,13 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             continue;
         }
 
-        std::vector<igIndex> vhs(size);
-
         VTKTYPE type = (VTKTYPE) VtkCellsType->GetValue(i);
+        if (!IsVtkCellSizeValid(type, size)) {
+            skippedCells++;
+            continue;
+        }
+
+        std::vector<igIndex> vhs(size);
 
         if (type != POLYHEDRON) {
             for (int j = 0; j < size; j++) { vhs[j] = static_cast<igIndex>(CellsConnect->GetValue(st + j)); }

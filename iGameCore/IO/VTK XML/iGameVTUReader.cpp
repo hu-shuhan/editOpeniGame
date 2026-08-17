@@ -108,6 +108,42 @@ bool iGame::iGameVTUReader::Parsing() {
 
     auto CellTypes = ReadCellTypes();
 
+    // A VTK XML offsets array stores one end offset per cell. ReadCellOffsets
+    // prepends the zero required by iGame, so it must contain cellCount + 1
+    // entries here. Reject inconsistent topology before it can reach surface
+    // extraction, where a wrong cell type/arity would otherwise cause an
+    // out-of-bounds point-id access.
+    if (m_CellsNum >= 0) {
+        const auto expectedCellCount = static_cast<IGsize>(m_CellsNum);
+        if (CellTypes == nullptr || CellTypes->GetNumberOfElements() != expectedCellCount) {
+            igError("VTU cell type count mismatch: expected {}, got {}.", m_CellsNum,
+                    CellTypes == nullptr ? 0 : CellTypes->GetNumberOfElements());
+            return false;
+        }
+        if (CellOffsets == nullptr || CellOffsets->GetNumberOfElements() != expectedCellCount + 1) {
+            igError("VTU cell offset count mismatch: expected {}, got {}.", m_CellsNum + 1,
+                    CellOffsets == nullptr ? 0 : CellOffsets->GetNumberOfElements());
+            return false;
+        }
+        if (CellConnects == nullptr ||
+            static_cast<IGsize>(CellOffsets->GetValue(expectedCellCount)) !=
+                    CellConnects->GetNumberOfElements()) {
+            igError("VTU connectivity size does not match the final cell offset.");
+            return false;
+        }
+    }
+
+    if (m_PointsNum >= 0 && CellConnects != nullptr) {
+        for (IGsize i = 0; i < CellConnects->GetNumberOfElements(); ++i) {
+            const auto pointId = static_cast<int64_t>(CellConnects->GetValue(i));
+            if (pointId < 0 || pointId >= m_PointsNum) {
+                igError("VTU connectivity contains invalid point id {} at index {} (point count {}).", pointId, i,
+                        m_PointsNum);
+                return false;
+            }
+        }
+    }
+
     //   find Cell faces connectivity;
     auto CellFacesConnect = ReadCellFacesConnectivity();
     //   find Cell faces offset;
@@ -759,31 +795,73 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
     const char* offset = m_CurrentElem->Attribute("offset");
     if ((data = m_CurrentElem->GetText()) != nullptr || offset)
     {
-        CellTypes = UnsignedCharArray::New();
         char* data_p = data ? const_cast<char*>(data) : GetAppendDataHead();
         while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t') data_p++;
 
         attribute = m_CurrentElem->Attribute("format");
+        if (attribute == nullptr) {
+            igError("VTU cell types DataArray has no format attribute.");
+            return CellTypes;
+        }
         if (strcmp(attribute, "ascii") == 0) {
+            UnsignedCharArray::Pointer arr = UnsignedCharArray::New();
             int type = -1;
             token = ig_strtok(data_p, delimiters, &context);
             while (token)
             {
                 type = mAtoi(token);
-                CellTypes->AddValue(type);
+                arr->AddValue(type);
                 token = ig_strtok(nullptr, delimiters, &context);
             }
+            CellTypes = arr;
         }
-        else if (strcmp(attribute, "binary") == 0) {
-            ReadBase64EncodedArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
-        }
-        else if (strcmp(attribute, "appended") == 0) {
-            long long offsetVal = std::atoll(offset);
-            data_p = data_p + offsetVal;
-            if(m_parseRawBinaryData){
-                ReadRawBinaryArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
+        else if (strcmp(attribute, "binary") == 0 || strcmp(attribute, "appended") == 0) {
+            const bool isAppended = strcmp(attribute, "appended") == 0;
+            if (isAppended && offset == nullptr) {
+                igError("Appended VTU cell types DataArray has no offset attribute.");
+                return CellTypes;
+            }
+
+            if (isAppended) {
+                const long long offsetVal = std::atoll(offset);
+                data_p += offsetVal;
+            }
+
+            const bool readRaw = isAppended && m_parseRawBinaryData;
+            auto readArray = [&](auto arr, auto valueTag) -> ArrayObject::Pointer {
+                using ValueType = decltype(valueTag);
+                if (readRaw) {
+                    ReadRawBinaryArray<ValueType>(m_Header_8_byte_flag, data_p, arr);
+                } else {
+                    ReadBase64EncodedArray<ValueType>(m_Header_8_byte_flag, data_p, arr);
+                }
+                return arr;
+            };
+
+            const char* valueType = m_CurrentElem->Attribute("type");
+            if (valueType == nullptr) {
+                igError("VTU cell types DataArray has no type attribute.");
+                return CellTypes;
+            }
+
+            if (strcmp(valueType, "UInt8") == 0) {
+                CellTypes = readArray(UnsignedCharArray::New(), static_cast<unsigned char>(0));
+            } else if (strcmp(valueType, "Int8") == 0) {
+                CellTypes = readArray(CharArray::New(), static_cast<char>(0));
+            } else if (strcmp(valueType, "UInt16") == 0) {
+                CellTypes = readArray(UnsignedShortArray::New(), static_cast<unsigned short>(0));
+            } else if (strcmp(valueType, "Int16") == 0) {
+                CellTypes = readArray(ShortArray::New(), static_cast<short>(0));
+            } else if (strcmp(valueType, "UInt32") == 0) {
+                CellTypes = readArray(UnsignedIntArray::New(), static_cast<unsigned int>(0));
+            } else if (strcmp(valueType, "Int32") == 0) {
+                CellTypes = readArray(IntArray::New(), static_cast<int>(0));
+            } else if (strcmp(valueType, "UInt64") == 0) {
+                CellTypes = readArray(UnsignedLongLongArray::New(), static_cast<unsigned long long>(0));
+            } else if (strcmp(valueType, "Int64") == 0) {
+                CellTypes = readArray(LongLongArray::New(), static_cast<long long>(0));
             } else {
-                ReadBase64EncodedArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
+                igError("Unsupported VTU cell types DataArray type: {}", valueType);
             }
         }
     }
@@ -799,11 +877,11 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
 ArrayObject::Pointer iGameVTUReader::ReadCellFacesConnectivity() {
     ArrayObject::Pointer Faces = IntArray::New();
     m_CurrentElem = FindTargetItem(root, "Cells");
-    m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "face_connectivity");
+    m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "face_connectivity");
     if (m_CurrentElem == nullptr)
     {
         m_CurrentElem = FindTargetItem(root, "Cells");
-        m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "faces");
+        m_CurrentElem = FindDirectChildAttributeItem(m_CurrentElem, "DataArray", "Name", "faces");
         if (m_CurrentElem == nullptr) return Faces;
     }
 
