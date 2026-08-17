@@ -1,6 +1,7 @@
 #include "iGameAnsysReader.h"
 #include "Log/iGameLogger.h"
 #include "VTK XML/iGamePVDReader.h"
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iGameFileIO.h>
@@ -17,11 +18,10 @@ bool AnsysReader::Parsing() {
     std::string ansysPath = this->GetFilePath();
     fs::path inputPath(ansysPath);
 
-    // Create a temporary directory for the converted output
-    fs::path tempDir = fs::current_path() / "temp";
-    if (!fs::exists(tempDir)) { fs::create_directories(tempDir); }
-
-    std::string outputDir = tempDir.string();
+    // 创建独立临时输出子目录（带唯一后缀，避免不同模型/多次运行之间文件名冲突）
+    auto uniqueSuffix = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    fs::path tempDir = fs::current_path() / "temp" / (inputPath.stem().string() + "_" + uniqueSuffix);
+    fs::create_directories(tempDir);
 
     // Locate the converter executable
     std::vector<std::string> exePaths = {
@@ -84,28 +84,7 @@ bool AnsysReader::Parsing() {
 
     this->SetOutput(obj);
 
-    // Clean up temporary files
-    try {
-        if (fs::exists(outputFilePath)) {
-            fs::remove(outputFilePath);
-            IGAME_CORE_DEBUG("[AnsysReader] Removed temporary file: {}", outputFilePath.string());
-        }
-        // Remove any VTU files in the temp directory matching the base name
-        for (const auto& entry: fs::directory_iterator(tempDir)) {
-            std::string entryName = entry.path().string();
-            if (entryName.find(inputPath.stem().string()) != std::string::npos && entry.path().extension() == ".vtu") {
-                fs::remove(entry.path());
-                IGAME_CORE_DEBUG("[AnsysReader] Removed temporary file: {}", entry.path().string());
-            }
-        }
-        if (fs::exists(tempDir) && fs::is_empty(tempDir)) {
-            fs::remove(tempDir);
-            IGAME_CORE_DEBUG("[AnsysReader] Removed empty temp directory: {}", tempDir.string());
-        }
-    } catch (const std::exception& e) {
-        IGAME_CORE_WARN("[AnsysReader] Failed to clean up temporary files: {}", e.what());
-    }
-
+    // 保留 PVD/VTU 临时文件，供动画切帧时懒加载；程序下次启动时会统一清理 temp 目录。
     return true;
 }
 

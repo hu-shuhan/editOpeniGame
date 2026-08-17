@@ -13,6 +13,7 @@
 #include "Core/RenderWindow/iGameRenderWindow.h"
 #include "iGameFileIO.h"
 #include <iostream>
+#include <filesystem>
 int main(int argc, char* argv[]) {
 //    iGame::StressDeformationCodeFilter::Pointer filter = iGame::StressDeformationCodeFilter::New();
 //    //    const std::string fileName = "./Models/sukong_Step-1_2.vtu";
@@ -77,6 +78,13 @@ int main(int argc, char* argv[]) {
     QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);     // 图标高分辨率支持
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication a(argc, argv);
+
+    // 启动时清理上次运行遗留的临时转换文件（Ansys/LsDyna 等转换到 <cwd>/temp 下）
+    try {
+        std::filesystem::path tempDir = std::filesystem::current_path() / "temp";
+        std::filesystem::remove_all(tempDir);
+    } catch (...) {
+    }
 
     QSurfaceFormat format;
     format.setRenderableType(QSurfaceFormat::OpenGL);

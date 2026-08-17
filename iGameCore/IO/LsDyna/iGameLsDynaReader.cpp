@@ -1,6 +1,7 @@
 #include "iGameLsDynaReader.h"
 #include "Log/iGameLogger.h"
 #include "VTK XML/iGamePVDReader.h"
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iGameFileIO.h>
@@ -18,9 +19,10 @@ bool LsDynaReader::Parsing() {
     std::string lsDynaPath = this->GetFilePath();
     fs::path inputPath(lsDynaPath);
 
-    // 创建临时输出目录
-    fs::path tempDir = fs::current_path() / "temp";
-    if (!fs::exists(tempDir)) { fs::create_directories(tempDir); }
+    // 创建独立临时输出子目录（带唯一后缀，避免不同模型/多次运行之间文件名冲突）
+    auto uniqueSuffix = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    fs::path tempDir = fs::current_path() / "temp" / (inputPath.stem().string() + "_" + uniqueSuffix);
+    fs::create_directories(tempDir);
 
     // 定位转换器可执行文件
     std::vector<std::string> exePaths = {
@@ -81,30 +83,7 @@ bool LsDynaReader::Parsing() {
 
     this->SetOutput(obj);
 
-    // 清理临时文件（PVD + 各时间步 VTU）
-    try {
-        if (fs::exists(outputFilePath)) {
-            fs::remove(outputFilePath);
-            IGAME_CORE_DEBUG("[LsDynaReader] Removed temporary file: {}", outputFilePath.string());
-        }
-        // 删除与本模型相关的 VTU 文件（命名约定为 <stem>_<idx>.vtu 或 <stem><idx>.vtu）
-        const std::string stem = inputPath.stem().string();
-        for (const auto& entry : fs::directory_iterator(tempDir)) {
-            if (!entry.is_regular_file()) continue;
-            const std::string name = entry.path().filename().string();
-            if (name.rfind(stem, 0) == 0 && entry.path().extension() == ".vtu") {
-                fs::remove(entry.path());
-                IGAME_CORE_DEBUG("[LsDynaReader] Removed temporary file: {}", entry.path().string());
-            }
-        }
-        if (fs::exists(tempDir) && fs::is_empty(tempDir)) {
-            fs::remove(tempDir);
-            IGAME_CORE_DEBUG("[LsDynaReader] Removed empty temp directory: {}", tempDir.string());
-        }
-    } catch (const std::exception& e) {
-        IGAME_CORE_WARN("[LsDynaReader] Failed to clean up temporary files: {}", e.what());
-    }
-
+    // 保留 PVD/VTU 临时文件，供动画切帧时懒加载；程序下次启动时会统一清理 temp 目录。
     return true;
 }
 
