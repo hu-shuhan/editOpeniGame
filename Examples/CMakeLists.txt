@@ -171,6 +171,16 @@ function(igame_register_example_test EXAMPLE_TARGET)
         return()
     endif ()
 
+    if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation")
+        add_test(
+            NAME ${EXAMPLE_TARGET}
+            COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>"
+            WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>"
+        )
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180)
+        return()
+    endif ()
+
     set(_TEST_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/ci/run_smoke_test.sh")
     set(_TEST_COMMAND bash "${_TEST_SCRIPT}" "$<TARGET_FILE:${EXAMPLE_TARGET}>")
 
@@ -293,6 +303,12 @@ igame_add_example(testSlice Filter/TestSlice.cpp)
 igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter.cpp)
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)
+igame_add_example(testModelGeometryParallelValidation Filter/ModelGeometryParallelValidation.cpp)
+add_custom_command(TARGET testModelGeometryParallelValidation POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/test/Animation Test/result-case1/VTKfile-0.vtk"
+        "$<TARGET_FILE_DIR:testModelGeometryParallelValidation>/VTKfile-0.vtk"
+)
 
 # Color bar / interaction
 igame_add_example(testChangeColorRange ColorBar/ChangeColorRange.cpp)
