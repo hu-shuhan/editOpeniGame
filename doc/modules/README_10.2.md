@@ -167,6 +167,7 @@ draw->ViewCloudPicture(scene, index, dimension);
 | `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
 | `testContourLine` | `Examples/Filter/TestContourLine.cpp` | `./Models/Tet_Plane.vtk`（一次取三档等值数值） |
+| `testContourExtraction` | `Examples/Filter/TestContourExtraction.cpp` | `./Models/driver_1.vtk` + `./Models/streamTet.vtk` |
 
 ---
 
@@ -365,6 +366,20 @@ auto res1 = contour2->GetContourMesh();
 > 网格简化后等值面提取
 ![体网格原始/简化 前后对比](../../Resources/Images/简化后.png)
 
+### 测试用例
+
+| Target | 源文件 | 默认数据 | 说明 |
+|--------|--------|----------|------|
+| `testContourExtraction` | `Examples/Filter/TestContourExtraction.cpp` | `./Models/driver_1.vtk`（面网格）+ `./Models/streamTet.vtk`（四面体体网格），均需自备 | 同一套接口在两类数据上分派：面网格产出等值线、体网格产出等值面 |
+
+该用例对两个模型各跑一遍：取第 0 个点标量，按数据范围取三档等值数值一次传入，执行后逐单元统计输出的线段数与三角面数，并断言
+
+- 面网格（`driver_1.vtk`）必须产出 `IG_LINE`，否则报 `expected iso-lines but got no line segment`；
+- 体网格（`streamTet.vtk`）必须产出 `IG_TRIANGLE`，否则报 `expected iso-surfaces but got no triangle`。
+
+即直接验证 `ContourFilter` 按单元维度自动分派这条核心逻辑。两个轮廓结果最终加入同一场景一起显示；显示时关闭抽壳并设置 `IG_SURFACE | IG_WIREFRAME`，否则纯线单元的等值线不可见。
+
+
 
 ---
 
@@ -459,3 +474,5 @@ auto res1 = contour2->GetContourMesh();
 | `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` | Laplacian | 默认 |
 | `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` | 经典涡量 | 默认 |
 | `testVortexDetection` | `Examples/Filter/FeatureExtraction/VortexDetection.cpp` | `./Models/pipedcylinder2d_gt.vtk` | NN 涡检测 | `ENABLE_LIBTORCH_MODULE=ON` |
+| `testContourLine` | `Examples/Filter/TestContourLine.cpp` | `./Models/Tet_Plane.vtk` | 等值线 / 等值面（单模型，三档等值数值） | 默认 |
+| `testContourExtraction` | `Examples/Filter/TestContourExtraction.cpp` | `./Models/driver_1.vtk` + `./Models/streamTet.vtk`（需自备） | 面网格→等值线、体网格→等值面，按数据类型分派 | 默认 |

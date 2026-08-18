@@ -166,6 +166,7 @@ Results appear in the model-tree attribute list and can be shown via `dockWidget
 | `testLaplacianExtraction` | Laplacian |
 | `testVortexExtraction` | Classical vorticity |
 | `testContourLine` | Isolines / isosurfaces (`./Models/Tet_Plane.vtk`, three iso values at once) |
+| `testContourExtraction` | Per-data-type dispatch: `./Models/driver_1.vtk` + `./Models/streamTet.vtk` (bring your own) |
 
 Test data: `test/Feature Extraction Test/`.
 
@@ -337,6 +338,21 @@ After simplification the attribute array **must be re-fetched from the simplifie
 2. Surface simplification only affects isolines and volume simplification only isosurfaces — they are not interchangeable. To get boundary isolines from a volume mesh, run Surface Extraction first, then simplify.
 3. Simplification changes cell counts and point numbering, so contour vertex counts shift with it; for quantitative comparison use geometric measures (isoline length / isosurface area) rather than vertex counts.
 
+### Test Cases
+
+| Target | Source | Default data | Notes |
+|--------|--------|--------------|-------|
+| `testContourExtraction` | `Examples/Filter/TestContourExtraction.cpp` | `./Models/driver_1.vtk` (surface mesh) + `./Models/streamTet.vtk` (tetrahedral volume mesh), both bring-your-own | One interface dispatching over two data kinds: the surface mesh yields isolines, the volume mesh yields isosurfaces |
+
+The case runs both models: it takes point scalar 0, derives three iso values from the data range and passes them in one call, then counts the line segments and triangles in the output per cell and asserts
+
+- the surface mesh (`driver_1.vtk`) must produce `IG_LINE`, otherwise it reports `expected iso-lines but got no line segment`;
+- the volume mesh (`streamTet.vtk`) must produce `IG_TRIANGLE`, otherwise it reports `expected iso-surfaces but got no triangle`.
+
+That is a direct check of `ContourFilter`'s dispatch-by-cell-dimension logic. Both contours are added to the same scene for display, with shell rendering turned off and `IG_SURFACE | IG_WIREFRAME` set — without the latter, a pure line-cell isoline would be invisible.
+
+> Neither model ships with the repository; place them under `./Models/` in the run directory. The program prints `exists=0/1` at startup so a missing file is obvious.
+
 ---
 
 ## Sub-feature 4: Temporal evolution of key events & region-scoped deformation
@@ -411,4 +427,5 @@ Click / box-select key region → write deformation offsets only for that set �
 | `testLaplacianExtraction` | Laplacian | default |
 | `testVortexExtraction` | Classical vorticity | default |
 | `testContourLine` | Isolines / isosurfaces | default |
+| `testContourExtraction` | Surface → isolines, volume → isosurfaces (dispatch by data type) | default |
 | `testVortexDetection` | NN vortex detection | `ENABLE_LIBTORCH_MODULE=ON` |
