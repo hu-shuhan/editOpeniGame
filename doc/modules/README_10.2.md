@@ -366,8 +366,6 @@ auto res1 = contour2->GetContourMesh();
 ![体网格原始/简化 前后对比](../../Resources/Images/简化后.png)
 
 
-> 精度评估需数据中带有人工标注属性 `PredictedLabel`；无标注时仅输出 `vortexPredict` 云图，不计算对比指标。
-
 ---
 
 ## 子功能 4：关键事件时域演化与选中区域形变
