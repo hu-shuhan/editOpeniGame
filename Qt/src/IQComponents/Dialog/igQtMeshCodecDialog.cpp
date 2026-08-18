@@ -219,9 +219,9 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     ui->groupbox_dataDistGroup->setEnabled(false);
     UpdateKeyAreaVisibility(false);
 
-    // 初始化压缩等级选择（zstd支持1-22），默认选择等级12
+    // 初始化压缩等级选择（zstd支持1-20），默认选择等级12
     ui->comboBox_compressLevel->blockSignals(true);
-    for (int i = 1; i <= 22; ++i) {
+    for (int i = 1; i <= 20; ++i) {
         ui->comboBox_compressLevel->addItem(QString::number(i));
     }
     ui->comboBox_compressLevel->setCurrentIndex(m_compressLevel);
