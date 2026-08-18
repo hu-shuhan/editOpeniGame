@@ -40,6 +40,7 @@ public slots:
 
 signals:
     void SIGNAL_FocusApplied();
+    void SIGNAL_SelectedPartsChanged(const QVector<int>& partIds);
 
 private slots:
     void onFocusCamera();

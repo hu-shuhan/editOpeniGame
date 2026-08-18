@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QPointer>
 #include <QSignalBlocker>
+#include <QSpinBox>
 #include <QStringList>
 #include <QTableWidgetItem>
 
@@ -38,6 +39,7 @@ QDockWidget* igQtSearchInfoWidget::createDockWidget(QWidget* parent) {
 
 void igQtSearchInfoWidget::setCurrentModelData(iGame::DataObject* modelData) {
     m_currentSelection = nullptr;
+    if (m_currentModelData != modelData) m_selectedPartIds.clear();
     m_currentModelData = modelData;
 
     // BlockMapping is an IG_CELL attribute, so mapped models open on cell data.
@@ -55,7 +57,9 @@ void igQtSearchInfoWidget::setCurrentModelData(iGame::DataObject* modelData) {
 }
 
 void igQtSearchInfoWidget::setCurrentModel(iGame::Model* model) {
-    m_currentModelData = model ? model->GetDataObject().GetPointer() : nullptr;
+    auto* modelData = model ? model->GetDataObject().GetPointer() : nullptr;
+    if (m_currentModelData != modelData) m_selectedPartIds.clear();
+    m_currentModelData = modelData;
     auto selectionPointer = model ? model->GetSelection() : Selection::Pointer{};
     m_currentSelection = selectionPointer.GetPointer();
 
@@ -100,7 +104,27 @@ void igQtSearchInfoWidget::setCurrentModel(iGame::Model* model) {
     refreshData();
 }
 
+void igQtSearchInfoWidget::setSelectedPartIds(const QVector<int>& partIds) {
+    m_selectedPartIds.clear();
+    for (int partId: partIds) {
+        if (partId >= 0) m_selectedPartIds.insert(partId);
+    }
+
+    m_currentDataType = 1;
+    {
+        const QSignalBlocker blockPoints(ui->radioButton_Points);
+        const QSignalBlocker blockCells(ui->radioButton_Cells);
+        ui->radioButton_Points->setChecked(false);
+        ui->radioButton_Cells->setChecked(true);
+    }
+
+    ui->lineEdit_Value->clear();
+    refreshProperties();
+    refreshData();
+}
+
 void igQtSearchInfoWidget::updateFromSelection(int dataType) {
+    m_selectedPartIds.clear();
     m_currentDataType = dataType;
     {
         const QSignalBlocker blockPoints(ui->radioButton_Points);
@@ -219,12 +243,31 @@ void igQtSearchInfoWidget::initUI() {
     m_pageSizeComboBox->setCurrentIndex(2);
     m_pageInfoLabel = new QLabel(QStringLiteral("第 0 / 0 页，共 0 条"), m_paginationWidget);
     m_pageInfoLabel->setAlignment(Qt::AlignCenter);
+    auto* pageJumpLabel = new QLabel(QStringLiteral("跳转到"), m_paginationWidget);
+    m_pageJumpSpinBox = new QSpinBox(m_paginationWidget);
+    m_pageJumpSpinBox->setObjectName(QStringLiteral("spinBox_PageJump"));
+    m_pageJumpSpinBox->setRange(0, 0);
+    // QSpinBox only applies specialValueText when it is non-empty. A single
+    // space keeps the initial/empty-data state visually blank instead of
+    // displaying either "0" or "无页".
+    m_pageJumpSpinBox->setSpecialValueText(QStringLiteral(" "));
+    m_pageJumpSpinBox->setAlignment(Qt::AlignCenter);
+    m_pageJumpSpinBox->setFixedWidth(78);
+    m_pageJumpSpinBox->setEnabled(false);
+    auto* pageUnitLabel = new QLabel(QStringLiteral("页"), m_paginationWidget);
+    m_pageJumpButton = new QPushButton(QStringLiteral("跳转"), m_paginationWidget);
+    m_pageJumpButton->setObjectName(QStringLiteral("pushButton_PageJump"));
+    m_pageJumpButton->setEnabled(false);
 
     paginationLayout->addWidget(m_previousPageButton);
     paginationLayout->addWidget(m_nextPageButton);
     paginationLayout->addWidget(m_pageSizeComboBox);
     paginationLayout->addStretch();
     paginationLayout->addWidget(m_pageInfoLabel);
+    paginationLayout->addWidget(pageJumpLabel);
+    paginationLayout->addWidget(m_pageJumpSpinBox);
+    paginationLayout->addWidget(pageUnitLabel);
+    paginationLayout->addWidget(m_pageJumpButton);
     ui->verticalLayout_Results->addWidget(m_paginationWidget);
     m_paginationWidget->hide();
 }
@@ -259,6 +302,11 @@ void igQtSearchInfoWidget::initConnections() {
     });
     connect(m_pageSizeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         m_currentPage = 0;
+        renderCurrentPage();
+    });
+    connect(m_pageJumpButton, &QPushButton::clicked, this, [this]() {
+        if (!m_pageJumpSpinBox || !m_pageJumpSpinBox->isEnabled()) return;
+        m_currentPage = m_pageJumpSpinBox->value() - 1;
         renderCurrentPage();
     });
 }
@@ -344,7 +392,17 @@ void igQtSearchInfoWidget::rebuildFilteredItems(const QString& operatorStr, bool
     m_filteredItemIds.clear();
     const int itemCount = currentItemCount();
     QVector<int> candidateIds;
-    if (hasSelectionForCurrentDataType()) {
+    if (m_currentDataType == 1 && !m_selectedPartIds.isEmpty() && m_currentModelData->HasBlockMapping()) {
+        auto* blockMapping = m_currentModelData->GetBlockMapping();
+        const int mappedCellCount = blockMapping
+                                            ? std::min(itemCount, static_cast<int>(blockMapping->GetNumberOfValues()))
+                                            : 0;
+        candidateIds.reserve(mappedCellCount);
+        for (int cellId = 0; cellId < mappedCellCount; ++cellId) {
+            const int partId = static_cast<int>(blockMapping->GetValue(cellId));
+            if (m_selectedPartIds.contains(partId)) candidateIds.push_back(cellId);
+        }
+    } else if (hasSelectionForCurrentDataType()) {
         const auto& selectedItems =
                 m_currentSelection->GetSelectedItems(m_currentDataType == 0 ? IG_POINT : IG_CELL);
         candidateIds.reserve(static_cast<int>(selectedItems.size()));
@@ -439,7 +497,12 @@ void igQtSearchInfoWidget::renderCurrentPage() {
         }
     }
 
-    const QString resultScope = hasSelectionForCurrentDataType() ? QStringLiteral("选中数据") : QStringLiteral("全部数据");
+    const bool hasPartFilter = m_currentDataType == 1 && !m_selectedPartIds.isEmpty() &&
+                               m_currentModelData->HasBlockMapping();
+    const QString resultScope = hasPartFilter
+                                        ? QStringLiteral("选中零件")
+                                        : (hasSelectionForCurrentDataType() ? QStringLiteral("选中数据")
+                                                                           : QStringLiteral("全部数据"));
     ui->groupBox_Results->setTitle(
             QStringLiteral("%1：当前页 %2 条，共 %3 条").arg(resultScope).arg(displayedCount).arg(totalCount));
     m_pageInfoLabel->setText(
@@ -448,6 +511,20 @@ void igQtSearchInfoWidget::renderCurrentPage() {
                     : QStringLiteral("第 %1 / %2 页，共 %3 条").arg(m_currentPage + 1).arg(pageCount).arg(totalCount));
     m_previousPageButton->setEnabled(m_currentPage > 0);
     m_nextPageButton->setEnabled(pageCount > 0 && m_currentPage + 1 < pageCount);
+    {
+        const QSignalBlocker blockPageJump(m_pageJumpSpinBox);
+        if (pageCount == 0) {
+            m_pageJumpSpinBox->setRange(0, 0);
+            m_pageJumpSpinBox->setValue(0);
+            m_pageJumpSpinBox->setEnabled(false);
+            m_pageJumpButton->setEnabled(false);
+        } else {
+            m_pageJumpSpinBox->setRange(1, pageCount);
+            m_pageJumpSpinBox->setValue(m_currentPage + 1);
+            m_pageJumpSpinBox->setEnabled(true);
+            m_pageJumpButton->setEnabled(true);
+        }
+    }
     table->resizeColumnsToContents();
     table->setSortingEnabled(true);
 }

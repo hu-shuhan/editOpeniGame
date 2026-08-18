@@ -2358,6 +2358,12 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 partFocusDialog->setDialogTitle(QStringLiteral("零件聚焦"));
                 partFocusDialog->setMaximizeEnabled(false);
                 partFocusWidget = new igQtPartFocusWidget(partFocusDialog->contentHost());
+                connect(partFocusWidget, &igQtPartFocusWidget::SIGNAL_SelectedPartsChanged, this,
+                        [this](const QVector<int>& partIds) {
+                            auto model = rendererWidget->GetScene()->GetCurrentModel();
+                            ui->widget_SearchInfo->setCurrentModel(model);
+                            ui->widget_SearchInfo->setSelectedPartIds(partIds);
+                        });
                 partFocusDialog->setContentWidget(partFocusWidget);
                 partFocusDialog->resize(340, 380);
             }
