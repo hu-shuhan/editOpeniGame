@@ -1362,157 +1362,157 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("表面简化 (Surface Simplification)")),
-        &QAction::triggered, this, [&](bool checked) {
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+    // connect(mesh_processing->addAction(QStringLiteral("表面简化 (Surface Simplification)")),
+    //     &QAction::triggered, this, [&](bool checked) {
+    //     auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        SurfaceMesh::Pointer mesh;
-        if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
-            mesh = DynamicCast<SurfaceMesh>(obj);
-        } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
-            mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
-        }
+    //     SurfaceMesh::Pointer mesh;
+    //     if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
+    //         mesh = DynamicCast<SurfaceMesh>(obj);
+    //     } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+    //         mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+    //     }
 
-        MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
-        triangulation->SetInput(mesh);
-        if (!triangulation->Execute()) return false;
-        mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+    //     MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
+    //     triangulation->SetInput(mesh);
+    //     if (!triangulation->Execute()) return false;
+    //     mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
 
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.05");
-        int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
+    //     igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+    //     int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.05");
+    //     int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
 
-        dialog->show();
-        dialog->setApplyFunctor([=, this]() {
-            bool ok;
-            QString result = "";
+    //     dialog->show();
+    //     dialog->setApplyFunctor([=, this]() {
+    //         bool ok;
+    //         QString result = "";
 
-            std::vector<FVector> V;
-            std::vector<int> F;
-            std::vector<std::vector<float>> A;
-            std::vector<float> AW;
+    //         std::vector<FVector> V;
+    //         std::vector<int> F;
+    //         std::vector<std::vector<float>> A;
+    //         std::vector<float> AW;
 
-            float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
-            float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    //         float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
+    //         float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-            for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
-                auto& v = mesh->GetPoint(i);
+    //         for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+    //             auto& v = mesh->GetPoint(i);
 
-                V.push_back({v[0], v[1], v[2]});
+    //             V.push_back({v[0], v[1], v[2]});
 
-                for (int j = 0; j < 3; ++j) {
-                    float vj = v[j];
+    //             for (int j = 0; j < 3; ++j) {
+    //                 float vj = v[j];
 
-                    minv[j] = minv[j] > vj ? vj : minv[j];
-                    maxv[j] = maxv[j] < vj ? vj : maxv[j];
-                }
-            }
+    //                 minv[j] = minv[j] > vj ? vj : minv[j];
+    //                 maxv[j] = maxv[j] < vj ? vj : maxv[j];
+    //             }
+    //         }
 
-            float extent = 0.f;
+    //         float extent = 0.f;
 
-            extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
-            extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
-            extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
+    //         extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
+    //         extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
+    //         extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
 
-            float scale = extent == 0 ? 0.f : 1.f / extent;
+    //         float scale = extent == 0 ? 0.f : 1.f / extent;
 
-            for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
-                V[i].x = (V[i].x - minv[0]) * scale;
-                V[i].y = (V[i].y - minv[1]) * scale;
-                V[i].z = (V[i].z - minv[2]) * scale;
-            }
+    //         for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+    //             V[i].x = (V[i].x - minv[0]) * scale;
+    //             V[i].y = (V[i].y - minv[1]) * scale;
+    //             V[i].z = (V[i].z - minv[2]) * scale;
+    //         }
 
-            igIndex ids[3];
-            for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
-                mesh->GetFacePointIds(i, ids);
-                F.push_back(ids[0]);
-                F.push_back(ids[1]);
-                F.push_back(ids[2]);
-            }
+    //         igIndex ids[3];
+    //         for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+    //             mesh->GetFacePointIds(i, ids);
+    //             F.push_back(ids[0]);
+    //             F.push_back(ids[1]);
+    //             F.push_back(ids[2]);
+    //         }
 
-            for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
-                auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
-                int dim = attr.pointer->GetDimension();
-                for (int d = 0; d < dim; d++) {
-                    double val_max = -FLT_MAX;
-                    double val_min = FLT_MAX;
-                    for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                        double val = attr.pointer->GetValue(j * dim + d);
-                        val_max = val_max < val ? val : val_max;
-                        val_min = val_min > val ? val : val_min;
-                    }
-                    if (val_min == val_max) {
-                        std::vector<float> data(mesh->GetNumberOfPoints(), 0.f);
-                        A.push_back(std::move(data));
-                        AW.push_back(0.f);
-                    } else {
-                        std::vector<float> data;
-                        for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                            data.push_back(attr.pointer->GetValue(j * dim + d));
-                        }
-                        //for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                        //    data.push_back((attr.pointer->GetValue(j * dim + d)));
-                        //}
-                        A.push_back(std::move(data));
-                        AW.push_back(1.0f / (val_max - val_min));
-                    }
-                }
-            }
+    //         for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
+    //             auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
+    //             int dim = attr.pointer->GetDimension();
+    //             for (int d = 0; d < dim; d++) {
+    //                 double val_max = -FLT_MAX;
+    //                 double val_min = FLT_MAX;
+    //                 for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+    //                     double val = attr.pointer->GetValue(j * dim + d);
+    //                     val_max = val_max < val ? val : val_max;
+    //                     val_min = val_min > val ? val : val_min;
+    //                 }
+    //                 if (val_min == val_max) {
+    //                     std::vector<float> data(mesh->GetNumberOfPoints(), 0.f);
+    //                     A.push_back(std::move(data));
+    //                     AW.push_back(0.f);
+    //                 } else {
+    //                     std::vector<float> data;
+    //                     for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+    //                         data.push_back(attr.pointer->GetValue(j * dim + d));
+    //                     }
+    //                     //for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+    //                     //    data.push_back((attr.pointer->GetValue(j * dim + d)));
+    //                     //}
+    //                     A.push_back(std::move(data));
+    //                     AW.push_back(1.0f / (val_max - val_min));
+    //                 }
+    //             }
+    //         }
 
-            clock_t start = clock();
-            MeshSaliencyCalculator saliencyCalculator(V, F);
-            saliencyCalculator.Execute();
+    //         clock_t start = clock();
+    //         MeshSaliencyCalculator saliencyCalculator(V, F);
+    //         saliencyCalculator.Execute();
 
-            MeshSimplifierWithAttributes simplifier(V, F, A, AW, saliencyCalculator.NormalCurvature,
-                                                    dialog->getDouble(reductionId, ok));
+    //         MeshSimplifierWithAttributes simplifier(V, F, A, AW, saliencyCalculator.NormalCurvature,
+    //                                                 dialog->getDouble(reductionId, ok));
 
-            simplifier.SetUseVertexImportance(false);
-            simplifier.SetUseDynamicAttributePenalty(true);
+    //         simplifier.SetUseVertexImportance(false);
+    //         simplifier.SetUseDynamicAttributePenalty(true);
 
-            simplifier.IsOptimizedPosition = true;
-            simplifier.Execute();
+    //         simplifier.IsOptimizedPosition = true;
+    //         simplifier.Execute();
 
-            clock_t end = clock();
-            std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
+    //         clock_t end = clock();
+    //         std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
 
-            auto newMesh = SurfaceMesh::New();
-            for (const auto& v: V) {
-                newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
-            }
-            //for (const auto& v: V) {
-            //    newMesh->AddPoint(Point(v.x, v.y, v.z));
-            //}
-            auto CellArray = CellArray::New();
-            for (int i = 0; i < F.size() / 3; i++) { CellArray->AddCellId3(F[i * 3], F[i * 3 + 1], F[i * 3 + 2]); }
-            newMesh->SetFaces(CellArray);
+    //         auto newMesh = SurfaceMesh::New();
+    //         for (const auto& v: V) {
+    //             newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
+    //         }
+    //         //for (const auto& v: V) {
+    //         //    newMesh->AddPoint(Point(v.x, v.y, v.z));
+    //         //}
+    //         auto CellArray = CellArray::New();
+    //         for (int i = 0; i < F.size() / 3; i++) { CellArray->AddCellId3(F[i * 3], F[i * 3 + 1], F[i * 3 + 2]); }
+    //         newMesh->SetFaces(CellArray);
 
-            int count = 0;
-            auto Attributes = AttributeSet::New();
-            for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
-                auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
-                int dim = attr.pointer->GetDimension();
-                auto arr = FloatArray::New();
-                arr->SetDimension(dim);
-                arr->Resize(mesh->GetNumberOfPoints());
-                arr->SetName(attr.pointer->GetName());
+    //         int count = 0;
+    //         auto Attributes = AttributeSet::New();
+    //         for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
+    //             auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
+    //             int dim = attr.pointer->GetDimension();
+    //             auto arr = FloatArray::New();
+    //             arr->SetDimension(dim);
+    //             arr->Resize(mesh->GetNumberOfPoints());
+    //             arr->SetName(attr.pointer->GetName());
 
-                for (int d = 0; d < dim; d++) {
-                    for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                        arr->SetValue(j * dim + d, A[count + d][j]);
-                    }
-                }
-                count += dim;
+    //             for (int d = 0; d < dim; d++) {
+    //                 for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+    //                     arr->SetValue(j * dim + d, A[count + d][j]);
+    //                 }
+    //             }
+    //             count += dim;
 
-                Attributes->AddAttribute(attr.type, attr.attachmentType, arr);
-            }
-            newMesh->SetAttributeSet(Attributes);
+    //             Attributes->AddAttribute(attr.type, attr.attachmentType, arr);
+    //         }
+    //         newMesh->SetAttributeSet(Attributes);
 
-            modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
-            rendererWidget->update();
-            dialog->close();
-        });
-    });
+    //         modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
+    //         rendererWidget->update();
+    //         dialog->close();
+    //     });
+    // });
 
     connect(mesh_processing->addAction(QStringLiteral("表面三角化 (Surface Triangulation)")), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
