@@ -3073,6 +3073,17 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
             DeformationWidget, &igQtDeformationWidget::updateInfo);
 
+    // Rebind the contour-extraction panel when the current model changes
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+        auto model = scene->GetCurrentModel();
+        if (!model) return;
+        auto dataObject = model->GetDataObject();
+        if (!dataObject) return;
+        ui->widget_ContourExtract->SetOriginDataObject(dataObject);
+    });
+
     /* Model Tree signal connect END.*/
 
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
