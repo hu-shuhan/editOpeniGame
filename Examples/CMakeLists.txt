@@ -303,6 +303,7 @@ igame_add_example(testSlice Filter/TestSlice.cpp)
 igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter.cpp)
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)
+igame_add_example(testContourExtraction Filter/TestContourExtraction.cpp)
 igame_add_example(testModelGeometryParallelValidation Filter/ModelGeometryParallelValidation.cpp)
 add_custom_command(TARGET testModelGeometryParallelValidation POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
