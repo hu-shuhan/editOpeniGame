@@ -9,7 +9,7 @@
 | 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 / 等值线与等值面 | ✅ 已实现 |
 | 2 | 基于神经网络的涡提取，与人工标注对比，计算准确率 / 精确率 / 召回率（精度 ≥ 90%） | ✅ 已实现（评估逻辑）；GUI 指标浮层待恢复 |
 | 3 | 支持针对不同类型数据，构建相应的程序接口，实现不同精度要求下的特征提取 | ✅ 已实现（等值线 / 等值面 × 面网格 / 体网格 × 原始 / 简化网格） |
-| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（时序 / 形变见 11.3；区域限定形变待增强） |
+| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（阶段一：表面绘制颜色 / 不透明度映射 ✅；时序 / 形变见 11.3；区域限定形变待增强） |
 
 > 本文档记录子功能 **1**、**2**、**3** 的完整实现，以及 **4** 与现有交互 / 可视化模块的衔接说明。
 > 与 **10.1** 的区别：10.1 侧重**分析数据生成**（局部图表、熵种子、流线筛选）；10.2 侧重**特征场提取与涡结构检测评估**。
@@ -398,8 +398,28 @@ auto res1 = contour2->GetContourMesh();
 |------|------|----------|
 | 时序帧切换 / 动画 | ✅ 通用能力已实现 | `DataObject::UpdateAnimation(keyframeIdx)`；PVD 读取；动画 Dock / FFMPEG（见 **11.3**） |
 | 关键特征随时间刷新 | ✅ 可对每帧属性切换云图；涡预测可按帧重跑或预计算后播放 | `ViewCloudPicture` + `UpdateAnimation` |
+| 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 阶段一已实现 | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` 透明管线；标量场面板「不透明度映射」开关 |
 | 整模结构形变 | ✅ 已实现 | `StressDeformationFilter` + `igQtDeformationWidget`（**11.3**） |
 | **仅选中区域作用形变** | ⏳ 待增强 | 选区（Selection 交互层，见 10.3）与 `DeformationData` 尚未绑定「仅偏移选中点」路径 |
+
+### 阶段性实现：标量场到颜色 / 不透明度的映射（阶段一）
+
+作为「关键事件时域演化可视化」的阶段性实现，当前已支持在**表面绘制**下把选中的标量场同时映射为颜色与不透明度（点、线框与体绘制共用同一套映射链路）：
+
+- **颜色映射**：复用 `ScalarsToColors` 色标映射，属性值 → RGB；
+- **不透明度映射**：开启后按每个顶点的属性值生成 alpha（当前为线性传递函数 `opacity = 归一化后的属性值`，见 `ColorMap::MapOpacity`），并与对象整体透明度相乘后进入透明渲染管线；
+- **渲染路径**：`TransparencyLink.frag` 的 `colorMode==0`（表面 + 光照）与 `colorMode==1`（无光照）均输出 `in_Color.a * objectData.transparent`；`DrawWithTransparency` 在启用不透明度映射时即进入该路径（无需预先调低整体透明度），并经 OIT 逐像素排序保证混合正确；
+- **入口**：GUI 为标量场面板（`dockWidget_ScalarField` / `igQtScalarViewWidget`）的「不透明度映射」复选框；API 为 `Scene::SetOpacityMappingEnabled` / `DrawObject::SetOpacityMappingEnabled`（递归作用于子数据对象，可覆盖 PVD 多块帧）；体绘制示例见 `Examples/Rendering/SetVolumeRendering.cpp`。
+
+在关键事件时域演化中的用法：单帧即可用「颜色高亮 + 低值区域半透明」突出关键事件区域；结合 **11.3** 的动画播放能力逐帧切换属性，即可观察关键区域随时间的演化。
+
+**后续阶段规划**（本子功能的实现路线）：
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| 阶段一 | 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 已实现（本节） |
+| 阶段二 | 按属性阈值筛选点，分别控制选中 / 未选中点的不透明度（`AttributeOpacityFilter`） | ⏳ 规划中 |
+| 阶段三 | 逐帧属性差值（`TimeDifferenceFilter`）作为筛选条件，动画播放时突出变化剧烈区域 | ⏳ 规划中 |
 
 推荐工作流（当前可用）：
 
@@ -421,6 +441,9 @@ auto res1 = contour2->GetContourMesh();
 |------|------|
 | `iGameCore/Core/DataModel/iGameDataObject.*` | `UpdateAnimation` 时序切换 |
 | `iGameCore/IO/VTK XML/iGamePVDReader.*` | 时序 PVD |
+| `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | 标量 → RGBA 颜色 / 不透明度映射 |
+| `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | 表面透明管线逐顶点 alpha（OIT 排序） |
+| `Qt/src/IQWidgets/igQtScalarViewWidget.*` | 「不透明度映射」开关 |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | 结构形变 |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | 形变 Dock |
 | `doc/modules/README_11.3.md` | 时序 / 形变 / 动画完整说明 |
@@ -433,6 +456,7 @@ auto res1 = contour2->GetContourMesh();
 | `dockWidget_Animation` | 时间轴播放、缓存帧数、导出 |
 | 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
 | `DeformationDockWidget` / `igQtDeformationWidget` | 位移矢量、缩放因子、开关形变 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「不透明度映射」，把当前标量映射为颜色 + 不透明度 |
 
 <!-- 待补充截图：关键事件时域演化
 ![关键特征时域演化](../../Resources/Images/关键特征时域演化.png)

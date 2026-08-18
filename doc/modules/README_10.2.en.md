@@ -9,7 +9,7 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 | 1 | Classical physical features: gradient / curvature / Laplacian / vorticity / isolines and isosurfaces | ✅ Implemented |
 | 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
 | 3 | Per-data-type program interfaces enabling feature extraction at different precision levels | ✅ Implemented (isolines / isosurfaces × surface / volume × original / simplified meshes) |
-| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (time series / deformation in 11.3; region-limited deformation TBD) |
+| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (Phase 1: surface color / opacity mapping ✅; time series / deformation in 11.3; region-limited deformation TBD) |
 
 > This document covers sub-features **1**, **2** and **3** in full, and how **4** connects to existing interaction and visualization modules.
 > Key-region click / box selection itself is covered by **10.3** and the `Selection` module and is not repeated here.
@@ -370,8 +370,28 @@ That is a direct check of `ContourFilter`'s dispatch-by-cell-dimension logic. Bo
 |------------|--------|-------|
 | Time-step switching / animation | ✅ Generic capability | `DataObject::UpdateAnimation(keyframeIdx)`; PVD; animation dock / FFMPEG (**11.3**) |
 | Feature refresh over time | ✅ Switch cloud maps per frame; re-run or precompute vortex predict | `ViewCloudPicture` + `UpdateAnimation` |
+| Scalar → color / opacity mapping (surface rendering) | ✅ Phase 1 implemented | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` transparency pipeline; "Opacity Mapping" toggle in the Scalar View dock |
 | Whole-mesh structural deformation | ✅ Implemented | `StressDeformationFilter` + `igQtDeformationWidget` (**11.3**) |
 | **Deformation limited to selection** | ⏳ TBD | Selection (interaction layer, see 10.3) not yet bound to “offset selected points only” in `DeformationData` |
+
+### Phased implementation: scalar-to-color / opacity mapping (Phase 1)
+
+As the first phase of **temporal evolution of key events**, the platform now maps the selected scalar field to both color and opacity **in surface rendering** (points, wireframe and volume rendering share the same mapping chain):
+
+- **Color mapping**: reuses the `ScalarsToColors` color bar — attribute value → RGB;
+- **Opacity mapping**: when enabled, each vertex gets an alpha derived from its attribute value (currently a linear transfer function `opacity = normalized value`, see `ColorMap::MapOpacity`), multiplied by the object's overall transparency before entering the transparency pipeline;
+- **Render path**: in `TransparencyLink.frag`, both `colorMode==0` (surface + lighting) and `colorMode==1` (unlit) output `in_Color.a * objectData.transparent`; `DrawWithTransparency` enters this path as soon as opacity mapping is enabled (no need to lower the overall transparency first), and per-pixel OIT sorting keeps blending correct;
+- **Entry points**: GUI — tick "Opacity Mapping" in the Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`); API — `Scene::SetOpacityMappingEnabled` / `DrawObject::SetOpacityMappingEnabled` (recursive over sub-data-objects, covering PVD frame blocks); the volume-rendering example is `Examples/Rendering/SetVolumeRendering.cpp`.
+
+Usage for key-event temporal evolution: on a single frame, "color highlight + semi-transparent low-value regions" already isolates key event regions; combined with the animation playback in **11.3**, switching attributes frame by frame shows how key regions evolve over time.
+
+**Roadmap** (implementation path of this sub-feature):
+
+| Phase | Content | Status |
+|-------|---------|--------|
+| Phase 1 | Scalar → color / opacity mapping (surface rendering) | ✅ Implemented (this section) |
+| Phase 2 | Threshold-based point filtering with separate opacity for selected / unselected points (`AttributeOpacityFilter`) | ⏳ Planned |
+| Phase 3 | Per-frame attribute difference (`TimeDifferenceFilter`) as the filter condition, highlighting rapidly changing regions during playback | ⏳ Planned |
 
 Recommended workflow (available now):
 
@@ -393,6 +413,9 @@ Click / box-select key region → write deformation offsets only for that set �
 |------|-------|
 | `iGameCore/Core/DataModel/iGameDataObject.*` | `UpdateAnimation` |
 | `iGameCore/IO/VTK XML/iGamePVDReader.*` | Time-series PVD |
+| `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | Scalar → RGBA color / opacity mapping |
+| `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | Per-vertex alpha in the surface transparency pipeline (OIT sorting) |
+| `Qt/src/IQWidgets/igQtScalarViewWidget.*` | "Opacity Mapping" toggle |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | Structural deformation |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | Deformation dock |
 | `doc/modules/README_11.3.md` | Full time / deformation / animation notes |
@@ -403,6 +426,7 @@ Click / box-select key region → write deformation offsets only for that set �
 |-------|-------|
 | Animation / time-series docks | Play key feature fields over time (11.3) |
 | Deformation dock / `igQtDeformationWidget` | Displacement vector, scale factors, enable deformation |
+| Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`) | Tick "Opacity Mapping" to map the current scalar to color plus opacity |
 
 ---
 
