@@ -307,7 +307,6 @@ if (filter->Execute()) {
 |------|--------------------------------|-----|----------|
 | 面网格 | 表面网格简化 (Surface Simplification) | `MeshSimplificationFilter` | 简化比例 (0..1)、保留网格边界、检查网格全部标量、几何相似性度量 |
 | 面网格 | 快速表面简化 (Fast Surface Simplification) | `MeshSimplificationFilterPro` | 目标简化比例 (0..1)、目标面数、保留网格边界 |
-| 面网格 | 表面简化 (Surface Simplification) | `MeshSimplifierWithAttributes` + `MeshSaliency` | Reduction、Target Face Count、属性权重（显著性引导） |
 | 体网格 | 四面体边坍缩简化 | `TetraEdgeSimplification` | Reduction (0..1)、Target Tetra Count、Boundary Penalty、Lambda、Preserve Boundary、Use All Point Attributes、Stretch Factor、Max Aspect Ratio |
 
 简化产出的是**新的网格对象**，加入模型树后可直接作为轮廓提取的输入。由于简化过程携带属性（面网格侧的「检查网格全部标量」、体网格侧的 `Use All Point Attributes`），简化网格上仍能选到同名标量并提取轮廓。
@@ -359,12 +358,12 @@ auto res1 = contour2->GetContourMesh();
 | 2. 选中目标模型 | 模型树中选原始模型，或选简化产出的新模型 |
 | 3. 提取轮廓 | 工具面板 → 轮廓提取（等值线/等值面）→ 选点属性→填写数值→ 执行 |
 | 4. 对比 | 每次提取产出独立模型 `<原名>_Contour`，可同时显示，直观对比不同精度的轮廓 |
+![体网格原始/简化 前后对比](../../Resources/Images/简化前.png)
+> 原始体网格等值面提取
+![体网格原始/简化 前后对比](../../Resources/Images/简化后.png)
+> 网格简化后等值面提取
 
-### 使用要点
-
-1. 简化比例越大（保留单元越少），轮廓越粗糙；建议用同一个等值数值在若干简化比例上各跑一次做对比。
-2. 面网格简化只影响等值线，体网格简化只影响等值面，两者不能互换；体网格若只想要边界上的等值线，应先做表面提取再简化。
-3. 简化改变了单元数与点编号，轮廓顶点数随之变化；做定量对比时应比较轮廓的几何量（等值线长度 / 等值面面积），而不是顶点数。
+> 精度评估需数据中带有人工标注属性 `PredictedLabel`；无标注时仅输出 `vortexPredict` 云图，不计算对比指标。
 
 ---
 
