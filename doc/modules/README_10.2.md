@@ -8,10 +8,10 @@
 |---|--------|------|
 | 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 / 等值线与等值面 | ✅ 已实现 |
 | 2 | 基于神经网络的涡提取，与人工标注对比，计算准确率 / 精确率 / 召回率（精度 ≥ 90%） | ✅ 已实现（评估逻辑）；GUI 指标浮层待恢复 |
-| 3 | 关键区域点击 / 选中（点、单元、框选） | ✅ 已实现（交互在 Selection / 10.3；特征提取作用于当前属性场） |
+| 3 | 支持针对不同类型数据，构建相应的程序接口，实现不同精度要求下的特征提取 | ✅ 已实现（等值线 / 等值面 × 面网格 / 体网格 × 原始 / 简化网格） |
 | 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（时序 / 形变见 11.3；区域限定形变待增强） |
 
-> 本文档记录子功能 **1**、**2** 的完整实现，以及 **3**、**4** 与现有交互 / 可视化模块的衔接说明。
+> 本文档记录子功能 **1**、**2**、**3** 的完整实现，以及 **4** 与现有交互 / 可视化模块的衔接说明。
 > 与 **10.1** 的区别：10.1 侧重**分析数据生成**（局部图表、熵种子、流线筛选）；10.2 侧重**特征场提取与涡结构检测评估**。
 > 与 **11.3** 的区别：11.3 提供**时序切换、结构形变、动画导出**通用能力；10.2 的关键事件时域演化依赖这些能力展示检测结果。
 
@@ -277,41 +277,94 @@ if (filter->Execute()) {
 
 ---
 
-## 子功能 3：关键区域点击 / 选中
+## 子功能 3：面向不同类型数据的特征提取接口（不同精度要求）
 
 ### 功能说明
 
-用户可通过交互在 3D 模型上**点击点 / 选单元 / 框选区域**，得到关键区域 ID 集合或包围盒，用于：
+针对不同类型的网格数据构建相应的程序接口，使同一套特征提取能力在**不同精度（网格密度）**的数据上都能正常工作。这里有两条正交的维度：
 
-- 限制后续分析范围（与 10.1 局部图表、刷选联动一致）；
-- 将特征云图观察聚焦到关键结构附近；
-- 作为时域演化 / 形变作用的区域输入（见子功能 4）。
+- **数据类型**：面网格 / 体网格 / 非结构网格 / 结构化网格，由 filter 内部按 `GetDataObjectType()` 自动分派到对应的执行接口，调用方无需区分。
+- **网格精度**：原始网格与简化后的网格。平台提供面网格与体网格两套简化接口，简化过程保留属性场，因此简化结果可直接作为特征提取的输入。
 
-特征提取 Filter 本身对**整幅当前属性场**计算；区域语义由 **Selection 交互层**提供，再与特征结果联动显示。
+以**等值线 / 等值面**为例：面网格上提取得到等值线，体网格上提取得到等值面；同一个等值数值在原始网格与简化网格上分别执行，可得到不同精细程度的轮廓，用于在精度与性能之间取舍。
 
-### 源码路径
+### 接口分派：数据类型 → 执行接口
 
-| 路径 | 类 / API | 说明 |
-|------|----------|------|
-| `iGameCore/Core/Common/iGameSelection.*` | `Selection` | 选区数据模型 |
-| `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | `SelectionStyle` | 点 / 单元选择交互 |
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle` | 框选包围盒 |
+`ContourFilter::Execute()` 按数据对象类型分流，四类输入各有对应接口：
 
-### 使用要点
+| 输入数据类型 | 执行接口 | 内部处理 | 输出 |
+|--------------|----------|----------|------|
+| `IG_SURFACE_MESH` | `ExecuteWithSurfaceMesh` | `GenerateFromSurfaceMesh` 转成 `UnstructuredMesh` 后统一处理 | **等值线**（`IG_LINE`） |
+| `IG_VOLUME_MESH` | `ExecuteWithVolumeMesh` | 普通体网格走 `GenerateFromVolumeMesh`；多面体网格转 `ExecuteWithVolumeMeshWithPolyhedronType` | **等值面**（`IG_TRIANGLE`） |
+| `IG_UNSTRUCTURED_MESH` | `ExecuteWithUnstructuredMesh` | 逐单元按维度分派：2D 单元出线段，3D 单元出三角面 | 等值线 / 等值面 / 两者兼有 |
+| `IG_STRUCTURED_MESH` | 复用 `ExecuteWithVolumeMesh` | 同体网格 | **等值面** |
 
-1. 在视图中启用选择样式，点击或框选得到点 / 单元 ID。
-2. 对全场执行特征提取（子功能 1 / 2），再以云图查看 `vortexPredict` 等属性。
-3. 需要局部分析时，将选区 bounding box 交给 10.1 图表或刷选管线。
+### 精度层级：原始网格与简化网格
+
+简化接口分面、体两套，均保留属性场：
+
+| 目标 | 菜单入口（Filters → 数据处理） | 类 | 主要参数 |
+|------|--------------------------------|-----|----------|
+| 面网格 | 表面网格简化 (Surface Simplification) | `MeshSimplificationFilter` | 简化比例 (0..1)、保留网格边界、检查网格全部标量、几何相似性度量 |
+| 面网格 | 快速表面简化 (Fast Surface Simplification) | `MeshSimplificationFilterPro` | 目标简化比例 (0..1)、目标面数、保留网格边界 |
+| 面网格 | 表面简化 (Surface Simplification) | `MeshSimplifierWithAttributes` + `MeshSaliency` | Reduction、Target Face Count、属性权重（显著性引导） |
+| 体网格 | 四面体边坍缩简化 | `TetraEdgeSimplification` | Reduction (0..1)、Target Tetra Count、Boundary Penalty、Lambda、Preserve Boundary、Use All Point Attributes、Stretch Factor、Max Aspect Ratio |
+
+简化产出的是**新的网格对象**，加入模型树后可直接作为轮廓提取的输入。由于简化过程携带属性（面网格侧的「检查网格全部标量」、体网格侧的 `Use All Point Attributes`），简化网格上仍能选到同名标量并提取轮廓。
+
+### 四种组合
+
+| 组合 | 输入 | 提取结果 | 说明 |
+|------|------|----------|------|
+| ① 面网格 · 原始 | 表面网格 / 全 2D 单元的非结构网格 | 等值线 | 基准精度，线段最密，贴合原始几何 |
+| ② 面网格 · 简化 | 面网格简化的输出 | 等值线 | 线段数随简化比例下降，轮廓形状变粗糙 |
+| ③ 体网格 · 原始 | 体网格 / 含 3D 单元的非结构网格 / 结构化网格 | 等值面 | 基准精度，三角面片最密 |
+| ④ 体网格 · 简化 | 四面体边坍缩简化的输出 | 等值面 | 面片数下降，等值面细节被抹平 |
+
+轮廓的精细程度由**输入网格的单元密度**直接决定——等值线 / 等值面的顶点全部落在被切单元的**边**上，单元越密、被切的边越多，交点就越密。所以"用不同精度的网格提同一个等值数值"是控制轮廓精度最直接的手段，不需要改动算法参数。
+
+### 调用方式
+
+```cpp
+// ① 原始网格上直接提取：面 / 体 / 非结构 / 结构化均可，内部自动分派
+auto obj = iGame::FileIO::ReadFile(fileName);
+auto contour = iGame::ContourFilter::New();
+contour->SetInput(obj);
+contour->SetIsoScalarData(array, value, dimension);
+contour->Execute();
+auto res0 = contour->GetContourMesh();
+
+// ② 先简化再提取（面网格；体网格换成 TetraEdgeSimplification，流程一致）
+auto simp = iGame::MeshSimplificationFilterPro::New();
+simp->SetInput(obj);
+simp->SetTargetReduction(0.5f);      // 或 SetTargetFaceCount(n)
+simp->SetPreserveBoundary(true);
+simp->Execute();
+auto simplified = simp->GetOutput();
+
+auto contour2 = iGame::ContourFilter::New();
+contour2->SetInput(simplified);
+contour2->SetIsoScalarData(array2, value, dimension);   // array2 取自简化输出
+contour2->Execute();
+auto res1 = contour2->GetContourMesh();
+```
+
+简化后必须**从简化输出重新取属性数组**：简化会重建 `AttributeSet`，不能沿用原模型的 `ArrayObject` 指针（点数已经对不上）。
 
 ### GUI
 
-| 入口 | 说明 |
+| 步骤 | 入口 |
 |------|------|
-| 工具栏「选择」/ `action_Select` | 启用点 / 单元拾取 |
-| 「选择」面板 → 选择盒（`SelectBox` / `BoxStyle`） | 拖拽框选关键区域，得到包围盒 |
-| 模型树 | 查看选中集合与派生属性 |
+| 1. 菜单→ 数据处理 → 表面网格简化 / 快速表面简化 / 四面体边坍缩简化 |
+| 2. 选中目标模型 | 模型树中选原始模型，或选简化产出的新模型 |
+| 3. 提取轮廓 | 工具面板 → 轮廓提取（等值线/等值面）→ 选点属性→填写数值→ 执行 |
+| 4. 对比 | 每次提取产出独立模型 `<原名>_Contour`，可同时显示，直观对比不同精度的轮廓 |
 
-![框选关键区域高亮示例](../../Resources/Images/car_feaure_select.png)
+### 使用要点
+
+1. 简化比例越大（保留单元越少），轮廓越粗糙；建议用同一个等值数值在若干简化比例上各跑一次做对比。
+2. 面网格简化只影响等值线，体网格简化只影响等值面，两者不能互换；体网格若只想要边界上的等值线，应先做表面提取再简化。
+3. 简化改变了单元数与点编号，轮廓顶点数随之变化；做定量对比时应比较轮廓的几何量（等值线长度 / 等值面面积），而不是顶点数。
 
 ---
 
@@ -331,7 +384,7 @@ if (filter->Execute()) {
 | 时序帧切换 / 动画 | ✅ 通用能力已实现 | `DataObject::UpdateAnimation(keyframeIdx)`；PVD 读取；动画 Dock / FFMPEG（见 **11.3**） |
 | 关键特征随时间刷新 | ✅ 可对每帧属性切换云图；涡预测可按帧重跑或预计算后播放 | `ViewCloudPicture` + `UpdateAnimation` |
 | 整模结构形变 | ✅ 已实现 | `StressDeformationFilter` + `igQtDeformationWidget`（**11.3**） |
-| **仅选中区域作用形变** | ⏳ 待增强 | 选区（子功能 3）与 `DeformationData` 尚未绑定「仅偏移选中点」路径 |
+| **仅选中区域作用形变** | ⏳ 待增强 | 选区（Selection 交互层，见 10.3）与 `DeformationData` 尚未绑定「仅偏移选中点」路径 |
 
 推荐工作流（当前可用）：
 

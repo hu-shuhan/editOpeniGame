@@ -8,10 +8,11 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 |---|-------------|--------|
 | 1 | Classical physical features: gradient / curvature / Laplacian / vorticity / isolines and isosurfaces | ✅ Implemented |
 | 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
-| 3 | Key-region click / selection (points, cells, box) | ✅ Implemented (via Selection / 10.3; extractors run on the current attribute field) |
+| 3 | Per-data-type program interfaces enabling feature extraction at different precision levels | ✅ Implemented (isolines / isosurfaces × surface / volume × original / simplified meshes) |
 | 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (time series / deformation in 11.3; region-limited deformation TBD) |
 
-> This document covers sub-features **1** and **2** in full, and how **3** / **4** connect to existing interaction and visualization modules.
+> This document covers sub-features **1**, **2** and **3** in full, and how **4** connects to existing interaction and visualization modules.
+> Key-region click / box selection itself is covered by **10.3** and the `Selection` module and is not repeated here.
 > Difference from **10.1**: 10.1 focuses on **analysis data generation**; 10.2 focuses on **feature-field extraction and vortex detection evaluation**.
 > Difference from **11.3**: 11.3 provides generic **time switching, structural deformation, and animation export**; 10.2 key-event temporal views rely on those capabilities.
 
@@ -247,31 +248,94 @@ Reference data: `./Models/pipedcylinder2d_gt.vtk` (annotated scenario).
 
 ---
 
-## Sub-feature 3: Key-region click / selection
+## Sub-feature 3: Per-data-type interfaces for extraction at different precision levels
 
 ### Description
 
-Users can **click points / select cells / box-select regions** on the 3D model to obtain key-region IDs or a bounding box, used to:
+Dedicated program interfaces are provided per mesh data type, so that one and the same extraction capability works across data of **different precision (mesh density)**. Two orthogonal dimensions are involved:
 
-- limit downstream analysis scope (aligned with 10.1 local charts and brushing);
-- focus cloud-map inspection near key structures;
-- feed region input for temporal evolution / deformation (sub-feature 4).
+- **Data type**: surface / volume / unstructured / structured meshes. The filter dispatches internally on `GetDataObjectType()`; callers need not distinguish them.
+- **Mesh precision**: original vs. simplified meshes. Both surface and volume simplification interfaces are provided, and both carry the attribute field along, so a simplified result feeds straight back into extraction.
 
-Feature-extraction filters themselves operate on the **full current attribute field**; region semantics come from the **Selection interaction layer**, then link to feature results for display.
+Taking **isolines / isosurfaces** as the example: a surface mesh yields isolines, a volume mesh yields isosurfaces; running the same iso value on the original and on the simplified mesh produces contours of different fineness, which is how precision is traded against cost.
 
-### Source Paths
+### Interface dispatch: data type → execution path
 
-| Path | Notes |
+`ContourFilter::Execute()` dispatches on the data-object type; each of the four input kinds has its own path:
+
+| Input data type | Execution path | Internal handling | Output |
+|-----------------|----------------|-------------------|--------|
+| `IG_SURFACE_MESH` | `ExecuteWithSurfaceMesh` | `GenerateFromSurfaceMesh` converts to `UnstructuredMesh`, then shared handling | **Isolines** (`IG_LINE`) |
+| `IG_VOLUME_MESH` | `ExecuteWithVolumeMesh` | Ordinary volume meshes go through `GenerateFromVolumeMesh`; polyhedral ones divert to `ExecuteWithVolumeMeshWithPolyhedronType` | **Isosurfaces** (`IG_TRIANGLE`) |
+| `IG_UNSTRUCTURED_MESH` | `ExecuteWithUnstructuredMesh` | Per-cell dispatch by dimension: 2D cells give segments, 3D cells give triangles | Isolines / isosurfaces / both |
+| `IG_STRUCTURED_MESH` | Reuses `ExecuteWithVolumeMesh` | Same as volume | **Isosurfaces** |
+
+### Precision levels: original vs. simplified meshes
+
+Simplification comes in a surface set and a volume set, both attribute-preserving:
+
+| Target | Menu (Filters → Data Processing) | Class | Main parameters |
+|--------|----------------------------------|-------|-----------------|
+| Surface | Surface Simplification | `MeshSimplificationFilter` | reduction ratio (0..1), preserve boundary, check all scalars, geometric-similarity metric |
+| Surface | Fast Surface Simplification | `MeshSimplificationFilterPro` | target reduction (0..1), target face count, preserve boundary |
+| Surface | Surface Simplification | `MeshSimplifierWithAttributes` + `MeshSaliency` | Reduction, Target Face Count, attribute weights (saliency-guided) |
+| Volume | Tetra Edge-Collapse Simplification | `TetraEdgeSimplification` | Reduction (0..1), Target Tetra Count, Boundary Penalty, Lambda, Preserve Boundary, Use All Point Attributes, Stretch Factor, Max Aspect Ratio |
+
+Simplification produces a **new mesh object**; once in the model tree it can be used directly as contour input. Because attributes travel with it (the surface side's "check all scalars", the volume side's `Use All Point Attributes`), the same named scalar remains selectable on the simplified mesh.
+
+### The four combinations
+
+| Combination | Input | Result | Notes |
+|-------------|-------|--------|-------|
+| ① Surface · original | Surface mesh / all-2D unstructured mesh | Isolines | Baseline precision; densest segments, closest to the original geometry |
+| ② Surface · simplified | Output of surface simplification | Isolines | Segment count drops with the reduction ratio; contour shape coarsens |
+| ③ Volume · original | Volume / 3D-cell unstructured / structured mesh | Isosurfaces | Baseline precision; densest triangles |
+| ④ Volume · simplified | Output of tetra edge-collapse simplification | Isosurfaces | Fewer triangles; isosurface detail is smoothed away |
+
+Contour fineness is dictated directly by the **cell density of the input mesh** — every contour vertex lies on an **edge** of a cut cell, so denser cells mean more cut edges and more intersection points. Running the same iso value on meshes of different precision is therefore the most direct way to control contour precision, with no algorithm parameter to tune.
+
+### How It Is Called
+
+```cpp
+// (1) Extract directly on the original mesh — surface / volume / unstructured / structured all dispatch internally
+auto obj = iGame::FileIO::ReadFile(fileName);
+auto contour = iGame::ContourFilter::New();
+contour->SetInput(obj);
+contour->SetIsoScalarData(array, value, dimension);
+contour->Execute();
+auto res0 = contour->GetContourMesh();
+
+// (2) Simplify first, then extract (surface; for volumes swap in TetraEdgeSimplification)
+auto simp = iGame::MeshSimplificationFilterPro::New();
+simp->SetInput(obj);
+simp->SetTargetReduction(0.5f);      // or SetTargetFaceCount(n)
+simp->SetPreserveBoundary(true);
+simp->Execute();
+auto simplified = simp->GetOutput();
+
+auto contour2 = iGame::ContourFilter::New();
+contour2->SetInput(simplified);
+contour2->SetIsoScalarData(array2, value, dimension);   // array2 taken from the simplified output
+contour2->Execute();
+auto res1 = contour2->GetContourMesh();
+```
+
+After simplification the attribute array **must be re-fetched from the simplified output**: simplification rebuilds the `AttributeSet`, so the original model's `ArrayObject` pointer no longer matches the point count.
+
+### GUI
+
+| Step | Entry |
 |------|-------|
-| `iGameCore/Core/Common/iGameSelection.*` | Selection data model |
-| `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | Point / cell selection |
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | Box selection |
+| 1. (optional) lower the precision | Filters → Data Processing → Surface Simplification / Fast Surface Simplification / Surface Simplification / Tetra Edge-Collapse Simplification |
+| 2. select the target model | Pick the original model, or the new model produced by simplification |
+| 3. extract the contour | Tool panel → Contour Extraction (isolines/isosurfaces) → point scalar, component, iso value → run |
+| 4. compare | Each run adds its own `<name>_Contour` model, so several precision levels can be displayed side by side |
 
 ### Usage Notes
 
-1. Enable a selection style; click or box-select to obtain point / cell IDs.
-2. Run feature extraction (sub-features 1 / 2) on the full field, then inspect attributes such as `vortexPredict`.
-3. For local analysis, pass the selection bounding box into 10.1 charts or the brushing pipeline.
+1. The higher the reduction ratio (the fewer cells kept), the coarser the contour; run the same iso value at several reduction ratios to compare.
+2. Surface simplification only affects isolines and volume simplification only isosurfaces — they are not interchangeable. To get boundary isolines from a volume mesh, run Surface Extraction first, then simplify.
+3. Simplification changes cell counts and point numbering, so contour vertex counts shift with it; for quantitative comparison use geometric measures (isoline length / isosurface area) rather than vertex counts.
 
 ---
 
@@ -291,7 +355,7 @@ Feature-extraction filters themselves operate on the **full current attribute fi
 | Time-step switching / animation | ✅ Generic capability | `DataObject::UpdateAnimation(keyframeIdx)`; PVD; animation dock / FFMPEG (**11.3**) |
 | Feature refresh over time | ✅ Switch cloud maps per frame; re-run or precompute vortex predict | `ViewCloudPicture` + `UpdateAnimation` |
 | Whole-mesh structural deformation | ✅ Implemented | `StressDeformationFilter` + `igQtDeformationWidget` (**11.3**) |
-| **Deformation limited to selection** | ⏳ TBD | Selection (sub-feature 3) not yet bound to “offset selected points only” in `DeformationData` |
+| **Deformation limited to selection** | ⏳ TBD | Selection (interaction layer, see 10.3) not yet bound to “offset selected points only” in `DeformationData` |
 
 Recommended workflow (available now):
 
