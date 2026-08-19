@@ -283,9 +283,10 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
     }
 
     if (!m_hasPartId) {
+        // 没有 part_id 时仍可生成报告：服务器端按整体（单块）模型分析。
+        // 弹窗提示后不中断流程，继续执行后续报告生成。
         igQtShowDarkFramelessMessage(this, QStringLiteral("报告生成"),
-                                     QStringLiteral("当前模型没有 part_id 属性，无法按零件生成报告。"));
-        return;
+                                     QStringLiteral("当前模型没有 part_id 属性，将按整体模型生成报告（无零件级分析）。"));
     }
 
     if (selected.isEmpty()) {
