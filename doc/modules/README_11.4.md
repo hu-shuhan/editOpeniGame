@@ -9,11 +9,11 @@
 | 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | **本文详写** |
 | 2 | 等几何 / 高阶单元高保真可视化（谱方法专项见「已知缺口」） | ✅ 部分实现（Spline / Lagrange） | [README_7.1.md](README_7.1.md) |
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
-| 4 | 大规模多尺度物理场特征可视交互 | ✅ 已实现 | 本文概述 |
-| 5 | 多层次关键特征智能提取 | ✅ 已实现 | [README_10.2.md](README_10.2.md) |
-| 6 | 融合专家知识 / 标注的可视化结果智能评测 | ✅ 部分实现（涡预测 Precision/Recall；网格质量度量待强化） | 本文概述 + [README_10.2.md](README_10.2.md) |
+| 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | 本文详写 + [README_10.1.md](README_10.1.md) |
+| 5 | 多层次关键特征提取（经典算子、时序涡量与 LibTorch 涡检测） | ✅ 已实现 | 本文详写 + [README_10.2.md](README_10.2.md) |
+| 6 | 基于 LLM 的可视化结果智能评测与分析报告生成 | ✅ 已实现（依赖外部 LLM / 报告服务） | 本文详写 |
 
-> **写法说明**：11.4 是**平台总指标**。子功能 1、6 在本文展开；2～5 以交叉引用为主，避免与 7.1 / 10.x / 11.3 重复粘贴。  
+> **写法说明**：11.4 是**平台总指标**。子功能 1、4～6 在本文给出验收流程；2、3 以交叉引用为主，避免与 7.1 / 11.3 重复粘贴。
 > 与 **11.3** 的区别：11.3 写「场怎么画」；11.4 写「平台如何并行、加速，以及各专项如何拼成整机能力」。  
 
 ![架构图](../../Resources/Images/架构图.png)
@@ -149,18 +149,61 @@ iGame::ThreadPool::parallelFor(0, count, [&](int i) {
 
 ---
 
-## 子功能 4：大规模多尺度物理场特征可视交互
+## 子功能 4：局部聚焦与多尺度流线联合显示
 
-### 功能说明
+### 功能 4.1：点选物体局部聚焦，改变视角和旋转中心
 
-通过并行坐标、相关矩阵、密度图、探针线等 2D 分析视图刷选，经 `Selection` 回调与 3D 模型高亮 / 筛选联动，形成「多尺度」感知驱动交互。
+加载模型后，使用点选、单元选择或选择盒选取需要观察的局部区域。系统从选择盒的极值点生成 `BoundingBox`；执行「包围框视角」后，`Scene::ResetCameraView(bbox)` 将相机焦点和场景旋转包围球更新为包围框中心，同时按包围框尺度调整相机距离。因此后续缩放与旋转都围绕局部区域进行，而不是继续围绕整模型中心。
+
+操作流程：
+
+1. 加载待观察模型，在「选择」功能中启用点 / 单元 / 选择盒模式。
+2. 点选或框选所需区域，确认视图中已经形成局部选择盒。
+3. 点击工具栏或视图菜单中的「包围框视角」。
+4. 检查视角是否缩放到选区，并拖动旋转模型，确认旋转中心已切换到选区包围框中心。
+5. 可显示并拖动中心坐标轴，进一步调整旋转中心。
+
+![框选局部区域聚焦示例](../../Resources/Images/car_box_view.png)
+
+### 功能 4.2：局部微观流线与全局宏观流线联合显示
+
+系统可在**一次流线生成**中合并两种尺度的种子点：
+
+- **局部微观种子**：在当前点 / 单元选区内，根据矢量模长寻找局部极大值或极小值，突出高速或低速区域附近的精细流动结构。
+- **全局宏观种子**：在用户给定的起点与终点之间生成种子线，使流线贯穿全场，展示整体流动方向与宏观趋势。
+
+两组种子合并后统一传给 `StreamTracer::SetInput`，只执行一次 `Execute()`，结果作为同一个流线对象加入模型树。GUI 中对应「多尺度混合模式(极大)」和「多尺度混合模式(极小)」。
+
+操作流程：
+
+1. 加载含三维体单元和速度矢量属性的模型，打开「流场」面板并选择速度场。
+2. 使用选择功能框选局部关注区域。
+3. 选择「多尺度混合模式(极大)」观察局部高速结构，或选择「多尺度混合模式(极小)」观察局部低速结构。
+4. 设置宏观种子线的起点、终点、种子数量以及流线长度、积分步长等参数。
+5. 生成流线，检查局部选区内的微观流线与贯穿全场的宏观流线是否同时出现。
+
+![宏观与微观流线联合显示](../../Resources/Images/宏观微观流线.png)
+
+### 源码路径
+
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
+| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle::GetBox` / `GetExtremePoint` | 取得选区包围框极值点 |
+| `Qt/src/IQCore/igQtMainWindow.cpp` | `action_ResetViewByBoundingBox` | 「包围框视角」GUI 入口 |
+| `iGameCore/Rendering/Core/iGameScene.*` | `Scene::ResetCameraView(const BoundingBox&)` | 更新相机焦点、距离与旋转中心 |
+| `iGameCore/Filters/StreamView/iGameStreamTracer.*` | `getModelSelectMax` / `getModelSelectMin` | 选区内高 / 低速度种子 |
+| 同上 | `seedPCoordGenerate` / `SetInput` / `Execute` | 全局种子线与流线积分 |
+| `Qt/src/IQWidgets/igQtStreamTracerWidget.cpp` | `generateStreamline`（`control == 3 / 4`） | 合并局部与全局种子并一次生成 |
+
+详细的选区、信息熵种子和流线筛选能力见 **[README_10.1.md](README_10.1.md)**。
 
 ### 测试用例（入口）
 
-| Target | 源文件 |
-|--------|--------|
-| `testMultiscaleInteraction` | `Examples/MultiscaleInteraction/TestMultiscaleInteraction.cpp` |
-| `testParallelCoordinatesData` 等 | 各单视图示例 |
+| Target | 源文件 | 验证内容 |
+|--------|--------|----------|
+| GUI 手工验收 | `Qt/src/IQCore/igQtMainWindow.cpp` | 选择盒 → 包围框视角 → 局部旋转中心 |
+| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | 流线积分与种子生成 |
+| `testMultiscaleInteraction` | `Examples/MultiscaleInteraction/TestMultiscaleInteraction.cpp` | 多尺度视图联动 |
 
 ---
 
@@ -168,53 +211,91 @@ iGame::ThreadPool::parallelFor(0, count, [&](int i) {
 
 ### 功能说明
 
-提供经典物理特征（梯度 / 曲率 / Laplacian / 涡量）与基于神经网络的涡结构检测；结果写入 `AttributeSet`，可接 11.3 云图与选区分析。
+分别面向表面网格与体网格执行经典特征提取，并将生成属性接入云图显示；同时支持多块 / 时序数据的逐块逐帧涡量计算，以及启用 LibTorch 后的涡结构智能检测。
 
-细节与精度指标（Precision / Recall ≥ 90%）见 **[README_10.2.md](README_10.2.md)**。
+| 输入与任务 | 执行内容 | 输出属性 / 结果 |
+|------------|----------|-----------------|
+| 表面网格 | 梯度、曲率、Laplacian | `gradient`、`curvatures`、`laplacians` |
+| 三维体网格 | 经典涡量提取 | `vorticities` |
+| 多块 / 时序体网格 | 各子块、各时间帧按需计算涡量 | 每块、每帧的 `vorticities` |
+| LibTorch + 三维体速度场 | TorchScript 涡结构预测 | `vortexPredict`；有人工标注时同时计算评测指标 |
 
-### 测试用例（入口）
+> 梯度、曲率和 Laplacian 要求表面网格。若当前数据是体网格，应先执行「数据处理 → 表面提取」，再选中新生成的 `<原名>_surface`；涡量则直接在原三维体网格上计算。
 
-| Target | 条件 |
-|--------|------|
-| `testGradientExtraction` / `testCurvatureExtraction` / `testLaplacianExtraction` / `testVortexExtraction` | 默认 |
-| `testVortexDetection` | `ENABLE_LIBTORCH_MODULE=ON` |
+### 验收流程
 
----
-
-## 子功能 6：可视化结果智能评测
-
-### 功能说明
-
-当前与「专家知识 / 标注」结合最完整的路径是：**涡结构预测结果 vs 人工标注属性**，计算 Accuracy / Precision / Recall（实现于 10.2 `VortexDetection::EvaluatePredictMetrics`）。
-
-网格质量度量（`Filters/MeshMetrics/`）可作为几何质量侧辅助评测，但 GUI / Examples 接入仍偏弱，现场演示建议以涡预测指标为主。
+1. **表面网格经典特征**：选中表面网格及待处理属性，依次执行梯度、曲率和 Laplacian；在模型树中选择新生成的属性，切换云图并检查数值范围和着色结果。
+2. **体网格经典涡量**：选中体网格的速度矢量属性，执行「计算涡量」；选择 `vorticities` 的模长或分量，以云图检查涡结构。
+3. **多块及时序涡量**：加载 PVD 等多块 / 时序数据并执行涡量计算。系统对当前帧各子块递归计算，并在动画播放时逐帧按需补算；拖动时间轴或播放动画，检查每一帧的 `vorticities` 是否刷新且动画是否连续。
+4. **LibTorch 智能检测**：以 `ENABLE_LIBTORCH_MODULE=ON` 编译，准备 TorchScript `.pt` 模型后加载体网格速度场，执行「涡旋预测 (PredictVortex)」；切换到 `vortexPredict` 云图，检查预测标签与特征区域。若数据包含 `PredictedLabel`，同时检查 Accuracy / Precision / Recall 输出。
 
 ### 源码路径
 
-| 路径 | API | 说明 |
-|------|-----|------|
-| `iGameCore/Filters/FeatureExtraction/`（涡预测） | `EvaluatePredictMetrics` / `GetPrecision` / `GetRecall` | 标注对比评测 |
-| `iGameCore/Filters/MeshMetrics/` | `SurfaceMeshMetricsFilter` / `VolumeMeshMetricsFilter` | 网格质量（待强化接入） |
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
+| `iGameCore/Filters/FeatureExtraction/iGameGradientFilter.*` | `GradientFilter` | 表面梯度 |
+| `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | 表面曲率 |
+| `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | 表面 Laplacian |
+| `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | 体网格涡量与 MultiBlock 递归 |
+| `Qt/src/IQWidgets/igQtAnimationWidget.*` | `ensureVortexForCurrentFrame` | 动画播放期逐帧按需计算 |
+| `iGameCore/Filters/FeatureExtraction/iGameVortexDetectionFilter.*` | `VortexDetection` | LibTorch 涡结构智能检测 |
 
-### 调用方式（摘自 10.2 路径）
+完整 API、云图接入及智能检测指标见 **[README_10.2.md](README_10.2.md)**；逐帧涡量与动画操作见 **[README_11.3.md](README_11.3.md)**。
+
+### 测试用例（入口）
+
+| Target | 验证内容 | 条件 |
+|--------|----------|------|
+| `testGradientExtraction` / `testCurvatureExtraction` / `testLaplacianExtraction` | 表面网格经典特征 | 默认 |
+| `testVortexExtraction` | 体网格经典涡量 | 默认 |
+| `testTimeVaryingVector` + GUI 动画 | 多块及时序播放 | PVD 测试数据 |
+| `testVortexDetection` | 预测标签、特征区域及标注评测 | `ENABLE_LIBTORCH_MODULE=ON` |
+
+---
+
+## 子功能 6：基于 LLM 的分析报告生成
+
+### 功能说明
+
+平台通过 `MeshReportGenerator` 将当前模型转换为适合报告分析的表面数据，完成三角化、简化和临时 VTK 导出，再由 `MeshReportClient` 发送给报告读取程序。报告程序读取预处理模型及属性场，调用已配置的 LLM 生成分析结论，并将报告文件返回客户端保存。
+
+### 操作流程
+
+1. **配置 LLM API 信息**：在外部报告读取程序中配置所用 LLM 的 API 地址、API Key 和模型名称。API 凭据只保存在报告服务端，不写入 iGameVis 客户端或仓库。
+2. **启动报告读取程序并加载预切割模型**：启动报告服务，默认监听 `127.0.0.1:8766`；在 iGameVis 中加载已完成预切割 / 预处理的模型，并确认需要分析的属性场可用。若直接传入原始模型，客户端也会在发送前自动执行表面转换、三角化和简化。
+3. **生成分析报告**：设置报告保存路径、报告服务地址 / 端口和需要分析的属性场，执行 `MeshReportGenerator::Execute()`。客户端发送 VTK 数据，接收报告程序返回的报告二进制内容，并保存为指定文件（例如 `.docx`）。
+
+### 源码路径
+
+| 路径 | 类 / API | 说明 |
+|------|----------|------|
+| `iGameCore/Core/Common/MeshReport/iGameMeshReportGenerator.*` | `MeshReportGenerator::Execute` | 三角化、简化、传输、接收与保存报告的完整流程 |
+| `iGameCore/Core/Common/MeshReport/iGameMeshReportClient.*` | `connect` / `requestReport` | 报告读取程序 TCP 客户端，默认端口 `8766` |
+| `iGameCore/Filters/DataProcessing/iGameMeshTriangulationFilter.*` | `MeshTriangulationFilter` | 发送前网格三角化 |
+| `iGameCore/Filters/DataProcessing/iGameMeshSimplificationFilterPro.*` | `MeshSimplificationFilterPro` | 发送前模型简化 |
+
+### 调用方式
 
 ```cpp
-// 在完成涡预测且存在 PredictedLabel 标注属性后：
-filter->EvaluatePredictMetrics(/* ... */);
-double precision = filter->GetPrecision();
-double recall    = filter->GetRecall();
+auto obj = iGame::FileIO::ReadFile("./Models/precut_model.vtk");
+
+auto report = iGame::MeshReportGenerator::New(
+    "./output/analysis_report.docx", "127.0.0.1", 8766);
+report->SetInput(obj);
+report->SetSpecifiedFields({"pressure", "velocity"}); // 空列表表示分析全部属性场
+report->SetSimplificationRatio(0.1f);
+
+if (!report->Execute()) {
+    std::cerr << report->GetErrorMessage() << std::endl;
+}
 ```
 
-### 测试用例
+### 验收要点
 
-| Target | 说明 |
-|--------|------|
-| `testVortexDetection` | 涡预测 + 指标计算（需 LibTorch） |
-
-### 已知缺口
-
-- 「融合专家知识」的**独立可视化质量评测组件**（规则库 / 专家打分面板）尚未成独立产品模块。  
-- 主窗口 Precision/Recall 浮层曾预留，当前可能为注释状态；数值仍可通过 API / 控制台读取。
+- 报告读取程序能够使用已配置的 LLM API 正常启动，客户端可连接到配置的主机和端口。
+- 预切割模型及指定属性场能够被读取；服务端收到的 VTK 数据非空。
+- 报告生成后保存路径中出现可正常打开的分析报告，内容包含所选属性场的分析结果。
+- 当前仓库提供 iGameVis 侧的模型预处理和 TCP 客户端；LLM 配置、提示词和报告模板由外部报告读取程序负责。
 
 ---
 
@@ -226,8 +307,9 @@ double recall    = filter->GetRecall();
 | `testSetRenderingPressure` | 1 渲染压力 | 默认 |
 | `testSplineReaderCPU` / `testSplineReaderGPU` / `testConvertToLagrangeUnstructuredMesh` | 2 高保真 | GPU 样条需 GPS CUDA |
 | `testSetScalarField` / `testVector*` / `testTensorView` / … | 3 场可视化 | 见 11.3 |
-| `testMultiscaleInteraction` | 4 多尺度交互 | 默认 |
-| `testGradientExtraction` / … / `testVortexDetection` | 5–6 特征与评测 | 涡预测需 LibTorch |
+| GUI 包围框视角 / `testStreamline` / `testMultiscaleInteraction` | 4 局部聚焦与多尺度流线 | 默认 |
+| `testGradientExtraction` / … / `testVortexDetection` | 5 经典与智能特征提取 | 涡预测需 LibTorch |
+| `MeshReportGenerator::Execute` | 6 LLM 分析报告 | 需外部报告读取服务 |
 
 ---
 
