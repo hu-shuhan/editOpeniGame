@@ -37,6 +37,7 @@ class igQtAiChatWidget;
 class igQtCommandManager;
 class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
+class igQtAttributeSelectWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -104,6 +105,10 @@ public:
     // 零件聚焦弹窗
     igQtChromeFramelessDialog* partFocusDialog{nullptr};
     igQtPartFocusWidget* partFocusWidget{nullptr};
+
+    // 报告生成弹窗
+    igQtChromeFramelessDialog* reportGenerateDialog{nullptr};
+    igQtAttributeSelectWidget* reportGenerateWidget{nullptr};
 
 private slots:
     void updateRecentFilePaths();

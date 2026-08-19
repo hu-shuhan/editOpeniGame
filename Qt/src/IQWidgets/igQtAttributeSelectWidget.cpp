@@ -1,0 +1,332 @@
+#include <IQWidgets/igQtAttributeSelectWidget.h>
+
+#include <IQComponents/Dialog/igQtDarkFramelessMessage.h>
+#include <iGameAttributeSet.h>
+#include <iGameScene.h>
+#include <iGameSceneManager.h>
+#include "MeshReport/iGameMeshReportGenerator.h"
+
+#include <QFileDialog>
+#include <QHBoxLayout>
+#include <QThread>
+
+using namespace iGame;
+
+namespace {
+const char* kDarkButtonQss = R"(
+QPushButton {
+    background-color: #2A2A2A;
+    color: rgba(255, 255, 255, 204);
+    border: 1px solid rgba(255, 255, 255, 20);
+    border-radius: 4px;
+    padding: 5px 12px;
+    min-height: 24px;
+    font-size: 10pt;
+}
+QPushButton:hover {
+    background-color: #2F2F2F;
+    border: 1px solid rgba(255, 255, 255, 32);
+}
+QPushButton:pressed {
+    background-color: #252526;
+    border: 1px solid rgba(255, 255, 255, 26);
+    padding: 6px 13px 4px 11px;
+}
+QPushButton:disabled {
+    background-color: #222222;
+    color: rgba(255, 255, 255, 80);
+    border: 1px solid rgba(255, 255, 255, 10);
+}
+)";
+
+const char* kCheckBoxQss = R"(
+QCheckBox {
+    color: rgba(255, 255, 255, 204);
+    font-size: 10pt;
+    padding: 3px 6px;
+}
+QCheckBox::indicator {
+    width: 14px; height: 14px;
+    border: 1px solid rgba(255, 255, 255, 80);
+    border-radius: 3px;
+    background-color: #2A2A2A;
+}
+QCheckBox::indicator:checked {
+    background-color: #094771;
+    border: 1px solid #4FC3F7;
+}
+QCheckBox:hover {
+    background-color: #2F2F2F;
+    border-radius: 3px;
+}
+)";
+} // namespace
+
+igQtAttributeSelectWidget::igQtAttributeSelectWidget(QWidget* parent) : QWidget(parent) {
+    setupUI();
+}
+
+void igQtAttributeSelectWidget::setupUI() {
+    setStyleSheet("igQtAttributeSelectWidget { background-color: #222222; } "
+                  "QLabel { color: rgba(255,255,255,204); font-size: 10pt; } "
+                  "QScrollArea { background-color: #1E1E1E; border: 1px solid #3C3C3C; border-radius: 4px; } "
+                  "QWidget#attrContainer { background-color: #1E1E1E; }");
+
+    auto* root = new QVBoxLayout(this);
+    root->setContentsMargins(8, 8, 8, 8);
+    root->setSpacing(6);
+
+    m_statusLabel = new QLabel(QStringLiteral("请先点击\"刷新属性列表\""), this);
+    m_statusLabel->setWordWrap(true);
+    m_statusLabel->setAlignment(Qt::AlignCenter);
+    root->addWidget(m_statusLabel);
+
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setWidgetResizable(true);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scrollArea->setMinimumHeight(180);
+
+    m_container = new QWidget();
+    m_container->setObjectName("attrContainer");
+    m_container->setLayout(new QVBoxLayout());
+    m_container->layout()->setContentsMargins(4, 4, 4, 4);
+    m_container->layout()->setSpacing(2);
+    static_cast<QVBoxLayout*>(m_container->layout())->addStretch();
+
+    m_scrollArea->setWidget(m_container);
+    root->addWidget(m_scrollArea, 1);
+
+    m_btnRefresh = new QPushButton(QStringLiteral("刷新属性列表"), this);
+    m_btnGenerate = new QPushButton(QStringLiteral("生成报告"), this);
+    m_btnGenerate->setEnabled(false);
+
+    auto* btnRow = new QHBoxLayout();
+    btnRow->addWidget(m_btnRefresh);
+    btnRow->addWidget(m_btnGenerate);
+    root->addLayout(btnRow);
+
+    const QString btnStyle = QString::fromUtf8(kDarkButtonQss);
+    m_btnRefresh->setStyleSheet(btnStyle);
+    m_btnGenerate->setStyleSheet(btnStyle);
+
+    connect(m_btnRefresh, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onRefreshClicked);
+    connect(m_btnGenerate, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onGenerateClicked);
+}
+
+void igQtAttributeSelectWidget::setStatus(const QString& msg) {
+    m_statusLabel->setText(msg);
+}
+
+void igQtAttributeSelectWidget::setBusy(bool busy) {
+    m_busy = busy;
+    m_btnRefresh->setEnabled(!busy);
+    m_btnGenerate->setEnabled(!busy && !m_checkBoxes.isEmpty());
+}
+
+bool igQtAttributeSelectWidget::IsGenerating() const {
+    return m_busy;
+}
+
+std::string igQtAttributeSelectWidget::GetErrorMessage() const {
+    return m_errorMessage;
+}
+
+bool igQtAttributeSelectWidget::HasPartId() const {
+    return m_hasPartId;
+}
+
+void igQtAttributeSelectWidget::SetMaxSelectableCount(int count) {
+    m_maxSelectableCount = std::max(1, count);
+}
+
+void igQtAttributeSelectWidget::RefreshAttributeList() {
+    if (m_busy) return;
+
+    m_checkBoxes.clear();
+    auto* containerLayout = static_cast<QVBoxLayout*>(m_container->layout());
+    QLayoutItem* item;
+    while ((item = containerLayout->takeAt(0)) != nullptr) {
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+    containerLayout->addStretch();
+
+    m_hasPartId = false;
+
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) {
+        setStatus(QStringLiteral("场景为空"));
+        m_btnGenerate->setEnabled(false);
+        return;
+    }
+    auto model = scene->GetCurrentModel();
+    if (!model) {
+        setStatus(QStringLiteral("无当前模型，请先加载模型"));
+        m_btnGenerate->setEnabled(false);
+        return;
+    }
+    m_dataObj = model->GetDataObject();
+    if (!m_dataObj) {
+        setStatus(QStringLiteral("模型数据对象为空"));
+        m_btnGenerate->setEnabled(false);
+        return;
+    }
+
+    m_hasPartId = m_dataObj->HasBlockMapping();
+
+    auto attrSet = m_dataObj->GetAttributeSet();
+    QStringList pointNames;
+    QStringList cellNames;
+
+    if (attrSet) {
+        auto pointList = attrSet->GetAllPointAttributes();
+        for (int i = 0; i < pointList->GetNumberOfElements(); i++) {
+            auto& attr = pointList->GetElement(i);
+            if (attr.IsNone()) continue;
+            pointNames << QString::fromStdString(attr.pointer->GetName());
+        }
+        auto cellList = attrSet->GetAllCellAttributes();
+        for (int i = 0; i < cellList->GetNumberOfElements(); i++) {
+            auto& attr = cellList->GetElement(i);
+            if (attr.IsNone()) continue;
+            cellNames << QString::fromStdString(attr.pointer->GetName());
+        }
+    }
+
+    // 移除在 stretch 前残留的空白（takeAt 已清空，重新加）
+    while (containerLayout->count() > 0) {
+        auto* it = containerLayout->takeAt(0);
+        delete it;
+    }
+
+    const QString checkboxStyle = QString::fromUtf8(kCheckBoxQss);
+    auto addSection = [&](const QString& title, const QStringList& names) {
+        if (names.isEmpty()) return;
+        auto* titleLabel = new QLabel(title, m_container);
+        titleLabel->setStyleSheet("color: rgba(255,255,255,120); font-size: 9pt; padding: 4px 2px 2px 6px;");
+        containerLayout->addWidget(titleLabel);
+        for (const QString& name : names) {
+            auto* cb = new QCheckBox(name, m_container);
+            cb->setStyleSheet(checkboxStyle);
+            containerLayout->addWidget(cb);
+            m_checkBoxes.append({name, cb});
+        }
+    };
+    addSection(QStringLiteral("— 点属性 (Point) —"), pointNames);
+    addSection(QStringLiteral("— 单元属性 (Cell) —"), cellNames);
+
+    containerLayout->addStretch();
+
+    if (m_checkBoxes.isEmpty()) {
+        setStatus(QStringLiteral("当前模型没有任何属性"));
+        m_btnGenerate->setEnabled(false);
+        return;
+    }
+
+    setStatus(QStringLiteral("共 %1 个属性，最多可勾选 %2 个")
+                      .arg(m_checkBoxes.size())
+                      .arg(m_maxSelectableCount));
+    m_btnGenerate->setEnabled(true);
+}
+
+void igQtAttributeSelectWidget::onRefreshClicked() {
+    RefreshAttributeList();
+}
+
+std::vector<std::string> igQtAttributeSelectWidget::GetSelectedAttributes() const {
+    std::lock_guard<std::mutex> lock(m_resultMutex);
+    return m_selectedAttributes;
+}
+
+void igQtAttributeSelectWidget::onGenerateClicked() {
+    if (m_busy) return;
+
+    // 收集勾选的属性
+    QStringList selected;
+    for (const auto& [name, cb] : m_checkBoxes) {
+        if (cb && cb->isChecked()) selected << name;
+    }
+
+    if (!m_hasPartId) {
+        igQtShowDarkFramelessMessage(this, QStringLiteral("报告生成"),
+                                     QStringLiteral("当前模型没有 part_id 属性，无法按零件生成报告。"));
+        return;
+    }
+
+    if (selected.isEmpty()) {
+        setStatus(QStringLiteral("请先勾选至少一个要分析的属性"));
+        return;
+    }
+
+    if (selected.size() > m_maxSelectableCount) {
+        setStatus(QStringLiteral("最多只能勾选 %1 个属性").arg(m_maxSelectableCount));
+        return;
+    }
+
+    m_savePath = QFileDialog::getSaveFileName(this, QStringLiteral("选择报告保存路径"),
+                                              QString(), QStringLiteral("Word 文档 (*.docx)"));
+    if (m_savePath.isEmpty()) {
+        return;
+    }
+
+    // 快照到结果缓存（worker 线程读它），随后在后台线程中运行报告生成
+    {
+        std::lock_guard<std::mutex> lock(m_resultMutex);
+        m_selectedAttributes.clear();
+        for (const QString& name : selected) {
+            m_selectedAttributes.push_back(name.toStdString());
+        }
+        m_errorMessage.clear();
+    }
+
+    if (m_workerThread && m_workerThread->isRunning()) {
+        return;
+    }
+
+    setBusy(true);
+    setStatus(QStringLiteral("正在生成报告（可能需要较长时间），请稍候..."));
+
+    m_workerThread = new QThread(this);
+    connect(m_workerThread, &QThread::started, this, [this]() {
+        DataObject::Pointer input = m_dataObj;
+        QString savePath = m_savePath;
+        std::vector<std::string> fields = GetSelectedAttributes();
+        bool ok = false;
+        std::string errorMessage;
+        if (input) {
+            auto generator = MeshReportGenerator::New(savePath.toStdString());
+            generator->SetInput(input);
+            generator->SetSimplificationRatio(0.2f);
+            generator->SetTimeout(15 * 60 * 1000);
+            generator->SetSpecifiedFields(fields);
+            ok = generator->Execute();
+            if (!ok) {
+                errorMessage = generator->GetErrorMessage();
+            }
+        } else {
+            errorMessage = "Input data object is null";
+        }
+        {
+            std::lock_guard<std::mutex> lock(m_resultMutex);
+            m_errorMessage = errorMessage;
+        }
+        QMetaObject::invokeMethod(this, "onAsyncFinished", Qt::QueuedConnection,
+                                  Q_ARG(bool, ok), Q_ARG(QString, QString::fromStdString(errorMessage)));
+    });
+    connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
+    m_workerThread->start();
+}
+
+void igQtAttributeSelectWidget::onAsyncFinished(bool success, const QString& message) {
+    setBusy(false);
+    if (success) {
+        setStatus(QStringLiteral("报告生成完成"));
+        igQtShowDarkFramelessMessage(this, QStringLiteral("报告生成"),
+                                     QStringLiteral("报告生成成功，已保存到：\n%1").arg(m_savePath), true);
+    } else {
+        setStatus(QStringLiteral("报告生成失败"));
+        igQtShowDarkFramelessMessage(this, QStringLiteral("报告生成失败"),
+                                     message.isEmpty() ? QStringLiteral("未知错误") : message);
+    }
+    emit SIGNAL_ReportFinished(success, message);
+}

@@ -50,6 +50,7 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQWidgets/igQtPartFocusWidget.h>
+#include <IQWidgets/igQtAttributeSelectWidget.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <iGameBlockMapping.h>
@@ -2365,6 +2366,29 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             partFocusDialog->show();
             partFocusDialog->raise();
             partFocusDialog->activateWindow();
+        });
+    }
+    // 报告生成
+    {
+        QAction* reportGenerateAction = new QAction(this);
+        reportGenerateAction->setObjectName(QString::fromUtf8("报告生成"));
+        reportGenerateAction->setText(QString::fromUtf8("报告生成"));
+        ui->menu_help->addAction(reportGenerateAction);
+        reportGenerateAction->setVisible(true);
+        connect(reportGenerateAction, &QAction::triggered, this, [&]() {
+            if (!reportGenerateDialog) {
+                reportGenerateDialog = new igQtChromeFramelessDialog(this);
+                reportGenerateDialog->setDialogTitle(QStringLiteral("报告生成"));
+                reportGenerateDialog->setMaximizeEnabled(false);
+                reportGenerateWidget = new igQtAttributeSelectWidget(reportGenerateDialog->contentHost());
+                reportGenerateWidget->SetMaxSelectableCount(1);
+                reportGenerateDialog->setContentWidget(reportGenerateWidget);
+                reportGenerateDialog->resize(340, 380);
+            }
+            reportGenerateWidget->RefreshAttributeList();
+            reportGenerateDialog->show();
+            reportGenerateDialog->raise();
+            reportGenerateDialog->activateWindow();
         });
     }
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
