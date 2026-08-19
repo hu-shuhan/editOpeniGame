@@ -139,10 +139,34 @@ void igQtAttributeSelectWidget::SetMaxSelectableCount(int count) {
     m_maxSelectableCount = std::max(1, count);
 }
 
+void igQtAttributeSelectWidget::onCheckBoxToggled(bool checked) {
+    auto* cb = qobject_cast<QCheckBox*>(sender());
+    if (!cb) return;
+    if (checked) {
+        // 避免重复入队（例如代码触发的 toggle）
+        if (!m_selectionOrder.contains(cb)) {
+            m_selectionOrder.append(cb);
+        }
+        // 超过上限：把最早勾选的取消掉（QCheckBox 非互斥，用代码复位避免信号递归）
+        while (m_selectionOrder.size() > m_maxSelectableCount) {
+            QCheckBox* oldest = m_selectionOrder.takeFirst();
+            if (oldest == cb) {
+                // 理论不会发生（上面已去重），防御性处理：勾选数超过上限时取最新一个
+                m_selectionOrder.append(oldest);
+                continue;
+            }
+            oldest->setChecked(false);
+        }
+    } else {
+        m_selectionOrder.removeOne(cb);
+    }
+}
+
 void igQtAttributeSelectWidget::RefreshAttributeList() {
     if (m_busy) return;
 
     m_checkBoxes.clear();
+    m_selectionOrder.clear();
     auto* containerLayout = static_cast<QVBoxLayout*>(m_container->layout());
     QLayoutItem* item;
     while ((item = containerLayout->takeAt(0)) != nullptr) {
@@ -177,19 +201,25 @@ void igQtAttributeSelectWidget::RefreshAttributeList() {
     auto attrSet = m_dataObj->GetAttributeSet();
     QStringList pointNames;
     QStringList cellNames;
+    const QString partIdName = QStringLiteral("part_id");
 
     if (attrSet) {
+        // part_id 不列入勾选列表：服务端始终分析它（相当于默认选中）
         auto pointList = attrSet->GetAllPointAttributes();
         for (int i = 0; i < pointList->GetNumberOfElements(); i++) {
             auto& attr = pointList->GetElement(i);
             if (attr.IsNone()) continue;
-            pointNames << QString::fromStdString(attr.pointer->GetName());
+            QString name = QString::fromStdString(attr.pointer->GetName());
+            if (name == partIdName) continue;
+            pointNames << name;
         }
         auto cellList = attrSet->GetAllCellAttributes();
         for (int i = 0; i < cellList->GetNumberOfElements(); i++) {
             auto& attr = cellList->GetElement(i);
             if (attr.IsNone()) continue;
-            cellNames << QString::fromStdString(attr.pointer->GetName());
+            QString name = QString::fromStdString(attr.pointer->GetName());
+            if (name == partIdName) continue;
+            cellNames << name;
         }
     }
 
@@ -210,6 +240,7 @@ void igQtAttributeSelectWidget::RefreshAttributeList() {
             cb->setStyleSheet(checkboxStyle);
             containerLayout->addWidget(cb);
             m_checkBoxes.append({name, cb});
+            connect(cb, &QCheckBox::toggled, this, &igQtAttributeSelectWidget::onCheckBoxToggled);
         }
     };
     addSection(QStringLiteral("— 点属性 (Point) —"), pointNames);
@@ -223,9 +254,13 @@ void igQtAttributeSelectWidget::RefreshAttributeList() {
         return;
     }
 
-    setStatus(QStringLiteral("共 %1 个属性，最多可勾选 %2 个")
-                      .arg(m_checkBoxes.size())
-                      .arg(m_maxSelectableCount));
+    QString status = QStringLiteral("共 %1 个属性，最多可勾选 %2 个")
+                          .arg(m_checkBoxes.size())
+                          .arg(m_maxSelectableCount);
+    if (m_hasPartId) {
+        status += QStringLiteral("（part_id 将自动包含）");
+    }
+    setStatus(status);
     m_btnGenerate->setEnabled(true);
 }
 
@@ -287,7 +322,9 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
     setStatus(QStringLiteral("正在生成报告（可能需要较长时间），请稍候..."));
 
     m_workerThread = new QThread(this);
-    connect(m_workerThread, &QThread::started, this, [this]() {
+    // 注意：这里不能把 this 作为 connect 的 context 传入 —— 那样 lambda 会被投递到主线程执行，
+    // Execute() 整个流程（含等待服务器）都会阻塞 UI。不带 context 时在 QThread 的 run() 线程内直接执行。
+    connect(m_workerThread, &QThread::started, [this]() {
         DataObject::Pointer input = m_dataObj;
         QString savePath = m_savePath;
         std::vector<std::string> fields = GetSelectedAttributes();

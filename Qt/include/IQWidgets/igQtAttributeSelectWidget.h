@@ -53,6 +53,7 @@ private slots:
     void onRefreshClicked();
     void onGenerateClicked();
     void onAsyncFinished(bool success, const QString& message);
+    void onCheckBoxToggled(bool checked);
 
 private:
     void setupUI();
@@ -65,6 +66,8 @@ private:
     QScrollArea*  m_scrollArea{nullptr};
     QWidget*      m_container{nullptr};
     QVector<QPair<QString, QCheckBox*>> m_checkBoxes;
+    // 勾选顺序队列（最早勾选的在最前）：勾选数超过 m_maxSelectableCount 时，最早勾选的被自动取消
+    QVector<QCheckBox*> m_selectionOrder;
 
     // 后台线程与结果缓存（worker 线程只写这两个成员，UI 线程在读）
     mutable std::mutex m_resultMutex;
