@@ -11,7 +11,7 @@
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
 | 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
 | 5 | 多层次关键特征提取（经典算子、时序涡量与 LibTorch 涡检测） | ✅ 已实现 | 本文详写 + [README_10.2.md](README_10.2.md) |
-| 6 | 基于 LLM 的可视化结果智能评测与分析报告生成 | ✅ 已实现（依赖外部 LLM / 报告服务） | 本文详写 |
+| 6 | 基于 LLM 的可视化结果智能评测与分析报告生成 | ✅ 已实现（依赖外部 LLM / 报告服务） | 本文详写 + [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
 
 > **写法说明**：11.4 是**平台总指标**。子功能 1、5、6 在本文展开；2～4 以交叉引用为主，避免与其他指标文档重复粘贴。
 > 与 **11.3** 的区别：11.3 写「场怎么画」；11.4 写「平台如何并行、加速，以及各专项如何拼成整机能力」。  
@@ -214,6 +214,8 @@ iGame::ThreadPool::parallelFor(0, count, [&](int i) {
 1. **配置 LLM API 信息**：在外部报告读取程序中配置所用 LLM 的 API 地址、API Key 和模型名称。API 凭据只保存在报告服务端，不写入 iGameVis 客户端或仓库。
 2. **启动报告读取程序并加载预切割模型**：启动报告服务，默认监听 `127.0.0.1:8766`；在 iGameVis 中加载已完成预切割 / 预处理的模型，并确认需要分析的属性场可用。若直接传入原始模型，客户端也会在发送前自动执行表面转换、三角化和简化。
 3. **生成分析报告**：设置报告保存路径、报告服务地址 / 端口和需要分析的属性场，执行 `MeshReportGenerator::Execute()`。客户端发送 VTK 数据，接收报告程序返回的报告二进制内容，并保存为指定文件（例如 `.docx`）。
+
+外部 Python 环境、大模型服务及 API 密钥配置的通用说明，可参考 **[GitCode README_10.3.md 的“基于 MCP 的文本交互”](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md)**；分析报告的模型预处理、TCP 请求和文件保存流程仍以本节说明为准。
 
 ### 源码路径
 
