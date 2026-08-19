@@ -1,5 +1,4 @@
 #include "iGameBlockMapping.h"
-#include <iGamePointFinder.h>
 #include <iGameThreadPool.h>
 #include <iGameBoundingBox.h>
 #include "Log/iGameLogger.h"
@@ -84,11 +83,8 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
     double dy = diag[1] / ny;
     double dz = diag[2] / nz;
 
-    // 4. 用 PointFinder 为每个体素找最近质心并存 part_id（并行，FindClosestPoint 只读线程安全）
-    auto finder = PointFinder::New();
-    finder->SetPoints(pts);
-    finder->Initialize();
-
+    // 4. 播种：每个质心落入其所在体素；同一体素撞多个质心时，保留离体素中心最近者。
+    //    体素数 ≥ 4×M，碰撞极少，串行 O(M) 足够。
     VoxelGrid grid;
     grid.origin = bbox.min;
     grid.rcpDx = 1.0 / dx;
@@ -96,21 +92,56 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
     grid.rcpDz = 1.0 / dz;
     grid.nx = nx; grid.ny = ny; grid.nz = nz;
     const int totalVoxels = nx * ny * nz;
-    grid.data.resize(static_cast<size_t>(totalVoxels));
+    grid.data.assign(static_cast<size_t>(totalVoxels), 0);
 
-    ThreadPool::parallelFor(0, totalVoxels, [&](int s, int e) {
-        for (int idx = s; idx < e; idx++) {
-            int iz = idx / (ny * nx);
-            int iy = (idx % (ny * nx)) / nx;
-            int ix = idx % nx;
-            Vector3d center;
-            center[0] = bbox.min[0] + (ix + 0.5) * dx;
-            center[1] = bbox.min[1] + (iy + 0.5) * dy;
-            center[2] = bbox.min[2] + (iz + 0.5) * dz;
-            igIndex nearest = finder->FindClosestPoint(center);
-            grid.data[idx] = (nearest >= 0) ? seedPartIds[nearest] : 0;
+    std::vector<int> seedDist(static_cast<size_t>(totalVoxels), -1);  // 播种距离，-1 = 未播种
+    for (int i = 0; i < M; i++) {
+        auto& p = pts->GetPoint(i);
+        int ix = static_cast<int>((p[0] - grid.origin[0]) * grid.rcpDx);
+        int iy = static_cast<int>((p[1] - grid.origin[1]) * grid.rcpDy);
+        int iz = static_cast<int>((p[2] - grid.origin[2]) * grid.rcpDz);
+        ix = std::max(0, std::min(nx - 1, ix));
+        iy = std::max(0, std::min(ny - 1, iy));
+        iz = std::max(0, std::min(nz - 1, iz));
+        int idx = iz * ny * nx + iy * nx + ix;
+
+        double cx = grid.origin[0] + (ix + 0.5) * dx;
+        double cy = grid.origin[1] + (iy + 0.5) * dy;
+        double cz = grid.origin[2] + (iz + 0.5) * dz;
+        double dd = (p[0] - cx) * (p[0] - cx) + (p[1] - cy) * (p[1] - cy) + (p[2] - cz) * (p[2] - cz);
+        if (seedDist[idx] < 0 || dd < seedDist[idx]) {
+            seedDist[idx] = static_cast<int>(dd);
+            grid.data[idx] = seedPartIds[i];
         }
-    });
+    }
+
+    // 5. 多源 BFS 泛洪：以所有已播种体素为源，未播种体素被最近的种子填充，
+    //    等价于网格上的 Voronoi 划分。每体素恰好入队一次，无逐体素动态分配。
+    std::vector<int> queue(static_cast<size_t>(totalVoxels));
+    int head = 0, tail = 0;
+    for (int idx = 0; idx < totalVoxels; idx++) {
+        if (seedDist[idx] >= 0) queue[tail++] = idx;
+    }
+    static const int nbDx[6] = {1, -1, 0, 0, 0, 0};
+    static const int nbDy[6] = {0, 0, 1, -1, 0, 0};
+    static const int nbDz[6] = {0, 0, 0, 0, 1, -1};
+    while (head < tail) {
+        int cur = queue[head++];
+        int cx = cur % nx;
+        int cy = (cur / nx) % ny;
+        int cz = cur / (nx * ny);
+        for (int d = 0; d < 6; d++) {
+            int nix = cx + nbDx[d];
+            int niy = cy + nbDy[d];
+            int niz = cz + nbDz[d];
+            if (nix < 0 || nix >= nx || niy < 0 || niy >= ny || niz < 0 || niz >= nz) continue;
+            int nIdx = niz * ny * nx + niy * nx + nix;
+            if (seedDist[nIdx] >= 0) continue;
+            seedDist[nIdx] = seedDist[cur] + 1;
+            grid.data[nIdx] = grid.data[cur];
+            queue[tail++] = nIdx;
+        }
+    }
 
     return grid;
 }
