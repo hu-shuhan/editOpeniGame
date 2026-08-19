@@ -81,6 +81,7 @@ list(APPEND ThirdParty_lib_dependency
         libzstd_static
         spdlog_header_only
         zlibstatic
+        cnpy
         nanoflann
 )
 

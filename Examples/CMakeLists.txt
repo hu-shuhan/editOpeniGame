@@ -134,6 +134,15 @@ if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyAnsysLib/ansys_to_pvd_converter.exe")
             "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyAnsysLib/ansys_to_pvd_converter.exe"
     )
 endif ()
+if (EXISTS "${_IGAME_EXAMPLE_PYTHON_DIR}/pyLsDynaLib/lsdyna_to_pvd_converter.exe")
+    list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyLsDynaLib"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${_IGAME_EXAMPLE_PYTHON_DIR}/pyLsDynaLib/lsdyna_to_pvd_converter.exe"
+            "${CMAKE_CURRENT_BINARY_DIR}/Resources/pyLsDynaLib/lsdyna_to_pvd_converter.exe"
+    )
+endif ()
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Models")
     list(APPEND _IGAME_EXAMPLE_ASSET_COPY_COMMANDS
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -159,6 +168,16 @@ endfunction()
 
 function(igame_register_example_test EXAMPLE_TARGET)
     if (NOT TARGET ${EXAMPLE_TARGET})
+        return()
+    endif ()
+
+    if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation")
+        add_test(
+            NAME ${EXAMPLE_TARGET}
+            COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>"
+            WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>"
+        )
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180)
         return()
     endif ()
 
@@ -269,6 +288,7 @@ igame_add_example(testCASReader IO/CASReader.cpp)
 igame_add_example(testCCMReader IO/CCMReader.cpp)
 igame_add_example(testAnsysRSTReader IO/AnsysRSTReader.cpp)
 igame_add_example(testAnsysRTHReader IO/AnsysRTHReader.cpp)
+igame_add_example(testLsDynaReader IO/LsDynaReader.cpp)
 
 # Animation / Filters
 igame_add_example(testAnimation Animation/TestAnimation.cpp)
@@ -283,6 +303,13 @@ igame_add_example(testSlice Filter/TestSlice.cpp)
 igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter.cpp)
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)
+igame_add_example(testContourExtraction Filter/TestContourExtraction.cpp)
+igame_add_example(testModelGeometryParallelValidation Filter/ModelGeometryParallelValidation.cpp)
+add_custom_command(TARGET testModelGeometryParallelValidation POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/test/Animation Test/result-case1/VTKfile-0.vtk"
+        "$<TARGET_FILE_DIR:testModelGeometryParallelValidation>/VTKfile-0.vtk"
+)
 
 # Color bar / interaction
 igame_add_example(testChangeColorRange ColorBar/ChangeColorRange.cpp)

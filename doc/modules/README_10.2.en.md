@@ -8,10 +8,11 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 |---|-------------|--------|
 | 1 | Classical physical features: gradient / curvature / Laplacian / vorticity / isolines and isosurfaces | ✅ Implemented |
 | 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
-| 3 | Key-region click / selection (points, cells, box) | ✅ Implemented (via Selection / 10.3; extractors run on the current attribute field) |
-| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (time series / deformation in 11.3; region-limited deformation TBD) |
+| 3 | Per-data-type program interfaces enabling feature extraction at different precision levels | ✅ Implemented (isolines / isosurfaces × surface / volume × original / simplified meshes) |
+| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (Phase 1: surface color / opacity mapping ✅; time series / deformation in 11.3; region-limited deformation TBD) |
 
-> This document covers sub-features **1** and **2** in full, and how **3** / **4** connect to existing interaction and visualization modules.
+> This document covers sub-features **1**, **2** and **3** in full, and how **4** connects to existing interaction and visualization modules.
+> Key-region click / box selection itself is covered by **10.3** and the `Selection` module and is not repeated here.
 > Difference from **10.1**: 10.1 focuses on **analysis data generation**; 10.2 focuses on **feature-field extraction and vortex detection evaluation**.
 > Difference from **11.3**: 11.3 provides generic **time switching, structural deformation, and animation export**; 10.2 key-event temporal views rely on those capabilities.
 
@@ -165,6 +166,7 @@ Results appear in the model-tree attribute list and can be shown via `dockWidget
 | `testLaplacianExtraction` | Laplacian |
 | `testVortexExtraction` | Classical vorticity |
 | `testContourLine` | Isolines / isosurfaces (`./Models/Tet_Plane.vtk`, three iso values at once) |
+| `testContourExtraction` | Per-data-type dispatch: `./Models/driver_1.vtk` + `./Models/streamTet.vtk` (bring your own) |
 
 Test data: `test/Feature Extraction Test/`.
 
@@ -247,31 +249,109 @@ Reference data: `./Models/pipedcylinder2d_gt.vtk` (annotated scenario).
 
 ---
 
-## Sub-feature 3: Key-region click / selection
+## Sub-feature 3: Per-data-type interfaces for extraction at different precision levels
 
 ### Description
 
-Users can **click points / select cells / box-select regions** on the 3D model to obtain key-region IDs or a bounding box, used to:
+Dedicated program interfaces are provided per mesh data type, so that one and the same extraction capability works across data of **different precision (mesh density)**. Two orthogonal dimensions are involved:
 
-- limit downstream analysis scope (aligned with 10.1 local charts and brushing);
-- focus cloud-map inspection near key structures;
-- feed region input for temporal evolution / deformation (sub-feature 4).
+- **Data type**: surface / volume / unstructured / structured meshes. The filter dispatches internally on `GetDataObjectType()`; callers need not distinguish them.
+- **Mesh precision**: original vs. simplified meshes. Both surface and volume simplification interfaces are provided, and both carry the attribute field along, so a simplified result feeds straight back into extraction.
 
-Feature-extraction filters themselves operate on the **full current attribute field**; region semantics come from the **Selection interaction layer**, then link to feature results for display.
+Taking **isolines / isosurfaces** as the example: a surface mesh yields isolines, a volume mesh yields isosurfaces; running the same iso value on the original and on the simplified mesh produces contours of different fineness, which is how precision is traded against cost.
 
-### Source Paths
+### Interface dispatch: data type → execution path
 
-| Path | Notes |
+`ContourFilter::Execute()` dispatches on the data-object type; each of the four input kinds has its own path:
+
+| Input data type | Execution path | Internal handling | Output |
+|-----------------|----------------|-------------------|--------|
+| `IG_SURFACE_MESH` | `ExecuteWithSurfaceMesh` | `GenerateFromSurfaceMesh` converts to `UnstructuredMesh`, then shared handling | **Isolines** (`IG_LINE`) |
+| `IG_VOLUME_MESH` | `ExecuteWithVolumeMesh` | Ordinary volume meshes go through `GenerateFromVolumeMesh`; polyhedral ones divert to `ExecuteWithVolumeMeshWithPolyhedronType` | **Isosurfaces** (`IG_TRIANGLE`) |
+| `IG_UNSTRUCTURED_MESH` | `ExecuteWithUnstructuredMesh` | Per-cell dispatch by dimension: 2D cells give segments, 3D cells give triangles | Isolines / isosurfaces / both |
+| `IG_STRUCTURED_MESH` | Reuses `ExecuteWithVolumeMesh` | Same as volume | **Isosurfaces** |
+
+### Precision levels: original vs. simplified meshes
+
+Simplification comes in a surface set and a volume set, both attribute-preserving:
+
+| Target | Menu (Filters → Data Processing) | Class | Main parameters |
+|--------|----------------------------------|-------|-----------------|
+| Surface | Surface Simplification | `MeshSimplificationFilter` | reduction ratio (0..1), preserve boundary, check all scalars, geometric-similarity metric |
+| Surface | Fast Surface Simplification | `MeshSimplificationFilterPro` | target reduction (0..1), target face count, preserve boundary |
+| Surface | Surface Simplification | `MeshSimplifierWithAttributes` + `MeshSaliency` | Reduction, Target Face Count, attribute weights (saliency-guided) |
+| Volume | Tetra Edge-Collapse Simplification | `TetraEdgeSimplification` | Reduction (0..1), Target Tetra Count, Boundary Penalty, Lambda, Preserve Boundary, Use All Point Attributes, Stretch Factor, Max Aspect Ratio |
+
+Simplification produces a **new mesh object**; once in the model tree it can be used directly as contour input. Because attributes travel with it (the surface side's "check all scalars", the volume side's `Use All Point Attributes`), the same named scalar remains selectable on the simplified mesh.
+
+### The four combinations
+
+| Combination | Input | Result | Notes |
+|-------------|-------|--------|-------|
+| ① Surface · original | Surface mesh / all-2D unstructured mesh | Isolines | Baseline precision; densest segments, closest to the original geometry |
+| ② Surface · simplified | Output of surface simplification | Isolines | Segment count drops with the reduction ratio; contour shape coarsens |
+| ③ Volume · original | Volume / 3D-cell unstructured / structured mesh | Isosurfaces | Baseline precision; densest triangles |
+| ④ Volume · simplified | Output of tetra edge-collapse simplification | Isosurfaces | Fewer triangles; isosurface detail is smoothed away |
+
+Contour fineness is dictated directly by the **cell density of the input mesh** — every contour vertex lies on an **edge** of a cut cell, so denser cells mean more cut edges and more intersection points. Running the same iso value on meshes of different precision is therefore the most direct way to control contour precision, with no algorithm parameter to tune.
+
+### How It Is Called
+
+```cpp
+// (1) Extract directly on the original mesh — surface / volume / unstructured / structured all dispatch internally
+auto obj = iGame::FileIO::ReadFile(fileName);
+auto contour = iGame::ContourFilter::New();
+contour->SetInput(obj);
+contour->SetIsoScalarData(array, value, dimension);
+contour->Execute();
+auto res0 = contour->GetContourMesh();
+
+// (2) Simplify first, then extract (surface; for volumes swap in TetraEdgeSimplification)
+auto simp = iGame::MeshSimplificationFilterPro::New();
+simp->SetInput(obj);
+simp->SetTargetReduction(0.5f);      // or SetTargetFaceCount(n)
+simp->SetPreserveBoundary(true);
+simp->Execute();
+auto simplified = simp->GetOutput();
+
+auto contour2 = iGame::ContourFilter::New();
+contour2->SetInput(simplified);
+contour2->SetIsoScalarData(array2, value, dimension);   // array2 taken from the simplified output
+contour2->Execute();
+auto res1 = contour2->GetContourMesh();
+```
+
+After simplification the attribute array **must be re-fetched from the simplified output**: simplification rebuilds the `AttributeSet`, so the original model's `ArrayObject` pointer no longer matches the point count.
+
+### GUI
+
+| Step | Entry |
 |------|-------|
-| `iGameCore/Core/Common/iGameSelection.*` | Selection data model |
-| `iGameCore/Rendering/Core/Interactor/iGameSelectionStyle.*` | Point / cell selection |
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | Box selection |
+| 1. (optional) lower the precision | Filters → Data Processing → Surface Simplification / Fast Surface Simplification / Surface Simplification / Tetra Edge-Collapse Simplification |
+| 2. select the target model | Pick the original model, or the new model produced by simplification |
+| 3. extract the contour | Tool panel → Contour Extraction (isolines/isosurfaces) → point scalar, component, iso value → run |
+| 4. compare | Each run adds its own `<name>_Contour` model, so several precision levels can be displayed side by side |
 
 ### Usage Notes
 
-1. Enable a selection style; click or box-select to obtain point / cell IDs.
-2. Run feature extraction (sub-features 1 / 2) on the full field, then inspect attributes such as `vortexPredict`.
-3. For local analysis, pass the selection bounding box into 10.1 charts or the brushing pipeline.
+1. The higher the reduction ratio (the fewer cells kept), the coarser the contour; run the same iso value at several reduction ratios to compare.
+2. Surface simplification only affects isolines and volume simplification only isosurfaces — they are not interchangeable. To get boundary isolines from a volume mesh, run Surface Extraction first, then simplify.
+3. Simplification changes cell counts and point numbering, so contour vertex counts shift with it; for quantitative comparison use geometric measures (isoline length / isosurface area) rather than vertex counts.
+
+### Test Cases
+
+| Target | Source | Default data | Notes |
+|--------|--------|--------------|-------|
+| `testContourExtraction` | `Examples/Filter/TestContourExtraction.cpp` | `./Models/driver_1.vtk` (surface mesh) + `./Models/streamTet.vtk` (tetrahedral volume mesh), both bring-your-own | One interface dispatching over two data kinds: the surface mesh yields isolines, the volume mesh yields isosurfaces |
+
+The case runs both models: it takes point scalar 0, derives three iso values from the data range and passes them in one call, then counts the line segments and triangles in the output per cell and asserts
+
+- the surface mesh (`driver_1.vtk`) must produce `IG_LINE`, otherwise it reports `expected iso-lines but got no line segment`;
+- the volume mesh (`streamTet.vtk`) must produce `IG_TRIANGLE`, otherwise it reports `expected iso-surfaces but got no triangle`.
+
+That is a direct check of `ContourFilter`'s dispatch-by-cell-dimension logic. Both contours are added to the same scene for display, with shell rendering turned off and `IG_SURFACE | IG_WIREFRAME` set — without the latter, a pure line-cell isoline would be invisible.
+
+> Neither model ships with the repository; place them under `./Models/` in the run directory. The program prints `exists=0/1` at startup so a missing file is obvious.
 
 ---
 
@@ -290,8 +370,28 @@ Feature-extraction filters themselves operate on the **full current attribute fi
 |------------|--------|-------|
 | Time-step switching / animation | ✅ Generic capability | `DataObject::UpdateAnimation(keyframeIdx)`; PVD; animation dock / FFMPEG (**11.3**) |
 | Feature refresh over time | ✅ Switch cloud maps per frame; re-run or precompute vortex predict | `ViewCloudPicture` + `UpdateAnimation` |
+| Scalar → color / opacity mapping (surface rendering) | ✅ Phase 1 implemented | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` transparency pipeline; "Opacity Mapping" toggle in the Scalar View dock |
 | Whole-mesh structural deformation | ✅ Implemented | `StressDeformationFilter` + `igQtDeformationWidget` (**11.3**) |
-| **Deformation limited to selection** | ⏳ TBD | Selection (sub-feature 3) not yet bound to “offset selected points only” in `DeformationData` |
+| **Deformation limited to selection** | ⏳ TBD | Selection (interaction layer, see 10.3) not yet bound to “offset selected points only” in `DeformationData` |
+
+### Phased implementation: scalar-to-color / opacity mapping (Phase 1)
+
+As the first phase of **temporal evolution of key events**, the platform now maps the selected scalar field to both color and opacity **in surface rendering** (points, wireframe and volume rendering share the same mapping chain):
+
+- **Color mapping**: reuses the `ScalarsToColors` color bar — attribute value → RGB;
+- **Opacity mapping**: when enabled, each vertex gets an alpha derived from its attribute value (currently a linear transfer function `opacity = normalized value`, see `ColorMap::MapOpacity`), multiplied by the object's overall transparency before entering the transparency pipeline;
+- **Render path**: in `TransparencyLink.frag`, both `colorMode==0` (surface + lighting) and `colorMode==1` (unlit) output `in_Color.a * objectData.transparent`; `DrawWithTransparency` enters this path as soon as opacity mapping is enabled (no need to lower the overall transparency first), and per-pixel OIT sorting keeps blending correct;
+- **Entry points**: GUI — tick "Opacity Mapping" in the Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`); API — `Scene::SetOpacityMappingEnabled` / `DrawObject::SetOpacityMappingEnabled` (recursive over sub-data-objects, covering PVD frame blocks); the volume-rendering example is `Examples/Rendering/SetVolumeRendering.cpp`.
+
+Usage for key-event temporal evolution: on a single frame, "color highlight + semi-transparent low-value regions" already isolates key event regions; combined with the animation playback in **11.3**, switching attributes frame by frame shows how key regions evolve over time.
+
+**Roadmap** (implementation path of this sub-feature):
+
+| Phase | Content | Status |
+|-------|---------|--------|
+| Phase 1 | Scalar → color / opacity mapping (surface rendering) | ✅ Implemented (this section) |
+| Phase 2 | Threshold-based point filtering with separate opacity for selected / unselected points (`AttributeOpacityFilter`) | ⏳ Planned |
+| Phase 3 | Per-frame attribute difference (`TimeDifferenceFilter`) as the filter condition, highlighting rapidly changing regions during playback | ⏳ Planned |
 
 Recommended workflow (available now):
 
@@ -313,6 +413,9 @@ Click / box-select key region → write deformation offsets only for that set �
 |------|-------|
 | `iGameCore/Core/DataModel/iGameDataObject.*` | `UpdateAnimation` |
 | `iGameCore/IO/VTK XML/iGamePVDReader.*` | Time-series PVD |
+| `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | Scalar → RGBA color / opacity mapping |
+| `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | Per-vertex alpha in the surface transparency pipeline (OIT sorting) |
+| `Qt/src/IQWidgets/igQtScalarViewWidget.*` | "Opacity Mapping" toggle |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | Structural deformation |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | Deformation dock |
 | `doc/modules/README_11.3.md` | Full time / deformation / animation notes |
@@ -323,6 +426,7 @@ Click / box-select key region → write deformation offsets only for that set �
 |-------|-------|
 | Animation / time-series docks | Play key feature fields over time (11.3) |
 | Deformation dock / `igQtDeformationWidget` | Displacement vector, scale factors, enable deformation |
+| Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`) | Tick "Opacity Mapping" to map the current scalar to color plus opacity |
 
 ---
 
@@ -347,4 +451,5 @@ Click / box-select key region → write deformation offsets only for that set �
 | `testLaplacianExtraction` | Laplacian | default |
 | `testVortexExtraction` | Classical vorticity | default |
 | `testContourLine` | Isolines / isosurfaces | default |
+| `testContourExtraction` | Surface → isolines, volume → isosurfaces (dispatch by data type) | default |
 | `testVortexDetection` | NN vortex detection | `ENABLE_LIBTORCH_MODULE=ON` |

@@ -6,6 +6,7 @@
 #include "Fluent/iGameCASReader.h"
 #include "Ansys/iGameAnsysReader.h"
 #include "CCM/iGameCCMReader.h"
+#include "LsDyna/iGameLsDynaReader.h"
 #include "IGC/iGameIGCMReader.h"
 #include "IGC/iGameIGCMTimeSeriesWriter.h"
 #include "IGC/iGameIGCMWriter.h"
@@ -94,6 +95,26 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
     } else if (FileSuffix == "rth") {
         return RTH;
     }
+    // LS-DYNA d3plot：文件可能带 .d3plot 扩展名，也可能是无扩展名的 d3plot / d3plot01 / d3plot02 ...
+    if (FileSuffix == "d3plot") {
+        return D3PLOT;
+    }
+    {
+        std::string baseName = std::filesystem::path(file_name).filename().string();
+        for (char& c : baseName) {
+            if (c >= 'A' && c <= 'Z') { c = static_cast<char>(c - 'A' + 'a'); }
+        }
+        if (baseName.rfind("d3plot", 0) == 0) {
+            bool allDigits = true;
+            for (size_t i = 6; i < baseName.size(); ++i) {
+                if (baseName[i] < '0' || baseName[i] > '9') {
+                    allDigits = false;
+                    break;
+                }
+            }
+            if (allDigits) { return D3PLOT; }
+        }
+    }
     return NONE;
 }
 
@@ -147,6 +168,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "RST";
         case RTH:
             return "RTH";
+        case D3PLOT:
+            return "D3PLOT";
         default:
             return "NONE";
     }
@@ -448,6 +471,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
         case iGame::FileIO::RST:
         case iGame::FileIO::RTH: {
             AnsysReader::Pointer reader = AnsysReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
+        case iGame::FileIO::D3PLOT: {
+            LsDynaReader::Pointer reader = LsDynaReader::New();
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();

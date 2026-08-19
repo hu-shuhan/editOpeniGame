@@ -323,6 +323,11 @@ void igQtPartFocusWidget::onFocusBoth() {
     }
     applyFocusCamera(bbox);
     applySelectionBox(bbox);
+    QVector<int> selectedPartIds;
+    const auto selectedParts = GetSelectedPartIds();
+    selectedPartIds.reserve(static_cast<int>(selectedParts.size()));
+    for (int partId: selectedParts) selectedPartIds.push_back(partId);
+    emit SIGNAL_SelectedPartsChanged(selectedPartIds);
     emit SIGNAL_FocusApplied();
 }
 

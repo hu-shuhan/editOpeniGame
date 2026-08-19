@@ -35,6 +35,7 @@ class igQtModelClipWidget;
 class igQtDeformationWidget;
 class igQtAiChatWidget;
 class igQtCommandManager;
+class QFontMetrics;
 class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
 class igQtAttributeSelectWidget;
@@ -164,9 +165,22 @@ private:
 
     void rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
                                       QAction* insertBefore = nullptr);
-    void addToolbarTitle(QToolBar* toolbar, const QString& title);
+    void addToolbarTitle(QToolBar* toolbar, const QString& title, int iconSizePx);
     void relayoutToolbarWrappers();
     void initCustomTitleBar();
+
+    // ---- 工具栏单排适配（宽度拟合 + 文字自动换行）----
+    /** 按指定 iconSize 重建 3×2 轴网格与 4 组「按钮行 + 标题」容器 */
+    void rebuildToolbarRow(int iconSize);
+    /** 删除旧的 wrapper_* 工具栏（连带其容器） */
+    void removeToolbarWrappers();
+    /** 测量当前 4 组 wrapper 的实际总宽度（含组间距） */
+    int measureToolbarRowWidth() const;
+    /** 文字超宽时断成最多两行，第二行仍超宽则省略号收尾 */
+    QString wrapToolbarButtonText(const QString& text, int maxWidth, const QFontMetrics& fm) const;
+
+    int m_currentToolbarIconSize = 40;
+    bool m_toolbarRebuilding = false;
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -182,11 +196,6 @@ private:
     void hookResponsiveEvents();
     // 依当前窗口宽度/屏幕 DPI 挑选最大能一行装下的 iconSize，然后应用到全部工具栏
     void applyResponsiveToolbarLayout();
-    // 内部帮手：按给定 iconSize 刷新普通 toolbar、两行按钮容器、带标题容器
-    void applyToolbarIconSize(int iconSize);
-    // 内部帮手：估计所有 wrapper toolbar 总宽（当前布局下）
-    int totalWrapperWidth() const;
-
 private:
     void minimizeWithAnimation();
     void toggleMaximizeRestore();

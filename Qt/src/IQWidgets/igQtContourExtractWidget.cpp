@@ -57,6 +57,7 @@ igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent) : QWidget(pa
 
 void igQtContourExtractWidget::InitScalarName() {
     ui->comboBox_ScalarIndex->clear();
+    if (!m_PointData) { return; }
     for (int i = 0; i < m_PointData->GetNumberOfElements(); i++) {
         auto array = m_PointData->GetElement(i).pointer;
         ui->comboBox_ScalarIndex->addItem(QString::fromStdString(array->GetName()));
@@ -104,14 +105,23 @@ void igQtContourExtractWidget::UpdateIsoValue() { this->m_IsoValue = ui->lineEdi
 
 
 void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
+    if (!m_d) { return; }
+    if (m_OriginDataObject.GetPointer() == m_d.GetPointer()) { return; }
+    if (m_d->GetName().find("_Contour") != std::string::npos) { return; }
+    auto attrSet = m_d->GetAttributeSet();
+    if (!attrSet) { return; }
+
     this->m_OriginDataObject = m_d;
-    this->m_PointData = m_OriginDataObject->GetAttributeSet()->GetAllPointAttributes();
+    this->m_PointData = attrSet->GetAllPointAttributes();
+    this->m_ScalarArray = nullptr;
+    this->m_ScalarName.clear();
+    ui->label_RangeInfo->clear();
     InitScalarName();
     m_Generated = false;
     m_Extracter = iGame::ContourFilter::New();
     m_ResultMesh = iGame::UnstructuredMesh::New();
     m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Contour");
-    m_ResultMesh->SetAttributeSet(m_OriginDataObject->GetAttributeSet());
+    m_ResultMesh->SetAttributeSet(attrSet);
     m_ResultMesh->SetShellRenderingOption(false);
     // 场景/模型树移除轮廓结果时会 Invoke DeleteEvent；不应关闭工具面板或清空源网格，
     // 否则用户删除结果模型后无法在同一面板内再次执行提取。
