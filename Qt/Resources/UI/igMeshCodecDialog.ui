@@ -326,6 +326,13 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="checkbox_exportNumpy">
+             <property name="text">
+              <string>导出 NumPy 数据</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="btnStartCompress">
              <property name="minimumSize">
               <size>

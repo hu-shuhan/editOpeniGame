@@ -238,6 +238,9 @@ struct CodecControlParams {
 	std::vector<FloatControlParams> attrControl;    // 属性数据控制参数列表
 	bool showReport = false;
 	int compressLevel = 12;
+	bool exportNumpy = false;                       // 是否导出原始/重建场数据
+	std::vector<int> numpyAttributeIndices;         // 要导出的属性索引
+	std::string numpyOutputBasePath;                // 不含扩展名的输出基准路径
 };
 
 IGAME_NAMESPACE_END

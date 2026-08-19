@@ -15,10 +15,15 @@
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
+#include "cnpy.h"
+#include <cctype>
 #include <exception>
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <cstdint>
+#include <stdexcept>
+#include <unordered_set>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -117,6 +122,9 @@ public:
 
         CodecPayloadSet raw, compressed;
 
+        // 在编码、量化、重映射之前，统计输入对象中的原始 Array。
+        const std::uint64_t rawArrayBytes = CalculateRawArrayBytes();
+
         try {
             this->GeomEncoder(raw.geom, pointIdRemap);
             this->TopoEncoder(raw.topo, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
@@ -135,11 +143,18 @@ public:
             { std::vector<unsigned int>().swap(bottomCellIdRemap); }
 
             CompressPayloads(raw, compressed);
+
+            // 只统计几何、拓扑和属性的压缩 payload。
+            // 不包含参数块，因为参数块不属于 Array。
+            const std::uint64_t compressedArrayBytes = static_cast<std::uint64_t>(compressed.geom.size()) +
+                                                       static_cast<std::uint64_t>(compressed.topo.size()) +
+                                                       static_cast<std::uint64_t>(compressed.attr.size());
+
             raw.Release();
 
             WritePayloads(compressed);
 
-            FinalizeEncoding();
+            FinalizeEncoding(rawArrayBytes, compressedArrayBytes);
         } catch (const std::exception& e) {
             IGAME_CORE_ERROR("Failed to encode IGC mesh payload: {}", e.what());
             return false;
@@ -273,7 +288,52 @@ private:
         WriteBuf(compressed.attr);
     }
 
-    void FinalizeEncoding() {
+    std::uint64_t CalculateRawArrayBytes() {
+        std::uint64_t totalBytes = 0;
+
+        auto addArrayBytes = [&totalBytes](const auto& array) {
+            if (!array) { return; }
+
+            totalBytes += static_cast<std::uint64_t>(array->GetNumberOfValues()) *
+                          static_cast<std::uint64_t>(array->GetArrayTypedSize());
+        };
+
+        // 1. 顶点坐标
+        // Points 内部固定使用 float，每个点有 3 个分量。
+        totalBytes += static_cast<std::uint64_t>(m_EncoderAdapter->GetNumberOfPoints()) * 3ULL * sizeof(float);
+
+        const IGenum meshType = m_EncoderAdapter->GetMeshType();
+
+        // 2. 拓扑 Array
+        if (meshType != IG_POINT_SET) {
+            // Cell ID 使用的是 IdArray，它不是普通 DataArray。
+            if (const auto cellIds = m_EncoderAdapter->GetCellIdBuffer()) {
+                totalBytes += static_cast<std::uint64_t>(cellIds->GetNumberOfIds()) * sizeof(igIndex);
+            }
+
+            // Offset 是 UnsignedIntArray，可以使用普通 Array 接口。
+            addArrayBytes(m_EncoderAdapter->GetCellIdOffset());
+
+            // CellTypes 只存在于 UnstructuredMesh。
+            if (meshType == IG_UNSTRUCTURED_MESH) { addArrayBytes(m_EncoderAdapter->GetCellTypes()); }
+        }
+
+        // 3. 属性 Array
+        if (m_DataObj && m_DataObj->GetAttributeSet()) {
+            const auto attrs = m_DataObj->GetAttributeSet()->GetAllAttributes();
+
+            if (attrs) {
+                for (int i = 0; i < attrs->GetNumberOfElements(); ++i) {
+                    const auto attr = attrs->GetElement(i);
+                    addArrayBytes(attr.pointer);
+                }
+            }
+        }
+
+        return totalBytes;
+    }
+
+    void FinalizeEncoding(std::uint64_t rawArrayBytes, std::uint64_t compressedArrayBytes) {
         UpdateProgress(1.0);
         SetOutput(m_EncoderOutput);
 
@@ -281,17 +341,13 @@ private:
             int64_t sourceSize = -1;
 
             // 1) 优先使用读取阶段写入的 FileSize 属性
-            if (const auto fileSizeProperty =
-                this->m_DataObj->GetProperties()->GetProperty("FileSize"))
-            {
+            if (const auto fileSizeProperty = this->m_DataObj->GetProperties()->GetProperty("FileSize")) {
                 sourceSize = fileSizeProperty->Get<long long>();
             }
 
             // 2) 若缺失或无效，尝试通过 FilePath 读取磁盘文件大小
             if (sourceSize <= 0) {
-                if (const auto filePathProperty =
-                        this->m_DataObj->GetProperties()->GetProperty("FilePath"))
-                {
+                if (const auto filePathProperty = this->m_DataObj->GetProperties()->GetProperty("FilePath")) {
                     const auto filePath = filePathProperty->Get<std::string>();
                     std::error_code ec;
                     auto sz = std::filesystem::file_size(std::filesystem::path(filePath), ec);
@@ -315,6 +371,38 @@ private:
         };
 
         if (m_showReport) calCR();
+        if (m_showReport) {
+
+            // ============================================================
+            // 2. Array 大小及占比
+            // ============================================================
+            constexpr double bytesPerMiB = 1024.0 * 1024.0;
+
+            m_report.emplace_back("压缩前 Array 大小",
+                                  fmt::v11::format("{} bytes ({:.2f} MiB)", rawArrayBytes,
+                                                   static_cast<double>(rawArrayBytes) / bytesPerMiB));
+
+            m_report.emplace_back("压缩后 Array Payload 大小",
+                                  fmt::v11::format("{} bytes ({:.2f} MiB)", compressedArrayBytes,
+                                                   static_cast<double>(compressedArrayBytes) / bytesPerMiB));
+
+            if (rawArrayBytes > 0) {
+                const double arrayRatio =
+                        static_cast<double>(compressedArrayBytes) / static_cast<double>(rawArrayBytes);
+
+                m_report.emplace_back("压缩后 Array 占比", fmt::v11::format("{:.2f}%", arrayRatio * 100.0));
+
+                m_report.emplace_back("Array 空间节省率", fmt::v11::format("{:.2f}%", (1.0 - arrayRatio) * 100.0));
+
+                std::cout << "raw_array_size: " << rawArrayBytes << " bytes\n"
+                          << "compressed_array_payload_size: " << compressedArrayBytes << " bytes\n"
+                          << "compressed_array_ratio: " << fmt::v11::format("{:.2f}%", arrayRatio * 100.0) << std::endl;
+            } else {
+                m_report.emplace_back("压缩后 Array 占比", std::string("N/A"));
+
+                m_report.emplace_back("Array 空间节省率", std::string("N/A"));
+            }
+        }
 
         // 编码结束后复位进度条，避免单帧任务最后一次进度为 1.0 导致 UI 长期停留在 100%
         // 注意：Filter::UpdateProgress 会受 m_ProgressShift/m_ProgressScale 影响，不能用 UpdateProgress(0.0) 作为“清零”
@@ -510,10 +598,116 @@ private:
         std::memcpy(payload.data(), encodedFloat.data(), encodedFloat.size());
     }
 
+    struct NumpyFieldExportData {
+        bool valid = false;
+        bool isDouble = false;
+        std::string key;
+        std::vector<size_t> shape;
+        std::vector<float> originalFloat;
+        std::vector<float> reconstructedFloat;
+        std::vector<double> originalDouble;
+        std::vector<double> reconstructedDouble;
+    };
+
+    template<typename T>
+    static std::vector<T> RestoreAttributeOrder(
+            const std::vector<T>& remapped,
+            const std::vector<unsigned int>& originalToRemapped,
+            size_t elementCount,
+            int dimension) {
+        if (originalToRemapped.empty()) {
+            return remapped;
+        }
+        if (dimension <= 0 || originalToRemapped.size() != elementCount ||
+            remapped.size() != elementCount * static_cast<size_t>(dimension)) {
+            throw std::runtime_error("Invalid attribute remap while exporting NumPy data");
+        }
+
+        std::vector<T> restored(remapped.size());
+        for (size_t originalIndex = 0; originalIndex < elementCount; ++originalIndex) {
+            const size_t remappedIndex = originalToRemapped[originalIndex];
+            if (remappedIndex >= elementCount) {
+                throw std::runtime_error("Attribute remap index is out of range");
+            }
+            for (int component = 0; component < dimension; ++component) {
+                restored[originalIndex * static_cast<size_t>(dimension) + component] =
+                        remapped[remappedIndex * static_cast<size_t>(dimension) + component];
+            }
+        }
+        return restored;
+    }
+
+    static std::string MakeNumpyFieldKey(
+            int attrIndex, IGenum attachmentType, const std::string& name) {
+        std::string cleanName;
+        cleanName.reserve(name.size());
+        for (const unsigned char ch : name) {
+            cleanName.push_back(std::isalnum(ch) || ch == '_' ? static_cast<char>(ch) : '_');
+        }
+        if (cleanName.empty()) {
+            cleanName = "unnamed";
+        }
+        return std::string(attachmentType == IG_POINT ? "point_" : "cell_") +
+               std::to_string(attrIndex) + "_" + cleanName;
+    }
+
+    void WriteNumpyExports(const std::vector<NumpyFieldExportData>& fields) const {
+        std::vector<const NumpyFieldExportData*> selected;
+        for (const auto& field : fields) {
+            if (field.valid) {
+                selected.push_back(&field);
+            }
+        }
+
+        if (selected.size() != m_CodecControlParams.numpyAttributeIndices.size()) {
+            throw std::runtime_error("One or more selected fields cannot be exported as NumPy arrays");
+        }
+        if (selected.empty()) {
+            return;
+        }
+
+        const std::string& basePath = m_CodecControlParams.numpyOutputBasePath;
+        if (basePath.empty()) {
+            throw std::runtime_error("NumPy output base path is empty");
+        }
+
+        if (selected.size() == 1) {
+            const auto& field = *selected.front();
+            const std::string originalPath = basePath + "_original.npy";
+            const std::string reconstructedPath = basePath + "_reconstructed.npy";
+            if (field.isDouble) {
+                cnpy::npy_save(originalPath, field.originalDouble.data(), field.shape, "w");
+                cnpy::npy_save(reconstructedPath, field.reconstructedDouble.data(), field.shape, "w");
+            } else {
+                cnpy::npy_save(originalPath, field.originalFloat.data(), field.shape, "w");
+                cnpy::npy_save(reconstructedPath, field.reconstructedFloat.data(), field.shape, "w");
+            }
+            return;
+        }
+
+        const std::string originalPath = basePath + "_original.npz";
+        const std::string reconstructedPath = basePath + "_reconstructed.npz";
+        for (size_t i = 0; i < selected.size(); ++i) {
+            const auto& field = *selected[i];
+            const std::string mode = i == 0 ? "w" : "a";
+            if (field.isDouble) {
+                cnpy::npz_save(originalPath, field.key, field.originalDouble.data(), field.shape, mode);
+                cnpy::npz_save(reconstructedPath, field.key, field.reconstructedDouble.data(), field.shape, mode);
+            } else {
+                cnpy::npz_save(originalPath, field.key, field.originalFloat.data(), field.shape, mode);
+                cnpy::npz_save(reconstructedPath, field.key, field.reconstructedFloat.data(), field.shape, mode);
+            }
+        }
+    }
+
     void AttrEncoder(PayloadBuffer& payload, const std::vector<unsigned int>& pointRemap,
                      const std::vector<unsigned int>& topCellRemap, const std::vector<unsigned int>& bottomCellRemap) {
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
+        std::vector<NumpyFieldExportData> numpyFields(this->m_codecParams.attrParams.size());
+        const std::unordered_set<int> numpyAttributeIndices(
+                m_CodecControlParams.numpyAttributeIndices.begin(),
+                m_CodecControlParams.numpyAttributeIndices.end());
 
         auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrStorageParams& params, int attrIndex) {
             if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
@@ -591,6 +785,22 @@ private:
                         AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, controlParams,
                                        attr.pointer->GetName());
                     }
+
+                    if (m_CodecControlParams.exportNumpy && numpyAttributeIndices.count(i) != 0) {
+                        const auto& remap = attrParams.attachmentType == IG_POINT ? pointRemap : topCellRemap;
+                        auto& exportData = numpyFields[i];
+                        exportData.valid = true;
+                        exportData.isDouble = false;
+                        exportData.key = MakeNumpyFieldKey(i, attrParams.attachmentType, attr.pointer->GetName());
+                        exportData.shape = attrParams.dimension == 1
+                                ? std::vector<size_t>{static_cast<size_t>(attrParams.elementCount)}
+                                : std::vector<size_t>{static_cast<size_t>(attrParams.elementCount),
+                                                      static_cast<size_t>(attrParams.dimension)};
+                        exportData.originalFloat = RestoreAttributeOrder(
+                                preserve, remap, attrParams.elementCount, attrParams.dimension);
+                        exportData.reconstructedFloat = RestoreAttributeOrder(
+                                remappedFloatAttrBuffer, remap, attrParams.elementCount, attrParams.dimension);
+                    }
                 } else if (attrParams.valueSize == sizeof(double)) {
                     std::vector<double> preserve = remappedDoubleAttrBuffer;
                     MeshFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, controlParams);
@@ -600,6 +810,23 @@ private:
                         AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, controlParams,
                                        attr.pointer->GetName());
                     }
+
+
+                    if (m_CodecControlParams.exportNumpy && numpyAttributeIndices.count(i) != 0) {
+                        const auto& remap = attrParams.attachmentType == IG_POINT ? pointRemap : topCellRemap;
+                        auto& exportData = numpyFields[i];
+                        exportData.valid = true;
+                        exportData.isDouble = true;
+                        exportData.key = MakeNumpyFieldKey(i, attrParams.attachmentType, attr.pointer->GetName());
+                        exportData.shape = attrParams.dimension == 1
+                                ? std::vector<size_t>{static_cast<size_t>(attrParams.elementCount)}
+                                : std::vector<size_t>{static_cast<size_t>(attrParams.elementCount),
+                                                      static_cast<size_t>(attrParams.dimension)};
+                        exportData.originalDouble = RestoreAttributeOrder(
+                                preserve, remap, attrParams.elementCount, attrParams.dimension);
+                        exportData.reconstructedDouble = RestoreAttributeOrder(
+                                remappedDoubleAttrBuffer, remap, attrParams.elementCount, attrParams.dimension);
+                    }
                 }
 
                 // 只靠count就足以读取
@@ -607,6 +834,10 @@ private:
                 outFloats[i] = encoded;
             }
         });
+
+        if (m_CodecControlParams.exportNumpy) {
+            WriteNumpyExports(numpyFields);
+        }
 
         UpdateProgress(0.6);
 
