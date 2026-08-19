@@ -1,11 +1,13 @@
 #include "iGameMeshReportGenerator.h"
 #include "iGameMeshReportClient.h"
+#include "iGameAttributeSet.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameDrawObject.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "VTK/iGameVTKWriter.h"
 #include "Log/iGameLogger.h"
+#include <algorithm>
 #include <filesystem>
 #include <chrono>
 #include <cstdio>
@@ -74,14 +76,19 @@ bool MeshReportGenerator::Execute() {
         return false;
     }
 
-    // 3. 导出为VTK临时文件并读取为二进制内容
+    // 3. 过滤属性（保留 part_id 与选中的属性；未指定时保留全部）
+    if (!filterAttributes(simplified)) {
+        return false;
+    }
+
+    // 4. 导出为VTK临时文件并读取为二进制内容
     std::string tempVtkPath;
     std::vector<uint8_t> vtkData;
     if (!exportToVTKFile(simplified, tempVtkPath, vtkData)) {
         return false;
     }
 
-    // 4. 发送到服务器并接收报告文件
+    // 5. 发送到服务器并接收报告文件
     std::vector<uint8_t> reportData;
     bool sendOk = sendToServer(vtkData, reportData);
 
@@ -95,7 +102,7 @@ bool MeshReportGenerator::Execute() {
         return false;
     }
 
-    // 5. 保存报告文件
+    // 6. 保存报告文件
     if (!saveReport(reportData)) {
         return false;
     }
@@ -160,6 +167,48 @@ bool MeshReportGenerator::simplifyMesh(DataObject::Pointer input, DataObject::Po
     return true;
 }
 
+bool MeshReportGenerator::filterAttributes(DataObject::Pointer mesh) {
+    if (m_specifiedFields.empty()) {
+        return true;
+    }
+
+    igDebug("MeshReportGenerator: Filtering attributes, keeping {} specified field(s) + part_id",
+            m_specifiedFields.size());
+
+    auto oldSet = mesh->GetAttributeSet();
+    auto newSet = AttributeSet::New();
+
+    const std::string partIdName = "part_id";
+    IntArray::Pointer blockMapping;
+    if (mesh->HasBlockMapping()) {
+        blockMapping = IntArray::New();
+        blockMapping->DeepCopy(mesh->GetBlockMapping());
+        blockMapping->SetName(partIdName);
+    }
+
+    auto copyAttributes = [&](IGenum attachmentType) {
+        auto list = (attachmentType == IG_POINT) ? oldSet->GetAllPointAttributes() : oldSet->GetAllCellAttributes();
+        for (int i = 0; i < list->GetNumberOfElements(); i++) {
+            auto& attr = list->GetElement(i);
+            if (attr.IsNone()) continue;
+            auto& name = attr.pointer->GetName();
+            if (name == partIdName) continue;
+            if (std::find(m_specifiedFields.begin(), m_specifiedFields.end(), name) == m_specifiedFields.end()) {
+                continue;
+            }
+            newSet->AddAttribute(attr.type, attachmentType, attr.pointer, attr.dataRange);
+        }
+    };
+    copyAttributes(IG_POINT);
+    copyAttributes(IG_CELL);
+
+    mesh->SetAttributeSet(newSet);
+    if (blockMapping) {
+        mesh->SetBlockMapping(blockMapping);
+    }
+    return true;
+}
+
 bool MeshReportGenerator::exportToVTKFile(DataObject::Pointer mesh, std::string& tempVtkPath, std::vector<uint8_t>& vtkData) {
     igDebug("MeshReportGenerator: Exporting mesh to temp VTK file...");
 
@@ -218,7 +267,6 @@ bool MeshReportGenerator::sendToServer(const std::vector<uint8_t>& vtkData, std:
 
     MeshReportRequest request;
     request.vtkData = vtkData;
-    request.specifiedFields = m_specifiedFields;
 
     MeshReportResponse response;
     if (!client.requestReport(request, response)) {

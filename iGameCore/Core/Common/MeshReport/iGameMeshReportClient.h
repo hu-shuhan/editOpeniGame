@@ -38,8 +38,7 @@ IGAME_NAMESPACE_BEGIN
  * @brief 网格分析报告请求参数
  */
 struct MeshReportRequest {
-    std::vector<uint8_t> vtkData;              ///< VTK文件二进制数据
-    std::vector<std::string> specifiedFields;   ///< 指定要分析的属性场名称（为空表示分析所有属性场）
+    std::vector<uint8_t> vtkData; ///< VTK文件二进制数据（属性已按需过滤，服务器直接分析其中的全部属性）
 };
 
 /**

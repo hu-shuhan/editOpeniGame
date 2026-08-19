@@ -118,25 +118,12 @@ bool MeshReportClient::requestReport(const MeshReportRequest& request, MeshRepor
     }
 
     // 协议：
-    // 发送: [4B vtk_size][vtk_data][4B field_count][{4B len][field_name utf8]}*field_count]
+    // 发送: [4B vtk_size][vtk_data]
     // 接收: [1B success][4B report_size][report_data] 或 [1B=0][4B msg_size][error_msg]
 
     if (!sendData(request.vtkData)) {
         igDebug("MeshReportClient: Failed to send VTK data");
         return false;
-    }
-
-    if (!sendUint32(static_cast<uint32_t>(request.specifiedFields.size()))) {
-        igDebug("MeshReportClient: Failed to send specified field count");
-        return false;
-    }
-
-    for (const std::string& fieldName : request.specifiedFields) {
-        std::vector<uint8_t> fieldNameData(fieldName.begin(), fieldName.end());
-        if (!sendData(fieldNameData)) {
-            igDebug("MeshReportClient: Failed to send specified field name: {}", fieldName);
-            return false;
-        }
     }
 
     // 接收结果

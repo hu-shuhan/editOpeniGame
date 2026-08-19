@@ -77,8 +77,9 @@ public:
     void SetPreserveBoundary(bool preserve);
 
     /**
-     * 设置指定要分析的属性场名称（与网格上通过 SetName 命名的属性一致）
-     * @param fields 属性场名称列表，为空表示分析所有属性场（默认）
+     * 设置指定要分析的属性场名称（与网格上通过 SetName 命名的属性一致）。
+     * 传输的 VTK 只会保留 part_id 与这里列出的属性；
+     * @param fields 属性场名称列表，为空表示不过滤、保留全部属性（默认）
      */
     void SetSpecifiedFields(const std::vector<std::string>& fields);
 
@@ -113,6 +114,7 @@ protected:
     // 内部方法
     bool triangulateInput(DataObject::Pointer input, DataObject::Pointer& triangulated);
     bool simplifyMesh(DataObject::Pointer input, DataObject::Pointer& simplified);
+    bool filterAttributes(DataObject::Pointer mesh);
     bool exportToVTKFile(DataObject::Pointer mesh, std::string& tempVtkPath, std::vector<uint8_t>& vtkData);
     bool sendToServer(const std::vector<uint8_t>& vtkData, std::vector<uint8_t>& reportData);
     bool saveReport(const std::vector<uint8_t>& reportData);
