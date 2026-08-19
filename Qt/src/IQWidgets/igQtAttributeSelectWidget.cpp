@@ -66,6 +66,16 @@ igQtAttributeSelectWidget::igQtAttributeSelectWidget(QWidget* parent) : QWidget(
     setupUI();
 }
 
+igQtAttributeSelectWidget::~igQtAttributeSelectWidget() {
+    // 窗口关闭时 widget 被销毁：若后台报告线程仍在运行，不能直接销毁 QThread（Qt 会 fatal）。
+    // 让线程自然结束后自删（QThread::finished -> deleteLater），期间不触碰任何 widget 成员。
+    if (m_workerThread && m_workerThread->isRunning()) {
+        m_workerThread->requestInterruption();
+        m_workerThread->setParent(nullptr);
+        m_workerThread = nullptr;
+    }
+}
+
 void igQtAttributeSelectWidget::setupUI() {
     setStyleSheet("igQtAttributeSelectWidget { background-color: #222222; } "
                   "QLabel { color: rgba(255,255,255,204); font-size: 10pt; } "
@@ -125,10 +135,6 @@ void igQtAttributeSelectWidget::setBusy(bool busy) {
 
 bool igQtAttributeSelectWidget::IsGenerating() const {
     return m_busy;
-}
-
-std::string igQtAttributeSelectWidget::GetErrorMessage() const {
-    return m_errorMessage;
 }
 
 bool igQtAttributeSelectWidget::HasPartId() const {
@@ -312,7 +318,6 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
         for (const QString& name : selected) {
             m_selectedAttributes.push_back(name.toStdString());
         }
-        m_errorMessage.clear();
     }
 
     if (m_workerThread && m_workerThread->isRunning()) {
@@ -325,12 +330,11 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
     m_workerThread = new QThread(this);
     // 注意：这里不能把 this 作为 connect 的 context 传入 —— 那样 lambda 会被投递到主线程执行，
     // Execute() 整个流程（含等待服务器）都会阻塞 UI。不带 context 时在 QThread 的 run() 线程内直接执行。
-    connect(m_workerThread, &QThread::started, [this]() {
-        DataObject::Pointer input = m_dataObj;
-        QString savePath = m_savePath;
-        std::vector<std::string> fields = GetSelectedAttributes();
+    // lambda 按值捕获所有需要的输入；ui 用 QPointer 弱引用，窗口关闭后不再触碰 widget 成员。
+    QPointer<igQtAttributeSelectWidget> ui = this;
+    connect(m_workerThread, &QThread::started, [ui, input = m_dataObj, savePath = m_savePath, fields = GetSelectedAttributes()]() {
         bool ok = false;
-        std::string errorMessage;
+        QString errorMessage;
         if (input) {
             auto generator = MeshReportGenerator::New(savePath.toStdString());
             generator->SetInput(input);
@@ -339,17 +343,16 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
             generator->SetSpecifiedFields(fields);
             ok = generator->Execute();
             if (!ok) {
-                errorMessage = generator->GetErrorMessage();
+                errorMessage = QString::fromStdString(generator->GetErrorMessage());
             }
         } else {
-            errorMessage = "Input data object is null";
+            errorMessage = QStringLiteral("Input data object is null");
         }
-        {
-            std::lock_guard<std::mutex> lock(m_resultMutex);
-            m_errorMessage = errorMessage;
+        // 窗口可能已关闭：回调前检查弱引用，避免访问已销毁的 widget
+        if (ui) {
+            QMetaObject::invokeMethod(ui, "onAsyncFinished", Qt::QueuedConnection,
+                                      Q_ARG(bool, ok), Q_ARG(QString, errorMessage));
         }
-        QMetaObject::invokeMethod(this, "onAsyncFinished", Qt::QueuedConnection,
-                                  Q_ARG(bool, ok), Q_ARG(QString, QString::fromStdString(errorMessage)));
     });
     connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
     m_workerThread->start();

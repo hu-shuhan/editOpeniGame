@@ -5,6 +5,7 @@
 
 #include <QCheckBox>
 #include <QLabel>
+#include <QPointer>
 #include <QPair>
 #include <QPushButton>
 #include <QScrollArea>
@@ -29,6 +30,7 @@ class IG_QT_MODULE_EXPORT igQtAttributeSelectWidget : public QWidget {
 
 public:
     explicit igQtAttributeSelectWidget(QWidget* parent = nullptr);
+    ~igQtAttributeSelectWidget() override;
 
     // 刷新属性列表（读取当前模型数据对象的 point/cell 属性）
     void RefreshAttributeList();
@@ -42,8 +44,6 @@ public:
     void SetMaxSelectableCount(int count);
 
     bool IsGenerating() const;
-
-    std::string GetErrorMessage() const;
 
 signals:
     // 报告生成完成（成功或失败都发，message 描述结果）
@@ -74,8 +74,7 @@ private:
     std::vector<std::string> m_selectedAttributes;
     QString m_savePath;
     bool m_hasPartId{false};
-    std::string m_errorMessage;
-    QThread* m_workerThread{nullptr};
+    QPointer<QThread> m_workerThread;
     bool m_busy{false};
 
     QPushButton* m_btnRefresh{nullptr};
