@@ -179,11 +179,19 @@ bool MeshReportGenerator::filterAttributes(DataObject::Pointer mesh) {
     auto newSet = AttributeSet::New();
 
     const std::string partIdName = "part_id";
+
+    // 按名字查找 part_id cell 属性。注意不能依赖 HasBlockMapping()：
+    // 简化滤波器输出保留了名为 part_id 的 cell 属性，但没有同步 m_BlockMappingAttrIndex，
+    // 导致 HasBlockMapping() 为 false，而 VTK 导出又依赖 cell 属性里的数组名。
     IntArray::Pointer blockMapping;
-    if (mesh->HasBlockMapping()) {
-        blockMapping = IntArray::New();
-        blockMapping->DeepCopy(mesh->GetBlockMapping());
-        blockMapping->SetName(partIdName);
+    if (oldSet) {
+        auto& partIdAttr = oldSet->GetAttribute(partIdName, IG_BLOCK_MAPPING);
+        if (partIdAttr.IsNone()) {
+            partIdAttr = oldSet->GetAttribute(partIdName, IG_SCALAR);
+        }
+        if (!partIdAttr.IsNone() && partIdAttr.attachmentType == IG_CELL) {
+            blockMapping = DynamicCast<IntArray>(partIdAttr.pointer);
+        }
     }
 
     auto copyAttributes = [&](IGenum attachmentType) {
