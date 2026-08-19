@@ -9,11 +9,11 @@
 | 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | **本文详写** |
 | 2 | 等几何 / 高阶单元高保真可视化（谱方法专项见「已知缺口」） | ✅ 部分实现（Spline / Lagrange） | [README_7.1.md](README_7.1.md) |
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
-| 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | 本文详写 + [README_10.1.md](README_10.1.md) |
+| 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
 | 5 | 多层次关键特征提取（经典算子、时序涡量与 LibTorch 涡检测） | ✅ 已实现 | 本文详写 + [README_10.2.md](README_10.2.md) |
 | 6 | 基于 LLM 的可视化结果智能评测与分析报告生成 | ✅ 已实现（依赖外部 LLM / 报告服务） | 本文详写 |
 
-> **写法说明**：11.4 是**平台总指标**。子功能 1、4～6 在本文给出验收流程；2、3 以交叉引用为主，避免与 7.1 / 11.3 重复粘贴。
+> **写法说明**：11.4 是**平台总指标**。子功能 1、5、6 在本文展开；2～4 以交叉引用为主，避免与其他指标文档重复粘贴。
 > 与 **11.3** 的区别：11.3 写「场怎么画」；11.4 写「平台如何并行、加速，以及各专项如何拼成整机能力」。  
 
 ![架构图](../../Resources/Images/架构图.png)
@@ -151,59 +151,9 @@ iGame::ThreadPool::parallelFor(0, count, [&](int i) {
 
 ## 子功能 4：局部聚焦与多尺度流线联合显示
 
-### 功能 4.1：点选物体局部聚焦，改变视角和旋转中心
+平台支持点选或框选局部区域，并根据选区包围框调整相机视角与旋转中心；流线生成时可同时使用局部选区中的高 / 低速度种子点和贯穿全场的种子线，联合展示微观流动结构与宏观流动趋势。
 
-加载模型后，使用点选、单元选择或选择盒选取需要观察的局部区域。系统从选择盒的极值点生成 `BoundingBox`；执行「包围框视角」后，`Scene::ResetCameraView(bbox)` 将相机焦点和场景旋转包围球更新为包围框中心，同时按包围框尺度调整相机距离。因此后续缩放与旋转都围绕局部区域进行，而不是继续围绕整模型中心。
-
-操作流程：
-
-1. 加载待观察模型，在「选择」功能中启用点 / 单元 / 选择盒模式。
-2. 点选或框选所需区域，确认视图中已经形成局部选择盒。
-3. 点击工具栏或视图菜单中的「包围框视角」。
-4. 检查视角是否缩放到选区，并拖动旋转模型，确认旋转中心已切换到选区包围框中心。
-5. 可显示并拖动中心坐标轴，进一步调整旋转中心。
-
-![框选局部区域聚焦示例](../../Resources/Images/car_box_view.png)
-
-### 功能 4.2：局部微观流线与全局宏观流线联合显示
-
-系统可在**一次流线生成**中合并两种尺度的种子点：
-
-- **局部微观种子**：在当前点 / 单元选区内，根据矢量模长寻找局部极大值或极小值，突出高速或低速区域附近的精细流动结构。
-- **全局宏观种子**：在用户给定的起点与终点之间生成种子线，使流线贯穿全场，展示整体流动方向与宏观趋势。
-
-两组种子合并后统一传给 `StreamTracer::SetInput`，只执行一次 `Execute()`，结果作为同一个流线对象加入模型树。GUI 中对应「多尺度混合模式(极大)」和「多尺度混合模式(极小)」。
-
-操作流程：
-
-1. 加载含三维体单元和速度矢量属性的模型，打开「流场」面板并选择速度场。
-2. 使用选择功能框选局部关注区域。
-3. 选择「多尺度混合模式(极大)」观察局部高速结构，或选择「多尺度混合模式(极小)」观察局部低速结构。
-4. 设置宏观种子线的起点、终点、种子数量以及流线长度、积分步长等参数。
-5. 生成流线，检查局部选区内的微观流线与贯穿全场的宏观流线是否同时出现。
-
-![宏观与微观流线联合显示](../../Resources/Images/宏观微观流线.png)
-
-### 源码路径
-
-| 路径 | 类 / API | 说明 |
-|------|----------|------|
-| `iGameCore/Rendering/Core/Interactor/iGameBoxStyle.*` | `BoxStyle::GetBox` / `GetExtremePoint` | 取得选区包围框极值点 |
-| `Qt/src/IQCore/igQtMainWindow.cpp` | `action_ResetViewByBoundingBox` | 「包围框视角」GUI 入口 |
-| `iGameCore/Rendering/Core/iGameScene.*` | `Scene::ResetCameraView(const BoundingBox&)` | 更新相机焦点、距离与旋转中心 |
-| `iGameCore/Filters/StreamView/iGameStreamTracer.*` | `getModelSelectMax` / `getModelSelectMin` | 选区内高 / 低速度种子 |
-| 同上 | `seedPCoordGenerate` / `SetInput` / `Execute` | 全局种子线与流线积分 |
-| `Qt/src/IQWidgets/igQtStreamTracerWidget.cpp` | `generateStreamline`（`control == 3 / 4`） | 合并局部与全局种子并一次生成 |
-
-详细的选区、信息熵种子和流线筛选能力见 **[README_10.1.md](README_10.1.md)**。
-
-### 测试用例（入口）
-
-| Target | 源文件 | 验证内容 |
-|--------|--------|----------|
-| GUI 手工验收 | `Qt/src/IQCore/igQtMainWindow.cpp` | 选择盒 → 包围框视角 → 局部旋转中心 |
-| `testStreamline` | `Examples/Filter/Vector/TestStreamline.cpp` | 流线积分与种子生成 |
-| `testMultiscaleInteraction` | `Examples/MultiscaleInteraction/TestMultiscaleInteraction.cpp` | 多尺度视图联动 |
+完整的操作步骤、界面截图和测试程序见 **[GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md)**。
 
 ---
 
