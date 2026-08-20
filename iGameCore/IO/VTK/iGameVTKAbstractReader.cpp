@@ -50,6 +50,39 @@ bool IsVtkCellSizeValid(VTKAbstractReader::VTKTYPE type, int size) {
             return true;
     }
 }
+
+VTKAbstractReader::VTKTYPE NormalizeVtkCellType(VTKAbstractReader::VTKTYPE type, int size) {
+    // Some third-party writers keep all midside nodes but incorrectly label
+    // the cell with its linear VTK type.  ParaView tolerates these files.  The
+    // node counts below identify the corresponding quadratic type without
+    // weakening validation for arbitrary malformed connectivity.
+    switch (type) {
+        case VTKAbstractReader::LINE:
+            if (size == 3) return VTKAbstractReader::QUADRATIC_EDGE;
+            break;
+        case VTKAbstractReader::TRIANGLE:
+            if (size == 6) return VTKAbstractReader::QUADRATIC_TRIANGLE;
+            break;
+        case VTKAbstractReader::QUAD:
+            if (size == 8) return VTKAbstractReader::QUADRATIC_QUAD;
+            break;
+        case VTKAbstractReader::TETRA:
+            if (size == 10) return VTKAbstractReader::QUADRATIC_TETRA;
+            break;
+        case VTKAbstractReader::HEXAHEDRON:
+            if (size == 20) return VTKAbstractReader::QUADRATIC_HEXAHEDRON;
+            break;
+        case VTKAbstractReader::WEDGE:
+            if (size == 15) return VTKAbstractReader::QUADRATIC_WEDGE;
+            break;
+        case VTKAbstractReader::PYRAMID:
+            if (size == 13) return VTKAbstractReader::QUADRATIC_PYRAMID;
+            break;
+        default:
+            break;
+    }
+    return type;
+}
 } // namespace
 
 VTKAbstractReader::VTKAbstractReader() {
@@ -1147,6 +1180,7 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
     const int offsetsCount = static_cast<int>(CellsID->GetNumberOfElements());
     const int connectCount = static_cast<int>(CellsConnect->GetNumberOfElements());
     int skippedCells = 0;
+    int normalizedCells = 0;
 
     for (int i = 0; i < CellNum; i++) {
         if (i + 1 >= offsetsCount) {
@@ -1162,7 +1196,9 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             continue;
         }
 
-        VTKTYPE type = (VTKTYPE) VtkCellsType->GetValue(i);
+        const VTKTYPE declaredType = (VTKTYPE) VtkCellsType->GetValue(i);
+        VTKTYPE type = NormalizeVtkCellType(declaredType, size);
+        if (type != declaredType) normalizedCells++;
         if (!IsVtkCellSizeValid(type, size)) {
             skippedCells++;
             continue;
@@ -1352,6 +1388,9 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             default:
                 break;
         }
+    }
+    if (normalizedCells > 0) {
+        igDebug("TransferVtkCellToiGameCell normalized mislabeled quadratic cells: {}", normalizedCells);
     }
     if (skippedCells > 0) { igDebug("TransferVtkCellToiGameCell skipped invalid cells: {}", skippedCells); }
     _mesh = mesh;

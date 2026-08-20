@@ -94,34 +94,16 @@ set(SOURCE_LIST
 		${CUDA_SOURCE_FILES}
 )
 
-# Create an OBJECT library first so .cu objects are available to the final link
-# This avoids some of the static .a device-link problems.
-add_library(${LibraryName}_obj OBJECT ${SOURCE_LIST})
-
-# Apply properties to object target so CUDA separable compilation is active
-set_target_properties(${LibraryName}_obj PROPERTIES
-		CUDA_SEPARABLE_COMPILATION ON
-		POSITION_INDEPENDENT_CODE ON
-)
-
-# Ensure developer flags and headers apply
-target_link_libraries(${LibraryName}_obj
-		PRIVATE
-		GPU_header_lib
-)
-
-# If needed, expose include dirs for consumers of the final library:
-target_include_directories(${LibraryName}_obj
-		PRIVATE ${CMAKE_CURRENT_LIST_DIR}
-)
-
-# Now make the actual static library from objects
-add_library(${LibraryName} STATIC $<TARGET_OBJECTS:${LibraryName}_obj>)
+# Keep the .cu sources on the static-library target itself.  CMake can then
+# create and archive the CUDA device-link object; wrapping an OBJECT library
+# hides the CUDA sources from the outer target on Visual Studio generators.
+add_library(${LibraryName} STATIC ${SOURCE_LIST})
 
 set_target_properties(${LibraryName} PROPERTIES
 		FOLDER "apps"
-		# When final linking, CMake may need to resolve CUDA device symbols:
+		CUDA_SEPARABLE_COMPILATION ON
 		CUDA_RESOLVE_DEVICE_SYMBOLS ON
+		POSITION_INDEPENDENT_CODE ON
 )
 
 # Propagate compile/link settings to the final library
@@ -129,6 +111,12 @@ target_link_libraries(${LibraryName}
         PUBLIC
         Geom
         TBB::tbb
+		PRIVATE
+		GPU_header_lib
+)
+
+target_include_directories(${LibraryName}
+		PRIVATE ${CMAKE_CURRENT_LIST_DIR}
 )
 
 # If you want the library to also link the CUDA runtime (optional; final exe can link too)

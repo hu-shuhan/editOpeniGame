@@ -125,11 +125,11 @@ int main() {
 
     auto scene = iGame::Scene::New();
 
-    // driver_1.vtk：面网格 → 等值线；streamTet.vtk：四面体体网格 → 等值面
+    // Driver/driver_1.vtk：面网格 → 等值线；streamTest.vtk：体网格 → 等值面
     // 两个模型均需自备，放到运行目录的 ./Models/ 下
-    const bool okSurface = RunContour("testContourExtraction/isoline", "./Models/driver_1.vtk",
+    const bool okSurface = RunContour("testContourExtraction/isoline", "./Models/Driver/driver_1.vtk",
                                       /*expectIsoSurface=*/false, scene);
-    const bool okVolume = RunContour("testContourExtraction/isosurface", "./Models/streamTet.vtk",
+    const bool okVolume = RunContour("testContourExtraction/isosurface", "./Models/streamTest.vtk",
                                      /*expectIsoSurface=*/true, scene);
 
     if (!okSurface || !okVolume) {

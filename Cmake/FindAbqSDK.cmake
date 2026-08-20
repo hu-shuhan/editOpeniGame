@@ -82,7 +82,6 @@ set(ABQ_LIB_LIST
         "ABQSMASimSerializerAPI"
         "ABQSMASrvBasic"
         "ABQSMASrvSimXmlConverters"
-        "ABQSMAUzlZlib"
 )
 mark_as_advanced(ABQ_LIB_LIST)
 
@@ -91,6 +90,9 @@ mark_as_advanced(ABQ_LIB_LIST)
 # linker's input list, but they must be deployed beside consumers at runtime.
 set(ABQ_RUNTIME_LIB_LIST
         ${ABQ_LIB_LIST}
+        # Keep Abaqus' zlib in the runtime closure without exporting its
+        # generic zlib symbols to iGameCore.
+        "ABQSMAUzlZlib"
         "ABQDMP_Core"
         "ABQMPI_api"
         "ABQSMAAspCommunications"
