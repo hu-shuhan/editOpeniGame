@@ -440,7 +440,7 @@ bool AdvancedGradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer
     FloatArray::Pointer gradient = FloatArray::New();
     gradient->SetDimension(outDim);
     gradient->Reserve(NumCells);
-    gradient->SetName("gradient");
+    gradient->SetName("gradient_" + std::string(Data->GetName()));
     // attributeSet->AddScalar(IG_CELL, gradient);
     std::vector<std::array<double, 9>> gradient_values(NumCells);
 
@@ -495,7 +495,7 @@ bool AdvancedGradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer
         FloatArray::Pointer pointGradient = FloatArray::New();
         debugOutput = pointGradient;
         pointGradient->SetDimension(outDim);
-        pointGradient->SetName("gradient");
+        pointGradient->SetName("gradient_" + std::string(Data->GetName()));
         pointGradient->Reserve(NumPoints);
         std::vector<float> zero(outDim, 0.0f);
         for (int i = 0; i < NumPoints; ++i) {
@@ -618,7 +618,7 @@ bool AdvancedGradientFilter::ComputeGradientWithVolumeMesh(VolumeMesh::Pointer M
 
     FloatArray::Pointer gradient = FloatArray::New();
     gradient->SetDimension(outDim);
-    gradient->SetName("gradient");
+    gradient->SetName("gradient_" + std::string(Data->GetName()));
     std::vector<float> pointWeights;
     if (m_OutputToPointData) {
         gradient->Reserve(NumPoints);
@@ -742,7 +742,7 @@ bool AdvancedGradientFilter::ComputeGradientWithMixedMesh(UnstructuredMesh::Poin
 
     FloatArray::Pointer gradient = FloatArray::New();
     gradient->SetDimension(outDim);
-    gradient->SetName("gradient");
+    gradient->SetName("gradient_" + std::string(Data->GetName()));
     std::vector<float> pointWeights;
     if (m_OutputToPointData) {
         gradient->Reserve(NumPoints);
