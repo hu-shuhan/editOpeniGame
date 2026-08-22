@@ -104,7 +104,7 @@ bool TestSyntheticSurfaceScalar() {
         return false;
     }
 
-    int idx = surface->GetAttributeSet()->GetAttributeIndex("gradient");
+    int idx = surface->GetAttributeSet()->GetAttributeIndex("gradient_field_x");
     if (idx < 0) {
         Report(false, "SyntheticSurfaceScalar", "gradient attribute not found");
         return false;
@@ -141,7 +141,7 @@ bool TestSyntheticSurfaceCellOutput() {
         return false;
     }
 
-    int idx = surface->GetAttributeSet()->GetAttributeIndex("gradient");
+    int idx = surface->GetAttributeSet()->GetAttributeIndex("gradient_field_x");
     if (idx < 0) {
         Report(false, "SyntheticSurfaceCellOutput", "gradient attribute not found");
         return false;
@@ -165,7 +165,7 @@ bool TestSyntheticTetraScalar() {
         return false;
     }
 
-    int idx = mesh->GetAttributeSet()->GetAttributeIndex("gradient");
+    int idx = mesh->GetAttributeSet()->GetAttributeIndex("gradient_field");
     if (idx < 0) {
         Report(false, "SyntheticTetraScalar", "gradient attribute not found");
         return false;
@@ -210,6 +210,7 @@ bool TestStreamTestVolumeVector() {
         Report(false, "StreamTestVolumeVector", "no vector attribute found");
         return false;
     }
+    std::string vectorName = attrSet->GetAttribute(vectorIndex).pointer->GetName();
 
     iGame::AdvancedGradientFilter::Pointer filter = iGame::AdvancedGradientFilter::New();
     filter->SetInput(data);
@@ -221,7 +222,7 @@ bool TestStreamTestVolumeVector() {
         return false;
     }
 
-    int idx = attrSet->GetAttributeIndex("gradient");
+    int idx = attrSet->GetAttributeIndex("gradient_" + vectorName);
     if (idx < 0) {
         Report(false, "StreamTestVolumeVector", "gradient attribute not found");
         return false;
