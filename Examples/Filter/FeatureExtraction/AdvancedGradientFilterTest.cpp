@@ -1,5 +1,6 @@
 #include "FeatureExtraction/iGameAdvancedGradientFilter.h"
 #include "iGameAttributeSet.h"
+#include "iGameCellType.h"
 #include "iGameDrawObject.h"
 #include "iGameFileIO.h"
 #include "iGamePoints.h"
@@ -65,6 +66,31 @@ iGame::SurfaceMesh::Pointer MakeTriangleSurface() {
     return surface;
 }
 
+iGame::UnstructuredMesh::Pointer MakeTetraMesh() {
+    auto mesh = iGame::UnstructuredMesh::New();
+    auto points = iGame::Points::New();
+    // 非正交四面体，用于验证 J^T * g = rhs 的转置关系
+    points->AddPoint(0.0, 0.0, 0.0);
+    points->AddPoint(2.0, 1.0, 0.0);
+    points->AddPoint(1.0, 3.0, 0.0);
+    points->AddPoint(1.0, 1.0, 4.0);
+    mesh->SetPoints(points);
+
+    igIndex tet[4] = {0, 1, 2, 3};
+    mesh->AddCell(tet, 4, iGame::IG_TETRA);
+
+    auto scalar = iGame::FloatArray::New();
+    scalar->SetDimension(1);
+    scalar->SetName("field");
+    // f = 2x + 3y + 4z
+    float v[4][1] = {{0.0f}, {7.0f}, {11.0f}, {21.0f}};
+    for (int i = 0; i < 4; ++i) {
+        scalar->AddElement(v[i]);
+    }
+    mesh->GetAttributeSet()->AddScalar(IG_POINT, scalar);
+    return mesh;
+}
+
 bool TestSyntheticSurfaceScalar() {
     auto surface = MakeTriangleSurface();
 
@@ -123,6 +149,43 @@ bool TestSyntheticSurfaceCellOutput() {
     auto& attr = surface->GetAttributeSet()->GetAttribute(idx);
     bool ok = attr.attachmentType == IG_CELL && attr.pointer->GetDimension() == 3;
     Report(ok, "SyntheticSurfaceCellOutput", "should be IG_CELL dim=3");
+    return ok;
+}
+
+bool TestSyntheticTetraScalar() {
+    auto mesh = MakeTetraMesh();
+
+    iGame::AdvancedGradientFilter::Pointer filter = iGame::AdvancedGradientFilter::New();
+    filter->SetInput(mesh);
+    filter->SetAttributeByName("field");
+    filter->SetComputeGradientTensor(true);
+    filter->SetOutputToPointData(true);
+    if (!filter->Execute()) {
+        Report(false, "SyntheticTetraScalar", "Execute failed");
+        return false;
+    }
+
+    int idx = mesh->GetAttributeSet()->GetAttributeIndex("gradient");
+    if (idx < 0) {
+        Report(false, "SyntheticTetraScalar", "gradient attribute not found");
+        return false;
+    }
+    auto& attr = mesh->GetAttributeSet()->GetAttribute(idx);
+    if (attr.pointer->GetDimension() != 3 || attr.attachmentType != IG_POINT) {
+        Report(false, "SyntheticTetraScalar", "unexpected dim/attachment");
+        return false;
+    }
+
+    // f = 2x + 3y + 4z  =>  gradient = (2, 3, 4)
+    bool ok = true;
+    for (int i = 0; i < 4; ++i) {
+        float g[3];
+        attr.pointer->GetElement(i, g);
+        if (!NearlyEqual(g[0], 2.0) || !NearlyEqual(g[1], 3.0) || !NearlyEqual(g[2], 4.0)) {
+            ok = false;
+        }
+    }
+    Report(ok, "SyntheticTetraScalar", "gradient should be (2,3,4) on non-orthogonal tetra");
     return ok;
 }
 
@@ -185,6 +248,7 @@ bool TestStreamTestVolumeVector() {
 int main() {
     TestSyntheticSurfaceScalar();
     TestSyntheticSurfaceCellOutput();
+    TestSyntheticTetraScalar();
     TestStreamTestVolumeVector();
 
     std::cerr << "\nPassed: " << g_pass << ", Failed: " << g_fail << ", Skipped: " << g_skip << '\n';

@@ -977,7 +977,9 @@ std::array<float, 3> AdvancedGradientFilter::ComputeTetCellGradientExact(Cell* c
     }
 
     Eigen::Vector3f rhs(a1 - a0, a2 - a0, a3 - a0);
-    Eigen::Vector3f g = M.inverse().eval() * rhs;
+    // 注意：M 的列是三条边向量，参数坐标增量满足 J^T * g = rhs，
+    // 因此必须对 M 的转置求逆，否则非正交四面体梯度会算错。
+    Eigen::Vector3f g = M.transpose().inverse().eval() * rhs;
     return {g.x(), g.y(), g.z()};
 }
 
