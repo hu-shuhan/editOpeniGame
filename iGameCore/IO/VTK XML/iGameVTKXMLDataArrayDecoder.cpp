@@ -178,7 +178,16 @@ bool DecompressZLib(const ByteBuffer& encoded, ByteBuffer& output, std::string& 
     const auto numBlocks = static_cast<std::size_t>(numBlocksValue);
     const auto blockSize = static_cast<std::size_t>(blockSizeValue);
     const auto lastBlockSize = static_cast<std::size_t>(lastBlockSizeValue);
-    if (numBlocks == 0 || blockSize == 0 || lastBlockSize == 0 || lastBlockSize > blockSize) {
+    if (numBlocks == 0) {
+        const std::size_t headerBytes = sizeof(HeaderT) * 3;
+        if (lastBlockSize != 0 || encoded.size() != headerBytes) {
+            error = "invalid empty VTK zlib payload";
+            return false;
+        }
+        output.clear();
+        return true;
+    }
+    if (blockSize == 0 || lastBlockSize == 0 || lastBlockSize > blockSize) {
         error = "invalid VTK zlib block dimensions";
         return false;
     }
@@ -302,7 +311,7 @@ bool CopyRawPayload(const unsigned char* payload, std::size_t available, Compres
         return true;
     }
 
-    HeaderT numBlocksValue{};
+    HeaderT numBlocksValue{}, lastBlockSizeValue{};
     if (available != std::numeric_limits<std::size_t>::max() && available < sizeof(HeaderT) * 3) {
         error = "truncated raw VTK zlib header";
         return false;
@@ -313,7 +322,16 @@ bool CopyRawPayload(const unsigned char* payload, std::size_t available, Compres
         return false;
     }
     const auto numBlocks = static_cast<std::size_t>(numBlocksValue);
-    if (numBlocks == 0 || numBlocks > (std::numeric_limits<std::size_t>::max() / sizeof(HeaderT)) - 3) {
+    if (numBlocks == 0) {
+        std::memcpy(&lastBlockSizeValue, payload + sizeof(HeaderT) * 2, sizeof(HeaderT));
+        if (lastBlockSizeValue != 0) {
+            error = "invalid empty raw VTK zlib payload";
+            return false;
+        }
+        encoded.assign(payload, payload + sizeof(HeaderT) * 3);
+        return true;
+    }
+    if (numBlocks > (std::numeric_limits<std::size_t>::max() / sizeof(HeaderT)) - 3) {
         error = "invalid raw VTK zlib block count";
         return false;
     }

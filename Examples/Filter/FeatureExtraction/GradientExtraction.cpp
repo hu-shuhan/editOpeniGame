@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FeatureExtraction/iGameCurvatureFilter.h"
-#include "FeatureExtraction/iGameGradientFilter.h"
+#include "FeatureExtraction/iGameAdvancedGradientFilter.h"
 #include "iGameColorMap.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
@@ -31,7 +31,7 @@ static void GradientExtract() {
     // Select a scalar to extract features
     drawObj->ViewCloudPicture(scene, 0);
     // Execute vortexFilter
-    iGame::GradientFilter::Pointer filter = iGame::GradientFilter::New();
+    iGame::AdvancedGradientFilter::Pointer filter = iGame::AdvancedGradientFilter::New();
     filter->SetInput(drawObj);
     filter->Execute();
 

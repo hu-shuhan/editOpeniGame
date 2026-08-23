@@ -12,6 +12,8 @@
 #include "iGameVTSReader.h"
 #include "iGameVTUReader.h"
 #include "CGNS/iGameCGNSReader.h"
+#include "Log/iGameLogger.h"
+#include <cstddef>
 #include <tinyxml2.h>
 
 
@@ -26,6 +28,21 @@ bool iGameVTMReader::Parsing() {
     // Support both <Block> and <DataSet> formats
     tinyxml2::XMLElement* BlockElem = vtkMultiBlockElem->FirstChildElement("Block");
     tinyxml2::XMLElement* DataSetElem = vtkMultiBlockElem->FirstChildElement("DataSet");
+
+    std::size_t totalFileCount = 0;
+    if (BlockElem) {
+        for (auto* block = BlockElem; block; block = block->NextSiblingElement("Block")) {
+            for (auto* elem = block->FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
+                if (elem->Attribute("file")) { ++totalFileCount; }
+            }
+        }
+    } else {
+        for (auto* dataSet = DataSetElem; dataSet; dataSet = dataSet->NextSiblingElement("DataSet")) {
+            if (dataSet->Attribute("file")) { ++totalFileCount; }
+        }
+    }
+    std::size_t currentFileCount = 0;
+    IGAME_CORE_INFO("[VTM] Found {} referenced files in {}", totalFileCount, m_FilePath);
 
     std::vector<DataObject::Pointer> overall_multiBlock;
     DataObject::Pointer newObj;
@@ -45,7 +62,9 @@ bool iGameVTMReader::Parsing() {
 
                 existAttribute = elem->Attribute("file");
                 if (existAttribute) {
+                    ++currentFileCount;
                     std::string fileName(existAttribute);
+                    IGAME_CORE_INFO("[VTM] Reading file {}/{}: {}", currentFileCount, totalFileCount, fileName);
                     std::string fileSuffix;
                     const char* pos = strrchr(fileName.data(), '.');
                     if (pos != nullptr) {
@@ -103,7 +122,9 @@ bool iGameVTMReader::Parsing() {
         while (DataSetElem) {
             existAttribute = DataSetElem->Attribute("file");
             if (existAttribute) {
+                ++currentFileCount;
                 std::string fileName(existAttribute);
+                IGAME_CORE_INFO("[VTM] Reading file {}/{}: {}", currentFileCount, totalFileCount, fileName);
                 std::string fileSuffix;
                 const char* pos = strrchr(fileName.data(), '.');
                 if (pos != nullptr) {
@@ -152,6 +173,11 @@ bool iGameVTMReader::Parsing() {
 
         overall_multiBlock.push_back(curMultiBlock);
     }
+
+    IGAME_CORE_INFO("[VTM] Finished reading {}/{} referenced files from {}",
+                    currentFileCount,
+                    totalFileCount,
+                    m_FilePath);
 
 
     if (overall_multiBlock.empty()) {

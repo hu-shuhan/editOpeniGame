@@ -600,13 +600,16 @@ bool ODBReader::CreateDataObject() {
             }
         }
 
-        // TODO: Current only support first step file's timeStep
-        auto firstStep = m_StepFrameMap.begin();
-        for(int i = 0; i < firstStep->second; i ++){
-            double time_val = m_ODB->steps().constGet(firstStep->first.c_str()).frames()[i].frameValue();
-            StringArray::Pointer array = StringArray::New();
-            array->AddElement(m_FilePath);
-            m_Output->GetTimeFrames()->AddTimeStep(time_val, array, StreamingType::SingleFieldAttributes);
+        // Raw-mesh reads intentionally skip step extraction. Only attach time
+        // frames when a step was requested and the map is populated.
+        if (!m_StepFrameMap.empty()) {
+            auto firstStep = m_StepFrameMap.begin();
+            for(int i = 0; i < firstStep->second; i ++){
+                double time_val = m_ODB->steps().constGet(firstStep->first.c_str()).frames()[i].frameValue();
+                StringArray::Pointer array = StringArray::New();
+                array->AddElement(m_FilePath);
+                m_Output->GetTimeFrames()->AddTimeStep(time_val, array, StreamingType::SingleFieldAttributes);
+            }
         }
         return true;
 }

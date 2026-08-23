@@ -15,11 +15,11 @@ void TestReadOnlyMesh(){
 
     /* Read raw Mesh WITHOUT Field data*/
     auto obj = reader->ReadOdbRawMesh(fileName);
-    /* Check Attribute num is ZERO. */
-    std::cout << "======Attribute num  : " << obj->GetAttributeSet()->GetNumberOfAttributes() << '\n';
     if (obj == nullptr) {
         std::cout << "Read ERROR!\n";
     } else {
+        /* Check Attribute num is ZERO. */
+        std::cout << "======Attribute num  : " << obj->GetAttributeSet()->GetNumberOfAttributes() << '\n';
         scene->AddModel(obj);
     }
     /* Launch window Settings */

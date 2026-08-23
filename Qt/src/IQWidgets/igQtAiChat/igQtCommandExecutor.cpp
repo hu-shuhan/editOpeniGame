@@ -745,7 +745,7 @@ OperationResult igQtCommandExecutor::executeApplyMeshFilter(const QJsonObject& d
         }
     } else if (filterType == "gradient") {
         // 计算梯度
-        auto filter = iGame::GradientFilter::New();
+        auto filter = iGame::AdvancedGradientFilter::New();
         filter->SetInput(dataObject);
         if (filter->Execute()) {
             m_mainWindow->modelTreeWidget->updateAllAttriubute(dataObject);

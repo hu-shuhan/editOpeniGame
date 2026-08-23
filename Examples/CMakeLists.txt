@@ -171,7 +171,33 @@ function(igame_register_example_test EXAMPLE_TARGET)
         return()
     endif ()
 
-    if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation")
+    if (WIN32)
+        set(_TEST_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/ci/run_smoke_test.ps1")
+        set(_TEST_COMMAND powershell -NoProfile -NonInteractive
+            -ExecutionPolicy Bypass -File "${_TEST_SCRIPT}"
+            -Executable "$<TARGET_FILE:${EXAMPLE_TARGET}>")
+        set(_TEST_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
+        if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation")
+            list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
+            set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
+        elseif ("${EXAMPLE_TARGET}" STREQUAL "testLosslessEncode")
+            list(APPEND _TEST_COMMAND -TimeoutSeconds 120
+                -Arguments "Models/Quad_Plane_Tensor.vtk")
+        endif ()
+
+        add_test(
+            NAME ${EXAMPLE_TARGET}
+            COMMAND ${_TEST_COMMAND}
+            WORKING_DIRECTORY "${_TEST_WORKING_DIRECTORY}"
+        )
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 200)
+        return()
+    endif ()
+
+    if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation")
         add_test(
             NAME ${EXAMPLE_TARGET}
             COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>"
@@ -264,6 +290,7 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
+igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)
@@ -320,6 +347,7 @@ igame_add_example(testMultiscaleInteraction MultiscaleInteraction/TestMultiscale
 igame_add_example(testVortexExtraction Filter/FeatureExtraction/VortexExtraction.cpp)
 igame_add_example(testCurvatureExtraction Filter/FeatureExtraction/CurvatureExtraction.cpp)
 igame_add_example(testGradientExtraction Filter/FeatureExtraction/GradientExtraction.cpp)
+igame_add_example(testAdvancedGradientFilter Filter/FeatureExtraction/AdvancedGradientFilterTest.cpp)
 igame_add_example(testLaplacianExtraction Filter/FeatureExtraction/LaplacianExtraction.cpp)
 
 if (ENABLE_LIBTORCH_MODULE)

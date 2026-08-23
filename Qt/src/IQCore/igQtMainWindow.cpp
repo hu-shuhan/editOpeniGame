@@ -7,6 +7,7 @@
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
 #include "DataProcessing/Tests/iGameGradient.h"
+#include "FeatureExtraction/iGameAdvancedGradientFilter.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
 #include "DataProcessing/Tests/iGameSurfaceSimplification.h"
 #include "DataProcessing/Tests/meshsimplifier/meshsimplifier.h"
@@ -1760,37 +1761,86 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
-    QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
-    connect(gradient, &QAction::triggered, this, [this](bool checked) {
+    auto runAdvancedGradient = [this]() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
-        filter->SetAttributeByIndex(data->GetAttributeIndex());
+        auto attrSet = data->GetAttributeSet();
+        if (!attrSet || attrSet->GetNumberOfAttributes() <= 0) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("当前模型没有可用属性"));
+            return;
+        }
+
+        // 自动选择一个属性：优先使用当前选中属性；
+        // 如果没有选中属性，则优先选择向量属性（dim==3），否则选第一个属性
         int index = data->GetAttributeIndex();
+        if (index < 0 || index >= static_cast<int>(attrSet->GetNumberOfAttributes())) {
+            index = -1;
+            for (int i = 0; i < static_cast<int>(attrSet->GetNumberOfAttributes()); ++i) {
+                auto& attr = attrSet->GetAttribute(i);
+                if (attr.pointer && attr.pointer->GetDimension() == 3) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index < 0) index = 0;
+        }
+
+        // 自动确定分量：标量用 0；向量如果没有选中分量，默认用第 0 个分量
+        int component = data->GetCurrentAttributeDimension();
+        int attrDim = attrSet->GetAttribute(index).pointer->GetDimension();
+        if (attrDim == 1) {
+            component = 0;
+        } else if (component < 0) {
+            component = 0;
+        }
+
+        AdvancedGradientFilter::Pointer filter = AdvancedGradientFilter::New();
+        filter->SetInput(data);
+        filter->SetAttributeByIndex(index);
+        filter->SetCurrentAttributeDimension(component);
+        // - 标量输入 → 3 分量向量
+        // - 向量输入 → 9 分量张量
+        // 输出点属性
+        filter->SetComputeGradientTensor(true);
+        filter->SetOutputToPointData(true);
         if (filter->Execute()) {
-            modelTreeWidget->updateAllAttriubute(data);
             auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                drawObject->GetColorMapper()->SetRangeStable(false);
+            }
+            modelTreeWidget->updateAllAttriubute(data);
             if (drawObject) {
                 auto item = modelTreeWidget->getItemFromObject(data);
                 if (item && item->childCount() > 0) {
+                    // 选中新生成的 gradient 属性
+                    int newIndex = static_cast<int>(data->GetAttributeSet()->GetNumberOfAttributes() - 1);
+                    // 默认显示 magnitude，不显示 x/g0
+                    int viewDim = -1;
                     item->setExpanded(true);
-                    auto child = item->child(index);
+                    auto child = item->child(newIndex);
                     if (child) {
                         item->setCurrentChild(child);
                         item->setSelected(false);
-                        item->viewAttribute(index, -1);
+                        item->viewAttribute(newIndex, viewDim);
+                        // 强制重新生成可绘制颜色数据，避免只切换属性索引但颜色未刷新
+                        drawObject->ForceReConvertToDrawableData();
                         child->setSelected(true);
                         modelTreeWidget->setCurrentItem(child);
+                        rendererWidget->update();
+
+
                     }
                 }
             }
-        }
-        else {
+        } else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
-
         }
+    };
+
+    QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
+    connect(gradient, &QAction::triggered, this, [this, runAdvancedGradient](bool) {
+        runAdvancedGradient();
     });
 
     QAction* laplacian = view->addAction(QStringLiteral("计算拉普拉斯 (ComputeLaplacian)"));
