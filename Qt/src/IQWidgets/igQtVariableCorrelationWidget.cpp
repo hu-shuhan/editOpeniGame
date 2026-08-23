@@ -13,6 +13,7 @@
 #include <QString>
 #include <iGameThreadPool.h>
 #include <iGameTimer.h>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 using namespace std;
 
 static constexpr int defaultW = 2000, defaultH = 2000;
@@ -375,7 +376,35 @@ void igQtVariableCorrelationWidget::DrawRangeChooseRect() {
     painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
 }
 
-void igQtVariableCorrelationWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
+void igQtVariableCorrelationWidget::RangeChooseButtonClicked(bool checked) {
+    static auto PreVisitFunc = [](iGame::Model::Pointer model) {
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto type = dataObj->GetDataObjectType();
+        switch (type) {
+            case IG_SURFACE_MESH:
+            case IG_STRUCTURED_MESH:
+            case IG_VOLUME_MESH: {
+                auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+            } break;
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                if (mesh == nullptr) return;
+                auto selection = mesh->GetSelection();
+                if (selection == nullptr) return;
+                auto& cellFaceExtracter = selection->GetCellFaceExtracter();
+                cellFaceExtracter.PreVisit(mesh);
+            } break;
+            default:
+                return;
+        }
+    };
+    PreVisitFunc(m_Model);
+    m_RangeChooseOn = checked;
+}
 
 void igQtVariableCorrelationWidget::mousePressEvent(QMouseEvent* event) {
     QWidget::mousePressEvent(event);
