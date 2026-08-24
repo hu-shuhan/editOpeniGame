@@ -1,5 +1,8 @@
 #include "iGameVectorBase.h"
 #include "iGameScene.h"
+
+#include <cstdint>
+
 IGAME_NAMESPACE_BEGIN
 iGameVectorBase::iGameVectorBase() {
     this->m_Triangles = Points::New();
@@ -61,6 +64,63 @@ void iGameVectorBase::ComputeBoundingBox() {
         m_BoundingHelper->Modified();
     }
 }
+
+void iGameVectorBase::CalculateAllCellSamplingInterval(const std::string& VecName) {
+    std::uint64_t elementCount = 0;
+    auto countElements = [&](DataObject* dataObject) {
+        auto* attributes = dataObject ? dataObject->GetAttributeSet() : nullptr;
+        if (attributes == nullptr) return;
+        auto vectors = attributes->GetVector(VecName);
+        if (!vectors.IsNone() && vectors.pointer != nullptr) {
+            elementCount += vectors.pointer->GetNumberOfElements();
+        }
+    };
+
+    if (obj->HasSubDataObject()) {
+        for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it) {
+            countElements(it->second);
+        }
+    } else {
+        countElements(obj);
+    }
+
+    if (elementCount == 0) {
+        m_AllCellInterval = 1;
+        return;
+    }
+
+    constexpr std::uint64_t MiB = 1024ULL * 1024ULL;
+    constexpr std::uint64_t BytesPerArrow = 2520ULL;
+    constexpr std::uint64_t FallbackBudget = 128ULL * MiB;
+    constexpr GLenum CurrentAvailableVideoMemoryNVX = 0x9049;
+
+    std::uint64_t memoryBudget = FallbackBudget;
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    if (scene != nullptr) {
+        scene->MakeCurrent();
+#ifndef __EMSCRIPTEN__
+        const auto* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+        if (vendor != nullptr && std::string(vendor).find("NVIDIA") != std::string::npos) {
+            GLint availableKiB = 0;
+            glGetIntegerv(CurrentAvailableVideoMemoryNVX, &availableKiB);
+            if (availableKiB > 0) {
+                memoryBudget = static_cast<std::uint64_t>(availableKiB) * 1024ULL * 35ULL / 100ULL;
+            }
+        }
+#endif
+        scene->DoneCurrent();
+    }
+
+    const std::uint64_t requiredMemory = elementCount * BytesPerArrow;
+    m_AllCellInterval = requiredMemory <= memoryBudget
+                                ? 1
+                                : static_cast<IGsize>(1 + (requiredMemory - 1) / memoryBudget);
+
+    std::cout << "[Vector AllCell] required=" << requiredMemory / MiB
+              << " MiB, budget=" << memoryBudget / MiB
+              << " MiB, interval=" << m_AllCellInterval << std::endl;
+}
+
 bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj, std::string VecName) {
     auto _AttributeSet = obj->GetAttributeSet();
     if (!_AttributeSet) return false;
@@ -90,7 +150,8 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj, std::string VecName)
                 // }
             }
         } else if (drawmode == AllCell || Nth == 0) {
-            for (int i = 0; i < numOfPoint; i++) {
+            const IGsize step = drawmode == AllCell ? m_AllCellInterval : 1;
+            for (IGsize i = 0; i < static_cast<IGsize>(numOfPoint); i += step) {
                 float v[4] = {0.0f};
                 allVectors.pointer->GetElement(i, v);
                 Vector3f vec(v[0], v[1], v[2]);
@@ -166,7 +227,8 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj, std::string VecName)
                     //  }
                 }
             } else if (drawmode == AllCell || Nth == 0) {
-                for (int i = 0; i < numOfCell; i++) {
+                const IGsize step = drawmode == AllCell ? m_AllCellInterval : 1;
+                for (IGsize i = 0; i < static_cast<IGsize>(numOfCell); i += step) {
                     //      temCount++;
                     // if (temCount % 5 == 0) {
                     float v[4] = {0.0f};
@@ -209,7 +271,8 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj, std::string VecName)
                                        Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                 }
             } else if (drawmode == AllCell || Nth == 5) {
-                for (int i = 0; i < numOfCell; i++) {
+                const IGsize step = drawmode == AllCell ? m_AllCellInterval : 1;
+                for (IGsize i = 0; i < static_cast<IGsize>(numOfCell); i += step) {
                     float v[4] = {0.0f};
                     allVectors.pointer->GetElement(i, v);
                     auto center = centerCul.GetCenter(allPoints, allVolume, i);
@@ -264,6 +327,7 @@ bool iGameVectorBase::DrawVector(std::string VecName) {
     m_Triangles->Reset();
     m_PositionColors->Reset();
     index->Reset();
+    if (drawmode == AllCell) CalculateAllCellSamplingInterval(VecName);
     count = 0;
     if (obj->HasSubDataObject()) {
         auto it = obj->SubDataObjectIteratorBegin();
@@ -300,6 +364,7 @@ bool iGameVectorBase::DrawVector(std::string VecName, iGame::DataObject* _obj) {
     m_Triangles->Reset();
     m_PositionColors->Reset();
     index->Reset();
+    if (drawmode == AllCell) CalculateAllCellSamplingInterval(VecName);
     count = 0;
     if (obj->HasSubDataObject()) {
         auto it = obj->SubDataObjectIteratorBegin();
