@@ -15,6 +15,7 @@
 #include <IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <Deformation/iGameStressDeformationFilter.h>
 #include <FeatureExtraction/iGameVortexFilter.h>
+#include <Animation/iGameAttrDiff.h>
 #include <iGameProgressObserver.h>
 #include <iostream>
 
@@ -207,6 +208,14 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 
     // 缓存设置由 comboBox_AnimationCacheNum 控制，不在播放时覆盖
     currentDrawObject->UpdateAnimation(keyframe_idx);
+
+    if (m_DiffAutoCompute && !m_DiffSourceAttr.empty()) {
+        const int diffIndex = EnsureTimeDifferenceForCurrentFrame(currentDrawObject, m_DiffSourceAttr,
+                                                           static_cast<int>(keyframe_idx));
+        if (diffIndex >= 0 && IsDiffGlobalRangeValid()) {
+            ApplyGlobalDiffRange(currentDrawObject, GetDiffOutputName(m_DiffSourceAttr));
+        }
+    }
 
     currentScene->MakeCurrent();
 
@@ -626,6 +635,12 @@ void igQtAnimationWidget::initAnimationComponents() {
             m_VortexSourceAttr.clear();
             m_VortexBoundModel = nullptr;
         }
+
+        if (m_DiffAutoCompute && curObj != m_DiffBoundModel) {
+            m_DiffAutoCompute = false;
+            m_DiffSourceAttr.clear();
+            m_DiffBoundModel = nullptr;
+        }
     }
 
 
@@ -892,3 +907,124 @@ bool igQtAnimationWidget::saveAnimation() {
     return true;
 }
 
+std::string igQtAnimationWidget::GetDiffOutputName(const std::string& sourceAttrName) const {
+    static const char* modeSuffix[] = {"", "_abs", "_rel"};
+    const int mode = (m_DiffMode >= 0 && m_DiffMode <= 2) ? m_DiffMode : 0;
+    return sourceAttrName + "_diff" + modeSuffix[mode];
+}
+
+void igQtAnimationWidget::SetDiffAutoCompute(bool enabled, const std::string& sourceAttrName) {
+    using namespace iGame;
+    m_DiffAutoCompute = enabled;
+    if (!sourceAttrName.empty()) { m_DiffSourceAttr = sourceAttrName; }
+    if (!enabled) {
+        m_DiffSourceAttr.clear();
+        m_DiffBoundModel = nullptr;
+        return;
+    }
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    if (scene && scene->GetCurrentModel()) {
+        m_DiffBoundModel = scene->GetCurrentModel()->GetDataObject().GetPointer();
+    }
+}
+
+void igQtAnimationWidget::ApplyGlobalDiffRange(iGame::DataObject::Pointer obj, const std::string& outputName) {
+    using namespace iGame;
+    if (!obj || !IsDiffGlobalRangeValid()) return;
+    auto attrSet = obj->GetAttributeSet();
+    if (!attrSet) return;
+    const int idx = attrSet->GetAttributeIndex(outputName);
+    if (idx < 0) return;
+    auto& par = attrSet->GetAttribute(idx);
+    auto range = par.GetDataRange();
+    if (!range) return;
+    // 退化范围兜底：全 0 时避免 SetRange(0,0) 导致 mapper 走 InitRange
+    double gmin = m_DiffGlobalMin;
+    double gmax = m_DiffGlobalMax;
+    if (gmax <= gmin) {
+        gmin = std::min(gmin, -1.0);
+        gmax = std::max(gmax, 1.0);
+    }
+    range->SetElement(0, {gmin, gmax});
+    range->SetElement(1, {gmin, gmax});
+    range->Modified();   // SetElement 不更新 MTime，必须手动刷新
+    // 父容器 range 推到子对象和渲染对象，并强制重转换
+    obj->UpdateSubDataObjectDataRange();
+    if (auto drawObj = DynamicCast<DrawObject>(obj)) { drawObj->ForceReConvertToDrawableData(); }
+}
+
+int igQtAnimationWidget::EnsureTimeDifferenceForCurrentFrame(iGame::DataObject::Pointer obj,
+                                                             const std::string& sourceAttrName, int frameIndex) {
+    using namespace iGame;
+    if (!obj || sourceAttrName.empty() || frameIndex < 0) return -1;
+    const std::string outputName = GetDiffOutputName(sourceAttrName);
+
+    bool needCompute = false;
+    if (obj->HasSubDataObject()) {
+        for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); it++) {
+            if (!it->second) continue;
+            auto attr = it->second->GetAttributeSet();
+            if (!attr || attr->GetAttributeIndex(outputName) < 0) {
+                needCompute = true;
+                break;
+            }
+        }
+    } else {
+        auto attr = obj->GetAttributeSet();
+        needCompute = (!attr || attr->GetAttributeIndex(outputName) < 0);
+    }
+
+    if (needCompute) {
+        auto progressObserver = ProgressObserver::Instance();
+        progressObserver->UpdateText("计算属性差值 第 " + std::to_string(frameIndex + 1) + " 帧");
+
+        auto filter = iGameAttrDiff::New();
+        filter->SetInput(obj);
+        filter->SetAttributeByName(sourceAttrName);
+        filter->SetFrameIndex(frameIndex);
+        filter->SetDiffMode(m_DiffMode);
+        filter->SetOutputName(outputName);
+        const bool ok = filter->Execute();
+        progressObserver->UpdateText("");
+        progressObserver->UpdateProgress(1.0);
+        if (!ok) {
+            std::cout << "[AttrDiff] frame compute failed: " << filter->GetMessage() << std::endl;
+            return -1;
+        }
+    }
+
+    // 累计全局范围：读当前帧所有子对象的 diff 属性 dataRange 做并集
+    double dmin = DBL_MAX, dmax = DBL_MIN;
+    auto func = [&](DataObject::Pointer p) {
+        auto attrSet = p? p->GetAttributeSet() : nullptr;
+        if (!attrSet) return;
+        auto& attr = attrSet->GetAttribute(outputName);
+        auto range = attr.GetDataRange();
+        if (range && range->GetNumberOfValues() >= 2) {
+            dmin = std::min(dmin, range->GetValue(0));
+            dmax = std::max(dmax, range->GetValue(1));
+        }
+    };
+    if (obj->HasSubDataObject())
+    {
+        for (auto it = obj->SubDataObjectIteratorBegin();it!=obj->SubDataObjectIteratorEnd();it++) {
+            func(DynamicCast<DataObject>(it->second));
+        }
+    } else {
+        func(obj);
+    }
+    if (dmin <= dmax) {   // 只累计有效范围，避免 DBL_MAX/DBL_MIN 污染全局范围
+        if (!m_DiffGlobalRangeValid) {
+            m_DiffGlobalMin = dmin;
+            m_DiffGlobalMax = dmax;
+            m_DiffGlobalRangeValid = true;
+        } else {
+            m_DiffGlobalMin = std::min(m_DiffGlobalMin, dmin);
+            m_DiffGlobalMax = std::max(m_DiffGlobalMax, dmax);
+        }
+    }
+
+    auto parentAttr = obj->GetAttributeSet();
+    if (!parentAttr) return -1;
+    return parentAttr->GetAttributeIndex(outputName);
+}
