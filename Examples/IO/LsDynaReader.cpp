@@ -8,7 +8,10 @@
 // Hardcoded attribute name to visualize (edit as needed).
 // LS-DYNA d3plot 转换后的字段名取决于 lsdyna_to_pvd_converter 的输出，
 // 若找不到该字段，程序会打印所有可用字段，请按打印结果修改此值。
-static const std::string kAttributeName = "Displacement";
+static const std::string kAttributeName = "Velocity";
+
+// 显示哪个时间帧（0-based 索引）：第 90 帧（1-based）= index 89。
+static const int kKeyFrameIndex = 89;
 
 // Find the attribute index by its name, return -1 if not found
 static int findAttributeIndex(iGame::DrawObject* drawObj, const std::string& name) {
@@ -48,6 +51,20 @@ int main() {
 
         auto drawObj = DynamicCast<iGame::DrawObject>(obj);
         if (drawObj) {
+            // 先切到目标帧（懒加载该帧的 VTU 子对象），再做属性着色。
+            // UpdateAnimation 是通用切帧接口，支持任意跳帧。
+            auto timeFrames = drawObj->GetTimeFrames();
+            const size_t timeNum = timeFrames->GetTimeNum();
+            std::cout << "Total time steps: " << timeNum << "\n";
+            if (static_cast<size_t>(kKeyFrameIndex) < timeNum) {
+                drawObj->UpdateAnimation(kKeyFrameIndex);
+                std::cout << "Switched to keyframe " << kKeyFrameIndex << "\n";
+            } else {
+                std::cout << "WARNING: keyframe " << kKeyFrameIndex
+                          << " out of range (" << timeNum
+                          << " frames), showing frame 0.\n";
+            }
+
             int attrIndex = findAttributeIndex(drawObj.GetPointer(), kAttributeName);
             if (attrIndex >= 0) {
                 drawObj->ViewCloudPicture(scene.GetPointer(), attrIndex, -1);
