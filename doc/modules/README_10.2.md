@@ -27,10 +27,12 @@
 
 | 特征 | 输出属性名 | 说明 |
 |------|------------|------|
-| 梯度 | `gradient` | 标量 / 矢量场空间梯度 |
+| 梯度 | `gradient_<原始属性名>` | 标量输入 → 3 分量梯度向量；向量输入 → 9 分量梯度张量 |
 | 曲率 | `curvatures` | 曲面曲率（余切型离散） |
 | Laplacian | `laplacians` | 离散 Laplacian |
 | 涡量 | `vorticities` | 经典涡量 \(\omega = \nabla \times v\)（非神经网络） |
+
+> 梯度输出名现在会携带来源属性名，例如原始属性 `V` 的梯度属性为 `gradient_V`，避免多次计算不同属性时互相覆盖。
 
 **B. 特征几何**：结果是一个**新的网格对象**，作为独立模型加入模型树，而不是追加属性。
 
@@ -51,30 +53,31 @@
 
 | 特征 | 要求的输入 | 体网格（含 3D 单元）怎么办 |
 |------|------------|----------------------------|
-| 梯度 / 曲率 / Laplacian | **表面网格**（全 2D 单元） | 先做一次**表面提取**，再在提取出的面网格上计算 |
+| 梯度 | 面网格、体网格、结构化网格、混合网格、多面体网格 | **直接计算**，无需表面提取 |
+| 曲率 / Laplacian | **表面网格**（全 2D 单元） | 先做一次**表面提取**，再在提取出的面网格上计算 |
 | 涡量 | **3D 体单元** | 直接在体网格上计算；纯面网格反而不支持 |
 | 等值线 / 等值面 | 面网格、体网格、非结构网格、结构化网格**均可** | 直接算：2D 单元出等值线，3D 单元出等值面，无需表面提取 |
 
 **表面网格**（`IG_SURFACE_MESH`，或全部由 2D 单元构成的 `IG_UNSTRUCTURED_MESH`）可以直接执行梯度 / 曲率 / Laplacian。
 
-**体网格**（`IG_VOLUME_MESH`，或含四面体、六面体等 3D 单元的 `IG_UNSTRUCTURED_MESH`）不能直接算这三项，必须先走一步：
+**体网格**（`IG_VOLUME_MESH`，或含四面体、六面体等 3D 单元的 `IG_UNSTRUCTURED_MESH`）可以**直接计算梯度**。对于**曲率 / Laplacian**，必须先走一步：
 
 > 菜单「Filters」→ **数据处理 (Data Processing)** → **表面提取 (Surface Extraction)**
 
-该操作把模型的边界面提取成一个独立的面网格对象，命名为 `<原名>_surface`，并加入模型树。在模型树中选中这个 `_surface` 对象后，再执行梯度 / 曲率 / Laplacian 即可。
+该操作把模型的边界面提取成一个独立的面网格对象，命名为 `<原名>_surface`，并加入模型树。在模型树中选中这个 `_surface` 对象后，再执行曲率 / Laplacian 即可。
 
 注意两点：
 
 - **渲染时看到的"抽壳"不等于表面网格。** 抽壳结果存放在 `DrawObject` 的 `m_RenderableMesh.SurfaceMesh` 中，只供渲染器使用；数据对象本身仍是体网格，filter 读到的是它。必须显式执行一次表面提取，把面网格作为独立对象加入模型树。
-- **提取后算的是边界面上的量。** 面网格上的梯度是沿曲面的切向梯度，与体内标量场的三维梯度不是同一个量，解读结果时需要注意。
+- **提取后算的是边界面上的量。** 面网格上的曲率 / Laplacian 是沿曲面的量，与体内物理场的三维梯度不是同一个量，解读结果时需要注意。
 
-若在体网格上直接执行这三项，会弹出 `Not Surface Mesh !` —— 这是 filter 的默认提示文案，含义即"当前输入不是面网格"（体网格分支尚未接通，见 `iGameGradientFilter.cpp` 中 `ComputeGradientWithVolumeMesh` 的调用处）。
+若在体网格上直接执行曲率 / Laplacian，会弹出 `Not Surface Mesh !` —— 这是 filter 的默认提示文案，含义即"当前输入不是面网格"（体网格分支尚未接通）。**梯度不再受此限制**，体网格可直接计算。
 
 ### 源码路径
 
 | 路径 | 类 / API | 说明 |
 |------|----------|------|
-| `iGameCore/Filters/FeatureExtraction/iGameGradientFilter.*` | `GradientFilter` | 梯度 |
+| `iGameCore/Filters/FeatureExtraction/iGameAdvancedGradientFilter.*` | `AdvancedGradientFilter` | 梯度（面 / 体 / 结构化 / 混合 / 多面体） |
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | 曲率 |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
 | `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | 经典涡量 |
@@ -91,16 +94,23 @@
 auto dataObj = iGame::FileIO::ReadFile("./Models/pipedcylinder2d_gt.vtk");
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
 
-auto filter = iGame::GradientFilter::New();  // 或 CurvatureFilter / LaplacianFilter / VortexFilter
+auto filter = iGame::AdvancedGradientFilter::New();  // 新版梯度 Filter
 filter->SetInput(drawObj);
-filter->SetAttributeByIndex(attrIndex);      // 或 SetAttributeByName(name)
+filter->SetAttributeByIndex(attrIndex);             // 或 SetAttributeByName(name)
+filter->SetComputeGradientTensor(true);             // 向量输入 → 9 分量张量
+filter->SetOutputToPointData(true);                 // 输出点属性
 filter->Execute();
 
 int newIndex = drawObj->GetAttributeSet()->GetNumberOfAttributes() - 1;
 drawObj->ViewCloudPicture(scene, newIndex);
 ```
 
-统一模式：`Filter::New()` → `SetInput()` →（可选）`SetAttributeByIndex/Name` → `Execute()`，结果追加到 `AttributeSet`。
+统一模式：`Filter::New()` → `SetInput()` →（可选）`SetAttributeByIndex/Name` → 配置输出选项 → `Execute()`，结果追加到 `AttributeSet`。
+
+> 新版梯度输出名是 `gradient_<原始属性名>`，例如原始属性 `pressure` 对应 `gradient_pressure`。如果希望按名字查找结果，可以：
+> ```cpp
+> int idx = dataObj->GetAttributeSet()->GetAttributeIndex("gradient_pressure");
+> ```
 
 **等值线 / 等值面**走的是另一套接口——按数值而非属性索引驱动，且产出的是新网格。对应示例 `Examples/Filter/TestContourLine.cpp`：
 
@@ -139,8 +149,8 @@ draw->ViewCloudPicture(scene, index, dimension);
 
 | 入口 | 说明 | 输入要求 |
 |------|------|----------|
-| 菜单「算法处理」→ 数据处理 → 表面提取 (Surface Extraction) | 体网格 → `<原名>_surface` 面网格对象 | 体网格上做下面前三项的**前置步骤** |
-| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `GradientFilter` | 面网格 |
+| 菜单「算法处理」→ 数据处理 → 表面提取 (Surface Extraction) | 体网格 → `<原名>_surface` 面网格对象 | 体网格上做曲率 / Laplacian 的**前置步骤**；梯度不需要 |
+| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `AdvancedGradientFilter` | 面网格 / 体网格 / 结构化 / 混合 / 多面体网格 |
 | 菜单「算法处理」→ 特征提取 → 计算 Laplacian | `LaplacianFilter` | 面网格 |
 | 菜单「算法处理」→ 特征提取 → 计算曲率 | `CurvatureFilter` | 面网格 |
 | 菜单「算法处理」→ 特征提取 → 计算涡量 | `VortexFilter` | 3D 体单元 |
@@ -150,7 +160,8 @@ draw->ViewCloudPicture(scene, index, dimension);
 典型操作顺序：
 
 - **面网格**：模型树选中模型 → 选中要处理的属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
-- **体网格**：模型树选中模型 → 数据处理 → 表面提取 → 在模型树中选中新出现的 `<原名>_surface` → 选中属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
+- **体网格（计算梯度）**：模型树选中模型 → 选中要处理的属性 → 特征提取 → 计算梯度，**无需表面提取**
+- **体网格（计算曲率 / Laplacian）**：模型树选中模型 → 数据处理 → 表面提取 → 在模型树中选中新出现的 `<原名>_surface` → 选中属性 → 特征提取 → 计算曲率 / Laplacian
 - **涡量**：不需要表面提取，直接在体网格上选中速度矢量属性后执行
 - **等值线 / 等值面**：模型树选中模型 → 打开「轮廓提取」面板 → 选点标量与分量（面板会显示该分量的数值范围）→ 填等值数值 → 执行；结果作为独立模型 `<原名>_Contour` 加入模型树，可单独显示 / 隐藏 / 着色，反复改数值会原地更新同一个结果对象
 
@@ -163,6 +174,7 @@ draw->ViewCloudPicture(scene, index, dimension);
 | Target | 源文件 | 默认数据 |
 |--------|--------|----------|
 | `testGradientExtraction` | `Examples/Filter/FeatureExtraction/GradientExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
+| `testAdvancedGradientFilter` | `Examples/Filter/FeatureExtraction/AdvancedGradientFilterTest.cpp` | `./Models/StreamTest.vtk` |
 | `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
