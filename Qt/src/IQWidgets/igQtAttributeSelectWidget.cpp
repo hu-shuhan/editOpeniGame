@@ -9,6 +9,11 @@
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QThread>
+#include <QSettings>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QLineEdit>
+#include <QIntValidator>
 
 using namespace iGame;
 
@@ -63,6 +68,9 @@ QCheckBox:hover {
 } // namespace
 
 igQtAttributeSelectWidget::igQtAttributeSelectWidget(QWidget* parent) : QWidget(parent) {
+    QSettings settings("iGame", "iGameVis");
+    m_serverHost = settings.value("MeshReport/host", "127.0.0.1").toString();
+    m_serverPort = settings.value("MeshReport/port", 8766).toInt();
     setupUI();
 }
 
@@ -107,19 +115,23 @@ void igQtAttributeSelectWidget::setupUI() {
     root->addWidget(m_scrollArea, 1);
 
     m_btnRefresh = new QPushButton(QStringLiteral("刷新属性列表"), this);
+    m_configBtn = new QPushButton(QStringLiteral("服务器配置"), this);
     m_btnGenerate = new QPushButton(QStringLiteral("生成报告"), this);
     m_btnGenerate->setEnabled(false);
 
     auto* btnRow = new QHBoxLayout();
     btnRow->addWidget(m_btnRefresh);
+    btnRow->addWidget(m_configBtn);
     btnRow->addWidget(m_btnGenerate);
     root->addLayout(btnRow);
 
     const QString btnStyle = QString::fromUtf8(kDarkButtonQss);
     m_btnRefresh->setStyleSheet(btnStyle);
+    m_configBtn->setStyleSheet(btnStyle);
     m_btnGenerate->setStyleSheet(btnStyle);
 
     connect(m_btnRefresh, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onRefreshClicked);
+    connect(m_configBtn, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onConfigClicked);
     connect(m_btnGenerate, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onGenerateClicked);
 }
 
@@ -130,6 +142,7 @@ void igQtAttributeSelectWidget::setStatus(const QString& msg) {
 void igQtAttributeSelectWidget::setBusy(bool busy) {
     m_busy = busy;
     m_btnRefresh->setEnabled(!busy);
+    m_configBtn->setEnabled(!busy);
     m_btnGenerate->setEnabled(!busy && !m_checkBoxes.isEmpty());
 }
 
@@ -274,6 +287,56 @@ void igQtAttributeSelectWidget::onRefreshClicked() {
     RefreshAttributeList();
 }
 
+void igQtAttributeSelectWidget::onConfigClicked() {
+    igQtChromeFramelessDialog cfgDlg(this);
+    cfgDlg.setDialogTitle(QStringLiteral("报告生成 - 服务器配置"));
+    cfgDlg.setMaximizeEnabled(false);
+
+    auto* body = new QWidget(cfgDlg.contentHost());
+    body->setAttribute(Qt::WA_StyledBackground, true);
+    body->setStyleSheet(
+        "QWidget { background-color: transparent; color: #EAEAEA; }"
+        "QLabel { color: #D8D8D8; }"
+        "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+        "            padding: 4px 6px; border-radius: 3px; }"
+        "QLineEdit:focus { border: 1px solid #5A7FA8; }"
+        "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+        "              padding: 6px 16px; border-radius: 4px; }"
+        "QPushButton:hover { background-color: #3A3A3A; }"
+        "QPushButton:pressed { background-color: #252526; }");
+
+    auto* form = new QFormLayout(body);
+    form->setContentsMargins(12, 12, 12, 12);
+    form->setSpacing(10);
+    auto* hostEdit = new QLineEdit(m_serverHost, body);
+    auto* portEdit = new QLineEdit(QString::number(m_serverPort), body);
+    portEdit->setValidator(new QIntValidator(1, 65535, body));
+    form->addRow(QStringLiteral("服务器 IP："), hostEdit);
+    form->addRow(QStringLiteral("端口："), portEdit);
+    auto* btns = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, body);
+    form->addRow(btns);
+
+    cfgDlg.setContentWidget(body);
+    cfgDlg.resize(300, 160);
+
+    bool accepted = false;
+    QObject::connect(btns, &QDialogButtonBox::accepted, &cfgDlg, [&]() { accepted = true; cfgDlg.accept(); });
+    QObject::connect(btns, &QDialogButtonBox::rejected, &cfgDlg, &QDialog::reject);
+    cfgDlg.exec();
+    if (!accepted) return;
+
+    QString host = hostEdit->text().trimmed();
+    int     port = portEdit->text().toInt();
+    if (host.isEmpty()) host = "127.0.0.1";
+
+    m_serverHost = host;
+    m_serverPort = port;
+
+    QSettings settings("iGame", "iGameVis");
+    settings.setValue("MeshReport/host", host);
+    settings.setValue("MeshReport/port", port);
+}
+
 std::vector<std::string> igQtAttributeSelectWidget::GetSelectedAttributes() const {
     std::lock_guard<std::mutex> lock(m_resultMutex);
     return m_selectedAttributes;
@@ -332,11 +395,14 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
     // Execute() 整个流程（含等待服务器）都会阻塞 UI。不带 context 时在 QThread 的 run() 线程内直接执行。
     // lambda 按值捕获所有需要的输入；ui 用 QPointer 弱引用，窗口关闭后不再触碰 widget 成员。
     QPointer<igQtAttributeSelectWidget> ui = this;
-    connect(m_workerThread, &QThread::started, [ui, input = m_dataObj, savePath = m_savePath, fields = GetSelectedAttributes()]() {
+    connect(m_workerThread, &QThread::started, [ui, input = m_dataObj, savePath = m_savePath,
+                                                 serverHost = m_serverHost, serverPort = m_serverPort,
+                                                 fields = GetSelectedAttributes()]() {
         bool ok = false;
         QString errorMessage;
         if (input) {
-            auto generator = MeshReportGenerator::New(savePath.toStdString());
+            auto generator = MeshReportGenerator::New(savePath.toStdString(), serverHost.toStdString(),
+                                                      serverPort);
             generator->SetInput(input);
             generator->SetSimplificationRatio(0.2f);
             generator->SetTimeout(15 * 60 * 1000);

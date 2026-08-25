@@ -52,6 +52,7 @@ signals:
 private slots:
     void onRefreshClicked();
     void onGenerateClicked();
+    void onConfigClicked();
     void onAsyncFinished(bool success, const QString& message);
     void onCheckBoxToggled(bool checked);
 
@@ -77,6 +78,11 @@ private:
     QPointer<QThread> m_workerThread;
     bool m_busy{false};
 
+    // 报告生成服务器的目标地址（可在面板中配置，持久化到 QSettings）
+    QString m_serverHost;
+    int m_serverPort{8766};
+
+    QPushButton* m_configBtn{nullptr};
     QPushButton* m_btnRefresh{nullptr};
     QPushButton* m_btnGenerate{nullptr};
     int m_maxSelectableCount{1};
