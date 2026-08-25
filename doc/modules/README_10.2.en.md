@@ -28,10 +28,12 @@ From the currently selected physical attribute (scalar / vector), extract classi
 
 | Feature | Output attribute | Notes |
 |---------|------------------|-------|
-| Gradient | `gradient` | Spatial gradient of scalar / vector fields |
+| Gradient | `gradient_<source attribute>` | Scalar input → 3-component gradient vector; vector input → 9-component gradient tensor |
 | Curvature | `curvatures` | Surface curvature (cotangent-style discrete) |
 | Laplacian | `laplacians` | Discrete Laplacian |
 | Vorticity | `vorticities` | Classical \(\omega = \nabla \times v\) (not neural) |
+
+> The gradient output name now carries the source attribute name, e.g. `gradient_V` for a source attribute `V`, so computing gradients of different attributes no longer overwrites each other.
 
 **B. Feature geometry**: the result is a **new mesh object** added to the model tree as its own model, rather than an appended attribute.
 
@@ -50,34 +52,35 @@ Polygons are fan-triangulated first and then treated as triangles; polyhedra go 
 
 ### Supported Mesh Types (important)
 
-Input requirements differ per feature — the first two groups are in fact opposites:
+Input requirements differ per feature:
 
 | Feature | Required input | What to do with a volume mesh (3D cells) |
 |---------|----------------|------------------------------------------|
-| Gradient / Curvature / Laplacian | **Surface mesh** (all 2D cells) | Run **Surface Extraction** first, then compute on the extracted surface |
+| Gradient | Surface, volume, structured, mixed and polyhedral meshes | **Compute directly**; no surface extraction needed |
+| Curvature / Laplacian | **Surface mesh** (all 2D cells) | Run **Surface Extraction** first, then compute on the extracted surface |
 | Vorticity | **3D volume cells** | Compute directly on the volume mesh; a surface-only mesh is not supported |
 | Isolines / isosurfaces | Surface, volume, unstructured and structured meshes — **all accepted** | Run it directly: 2D cells give isolines, 3D cells give isosurfaces; no surface extraction needed |
 
 A **surface mesh** (`IG_SURFACE_MESH`, or an `IG_UNSTRUCTURED_MESH` made entirely of 2D cells) takes gradient / curvature / Laplacian directly.
 
-A **volume mesh** (`IG_VOLUME_MESH`, or an `IG_UNSTRUCTURED_MESH` containing tets, hexes, … ) needs one extra step first:
+A **volume mesh** (`IG_VOLUME_MESH`, or an `IG_UNSTRUCTURED_MESH` containing tets, hexes, … ) can compute gradient directly. For **curvature / Laplacian**, it needs one extra step first:
 
 > Menu **Filters → Data Processing → Surface Extraction**
 
-This extracts the model's boundary faces into a standalone surface-mesh object named `<name>_surface` and adds it to the model tree. Select that `_surface` object in the tree, then run gradient / curvature / Laplacian on it.
+This extracts the model's boundary faces into a standalone surface-mesh object named `<name>_surface` and adds it to the model tree. Select that `_surface` object in the tree, then run curvature / Laplacian on it.
 
 Two caveats:
 
 - **The "shell" you see while rendering is not a surface mesh.** The shell lives in `DrawObject`'s `m_RenderableMesh.SurfaceMesh` and exists only for the renderer; the data object itself is still a volume mesh, and that is what filters read. Surface Extraction must be run explicitly so the surface becomes its own object in the model tree.
-- **After extraction you are computing on the boundary.** A gradient on a surface mesh is the tangential gradient along that surface, which is not the same quantity as the 3D gradient of the volumetric field — keep that in mind when reading the result.
+- **After extraction you are computing on the boundary.** Curvature / Laplacian on a surface mesh are surface quantities, not the same as the 3D gradient of the volumetric field — keep that in mind when reading the result.
 
-Running these three directly on a volume mesh raises `Not Surface Mesh !`. That is the filter's default message and simply means "this input is not a surface mesh" (the volume-mesh branch is not wired up — see the `ComputeGradientWithVolumeMesh` call site in `iGameGradientFilter.cpp`).
+Running curvature / Laplacian directly on a volume mesh raises `Not Surface Mesh !`. That is the filter's default message and simply means "this input is not a surface mesh" (the volume-mesh branch is not wired up). **Gradient is no longer limited by this** — it can be run on volume meshes directly.
 
 ### Source Paths
 
 | Path | Class | Notes |
 |------|-------|-------|
-| `iGameCore/Filters/FeatureExtraction/iGameGradientFilter.*` | `GradientFilter` | Gradient |
+| `iGameCore/Filters/FeatureExtraction/iGameAdvancedGradientFilter.*` | `AdvancedGradientFilter` | Gradient (surface / volume / structured / mixed / polyhedral) |
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | Curvature |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
 | `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | Classical vorticity |
@@ -88,20 +91,29 @@ Running these three directly on a volume mesh raises `Not Surface Mesh !`. That 
 
 ### How It Is Called
 
+From `Examples/Filter/FeatureExtraction/GradientExtraction.cpp`:
+
 ```cpp
-auto dataObj = iGame::FileIO::ReadFile(fileName);
+auto dataObj = iGame::FileIO::ReadFile("./Models/pipedcylinder2d_gt.vtk");
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
 
-auto filter = iGame::GradientFilter::New();  // or CurvatureFilter / LaplacianFilter / VortexFilter
+auto filter = iGame::AdvancedGradientFilter::New();  // new gradient filter
 filter->SetInput(drawObj);
-filter->SetAttributeByIndex(attrIndex);      // or SetAttributeByName(name)
+filter->SetAttributeByIndex(attrIndex);             // or SetAttributeByName(name)
+filter->SetComputeGradientTensor(true);             // vector input → 9-component tensor
+filter->SetOutputToPointData(true);                 // output point data
 filter->Execute();
 
 int newIndex = drawObj->GetAttributeSet()->GetNumberOfAttributes() - 1;
 drawObj->ViewCloudPicture(scene, newIndex);
 ```
 
-Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByIndex/Name` → `Execute()`; results are appended to `AttributeSet`.
+Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByIndex/Name` → configure output options → `Execute()`; results are appended to `AttributeSet`.
+
+> The new gradient output name is `gradient_<source attribute>`, e.g. `gradient_pressure` for a source attribute `pressure`. To look it up by name:
+> ```cpp
+> int idx = dataObj->GetAttributeSet()->GetAttributeIndex("gradient_pressure");
+> ```
 
 **Isolines / isosurfaces** use a different interface — driven by values rather than an attribute index, and producing a new mesh. From `Examples/Filter/TestContourLine.cpp`:
 
@@ -141,8 +153,8 @@ Three caveats:
 
 | Menu item | Filter | Required input |
 |-----------|--------|----------------|
-| Filters → Data Processing → Surface Extraction | → `<name>_surface` surface object | **Prerequisite** for the next three on a volume mesh |
-| Filters → Feature Extraction → ComputeGradient | `GradientFilter` | Surface mesh |
+| Filters → Data Processing → Surface Extraction | → `<name>_surface` surface object | **Prerequisite** for curvature / Laplacian on a volume mesh; gradient does not need it |
+| Filters → Feature Extraction → ComputeGradient | `AdvancedGradientFilter` | Surface / volume / structured / mixed / polyhedral mesh |
 | Filters → Feature Extraction → Compute Laplacian | `LaplacianFilter` | Surface mesh |
 | Filters → Feature Extraction → Compute Curvature | `CurvatureFilter` | Surface mesh |
 | Filters → Feature Extraction → Compute Vorticity | `VortexFilter` | 3D volume cells |
@@ -151,7 +163,8 @@ Three caveats:
 Typical order of operations:
 
 - **Surface mesh**: select the model → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
-- **Volume mesh**: select the model → Data Processing → Surface Extraction → select the new `<name>_surface` node → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
+- **Volume mesh (gradient)**: select the model → select the attribute → Feature Extraction → Gradient; **no surface extraction needed**
+- **Volume mesh (curvature / Laplacian)**: select the model → Data Processing → Surface Extraction → select the new `<name>_surface` node → select the attribute → Feature Extraction → Curvature / Laplacian
 - **Vorticity**: no extraction needed — select the velocity vector attribute on the volume mesh and run it
 - **Isolines / isosurfaces**: select the model → open the Contour Extraction panel → pick a point scalar and component (the panel shows that component's value range) → enter an iso value → run. The result joins the model tree as its own model `<name>_Contour`, can be shown / hidden / colored independently, and re-running with a new value updates the same result object in place
 
@@ -162,6 +175,7 @@ Results appear in the model-tree attribute list and can be shown via `dockWidget
 | Target | Notes |
 |--------|-------|
 | `testGradientExtraction` | Gradient |
+| `testAdvancedGradientFilter` | Gradient regression test (`./Models/StreamTest.vtk`) |
 | `testCurvatureExtraction` | Curvature |
 | `testLaplacianExtraction` | Laplacian |
 | `testVortexExtraction` | Classical vorticity |

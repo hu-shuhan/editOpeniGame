@@ -43,6 +43,11 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
     connect(VcrController,
             &igQtAnimationVcrController::updateAnimationComponentsTimeStap,
             ui->SliderAnimationTrack, &QSlider::setValue);
+    connect(ui->SliderAnimationTrack, &QSlider::actionTriggered, this,
+            [this](int) {
+                VcrController->updateCurrentKeyframe(
+                        ui->SliderAnimationTrack->sliderPosition());
+            });
     connect(VcrController, &igQtAnimationVcrController::finishPlaying, this,
             &igQtAnimationWidget::btnPlay_finishLoop);
     connect(ui->btnFirstFrame, &QPushButton::clicked, VcrController,

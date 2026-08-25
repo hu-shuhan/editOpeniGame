@@ -38,7 +38,10 @@ private:
     unsigned int count;
     DrawType drawmode = EveryNth;
     int Nth = 1200;
+    IGsize m_AllCellInterval = 1;
     bool isUpdate = false;
+
+    void CalculateAllCellSamplingInterval(const std::string& VecName);
 
 public:
     void SetArrow(float _hR, float _hL, float _tR, float _tL);
