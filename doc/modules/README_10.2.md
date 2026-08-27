@@ -9,7 +9,7 @@
 | 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 / 等值线与等值面 | ✅ 已实现 |
 | 2 | 基于神经网络的涡提取，与人工标注对比，计算准确率 / 精确率 / 召回率（精度 ≥ 90%） | ✅ 已实现（评估逻辑）；GUI 指标浮层待恢复 |
 | 3 | 支持针对不同类型数据，构建相应的程序接口，实现不同精度要求下的特征提取 | ✅ 已实现（等值线 / 等值面 × 面网格 / 体网格 × 原始 / 简化网格） |
-| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（阶段一：表面绘制颜色 / 不透明度映射 ✅；时序 / 形变见 11.3；区域限定形变待增强） |
+| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（阶段一：颜色 / 不透明度映射 ✅；阶段二：逐帧属性差值 ✅；阶段三：属性范围锁定 ✅；时序 / 形变见 11.3） |
 
 > 本文档记录子功能 **1**、**2**、**3** 的完整实现，以及 **4** 与现有交互 / 可视化模块的衔接说明。
 > 与 **10.1** 的区别：10.1 侧重**分析数据生成**（局部图表、熵种子、流线筛选）；10.2 侧重**特征场提取与涡结构检测评估**。
@@ -411,8 +411,9 @@ auto res1 = contour2->GetContourMesh();
 | 时序帧切换 / 动画 | ✅ 通用能力已实现 | `DataObject::UpdateAnimation(keyframeIdx)`；PVD 读取；动画 Dock / FFMPEG（见 **11.3**） |
 | 关键特征随时间刷新 | ✅ 可对每帧属性切换云图；涡预测可按帧重跑或预计算后播放 | `ViewCloudPicture` + `UpdateAnimation` |
 | 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 阶段一已实现 | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` 透明管线；标量场面板「不透明度映射」开关 |
+| 逐帧属性差值（关键事件变化量） | ✅ 阶段二已实现 | 菜单「特征提取 → 属性差值」；`iGameAttrDiff`；逐帧计算属性差值 |
+| 属性范围锁定（固定范围） | ✅ 阶段三已实现 | 标量场面板「固定范围」；`DataObject::FixAttributeRange` / `ReapplyRangeLocks` |
 | 整模结构形变 | ✅ 已实现 | `StressDeformationFilter` + `igQtDeformationWidget`（**11.3**） |
-| **仅选中区域作用形变** | ⏳ 待增强 | 选区（Selection 交互层，见 10.3）与 `DeformationData` 尚未绑定「仅偏移选中点」路径 |
 
 ### 阶段性实现：标量场到颜色 / 不透明度的映射（阶段一）
 
@@ -425,18 +426,36 @@ auto res1 = contour2->GetContourMesh();
 
 在关键事件时域演化中的用法：单帧即可用「颜色高亮 + 低值区域半透明」突出关键事件区域；结合 **11.3** 的动画播放能力逐帧切换属性，即可观察关键区域随时间的演化。
 
+### 阶段性实现：逐帧属性差值 + 范围锁定（阶段二 / 阶段三）
+
+**逐帧属性差值（阶段二）**：新增 `iGameAttrDiff` 过滤器，按所选属性逐帧计算相邻帧差值并作为新属性加入模型，用于刻画关键事件的变化量：
+
+- 第 0 帧差值为全 0；第 i 帧差值 = 第 i 帧属性 − 第 i−1 帧属性（按名字跨帧寻址，需各帧点数 / 拓扑一致）；
+- 三种差值模式：带符号差（默认）、绝对差、相对变化率；输出属性名形如 `<源属性>_diff` / `<源属性>_diff_abs` / `<源属性>_diff_rel`；
+- 入口：菜单「特征提取 → 属性差值」；动画播放时由播放钩子逐帧幂等惰性计算（已算过的帧直接复用，缓存重读的帧自动补算）；
+- 差值属性可作为普通云图属性显示，也可作为后续筛选 / 范围锁定的对象。
+
+**属性范围锁定（阶段三）**：任意属性（含差值属性）都可以一键固定为全局范围，使**同一个值在动画全程映射到同一种颜色和同一个不透明度**：
+
+- 数据层：`Attribute` 增加 `rangeLocked` 标志，`UpdateAllDataRange` 在锁定后不再按数据重算；`DataObject::FixAttributeRange / UnfixAttributeRange / IsAttributeRangeLocked` 提供通用锁定 / 解锁 / 查询接口；
+- 稳定性：`UpdateAnimation` 挂载新帧后执行 `ReapplyRangeLocks` 把固定范围重放到子对象；`ReCollectSubDataObjectDataRange` 跳过锁定属性，父容器范围不再被当帧值覆盖；
+- GUI：标量场面板「固定范围」复选框——勾选时按所有帧计算全局范围并锁定；颜色条（浮窗与场景内）在锁定属性时直接读取父容器固定范围，刻度与标量场保持一致；
+- 用法：先算差值（或选择任意属性）→ 选中该属性 → 勾选「固定范围」→ 播放，颜色 / 不透明度 映射范围全程不变；取消勾选恢复逐帧自适应。
+
 **后续阶段规划**（本子功能的实现路线）：
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
 | 阶段一 | 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 已实现（本节） |
-| 阶段二 | 按属性阈值筛选点，分别控制选中 / 未选中点的不透明度（`AttributeOpacityFilter`） | ⏳ 规划中 |
-| 阶段三 | 逐帧属性差值（`TimeDifferenceFilter`）作为筛选条件，动画播放时突出变化剧烈区域 | ⏳ 规划中 |
+| 阶段二 | 逐帧属性差值（`iGameAttrDiff`，原规划 `TimeDifferenceFilter`） | ✅ 已实现（本节） |
+| 阶段三 | 任意属性范围锁定（「固定范围」开关，颜色 / 不透明度 映射范围全程恒定） | ✅ 已实现（本节） |
 
 推荐工作流（当前可用）：
 
 ```text
 加载时序数据 → 特征提取 / 涡预测 → 云图显示关键场
+    →（可选）「特征提取 → 属性差值」计算逐帧变化量，选择差值属性
+    →（可选）勾选「固定范围」，使颜色 / 不透明度 映射范围恒定
     → 动画面板切换时间步（关键事件时域演化）
     →（可选）形变面板对整模施加位移矢量场
 ```
@@ -456,6 +475,10 @@ auto res1 = contour2->GetContourMesh();
 | `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | 标量 → RGBA 颜色 / 不透明度映射 |
 | `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | 表面透明管线逐顶点 alpha（OIT 排序） |
 | `Qt/src/IQWidgets/igQtScalarViewWidget.*` | 「不透明度映射」开关 |
+| `iGameCore/Filters/Animation/iGameAttrDiff.*` | 逐帧属性差值过滤器（阶段二） |
+| `iGameCore/Core/DataModel/iGameDataObject.*`（范围锁定） | `FixAttributeRange` / `UnfixAttributeRange` / `ReapplyRangeLocks`（阶段三） |
+| `Qt/Resources/UI/ScalarView.ui` / `igQtScalarViewWidget.*` | 「固定范围」开关（阶段三） |
+| `Qt/src/IQWidgets/igQtColorBarWidget.*`、`iGameCore/Rendering/Core/iGameColorBar2DActor.*` | 锁定属性时颜色条刻度读固定范围 |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | 结构形变 |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | 形变 Dock |
 | `doc/modules/README_11.3.md` | 时序 / 形变 / 动画完整说明 |
@@ -466,9 +489,11 @@ auto res1 = contour2->GetContourMesh();
 |------|------|
 | 菜单「可视化」→ 动画输出可视化 / `action_ExportAnimation` | 打开底部动画 Dock，关键特征场随时间播放（11.3） |
 | `dockWidget_Animation` | 时间轴播放、缓存帧数、导出 |
+| 菜单「特征提取」→ 属性差值（带符号差 / 绝对差 / 相对变化率） | 逐帧计算所选属性的差值并加入模型 |
 | 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
 | `DeformationDockWidget` / `igQtDeformationWidget` | 位移矢量、缩放因子、开关形变 |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「不透明度映射」，把当前标量映射为颜色 + 不透明度 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「固定范围」，动画全程颜色 / 不透明度 映射范围恒定 |
 
 <!-- 待补充截图：关键事件时域演化
 ![关键特征时域演化](../../Resources/Images/关键特征时域演化.png)

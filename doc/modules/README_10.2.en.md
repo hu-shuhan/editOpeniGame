@@ -9,7 +9,7 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 | 1 | Classical physical features: gradient / curvature / Laplacian / vorticity / isolines and isosurfaces | ✅ Implemented |
 | 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
 | 3 | Per-data-type program interfaces enabling feature extraction at different precision levels | ✅ Implemented (isolines / isosurfaces × surface / volume × original / simplified meshes) |
-| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (Phase 1: surface color / opacity mapping ✅; time series / deformation in 11.3; region-limited deformation TBD) |
+| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (Phase 1: color / opacity mapping ✅; Phase 2: per-frame attribute difference ✅; Phase 3: attribute range lock ✅; time series / deformation in 11.3) |
 
 > This document covers sub-features **1**, **2** and **3** in full, and how **4** connects to existing interaction and visualization modules.
 > Key-region click / box selection itself is covered by **10.3** and the `Selection` module and is not repeated here.
@@ -385,8 +385,9 @@ That is a direct check of `ContourFilter`'s dispatch-by-cell-dimension logic. Bo
 | Time-step switching / animation | ✅ Generic capability | `DataObject::UpdateAnimation(keyframeIdx)`; PVD; animation dock / FFMPEG (**11.3**) |
 | Feature refresh over time | ✅ Switch cloud maps per frame; re-run or precompute vortex predict | `ViewCloudPicture` + `UpdateAnimation` |
 | Scalar → color / opacity mapping (surface rendering) | ✅ Phase 1 implemented | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` transparency pipeline; "Opacity Mapping" toggle in the Scalar View dock |
+| Per-frame attribute difference (key-event delta) | ✅ Phase 2 implemented | Menu "Feature Extraction → Attribute Difference"; `iGameAttrDiff`; per-frame attribute difference computation |
+| Attribute range lock (fixed range) | ✅ Phase 3 implemented | "Fixed Range" toggle in the Scalar View dock; `DataObject::FixAttributeRange` / `ReapplyRangeLocks` |
 | Whole-mesh structural deformation | ✅ Implemented | `StressDeformationFilter` + `igQtDeformationWidget` (**11.3**) |
-| **Deformation limited to selection** | ⏳ TBD | Selection (interaction layer, see 10.3) not yet bound to “offset selected points only” in `DeformationData` |
 
 ### Phased implementation: scalar-to-color / opacity mapping (Phase 1)
 
@@ -399,18 +400,36 @@ As the first phase of **temporal evolution of key events**, the platform now map
 
 Usage for key-event temporal evolution: on a single frame, "color highlight + semi-transparent low-value regions" already isolates key event regions; combined with the animation playback in **11.3**, switching attributes frame by frame shows how key regions evolve over time.
 
+### Phased implementation: per-frame attribute difference + range lock (Phase 2 / Phase 3)
+
+**Per-frame attribute difference (Phase 2)**: a new `iGameAttrDiff` filter computes, for the selected attribute, the difference between adjacent frames and adds it as a new attribute, so the change magnitude of key events can be visualized:
+
+- Frame 0 has a zero difference; frame i difference = frame i attribute − frame i−1 attribute (resolved by name across frames; frames must have matching point counts / topology);
+- Three modes: signed difference (default), absolute difference, relative change rate; output names like `<source>_diff`, `<source>_diff_abs`, `<source>_diff_rel`;
+- Entry: menu "Feature Extraction → Attribute Difference"; during playback the hook computes lazily and idempotently per frame (cached frames are reused; cache-reloaded frames are recomputed);
+- The difference attribute can be shown as a regular cloud-map attribute and used as the object of range locking.
+
+**Attribute range lock (Phase 3)**: any attribute (including difference attributes) can be fixed to a global range, so that **the same value maps to the same color and the same opacity throughout the whole animation**:
+
+- Data layer: `Attribute` gains a `rangeLocked` flag and `UpdateAllDataRange` stops recomputing once locked; `DataObject::FixAttributeRange / UnfixAttributeRange / IsAttributeRangeLocked` provide generic lock / unlock / query;
+- Stability: `UpdateAnimation` calls `ReapplyRangeLocks` after mounting a new frame so the fixed range is re-applied to sub-objects; `ReCollectSubDataObjectDataRange` skips locked attributes so the parent range is never overwritten by per-frame values;
+- GUI: the "Fixed Range" checkbox in the Scalar View dock — checking it computes the global range over all frames and locks it; color bars (floating widget and in-scene actor) read the parent's fixed range directly for locked attributes, so ticks stay consistent with the Scalar View;
+- Usage: compute the difference (or pick any attribute) → select it → tick "Fixed Range" → play; the color / opacity mapping range stays constant; unchecking restores per-frame adaptive ranges.
+
 **Roadmap** (implementation path of this sub-feature):
 
 | Phase | Content | Status |
 |-------|---------|--------|
 | Phase 1 | Scalar → color / opacity mapping (surface rendering) | ✅ Implemented (this section) |
-| Phase 2 | Threshold-based point filtering with separate opacity for selected / unselected points (`AttributeOpacityFilter`) | ⏳ Planned |
-| Phase 3 | Per-frame attribute difference (`TimeDifferenceFilter`) as the filter condition, highlighting rapidly changing regions during playback | ⏳ Planned |
+| Phase 2 | Per-frame attribute difference (`iGameAttrDiff`, originally planned as `TimeDifferenceFilter`) | ✅ Implemented (this section) |
+| Phase 3 | Attribute range lock ("Fixed Range" toggle; constant color / opacity mapping range) | ✅ Implemented (this section) |
 
 Recommended workflow (available now):
 
 ```text
 Load time series → feature extraction / vortex predict → cloud-map key fields
+    → (optional) "Feature Extraction → Attribute Difference" to compute per-frame delta, select the difference attribute
+    → (optional) tick "Fixed Range" so the color / opacity mapping range stays constant
     → animation panel for timesteps (key-event temporal evolution)
     → (optional) deformation panel for whole-mesh displacement
 ```
@@ -430,6 +449,10 @@ Click / box-select key region → write deformation offsets only for that set �
 | `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | Scalar → RGBA color / opacity mapping |
 | `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | Per-vertex alpha in the surface transparency pipeline (OIT sorting) |
 | `Qt/src/IQWidgets/igQtScalarViewWidget.*` | "Opacity Mapping" toggle |
+| `iGameCore/Filters/Animation/iGameAttrDiff.*` | Per-frame attribute difference filter (Phase 2) |
+| `iGameCore/Core/DataModel/iGameDataObject.*` (range lock) | `FixAttributeRange` / `UnfixAttributeRange` / `ReapplyRangeLocks` (Phase 3) |
+| `Qt/Resources/UI/ScalarView.ui` / `igQtScalarViewWidget.*` | "Fixed Range" toggle (Phase 3) |
+| `Qt/src/IQWidgets/igQtColorBarWidget.*`, `iGameCore/Rendering/Core/iGameColorBar2DActor.*` | Color-bar ticks read the fixed parent range for locked attributes |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | Structural deformation |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | Deformation dock |
 | `doc/modules/README_11.3.md` | Full time / deformation / animation notes |
@@ -439,8 +462,10 @@ Click / box-select key region → write deformation offsets only for that set �
 | Panel | Notes |
 |-------|-------|
 | Animation / time-series docks | Play key feature fields over time (11.3) |
+| Menu "Feature Extraction" → Attribute Difference (signed / absolute / relative) | Compute per-frame difference of the selected attribute and add it to the model |
 | Deformation dock / `igQtDeformationWidget` | Displacement vector, scale factors, enable deformation |
 | Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`) | Tick "Opacity Mapping" to map the current scalar to color plus opacity |
+| Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`) | Tick "Fixed Range" so the color / opacity mapping range stays constant during playback |
 
 ---
 
