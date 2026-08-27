@@ -6,14 +6,14 @@
 
 | # | 子功能（对考核条目） | 状态 | 详细文档 |
 |---|----------------------|------|----------|
-| 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | **本文详写** |
+| 1 | Meshlet | ✅ 已实现 | [GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md) |
 | 2 | 等几何 / 高阶单元高保真可视化（谱方法专项见「已知缺口」） | ✅ 部分实现（Spline / Lagrange） | [README_7.1.md](README_7.1.md) |
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
 | 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
 | 5 | 多层次关键特征提取（经典算子、时序涡量与 LibTorch 涡检测） | ✅ 已实现 | 本文详写 + [README_10.2.md](README_10.2.md) |
 | 6 | 基于 LLM 的可视化结果智能评测与分析报告生成 | ✅ 已实现（依赖外部 LLM / 报告服务） | 本文详写 + [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
 
-> **写法说明**：11.4 是**平台总指标**。子功能 1、5、6 在本文展开；2～4 以交叉引用为主，避免与其他指标文档重复粘贴。
+> **写法说明**：11.4 是**平台总指标**。子功能 5、6 在本文展开；1～4 以交叉引用为主，避免与其他指标文档重复粘贴。
 > 与 **11.3** 的区别：11.3 写「场怎么画」；11.4 写「平台如何并行、加速，以及各专项如何拼成整机能力」。  
 
 ![架构图](../../Resources/Images/架构图.png)
@@ -34,74 +34,9 @@
 
 ---
 
-## 子功能 1：高精并行可视化内核
+## 子功能 1：Meshlet
 
-### 功能说明
-
-在统一 `DrawObject` 管线上提供三类并行 / 加速能力，支撑大规模 CAE 网格高帧率交互：
-
-1. **Meshlet GPU 加速**：将网格划分为 Meshlet，经 mesh shader / 计算着色器做视锥裁剪与绘制调度。  
-2. **CPU 线程池**：`ThreadPool::parallelFor` / `Commit` 用于 Filter、编解码、时序帧加载等。  
-3. **渲染压力调度**：`Scene` 按目标帧率 / GPU 占用限制跳帧，保证交互流畅。
-
-### 源码路径
-
-| 路径 | 类 / API | 说明 |
-|------|----------|------|
-| `iGameCore/Rendering/Core/Meshleter/` | `Meshleter` / `SurfaceMeshMeshleter` | Meshlet 构建与绘制 |
-| `iGameCore/Rendering/Shaders/GLSL/MeshShaders/` | Mesh / Task / MeshletCull | GPU 着色器 |
-| `iGameCore/Core/DataModel/iGameDrawObject.*` | `SetAccelerationOption` / `SetRenderWithMeshlet` | 打开加速 |
-| `iGameCore/Core/Common/iGameThreadPool.h` | `parallelFor` / `Commit` | CPU 并行 |
-| `iGameCore/Rendering/Core/iGameScene.*` | `SetTargetFps` / `SetGpuUsageLimit` / `ShouldRenderThisCall` | 帧率与压力控制 |
-| `Qt/src/IQComponents/igQtModelTreeWidget.*` | 模型树菜单 | 可切换加速选项 |
-
-### 调用方式
-
-**Meshlet 加速**（`Examples/Rendering/MeshletRendering.cpp`）：
-
-```cpp
-auto scene = iGame::Scene::New();
-auto dataObj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
-auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
-drawObj->SetAccelerationOption(true);   // 启用 Meshlet 加速路径
-scene->AddModel(dataObj);
-scene->ResetCameraView();
-```
-
-**渲染压力 / 目标帧率**（`Examples/Rendering/SetRenderingPressure.cpp`）：
-
-```cpp
-auto scene = iGame::Scene::New();
-auto dataObj = iGame::FileIO::ReadFile("./Models/Tet_Plane.vtk");
-scene->AddModel(dataObj);
-scene->ResetCameraView();
-// scene->SetGpuUsageLimit(0.1f);  // 可选：限制 GPU 占用比例
-scene->SetTargetFps(30);           // 目标帧率；内部按 ShouldRenderThisCall 跳帧
-```
-
-**CPU 并行**（Filter / IO 内部广泛使用）：
-
-```cpp
-iGame::ThreadPool::parallelFor(0, count, [&](int i) {
-    // 并行处理第 i 个单元 / 点
-});
-```
-
-### GUI
-
-| 入口 | 说明 |
-|------|------|
-| 模型树右键 / 加速相关菜单 | `SetAccelerationOption`、Meshlet 开关 |
-| 场景交互 | 大模型下由 `SetTargetFps` / GPU 限制保持流畅 |
-
-### 测试用例
-
-| Target | 源文件 | 默认数据 | 说明 |
-|--------|--------|----------|------|
-| `testMeshletRendering` | `Examples/Rendering/MeshletRendering.cpp` | `./Models/Tet_Plane.vtk` | Meshlet GPU 加速 |
-| `testSetRenderingPressure` | `Examples/Rendering/SetRenderingPressure.cpp` | `./Models/Tet_Plane.vtk` | 目标帧率 / 渲染压力 |
-
-编译 Examples 需 `EXAMPLE_COMPILE=ON`（或按仓库当前 Examples 独立构建方式）。
+Meshlet 的功能说明、源码路径、调用方式和测试用例见 **[GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md)**。
 
 ---
 
@@ -255,8 +190,7 @@ if (!report->Execute()) {
 
 | Target | 对应子功能 | 条件 |
 |--------|------------|------|
-| `testMeshletRendering` | 1 并行加速 | 默认 |
-| `testSetRenderingPressure` | 1 渲染压力 | 默认 |
+| `testMeshletRendering` | 1 Meshlet | 默认 |
 | `testSplineReaderCPU` / `testSplineReaderGPU` / `testConvertToLagrangeUnstructuredMesh` | 2 高保真 | GPU 样条需 GPS CUDA |
 | `testSetScalarField` / `testVector*` / `testTensorView` / … | 3 场可视化 | 见 11.3 |
 | GUI 包围框视角 / `testStreamline` / `testMultiscaleInteraction` | 4 局部聚焦与多尺度流线 | 默认 |
