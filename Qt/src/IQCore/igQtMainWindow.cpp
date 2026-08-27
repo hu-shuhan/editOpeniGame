@@ -1267,25 +1267,33 @@ void igQtMainWindow::initAllFilters() {
     };
 
     QMenu* standardFilters =
-            ui->menu_filters->addMenu(QStringLiteral("标准过滤器 (Standard Filters)"));
-    QMenu* commonFilters = standardFilters->addMenu(QStringLiteral("常用 (Common)"));
-    QMenu* alphabeticalFilters = standardFilters->addMenu(QStringLiteral("按名称 (Alphabetical)"));
+            ui->menu_filters->addMenu(QStringLiteral("标准过滤器（Standard Filters）"));
+
+    QMenu* commonFilters = standardFilters->addMenu(QStringLiteral("Common（常用）"));
+    QMenu* alphabeticalFilters = standardFilters->addMenu(QStringLiteral("Alphabetical（按名称）"));
     standardFilters->addSeparator();
 
     QMenu* dataAttributeFilters =
-            standardFilters->addMenu(QStringLiteral("数据属性与标识 (Data Attributes & IDs)"));
+            standardFilters->addMenu(QStringLiteral("Data Attributes & IDs（数据属性与标识）"));
     QMenu* geometryFilters =
-            standardFilters->addMenu(QStringLiteral("几何与网格 (Geometry & Mesh)"));
+            standardFilters->addMenu(QStringLiteral("Geometry & Mesh（几何与网格）"));
     QMenu* extractionFilters =
-            standardFilters->addMenu(QStringLiteral("提取与选择 (Extraction & Selection)"));
+            standardFilters->addMenu(QStringLiteral("Extraction & Selection（提取与选择）"));
     QMenu* samplingFilters =
-            standardFilters->addMenu(QStringLiteral("采样与插值 (Sampling & Interpolation)"));
+            standardFilters->addMenu(QStringLiteral("Sampling & Interpolation（采样与插值）"));
     QMenu* transformFilters =
-            standardFilters->addMenu(QStringLiteral("变换 (Transform)"));
+            standardFilters->addMenu(QStringLiteral("Transform（变换）"));
     QMenu* compositeFilters =
-            standardFilters->addMenu(QStringLiteral("复合数据 (Composite Data)"));
+            standardFilters->addMenu(QStringLiteral("Composite Data（复合数据）"));
     QMenu* meshQualityFilters =
-            standardFilters->addMenu(QStringLiteral("网格质量 (Mesh Quality)"));
+            standardFilters->addMenu(QStringLiteral("Mesh Quality（网格质量）"));
+
+    // 项目已有的 Filter 入口放在标准过滤器目录底部，执行逻辑保持不变。
+    standardFilters->addSeparator();
+    QMenu* mesh_processing =
+            standardFilters->addMenu(QStringLiteral("Data Processing（数据处理）"));
+    QMenu* convert = standardFilters->addMenu(QStringLiteral("Convert（数据转换）"));
+    QMenu* view = standardFilters->addMenu(QStringLiteral("Feature Extraction（特征提取）"));
 
     // 全局下拉菜单为 12pt；标准 Filter 数量较多，局部缩小到 10pt，
     // 保留其他菜单的原有字号与样式。
@@ -1327,8 +1335,7 @@ void igQtMainWindow::initAllFilters() {
     }
     ui->menu_filters->addSeparator();
 
-    QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
-    connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction(QStringLiteral("Surface Simplification（表面网格简化）")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
@@ -1445,7 +1452,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("快速表面简化 (Fast Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction(QStringLiteral("Fast Surface Simplification（快速表面简化）")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene() == nullptr
             || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
             return;
@@ -1662,7 +1669,7 @@ void igQtMainWindow::initAllFilters() {
     //     });
     // });
 
-    connect(mesh_processing->addAction(QStringLiteral("表面三角化 (Surface Triangulation)")), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction(QStringLiteral("Surface Triangulation（表面三角化）")), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
         MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
@@ -1675,7 +1682,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("表面提取 (Surface Extraction)")), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction(QStringLiteral("Surface Extraction（表面提取）")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
@@ -1710,7 +1717,7 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    connect(mesh_processing->addAction("四面体化 (Tetrahedralize)"), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction(QStringLiteral("Tetrahedralize（四面体化）")), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
 
@@ -1723,7 +1730,7 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    connect(mesh_processing->addAction("体网格简化 (Volume Mesh Simplification)"), &QAction::triggered, this, [&](bool checked) {
+    connect(mesh_processing->addAction(QStringLiteral("Volume Mesh Simplification（体网格简化）")), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         auto in = DynamicCast<DataObject>(obj);
         if (!in) return;
@@ -1880,8 +1887,7 @@ void igQtMainWindow::initAllFilters() {
     //        std::cout << end - start << std::endl;
 
     //    });
-    QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
-    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
+    connect(convert->addAction(QStringLiteral("Convert To Point Data（转换为点数据）")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
@@ -1891,7 +1897,7 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
         }
     });
-    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this, [&](bool checked) {
+    connect(convert->addAction(QStringLiteral("Convert To Cell Data（转换为单元数据）")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
@@ -1902,8 +1908,6 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-
-    QMenu* view = ui->menu_filters->addMenu("特征提取");
 
     auto runAdvancedGradient = [this]() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1982,12 +1986,12 @@ void igQtMainWindow::initAllFilters() {
         }
     };
 
-    QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
+    QAction* gradient = view->addAction(QStringLiteral("Compute Gradient（计算梯度）"));
     connect(gradient, &QAction::triggered, this, [this, runAdvancedGradient](bool) {
         runAdvancedGradient();
     });
 
-    QAction* laplacian = view->addAction(QStringLiteral("计算拉普拉斯 (ComputeLaplacian)"));
+    QAction* laplacian = view->addAction(QStringLiteral("Compute Laplacian（计算拉普拉斯）"));
     connect(laplacian, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
@@ -2019,7 +2023,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* curvature = view->addAction(QStringLiteral("计算曲率 (ComputeCurvature)"));
+    QAction* curvature = view->addAction(QStringLiteral("Compute Curvature（计算曲率）"));
     connect(curvature, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         CurvatureFilter::Pointer filter = CurvatureFilter::New();
@@ -2051,7 +2055,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* vortex = view->addAction(QStringLiteral("计算涡量 (ComputeVorticity)"));
+    QAction* vortex = view->addAction(QStringLiteral("Compute Vorticity（计算涡量）"));
     connect(vortex, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -2148,7 +2152,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* vortexPrection = view->addAction(QStringLiteral("涡旋预测 (PredictVortex)"));
+    QAction* vortexPrection = view->addAction(QStringLiteral("Predict Vortex（涡旋预测）"));
     connect(vortexPrection, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexDetection::Pointer filter = VortexDetection::New();
@@ -2251,8 +2255,8 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction(
-            QStringLiteral("拉格朗日非结构网格可视化 (LagrangeUnstructedMesh Visualization)"));
+    QAction* lagrangeUnstructedMesh_visualization = convert->addAction(
+            QStringLiteral("Lagrange Unstructured Mesh Visualization（拉格朗日非结构网格可视化）"));
     connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         ConvertToLagrangeUnstructuredMeshFilter::Pointer filter = ConvertToLagrangeUnstructuredMeshFilter::New();
