@@ -38,6 +38,35 @@ public:
     int ensureVortexForCurrentFrame(iGame::DataObject::Pointer obj, const std::string& sourceAttrName,
                                     int frameIndexForDisplay = -1);
 
+    // 播放时按需计算属性差值(diff)，开启后每次切帧都会检查当前帧是否已有 <源属性名>_diff_<类型>：
+    // 命中缓存直接复用，否则用 iGameAttrDiff 与前一帧做差再继续渲染。
+    void SetDiffAutoCompute(bool enabled, const std::string& sourceAttrName = std::string());
+    bool IsDiffAutoCompute() const { return m_DiffAutoCompute; }
+    // 0 带符号差(cur-prev)，1 绝对差，2 相对变化率
+    void SetDiffMode(int mode) {
+        if (m_DiffMode != mode) {
+            m_DiffMode = mode;
+            ResetDiffGlobalRange();
+        }
+    }
+    // 确保obj的当前帧已有 <源属性名>_diff_<类型>，已存在直接返回，
+    // 不存在才计算。frameIndex 是真实帧号（>=0）：第 0 帧写全 0，第 i 帧对比第 i-1 帧。
+    // 返回 diff 在父容器 AttributeSet 中的索引；失败返回 -1。
+    int EnsureTimeDifferenceForCurrentFrame(iGame::DataObject::Pointer obj,
+                                            const std::string& sourceAttrName,
+                                            int frameIndex);
+    double GetDiffGlobalMin() const { return m_DiffGlobalMin; }
+    double GetDiffGlobalMax() const { return m_DiffGlobalMax; }
+    bool IsDiffGlobalRangeValid() const { return m_DiffGlobalRangeValid; }
+    void ResetDiffGlobalRange() {
+        m_DiffGlobalRangeValid = false;
+        m_DiffGlobalMin = 0.0;
+        m_DiffGlobalMax = 0.0;
+    }
+    std::string GetDiffOutputName(const std::string& sourceAttrName) const;
+    // 把全局范围写进 diff 属性的 dataRange 并强制子对象重转换
+    void ApplyGlobalDiffRange(iGame::DataObject::Pointer obj, const std::string& outputName);
+
 public slots:
     void initAnimationComponents();
 
@@ -72,4 +101,12 @@ private:
     // 上次绑定按需计算的模型；用于「切换模型时自动关闭」，
     // 而在同一模型上选属性（同样会触发 initAnimationComponents）时保持开启
     iGame::DataObject* m_VortexBoundModel{nullptr};
+    
+    bool m_DiffAutoCompute{false};     // 播放时按需补算 diff
+    std::string m_DiffSourceAttr;      // 计算 diff 所用的源属性名
+    int m_DiffMode{0};                 // 0 带符号差(cur-prev)，1 绝对差，2 相对变化率
+    iGame::DataObject* m_DiffBoundModel{nullptr};  // 绑定模型，切换模型时自动关闭
+    double m_DiffGlobalMin{0.0};
+    double m_DiffGlobalMax{0.0};
+    bool m_DiffGlobalRangeValid{false};
 };

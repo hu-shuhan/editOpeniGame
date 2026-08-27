@@ -2107,6 +2107,87 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    QMenu* attrDiffMenu = view->addMenu(QStringLiteral("属性差值(AttrDiffPerFrame)"));
+    auto funcAttrDiff = [this](int mode) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!data) return;
+        auto frames = data->PeekTimeFrames();
+        const int frameNum = frames ? static_cast<int>(frames->GetTimeNum()) : 0;
+        if (frameNum <= 1) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("时间帧序列数不足"));
+            return;
+        }
+        int index = data->GetAttributeIndex();
+        if (index < 0) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("模型树未选择属性"));
+            return;
+        }
+        std::string attrName;
+        if (auto attrSet = data->GetAttributeSet()) {
+            if (index < static_cast<int>(attrSet->GetNumberOfAttributes())) {
+                if (auto ptr = attrSet->GetAttribute(index).pointer) {
+                    attrName = ptr->GetName();
+                }
+            }
+        }
+        if (attrName.empty()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("属性无效"));
+            return;
+        }
+        // 算过的帧尽量保存在缓存中
+        ui->widget_Animation->setPreferredCacheNum(frameNum);
+        if (frames->GetMaxCacheSize() < static_cast<unsigned int>(frameNum)) {
+            frames->EnableCache(frameNum);
+        }
+
+        ui->widget_Animation->SetDiffMode(mode);
+        int diffIndex = -1;
+        for (int j = 0; j < frameNum; ++j) {
+            // 先挂载第 j 帧再计算：保证幂等检查/计算/范围累计都针对同一帧对象。
+            // 否则循环里始终检查/写的是当前挂载的帧（通常是帧 0），后续帧根本不会被计算。
+            data->UpdateAnimation(j);
+            diffIndex = ui->widget_Animation->EnsureTimeDifferenceForCurrentFrame(data, attrName, j);
+            if (diffIndex < 0) {
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("第 %1 帧的属性差值计算失败").arg(j + 1));
+                return;
+            }
+        }
+        ui->widget_Animation->ApplyGlobalDiffRange(data, ui->widget_Animation->GetDiffOutputName(attrName));
+
+        // 重建属性子节点
+        modelTreeWidget->updateAllAttriubute(data);
+        if(auto drawObj = DynamicCast<DrawObject>(data)) {
+            drawObj->ConvertToDrawableData();
+        }
+        // 自动选中diff
+        auto item = modelTreeWidget->getItemFromObject(data);
+        if (item && item->childCount() > diffIndex) { 
+            item->setExpanded(true);
+            auto child = item->child(diffIndex);
+            if (child) {
+                item->setCurrentChild(child);
+                item->setSelected(false);
+                item->viewAttribute(diffIndex, -1);
+                child->setSelected(true);
+                modelTreeWidget->setCurrentItem(child);
+            }
+         }
+        // 在模型树操作之后,setCurrentItem触发CurrendModelChanged→initAnimationComponents，
+        // 若提前开启会被当成尚未绑定模型而立即关掉。
+        ui->widget_Animation->SetDiffAutoCompute(true, attrName);
+    };
+    QAction* attrDiffSigned = attrDiffMenu->addAction(QStringLiteral("带符号差"));
+    connect(attrDiffSigned, &QAction::triggered, this, [funcAttrDiff](bool) { funcAttrDiff(0); });
+    QAction* attrDiffAbs = attrDiffMenu->addAction(QStringLiteral("绝对差"));
+    connect(attrDiffAbs, &QAction::triggered, this, [funcAttrDiff](bool) { funcAttrDiff(1); });
+    QAction* attrDiffRel = attrDiffMenu->addAction(QStringLiteral("相对变化率"));
+    connect(attrDiffRel, &QAction::triggered, this, [funcAttrDiff](bool) { funcAttrDiff(2); });
+
     QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction(
             QStringLiteral("拉格朗日非结构网格可视化 (LagrangeUnstructedMesh Visualization)"));
     connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
