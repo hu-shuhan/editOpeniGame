@@ -6,7 +6,7 @@
 
 | # | 子功能（对考核条目） | 状态 | 详细文档 |
 |---|----------------------|------|----------|
-| 1 | Meshlet | ✅ 已实现 | [GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md) |
+| 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | [GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md) |
 | 2 | 等几何 / 高阶单元高保真可视化（谱方法专项见「已知缺口」） | ✅ 部分实现（Spline / Lagrange） | [README_7.1.md](README_7.1.md) |
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
 | 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
@@ -34,9 +34,9 @@
 
 ---
 
-## 子功能 1：Meshlet
+## 子功能 1：高精并行可视化内核
 
-Meshlet 的功能说明、源码路径、调用方式和测试用例见 **[GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md)**。
+本子功能通过 **Meshlet** 实现并行可视化。Meshlet 的功能说明、源码路径、调用方式和测试用例见 **[GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md)**。
 
 ---
 
@@ -190,7 +190,7 @@ if (!report->Execute()) {
 
 | Target | 对应子功能 | 条件 |
 |--------|------------|------|
-| `testMeshletRendering` | 1 Meshlet | 默认 |
+| `testMeshletRendering` | 1 并行加速 | 默认 |
 | `testSplineReaderCPU` / `testSplineReaderGPU` / `testConvertToLagrangeUnstructuredMesh` | 2 高保真 | GPU 样条需 GPS CUDA |
 | `testSetScalarField` / `testVector*` / `testTensorView` / … | 3 场可视化 | 见 11.3 |
 | GUI 包围框视角 / `testStreamline` / `testMultiscaleInteraction` | 4 局部聚焦与多尺度流线 | 默认 |
