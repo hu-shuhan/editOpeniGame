@@ -1,6 +1,7 @@
 #include "iGameSceneManager.h"
 #include <IQWidgets/igQtScalarViewWidget.h>
 #include <QRegExpValidator>
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
 //#include <iGameManager.h>
@@ -49,6 +50,49 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
             if (scene) { scene->SetOpacityMappingEnabled(checked); }
         });
+	connect(ui->checkBox_RangeLock, &QCheckBox::toggled, this,
+        [this](bool checked) {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (!scene || !scene->GetCurrentModel()) return;
+            auto obj = scene->GetCurrentModel()->GetDataObject();
+            if (!obj || scalarName.empty()) return;
+
+            if (checked) {
+                // 计算该属性在所有帧上的全局范围（与标量视图同分量的并集）
+                double gmin = DBL_MAX, gmax = DBL_MIN;
+                bool found = false;
+                if (auto frames = obj->PeekTimeFrames()) {
+                    const size_t n = frames->GetTimeNum();
+                    for (size_t j = 0; j < n; ++j) {
+                        auto frameData = frames->GetTargetTimeFrameData(j);
+                        for (auto& o : frameData) {
+                            auto d = iGame::DynamicCast<iGame::DataObject>(o);
+                            if (!d) continue;
+                            auto attrs = d->GetAttributeSet();
+                            if (!attrs || attrs->GetAttributeIndex(scalarName) < 0) continue;
+                            auto r = attrs->GetAttribute(scalarName).GetDataRange();
+                            if (!r || r->GetNumberOfValues() < 2) continue;
+                            int e = scalarDimension + 1;
+                            if (e < 0 || e >= r->GetNumberOfElements()) { e = 0; }
+                            gmin = std::min(gmin, r->GetValue(2 * e));
+                            gmax = std::max(gmax, r->GetValue(2 * e + 1));
+                            found = true;
+                        }
+                    }
+                }
+                if (!found) { gmin = scalarMin; gmax = scalarMax; }
+                if (gmax <= gmin) { gmin = std::min(gmin, -1.0); gmax = std::max(gmax, 1.0); }
+                obj->FixAttributeRange(scalarName, gmin, gmax, scalarDimension);
+            } else {
+                obj->UnfixAttributeRange(scalarName);
+            }
+
+            if (auto draw = iGame::DynamicCast<iGame::DrawObject>(obj)) {
+                draw->ForceReConvertToDrawableData();
+                draw->ConvertToDrawableData();
+            }
+            scene->Update();
+        });
 }
 void igQtScalarViewWidget::loadScalarData() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -75,6 +119,8 @@ void igQtScalarViewWidget::loadScalarData() {
 	this->scalarDimension = obj->GetAttributeDimension();
     QSignalBlocker blocker(ui->checkBox_EnableOpacityMapping);
     ui->checkBox_EnableOpacityMapping->setChecked(scene->GetOpacityMappingEnabled());
+    QSignalBlocker rangeBlocker(ui->checkBox_RangeLock);
+    ui->checkBox_RangeLock->setChecked(obj->IsAttributeRangeLocked(scalarName));
 
 	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
 	if (dataRange) {

@@ -45,6 +45,16 @@ public:
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
     int GetCurrentAttributeIndex() { return m_AttributeIndex; }
     int GetCurrentAttributeDimension(){return m_AttributeDimension;}
+    // 通用范围锁定：把指定属性在所有帧上的范围固定为 [minv, maxv]
+    // dimension: -1 表示锁定模长范围，0/1/2 表示锁定对应分量范围
+    bool FixAttributeRange(const std::string& attrName, double minv, double maxv, int dimension = -1);
+    // 解除范围锁定，恢复逐帧自动范围
+    bool UnfixAttributeRange(const std::string& attrName);
+    // 查询指定属性是否处于范围锁定状态
+    bool IsAttributeRangeLocked(const std::string& attrName);
+    // 帧挂载后重放范围锁定：把父容器已锁定属性的固定范围同步到挂载子对象，
+    // 避免缓存重读/初始加载的帧对象（未带锁）把父范围重新聚合成当帧值
+    void ReapplyRangeLocks();
 
     void SetBlockMapping(IntArray::Pointer p);
     IntArray* GetBlockMapping();

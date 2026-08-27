@@ -96,15 +96,19 @@ vec4 blend(vec4 currentColor, vec4 newColor) {
 
 // Remove Duplicates
 vec4 CalculateFinalColor(int fragCount) {
+    // 从背景（不透明前景）开始，按深度由远及近逐层 alpha 混合：
+    // 透明度真正“叠加”，保留边缘/角落的层叠结构与前后遮挡关系
     vec4 finalColor = GetResolveColor();
 
     int slow = 0;
     float bias = 0.005;
 
     for (int fast = 1; fast <= fragCount; ++fast) {
-        bool shouldSkip = (fast != fragCount) &&
-        (uintBitsToFloat(fragments[slow].z) - uintBitsToFloat(fragments[fast].z) < bias);
-        if (shouldSkip) { continue; }
+        // 只合并深度几乎相同的片元（同一表面的重复面），避免同一位置重复叠加
+        bool shouldMerge = (fast != fragCount) &&
+            (uintBitsToFloat(fragments[fast].z) -
+                     uintBitsToFloat(fragments[slow].z) < bias);
+        if (shouldMerge) { continue; }
 
         vec4 color = vec4(0.0f);
         int count = fast - slow;
@@ -113,6 +117,7 @@ vec4 CalculateFinalColor(int fragCount) {
         }
         color /= float(count);
 
+        // 升序排序 = 由远及近，逐层叠加
         finalColor = blend(finalColor, color);
 
         slow = fast;

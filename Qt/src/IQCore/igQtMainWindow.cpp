@@ -2157,8 +2157,6 @@ void igQtMainWindow::initAllFilters() {
                 return;
             }
         }
-        ui->widget_Animation->ApplyGlobalDiffRange(data, ui->widget_Animation->GetDiffOutputName(attrName));
-
         // 重建属性子节点
         modelTreeWidget->updateAllAttriubute(data);
         if(auto drawObj = DynamicCast<DrawObject>(data)) {

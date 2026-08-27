@@ -605,7 +605,7 @@ void Model::DrawWithTransparency() {
                                 m_Scene->GetSurfaceShadingMode() == 1 ? 0 : 1);
             shader->SetUniform3f("inputColor",
                                  renderableObject->GetDefaultColor());
-            shader->SetUniformi("colorMode", hasOpacityMapping ? 1 : 0); //
+            shader->SetUniformi("colorMode", 0);
 
             if (colorWithCell) {
                 renderableObject->m_CellVAO->DrawArrays(

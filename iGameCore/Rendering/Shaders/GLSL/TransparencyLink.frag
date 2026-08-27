@@ -121,7 +121,9 @@ void main() {
     uvec4 item;
     item.x = oldHead;
     item.y = packUnorm4x8(fragColor);
-    item.z = floatBitsToUint(gl_FragCoord.z);
+    // 用视空间距离（取负）做排序键：升序 = 远→近，
+    // 避免 gl_FragCoord.z 受裁剪/深度范围影响导致远近顺序颠倒
+    item.z = floatBitsToUint(-length(in_VCPosition));
     item.w = 0;
 
     imageStore(listBuffer, int(newHead), item);

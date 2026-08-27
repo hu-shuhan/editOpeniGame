@@ -29,6 +29,7 @@ public:
          * Element[N] : Nth dimension data range, if exist.
          * */
         DoubleArray::Pointer dataRange{nullptr};
+        bool rangeLocked{false};        // 范围锁定：锁定后 UpdateAllDataRange 不再按数据重算
 
         // Get/Set ...
         ArrayObject::Pointer GetPointer();

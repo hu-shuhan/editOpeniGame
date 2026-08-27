@@ -43,29 +43,14 @@ public:
     void SetDiffAutoCompute(bool enabled, const std::string& sourceAttrName = std::string());
     bool IsDiffAutoCompute() const { return m_DiffAutoCompute; }
     // 0 带符号差(cur-prev)，1 绝对差，2 相对变化率
-    void SetDiffMode(int mode) {
-        if (m_DiffMode != mode) {
-            m_DiffMode = mode;
-            ResetDiffGlobalRange();
-        }
-    }
+    void SetDiffMode(int mode) { m_DiffMode = mode; }
     // 确保obj的当前帧已有 <源属性名>_diff_<类型>，已存在直接返回，
     // 不存在才计算。frameIndex 是真实帧号（>=0）：第 0 帧写全 0，第 i 帧对比第 i-1 帧。
     // 返回 diff 在父容器 AttributeSet 中的索引；失败返回 -1。
     int EnsureTimeDifferenceForCurrentFrame(iGame::DataObject::Pointer obj,
                                             const std::string& sourceAttrName,
                                             int frameIndex);
-    double GetDiffGlobalMin() const { return m_DiffGlobalMin; }
-    double GetDiffGlobalMax() const { return m_DiffGlobalMax; }
-    bool IsDiffGlobalRangeValid() const { return m_DiffGlobalRangeValid; }
-    void ResetDiffGlobalRange() {
-        m_DiffGlobalRangeValid = false;
-        m_DiffGlobalMin = 0.0;
-        m_DiffGlobalMax = 0.0;
-    }
     std::string GetDiffOutputName(const std::string& sourceAttrName) const;
-    // 把全局范围写进 diff 属性的 dataRange 并强制子对象重转换
-    void ApplyGlobalDiffRange(iGame::DataObject::Pointer obj, const std::string& outputName);
 
 public slots:
     void initAnimationComponents();
@@ -106,7 +91,4 @@ private:
     std::string m_DiffSourceAttr;      // 计算 diff 所用的源属性名
     int m_DiffMode{0};                 // 0 带符号差(cur-prev)，1 绝对差，2 相对变化率
     iGame::DataObject* m_DiffBoundModel{nullptr};  // 绑定模型，切换模型时自动关闭
-    double m_DiffGlobalMin{0.0};
-    double m_DiffGlobalMax{0.0};
-    bool m_DiffGlobalRangeValid{false};
 };

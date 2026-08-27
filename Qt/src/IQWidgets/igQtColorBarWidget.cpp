@@ -62,6 +62,26 @@ void igQtColorBarWidget::updateColorBarDrawInfo() {
 	}
     float min = m_ColorMapper->GetRange()[0];
     float max = m_ColorMapper->GetRange()[1];
+	// 若当前属性已锁定范围，刻度直接读父容器固定的 dataRange（与标量场同源），
+	// 避免 mapper 在帧内被临时改回当帧范围导致颜色条刻度跳动
+	if (!m_AttributeName.empty()) {
+		auto sc = iGame::SceneManager::Instance()->GetCurrentScene();
+		if (sc && sc->GetCurrentModel() && sc->GetCurrentModel()->GetDataObject()) {
+			auto dataObject = sc->GetCurrentModel()->GetDataObject();
+			if (dataObject->IsAttributeRangeLocked(m_AttributeName)) {
+				auto attrs = dataObject->GetAttributeSet();
+				auto& attr = attrs->GetAttribute(m_AttributeName);
+				auto dr = attr.GetDataRange();
+				if (dr && dr->GetNumberOfValues() >= 2) {
+					int dim = dataObject->GetAttributeDimension();
+					int e = dim + 1;
+					if (e < 0 || e >= dr->GetNumberOfElements()) { e = 0; }
+					min = (float)dr->GetValue(2 * e);
+					max = (float)dr->GetValue(2 * e + 1);
+				}
+			}
+		}
+	}
 	this->strData.resize(6);
 	for (int i = 0; i < 6; i++) {
 		float x = min + i * (max - min) * 0.2;

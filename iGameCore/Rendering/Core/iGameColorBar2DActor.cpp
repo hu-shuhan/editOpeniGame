@@ -359,10 +359,32 @@ void ColorBar2DActor::DrawLabels(const Layout& layout,
     const double* range = mapper->GetRange();
     if (range == nullptr) { return; }
 
+    // 若当前属性已锁定范围，刻度直接读父容器固定的 dataRange（与标量场同源），
+    // 避免因 mapper 在帧内被临时改回当帧范围而导致颜色条刻度跳动
+    double minV = range[0];
+    double maxV = range[1];
+    if (m_Scene && m_Scene->GetCurrentModel()) {
+        auto dataObject = m_Scene->GetCurrentModel()->GetDataObject();
+        if (dataObject && dataObject->GetAttributeIndex() >= 0) {
+            auto attrs = dataObject->GetAttributeSet();
+            if (attrs) {
+                auto& attr = attrs->GetAttribute(dataObject->GetAttributeIndex());
+                if (attr.pointer && attr.rangeLocked && attr.dataRange &&
+                    attr.dataRange->GetNumberOfValues() >= 2) {
+                    int dim = dataObject->GetAttributeDimension();
+                    int e = dim + 1;
+                    if (e < 0 || e >= attr.dataRange->GetNumberOfElements()) { e = 0; }
+                    minV = attr.dataRange->GetValue(2 * e);
+                    maxV = attr.dataRange->GetValue(2 * e + 1);
+                }
+            }
+        }
+    }
+
     const igm::vec3 textColor{1.0f, 1.0f, 1.0f};
-    const std::string minText = FormatNumber(range[0]);
-    const std::string midText = FormatNumber((range[0] + range[1]) * 0.5);
-    const std::string maxText = FormatNumber(range[1]);
+    const std::string minText = FormatNumber(minV);
+    const std::string midText = FormatNumber((minV + maxV) * 0.5);
+    const std::string maxText = FormatNumber(maxV);
 
     const float labelScale =
             std::max(0.06f, std::min(0.14f, layout.height / 90.0f));

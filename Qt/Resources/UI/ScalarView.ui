@@ -197,6 +197,18 @@ QPushButton:pressed { background-color: #4A4A4A; }</string>
              </widget>
             </item>
 
+            <!-- 固定范围 -->
+            <item>
+              <widget class="QCheckBox" name="checkBox_RangeLock">
+                <property name="text">
+                <string>固定范围</string>
+                </property>
+                <property name="styleSheet">
+                <string notr="true">QCheckBox { font-size: 14px; color: #CCCCCC; }</string>
+                </property>
+             </widget>
+            </item>
+
             <item>
              <widget class="igQtDataRangeSlider" name="widget_DataRangeSlider" native="true">
               <property name="minimumSize">
