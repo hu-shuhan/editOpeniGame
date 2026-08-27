@@ -34,3 +34,5 @@
 
 /Examples/.vs/
 /Examples/out/
+
+CMakeUserPresets.json

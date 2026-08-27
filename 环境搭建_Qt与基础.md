@@ -191,6 +191,9 @@ cmake -B build -G "Visual Studio 17 2022" -A x64 `
   -DENABLE_GPSCUDA_MODULE=OFF
 ```
 
+每个人的编译环境不同，建议另外于根目录新建一个CMakeUserPresets.json，参照CMakePresets.json中的构建、编译预设，书写适用于自己的预设配置，后续只需指定预设名，使用`cmake --preset [预设名字]`即可快速重复构建、编译。
+
+
 
 ### 4.2 编译
 
