@@ -38,10 +38,12 @@ private:
     unsigned int count;
     DrawType drawmode = EveryNth;
     int Nth = 1200;
-    IGsize m_AllCellInterval = 1;
+    IGsize m_SamplingInterval = 1;
+    IGsize m_ProcessedCandidateCount = 0;
     bool isUpdate = false;
 
-    void CalculateAllCellSamplingInterval(const std::string& VecName);
+    void CalculateSamplingInterval(const std::string& VecName);
+    IGsize GetFirstSampleIndex(IGsize begin, IGsize end);
 
 public:
     void SetArrow(float _hR, float _hL, float _tR, float _tL);
