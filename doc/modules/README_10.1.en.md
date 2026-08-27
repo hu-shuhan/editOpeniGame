@@ -9,9 +9,9 @@ For multi-dimensional CAE physical-field data, this metric provides interaction-
 | 1 | Point-driven local-region chart analysis: pick a point, auto-determine a bounding box from the current attribute, and run chart analysis on that local region | ✅ Implemented |
 | 2 | Entropy-based automatic streamline seed placement for a region | ✅ Implemented |
 | 3 | Intelligent streamline filtering | ✅ Implemented |
-| 4 | Semantic-segmentation-based table attributes | ✅ Implemented |
+| 4 | Semantic-segmentation-based table attributes | ⏳ Planned |
 
-> This document covers the completed sub-features **1**, **2**, **3**, and **4**.
+> This document covers the completed sub-features **1**, **2**, **3**. Sub-feature 4 will be added once implemented.
 
 ---
 
@@ -170,105 +170,6 @@ if (simp->Execute()) {
 ### GUI
 
 In the streamline panel `igQtStreamTracerWidget`, first select a generated streamline object in the model tree (name contains `_StreamLine`), then click the **Cluster** button to trigger `Simplifier()`: the cluster count comes from `clusterSpin` and the kept total from `perClusterSpin`. The first filtering caches a snapshot of the original streamlines, so parameters can be re-tuned repeatedly without losing the original data; results are colored by the `ClusterLabel` cloud map.
-
----
-
-## Sub-feature 4: Semantic-segmentation-based table attributes
-
-### Description
-
-The system runs P3SAM part-semantic segmentation on the current CAE mesh, obtains a per-cell `part_id` from the segmented mesh, and maps the low-resolution result back to the original high-resolution mesh. The mapped result is written into the current original `DataObject::AttributeSet` as an `IG_BLOCK_MAPPING` attribute attached to `IG_CELL`, making it available to subsequent UI components and algorithms. The Search Data panel then reads point and cell attributes dynamically, creates table columns, and supports queries by `part_id`, other physical-field attributes, and the current selection.
-
-Flow: **current model → triangulation / simplification → P3SAM segmentation → read `part_id` → map to original cells → write to `AttributeSet` → table query and part linkage**.
-
-`part_id` is an integer identifier for a segmented region or part; it does not itself contain a human-readable category such as “bolt” or “blade.” A semantic service must return and attach additional attributes such as `class_id` or `class_name` if category names are required.
-
-### Source Paths
-
-| Path | Class / API | Description |
-|------|-------------|-------------|
-| `iGameCore/Core/Common/P3SAM/iGameP3SAMSegmenter.*` | `P3SAMSegmenter` | Full pipeline for triangulation, simplification, segmentation requests, VTK parsing, and mapping back to the original mesh |
-| `iGameCore/Core/Common/P3SAM/iGameP3SAMClient.*` | `P3SAMClient` | Sends OBJ data and the post-processing flag over TCP and receives a VTK segmentation result |
-| `iGameCore/Core/Common/iGameBlockMapping.*` | `BlockMapping` | Reads `part_id` from the segmented mesh and maps it spatially to the original surface, unstructured, or volume mesh |
-| `iGameCore/Core/DataModel/iGameDataObject.*` | `SetBlockMapping` / `GetBlockMapping` / `HasBlockMapping` | Writes and reads the mapped array as an `IG_BLOCK_MAPPING + IG_CELL` attribute in the current `AttributeSet` |
-| `Qt/src/IQWidgets/igQtSearchInfoWidget.*` | `igQtSearchInfoWidget` | Dynamic table columns, numeric queries, selection / part filtering, and pagination |
-| `Qt/src/IQWidgets/igQtPartFocusWidget.*` | `igQtPartFocusWidget` | Enumerates `part_id` values, counts cells per part, and links part selection to the table, camera, and selection box |
-| `Qt/src/IQCore/igQtMainWindow.cpp` | **Part Segmentation**, **Part Segmentation (From File)**, **Part Focus** | GUI entry points and signal connections between components |
-
-### Algorithm and Data Flow
-
-1. **Mesh preprocessing**: `P3SAMSegmenter::Execute()` converts the input to a drawable surface, triangulates and simplifies it according to `m_simplificationRatio`, and exports OBJ data to reduce network traffic and server-side inference cost.
-2. **Semantic segmentation**: `P3SAMClient` sends `[post_process][obj_size][obj_data]` to the configured P3SAM service and receives a VTK result. The returned mesh must contain an integer per-cell attribute named exactly `part_id`.
-3. **Mapping the low-resolution result back**: `BlockMapping::GetPartId` retrieves `part_id` from the segmented mesh. The system builds a voxel lookup grid from segmented-cell centroids and their IDs, queries the centroid of every original cell, and writes the nearest segmented region's ID to a new `IntArray`. Centroid collection, voxel assignment, and original-cell queries use `ThreadPool::parallelFor`.
-4. **Writing to the original attribute set**: after naming the mapped array `part_id`, the segmenter executes:
-
-   ```cpp
-   resultArray->SetName("part_id");
-   original->SetBlockMapping(resultArray);
-   ```
-
-   `SetBlockMapping` ultimately calls:
-
-   ```cpp
-   m_Attributes->AddAttribute(IG_BLOCK_MAPPING, IG_CELL, resultArray);
-   ```
-
-   Therefore, the current original model's `AttributeSet` is modified directly; the result is not kept only in the temporary simplified mesh or inside `P3SAMSegmenter`. Re-running segmentation removes the old BlockMapping attribute before writing the new one.
-5. **Generating table attributes**: `igQtSearchInfoWidget::refreshProperties` iterates over the `AttributeSet` and filters attributes by `IG_POINT` or `IG_CELL`. A scalar produces one column; a vector or tensor produces a magnitude column and one column per component. When `IG_BLOCK_MAPPING`, `part_id`, or `block_id` is found, cell mode prioritizes that attribute.
-6. **Queries and part linkage**: the table supports `=`, `>`, and `<` numeric conditions and restricts rows to selected points or cells when a 3D selection exists. The Part Focus panel counts cells by `part_id`; checked parts are passed to `setSelectedPartIds`, which restricts candidate rows before applying the selected attribute condition.
-7. **Pagination for large data**: filtered results store only point or cell IDs. The display stage reads values in pages of 100, 500, 1000, or 5000 rows and supports previous, next, and direct page navigation, avoiding creation of every `QTableWidgetItem` at once.
-
-### How It Is Called
-
-Online P3SAM segmentation:
-
-```cpp
-auto segmenter = iGame::P3SAMSegmenter::New();
-segmenter->SetServerHost("127.0.0.1");
-segmenter->SetServerPort(8765);
-segmenter->SetInput(dataObj);               // current original model
-segmenter->SetSimplificationRatio(0.1f);
-segmenter->SetPostProcess(false);
-segmenter->SetTimeout(300000);
-
-if (segmenter->Execute()) {
-    auto* partIds = dataObj->GetBlockMapping();
-    auto* attrs   = dataObj->GetAttributeSet(); // now contains cell-attached part_id
-}
-```
-
-When a segmented VTK already exists, read it as an `UnstructuredMesh` and map it directly:
-
-```cpp
-auto segmented = iGame::DynamicCast<iGame::UnstructuredMesh>(
-    iGame::FileIO::ReadFile("segment_result.vtk"));
-auto partIds = iGame::BlockMapping::GetMappingBlockCellsArray(originalMesh, segmented);
-if (partIds) {
-    partIds->SetName("part_id");
-    dataObj->SetBlockMapping(partIds);
-}
-```
-
-### GUI
-
-| Entry | Description |
-|-------|-------------|
-| **Algorithms → Part Segmentation** | Configure the P3SAM service IP / port, segment the current model online, and write back `part_id` |
-| **Algorithms → Part Segmentation (From File)** | Read an existing VTK containing `part_id` and map the result to the current model |
-| **Algorithms → Part Focus** | List `Part <id> (<N> Cells)` entries; focus the camera / set the selection box for checked parts and link them to the table |
-| **Search Data** / `action_SearchInfo` | Display all attributes in point / cell tables; when segmentation exists, enter cell mode and prioritize `part_id` |
-
-![Part segmentation](../../Resources/Images/零件分割.png)
-
-### Test and Validation Data
-
-| Item | Entry / Input | Description |
-|------|---------------|-------------|
-| Offline mapping validation | **Part Segmentation (From File)** | Select a user-provided `UnstructuredMesh` VTK whose `CELL_DATA` contains an attribute named exactly `part_id` |
-| Online integration | **Part Segmentation** | Requires an accessible P3SAM TCP service; the default address is `127.0.0.1:8765` |
-| Table validation | **Search Data** | Switch to cell data, confirm that `part_id` appears as an attribute column, and query a specific part ID with `=` |
-
-> There is currently no standalone command-line example target and no segmentation-result VTK committed with the repository. Offline validation requires a user-provided VTK containing `part_id`; online validation requires a separately running P3SAM server.
 
 ---
 

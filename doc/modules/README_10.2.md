@@ -9,7 +9,7 @@
 | 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 / 等值线与等值面 | ✅ 已实现 |
 | 2 | 基于神经网络的涡提取，与人工标注对比，计算准确率 / 精确率 / 召回率（精度 ≥ 90%） | ✅ 已实现（评估逻辑）；GUI 指标浮层待恢复 |
 | 3 | 支持针对不同类型数据，构建相应的程序接口，实现不同精度要求下的特征提取 | ✅ 已实现（等值线 / 等值面 × 面网格 / 体网格 × 原始 / 简化网格） |
-| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（时序 / 形变见 11.3；区域限定形变待增强） |
+| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（阶段一：颜色 / 不透明度映射 ✅；阶段二：逐帧属性差值 ✅；阶段三：属性范围锁定 ✅；时序 / 形变见 11.3） |
 
 > 本文档记录子功能 **1**、**2**、**3** 的完整实现，以及 **4** 与现有交互 / 可视化模块的衔接说明。
 > 与 **10.1** 的区别：10.1 侧重**分析数据生成**（局部图表、熵种子、流线筛选）；10.2 侧重**特征场提取与涡结构检测评估**。
@@ -27,10 +27,12 @@
 
 | 特征 | 输出属性名 | 说明 |
 |------|------------|------|
-| 梯度 | `gradient` | 标量 / 矢量场空间梯度 |
+| 梯度 | `gradient_<原始属性名>` | 标量输入 → 3 分量梯度向量；向量输入 → 9 分量梯度张量 |
 | 曲率 | `curvatures` | 曲面曲率（余切型离散） |
 | Laplacian | `laplacians` | 离散 Laplacian |
 | 涡量 | `vorticities` | 经典涡量 \(\omega = \nabla \times v\)（非神经网络） |
+
+> 梯度输出名现在会携带来源属性名，例如原始属性 `V` 的梯度属性为 `gradient_V`，避免多次计算不同属性时互相覆盖。
 
 **B. 特征几何**：结果是一个**新的网格对象**，作为独立模型加入模型树，而不是追加属性。
 
@@ -51,30 +53,31 @@
 
 | 特征 | 要求的输入 | 体网格（含 3D 单元）怎么办 |
 |------|------------|----------------------------|
-| 梯度 / 曲率 / Laplacian | **表面网格**（全 2D 单元） | 先做一次**表面提取**，再在提取出的面网格上计算 |
+| 梯度 | 面网格、体网格、结构化网格、混合网格、多面体网格 | **直接计算**，无需表面提取 |
+| 曲率 / Laplacian | **表面网格**（全 2D 单元） | 先做一次**表面提取**，再在提取出的面网格上计算 |
 | 涡量 | **3D 体单元** | 直接在体网格上计算；纯面网格反而不支持 |
 | 等值线 / 等值面 | 面网格、体网格、非结构网格、结构化网格**均可** | 直接算：2D 单元出等值线，3D 单元出等值面，无需表面提取 |
 
 **表面网格**（`IG_SURFACE_MESH`，或全部由 2D 单元构成的 `IG_UNSTRUCTURED_MESH`）可以直接执行梯度 / 曲率 / Laplacian。
 
-**体网格**（`IG_VOLUME_MESH`，或含四面体、六面体等 3D 单元的 `IG_UNSTRUCTURED_MESH`）不能直接算这三项，必须先走一步：
+**体网格**（`IG_VOLUME_MESH`，或含四面体、六面体等 3D 单元的 `IG_UNSTRUCTURED_MESH`）可以**直接计算梯度**。对于**曲率 / Laplacian**，必须先走一步：
 
 > 菜单「Filters」→ **数据处理 (Data Processing)** → **表面提取 (Surface Extraction)**
 
-该操作把模型的边界面提取成一个独立的面网格对象，命名为 `<原名>_surface`，并加入模型树。在模型树中选中这个 `_surface` 对象后，再执行梯度 / 曲率 / Laplacian 即可。
+该操作把模型的边界面提取成一个独立的面网格对象，命名为 `<原名>_surface`，并加入模型树。在模型树中选中这个 `_surface` 对象后，再执行曲率 / Laplacian 即可。
 
 注意两点：
 
 - **渲染时看到的"抽壳"不等于表面网格。** 抽壳结果存放在 `DrawObject` 的 `m_RenderableMesh.SurfaceMesh` 中，只供渲染器使用；数据对象本身仍是体网格，filter 读到的是它。必须显式执行一次表面提取，把面网格作为独立对象加入模型树。
-- **提取后算的是边界面上的量。** 面网格上的梯度是沿曲面的切向梯度，与体内标量场的三维梯度不是同一个量，解读结果时需要注意。
+- **提取后算的是边界面上的量。** 面网格上的曲率 / Laplacian 是沿曲面的量，与体内物理场的三维梯度不是同一个量，解读结果时需要注意。
 
-若在体网格上直接执行这三项，会弹出 `Not Surface Mesh !` —— 这是 filter 的默认提示文案，含义即"当前输入不是面网格"（体网格分支尚未接通，见 `iGameGradientFilter.cpp` 中 `ComputeGradientWithVolumeMesh` 的调用处）。
+若在体网格上直接执行曲率 / Laplacian，会弹出 `Not Surface Mesh !` —— 这是 filter 的默认提示文案，含义即"当前输入不是面网格"（体网格分支尚未接通）。**梯度不再受此限制**，体网格可直接计算。
 
 ### 源码路径
 
 | 路径 | 类 / API | 说明 |
 |------|----------|------|
-| `iGameCore/Filters/FeatureExtraction/iGameGradientFilter.*` | `GradientFilter` | 梯度 |
+| `iGameCore/Filters/FeatureExtraction/iGameAdvancedGradientFilter.*` | `AdvancedGradientFilter` | 梯度（面 / 体 / 结构化 / 混合 / 多面体） |
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | 曲率 |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
 | `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | 经典涡量 |
@@ -91,16 +94,23 @@
 auto dataObj = iGame::FileIO::ReadFile("./Models/pipedcylinder2d_gt.vtk");
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
 
-auto filter = iGame::GradientFilter::New();  // 或 CurvatureFilter / LaplacianFilter / VortexFilter
+auto filter = iGame::AdvancedGradientFilter::New();  // 新版梯度 Filter
 filter->SetInput(drawObj);
-filter->SetAttributeByIndex(attrIndex);      // 或 SetAttributeByName(name)
+filter->SetAttributeByIndex(attrIndex);             // 或 SetAttributeByName(name)
+filter->SetComputeGradientTensor(true);             // 向量输入 → 9 分量张量
+filter->SetOutputToPointData(true);                 // 输出点属性
 filter->Execute();
 
 int newIndex = drawObj->GetAttributeSet()->GetNumberOfAttributes() - 1;
 drawObj->ViewCloudPicture(scene, newIndex);
 ```
 
-统一模式：`Filter::New()` → `SetInput()` →（可选）`SetAttributeByIndex/Name` → `Execute()`，结果追加到 `AttributeSet`。
+统一模式：`Filter::New()` → `SetInput()` →（可选）`SetAttributeByIndex/Name` → 配置输出选项 → `Execute()`，结果追加到 `AttributeSet`。
+
+> 新版梯度输出名是 `gradient_<原始属性名>`，例如原始属性 `pressure` 对应 `gradient_pressure`。如果希望按名字查找结果，可以：
+> ```cpp
+> int idx = dataObj->GetAttributeSet()->GetAttributeIndex("gradient_pressure");
+> ```
 
 **等值线 / 等值面**走的是另一套接口——按数值而非属性索引驱动，且产出的是新网格。对应示例 `Examples/Filter/TestContourLine.cpp`：
 
@@ -139,8 +149,8 @@ draw->ViewCloudPicture(scene, index, dimension);
 
 | 入口 | 说明 | 输入要求 |
 |------|------|----------|
-| 菜单「算法处理」→ 数据处理 → 表面提取 (Surface Extraction) | 体网格 → `<原名>_surface` 面网格对象 | 体网格上做下面前三项的**前置步骤** |
-| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `GradientFilter` | 面网格 |
+| 菜单「算法处理」→ 数据处理 → 表面提取 (Surface Extraction) | 体网格 → `<原名>_surface` 面网格对象 | 体网格上做曲率 / Laplacian 的**前置步骤**；梯度不需要 |
+| 菜单「算法处理」→ 特征提取 → 计算梯度 (ComputeGradient) | `AdvancedGradientFilter` | 面网格 / 体网格 / 结构化 / 混合 / 多面体网格 |
 | 菜单「算法处理」→ 特征提取 → 计算 Laplacian | `LaplacianFilter` | 面网格 |
 | 菜单「算法处理」→ 特征提取 → 计算曲率 | `CurvatureFilter` | 面网格 |
 | 菜单「算法处理」→ 特征提取 → 计算涡量 | `VortexFilter` | 3D 体单元 |
@@ -150,7 +160,8 @@ draw->ViewCloudPicture(scene, index, dimension);
 典型操作顺序：
 
 - **面网格**：模型树选中模型 → 选中要处理的属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
-- **体网格**：模型树选中模型 → 数据处理 → 表面提取 → 在模型树中选中新出现的 `<原名>_surface` → 选中属性 → 特征提取 → 计算梯度 / Laplacian / 曲率
+- **体网格（计算梯度）**：模型树选中模型 → 选中要处理的属性 → 特征提取 → 计算梯度，**无需表面提取**
+- **体网格（计算曲率 / Laplacian）**：模型树选中模型 → 数据处理 → 表面提取 → 在模型树中选中新出现的 `<原名>_surface` → 选中属性 → 特征提取 → 计算曲率 / Laplacian
 - **涡量**：不需要表面提取，直接在体网格上选中速度矢量属性后执行
 - **等值线 / 等值面**：模型树选中模型 → 打开「轮廓提取」面板 → 选点标量与分量（面板会显示该分量的数值范围）→ 填等值数值 → 执行；结果作为独立模型 `<原名>_Contour` 加入模型树，可单独显示 / 隐藏 / 着色，反复改数值会原地更新同一个结果对象
 
@@ -163,6 +174,7 @@ draw->ViewCloudPicture(scene, index, dimension);
 | Target | 源文件 | 默认数据 |
 |--------|--------|----------|
 | `testGradientExtraction` | `Examples/Filter/FeatureExtraction/GradientExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
+| `testAdvancedGradientFilter` | `Examples/Filter/FeatureExtraction/AdvancedGradientFilterTest.cpp` | `./Models/StreamTest.vtk` |
 | `testCurvatureExtraction` | `Examples/Filter/FeatureExtraction/CurvatureExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testLaplacianExtraction` | `Examples/Filter/FeatureExtraction/LaplacianExtraction.cpp` | `./Models/Quad_Bicycle.vtk` |
 | `testVortexExtraction` | `Examples/Filter/FeatureExtraction/VortexExtraction.cpp` | `./Models/pipedcylinder2d_gt.vtk` |
@@ -398,13 +410,52 @@ auto res1 = contour2->GetContourMesh();
 |------|------|----------|
 | 时序帧切换 / 动画 | ✅ 通用能力已实现 | `DataObject::UpdateAnimation(keyframeIdx)`；PVD 读取；动画 Dock / FFMPEG（见 **11.3**） |
 | 关键特征随时间刷新 | ✅ 可对每帧属性切换云图；涡预测可按帧重跑或预计算后播放 | `ViewCloudPicture` + `UpdateAnimation` |
+| 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 阶段一已实现 | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` 透明管线；标量场面板「不透明度映射」开关 |
+| 逐帧属性差值（关键事件变化量） | ✅ 阶段二已实现 | 菜单「特征提取 → 属性差值」；`iGameAttrDiff`；逐帧计算属性差值 |
+| 属性范围锁定（固定范围） | ✅ 阶段三已实现 | 标量场面板「固定范围」；`DataObject::FixAttributeRange` / `ReapplyRangeLocks` |
 | 整模结构形变 | ✅ 已实现 | `StressDeformationFilter` + `igQtDeformationWidget`（**11.3**） |
-| **仅选中区域作用形变** | ⏳ 待增强 | 选区（Selection 交互层，见 10.3）与 `DeformationData` 尚未绑定「仅偏移选中点」路径 |
+
+### 阶段性实现：标量场到颜色 / 不透明度的映射（阶段一）
+
+作为「关键事件时域演化可视化」的阶段性实现，当前已支持在**表面绘制**下把选中的标量场同时映射为颜色与不透明度（点、线框与体绘制共用同一套映射链路）：
+
+- **颜色映射**：复用 `ScalarsToColors` 色标映射，属性值 → RGB；
+- **不透明度映射**：开启后按每个顶点的属性值生成 alpha（当前为线性传递函数 `opacity = 归一化后的属性值`，见 `ColorMap::MapOpacity`），并与对象整体透明度相乘后进入透明渲染管线；
+- **渲染路径**：`TransparencyLink.frag` 的 `colorMode==0`（表面 + 光照）与 `colorMode==1`（无光照）均输出 `in_Color.a * objectData.transparent`；`DrawWithTransparency` 在启用不透明度映射时即进入该路径（无需预先调低整体透明度），并经 OIT 逐像素排序保证混合正确；
+- **入口**：GUI 为标量场面板（`dockWidget_ScalarField` / `igQtScalarViewWidget`）的「不透明度映射」复选框；API 为 `Scene::SetOpacityMappingEnabled` / `DrawObject::SetOpacityMappingEnabled`（递归作用于子数据对象，可覆盖 PVD 多块帧）；体绘制示例见 `Examples/Rendering/SetVolumeRendering.cpp`。
+
+在关键事件时域演化中的用法：单帧即可用「颜色高亮 + 低值区域半透明」突出关键事件区域；结合 **11.3** 的动画播放能力逐帧切换属性，即可观察关键区域随时间的演化。
+
+### 阶段性实现：逐帧属性差值 + 范围锁定（阶段二 / 阶段三）
+
+**逐帧属性差值（阶段二）**：新增 `iGameAttrDiff` 过滤器，按所选属性逐帧计算相邻帧差值并作为新属性加入模型，用于刻画关键事件的变化量：
+
+- 第 0 帧差值为全 0；第 i 帧差值 = 第 i 帧属性 − 第 i−1 帧属性（按名字跨帧寻址，需各帧点数 / 拓扑一致）；
+- 三种差值模式：带符号差（默认）、绝对差、相对变化率；输出属性名形如 `<源属性>_diff` / `<源属性>_diff_abs` / `<源属性>_diff_rel`；
+- 入口：菜单「特征提取 → 属性差值」；动画播放时由播放钩子逐帧幂等惰性计算（已算过的帧直接复用，缓存重读的帧自动补算）；
+- 差值属性可作为普通云图属性显示，也可作为后续筛选 / 范围锁定的对象。
+
+**属性范围锁定（阶段三）**：任意属性（含差值属性）都可以一键固定为全局范围，使**同一个值在动画全程映射到同一种颜色和同一个不透明度**：
+
+- 数据层：`Attribute` 增加 `rangeLocked` 标志，`UpdateAllDataRange` 在锁定后不再按数据重算；`DataObject::FixAttributeRange / UnfixAttributeRange / IsAttributeRangeLocked` 提供通用锁定 / 解锁 / 查询接口；
+- 稳定性：`UpdateAnimation` 挂载新帧后执行 `ReapplyRangeLocks` 把固定范围重放到子对象；`ReCollectSubDataObjectDataRange` 跳过锁定属性，父容器范围不再被当帧值覆盖；
+- GUI：标量场面板「固定范围」复选框——勾选时按所有帧计算全局范围并锁定；颜色条（浮窗与场景内）在锁定属性时直接读取父容器固定范围，刻度与标量场保持一致；
+- 用法：先算差值（或选择任意属性）→ 选中该属性 → 勾选「固定范围」→ 播放，颜色 / 不透明度 映射范围全程不变；取消勾选恢复逐帧自适应。
+
+**后续阶段规划**（本子功能的实现路线）：
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| 阶段一 | 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 已实现（本节） |
+| 阶段二 | 逐帧属性差值（`iGameAttrDiff`，原规划 `TimeDifferenceFilter`） | ✅ 已实现（本节） |
+| 阶段三 | 任意属性范围锁定（「固定范围」开关，颜色 / 不透明度 映射范围全程恒定） | ✅ 已实现（本节） |
 
 推荐工作流（当前可用）：
 
 ```text
 加载时序数据 → 特征提取 / 涡预测 → 云图显示关键场
+    →（可选）「特征提取 → 属性差值」计算逐帧变化量，选择差值属性
+    →（可选）勾选「固定范围」，使颜色 / 不透明度 映射范围恒定
     → 动画面板切换时间步（关键事件时域演化）
     →（可选）形变面板对整模施加位移矢量场
 ```
@@ -421,6 +472,13 @@ auto res1 = contour2->GetContourMesh();
 |------|------|
 | `iGameCore/Core/DataModel/iGameDataObject.*` | `UpdateAnimation` 时序切换 |
 | `iGameCore/IO/VTK XML/iGamePVDReader.*` | 时序 PVD |
+| `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | 标量 → RGBA 颜色 / 不透明度映射 |
+| `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | 表面透明管线逐顶点 alpha（OIT 排序） |
+| `Qt/src/IQWidgets/igQtScalarViewWidget.*` | 「不透明度映射」开关 |
+| `iGameCore/Filters/Animation/iGameAttrDiff.*` | 逐帧属性差值过滤器（阶段二） |
+| `iGameCore/Core/DataModel/iGameDataObject.*`（范围锁定） | `FixAttributeRange` / `UnfixAttributeRange` / `ReapplyRangeLocks`（阶段三） |
+| `Qt/Resources/UI/ScalarView.ui` / `igQtScalarViewWidget.*` | 「固定范围」开关（阶段三） |
+| `Qt/src/IQWidgets/igQtColorBarWidget.*`、`iGameCore/Rendering/Core/iGameColorBar2DActor.*` | 锁定属性时颜色条刻度读固定范围 |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | 结构形变 |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | 形变 Dock |
 | `doc/modules/README_11.3.md` | 时序 / 形变 / 动画完整说明 |
@@ -431,8 +489,11 @@ auto res1 = contour2->GetContourMesh();
 |------|------|
 | 菜单「可视化」→ 动画输出可视化 / `action_ExportAnimation` | 打开底部动画 Dock，关键特征场随时间播放（11.3） |
 | `dockWidget_Animation` | 时间轴播放、缓存帧数、导出 |
+| 菜单「特征提取」→ 属性差值（带符号差 / 绝对差 / 相对变化率） | 逐帧计算所选属性的差值并加入模型 |
 | 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
 | `DeformationDockWidget` / `igQtDeformationWidget` | 位移矢量、缩放因子、开关形变 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「不透明度映射」，把当前标量映射为颜色 + 不透明度 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「固定范围」，动画全程颜色 / 不透明度 映射范围恒定 |
 
 <!-- 待补充截图：关键事件时域演化
 ![关键特征时域演化](../../Resources/Images/关键特征时域演化.png)

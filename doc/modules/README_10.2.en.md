@@ -9,7 +9,7 @@ For CAE physical-field data, this metric provides key feature-field extraction, 
 | 1 | Classical physical features: gradient / curvature / Laplacian / vorticity / isolines and isosurfaces | ✅ Implemented |
 | 2 | NN-based vortex extraction vs. manual labels; Accuracy / Precision / Recall (target ≥ 90%) | ✅ Implemented (metrics); GUI overlay pending restore |
 | 3 | Per-data-type program interfaces enabling feature extraction at different precision levels | ✅ Implemented (isolines / isosurfaces × surface / volume × original / simplified meshes) |
-| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (time series / deformation in 11.3; region-limited deformation TBD) |
+| 4 | Temporal evolution of key events; deformation applied only to the selected region | ⏳ Partial (Phase 1: color / opacity mapping ✅; Phase 2: per-frame attribute difference ✅; Phase 3: attribute range lock ✅; time series / deformation in 11.3) |
 
 > This document covers sub-features **1**, **2** and **3** in full, and how **4** connects to existing interaction and visualization modules.
 > Key-region click / box selection itself is covered by **10.3** and the `Selection` module and is not repeated here.
@@ -28,10 +28,12 @@ From the currently selected physical attribute (scalar / vector), extract classi
 
 | Feature | Output attribute | Notes |
 |---------|------------------|-------|
-| Gradient | `gradient` | Spatial gradient of scalar / vector fields |
+| Gradient | `gradient_<source attribute>` | Scalar input → 3-component gradient vector; vector input → 9-component gradient tensor |
 | Curvature | `curvatures` | Surface curvature (cotangent-style discrete) |
 | Laplacian | `laplacians` | Discrete Laplacian |
 | Vorticity | `vorticities` | Classical \(\omega = \nabla \times v\) (not neural) |
+
+> The gradient output name now carries the source attribute name, e.g. `gradient_V` for a source attribute `V`, so computing gradients of different attributes no longer overwrites each other.
 
 **B. Feature geometry**: the result is a **new mesh object** added to the model tree as its own model, rather than an appended attribute.
 
@@ -50,34 +52,35 @@ Polygons are fan-triangulated first and then treated as triangles; polyhedra go 
 
 ### Supported Mesh Types (important)
 
-Input requirements differ per feature — the first two groups are in fact opposites:
+Input requirements differ per feature:
 
 | Feature | Required input | What to do with a volume mesh (3D cells) |
 |---------|----------------|------------------------------------------|
-| Gradient / Curvature / Laplacian | **Surface mesh** (all 2D cells) | Run **Surface Extraction** first, then compute on the extracted surface |
+| Gradient | Surface, volume, structured, mixed and polyhedral meshes | **Compute directly**; no surface extraction needed |
+| Curvature / Laplacian | **Surface mesh** (all 2D cells) | Run **Surface Extraction** first, then compute on the extracted surface |
 | Vorticity | **3D volume cells** | Compute directly on the volume mesh; a surface-only mesh is not supported |
 | Isolines / isosurfaces | Surface, volume, unstructured and structured meshes — **all accepted** | Run it directly: 2D cells give isolines, 3D cells give isosurfaces; no surface extraction needed |
 
 A **surface mesh** (`IG_SURFACE_MESH`, or an `IG_UNSTRUCTURED_MESH` made entirely of 2D cells) takes gradient / curvature / Laplacian directly.
 
-A **volume mesh** (`IG_VOLUME_MESH`, or an `IG_UNSTRUCTURED_MESH` containing tets, hexes, … ) needs one extra step first:
+A **volume mesh** (`IG_VOLUME_MESH`, or an `IG_UNSTRUCTURED_MESH` containing tets, hexes, … ) can compute gradient directly. For **curvature / Laplacian**, it needs one extra step first:
 
 > Menu **Filters → Data Processing → Surface Extraction**
 
-This extracts the model's boundary faces into a standalone surface-mesh object named `<name>_surface` and adds it to the model tree. Select that `_surface` object in the tree, then run gradient / curvature / Laplacian on it.
+This extracts the model's boundary faces into a standalone surface-mesh object named `<name>_surface` and adds it to the model tree. Select that `_surface` object in the tree, then run curvature / Laplacian on it.
 
 Two caveats:
 
 - **The "shell" you see while rendering is not a surface mesh.** The shell lives in `DrawObject`'s `m_RenderableMesh.SurfaceMesh` and exists only for the renderer; the data object itself is still a volume mesh, and that is what filters read. Surface Extraction must be run explicitly so the surface becomes its own object in the model tree.
-- **After extraction you are computing on the boundary.** A gradient on a surface mesh is the tangential gradient along that surface, which is not the same quantity as the 3D gradient of the volumetric field — keep that in mind when reading the result.
+- **After extraction you are computing on the boundary.** Curvature / Laplacian on a surface mesh are surface quantities, not the same as the 3D gradient of the volumetric field — keep that in mind when reading the result.
 
-Running these three directly on a volume mesh raises `Not Surface Mesh !`. That is the filter's default message and simply means "this input is not a surface mesh" (the volume-mesh branch is not wired up — see the `ComputeGradientWithVolumeMesh` call site in `iGameGradientFilter.cpp`).
+Running curvature / Laplacian directly on a volume mesh raises `Not Surface Mesh !`. That is the filter's default message and simply means "this input is not a surface mesh" (the volume-mesh branch is not wired up). **Gradient is no longer limited by this** — it can be run on volume meshes directly.
 
 ### Source Paths
 
 | Path | Class | Notes |
 |------|-------|-------|
-| `iGameCore/Filters/FeatureExtraction/iGameGradientFilter.*` | `GradientFilter` | Gradient |
+| `iGameCore/Filters/FeatureExtraction/iGameAdvancedGradientFilter.*` | `AdvancedGradientFilter` | Gradient (surface / volume / structured / mixed / polyhedral) |
 | `iGameCore/Filters/FeatureExtraction/iGameCurvatureFilter.*` | `CurvatureFilter` | Curvature |
 | `iGameCore/Filters/FeatureExtraction/iGameLaplacianFilter.*` | `LaplacianFilter` | Laplacian |
 | `iGameCore/Filters/FeatureExtraction/iGameVortexFilter.*` | `VortexFilter` | Classical vorticity |
@@ -88,20 +91,29 @@ Running these three directly on a volume mesh raises `Not Surface Mesh !`. That 
 
 ### How It Is Called
 
+From `Examples/Filter/FeatureExtraction/GradientExtraction.cpp`:
+
 ```cpp
-auto dataObj = iGame::FileIO::ReadFile(fileName);
+auto dataObj = iGame::FileIO::ReadFile("./Models/pipedcylinder2d_gt.vtk");
 auto drawObj = iGame::DynamicCast<iGame::DrawObject>(dataObj);
 
-auto filter = iGame::GradientFilter::New();  // or CurvatureFilter / LaplacianFilter / VortexFilter
+auto filter = iGame::AdvancedGradientFilter::New();  // new gradient filter
 filter->SetInput(drawObj);
-filter->SetAttributeByIndex(attrIndex);      // or SetAttributeByName(name)
+filter->SetAttributeByIndex(attrIndex);             // or SetAttributeByName(name)
+filter->SetComputeGradientTensor(true);             // vector input → 9-component tensor
+filter->SetOutputToPointData(true);                 // output point data
 filter->Execute();
 
 int newIndex = drawObj->GetAttributeSet()->GetNumberOfAttributes() - 1;
 drawObj->ViewCloudPicture(scene, newIndex);
 ```
 
-Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByIndex/Name` → `Execute()`; results are appended to `AttributeSet`.
+Common pattern: `Filter::New()` → `SetInput()` → (optional) `SetAttributeByIndex/Name` → configure output options → `Execute()`; results are appended to `AttributeSet`.
+
+> The new gradient output name is `gradient_<source attribute>`, e.g. `gradient_pressure` for a source attribute `pressure`. To look it up by name:
+> ```cpp
+> int idx = dataObj->GetAttributeSet()->GetAttributeIndex("gradient_pressure");
+> ```
 
 **Isolines / isosurfaces** use a different interface — driven by values rather than an attribute index, and producing a new mesh. From `Examples/Filter/TestContourLine.cpp`:
 
@@ -141,8 +153,8 @@ Three caveats:
 
 | Menu item | Filter | Required input |
 |-----------|--------|----------------|
-| Filters → Data Processing → Surface Extraction | → `<name>_surface` surface object | **Prerequisite** for the next three on a volume mesh |
-| Filters → Feature Extraction → ComputeGradient | `GradientFilter` | Surface mesh |
+| Filters → Data Processing → Surface Extraction | → `<name>_surface` surface object | **Prerequisite** for curvature / Laplacian on a volume mesh; gradient does not need it |
+| Filters → Feature Extraction → ComputeGradient | `AdvancedGradientFilter` | Surface / volume / structured / mixed / polyhedral mesh |
 | Filters → Feature Extraction → Compute Laplacian | `LaplacianFilter` | Surface mesh |
 | Filters → Feature Extraction → Compute Curvature | `CurvatureFilter` | Surface mesh |
 | Filters → Feature Extraction → Compute Vorticity | `VortexFilter` | 3D volume cells |
@@ -151,7 +163,8 @@ Three caveats:
 Typical order of operations:
 
 - **Surface mesh**: select the model → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
-- **Volume mesh**: select the model → Data Processing → Surface Extraction → select the new `<name>_surface` node → select the attribute → Feature Extraction → Gradient / Laplacian / Curvature
+- **Volume mesh (gradient)**: select the model → select the attribute → Feature Extraction → Gradient; **no surface extraction needed**
+- **Volume mesh (curvature / Laplacian)**: select the model → Data Processing → Surface Extraction → select the new `<name>_surface` node → select the attribute → Feature Extraction → Curvature / Laplacian
 - **Vorticity**: no extraction needed — select the velocity vector attribute on the volume mesh and run it
 - **Isolines / isosurfaces**: select the model → open the Contour Extraction panel → pick a point scalar and component (the panel shows that component's value range) → enter an iso value → run. The result joins the model tree as its own model `<name>_Contour`, can be shown / hidden / colored independently, and re-running with a new value updates the same result object in place
 
@@ -162,6 +175,7 @@ Results appear in the model-tree attribute list and can be shown via `dockWidget
 | Target | Notes |
 |--------|-------|
 | `testGradientExtraction` | Gradient |
+| `testAdvancedGradientFilter` | Gradient regression test (`./Models/StreamTest.vtk`) |
 | `testCurvatureExtraction` | Curvature |
 | `testLaplacianExtraction` | Laplacian |
 | `testVortexExtraction` | Classical vorticity |
@@ -370,13 +384,52 @@ That is a direct check of `ContourFilter`'s dispatch-by-cell-dimension logic. Bo
 |------------|--------|-------|
 | Time-step switching / animation | ✅ Generic capability | `DataObject::UpdateAnimation(keyframeIdx)`; PVD; animation dock / FFMPEG (**11.3**) |
 | Feature refresh over time | ✅ Switch cloud maps per frame; re-run or precompute vortex predict | `ViewCloudPicture` + `UpdateAnimation` |
+| Scalar → color / opacity mapping (surface rendering) | ✅ Phase 1 implemented | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` transparency pipeline; "Opacity Mapping" toggle in the Scalar View dock |
+| Per-frame attribute difference (key-event delta) | ✅ Phase 2 implemented | Menu "Feature Extraction → Attribute Difference"; `iGameAttrDiff`; per-frame attribute difference computation |
+| Attribute range lock (fixed range) | ✅ Phase 3 implemented | "Fixed Range" toggle in the Scalar View dock; `DataObject::FixAttributeRange` / `ReapplyRangeLocks` |
 | Whole-mesh structural deformation | ✅ Implemented | `StressDeformationFilter` + `igQtDeformationWidget` (**11.3**) |
-| **Deformation limited to selection** | ⏳ TBD | Selection (interaction layer, see 10.3) not yet bound to “offset selected points only” in `DeformationData` |
+
+### Phased implementation: scalar-to-color / opacity mapping (Phase 1)
+
+As the first phase of **temporal evolution of key events**, the platform now maps the selected scalar field to both color and opacity **in surface rendering** (points, wireframe and volume rendering share the same mapping chain):
+
+- **Color mapping**: reuses the `ScalarsToColors` color bar — attribute value → RGB;
+- **Opacity mapping**: when enabled, each vertex gets an alpha derived from its attribute value (currently a linear transfer function `opacity = normalized value`, see `ColorMap::MapOpacity`), multiplied by the object's overall transparency before entering the transparency pipeline;
+- **Render path**: in `TransparencyLink.frag`, both `colorMode==0` (surface + lighting) and `colorMode==1` (unlit) output `in_Color.a * objectData.transparent`; `DrawWithTransparency` enters this path as soon as opacity mapping is enabled (no need to lower the overall transparency first), and per-pixel OIT sorting keeps blending correct;
+- **Entry points**: GUI — tick "Opacity Mapping" in the Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`); API — `Scene::SetOpacityMappingEnabled` / `DrawObject::SetOpacityMappingEnabled` (recursive over sub-data-objects, covering PVD frame blocks); the volume-rendering example is `Examples/Rendering/SetVolumeRendering.cpp`.
+
+Usage for key-event temporal evolution: on a single frame, "color highlight + semi-transparent low-value regions" already isolates key event regions; combined with the animation playback in **11.3**, switching attributes frame by frame shows how key regions evolve over time.
+
+### Phased implementation: per-frame attribute difference + range lock (Phase 2 / Phase 3)
+
+**Per-frame attribute difference (Phase 2)**: a new `iGameAttrDiff` filter computes, for the selected attribute, the difference between adjacent frames and adds it as a new attribute, so the change magnitude of key events can be visualized:
+
+- Frame 0 has a zero difference; frame i difference = frame i attribute − frame i−1 attribute (resolved by name across frames; frames must have matching point counts / topology);
+- Three modes: signed difference (default), absolute difference, relative change rate; output names like `<source>_diff`, `<source>_diff_abs`, `<source>_diff_rel`;
+- Entry: menu "Feature Extraction → Attribute Difference"; during playback the hook computes lazily and idempotently per frame (cached frames are reused; cache-reloaded frames are recomputed);
+- The difference attribute can be shown as a regular cloud-map attribute and used as the object of range locking.
+
+**Attribute range lock (Phase 3)**: any attribute (including difference attributes) can be fixed to a global range, so that **the same value maps to the same color and the same opacity throughout the whole animation**:
+
+- Data layer: `Attribute` gains a `rangeLocked` flag and `UpdateAllDataRange` stops recomputing once locked; `DataObject::FixAttributeRange / UnfixAttributeRange / IsAttributeRangeLocked` provide generic lock / unlock / query;
+- Stability: `UpdateAnimation` calls `ReapplyRangeLocks` after mounting a new frame so the fixed range is re-applied to sub-objects; `ReCollectSubDataObjectDataRange` skips locked attributes so the parent range is never overwritten by per-frame values;
+- GUI: the "Fixed Range" checkbox in the Scalar View dock — checking it computes the global range over all frames and locks it; color bars (floating widget and in-scene actor) read the parent's fixed range directly for locked attributes, so ticks stay consistent with the Scalar View;
+- Usage: compute the difference (or pick any attribute) → select it → tick "Fixed Range" → play; the color / opacity mapping range stays constant; unchecking restores per-frame adaptive ranges.
+
+**Roadmap** (implementation path of this sub-feature):
+
+| Phase | Content | Status |
+|-------|---------|--------|
+| Phase 1 | Scalar → color / opacity mapping (surface rendering) | ✅ Implemented (this section) |
+| Phase 2 | Per-frame attribute difference (`iGameAttrDiff`, originally planned as `TimeDifferenceFilter`) | ✅ Implemented (this section) |
+| Phase 3 | Attribute range lock ("Fixed Range" toggle; constant color / opacity mapping range) | ✅ Implemented (this section) |
 
 Recommended workflow (available now):
 
 ```text
 Load time series → feature extraction / vortex predict → cloud-map key fields
+    → (optional) "Feature Extraction → Attribute Difference" to compute per-frame delta, select the difference attribute
+    → (optional) tick "Fixed Range" so the color / opacity mapping range stays constant
     → animation panel for timesteps (key-event temporal evolution)
     → (optional) deformation panel for whole-mesh displacement
 ```
@@ -393,6 +446,13 @@ Click / box-select key region → write deformation offsets only for that set �
 |------|-------|
 | `iGameCore/Core/DataModel/iGameDataObject.*` | `UpdateAnimation` |
 | `iGameCore/IO/VTK XML/iGamePVDReader.*` | Time-series PVD |
+| `iGameCore/Core/Common/iGameScalarsToColors.*` / `iGameColorMap.*` | Scalar → RGBA color / opacity mapping |
+| `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | Per-vertex alpha in the surface transparency pipeline (OIT sorting) |
+| `Qt/src/IQWidgets/igQtScalarViewWidget.*` | "Opacity Mapping" toggle |
+| `iGameCore/Filters/Animation/iGameAttrDiff.*` | Per-frame attribute difference filter (Phase 2) |
+| `iGameCore/Core/DataModel/iGameDataObject.*` (range lock) | `FixAttributeRange` / `UnfixAttributeRange` / `ReapplyRangeLocks` (Phase 3) |
+| `Qt/Resources/UI/ScalarView.ui` / `igQtScalarViewWidget.*` | "Fixed Range" toggle (Phase 3) |
+| `Qt/src/IQWidgets/igQtColorBarWidget.*`, `iGameCore/Rendering/Core/iGameColorBar2DActor.*` | Color-bar ticks read the fixed parent range for locked attributes |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | Structural deformation |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | Deformation dock |
 | `doc/modules/README_11.3.md` | Full time / deformation / animation notes |
@@ -402,7 +462,10 @@ Click / box-select key region → write deformation offsets only for that set �
 | Panel | Notes |
 |-------|-------|
 | Animation / time-series docks | Play key feature fields over time (11.3) |
+| Menu "Feature Extraction" → Attribute Difference (signed / absolute / relative) | Compute per-frame difference of the selected attribute and add it to the model |
 | Deformation dock / `igQtDeformationWidget` | Displacement vector, scale factors, enable deformation |
+| Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`) | Tick "Opacity Mapping" to map the current scalar to color plus opacity |
+| Scalar View dock (`dockWidget_ScalarField` / `igQtScalarViewWidget`) | Tick "Fixed Range" so the color / opacity mapping range stays constant during playback |
 
 ---
 

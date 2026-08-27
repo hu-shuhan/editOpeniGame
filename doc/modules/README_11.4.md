@@ -6,8 +6,8 @@
 
 | # | 子功能（对考核条目） | 状态 | 详细文档 |
 |---|----------------------|------|----------|
-| 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | [GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_8.1.md) |
-| 2 | 等几何 / 高阶单元高保真可视化 | ✅ 已实现 | [README_7.1.md](README_7.1.md) |
+| 1 | 高精并行可视化内核（对标 VTK：Meshlet GPU 加速、线程池、渲染压力调度） | ✅ 已实现 | [GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md) |
+| 2 | 等几何 / 高阶单元高保真可视化（谱方法专项见「已知缺口」） | ✅ 部分实现（Spline / Lagrange） | [README_7.1.md](README_7.1.md) |
 | 3 | 云图 / 自适应矢量场 / 张量场等形式的场可视化 | ✅ 已实现 | [README_11.3.md](README_11.3.md) |
 | 4 | 局部聚焦与局部微观 / 全局宏观流线联合显示 | ✅ 已实现 | [GitCode README_10.3.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md) |
 | 5 | 多层次关键特征提取（经典算子、时序涡量与 LibTorch 涡检测） | ✅ 已实现 | 本文详写 + [README_10.2.md](README_10.2.md) |
@@ -36,7 +36,7 @@
 
 ## 子功能 1：高精并行可视化内核
 
-该子功能的功能说明、运行方法、测试程序和验收要求统一见 **[iGameVis-Open README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_8.1.md)**，本文不再重复展开。
+本子功能通过 **Meshlet** 实现并行可视化。Meshlet 的功能说明、源码路径、调用方式和测试用例见 **[GitCode README_8.1.md](https://gitcode.com/yanhekaiyuan/iGameVis-closedsource/blob/main/doc/modules/README_8.1.md)**。
 
 ---
 
@@ -55,6 +55,11 @@
 | `testConvertToLagrangeUnstructuredMesh` | 默认 |
 | `testSplineReaderCPU` | 默认 |
 | `testSplineReaderGPU` | `ENABLE_GPSCUDA_MODULE=ON` |
+
+### 已知缺口
+
+- **谱方法（spectral）专用可视化模块**：当前仓库无独立「谱方法」场可视化专项；高保真能力以 **Spline / Lagrange 高阶单元** 为主承载。  
+- VTK 高阶网格端到端可视化仍有适配限制（见用户手册 / 7.1「已知限制」）。
 
 ---
 
@@ -186,7 +191,6 @@ if (!report->Execute()) {
 | Target | 对应子功能 | 条件 |
 |--------|------------|------|
 | `testMeshletRendering` | 1 并行加速 | 默认 |
-| `testSetRenderingPressure` | 1 渲染压力 | 默认 |
 | `testSplineReaderCPU` / `testSplineReaderGPU` / `testConvertToLagrangeUnstructuredMesh` | 2 高保真 | GPU 样条需 GPS CUDA |
 | `testSetScalarField` / `testVector*` / `testTensorView` / … | 3 场可视化 | 见 11.3 |
 | GUI 包围框视角 / `testStreamline` / `testMultiscaleInteraction` | 4 局部聚焦与多尺度流线 | 默认 |
