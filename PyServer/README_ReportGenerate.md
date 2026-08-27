@@ -18,6 +18,9 @@
 > **和 P3SAM SplitServer 不同：本服务器不是离线模型。** 报告的文字分析与图片描述由云端大模型完成，
 > 因此运行机器必须能访问 `PredefinedStrs/Config.py` 中配置的 API 域名（默认 `https://api.nuwaapi.com/v1`）。
 
+> **Windows 注意：** 如果 cmd 提示 `'conda' 不是内部或外部命令`，说明 conda 没有加入 PATH。
+> 可以使用完整路径 `<Miniconda安装目录>/Scripts/conda.exe`，或先执行 `<Miniconda安装目录>/Scripts/activate.bat reportgen` 激活环境。
+
 ---
 
 ## 配置（重要）
@@ -39,6 +42,20 @@ IMG_API_KEY = "sk-xxxxxxxx"
 
 - 仓库自带的 `Config.py` 含一个示例 key，**仅作演示，请务必替换为真实 key**，否则请求会失败或额度被他人使用。
 - 若使用 OpenAI 兼容接口，把三组 `*_API_BASE_URL` 指向你的 API 端点，`*_API_KEY` 填对应密钥。
+- 使用 DeepSeek 官方 API 时，可配置为：
+
+```python
+CHAT_API_BASE_URL = "https://api.deepseek.com/v1"
+CHAT_API_KEY = "sk-你的key"
+CHAT_MODEL = "deepseek-v4-flash-vision-exp"
+
+IMG_API_BASE_URL = "https://api.deepseek.com/v1"
+IMG_API_KEY = "sk-你的key"
+IMG_MODEL = "deepseek-v4-flash-vision-exp"
+```
+
+> `EMBEDDING_*` 在当前报告生成流程中不会被调用（`Dialogue` 以 `collection_name=None` 初始化）。若后续启用 RAG，才需要配置可用的 embedding 服务。
+
 - `POSTGRESQL_*` 项在报告生成流程中暂未使用，可保留默认，无需本地部署 PostgreSQL。
 
 ---
@@ -50,6 +67,13 @@ IMG_API_KEY = "sk-xxxxxxxx"
 ```bash
 conda create -n reportgen python=3.10
 conda activate reportgen
+```
+
+如果 `conda` 不在 PATH：
+
+```bat
+<Miniconda安装目录>\Scripts\conda.exe create -n reportgen python=3.10 -y
+<Miniconda安装目录>\Scripts\activate.bat reportgen
 ```
 
 ### 2. 安装依赖
@@ -67,6 +91,10 @@ pip install langchain langchain-openai langchain-chroma langchain-community sent
 
 > `vtk` 在部分系统上需要较新的 pip 版本，若安装失败先 `pip install -U pip`。
 
+> **常见报错：`ModuleNotFoundError: No module named 'langchain_openai'`**
+> 说明当前 `python` 不是 `reportgen` 环境。请确认已激活环境，或直接用：
+> `<Miniconda安装目录>\envs\reportgen\python.exe -m pip install -r requirements.txt`
+
 ---
 
 ## 启动服务器
@@ -74,6 +102,12 @@ pip install langchain langchain-openai langchain-chroma langchain-community sent
 ```bash
 cd ReportGenerate/Server
 python mesh_report_server.py --host 127.0.0.1 --port 8766
+```
+
+如果 `python` 不是 reportgen 环境，使用完整路径：
+
+```bat
+<Miniconda安装目录>\envs\reportgen\python.exe mesh_report_server.py --host 127.0.0.1 --port 8766
 ```
 
 ### 参数
@@ -96,7 +130,12 @@ cd ReportGenerate/Test
 python mock_cpp_client.py <你的网格.vtk> --host 127.0.0.1 --port 8766
 ```
 
-不指定 `<vtk文件>` 时，默认读 `Test/input.vtk`（示例文件需自行放置）。
+> **Windows 注意：**
+> - 跨盘符切换目录时使用 `cd /d`，例如 `cd /d E:\...\ReportGenerate\Test`。
+> - 文件参数**不要写尖括号**，直接写文件名或路径：`python mock_cpp_client.py bunny.vtk --host ...`。
+> - 如果提示 `can't open file '...mock_cpp_client.py'`，说明当前目录不在 `Test` 下，先 `cd` 到 `Test` 再执行。
+
+不指定 `<vtk文件>` 时，默认读 `Test/input.vtk`（示例文件需自行放置；可以用任意 VTK 网格，或先用 Python/VTK 生成一个最小测试文件）。
 
 成功时在 `Test/` 下生成 `report_<时间戳>.docx`；失败时打印服务器返回的错误信息。
 
@@ -146,7 +185,7 @@ A: 始终以 `ReportGenerate/Server/mesh_report_server.py` 为入口启动；脚
 A: 先确认 `Config.py` 中的 API key 有效、`CHAT_MODEL` 与 `IMG_MODEL` 可被你的 API 服务器识别。
 
 **Q: 系统没有安装 conda，README 第 1 步无法执行**
-A: 先安装 Miniconda（用户目录即可），再按 README 创建 `reportgen` 环境。
+A: 先安装 Miniconda（用户目录即可），再按 README 创建 `reportgen` 环境。安装后若 `conda` 命令不可用，用 `<Miniconda安装目录>\Scripts\conda.exe` 或 `activate.bat`。
 
 **Q: 包内没有 `Test/input.vtk` 示例文件**
 A: README 已说明示例文件需自行放置。可用任意 VTK 网格，或先用 Python/VTK 生成一个最小八节点六面体测试文件。
