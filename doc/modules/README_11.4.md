@@ -138,15 +138,15 @@
 
 ---
 
-# 子功能 6：基于 LLM 的分析报告生成
+## 子功能 6：基于 LLM 的分析报告生成
 
-## 功能说明
+### 功能说明
 
 平台通过 `MeshReportGenerator` 将当前模型转换为适合报告分析的表面数据，完成三角化、简化和临时 VTK 导出，再由 `MeshReportClient` 发送给报告生成服务器（ReportGenerate Server）。报告生成服务器读取预处理模型及属性场，调用已配置的 LLM 生成分析结论，并将报告文件返回客户端保存。
 
 若模型已包含 `part_id`，报告生成服务器会按零件拆分（MultiBlock），生成包含零件级聚焦分析的报告；若没有 `part_id`，则按整体模型生成报告。
 
-## 操作流程
+### 操作流程
 
 1. **配置 LLM API 信息**：在报告生成服务器（外部 Python 服务）中配置所用 LLM 的 API 地址、API Key 和模型名称。API 凭据只保存在报告服务端，不写入 iGameVis 客户端或仓库。
 2. **启动报告生成服务器并加载预切割模型**：启动 `mesh_report_server.py`，默认监听 `127.0.0.1:8766`；在 iGameVis 中加载已完成预切割 / 预处理的模型，并确认需要分析的属性场可用。若直接传入原始模型，客户端也会在发送前自动执行表面转换、三角化和简化。
@@ -160,7 +160,7 @@
 
 外部 Python 环境、大模型服务及 API 密钥配置的通用说明，可参考 **[GitCode README_10.3.md 的“基于 MCP 的文本交互”](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md)**；分析报告的模型预处理、TCP 请求和文件保存流程仍以本节说明为准。
 
-## 源码路径
+### 源码路径
 
 | 路径  | 类 / API | 说明  |
 | --- | --- | --- |
@@ -169,7 +169,7 @@
 | `iGameCore/Filters/DataProcessing/iGameMeshTriangulationFilter.*` | `MeshTriangulationFilter` | 发送前网格三角化 |
 | `iGameCore/Filters/DataProcessing/iGameMeshSimplificationFilterPro.*` | `MeshSimplificationFilterPro` | 发送前模型简化 |
 
-## 调用方式
+### 调用方式
 
 ```cpp
 auto obj = iGame::FileIO::ReadFile("./Models/precut_model.vtk");
@@ -187,7 +187,7 @@ if (!report->Execute()) {
 }
 ```
 
-## 验收要点
+### 验收要点
 
 - 报告生成服务器能够使用已配置的 LLM API 正常启动，客户端可连接到配置的主机和端口。
 - 预切割模型及指定属性场能够被读取；服务端收到的 VTK 数据非空。
