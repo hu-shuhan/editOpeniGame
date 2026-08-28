@@ -138,30 +138,38 @@
 
 ---
 
-## 子功能 6：基于 LLM 的分析报告生成
+# 子功能 6：基于 LLM 的分析报告生成
 
-### 功能说明
+## 功能说明
 
-平台通过 `MeshReportGenerator` 将当前模型转换为适合报告分析的表面数据，完成三角化、简化和临时 VTK 导出，再由 `MeshReportClient` 发送给报告读取程序。报告程序读取预处理模型及属性场，调用已配置的 LLM 生成分析结论，并将报告文件返回客户端保存。
+平台通过 `MeshReportGenerator` 将当前模型转换为适合报告分析的表面数据，完成三角化、简化和临时 VTK 导出，再由 `MeshReportClient` 发送给报告生成服务器（ReportGenerate Server）。报告生成服务器读取预处理模型及属性场，调用已配置的 LLM 生成分析结论，并将报告文件返回客户端保存。
 
-### 操作流程
+若模型已包含 `part_id`，报告生成服务器会按零件拆分（MultiBlock），生成包含零件级聚焦分析的报告；若没有 `part_id`，则按整体模型生成报告。
 
-1. **配置 LLM API 信息**：在外部报告读取程序中配置所用 LLM 的 API 地址、API Key 和模型名称。API 凭据只保存在报告服务端，不写入 iGameVis 客户端或仓库。
-2. **启动报告读取程序并加载预切割模型**：启动报告服务，默认监听 `127.0.0.1:8766`；在 iGameVis 中加载已完成预切割 / 预处理的模型，并确认需要分析的属性场可用。若直接传入原始模型，客户端也会在发送前自动执行表面转换、三角化和简化。
-3. **生成分析报告**：设置报告保存路径、报告服务地址 / 端口和需要分析的属性场，执行 `MeshReportGenerator::Execute()`。客户端发送 VTK 数据，接收报告程序返回的报告二进制内容，并保存为指定文件（例如 `.docx`）。
+## 操作流程
+
+1. **配置 LLM API 信息**：在报告生成服务器（外部 Python 服务）中配置所用 LLM 的 API 地址、API Key 和模型名称。API 凭据只保存在报告服务端，不写入 iGameVis 客户端或仓库。
+2. **启动报告生成服务器并加载预切割模型**：启动 `mesh_report_server.py`，默认监听 `127.0.0.1:8766`；在 iGameVis 中加载已完成预切割 / 预处理的模型，并确认需要分析的属性场可用。若直接传入原始模型，客户端也会在发送前自动执行表面转换、三角化和简化。
+3. **生成分析报告**：在 iGameVis 报告生成弹窗中设置报告保存路径、报告服务地址 / 端口和需要分析的属性场，执行 `MeshReportGenerator::Execute()`。客户端发送 VTK 数据，接收报告生成服务器返回的报告二进制内容，并保存为指定文件（例如 `.docx`）。
+
+> **版本说明（基于最新 `main` 分支）：**
+> 
+> - 报告生成弹窗支持配置服务器 IP / 端口，默认 `127.0.0.1:8766`；配置会保存到 `QSettings`（`MeshReport/host`、`MeshReport/port`）。
+> - iGameVis 报告生成弹窗当前最多勾选 **1 个**属性场；`MeshReportGenerator::SetSpecifiedFields` 接口本身支持多个字段。
+> - 报告保存路径请使用**纯英文路径**，避免 Windows 下中文路径编码导致保存失败。
 
 外部 Python 环境、大模型服务及 API 密钥配置的通用说明，可参考 **[GitCode README_10.3.md 的“基于 MCP 的文本交互”](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md)**；分析报告的模型预处理、TCP 请求和文件保存流程仍以本节说明为准。
 
-### 源码路径
+## 源码路径
 
-| 路径 | 类 / API | 说明 |
-|------|----------|------|
+| 路径  | 类 / API | 说明  |
+| --- | --- | --- |
 | `iGameCore/Core/Common/MeshReport/iGameMeshReportGenerator.*` | `MeshReportGenerator::Execute` | 三角化、简化、传输、接收与保存报告的完整流程 |
-| `iGameCore/Core/Common/MeshReport/iGameMeshReportClient.*` | `connect` / `requestReport` | 报告读取程序 TCP 客户端，默认端口 `8766` |
+| `iGameCore/Core/Common/MeshReport/iGameMeshReportClient.*` | `connect` / `requestReport` | 报告生成服务器 TCP 客户端，默认端口 `8766` |
 | `iGameCore/Filters/DataProcessing/iGameMeshTriangulationFilter.*` | `MeshTriangulationFilter` | 发送前网格三角化 |
 | `iGameCore/Filters/DataProcessing/iGameMeshSimplificationFilterPro.*` | `MeshSimplificationFilterPro` | 发送前模型简化 |
 
-### 调用方式
+## 调用方式
 
 ```cpp
 auto obj = iGame::FileIO::ReadFile("./Models/precut_model.vtk");
@@ -170,22 +178,25 @@ auto report = iGame::MeshReportGenerator::New(
     "./output/analysis_report.docx", "127.0.0.1", 8766);
 report->SetInput(obj);
 report->SetSpecifiedFields({"pressure", "velocity"}); // 空列表表示分析全部属性场
-report->SetSimplificationRatio(0.1f);
+report->SetSimplificationRatio(0.1f);                // API 默认 0.1；iGameVis 界面实际使用 0.2
+// report->SetServerHost("192.168.1.100");
+// report->SetServerPort(8766);
 
 if (!report->Execute()) {
     std::cerr << report->GetErrorMessage() << std::endl;
 }
 ```
 
-### 验收要点
+## 验收要点
 
-- 报告读取程序能够使用已配置的 LLM API 正常启动，客户端可连接到配置的主机和端口。
+- 报告生成服务器能够使用已配置的 LLM API 正常启动，客户端可连接到配置的主机和端口。
 - 预切割模型及指定属性场能够被读取；服务端收到的 VTK 数据非空。
 - 报告生成后保存路径中出现可正常打开的分析报告，内容包含所选属性场的分析结果。
-- 当前仓库提供 iGameVis 侧的模型预处理和 TCP 客户端；LLM 配置、提示词和报告模板由外部报告读取程序负责。
+- 若模型包含 `part_id`，报告应包含零件级聚焦分析；若没有 `part_id`，报告应能按整体模型正常生成。
+- 报告保存路径为中文时，需确认目标环境可正常保存，否则应使用英文路径。
+- 当前仓库提供 iGameVis 侧的模型预处理和 TCP 客户端；LLM 配置、提示词和报告模板由外部报告生成服务器负责。
 
 ---
-
 ## 相关示例汇总
 
 | Target | 对应子功能 | 条件 |
