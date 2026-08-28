@@ -189,42 +189,63 @@ Detail and Precision/Recall ≥ 90% target: **[README_10.2.en.md](README_10.2.en
 
 ---
 
-## Sub-feature 6: Visualization-result intelligent evaluation
+## Sub-feature 6: LLM-Based Analysis Report Generation
 
 ### Description
 
-The strongest “annotation / expert knowledge” path today is **vortex prediction vs. labeled attributes**, computing Accuracy / Precision / Recall (`VortexDetection::EvaluatePredictMetrics` in 10.2).
+The platform uses `MeshReportGenerator` to convert the current model into surface data suitable for report analysis: triangulation, simplification, and temporary VTK export are performed first. `MeshReportClient` then sends the VTK data to the report generation server (ReportGenerate Server). The server reads the preprocessed model and attribute fields, invokes the configured LLM to generate analysis conclusions, and returns the report file to the client for saving.
 
-`Filters/MeshMetrics/` can support geometric quality scoring but GUI/Examples wiring is still weak; prefer vortex metrics for live demos.
+If the model already contains `part_id`, the report generation server splits the model into parts (MultiBlock) and generates part-level focused analysis. If `part_id` is absent, the report is generated for the whole model.
 
-### Source Paths
+### Workflow
 
-| Path | API | Notes |
-|------|-----|-------|
-| `iGameCore/Filters/FeatureExtraction/` (vortex detection) | `EvaluatePredictMetrics` / `GetPrecision` / `GetRecall` | Annotation comparison |
-| `iGameCore/Filters/MeshMetrics/` | `SurfaceMeshMetricsFilter` / `VolumeMeshMetricsFilter` | Mesh quality (pending stronger integration) |
+1. **Configure LLM API information**: Configure the LLM API base URL, API key, and model name in the report generation server (external Python service). API credentials are stored only on the server side and are never written into the iGameVis client or repository.
+2. **Start the report generation server and load the pre-cut model**: Start `mesh_report_server.py`, which listens on `127.0.0.1:8766` by default. Load a pre-cut/preprocessed model in iGameVis and make sure the attribute fields to be analyzed are available. If a raw model is provided, the client automatically performs surface conversion, triangulation, and simplification before sending.
+3. **Generate the analysis report**: In the iGameVis report generation dialog, set the report save path, report server address/port, and the attribute fields to analyze, then call `MeshReportGenerator::Execute()`. The client sends VTK data, receives the report binary returned by the report generation server, and saves it to the specified file (e.g., `.docx`).
 
-### How It Is Called (from the 10.2 path)
+> **Version notes (based on the latest `main` branch):**
+> 
+> - The report generation dialog supports configuring the server IP/port, defaulting to `127.0.0.1:8766`; the settings are persisted via `QSettings` (`MeshReport/host`, `MeshReport/port`).
+> - The iGameVis report generation dialog currently allows selecting at most **1** attribute field; the `MeshReportGenerator::SetSpecifiedFields` API itself supports multiple fields.
+> - Use a **pure-English save path** to avoid encoding-related save failures on Windows.
+
+For general instructions on the external Python environment, LLM service, and API key configuration, see **[GitCode README_10.3.md “MCP-Based Text Interaction”](https://gitcode.com/yanhekaiyuan/iGameVis-Open/blob/main/doc/modules/README_10.3.md)**. The model preprocessing, TCP request, and file saving flow described in this section remain authoritative for report generation.
+
+### Source Code Paths
+
+| Path | Class / API | Description |
+| --- | --- | --- |
+| `iGameCore/Core/Common/MeshReport/iGameMeshReportGenerator.*` | `MeshReportGenerator::Execute` | Full pipeline: triangulation, simplification, transmission, reception, and report saving |
+| `iGameCore/Core/Common/MeshReport/iGameMeshReportClient.*` | `connect` / `requestReport` | TCP client for the report generation server, default port `8766` |
+| `iGameCore/Filters/DataProcessing/iGameMeshTriangulationFilter.*` | `MeshTriangulationFilter` | Mesh triangulation before sending |
+| `iGameCore/Filters/DataProcessing/iGameMeshSimplificationFilterPro.*` | `MeshSimplificationFilterPro` | Model simplification before sending |
+
+### Usage
 
 ```cpp
-// After vortex prediction, with a PredictedLabel annotation attribute present:
-filter->EvaluatePredictMetrics(/* ... */);
-double precision = filter->GetPrecision();
-double recall    = filter->GetRecall();
+auto obj = iGame::FileIO::ReadFile("./Models/precut_model.vtk");
+
+auto report = iGame::MeshReportGenerator::New(
+    "./output/analysis_report.docx", "127.0.0.1", 8766);
+report->SetInput(obj);
+report->SetSpecifiedFields({"pressure", "velocity"}); // empty list means analyze all fields
+report->SetSimplificationRatio(0.1f);                // API default 0.1; iGameVis UI uses 0.2
+// report->SetServerHost("192.168.1.100");
+// report->SetServerPort(8766);
+
+if (!report->Execute()) {
+    std::cerr << report->GetErrorMessage() << std::endl;
+}
 ```
 
-### Test Cases
+### Acceptance Criteria
 
-| Target | Notes |
-|--------|-------|
-| `testVortexDetection` | Prediction + metrics (LibTorch) |
-
-### Known gaps
-
-- No standalone product module for rule-based / expert-scoring **visualization quality** evaluation.  
-- Main-window Precision/Recall overlay may still be commented; values remain available via API / console.
-
----
+- The report generation server starts successfully with the configured LLM API, and the client can connect to the configured host and port.
+- The pre-cut model and specified attribute fields are readable; the VTK data received by the server is non-empty.
+- After generation, a report file appears at the save path and can be opened normally, containing analysis results for the selected attribute fields.
+- If the model contains `part_id`, the report should include part-level focused analysis; otherwise, the report should be generated for the whole model.
+- If the save path contains Chinese characters, verify that the target environment can save correctly, or use an English path.
+- This repository provides the iGameVis-side model preprocessing and TCP client; LLM configuration, prompts, and report templates are the responsibility of the external report generation server.
 
 ## Related Examples (summary)
 
