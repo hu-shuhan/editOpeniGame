@@ -169,7 +169,25 @@ if (simp->Execute()) {
 
 ### GUI
 
-In the streamline panel `igQtStreamTracerWidget`, first select a generated streamline object in the model tree (name contains `_StreamLine`), then click the **Cluster** button to trigger `Simplifier()`: the cluster count comes from `clusterSpin` and the kept total from `perClusterSpin`. The first filtering caches a snapshot of the original streamlines, so parameters can be re-tuned repeatedly without losing the original data; results are colored by the `ClusterLabel` cloud map.
+| Entry | Description |
+| --- | --- |
+| Open File | Open `car.vtk` |
+| Menu "Algorithm Processing" → "Part Segmentation" | Call the P3SAM server online; a dialog asks for server IP / port (default `127.0.0.1:8765`); triangulates and simplifies the current model, sends OBJ, receives VTK with `part_id`, and maps it back to the original mesh |
+| Menu "Algorithm Processing" → "Part Segmentation (From File)" | Read an existing VTK with `part_id` and map the result to the current model (use `output_p600000_pr4000_t0.95_s42_npp.vtk`) |
+| Menu "Algorithm Processing" → "Part Focus" | List `Part <id> (<N> Cells)`; check parts to focus camera / set selection box and link with the table |
+| Menu Item "Search Info" / `action_SearchInfo` | View all attributes in the point / cell table; when segmentation exists, default to cell mode and select `part_id` first |
+
+### Test and Verification Data
+
+| Item | Entry / Input | Description |
+| --- | --- | --- |
+| Online Segmentation Verification | "Part Segmentation" | Start the P3SAM server first (default `127.0.0.1:8765`); enter server IP / port in the menu; the current model must be a triangulatable mesh (OBJ / VTK / STL etc.); on success the current model gains the `part_id` cell attribute |
+| Offline Mapping Verification | "Part Segmentation (From File)" | Select a user-provided `UnstructuredMesh` VTK; its `CELL_DATA` must contain an attribute named exactly `part_id` |
+| Table Verification | "Search Info" | Switch to cell data, confirm `part_id` appears in the attribute column, and use `=` to query a specific part ID |
+
+> In online segmentation, the C++ side keeps only about 10% of the faces by default and disables post-processing by default. If segmentation details are insufficient, adjust `P3SAMSegmenter::SetSimplificationRatio` / `SetPostProcess`, or increase the server-side `--point_num` / `--prompt_num` and restart / rebuild.
+> 
+> There is currently no standalone command-line example target and no segmented result VTK committed to the repository; offline verification requires a VTK containing `part_id`, while online verification requires starting the P3SAM server separately.
 
 ---
 
