@@ -174,6 +174,12 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
     ui->setupUi(this);
 
+    // Qt 5 uic may misread Qt 6-style orientation enums from the .ui file.
+    // Keep the correlation table's column separators vertical at runtime as well.
+    for (QFrame* separator : {ui->line_3, ui->line_4, ui->line_6, ui->line_7}) {
+        separator->setFrameShape(QFrame::VLine);
+    }
+
     // 与无边框弹窗配合：略透底；滚动区不铺不透明 Palette，避免挡住半透明合成
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAutoFillBackground(false);

@@ -193,7 +193,7 @@ igQtVariableCorrelationWidget QRadioButton::indicator:checked {
      <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
-        <enum>Qt::Orientation::Horizontal</enum>
+        <enum>Qt::Horizontal</enum>
        </property>
        <property name="sizeHint" stdset="0">
         <size>
@@ -260,7 +260,7 @@ QPushButton:focus {
       </sizepolicy>
      </property>
      <property name="orientation">
-      <enum>Qt::Orientation::Horizontal</enum>
+      <enum>Qt::Horizontal</enum>
      </property>
      <property name="childrenCollapsible">
       <bool>false</bool>
@@ -321,7 +321,7 @@ QPushButton:focus {
           <item>
            <widget class="Line" name="line_2">
             <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
@@ -330,7 +330,7 @@ QPushButton:focus {
         <item>
          <spacer name="verticalSpacer_2">
           <property name="orientation">
-           <enum>Qt::Orientation::Vertical</enum>
+           <enum>Qt::Vertical</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -409,14 +409,14 @@ QPushButton:focus {
           <item row="3" column="0" colspan="5">
            <widget class="Line" name="line">
             <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
            <widget class="Line" name="line_4">
             <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
+             <enum>Qt::Vertical</enum>
             </property>
            </widget>
           </item>
@@ -442,7 +442,7 @@ QPushButton:focus {
           <item row="0" column="3" rowspan="3">
            <widget class="Line" name="line_3">
             <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
+             <enum>Qt::Vertical</enum>
             </property>
            </widget>
           </item>
@@ -459,21 +459,21 @@ QPushButton:focus {
           <item row="1" column="0" colspan="3">
            <widget class="Line" name="line_5">
             <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
            <widget class="Line" name="line_6">
             <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
+             <enum>Qt::Vertical</enum>
             </property>
            </widget>
           </item>
           <item row="4" column="3">
            <widget class="Line" name="line_7">
             <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
+             <enum>Qt::Vertical</enum>
             </property>
            </widget>
           </item>
@@ -482,7 +482,7 @@ QPushButton:focus {
         <item>
          <spacer name="verticalSpacer">
           <property name="orientation">
-           <enum>Qt::Orientation::Vertical</enum>
+           <enum>Qt::Vertical</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -598,7 +598,7 @@ QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
             <number>255</number>
            </property>
            <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
+            <enum>Qt::Horizontal</enum>
            </property>
           </widget>
          </item>
@@ -662,7 +662,7 @@ QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
             <number>255</number>
            </property>
            <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
+            <enum>Qt::Horizontal</enum>
            </property>
           </widget>
          </item>
@@ -698,7 +698,7 @@ QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
             <number>255</number>
            </property>
            <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
+            <enum>Qt::Horizontal</enum>
            </property>
           </widget>
          </item>
@@ -734,7 +734,7 @@ QSlider::handle:horizontal:pressed { background-color: #B0B0B0; }</string>
             <number>255</number>
            </property>
            <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
+            <enum>Qt::Horizontal</enum>
            </property>
           </widget>
          </item>
