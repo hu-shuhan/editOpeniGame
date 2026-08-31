@@ -146,7 +146,7 @@ protected:
     int dim{-1};
     int m_currentAttributeDimension{-1};
 
-    std::string m_Message{"Not Volume Mesh !"};
+    std::string m_Message{"当前输入不是体网格"};
 };
 
 IGAME_NAMESPACE_END

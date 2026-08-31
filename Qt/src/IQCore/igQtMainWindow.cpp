@@ -3229,6 +3229,14 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
             DeformationWidget, &igQtDeformationWidget::updateInfo);
 
+    // Refresh the stream-tracer vector list when the current model changes.
+    // 只在面板可见时刷新：pickSourceModel/isUsableSource 会遍历全部单元，
+    // 模型树点击很频繁，大网格上无谓地跑一遍代价不小。
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
+        if (!ui->widget_FlowField || !ui->widget_FlowField->isVisible()) return;
+        ui->widget_FlowField->refreshVectorCombo();
+    });
+
     // Rebind the contour-extraction panel when the current model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();

@@ -146,7 +146,7 @@ protected:
     bool m_ComputeGradientTensor{false};
     std::string name;
 
-    std::string m_Message{"Not Supported Mesh !"};
+    std::string m_Message{"不支持的网格类型"};
 };
 
 IGAME_NAMESPACE_END

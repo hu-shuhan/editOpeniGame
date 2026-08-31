@@ -37,7 +37,7 @@ bool VortexFilter::Execute()  {
             }
         }
         if (attrName.empty()) {
-            m_Message = "please choose a attribute";
+            m_Message = "请先选择一个矢量属性";
             return false;
         }
 
@@ -46,7 +46,7 @@ bool VortexFilter::Execute()  {
             if (it->second) ++blockCount;
         }
         if (blockCount == 0) {
-            m_Message = "the multi-block input has no sub data object";
+            m_Message = "多块数据中没有可计算的子块";
             return false;
         }
 
@@ -74,12 +74,12 @@ bool VortexFilter::Execute()  {
         SetOutput(input);
         UpdateProgress(1.0);
         if (okCount == 0) {
-            m_Message = "vorticity computation failed on all " + std::to_string(blockCount) + " sub-blocks";
+            m_Message = "全部 " + std::to_string(blockCount) + " 个子块的涡量计算均失败";
             return false;
         }
         if (okCount < blockCount) {
-            m_Message = "vorticity computed on " + std::to_string(okCount) + " / " +
-                        std::to_string(blockCount) + " sub-blocks";
+            m_Message = "已完成 " + std::to_string(okCount) + " / " + std::to_string(blockCount) +
+                        " 个子块的涡量计算";
         }
         return true;
     }
@@ -87,22 +87,22 @@ bool VortexFilter::Execute()  {
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
         if (attributeSet == nullptr) {
-            m_Message = "please choose a attribute";
+            m_Message = "模型上没有任何属性数据，无法计算";
             return false;
         }
         if (curIndex == -1 && name == "") {
-            m_Message = "please choose a attribute";
+            m_Message = "请先选择一个属性";
             return false;
         }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
         if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()){
-            m_Message = "please choose a attribute";
+            m_Message = "选中的属性无效，请重新选择";
             return false;
         }
 
         int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
         if (dim != 3) {
-            m_Message = "please choose a vector";
+            m_Message = "涡量计算需要三分量矢量属性，请选择一个矢量场";
             return false;
         }
         return true;
@@ -132,7 +132,7 @@ bool VortexFilter::Execute()  {
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
             if (!mesh) {
-                m_Message = "invalid unstructured mesh input";
+                m_Message = "非结构网格输入无效";
                 return false;
             }
 
@@ -147,7 +147,7 @@ bool VortexFilter::Execute()  {
                 }
             }
             if (allSurfaceCells) {
-                m_Message = "vorticity requires 3D volume cells; the input contains only surface cells";
+                m_Message = "涡量计算需要 3D 体单元，当前输入只包含面单元";
                 return false;
             }
 

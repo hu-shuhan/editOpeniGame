@@ -41,6 +41,8 @@ public slots:
     void changeVecName();
     void refresh();
     void updateVectorNameList();
+    // 只刷新矢量下拉框（不重置种子线、不触发 initStreamTracer），供模型切换时调用
+    void refreshVectorCombo();
     void Simplifier();
     //void changeOffsetP1();
     //void changeOffsetP2();

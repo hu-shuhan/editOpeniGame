@@ -65,7 +65,7 @@ protected:
 
     int dim{-1};
     int m_currentAttributeDimension{-1};
-    std::string m_Message{"Not Surface Mesh !"};
+    std::string m_Message{"当前输入不是表面网格"};
 };
 
 IGAME_NAMESPACE_END

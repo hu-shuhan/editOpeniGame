@@ -1,5 +1,6 @@
 #include "iGameStreamTracer.h"
 #include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
+#include <DataProcessing/iGameMeshTetrahedralize.h>
 #include <algorithm>
 #include <cmath>
 #include <future>
@@ -69,6 +70,47 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             SetMesh(nullptr);
             meshId = -1;
             return;
+        }
+
+        {
+            auto srcMesh = DynamicCast<UnstructuredMesh>(model->GetDataObject());
+            const igIndex srcCellNum = srcMesh ? static_cast<igIndex>(srcMesh->GetNumberOfCells()) : 0;
+            igIndex polyhedronNum = 0;
+            for (igIndex i = 0; i < srcCellNum; ++i) {
+                if (srcMesh->GetCellType(i) == IG_POLYHEDRON) { ++polyhedronNum; }
+            }
+            const bool polyhedronReady = mesh->GetIsPolyhedronType() && mesh->GetFaces() &&
+                                         mesh->GetFaces()->GetNumberOfCells() > 0;
+
+            if (polyhedronNum > 0 && !polyhedronReady) {
+                if (polyhedronNum != srcCellNum) {
+                    std::cout << "[StreamTracer] unsupported input: mixed mesh (" << polyhedronNum << " / "
+                              << srcCellNum
+                              << " cells are polyhedral); tetrahedralization would drop the others. Aborting init."
+                              << std::endl;
+                    SetMesh(nullptr);
+                    meshId = -1;
+                    return;
+                }
+
+                std::cout << "[StreamTracer] polyhedral input detected; tetrahedralizing " << polyhedronNum
+                          << " cells ..." << std::endl;
+                auto tetraFilter = MeshTetrahedralize::New();
+                tetraFilter->SetInput(srcMesh);
+                VolumeMesh::Pointer tetMesh =
+                        tetraFilter->Execute() ? DynamicCast<VolumeMesh>(tetraFilter->GetOutput()) : nullptr;
+                if (!tetMesh || tetMesh->GetNumberOfVolumes() <= 0) {
+                    std::cout << "[StreamTracer] tetrahedralization failed; polyhedral cells are not supported. "
+                                 "Aborting init."
+                              << std::endl;
+                    SetMesh(nullptr);
+                    meshId = -1;
+                    return;
+                }
+                std::cout << "[StreamTracer] tetrahedralized into " << tetMesh->GetNumberOfVolumes()
+                          << " tetrahedra." << std::endl;
+                SetMesh(tetMesh);
+            }
         }
 
         auto temPtFinder = PointFinder::New();
@@ -2331,12 +2373,13 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
         size_t step = N / sampleN;
         if (step == 0) step = 1;
 
-        igIndex ids[128];
+        igIndex ids[IGAME_CELL_MAX_SIZE];
 
         for (size_t k = 0; k < sampleN; ++k) {
             size_t i = k * step + step / 2;
             if (i >= N) i = N - 1;
 
+            if (cellData->GetCellSize(i) > static_cast<IGuint>(IGAME_CELL_MAX_SIZE)) continue;
             int vcnt = cellData->GetCellIds(i, ids);
             if (vcnt < 2) continue;
 
@@ -2367,8 +2410,9 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
     std::cout << "[Sampled Max First Edge] maxLength=" << maxLength << " cell=" << maxCellId << " v0=" << maxV0
               << " v1=" << maxV1 << std::endl;
-    igIndex cell[128];
+    igIndex cell[IGAME_CELL_MAX_SIZE];
     long long cellNum = cellData->GetNumberOfCells();
+    long long oversizedCells = 0;
 
     // 清空数据结构
     vetex_link.data.clear();
@@ -2384,13 +2428,17 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
         size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t) cellNum);
 
         for (size_t i = chunk_start; i < chunk_end; i++) {
+            if (cellData->GetCellSize(i) > static_cast<IGuint>(IGAME_CELL_MAX_SIZE)) {
+                oversizedCells++;
+                continue;
+            }
             int vetex_size = cellData->GetCellIds(i, cell);
             if (i == 0) {
                 for (int j = 0; j < vetex_size; ++j) { std::cout << "cell id::::" << cell[j] << std::endl; }
                 std::cout << "vetex" << vetex_size << std::endl;
             }
             for (int j = 0; j < vetex_size; j++) {
-                if (cell[j] < vetexNum) { vetex_link.offset[cell[j] + 1]++; }
+                if (cell[j] >= 0 && cell[j] < vetexNum) { vetex_link.offset[cell[j] + 1]++; }
             }
         }
 
@@ -2403,6 +2451,12 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
     for (int i = 1; i <= vetexNum; i++) { vetex_link.offset[i] += vetex_link.offset[i - 1]; }
 
     size_t totalSize = vetex_link.offset[vetexNum];
+    if (oversizedCells > 0) {
+        std::cout << "[StreamTracer] WARNING: skipped " << oversizedCells << " cells whose connectivity exceeds "
+                  << IGAME_CELL_MAX_SIZE
+                  << " entries (polyhedral blob misread as a point list?). Adjacency will be incomplete."
+                  << std::endl;
+    }
     std::cout << "Total adjacency entries needed: " << totalSize << " (approximately "
               << (totalSize * sizeof(igIndex) / 1024 / 1024) << " MB)" << std::endl;
 
@@ -2442,9 +2496,10 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
         size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t) cellNum);
 
         for (size_t i = chunk_start; i < chunk_end; i++) {
+            if (cellData->GetCellSize(i) > static_cast<IGuint>(IGAME_CELL_MAX_SIZE)) { continue; }
             int vetex_size = cellData->GetCellIds(i, cell);
             for (int j = 0; j < vetex_size; j++) {
-                if (cell[j] < vetexNum) {
+                if (cell[j] >= 0 && cell[j] < vetexNum) {
                     size_t pos = fill_offset[cell[j]]++;
                     if (pos < vetex_link.data.size()) { vetex_link.data[pos] = i; }
                 }
@@ -2476,11 +2531,12 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
         for (size_t i = chunk_start; i < chunk_end; i++) {
             cell_link.offset[i] = cell_link.data.size();
 
-            int vetex_size = cellData->GetCellIds(i, cell);
+            const int vetex_size =
+                    cellData->GetCellSize(i) > static_cast<IGuint>(IGAME_CELL_MAX_SIZE) ? 0 : cellData->GetCellIds(i, cell);
             neighborSet.clear();
 
             for (int j = 0; j < vetex_size; j++) {
-                if (cell[j] < vetexNum) {
+                if (cell[j] >= 0 && cell[j] < vetexNum) {
                     for (size_t k = vetex_link.offset[cell[j]]; k < vetex_link.offset[cell[j] + 1]; k++) {
                         if (k < vetex_link.data.size()) {
                             igIndex neighborCell = vetex_link.data[k];

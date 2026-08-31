@@ -8,23 +8,23 @@ bool CurvatureFilter::Execute() {
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
         if (attributeSet == nullptr) {
-            m_Message = "please choose a  attribute";
+            m_Message = "模型上没有任何属性数据，无法计算";
             return false;
         }
         if (curIndex == -1 && name == "") {
-            m_Message = "please choose a attribute";
+            m_Message = "请先选择一个属性";
             return false;
         }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
         if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) {
-            m_Message = "please choose a attribute";
+            m_Message = "选中的属性无效，请重新选择";
             return false;
         }
 
         dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
         m_currentAttributeDimension = input->GetCurrentAttributeDimension();
         if (dim != 1  && m_currentAttributeDimension == -1) {
-            m_Message = "please choose a component";
+            m_Message = "该属性是多分量的，请先选择一个分量";
             return false;
         }
         if (dim == 1)

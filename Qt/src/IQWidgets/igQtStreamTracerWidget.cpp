@@ -82,24 +82,24 @@ iGame::Model::Pointer igQtStreamTracerWidget::pickSourceModel() {
         if (m_ResultObject && obj.GetPointer() == m_ResultObject.GetPointer()) return true;
         return obj->GetName().find("_StreamLine") != std::string::npos;
     };
-    if (cur && !isUsable(cur) && !isStreamResult(cur)) {
+    // 规则（按优先级）：
+    // 1) 当前选中的模型可用 → 就用它。用户在模型树里选谁就在谁身上生成，这是最基本的预期，
+    //    不能因为场景里还有更"新"的模型就替换掉。
+    // 2) 当前是"真实模型但不是 3D 体网格"（典型：2D / 面流场）→ 原样返回，
+    //    由调用方弹出统一提示，而不是悄悄换成别的 3D 模型。
+    // 3) 当前为空或指向流线结果对象 → 才回退到场景里可用的体网格（唯一的 / 最近导入的）。
+    if (isUsable(cur)) {
+        std::cout << "[pickSourceModel] keep-current -> " << cur->GetDataObject()->GetName() << std::endl;
+        return cur;
+    }
+    if (cur && !isStreamResult(cur)) {
         std::cout << "[pickSourceModel] current model is not a 3D volume mesh -> return it so the caller can warn: "
                   << cur->GetDataObject()->GetName() << std::endl;
         return cur;
     }
-
-    // 规则：
-    // 1) 只有一个可用体网格 → 用它（即便 current 指向流线结果）
-    // 2) 当前 model 本身可用，且等于上次绑定对象 → 用 current（用户在原模型上重生成）
-    // 3) 否则用最新的可用体网格（用户刚导入新模型）
     if (usableCount == 1 && newest) {
         std::cout << "[pickSourceModel] only-one-usable -> " << newest->GetDataObject()->GetName() << std::endl;
         return newest;
-    }
-    if (isUsable(cur) && m_DataObject &&
-        cur->GetDataObject().GetPointer() == m_DataObject.GetPointer()) {
-        std::cout << "[pickSourceModel] keep-current -> " << cur->GetDataObject()->GetName() << std::endl;
-        return cur;
     }
     if (newest) {
         std::cout << "[pickSourceModel] newest-usable -> " << newest->GetDataObject()->GetName() << std::endl;
@@ -341,6 +341,50 @@ void igQtStreamTracerWidget::increaseProportion() {
     }
     //std::cout << "current value=" << proportion << std::endl;
 }
+void igQtStreamTracerWidget::refreshVectorCombo() {
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) return;
+    auto currentModel = pickSourceModel();
+    if (!currentModel) return;
+    auto obj = currentModel->GetDataObject();
+    if (!obj) return;
+
+    iGame::AttributeSet* attrSet = nullptr;
+    if (obj->HasSubDataObject()) {
+        auto it = obj->SubDataObjectIteratorBegin();
+        attrSet = it->second ? it->second->GetAttributeSet() : nullptr;
+    } else {
+        attrSet = obj->GetAttributeSet();
+    }
+
+    // 重建期间屏蔽信号，避免中间态触发 changeVecName
+    const QString previous = ui->comboBox->currentText();
+    {
+        QSignalBlocker block(ui->comboBox);
+        ui->comboBox->clear();
+        if (attrSet) {
+            if (auto allAttributes = attrSet->GetAllAttributes()) {
+                for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+                    auto attribute = allAttributes->GetElement(i);
+                    if (attribute.type == IG_VECTOR && attribute.pointer) {
+                        ui->comboBox->addItem(QString::fromStdString(attribute.pointer->GetName()));
+                    }
+                }
+            }
+        }
+        // 新模型上若存在同名矢量则保留原选择，否则退回第一项
+        const int keep = ui->comboBox->findText(previous);
+        if (keep >= 0) {
+            ui->comboBox->setCurrentIndex(keep);
+        } else if (ui->comboBox->count() > 0) {
+            ui->comboBox->setCurrentIndex(0);
+        }
+    }
+    vectorName = ui->comboBox->currentText().toStdString();
+    std::cout << "[StreamTracer] vector list refreshed for " << obj->GetName() << ", current=\"" << vectorName
+              << "\"" << std::endl;
+}
+
 void igQtStreamTracerWidget::updateVectorNameList() {
     ui->comboBox->clear();
     auto sceneManager = iGame::SceneManager::Instance();
@@ -376,13 +420,7 @@ void igQtStreamTracerWidget::updateVectorNameList() {
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return;
 
-    for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
-        auto attribute = allAttributes->GetElement(i);
-        // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
-        if (attribute.type == IG_VECTOR) {
-            if (attribute.pointer) { ui->comboBox->addItem(QString::fromStdString(attribute.pointer->GetName())); }
-        }
-    }
+    refreshVectorCombo();
 
     ensureStreamBase();
     iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
@@ -538,6 +576,20 @@ void igQtStreamTracerWidget::generateStreamline() {
                                 "现版本的流线追踪只支持 3D 体网格。已取消生成。"));
         return;
     }
+    // 模式 1~4 依赖选区。注意必须在 SetUseBox 发出之后再判 —— 选择盒是由 SetUseBox 的
+    // 处理函数（igQtMainWindow）转换成选中点的，在那之前 GetSelectedItems 一直是空的。
+    // 没有选区时 getModelSelectMax/Min 返回空，最终退化成种子线模式，这里明确告知一次。
+    auto warnIfNoSelection = [this](const iGame::Model::Pointer& m) {
+        auto selection = m ? m->GetSelection() : nullptr;
+        const bool hasSelection = selection && (!selection->GetSelectedItems(IG_POINT).empty() ||
+                                                !selection->GetSelectedItems(IG_CELL).empty());
+        if (hasSelection) return;
+        QMessageBox::information(
+                this, tr("Stream Tracer"),
+                tr("当前没有选区，「重点区域 / 多尺度混合」模式无法取到种子点，已改用种子线模式生成。"
+                   "如需按重点区域布种，请先在模型上框选区域后重新生成。"));
+    };
+
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
@@ -545,6 +597,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         if (!Smodel) { Smodel = model; }
         Q_EMIT SetUseBox(Smodel);
         emit SetSelectItemShow(false);
+        warnIfNoSelection(Smodel);
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
@@ -553,6 +606,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         if (!Smodel) { Smodel = model; }
         Q_EMIT SetUseBox(Smodel);
         emit SetSelectItemShow(false);
+        warnIfNoSelection(Smodel);
         seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
@@ -562,6 +616,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         Q_EMIT SetUseBox(Smodel);
         emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
+        warnIfNoSelection(Smodel);
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
         auto temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
@@ -573,6 +628,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         Q_EMIT SetUseBox(model);
         emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
+        warnIfNoSelection(Smodel);
         seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
         auto temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
@@ -652,8 +708,8 @@ void igQtStreamTracerWidget::generateStreamline() {
         // 仅当被删的恰好是"最近一次结果"时，清理与之相关的状态。
         // 这样删历史结果不会影响当前正在用的会话。
         if (m_ResultObject.GetPointer() == weakRef) {
-            if (m_StreamBase && m_StreamBase->streamFilter) { m_StreamBase->streamFilter->meshId = -1; }
-            modelBound = false;
+            // 只清理与"结果对象"相关的状态。源网格的绑定（streamFilter->meshId / modelBound）
+            // 不受影响 —— 删结果不代表源模型变了，清掉会让下次生成重新四面体化并重建邻接表。
             haveDraw = false;
             isExisted = false;
             m_ResultObject = nullptr;
