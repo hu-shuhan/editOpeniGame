@@ -374,7 +374,7 @@ auto res1 = contour2->GetContourMesh();
 
 
 > 原始体网格等值面提取
-![体网格原始/简化 前后对比](../../Resources/Images/简化前.png)
+![体网格原始/简化 前后对比](../../Resources/Images/网格简化前.png)
 > 网格简化后等值面提取
 ![体网格原始/简化 前后对比](../../Resources/Images/简化后.png)
 
