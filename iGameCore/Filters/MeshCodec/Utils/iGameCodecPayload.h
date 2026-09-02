@@ -33,12 +33,14 @@ struct AttributeBuffer {
     // IG_CHANGE, IG_DRAGPOINT, IG_MID_POINT（绝大多数情况下为 IG_POINT 或 IG_CELL）
     IGenum attachmentType;
     int dimension;
-    int valueSize;         // sizeof(float) 或 sizeof(double)
+    int valueSize;         // sizeof(float) / sizeof(double) / sizeof(unsigned char)
 
     std::vector<float> floatData;
     std::vector<double> doubleData;
+    std::vector<unsigned char> uint8Data;
 
     [[nodiscard]] bool isFloat() const { return valueSize == sizeof(float); }
+    [[nodiscard]] bool isUInt8() const { return valueSize == sizeof(unsigned char); }
 };
 
 IGAME_NAMESPACE_END

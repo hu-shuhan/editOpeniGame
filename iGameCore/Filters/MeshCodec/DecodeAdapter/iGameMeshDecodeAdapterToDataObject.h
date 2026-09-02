@@ -70,6 +70,14 @@ public:
             arr->Resize(static_cast<int>(attr.floatData.size() / attr.dimension));
             std::memcpy(arr->RawPointer(), attr.floatData.data(), attr.floatData.size() * sizeof(float));
             this->m_DataObj->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, arr);
+        } else if (attr.isUInt8()) {
+            if (attr.uint8Data.empty()) return;
+            UnsignedCharArray::Pointer arr = UnsignedCharArray::New();
+            arr->SetDimension(attr.dimension);
+            arr->SetName(attr.name);
+            arr->Resize(static_cast<int>(attr.uint8Data.size() / attr.dimension));
+            std::memcpy(arr->RawPointer(), attr.uint8Data.data(), attr.uint8Data.size() * sizeof(unsigned char));
+            this->m_DataObj->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, arr);
         } else {
             if (attr.doubleData.empty()) return;
             DoubleArray::Pointer arr = DoubleArray::New();
