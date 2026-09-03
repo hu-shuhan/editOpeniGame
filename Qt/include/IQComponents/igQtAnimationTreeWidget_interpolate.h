@@ -17,7 +17,7 @@ public:
 
 
 
-    void updateInterpolateData(float _start, float _end, int keyframeNum);
+    bool updateInterpolateData(float _start, float _end, int keyframeNum);
 signals:
 
     void updateVcrControllerInterpolateData(std::vector<std::pair<int, float>>&);

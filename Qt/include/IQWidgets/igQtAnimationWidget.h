@@ -58,6 +58,10 @@ public slots:
     bool saveAnimation();
 
     void ClearAnimationVCRInfo();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private slots:
     void playAnimation_snap(unsigned int keyframe_idx);
     void playAnimation_interpolate(int keyframe_0, float t);
@@ -77,9 +81,17 @@ signals:
 
 
 private:
+    void updateAnimationModeControls();
+
     Ui::Animation* ui;
     igQtAnimationVcrController* VcrController;
     bool m_IsAnimationPlaying{false}; // 动画播放状态标记
+    int m_SourceFrameCount{0};         // 原始时间模式使用的帧数
+    float m_SourceStartTime{0.0f};
+    float m_SourceEndTime{0.0f};
+    float m_InterpolateStartTime{0.0f};
+    float m_InterpolateEndTime{0.0f};
+    int m_InterpolateFrameCount{0};    // 插值时间模式使用的输出帧数
     int m_PreferredCacheNum{0};       // 外部声明的最小缓存帧数，见 setPreferredCacheNum
     bool m_VortexAutoCompute{false};  // 播放时按需补算涡量，见 setVortexAutoCompute
     std::string m_VortexSourceAttr;   // 计算涡量所用的源矢量属性名
