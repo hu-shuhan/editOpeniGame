@@ -764,13 +764,17 @@ private:
                 // 部署remap
                 std::vector<float> remappedFloatAttrBuffer;
                 std::vector<double> remappedDoubleAttrBuffer;
+                std::vector<unsigned char> remappedUInt8AttrBuffer;
 
                 if (attrParams.valueSize == sizeof(float)) {
                     // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
                     remapAttributeValues(attr.pointer, remappedFloatAttrBuffer, attrParams, i);
-                } else {
+                } else if (attrParams.valueSize == sizeof(double)) {
                     // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
                     remapAttributeValues(attr.pointer, remappedDoubleAttrBuffer, attrParams, i);
+                } else if (attrParams.valueSize == sizeof(unsigned char)) {
+                    // UInt8（1 字节）：按 unsigned char 无损存储
+                    remapAttributeValues(attr.pointer, remappedUInt8AttrBuffer, attrParams, i);
                 }
 
                 // 编码
@@ -826,6 +830,12 @@ private:
                                 preserve, remap, attrParams.elementCount, attrParams.dimension);
                         exportData.reconstructedDouble = RestoreAttributeOrder(
                                 remappedDoubleAttrBuffer, remap, attrParams.elementCount, attrParams.dimension);
+                    }
+                } else if (attrParams.valueSize == sizeof(unsigned char)) {
+                    // UInt8：无损原始字节拷贝
+                    encoded.resize(remappedUInt8AttrBuffer.size());
+                    if (!remappedUInt8AttrBuffer.empty()) {
+                        std::memcpy(encoded.data(), remappedUInt8AttrBuffer.data(), remappedUInt8AttrBuffer.size());
                     }
                 }
 

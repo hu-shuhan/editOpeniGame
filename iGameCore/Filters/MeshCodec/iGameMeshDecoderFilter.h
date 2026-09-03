@@ -124,7 +124,8 @@ private:
         IGsize attrBinaryTotal = 0;
         for (const auto& attr : this->m_codecParams.attrParams) {
             if (attr.dimension <= 0) { return false; }
-            if (attr.valueSize != sizeof(float) && attr.valueSize != sizeof(double)) { return false; }
+            if (attr.valueSize != sizeof(float) && attr.valueSize != sizeof(double) &&
+                attr.valueSize != sizeof(unsigned char)) { return false; }
             if (attr.type < IG_SCALAR || attr.type >= IG_ATTRIBUTE_COUNT) { return false; }
             if (attr.attachmentType < IG_POINT || attr.attachmentType > IG_MID_POINT) { return false; }
             if (MulWillOverflow(attr.elementCount, static_cast<IGsize>(attr.dimension))) { return false; }
@@ -337,6 +338,14 @@ private:
                         return;
                     }
                     attr.doubleData = std::move(doubles);
+                } else if (params.valueSize == sizeof(unsigned char)) {
+                    // UInt8（1 字节）：无损原始字节拷贝
+                    std::vector<unsigned char> uint8Data(inputBuffer.begin(), inputBuffer.end());
+                    if (uint8Data.size() != valueCount) {
+                        attrDecodeFailed.store(true);
+                        return;
+                    }
+                    attr.uint8Data = std::move(uint8Data);
                 }
 
                 // 保存解码结果

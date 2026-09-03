@@ -39,6 +39,9 @@ protected:
     ArrayObject::Pointer ReadCellPolyhedronToFaces();
     ArrayObject::Pointer ReadCellPolyhedronOffsets();
     bool DecodeDataArrayPayload(tinyxml2::XMLElement* element, vtkxml::ByteBuffer& output);
+    // Reads a binary/appended integer DataArray (Int8..Int64, UInt8..UInt64)
+    // through the shared decoder, dispatching on the VTK `type` attribute.
+    ArrayObject::Pointer ReadIntegerDataArray(const char* type, int scalarComponents);
 
     template<typename T>
     void ReadCurrentArray(typename FlatArray<T>::Pointer arr) {

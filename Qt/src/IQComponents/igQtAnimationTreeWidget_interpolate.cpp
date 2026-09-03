@@ -10,6 +10,8 @@ igQtAnimationTreeWidget_interpolate::igQtAnimationTreeWidget_interpolate(QWidget
 
 
 void igQtAnimationTreeWidget_interpolate::updateInterpolateSequence(int num) {
+    if (timeSequence.size() < 2 || num < 2) return;
+
     interpolate_timeSequence.clear();
     interpolate_timeSequence.reserve(num);
     keyframe_sum = num;
@@ -94,12 +96,16 @@ void igQtAnimationTreeWidget_interpolate::updateData() {
     this->topLevelItem(1)->setText(1, QString::asprintf("%.10f", interpolate_timeSequence[current_Keyframe_index]));
 }
 
-void igQtAnimationTreeWidget_interpolate::updateInterpolateData(float _start, float _end, int keyframeNum) {
-    if((startTime != _start || endTime != _end || keyframe_sum != keyframeNum) && startTime < endTime) {
+bool igQtAnimationTreeWidget_interpolate::updateInterpolateData(float _start, float _end, int keyframeNum) {
+    if (timeSequence.size() < 2 || keyframeNum < 2 || _start >= _end) return false;
+    if (_start < timeSequence.front() || _end > timeSequence.back()) return false;
+
+    if((startTime != _start || endTime != _end || keyframe_sum != keyframeNum)) {
         startTime = _start;
         endTime = _end;
         updateInterpolateSequence(keyframeNum);
     }
+    return true;
 }
 
 void igQtAnimationTreeWidget_interpolate::updateCurrentKeyframe(int idx) {
