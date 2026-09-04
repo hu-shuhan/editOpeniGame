@@ -5,6 +5,13 @@
 #include "iGameSceneManager.h"
 #include "iGameSmartPointer.h"
 
+#include <algorithm>
+
+#include <QLineEdit>
+#include <QListWidget>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QAbstractItemView>
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
@@ -45,13 +52,25 @@ igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent) : QWidget(pa
     m_Generated = false;
     m_Extracter = nullptr;
     m_PointData = nullptr;
-    QRegularExpression rx("-?\\d*\\.?\\d+");
+    // 允许一次填写多个等值数值：数字之间用逗号（中英文）/ 空格 / 分号分隔
+    QRegularExpression rx(R"(\s*[-+0-9.eE]+(?:\s*[,，;；\s]\s*[-+0-9.eE]+)*\s*)");
     ui->lineEdit_IsoValue->setValidator(new QRegularExpressionValidator(rx, this));
+    ui->lineEdit_IsoValue->setPlaceholderText(
+            QStringLiteral("数值，可逗号分隔"));
     connect(ui->btnExecute, &QPushButton::clicked, this, &igQtContourExtractWidget::ContourExtract);
     connect(ui->comboBox_ScalarIndex, &QComboBox::currentTextChanged, this,
             &igQtContourExtractWidget::UpdateScalarName);
     connect(ui->comboBox_ScalarDimension, &QComboBox::currentTextChanged, this,
             &igQtContourExtractWidget::UpdateScalarDimension);
+
+    ui->listWidget_IsoValues->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    connect(ui->btnAddIsoValue, &QPushButton::clicked, this, &igQtContourExtractWidget::AddIsoValueFromInput);
+    connect(ui->lineEdit_IsoValue, &QLineEdit::returnPressed, this,
+            &igQtContourExtractWidget::AddIsoValueFromInput);
+    connect(ui->btnRemoveIsoValue, &QPushButton::clicked, this,
+            &igQtContourExtractWidget::RemoveSelectedIsoValues);
+    connect(ui->btnClearIsoValues, &QPushButton::clicked, this, &igQtContourExtractWidget::ClearIsoValues);
+    connect(ui->btnGenRange, &QPushButton::clicked, this, &igQtContourExtractWidget::GenerateIsoValuesByRange);
 }
 
 
@@ -101,8 +120,112 @@ void igQtContourExtractWidget::UpdateScalarDimension() {
     }
 }
 
-void igQtContourExtractWidget::UpdateIsoValue() { this->m_IsoValue = ui->lineEdit_IsoValue->text().toDouble(); }
+void igQtContourExtractWidget::UpdateIsoValue() {
+    // 以列表为准；列表为空时把输入框里没来得及"添加"的内容也算上，
+    // 这样直接填一个数就点执行的旧用法仍然有效。
+    if (m_IsoValues.empty()) {
+        const QStringList tokens =
+                ui->lineEdit_IsoValue->text().split(QRegularExpression(R"([,，;；\s]+)"), Qt::SkipEmptyParts);
+        std::vector<double> parsed;
+        for (const QString& token: tokens) {
+            bool ok = false;
+            const double v = token.toDouble(&ok);
+            if (ok) { parsed.push_back(v); }
+        }
+        if (!parsed.empty()) { AppendIsoValues(parsed); }
+    }
+    m_IsoValue = m_IsoValues.empty() ? 0.0 : m_IsoValues.front();
+}
 
+QString igQtContourExtractWidget::isoValueText() const {
+    if (m_IsoValues.empty()) return QStringLiteral("(空)");
+    QStringList parts;
+    for (double v: m_IsoValues) { parts << QString::number(v); }
+    if (m_IsoValues.size() == 1) return parts.front();
+    return QStringLiteral("%1 个（%2）").arg(m_IsoValues.size()).arg(parts.join(QStringLiteral(", ")));
+}
+
+
+void igQtContourExtractWidget::AppendIsoValues(const std::vector<double>& values) {
+    for (double v: values) { m_IsoValues.push_back(v); }
+    std::sort(m_IsoValues.begin(), m_IsoValues.end());
+    m_IsoValues.erase(std::unique(m_IsoValues.begin(), m_IsoValues.end()), m_IsoValues.end());
+    SyncIsoValueList();
+}
+
+void igQtContourExtractWidget::SyncIsoValueList() {
+    ui->listWidget_IsoValues->clear();
+    for (double v: m_IsoValues) { ui->listWidget_IsoValues->addItem(QString::number(v)); }
+}
+
+bool igQtContourExtractWidget::CurrentScalarRange(double& lo, double& hi) const {
+    if (!m_OriginDataObject || !m_OriginDataObject->GetAttributeSet()) return false;
+    auto dataRange = m_OriginDataObject->GetAttributeSet()->GetAttribute(m_ScalarName).GetDataRange();
+    if (!dataRange) return false;
+    const int base = 2 * m_ScalarDimension + 2;
+    if (dataRange->GetNumberOfElements() < base + 2) return false;
+    lo = dataRange->GetValue(base);
+    hi = dataRange->GetValue(base + 1);
+    return hi > lo;
+}
+
+void igQtContourExtractWidget::AddIsoValueFromInput() {
+    // 输入框仍支持一次粘贴多个（逗号 / 空格 / 分号分隔）
+    const QStringList tokens =
+            ui->lineEdit_IsoValue->text().split(QRegularExpression(R"([,，;；\s]+)"), Qt::SkipEmptyParts);
+    std::vector<double> parsed;
+    for (const QString& token: tokens) {
+        bool ok = false;
+        const double v = token.toDouble(&ok);
+        if (ok) { parsed.push_back(v); }
+    }
+    if (parsed.empty()) {
+        QMessageBox::information(this, tr("Contour Extract"),
+                                 tr("请输入有效数值。可用逗号分隔一次输入多个，例如 1.5, 2.0, 2.5。"));
+        return;
+    }
+    AppendIsoValues(parsed);
+    ui->lineEdit_IsoValue->clear();
+}
+
+void igQtContourExtractWidget::RemoveSelectedIsoValues() {
+    const auto selected = ui->listWidget_IsoValues->selectedItems();
+    if (selected.isEmpty()) return;
+    std::vector<double> keep;
+    for (int row = 0; row < ui->listWidget_IsoValues->count(); ++row) {
+        auto* item = ui->listWidget_IsoValues->item(row);
+        if (!item->isSelected() && row < static_cast<int>(m_IsoValues.size())) {
+            keep.push_back(m_IsoValues[static_cast<size_t>(row)]);
+        }
+    }
+    m_IsoValues.swap(keep);
+    SyncIsoValueList();
+}
+
+void igQtContourExtractWidget::ClearIsoValues() {
+    m_IsoValues.clear();
+    SyncIsoValueList();
+}
+
+void igQtContourExtractWidget::GenerateIsoValuesByRange() {
+    double lo = 0.0, hi = 0.0;
+    if (!CurrentScalarRange(lo, hi)) {
+        QMessageBox::information(this, tr("Contour Extract"),
+                                 tr("无法获取当前标量分量的数据范围，请先选择属性与分量。"));
+        return;
+    }
+    const int n = ui->spinBox_RangeCount->value();
+    std::vector<double> generated;
+    if (n <= 1) {
+        generated.push_back(0.5 * (lo + hi));
+    } else {
+        // 在 [lo, hi] 内均匀取 n 个数值，含两端
+        for (int i = 0; i < n; ++i) {
+            generated.push_back(lo + (hi - lo) * static_cast<double>(i) / static_cast<double>(n - 1));
+        }
+    }
+    AppendIsoValues(generated);
+}
 
 void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     if (!m_d) { return; }
@@ -116,6 +239,7 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
     this->m_ScalarArray = nullptr;
     this->m_ScalarName.clear();
     ui->label_RangeInfo->clear();
+    ClearIsoValues();
     InitScalarName();
     m_Generated = false;
     m_Extracter = iGame::ContourFilter::New();
@@ -131,6 +255,11 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
 void igQtContourExtractWidget::ContourExtract() {
     UpdateIsoValue();
     if (m_ScalarArray == nullptr) { return; }
+    if (m_IsoValues.empty()) {
+        QMessageBox::information(this, tr("Contour Extract"),
+                                 tr("等值数值列表为空。请在输入框填入数值后点「添加」，或用「按范围生成」自动生成。"));
+        return;
+    }
     if (!m_Extracter) { m_Extracter = iGame::ContourFilter::New(); }
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
@@ -181,7 +310,7 @@ void igQtContourExtractWidget::ContourExtract() {
                 }
             }
             if (m_ScalarArray) {
-                m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+                m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValues, m_ScalarDimension);
                 if (!m_Extracter->Execute()) { continue; }
                 auto subOut = m_Extracter->GetContourMesh();
                 if (!subOut || subOut->GetNumberOfCells() == 0) { continue; }
@@ -194,13 +323,13 @@ void igQtContourExtractWidget::ContourExtract() {
             restoreView();
             QMessageBox::information(this, tr("Contour Extract"),
                                      tr("当前等值 %1 未与任何单元相交，没有生成轮廓。请调整等值数值后重试。")
-                                             .arg(m_IsoValue));
+                                             .arg(isoValueText()));
             return;
         }
     } else {
         m_Extracter->SetProgressRange(0.0, 1.0);
         m_Extracter->SetInput(m_OriginDataObject);
-        m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+        m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValues, m_ScalarDimension);
         if (!m_Extracter->Execute()) {
             restoreView();
             QMessageBox::warning(this, tr("Contour Extract"), tr("轮廓提取失败：当前数据类型不支持或输入无效。"));
@@ -211,7 +340,7 @@ void igQtContourExtractWidget::ContourExtract() {
             restoreView();
             QMessageBox::information(this, tr("Contour Extract"),
                                      tr("当前等值 %1 未与任何单元相交，没有生成轮廓。请调整等值数值后重试。")
-                                             .arg(m_IsoValue));
+                                             .arg(isoValueText()));
             return;
         }
         std::cout << out->GetNumberOfPoints() << " " << out->GetNumberOfCells() << '\n';
@@ -225,7 +354,7 @@ void igQtContourExtractWidget::ContourExtract() {
 
     m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
     //m_Extracter->SetInput(m_OriginDataObject);
-    //m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+    //m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValues, m_ScalarDimension);
     //m_Extracter->Execute();
     //auto output = DynamicCast<iGame::UnstructuredMesh>(m_Extracter->GetOutput());
 

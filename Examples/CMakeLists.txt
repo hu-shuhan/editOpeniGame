@@ -328,6 +328,7 @@ endif ()
 
 igame_add_example(testClip Filter/TestClip.cpp)
 igame_add_example(testSlice Filter/TestSlice.cpp)
+igame_add_example(testIsoVolume Filter/TestIsoVolume.cpp)
 igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter.cpp)
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)

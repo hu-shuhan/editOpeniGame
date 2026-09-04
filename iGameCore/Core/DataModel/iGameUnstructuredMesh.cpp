@@ -282,8 +282,9 @@ bool UnstructuredMesh::_GetCell(const IGsize cellId, Cell* cell) const {
             cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
         }
     } else {
-        igIndex ids[IGAME_CELL_MAX_SIZE] = {};
-        igIndex size = m_Cells->GetCellIds(cellId, ids);
+        // 多面体单元的 id 列表可能超过 IGAME_CELL_MAX_SIZE(256)，改用指针版避免固定数组溢出
+        const igIndex* ids = nullptr;
+        igIndex size = static_cast<igIndex>(m_Cells->GetCellIds(cellId, ids));
         Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
         polyhedron->m_FaceOffset->Reset();
         polyhedron->m_FaceOffset->Reserve(ids[0]);
