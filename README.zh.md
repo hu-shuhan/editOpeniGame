@@ -38,7 +38,7 @@ iGameVis 是基于 `iGameCore` 核心库与可选 `Qt` 前端模块构建的 CAE
 
 ## 文件导入
 
-文件导入路径不能包含中文字符。
+常用内置格式（VTK、OBJ、OFF、MESH、STL、PLY、VTU、VTS、VTP、PVD、VTM、IGC、IGCM）的导入路径支持中文字符。依赖第三方 SDK 或外部转换器的格式仍建议使用英文路径。
 
 ## 环境要求
 

@@ -8,6 +8,7 @@
  */
 
 #include "iGameXMLFileReader.h"
+#include "iGameFileSystem.h"
 #include "iGameVolumeMesh.h"
 
 #include <tinyxml2.h>
@@ -112,13 +113,16 @@ bool iGameXMLFileReader::Open() {
 
 //	doc = new tinyxml2::XMLDocument(false, tinyxml2::Whitespace::COLLAPSE_WHITESPACE);
 	doc = new tinyxml2::XMLDocument(true, tinyxml2::ParseMode::MIXED_BINARY_XML);
-	if (doc->LoadFile(m_FilePath.c_str()) != tinyxml2::XML_SUCCESS) {
+    FILE* xmlFile = FileSystem::OpenFile(m_FilePath, "rb");
+	if (xmlFile == nullptr || doc->LoadFile(xmlFile) != tinyxml2::XML_SUCCESS) {
 //		printf("[XML parser]:Could not load file: %s . Error='%s'. Exiting.\n", m_FilePath.c_str(), doc->ErrorStr());
         IGAME_CORE_ERROR("[XML parser]:Could not load file: {} . Error='{}'. Exiting.", m_FilePath.c_str(), doc->ErrorStr());
+		if (xmlFile != nullptr) { std::fclose(xmlFile); }
 		delete doc;
 		doc = nullptr;
 		return false;
 	}
+    std::fclose(xmlFile);
 	root = doc->RootElement(); // <VTKFile>
 	if (root == nullptr) {
 		IGAME_CORE_ERROR("[XML parser]:Root element is null for file: {}", m_FilePath.c_str());

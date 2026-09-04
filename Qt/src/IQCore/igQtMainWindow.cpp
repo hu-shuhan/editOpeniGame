@@ -56,6 +56,7 @@
 #include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
 #include <iGameBlockMapping.h>
 #include <P3SAM/iGameP3SAMSegmenter.h>
+#include <QByteArray>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -621,7 +622,8 @@ void igQtMainWindow::initArgs(const QStringList& args) {
         const QString& cur_arg = args[i].toLower();
         if (cur_arg == "--filepath" && ++i < argc) {
             const QString& filePath = args[i];
-            fileLoader->OpenFile(filePath.toStdString());
+            const QByteArray utf8Path = filePath.toUtf8();
+            fileLoader->OpenFile(std::string(utf8Path.constData(), static_cast<std::size_t>(utf8Path.size())));
         }
     }
 }

@@ -23,6 +23,8 @@ public:
 	void LoadFile();
     void LoadOnlineS();
     void LoadOnlineC();
+	// Core file paths are UTF-8 encoded. File-system boundaries perform the
+	// native conversion (UTF-16 on Windows).
 	void OpenFile(const std::string& fileName);
     void OpenFiles(const QStringList& fileNames);
     void OpenSplineFile(const std::string& fileName);

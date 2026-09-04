@@ -1,4 +1,5 @@
 #include "iGameIGCReader.h"
+#include "iGameFileSystem.h"
 #include "Log/iGameLogger.h"
 #include "MeshCodec/DecodeInput/iGameDecodeInputBinaryArray.h"
 #include "MeshCodec/DecodeInput/iGameDecodeInputMappedMemory.h"
@@ -47,7 +48,7 @@ bool IGCReader::ParsingWithFilePath() {
 }
 
 DecodeInputBinaryArray::Pointer IGCReader::CreateDecoderInputFromFile() {
-    std::ifstream file(m_FilePath, std::ios::binary | std::ios::ate);
+    std::ifstream file(FileSystem::PathFromUtf8(m_FilePath), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         IGAME_CORE_ERROR("Failed to open file: {}", m_FilePath);
         return nullptr;

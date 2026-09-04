@@ -35,6 +35,7 @@
 #include "iGameProgressObserver.h"
 #include <Nastran/iGameNastranReader.h>
 #include <VTK XML/iGameVTMWriter.h>
+#include <exception>
 #include <filesystem>
 
 IGAME_NAMESPACE_BEGIN
@@ -100,7 +101,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return D3PLOT;
     }
     {
-        std::string baseName = std::filesystem::path(file_name).filename().string();
+        const auto slash = file_name.find_last_of("/\\");
+        std::string baseName = file_name.substr(slash == std::string::npos ? 0 : slash + 1);
         for (char& c : baseName) {
             if (c >= 'A' && c <= 'Z') { c = static_cast<char>(c - 'A' + 'a'); }
         }
@@ -321,6 +323,7 @@ static DataObject::Pointer FinalizeLoadedObject(DataObject::Pointer resObj, cons
 }
 
 DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
+    try {
     IGenum fileType = GetFileType(file_name);
     std::string out;
     out.append("Read file [type: ");
@@ -488,8 +491,10 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             break;
     }
 
-    std::filesystem::path pathObj(file_name);
-    std::string baseName = pathObj.stem().string();
+    const auto slash = file_name.find_last_of("/\\");
+    std::string baseName = file_name.substr(slash == std::string::npos ? 0 : slash + 1);
+    const auto dot = baseName.find_last_of('.');
+    if (dot != std::string::npos) { baseName.erase(dot); }
     resObj = FinalizeLoadedObject(resObj, baseName);
 
     end = clock();
@@ -500,6 +505,17 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     out.append("]");
     igDebug(out);
     return resObj;
+    } catch (const std::exception& error) {
+        IGAME_CORE_ERROR("Failed to read file '{}': {}", file_name, error.what());
+    } catch (...) {
+        IGAME_CORE_ERROR("Failed to read file '{}' due to an unknown error", file_name);
+    }
+
+    if (auto* progress = ProgressObserver::Instance()) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
+    return nullptr;
 }
 
 DataObject::Pointer FileIO::ReadVTKFromMemory(const void* data, size_t size) {

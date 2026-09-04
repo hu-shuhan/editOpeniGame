@@ -9,6 +9,7 @@
 
 #include "iGameFileReader.h"
 #include "iGameVTUReader.h"
+#include "iGameFileSystem.h"
 #include "iGameXMLUtils.h"
 #include "VTK/iGameVTKAbstractReader.h"
 
@@ -184,7 +185,7 @@ bool iGameVTUReader::DecodeDataArrayPayload(tinyxml2::XMLElement* element, vtkxm
     if (format != nullptr && std::strcmp(format, "appended") == 0 && m_parseRawBinaryData &&
         (context.sourceData == nullptr || context.sourceSize == 0)) {
         if (m_DataArraySourceBuffer.empty()) {
-            std::ifstream stream(m_FilePath, std::ios::binary | std::ios::ate);
+            std::ifstream stream(FileSystem::PathFromUtf8(m_FilePath), std::ios::binary | std::ios::ate);
             if (!stream) {
                 SetDataArrayDecodeError("cannot open the source file for raw AppendedData");
                 return false;

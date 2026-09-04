@@ -29,11 +29,23 @@
 #include <iGameType.h>
 
 #include <QCoreApplication>
+#include <QByteArray>
 #include <QMessageBox>
 #include <iostream>
 #include <qaction.h>
 #include <qdebug.h>
 #include <qsettings.h>
+
+namespace {
+std::string ToUtf8FilePath(const QString& path) {
+    const QByteArray utf8 = path.toUtf8();
+    return std::string(utf8.constData(), static_cast<std::size_t>(utf8.size()));
+}
+
+QString FromUtf8FilePath(const std::string& path) {
+    return QString::fromUtf8(path.data(), static_cast<int>(path.size()));
+}
+}
 
 igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
     InitRecentFilePaths();
@@ -61,8 +73,8 @@ void igQtFileLoader::LoadOnlineC() {
                            "STAR-CCM+ file(*.ccm)",
                            "Ansys file(*.rst *.rth)"};
     QString selectedFilter;
-    std::string filePath =
-            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
+    std::string filePath = ToUtf8FilePath(
+            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter));
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     std::cout << filePath << std::endl;
     // 关键修改：用packaged_task获取线程返回值
@@ -128,11 +140,11 @@ void igQtFileLoader::LoadFile() {
     if(filePath.empty()) return ;
     switch (selected_idx) {
         case FileType::Spline:
-            this->OpenSplineFile(filePath[0].toStdString());
+            this->OpenSplineFile(ToUtf8FilePath(filePath[0]));
             break;
 #if defined(AbqSDK_ENABLE)
         case FileType::ABAQUS:
-            this->OpenODBFile(filePath[0].toStdString());
+            this->OpenODBFile(ToUtf8FilePath(filePath[0]));
             break;
 #endif
 #if defined(NASTRAN_ENABLE)
@@ -181,7 +193,7 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
-    this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+    this->SaveCurrentFileToRecentFile(FromUtf8FilePath(filePath));
 
 
     //return;
@@ -203,12 +215,12 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     }
     if (!igcmFiles.empty()) {
         for (const auto& p : igcmFiles) {
-            this->OpenFile(p.toStdString());
+            this->OpenFile(ToUtf8FilePath(p));
         }
         return;
     }
 
-    const std::string& first_file_path = filePaths[0].toStdString();
+    const std::string first_file_path = ToUtf8FilePath(filePaths[0]);
     // d3plot 文件无扩展名（d3plot / d3plot01 / ...），需放行；其余无扩展名文件仍拒绝
     if (strrchr(first_file_path.data(), '.') == nullptr &&
         FileIO::GetFileType(first_file_path) != FileIO::D3PLOT) return;
@@ -241,7 +253,7 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
 
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
-    this->SaveCurrentFileToRecentFile(QString::fromStdString(first_file_path));
+    this->SaveCurrentFileToRecentFile(FromUtf8FilePath(first_file_path));
 
     /* Add left FilePaths to be as SubDataObject. */
     if(filePaths.size() > 1)
@@ -294,7 +306,7 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
         auto timeFrame = outerObj->GetTimeFrames();
         for(int i = 0; i < filePaths.size(); i ++){
             iGame::StringArray::Pointer subFileNameArray = iGame::StringArray::New();
-            subFileNameArray->AddElement(filePaths[i].toStdString());
+            subFileNameArray->AddElement(ToUtf8FilePath(filePaths[i]));
             timeFrame->AddTimeStep((float) (i + 1) / filePaths.size(), subFileNameArray, StreamingType::MultiSubFiles);
         }
         //return;
@@ -353,7 +365,7 @@ void igQtFileLoader::OpenODBFile(const std::string& filePath) {
             obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
             //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
-            this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+            this->SaveCurrentFileToRecentFile(FromUtf8FilePath(filePath));
             emit NewModel(obj, ItemSource::File);
             emit FinishReading();
         }
@@ -366,7 +378,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
     igQtSplineOptionDialog dialog;
-    dialog.setFileName(QString(filePath.c_str()));
+    dialog.setFileName(FromUtf8FilePath(filePath));
 
     SplineType readerType;
     if (dialog.exec() == QDialog::Accepted) {
@@ -422,7 +434,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
-    this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+    this->SaveCurrentFileToRecentFile(FromUtf8FilePath(filePath));
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
 
@@ -443,7 +455,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
     obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
 
-    this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+    this->SaveCurrentFileToRecentFile(FromUtf8FilePath(filePath));
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
 #endif
@@ -585,7 +597,7 @@ void igQtFileLoader::AddCurrentFileToRecentFilePath(QString filePath) {
     recentFileAction->setText(filePath);
     recentFileAction->setData(filePath);
     recentFileAction->setVisible(true);
-    connect(recentFileAction, &QAction::triggered, this, [=, this]() { this->OpenFile(filePath.toStdString()); });
+    connect(recentFileAction, &QAction::triggered, this, [=, this]() { this->OpenFile(ToUtf8FilePath(filePath)); });
     this->recentFileActionList.append(recentFileAction);
     UpdateRecentActionList();
 }
@@ -629,7 +641,7 @@ void igQtFileLoader::InitRecentFileActions(std::vector<QString> FilePaths) {
         recentFileAction->setText(FilePaths[i]);
         recentFileAction->setData(FilePaths[i]);
         recentFileAction->setVisible(false);
-        connect(recentFileAction, &QAction::triggered, this, [=, this]() { this->OpenFile(FilePaths[i].toStdString()); });
+        connect(recentFileAction, &QAction::triggered, this, [=, this]() { this->OpenFile(ToUtf8FilePath(FilePaths[i])); });
         this->recentFileActionList.append(recentFileAction);
     }
     UpdateRecentActionList();

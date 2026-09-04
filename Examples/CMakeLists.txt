@@ -291,6 +291,7 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
+igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)

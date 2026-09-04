@@ -1,6 +1,7 @@
 #include "iGameIGCMReader.h"
 
 #include "iGameFileIO.h"
+#include "iGameFileSystem.h"
 #include "iGameDrawObject.h"
 
 #include <algorithm>
@@ -18,7 +19,7 @@ static bool IsSafeRelativePath(const std::string& file) {
         return false;
     }
 
-    std::filesystem::path p(file);
+    std::filesystem::path p = FileSystem::PathFromUtf8(file);
 
     // 拒绝绝对路径/盘符/UNC 等形式
     if (p.is_absolute() || p.has_root_name() || p.has_root_directory()) {
@@ -52,7 +53,7 @@ bool IGCMReader::Parsing() {
         return false;
     }
 
-    const std::filesystem::path manifestDir = std::filesystem::path(m_FilePath).parent_path();
+    const std::filesystem::path manifestDir = FileSystem::PathFromUtf8(m_FilePath).parent_path();
 
     if (!typeAttr) {
         return false;
@@ -209,8 +210,8 @@ bool IGCMReader::ParseTimeSeries(const std::filesystem::path& manifestDir) {
                 return false;
             }
 
-            std::filesystem::path igcPath = manifestDir / std::filesystem::path(relFile);
-            files->AddElement(igcPath.string());
+            std::filesystem::path igcPath = manifestDir / FileSystem::PathFromUtf8(relFile);
+            files->AddElement(FileSystem::PathToUtf8(igcPath));
             m_dataSetCount++;
         }
 
@@ -373,8 +374,8 @@ bool IGCMReader::ParseElement(tinyxml2::XMLElement* elem, const std::filesystem:
             return false;
         }
 
-        std::filesystem::path igcPath = manifestDir / std::filesystem::path(relFile);
-        auto dataObj = FileIO::ReadFile(igcPath.string());
+        std::filesystem::path igcPath = manifestDir / FileSystem::PathFromUtf8(relFile);
+        auto dataObj = FileIO::ReadFile(FileSystem::PathToUtf8(igcPath));
         if (!dataObj) {
             return false;
         }
