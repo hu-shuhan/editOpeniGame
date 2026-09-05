@@ -264,6 +264,11 @@ bool iGame::AttributeSet::Attribute::DeepCopy(const iGame::AttributeSet::Attribu
     attachmentType = other.attachmentType;
     isDeleted = other.isDeleted;
     rangeLocked = other.rangeLocked;
+    rangeMode = other.rangeMode;
+    rangeLockedDimension = other.rangeLockedDimension;
+    runningMin = other.runningMin;
+    runningMax = other.runningMax;
+    runningRangeValid = other.runningRangeValid;
 
     dataRange = DoubleArray::New();
     dataRange->DeepCopy(other.dataRange);

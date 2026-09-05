@@ -52,6 +52,9 @@ public:
     bool UnfixAttributeRange(const std::string& attrName);
     // 查询指定属性是否处于范围锁定状态
     bool IsAttributeRangeLocked(const std::string& attrName);
+    // 设置属性的范围模式：每帧调整 / 只扩不缩 / 全局固定
+    bool SetAttributeRangeMode(const std::string& attrName, AttributeSet::RangeMode mode, int dimension = -1);
+    AttributeSet::RangeMode GetAttributeRangeMode(const std::string& attrName);
     // 帧挂载后重放范围锁定：把父容器已锁定属性的固定范围同步到挂载子对象，
     // 避免缓存重读/初始加载的帧对象（未带锁）把父范围重新聚合成当帧值
     void ReapplyRangeLocks();
@@ -154,6 +157,15 @@ public:
     DataObject* FindParent();
     //Get real size of DataObject, Only the memory of a large batch of arrays is taken into account 
     virtual IGsize GetRealMemorySize();
+
+private:
+    // 扫描单个属性集数据，得到指定显示维度的真实范围（-1=模长，0..=分量）
+    static bool ScanAttributeRange(AttributeSet::Pointer attrs, const std::string& attrName,
+                                   int dimension, double& mn, double& mx);
+    // 计算某属性在所有帧（含挂载帧）上的全局范围
+    bool ComputeGlobalRange(const std::string& attrName, int dimension, double& mn, double& mx);
+    // 只扩不缩：用当前挂载帧的真实数据扩张运行范围并写回锁定范围
+    bool ExpandRangeLocksForCurrentFrame();
 
 protected:
     ~DataObject() override{/*std::cout << "Destructed\n";*/};

@@ -50,41 +50,20 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
             if (scene) { scene->SetOpacityMappingEnabled(checked); }
         });
-	connect(ui->checkBox_RangeLock, &QCheckBox::toggled, this,
-        [this](bool checked) {
+	connect(ui->comboBox_RangeMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this](int idx) {
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
             if (!scene || !scene->GetCurrentModel()) return;
             auto obj = scene->GetCurrentModel()->GetDataObject();
             if (!obj || scalarName.empty()) return;
 
-            if (checked) {
-                // 计算该属性在所有帧上的全局范围（与标量视图同分量的并集）
-                double gmin = DBL_MAX, gmax = DBL_MIN;
-                bool found = false;
-                if (auto frames = obj->PeekTimeFrames()) {
-                    const size_t n = frames->GetTimeNum();
-                    for (size_t j = 0; j < n; ++j) {
-                        auto frameData = frames->GetTargetTimeFrameData(j);
-                        for (auto& o : frameData) {
-                            auto d = iGame::DynamicCast<iGame::DataObject>(o);
-                            if (!d) continue;
-                            auto attrs = d->GetAttributeSet();
-                            if (!attrs || attrs->GetAttributeIndex(scalarName) < 0) continue;
-                            auto r = attrs->GetAttribute(scalarName).GetDataRange();
-                            if (!r || r->GetNumberOfValues() < 2) continue;
-                            int e = scalarDimension + 1;
-                            if (e < 0 || e >= r->GetNumberOfElements()) { e = 0; }
-                            gmin = std::min(gmin, r->GetValue(2 * e));
-                            gmax = std::max(gmax, r->GetValue(2 * e + 1));
-                            found = true;
-                        }
-                    }
-                }
-                if (!found) { gmin = scalarMin; gmax = scalarMax; }
-                if (gmax <= gmin) { gmin = std::min(gmin, -1.0); gmax = std::max(gmax, 1.0); }
-                obj->FixAttributeRange(scalarName, gmin, gmax, scalarDimension);
-            } else {
-                obj->UnfixAttributeRange(scalarName);
+            // 下拉框索引与 RangeMode 枚举一致：0=每帧调整，1=只扩不缩，2=全局固定
+            const auto mode = static_cast<iGame::AttributeSet::RangeMode>(idx);
+            if (!obj->SetAttributeRangeMode(scalarName, mode, scalarDimension)) {
+                QSignalBlocker blocker(ui->comboBox_RangeMode);
+                ui->comboBox_RangeMode->setCurrentIndex(
+                        static_cast<int>(obj->GetAttributeRangeMode(scalarName)));
+                return;
             }
 
             if (auto draw = iGame::DynamicCast<iGame::DrawObject>(obj)) {
@@ -119,8 +98,9 @@ void igQtScalarViewWidget::loadScalarData() {
 	this->scalarDimension = obj->GetAttributeDimension();
     QSignalBlocker blocker(ui->checkBox_EnableOpacityMapping);
     ui->checkBox_EnableOpacityMapping->setChecked(scene->GetOpacityMappingEnabled());
-    QSignalBlocker rangeBlocker(ui->checkBox_RangeLock);
-    ui->checkBox_RangeLock->setChecked(obj->IsAttributeRangeLocked(scalarName));
+    QSignalBlocker rangeBlocker(ui->comboBox_RangeMode);
+    ui->comboBox_RangeMode->setCurrentIndex(
+            static_cast<int>(obj->GetAttributeRangeMode(scalarName)));
 
 	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
 	if (dataRange) {
@@ -138,7 +118,7 @@ void igQtScalarViewWidget::initScalarRange() {
 		return;
 	}
 	// 更新 ColorMapper 的范围到新的数据范围
-	if (m_ColorMapper) {
+	if (m_ColorMapper && scalarMax >= scalarMin) {
 		m_ColorMapper->SetRange(scalarMin, scalarMax);
 	}
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);

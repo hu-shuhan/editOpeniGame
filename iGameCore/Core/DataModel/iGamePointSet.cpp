@@ -125,7 +125,7 @@ void PointSet::ConvertToDrawableData() {
 
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange, igIndex dimension) {
     /* 当pointMapper 外部更新（调整颜色映射的 Range）， 则不用调整ColorMap的范围*/
-    if (!m_ColorMapper->GetStable() && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+    if (!m_ColorMapper->GetStable()) {
         int minIdx = 2 + dimension * 2 + 0;
         int maxIdx = 2 + dimension * 2 + 1;
         double minimal_val = attrRange->GetValue(minIdx);

@@ -9,7 +9,7 @@
 | 1 | 经典物理特征提取：梯度 / 曲率 / Laplacian / 涡量 / 等值线与等值面 | ✅ 已实现 |
 | 2 | 基于神经网络的涡提取，与人工标注对比，计算准确率 / 精确率 / 召回率（精度 ≥ 90%） | ✅ 已实现（评估逻辑）；GUI 指标浮层待恢复 |
 | 3 | 支持针对不同类型数据，构建相应的程序接口，实现不同精度要求下的特征提取 | ✅ 已实现（等值线 / 等值面 × 面网格 / 体网格 × 原始 / 简化网格） |
-| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（阶段一：颜色 / 不透明度映射 ✅；阶段二：逐帧属性差值 ✅；阶段三：属性范围锁定 ✅；时序 / 形变见 11.3） |
+| 4 | 关键事件的时域演化可视化；选中区域单独作用形变场 | ⏳ 部分实现（阶段一：颜色 / 不透明度映射 ✅；阶段二：逐帧属性差值 ✅；阶段三：映射范围模式（三档）✅；时序 / 形变见 11.3） |
 
 > 本文档记录子功能 **1**、**2**、**3** 的完整实现，以及 **4** 与现有交互 / 可视化模块的衔接说明。
 > 与 **10.1** 的区别：10.1 侧重**分析数据生成**（局部图表、熵种子、流线筛选）；10.2 侧重**特征场提取与涡结构检测评估**。
@@ -412,7 +412,7 @@ auto res1 = contour2->GetContourMesh();
 | 关键特征随时间刷新 | ✅ 可对每帧属性切换云图；涡预测可按帧重跑或预计算后播放 | `ViewCloudPicture` + `UpdateAnimation` |
 | 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 阶段一已实现 | `ScalarsToColors::SetOpacityMappingEnabled` + `TransparencyLink` 透明管线；标量场面板「不透明度映射」开关 |
 | 逐帧属性差值（关键事件变化量） | ✅ 阶段二已实现 | 菜单「特征提取 → 属性差值」；`iGameAttrDiff`；逐帧计算属性差值 |
-| 属性范围锁定（固定范围） | ✅ 阶段三已实现 | 标量场面板「固定范围」；`DataObject::FixAttributeRange` / `ReapplyRangeLocks` |
+| 属性映射范围模式（每帧调整 / 只扩不缩 / 全局固定） | ✅ 阶段三已实现 | 标量场面板「映射范围模式」下拉框；`DataObject::SetAttributeRangeMode` / `ReapplyRangeLocks` / `ExpandRangeLocksForCurrentFrame` |
 | 整模结构形变 | ✅ 已实现 | `StressDeformationFilter` + `igQtDeformationWidget`（**11.3**） |
 
 ### 阶段性实现：标量场到颜色 / 不透明度的映射（阶段一）
@@ -426,21 +426,28 @@ auto res1 = contour2->GetContourMesh();
 
 在关键事件时域演化中的用法：单帧即可用「颜色高亮 + 低值区域半透明」突出关键事件区域；结合 **11.3** 的动画播放能力逐帧切换属性，即可观察关键区域随时间的演化。
 
-### 阶段性实现：逐帧属性差值 + 范围锁定（阶段二 / 阶段三）
+### 阶段性实现：逐帧属性差值 + 映射范围模式（阶段二 / 阶段三）
 
 **逐帧属性差值（阶段二）**：新增 `iGameAttrDiff` 过滤器，按所选属性逐帧计算相邻帧差值并作为新属性加入模型，用于刻画关键事件的变化量：
 
 - 第 0 帧差值为全 0；第 i 帧差值 = 第 i 帧属性 − 第 i−1 帧属性（按名字跨帧寻址，需各帧点数 / 拓扑一致）；
 - 三种差值模式：带符号差（默认）、绝对差、相对变化率；输出属性名形如 `<源属性>_diff` / `<源属性>_diff_abs` / `<源属性>_diff_rel`；
 - 入口：菜单「特征提取 → 属性差值」；动画播放时由播放钩子逐帧幂等惰性计算（已算过的帧直接复用，缓存重读的帧自动补算）；
-- 差值属性可作为普通云图属性显示，也可作为后续筛选 / 范围锁定的对象。
+- 差值属性可作为普通云图属性显示，也可作为「映射范围模式」控制或后续筛选的对象。
 
-**属性范围锁定（阶段三）**：任意属性（含差值属性）都可以一键固定为全局范围，使**同一个值在动画全程映射到同一种颜色和同一个不透明度**：
+**属性映射范围模式（阶段三）**：任意属性（含差值属性）都可以通过标量场面板的三档「映射范围模式」控制动画全程的映射范围，使**同一个值在动画中映射到可预期的颜色与不透明度**：
 
-- 数据层：`Attribute` 增加 `rangeLocked` 标志，`UpdateAllDataRange` 在锁定后不再按数据重算；`DataObject::FixAttributeRange / UnfixAttributeRange / IsAttributeRangeLocked` 提供通用锁定 / 解锁 / 查询接口；
-- 稳定性：`UpdateAnimation` 挂载新帧后执行 `ReapplyRangeLocks` 把固定范围重放到子对象；`ReCollectSubDataObjectDataRange` 跳过锁定属性，父容器范围不再被当帧值覆盖；
-- GUI：标量场面板「固定范围」复选框——勾选时按所有帧计算全局范围并锁定；颜色条（浮窗与场景内）在锁定属性时直接读取父容器固定范围，刻度与标量场保持一致；
-- 用法：先算差值（或选择任意属性）→ 选中该属性 → 勾选「固定范围」→ 播放，颜色 / 不透明度 映射范围全程不变；取消勾选恢复逐帧自适应。
+| 模式（下拉框文案） | 语义 | 说明 |
+|------|------|------|
+| 每帧调整（默认） | 范围随帧重算 | 旧版行为：每帧范围自适应 |
+| 只扩不缩 | 范围锁定为“运行范围”，随播放单调扩张、永不回缩 | 等价 ParaView 的 “Expand Range Only” |
+| 全局固定 | 先扫描所有帧得到全局 min/max 并写死，播放全程恒定 | 等价旧版「固定范围」复选框 |
+
+- 数据层：`Attribute` 增加 `RangeMode { PerFrame, ExpandOnly, FixedGlobal }` 及 `rangeMode / rangeLockedDimension / runningMin / runningMax / runningRangeValid` 字段；`DataObject::SetAttributeRangeMode(attrName, mode, dim)` 为三档入口——全局固定内部调用 `ComputeGlobalRange` 扫描所有帧后 `FixAttributeRange` 写死；只扩不缩内部按帧把真实范围与 `runningRange` 单调合并，只扩张不回缩；`FixAttributeRange / UnfixAttributeRange` 仍提供底层锁定 / 解锁接口；
+- 稳定性：`UpdateAnimation` 挂载新帧后按固定顺序执行 `ReapplyRangeLocks` → `ExpandRangeLocksForCurrentFrame` → `ReCollectSubDataObjectDataRange` → `UpdateSubDataObjectDataRange`；锁定属性在 ReCollect 时被跳过，父容器范围不被当帧值覆盖；子对象 / 抽壳网格的范围同步按下标与按属性名双遍执行，避免属性顺序不一致导致陈旧范围；
+- GUI：标量场面板新增「映射范围模式」下拉框（索引 0 / 1 / 2 与枚举一致），切换即调用 `SetAttributeRangeMode`，失败时自动回弹到 `GetAttributeRangeMode` 的实际模式；
+- 颜色条（浮窗与场景内）在锁定属性（全局固定 / 只扩不缩）时直接读取父容器锁定范围，刻度与标量场保持一致；
+- 用法：先算差值（或选择任意属性）→ 选中该属性 → 「映射范围模式」选择「全局固定」（或「只扩不缩」）→ 播放，颜色 / 不透明度映射范围恒定（或只扩张不回缩）；切回「每帧调整」恢复逐帧自适应。
 
 **后续阶段规划**（本子功能的实现路线）：
 
@@ -448,14 +455,14 @@ auto res1 = contour2->GetContourMesh();
 |------|------|------|
 | 阶段一 | 标量场 → 颜色 / 不透明度映射（表面绘制） | ✅ 已实现（本节） |
 | 阶段二 | 逐帧属性差值（`iGameAttrDiff`，原规划 `TimeDifferenceFilter`） | ✅ 已实现（本节） |
-| 阶段三 | 任意属性范围锁定（「固定范围」开关，颜色 / 不透明度 映射范围全程恒定） | ✅ 已实现（本节） |
+| 阶段三 | 任意属性映射范围控制（「映射范围模式」三档：每帧调整 / 只扩不缩 / 全局固定；颜色 / 不透明度映射范围按需恒定或单调扩张） | ✅ 已实现（本节） |
 
 推荐工作流（当前可用）：
 
 ```text
 加载时序数据 → 特征提取 / 涡预测 → 云图显示关键场
     →（可选）「特征提取 → 属性差值」计算逐帧变化量，选择差值属性
-    →（可选）勾选「固定范围」，使颜色 / 不透明度 映射范围恒定
+    →（可选）「映射范围模式」选「全局固定」（或「只扩不缩」），使颜色 / 不透明度映射范围稳定
     → 动画面板切换时间步（关键事件时域演化）
     →（可选）形变面板对整模施加位移矢量场
 ```
@@ -476,9 +483,10 @@ auto res1 = contour2->GetContourMesh();
 | `iGameCore/Rendering/Shaders/GLSL/TransparencyLink.frag` | 表面透明管线逐顶点 alpha（OIT 排序） |
 | `Qt/src/IQWidgets/igQtScalarViewWidget.*` | 「不透明度映射」开关 |
 | `iGameCore/Filters/Animation/iGameAttrDiff.*` | 逐帧属性差值过滤器（阶段二） |
-| `iGameCore/Core/DataModel/iGameDataObject.*`（范围锁定） | `FixAttributeRange` / `UnfixAttributeRange` / `ReapplyRangeLocks`（阶段三） |
-| `Qt/Resources/UI/ScalarView.ui` / `igQtScalarViewWidget.*` | 「固定范围」开关（阶段三） |
-| `Qt/src/IQWidgets/igQtColorBarWidget.*`、`iGameCore/Rendering/Core/iGameColorBar2DActor.*` | 锁定属性时颜色条刻度读固定范围 |
+| `iGameCore/Core/DataModel/iGameDataObject.*`（范围模式） | `SetAttributeRangeMode` / `GetAttributeRangeMode` / `FixAttributeRange` / `UnfixAttributeRange` / `ReapplyRangeLocks` / `ExpandRangeLocksForCurrentFrame`（阶段三） |
+| `iGameCore/Core/Common/iGameAttributeSet.*` | `RangeMode` 枚举与 `Attribute::rangeMode / runningRange` 字段（阶段三） |
+| `Qt/Resources/UI/ScalarView.ui` / `igQtScalarViewWidget.*` | 「映射范围模式」下拉框（阶段三） |
+| `Qt/src/IQWidgets/igQtColorBarWidget.*`、`iGameCore/Rendering/Core/iGameColorBar2DActor.*` | 锁定属性（全局固定 / 只扩不缩）时颜色条刻度读父容器锁定范围 |
 | `iGameCore/Filters/Deformation/iGameStressDeformationFilter.*` | 结构形变 |
 | `Qt/src/IQWidgets/igQtDeformationWidget.*` | 形变 Dock |
 | `doc/modules/README_11.3.md` | 时序 / 形变 / 动画完整说明 |
@@ -493,7 +501,7 @@ auto res1 = contour2->GetContourMesh();
 | 工具栏 `action_deformation` / `action_StrucDeformation` | 打开形变面板 |
 | `DeformationDockWidget` / `igQtDeformationWidget` | 位移矢量、缩放因子、开关形变 |
 | `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「不透明度映射」，把当前标量映射为颜色 + 不透明度 |
-| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 勾选「固定范围」，动画全程颜色 / 不透明度 映射范围恒定 |
+| `dockWidget_ScalarField` / `igQtScalarViewWidget` | 「映射范围模式」下拉框：每帧调整（默认）/ 只扩不缩 / 全局固定，控制动画中的颜色 / 不透明度映射范围 |
 
 <!-- 待补充截图：关键事件时域演化
 ![关键特征时域演化](../../Resources/Images/关键特征时域演化.png)

@@ -1006,18 +1006,15 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                            igIndex dimension) {
-    if (m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
-
-        if (!m_ColorMapper->GetStable()) {
-            double magnitude_min = attrRange->GetValue(0);
-            double magnitude_max = attrRange->GetValue(1);
-            if (magnitude_min < magnitude_max) {
-                m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-            } else if (dimension == -1) {
-                m_ColorMapper->InitRange(attr);
-            } else {
-                m_ColorMapper->InitRange(attr, dimension);
-            }
+    if (!m_ColorMapper->GetStable()) {
+        double magnitude_min = attrRange->GetValue(0);
+        double magnitude_max = attrRange->GetValue(1);
+        if (magnitude_min < magnitude_max) {
+            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+        } else if (dimension == -1) {
+            m_ColorMapper->InitRange(attr);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
         }
     }
     // DO NOT write ColorMapper range back to attrRange - this corrupts Magnitude range!

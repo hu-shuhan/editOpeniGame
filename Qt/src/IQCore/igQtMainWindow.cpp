@@ -2282,8 +2282,6 @@ void igQtMainWindow::initAllFilters() {
         ui->widget_Animation->SetDiffMode(mode);
         int diffIndex = -1;
         for (int j = 0; j < frameNum; ++j) {
-            // 先挂载第 j 帧再计算：保证幂等检查/计算/范围累计都针对同一帧对象。
-            // 否则循环里始终检查/写的是当前挂载的帧（通常是帧 0），后续帧根本不会被计算。
             data->UpdateAnimation(j);
             diffIndex = ui->widget_Animation->EnsureTimeDifferenceForCurrentFrame(data, attrName, j);
             if (diffIndex < 0) {

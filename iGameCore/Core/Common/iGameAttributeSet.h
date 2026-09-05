@@ -15,6 +15,9 @@ public:
     I_OBJECT(AttributeSet);
     static Pointer New() { return new AttributeSet; }
 
+    // 属性范围模式：每帧调整 / 只扩不缩 / 全局固定
+    enum class RangeMode { PerFrame = 0, ExpandOnly = 1, FixedGlobal = 2 };
+
     struct Attribute {
         ArrayObject::Pointer pointer{nullptr};
         IGenum type{IG_NONE};           // IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
@@ -30,6 +33,11 @@ public:
          * */
         DoubleArray::Pointer dataRange{nullptr};
         bool rangeLocked{false};        // 范围锁定：锁定后 UpdateAllDataRange 不再按数据重算
+        RangeMode rangeMode{RangeMode::PerFrame};  // 当前范围模式
+        int rangeLockedDimension{-1};   // 锁定/扩张针对的显示维度：-1=模长，0..=分量
+        double runningMin{0.0};         // 只扩不缩的运行范围（单调扩张，不回缩）
+        double runningMax{0.0};
+        bool runningRangeValid{false};
 
         // Get/Set ...
         ArrayObject::Pointer GetPointer();

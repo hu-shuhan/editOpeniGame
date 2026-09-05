@@ -1,5 +1,6 @@
 ﻿#include "iGameScalarsToColors.h"
 #include "iGameThreadPool.h"
+#include <limits>
 #include <time.h>
 
 IGAME_NAMESPACE_BEGIN
@@ -77,6 +78,12 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component) {
 }
 
 void ScalarsToColors::SetRange(double minval, double maxval) {
+    // 退化范围保护：min==max 会导致所有值被钳到色标一端（如全红）。
+    // 保留上一次有效范围，避免 [0,0] 之类写入 mapper。
+    if (maxval <= minval) { return; }
+    // 未初始化哨兵保护：对空数组算范围时 max 会停留为 DBL_MIN（2.2e-308），
+    // 属于"无有效最大值"的哨兵；拒绝它，继续使用上一次有效范围。
+    if (maxval == std::numeric_limits<double>::min()) { return; }
     if (this->InputRange[0] != minval || this->InputRange[1] != maxval) {
         this->InputRange[0] = minval;
         this->InputRange[1] = maxval;

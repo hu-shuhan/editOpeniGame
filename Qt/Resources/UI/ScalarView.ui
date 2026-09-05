@@ -197,16 +197,27 @@ QPushButton:pressed { background-color: #4A4A4A; }</string>
              </widget>
             </item>
 
-            <!-- 固定范围 -->
+            <!-- 范围模式 -->
             <item>
-              <widget class="QCheckBox" name="checkBox_RangeLock">
-                <property name="text">
-                <string>固定范围</string>
-                </property>
-                <property name="styleSheet">
-                <string notr="true">QCheckBox { font-size: 14px; color: #CCCCCC; }</string>
-                </property>
-             </widget>
+              <layout class="QHBoxLayout" name="horizontalLayout_RangeMode">
+               <item>
+                <widget class="QLabel" name="label_RangeMode">
+                 <property name="text">
+                  <string>映射范围模式</string>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">QLabel { font-size: 14px; color: #CCCCCC; }</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="comboBox_RangeMode">
+                 <item><property name="text"><string>每帧调整</string></property></item>
+                 <item><property name="text"><string>只扩不缩</string></property></item>
+                 <item><property name="text"><string>全局固定</string></property></item>
+                </widget>
+               </item>
+              </layout>
             </item>
 
             <item>

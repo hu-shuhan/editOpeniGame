@@ -26,15 +26,14 @@ protected:
     ~iGameAttrDiff() override = default;
 
 private:
+    bool ComputeFrame(DataObject::Pointer obj, StreamingData::Pointer frames, unsigned int frameIndex);
     // 把某一帧数据整合为AttributeSet,useMounted表示是否已挂载
     std::vector<AttributeSet::Pointer> CollectFrameAttrs(DataObject::Pointer obj, StreamingData::Pointer frames,
                                                          unsigned int index, bool useMounted);
-    // 计算某一帧的属性差值并写入
-    bool ComputeFrame(DataObject::Pointer obj, StreamingData::Pointer frames, unsigned int frameIndex);
     // 具体计算属性差值
     bool ApplyDiffToObject(AttributeSet::Pointer curAttrs, AttributeSet::Pointer prevAttrs, unsigned int frameIndex);
-    static double GetAttrValue(ArrayObject::Pointer arr, IGsize i, int dim, int component);
     static DoubleArray::Pointer ComputeRange(ArrayObject::Pointer arr);
+    static double GetAttrValue(ArrayObject::Pointer arr, IGsize i, int dim, int component);
     // 异步更新，刷新模型树右侧属性列表
     void SyncParentAttribute(DataObject::Pointer obj, const std::string& outName);
 
