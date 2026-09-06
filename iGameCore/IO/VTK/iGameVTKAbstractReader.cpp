@@ -1299,8 +1299,16 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             case iGame::VTKAbstractReader::TETRA:
                 mesh->AddCell(vhs.data(), size, IG_TETRA);
                 break;
-            case iGame::VTKAbstractReader::VOXEL:
-                break;
+            case iGame::VTKAbstractReader::VOXEL: {
+                // VTK_VOXEL (cell type 11) is topologically a hexahedron whose node
+                // ordering differs from VTK_HEXAHEDRON. Reorder the 8 point ids into
+                // iGame hexahedron ordering and store it as IG_HEXAHEDRON so that
+                // rendering, surface extraction and the IGC codec all handle it.
+                static constexpr igIndex VoxelToHexahedron[8] = {0, 1, 3, 2, 4, 5, 7, 6};
+                igIndex hexVhs[8];
+                for (int j = 0; j < 8; ++j) { hexVhs[j] = vhs[VoxelToHexahedron[j]]; }
+                mesh->AddCell(hexVhs, size, IG_HEXAHEDRON);
+            } break;
             case iGame::VTKAbstractReader::HEXAHEDRON:
                 mesh->AddCell(vhs.data(), size, IG_HEXAHEDRON);
                 break;
