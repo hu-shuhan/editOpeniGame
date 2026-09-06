@@ -496,14 +496,17 @@ bool iGameVTUReader::ReadPointAttribute() {
 //					scalar_range_min = std::min(scalar_range_min, value);
 //                }
 //				m_Data.GetData()->AddScalar(IG_POINT, array, { scalar_range_min, scalar_range_max });
-                if (m_PointsNum >= 0 && array->GetNumberOfElements() != static_cast<IGsize>(m_PointsNum)) {
-                    igDebug("VTU point attribute '{}' size mismatch: expected {} elements, got {}.",
-                            scalarName, m_PointsNum, array->GetNumberOfElements());
-                }
-                if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end())
+                // 以实际读入的点数为准做校验：属性元素数必须与点数一致，否则编码阶段
+                // AttrEncoder 的点重映射会越界崩溃。不一致时直接跳过该属性。
+                const IGsize actualPointCount = m_Data.GetPoints() ? m_Data.GetPoints()->GetNumberOfPoints() : 0;
+                if (m_PointsNum >= 0 && array->GetNumberOfElements() != actualPointCount) {
+                    igError("VTU point attribute '{}' size mismatch: expected {} elements, got {}; skipping attribute.",
+                            scalarName, actualPointCount, array->GetNumberOfElements());
+                } else if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end()) {
                     m_Data.GetData()->AddVector(IG_POINT, array);
-                else
+                } else {
                     m_Data.GetData()->AddScalar(IG_POINT, array);
+                }
             }
         }
         m_CurrentElem = m_CurrentElem->NextSiblingElement("DataArray");
@@ -650,13 +653,13 @@ bool iGameVTUReader::ReadCellData() {
 //                }
 //                m_Data.GetData()->AddScalar(IG_CELL, array, { scalar_range_min, scalar_range_max });
                 if (m_CellsNum >= 0 && array->GetNumberOfElements() != static_cast<IGsize>(m_CellsNum)) {
-                    igDebug("VTU cell attribute '{}' size mismatch: expected {} elements, got {}.",
+                    igError("VTU cell attribute '{}' size mismatch: expected {} elements, got {}; skipping attribute.",
                             scalarName, m_CellsNum, array->GetNumberOfElements());
-                }
-                if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end())
+                } else if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end()) {
                     m_Data.GetData()->AddVector(IG_CELL, array);
-                else
+                } else {
                     m_Data.GetData()->AddScalar(IG_CELL, array);
+                }
 
             }
         }

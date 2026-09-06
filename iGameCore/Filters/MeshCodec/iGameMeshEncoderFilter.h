@@ -726,6 +726,16 @@ private:
             } else {
                 // 非结构化网格：需要重映射
                 const auto& remapArray = params.attachmentType == IG_POINT ? pointRemap : topCellRemap;
+                // 属性元素数必须与网格点/单元数一致，否则下方 remapArray[j] 会越界。
+                // 数据不一致时截断到可重映射范围。ParamsEncoder 在 AttrEncoder 之后执行，
+                // 因此这里改小 elementCount 会同步写入参数块，解码端按同样数量读取，保持一致。
+                if (params.elementCount > static_cast<IGsize>(remapArray.size())) {
+                    IGAME_CORE_ERROR("AttrEncoder: attribute '{}' elementCount {} exceeds {} count {}, truncating.",
+                                     params.name, params.elementCount,
+                                     params.attachmentType == IG_POINT ? "point" : "cell",
+                                     remapArray.size());
+                    params.elementCount = static_cast<IGsize>(remapArray.size());
+                }
                 size_t valueCount = params.dimension * remapArray.size();
                 remappedBuffer.resize(valueCount);
 
