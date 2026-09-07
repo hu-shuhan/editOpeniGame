@@ -5,8 +5,11 @@
 
 #pragma once
 #include <ui_Animation.h>
+#include <IQCore/igQtAnimationFilterManager.h>
 #include <IQCore/igQtExportModule.h>
 #include <iGameDataObject.h>
+#include <iGameModel.h>
+#include <QMap>
 class igQtAnimationVcrController;
 class IG_QT_MODULE_EXPORT igQtAnimationWidget : public QWidget{
 
@@ -69,6 +72,8 @@ private slots:
     void updateAnimationComponentsKeyframeSum(int keyframeSum);
     void changeAnimationMode();
     void onCacheNumChanged(int cacheNum);  // 缓存数量变化槽函数
+    void onAnimationFilterChanged(int index);
+    void openAnimationFilterParameters();
 
 
 signals:
@@ -82,6 +87,14 @@ signals:
 
 private:
     void updateAnimationModeControls();
+    QString selectedAnimationFilterId() const;
+    iGame::DataObject::Pointer animationFilterInput() const;
+    void updateAnimationFilterSummary();
+    bool executeSelectedAnimationFilter(
+            const igQtAnimationFrameContext& context,
+            iGame::DataObject::Pointer& output,
+            QString& error);
+    void restoreAnimationFilterSource();
 
     Ui::Animation* ui;
     igQtAnimationVcrController* VcrController;
@@ -103,4 +116,10 @@ private:
     std::string m_DiffSourceAttr;      // 计算 diff 所用的源属性名
     int m_DiffMode{0};                 // 0 带符号差(cur-prev)，1 绝对差，2 相对变化率
     iGame::DataObject* m_DiffBoundModel{nullptr};  // 绑定模型，切换模型时自动关闭
+
+    igQtAnimationFilterManager m_AnimationFilterManager;
+    QMap<QString, QVariantMap> m_AnimationFilterParameters;
+    QString m_SelectedAnimationFilterId;
+    iGame::Model::Pointer m_AnimationFilterSourceModel{nullptr};
+    iGame::DataObject::Pointer m_AnimationFilterSourceObject{nullptr};
 };

@@ -139,6 +139,57 @@
        </item>
       </layout>
      </item>
+   </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_AnimationFilter">
+     <item>
+      <widget class="QLabel" name="label_AnimationFilter">
+       <property name="text">
+        <string>帧处理 Filter</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+     <widget class="QComboBox" name="comboBoxAnimationFilter">
+       <property name="minimumSize">
+        <size>
+         <width>180</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnAnimationFilterParameters">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>参数设置...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="labelAnimationFilterSummary">
+       <property name="text">
+        <string>无需参数</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_AnimationFilter">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
     </layout>
    </item>
    <item>
