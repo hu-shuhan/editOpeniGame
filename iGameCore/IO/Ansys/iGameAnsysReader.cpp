@@ -1,10 +1,9 @@
 #include "iGameAnsysReader.h"
+#include "iGameExternalProcess.h"
 #include "Log/iGameLogger.h"
 #include "VTK XML/iGamePVDReader.h"
 #include <chrono>
 #include <filesystem>
-#include <fstream>
-#include <iGameFileIO.h>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -16,11 +15,14 @@ bool AnsysReader::Parsing() {
 
     // Get the input file path (.rst or .rth)
     std::string ansysPath = this->GetFilePath();
-    fs::path inputPath(ansysPath);
+    // m_FilePath 为 UTF-8，先转成本地宽字符 path，避免窄字符串按 ACP 解码产生乱码
+    fs::path inputPath = FileSystem::PathFromUtf8(ansysPath);
 
     // 创建独立临时输出子目录（带唯一后缀，避免不同模型/多次运行之间文件名冲突）
     auto uniqueSuffix = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-    fs::path tempDir = fs::current_path() / "temp" / (inputPath.stem().string() + "_" + uniqueSuffix);
+    fs::path tempDirName = inputPath.stem();
+    tempDirName += "_" + uniqueSuffix;
+    fs::path tempDir = fs::current_path() / "temp" / tempDirName;
     fs::create_directories(tempDir);
 
     // Locate the converter executable
@@ -32,8 +34,7 @@ bool AnsysReader::Parsing() {
     std::string exePath;
     bool exeFound = false;
     for (const auto& path: exePaths) {
-        std::ifstream file(path);
-        if (file.good()) {
+        if (fs::exists(FileSystem::PathFromUtf8(path))) {
             exePath = path;
             exeFound = true;
             break;
@@ -49,18 +50,22 @@ bool AnsysReader::Parsing() {
 
     IGAME_CORE_DEBUG("[AnsysReader] Using converter: {}", exePath);
 
-    // Run the converter: ansys_to_pvd.exe --input input.rst --output output.pvd
-    fs::path outputFilePath = tempDir / (inputPath.stem().string() + ".pvd");
-    std::string outputFile = outputFilePath.string();
+    // Run the converter: ansys_to_pvd_converter --input input.rst --output output.pvd
+    // 直接以宽字符命令行启动转换器（不经 cmd.exe），参数加引号，中文/空格路径均安全。
+    fs::path outputFileName = inputPath.stem();
+    outputFileName += ".pvd";
+    fs::path outputFilePath = tempDir / outputFileName;
+    // 公共 API 边界统一为 UTF-8
+    std::string outputFile = FileSystem::PathToUtf8(outputFilePath);
 
-    std::string arguments = "--input " + ansysPath + " --output " + outputFile;
-    std::string fullCommand = "\"" + exePath + "\" " + arguments;
+    std::vector<std::string> arguments = {"--input", ansysPath, "--output", outputFile};
+    IGAME_CORE_DEBUG("[AnsysReader] Running converter: {} --input {} --output {}", exePath, ansysPath, outputFile);
 
-    
-
-    IGAME_CORE_DEBUG("[AnsysReader] Running command: {}", fullCommand);
-
-    int returnCode = system(fullCommand.c_str());
+    int returnCode = 0;
+    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+        IGAME_CORE_ERROR("[AnsysReader] Failed to start converter: {}", exePath);
+        return false;
+    }
     if (returnCode != 0) {
         IGAME_CORE_ERROR("[AnsysReader] Ansys to PVD conversion failed. Return code: {}", returnCode);
         return false;
