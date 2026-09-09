@@ -1129,6 +1129,7 @@ CellArray::Pointer VTKAbstractReader::CreateCellArray(ArrayObject::Pointer Cells
     int CellNum = CellsID->GetNumberOfElements() - 1;
     const int connectCount = static_cast<int>(CellsConnect->GetNumberOfElements());
     int skippedCells = 0;
+    std::vector<igIndex> vhs;
 
     for (int i = 0; i < CellNum; i++) {
         const int st = static_cast<int>(CellsID->GetValue(i));
@@ -1139,7 +1140,7 @@ CellArray::Pointer VTKAbstractReader::CreateCellArray(ArrayObject::Pointer Cells
             continue;
         }
 
-        std::vector<igIndex> vhs(size);
+        vhs.resize(size);
         for (int j = 0; j < size; j++) { vhs[j] = static_cast<igIndex>(CellsConnect->GetValue(st + j)); }
         m_CellArray->AddCellIds(vhs.data(), size);
     }
@@ -1181,6 +1182,7 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
     const int connectCount = static_cast<int>(CellsConnect->GetNumberOfElements());
     int skippedCells = 0;
     int normalizedCells = 0;
+    std::vector<igIndex> vhs;
 
     for (int i = 0; i < CellNum; i++) {
         if (i + 1 >= offsetsCount) {
@@ -1204,11 +1206,14 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             continue;
         }
 
-        std::vector<igIndex> vhs(size);
+        vhs.resize(size);
 
         if (type != POLYHEDRON) {
             for (int j = 0; j < size; j++) { vhs[j] = static_cast<igIndex>(CellsConnect->GetValue(st + j)); }
         } else {
+            // Preserve the old value-initialized-vector behaviour for malformed
+            // polyhedron face data while still reusing the allocation.
+            std::fill(vhs.begin(), vhs.end(), 0);
             // for celltype == 42
             bool isValid = (FacesConnect && FacesConnect->GetNumberOfElements() > 0 && PolysOffset &&
                             PolysOffset->GetNumberOfElements() > 0);

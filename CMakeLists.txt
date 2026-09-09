@@ -23,6 +23,7 @@ option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 option(ENABLE_WASM "Build WASM Target." OFF)
+option(ENABLE_DATA_SERVER "Build the local resumable package data server." ON)
 option(IGAME_DEPLOY_ABAQUS_RUNTIME
         "Copy Abaqus runtime DLLs beside built/installed binaries (normally keep OFF and use the user's installation)."
         OFF)
@@ -136,6 +137,10 @@ add_subdirectory(ThirdParty)
 
 # 导入核心库
 add_subdirectory(iGameCore)
+
+if (ENABLE_DATA_SERVER AND NOT EMSCRIPTEN)
+    add_subdirectory(Tools/DataServer)
+endif ()
 
 # 导入Qt模块
 if (ENABLE_QT_MODULE)

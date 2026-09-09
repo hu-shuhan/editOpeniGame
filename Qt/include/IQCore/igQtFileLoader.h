@@ -12,6 +12,8 @@
 
 using namespace iGame;
 
+class igQtRemotePackageLoader;
+
 class IG_QT_MODULE_EXPORT igQtFileLoader : public QObject
 {
 	Q_OBJECT
@@ -24,6 +26,11 @@ public:
     void LoadOnlineS();
     void LoadOnlineC();
 	void OpenFile(const std::string& fileName);
+    bool OpenRemotePackage(const QString& serverAddress,
+                           quint16 serverPort,
+                           const QString& packageId,
+                           const QString& cacheDirectory = QStringLiteral("D:/iGameVis-cs-cache"));
+    bool IsRemotePackageRunning() const;
     void OpenFiles(const QStringList& fileNames);
     void OpenSplineFile(const std::string& fileName);
     void OpenODBFile(const std::string& fileName);
@@ -43,6 +50,13 @@ public:
 signals:
 	void NewModel(DataObject::Pointer obj, ItemSource source);
 
+    void RemotePackageRunningChanged(bool running);
+    void RemotePackageStatusChanged(const QString& message);
+    void RemotePackageProgressChanged(double progress);
+    void RemotePackageFailed(const QString& message);
+    void RemotePackageDatasetOpened(const QString& vtmPath);
+    void RemotePackageFinished();
+
 	void FinishReading();
 	void EmitMakeCurrent();
 	void EmitDoneCurrent();
@@ -51,9 +65,14 @@ signals:
 
 	void LoadAnimationFile(std::vector<float>& timeValues);
 
+public slots:
+    void CancelRemotePackage();
+
 protected:
+	bool TryOpenFile(const std::string& fileName);
 
 	QList<QAction*> recentFileActionList;
 	int maxFileNr = 10;
     SceneManager::Pointer m_SceneManager;
+    igQtRemotePackageLoader* m_RemotePackageLoader{nullptr};
 };

@@ -78,6 +78,8 @@ public:
     // 设置和获取显示对象
     void SetRenderableObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
+    void SetAutoBuildInteractionLod(bool enabled);
+    bool GetAutoBuildInteractionLod() const;
 
     // 设置/获取"始终置顶"标志位
     void SetAlwaysOnTop(bool enable);
@@ -156,6 +158,8 @@ protected:
     UnsignedIntArray::Pointer m_TriangleIndices;
     // 单通道线框渲染
     bool m_UseSinglePassWireframeRendering{true};
+    bool m_ForceExplicitWireframeGeometry{false};
+    bool m_AutoBuildInteractionLod{true};
     UnsignedCharArray::Pointer m_TriangleEdgeMasks;
     GLBuffer::Pointer m_EdgeMaskBuffer;
     GLTextureBuffer::Pointer m_EdgeMaskTexture;
@@ -208,6 +212,8 @@ protected:
 
     void BuildSimplifiedRenderableObject();
     void SyncRenderableState(const DrawObject::Pointer& renderableObject);
+    bool NeedsExplicitWireframeGeometry(IGenum viewStyle);
+    void MarkWireframeGeometryDirtyIfNeeded(IGenum viewStyle);
 };
 //递归处理所有子对象的模板函数实现
 template<typename Functor, typename... Args>

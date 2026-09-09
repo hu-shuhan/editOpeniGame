@@ -151,6 +151,27 @@ bool DrawObject::IsUseSinglePassWireframeRendering() {
     }
 }
 
+bool DrawObject::NeedsExplicitWireframeGeometry(IGenum viewStyle) {
+    if ((viewStyle & IG_WIREFRAME) == 0) { return false; }
+#ifdef __EMSCRIPTEN__
+    return true;
+#else
+    // Opaque desktop Surface+Wireframe uses triangle edge masks. Pure
+    // wireframe and alternate rendering paths still require a line EBO.
+    return (viewStyle & IG_SURFACE) == 0 || m_Transparency < 1.0f || m_AccelerationOption ||
+           m_ForceExplicitWireframeGeometry || GetOpacityMappingEnabled();
+#endif
+}
+
+void DrawObject::MarkWireframeGeometryDirtyIfNeeded(IGenum viewStyle) {
+    // Composite parents only forward state, and shell-rendered sources forward
+    // drawing to their SurfaceMesh. Mark only the leaf owning the draw arrays.
+    if (this->HasSubDataObject() || m_RenderableMesh.SurfaceMesh) { return; }
+    if (NeedsExplicitWireframeGeometry(viewStyle) && m_LineIndices->GetNumberOfElements() == 0) {
+        m_ReConvertToDrawableData = true;
+    }
+}
+
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 
 IGsize DrawObject::GetRealMemorySize() {
@@ -190,6 +211,7 @@ void DrawObject::SetViewStyle(IGenum mode) {
 
     // process this object
     m_ViewStyle = mode;
+    MarkWireframeGeometryDirtyIfNeeded(m_ViewStyle);
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetViewStyle, mode); }
 }
 
@@ -200,6 +222,7 @@ void DrawObject::AddViewStyle(IGenum mode) {
 
     // process this object
     m_ViewStyle |= mode;
+    MarkWireframeGeometryDirtyIfNeeded(m_ViewStyle);
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::AddViewStyle, mode); }
 }
 
@@ -210,6 +233,7 @@ void DrawObject::RemoveViewStyle(IGenum mode) {
 
     // process this object
     m_ViewStyle &= ~mode;
+    MarkWireframeGeometryDirtyIfNeeded(m_ViewStyle);
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::RemoveViewStyle, mode); }
 }
 
@@ -284,6 +308,7 @@ void DrawObject::SetTransparency(float transparency) {
     // process this object
     if (transparency < 0.0f || transparency > 1.0f) { throw std::runtime_error("Transparency must be between 0-1"); }
     m_Transparency = transparency;
+    MarkWireframeGeometryDirtyIfNeeded(m_ViewStyle);
 
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetTransparency, transparency); }
 }
@@ -439,7 +464,15 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 
     m_RenderableMesh.SimplifiedMesh = nullptr;
 #ifndef __EMSCRIPTEN__
-    if (m_ShellRendering) { BuildSimplifiedRenderableObject(); }
+    // Interaction switches to the simplified representation only when a
+    // single renderable piece exceeds one million triangles (see Model::Draw).
+    // Building and retaining an LOD for smaller pieces wastes memory and can
+    // dominate the cost of large partitioned VTM data sets.
+    auto surfaceMesh = DynamicCast<SurfaceMesh>(dataObject);
+    if (m_AutoBuildInteractionLod && m_ShellRendering && surfaceMesh != nullptr &&
+        surfaceMesh->GetNumberOfFaces() > 1000000) {
+        BuildSimplifiedRenderableObject();
+    }
 #endif
 
     // 设置Meshleter
@@ -461,6 +494,10 @@ DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
     if (m_RenderableMesh.SurfaceMesh != nullptr) { return m_RenderableMesh.SurfaceMesh; }
     return this;
 }
+
+void DrawObject::SetAutoBuildInteractionLod(bool enabled) { m_AutoBuildInteractionLod = enabled; }
+
+bool DrawObject::GetAutoBuildInteractionLod() const { return m_AutoBuildInteractionLod; }
 
 void DrawObject::BuildSimplifiedRenderableObject() {
     DrawObject::Pointer sourceMesh = nullptr;
@@ -493,6 +530,7 @@ void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject
     if (renderableObject == nullptr) { return; }
 
     renderableObject->m_ViewStyle = this->m_ViewStyle;
+    renderableObject->m_ForceExplicitWireframeGeometry = this->m_AccelerationOption;
     renderableObject->m_Visibility = this->m_Visibility;
     renderableObject->m_UseNormalSmooth = this->m_UseNormalSmooth;
     renderableObject->m_ColorWithCell = this->m_ColorWithCell;
@@ -522,6 +560,9 @@ void DrawObject::SetShellRenderingOption(bool option) {
 bool DrawObject::GetShellRenderingOption() { return m_ShellRendering; }
 
 void DrawObject::SetOpacityMappingEnabled(bool enabled) {
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetOpacityMappingEnabled(enabled); }
+    if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetOpacityMappingEnabled(enabled); }
+
     auto mapper = this->GetColorMapper();
     int attrIdx = this->GetAttributeIndex();
     auto attrSet = this->GetAttributeSet();
@@ -530,6 +571,7 @@ void DrawObject::SetOpacityMappingEnabled(bool enabled) {
         auto& attr = attrSet->GetAttribute(attrIdx);
         if (attr.pointer) { mapper->SetOpacityMappingEnabled(enabled); }
     }
+    MarkWireframeGeometryDirtyIfNeeded(m_ViewStyle);
 }
 
 void DrawObject::SetAccelerationOption(bool enabled) {
@@ -539,7 +581,18 @@ void DrawObject::SetAccelerationOption(bool enabled) {
     return;
 #endif
 
+    if (m_RenderableMesh.SurfaceMesh) {
+        m_RenderableMesh.SurfaceMesh->m_ForceExplicitWireframeGeometry = enabled;
+        m_RenderableMesh.SurfaceMesh->MarkWireframeGeometryDirtyIfNeeded(m_RenderableMesh.SurfaceMesh->m_ViewStyle);
+    }
+    if (m_RenderableMesh.SimplifiedMesh) {
+        m_RenderableMesh.SimplifiedMesh->m_ForceExplicitWireframeGeometry = enabled;
+        m_RenderableMesh.SimplifiedMesh->MarkWireframeGeometryDirtyIfNeeded(
+                m_RenderableMesh.SimplifiedMesh->m_ViewStyle);
+    }
+
     m_AccelerationOption = enabled;
+    MarkWireframeGeometryDirtyIfNeeded(m_ViewStyle);
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetAccelerationOption, enabled); }
 }
 
