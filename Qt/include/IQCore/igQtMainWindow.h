@@ -39,6 +39,7 @@ class QFontMetrics;
 class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
 class igQtAttributeSelectWidget;
+class igQtRemoteModelLibrary;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -102,6 +103,9 @@ public:
 
     // Command Manager for MCP Server (端口 12345)
     igQtCommandManager* commandManager;
+
+    // Non-modal browser for packages published by the data server.
+    igQtRemoteModelLibrary* remoteModelLibrary{nullptr};
 
     // 零件聚焦弹窗
     igQtChromeFramelessDialog* partFocusDialog{nullptr};

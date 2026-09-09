@@ -39,6 +39,7 @@
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
+#include <IQCore/igQtRemoteModelLibrary.h>
 #include <IQWidgets/ColorManager/igQtColorManagerWidget.h>
 #include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
 #include <IQWidgets/igQtAiChat/igQtCommandManager.h>
@@ -111,6 +112,8 @@
 #include <QFormLayout>
 #include <QDialogButtonBox>
 #include <QStringList>
+
+#include <cmath>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
@@ -619,13 +622,36 @@ igQtMainWindow::~igQtMainWindow() {
 }
 void igQtMainWindow::initArgs(const QStringList& args) {
     int argc = args.size();
+    QString remotePackage;
+    QString remoteHost = QStringLiteral("127.0.0.1");
+    quint16 remotePort = 34567;
+    QString remoteCache = QStringLiteral("D:/iGameVis-cs-cache");
     for (int i = 1; i < argc; ++i) {
         const QString& cur_arg = args[i].toLower();
         if (cur_arg == "--filepath" && ++i < argc) {
             const QString& filePath = args[i];
             const QByteArray utf8Path = filePath.toUtf8();
             fileLoader->OpenFile(std::string(utf8Path.constData(), static_cast<std::size_t>(utf8Path.size())));
+        } else if (cur_arg == "--remote-package" && ++i < argc) {
+            remotePackage = args[i];
+        } else if (cur_arg == "--remote-host" && ++i < argc) {
+            remoteHost = args[i];
+        } else if (cur_arg == "--remote-port" && ++i < argc) {
+            bool ok = false;
+            const uint value = args[i].toUInt(&ok);
+            if (ok && value > 0 && value <= 65535) {
+                remotePort = static_cast<quint16>(value);
+            } else {
+                igError("[PackageTransfer] Invalid --remote-port value: {}",
+                        args[i].toStdString());
+                return;
+            }
+        } else if (cur_arg == "--remote-cache" && ++i < argc) {
+            remoteCache = args[i];
         }
+    }
+    if (!remotePackage.isEmpty()) {
+        fileLoader->OpenRemotePackage(remoteHost, remotePort, remotePackage, remoteCache);
     }
 }
 void igQtMainWindow::initAllUnDefinedComponents() {
@@ -633,6 +659,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
     //    rendererWidget->setParent(this);
     fileLoader = new igQtFileLoader(this);
+    remoteModelLibrary = new igQtRemoteModelLibrary(fileLoader, this);
+    remoteModelLibrary->hide();
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
     ColorManagerWidget->setGeometry(400, 500, 780, 1000);
@@ -840,6 +868,16 @@ void igQtMainWindow::initToolbarComponent() {
 }
 
 void igQtMainWindow::initAllComponents() {
+    auto* remoteLibraryAction = new QAction(
+            ui->action_LoadFile->icon(), QStringLiteral("Remote Model Library..."), this);
+    remoteLibraryAction->setObjectName(QStringLiteral("action_RemoteModelLibrary"));
+    ui->menu_file->insertAction(ui->menu_RecentFiles->menuAction(), remoteLibraryAction);
+    connect(remoteLibraryAction, &QAction::triggered, this, [this]() {
+        remoteModelLibrary->show();
+        remoteModelLibrary->raise();
+        remoteModelLibrary->activateWindow();
+    });
+
     connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked){
         iGame::SceneManager::Instance()->GetCurrentScene()->ToggleAxes();
         iGame::SceneManager::Instance()->GetCurrentScene()->Update();
@@ -3267,24 +3305,88 @@ void igQtMainWindow::initAllMySignalConnections() {
         if (!dataObject) return;
 
         auto attributeSet = dataObject->GetAttributeSet();
-        if (!attributeSet) return;
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!attributeSet || !drawObject) return;
 
         auto allAttributes = attributeSet->GetAllAttributes();
         if (!allAttributes || allAttributes->GetNumberOfElements() == 0) return;
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        if (drawObject) {
-            auto item = modelTreeWidget->getItemFromObject(dataObject);
-            if (item && item->childCount() > 0) {
-                item->setExpanded(true);
-                auto child = item->child(0);
-                item->setCurrentChild(child);
-                item->setSelected(false);
-                item->viewAttribute(0, -1);
-                child->setSelected(true);
-                modelTreeWidget->setCurrentItem(child);
+        // VTM readers publish common leaf attributes as zero-length proxies on
+        // the root object.  Prefer the physically meaningful Cp field, then
+        // fall back to the first valid scalar field.
+        int scalarIndex = -1;
+        int firstScalarIndex = -1;
+        for (int index = 0; index < allAttributes->GetNumberOfElements(); ++index) {
+            auto& attribute = allAttributes->GetElement(index);
+            if (attribute.isDeleted || attribute.type != IG_SCALAR || !attribute.pointer ||
+                attribute.pointer->GetDimension() < 1) {
+                continue;
+            }
+            if (firstScalarIndex < 0) firstScalarIndex = index;
+            if (attribute.pointer->GetName() == "PressureCoefficient") {
+                scalarIndex = index;
+                break;
             }
         }
+        if (scalarIndex < 0) scalarIndex = firstScalarIndex;
+        if (scalarIndex < 0) return;
+
+        auto& scalarAttribute = allAttributes->GetElement(scalarIndex);
+        const std::string scalarName = scalarAttribute.pointer->GetName();
+        const int scalarComponents = scalarAttribute.pointer->GetDimension();
+        // A one-component scalar must map component zero.  Multi-component
+        // fields use magnitude, represented by dimension -1.
+        const int scalarDimension = scalarComponents == 1 ? 0 : -1;
+        const int rangeIndex = scalarDimension < 0 ? 0 : scalarDimension + 1;
+        auto fullDataRange = scalarAttribute.GetDataRange();
+        if (!fullDataRange ||
+            fullDataRange->GetNumberOfValues() < 2 * (scalarComponents + 1)) {
+            qWarning() << "Default scalar mapping skipped: invalid global range for"
+                       << QString::fromStdString(scalarName);
+            return;
+        }
+        const double fullMinimum = fullDataRange->GetValue(2 * rangeIndex);
+        const double fullMaximum = fullDataRange->GetValue(2 * rangeIndex + 1);
+        if (!std::isfinite(fullMinimum) || !std::isfinite(fullMaximum) ||
+            fullMinimum > fullMaximum) {
+            qWarning() << "Default scalar mapping skipped: non-finite global range for"
+                       << QString::fromStdString(scalarName);
+            return;
+        }
+
+        // Every flat-VTM leaf inherits the root mapper in AddSubDataObject().
+        // Keep the application's built-in palette and normal auto-rescale
+        // behaviour; only the scalar selection is automatic here.
+        auto mapper = dataObject->GetColorMapper();
+        if (!mapper) return;
+        mapper->SetRange(fullMinimum, fullMaximum);
+        mapper->SetRangeStable(false);
+
+        auto item = modelTreeWidget->getItemFromObject(dataObject);
+        if (!item) return;
+        AttribTreeWidgetItem* scalarItem = nullptr;
+        for (int childIndex = 0; childIndex < item->childCount(); ++childIndex) {
+            auto child = dynamic_cast<AttribTreeWidgetItem*>(item->child(childIndex));
+            if (child && child->text(0).toStdString() == scalarName) {
+                scalarItem = child;
+                break;
+            }
+        }
+        if (!scalarItem) return;
+
+        item->setExpanded(true);
+        item->setCurrentChild(scalarItem);
+        item->setSelected(false);
+        scalarItem->show();
+        scalarItem->setSelected(true);
+        modelTreeWidget->setCurrentItem(scalarItem);
+        item->viewAttribute(scalarIndex, scalarDimension);
+
+        qInfo() << "Default scalar mapping:"
+                << QString::fromStdString(scalarName)
+                << "dimension" << scalarDimension
+                << "full range" << fullMinimum << fullMaximum
+                << "display range" << mapper->GetRange()[0] << mapper->GetRange()[1];
     });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {

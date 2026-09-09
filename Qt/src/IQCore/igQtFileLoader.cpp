@@ -25,7 +25,9 @@
 #include <IQComponents/Dialog/igQtBasicListOptionDialog.h>
 #include <IQComponents/Dialog/igQtSplineOptionDialog.h>
 #include <IQCore/igQtFileLoader.h>
+#include <IQCore/igQtRemotePackageLoader.h>
 #include <IQCore/igQtFileType.h>
+#include <iGameProgressObserver.h>
 #include <iGameType.h>
 
 #include <QCoreApplication>
@@ -50,6 +52,55 @@ QString FromUtf8FilePath(const std::string& path) {
 igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
     InitRecentFilePaths();
     m_SceneManager = SceneManager::Instance();
+    m_RemotePackageLoader = new igQtRemotePackageLoader(this);
+    connect(m_RemotePackageLoader, &igQtRemotePackageLoader::StatusChanged,
+            this, [this](const QString& message) {
+                igDebug("[PackageTransfer] {}", message.toStdString());
+                iGame::ProgressObserver::Instance()->UpdateText(message.toStdString());
+                emit RemotePackageStatusChanged(message);
+            });
+    connect(m_RemotePackageLoader, &igQtRemotePackageLoader::ProgressChanged,
+            this, [this](double progress) {
+                iGame::ProgressObserver::Instance()->UpdateProgress(progress);
+                emit RemotePackageProgressChanged(progress);
+            });
+    connect(m_RemotePackageLoader, &igQtRemotePackageLoader::DatasetReady,
+            this, [this](const QString& vtmPath) {
+                const bool opened = this->TryOpenFile(vtmPath.toStdString());
+                const QString cacheDiagnostic =
+                        m_RemotePackageLoader->FinalizeDatasetOpen(opened);
+                if (!opened) {
+                    QString message = QStringLiteral(
+                            "Verified remote package was extracted, but its VTM dataset could "
+                            "not be opened: %1").arg(vtmPath);
+                    if (!cacheDiagnostic.isEmpty()) {
+                        message += QLatin1Char(' ') + cacheDiagnostic;
+                    }
+                    igError("[PackageTransfer] {}", message.toStdString());
+                    emit RemotePackageFailed(message);
+                    return;
+                }
+                QString message = QStringLiteral("Remote model loaded: %1").arg(vtmPath);
+                if (!cacheDiagnostic.isEmpty()) {
+                    message += QLatin1Char(' ') + cacheDiagnostic;
+                }
+                igDebug("[PackageTransfer] {}", message.toStdString());
+                emit RemotePackageStatusChanged(message);
+                emit RemotePackageDatasetOpened(vtmPath);
+            });
+    connect(m_RemotePackageLoader, &igQtRemotePackageLoader::Failed,
+            this, [this](const QString& message) {
+                igError("[PackageTransfer] {}", message.toStdString());
+                iGame::ProgressObserver::Instance()->UpdateText("");
+                iGame::ProgressObserver::Instance()->UpdateProgress(1.0);
+                emit RemotePackageFailed(message);
+            });
+    connect(m_RemotePackageLoader, &igQtRemotePackageLoader::Finished,
+            this, [this]() {
+                iGame::ProgressObserver::Instance()->UpdateText("");
+                emit RemotePackageFinished();
+                emit RemotePackageRunningChanged(false);
+            });
 }
 
 igQtFileLoader::~igQtFileLoader() {}
@@ -162,11 +213,15 @@ void igQtFileLoader::LoadFile() {
 
 //static DataObject::Pointer _obj;
 void igQtFileLoader::OpenFile(const std::string& filePath) {
+    (void)TryOpenFile(filePath);
+}
+
+bool igQtFileLoader::TryOpenFile(const std::string& filePath) {
     using namespace iGame;
-    if (filePath.empty()) return;
+    if (filePath.empty()) return false;
     // d3plot 文件无扩展名（d3plot / d3plot01 / ...），需放行；其余无扩展名文件仍拒绝
     if (strrchr(filePath.data(), '.') == nullptr &&
-        FileIO::GetFileType(filePath) != FileIO::D3PLOT) return;
+        FileIO::GetFileType(filePath) != FileIO::D3PLOT) return false;
 
 #if defined(AbqSDK_ENABLE)
     // ODB 走专用读取路径（IsRuntimeAvailable 守卫 + step 弹窗），避免通用路径崩溃
@@ -177,7 +232,9 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
         std::transform(suffix.begin(), suffix.end(), suffix.begin(), ::tolower);
         if (suffix == "odb") {
             this->OpenODBFile(filePath);
-            return;
+            // This interactive path has no synchronous result. Remote model
+            // packages use VTM, so preserve the existing ODB dispatch here.
+            return true;
         }
     }
 #endif
@@ -186,7 +243,7 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     //_obj = obj;
     if (obj == nullptr) {
         igDebug("This file read error.");
-        return;
+        return false;
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
@@ -199,6 +256,33 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     //return;
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
+    return true;
+}
+
+bool igQtFileLoader::OpenRemotePackage(const QString& serverAddress,
+                                       quint16 serverPort,
+                                       const QString& packageId,
+                                       const QString& cacheDirectory) {
+    if (m_RemotePackageLoader == nullptr) { return false; }
+    const bool started = m_RemotePackageLoader->Start(
+            serverAddress, serverPort, packageId, cacheDirectory);
+    if (!started) {
+        igError("[PackageTransfer] Cannot start remote package request for {}",
+                packageId.toStdString());
+    } else {
+        emit RemotePackageRunningChanged(true);
+    }
+    return started;
+}
+
+bool igQtFileLoader::IsRemotePackageRunning() const
+{
+    return m_RemotePackageLoader != nullptr && m_RemotePackageLoader->IsRunning();
+}
+
+void igQtFileLoader::CancelRemotePackage()
+{
+    if (m_RemotePackageLoader != nullptr) { m_RemotePackageLoader->Cancel(); }
 }
 
 void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
