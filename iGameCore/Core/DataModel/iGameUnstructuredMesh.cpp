@@ -458,42 +458,6 @@ void UnstructuredMesh::ConvertToDrawableData() {
     if (m_ShellRendering) {
         if (!needReConvertGeometry && !needReConvertScalar) { return; }
 
-        // A surface-only unstructured grid does not need shell extraction.
-        // Reuse its points, cells, and attributes directly when clipping is
-        // disabled.  This is especially important for partitioned VTM data:
-        // deep-copying every already-surface piece doubles the resident mesh
-        // data without changing its geometry.
-        if (m_Clipper->IsAllDisable() && this->GetNumberOfCells() > 0) {
-            bool isSurfaceOnly = true;
-            const IGsize cellCount = this->GetNumberOfCells();
-            for (IGsize cellId = 0; cellId < cellCount; ++cellId) {
-                if (Cell::GetCellDimension(this->GetCellType(cellId)) != 2) {
-                    isSurfaceOnly = false;
-                    break;
-                }
-            }
-
-            if (isSurfaceOnly) {
-                SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
-                AttributeSet::Pointer surfaceAttributes = AttributeSet::New();
-                for (IGsize attributeId = 0; attributeId < m_Attributes->GetNumberOfAttributes(); ++attributeId) {
-                    // Copy only the lightweight Attribute record.  The actual
-                    // data arrays remain shared with the source grid, while
-                    // each DataObject keeps its own AttributeSet owner link.
-                    surfaceAttributes->GetAllAttributes()->AddElement(m_Attributes->GetAttribute(attributeId));
-                }
-                surfaceMesh->SetName(this->GetName());
-                surfaceMesh->SetPoints(m_Points);
-                surfaceMesh->SetFaces(m_Cells);
-                surfaceMesh->SetAttributeSet(surfaceAttributes);
-                SetRenderableObject(surfaceMesh);
-                m_PointMap = nullptr;
-                m_ReConvertToDrawableData = false;
-                m_ReConvertHelper->Modified();
-                return;
-            }
-        }
-
         ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
         {
             // update clip status

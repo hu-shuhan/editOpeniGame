@@ -860,26 +860,21 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
     triangleEdgeMasks->Reset();
     triangleEdgeMasks->SetDimension(1);
 
-    // Surface rendering does not consume the explicit edge list.  Build it
-    // lazily when wireframe is requested; SetViewStyle marks the draw data
-    // dirty so switching representation later remains correct.
-    const bool needLineIndices = NeedsExplicitWireframeGeometry(m_ViewStyle);
-    if (needLineIndices && this->GetEdges() == nullptr) { this->BuildEdges(); }
+    // set line indices
+    if (this->GetEdges() == nullptr) { this->BuildEdges(); }
 
     if (m_Clipper->IsAllDisable()) {
         // set triangle indices
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
-        if (needLineIndices) {
-            lineIndices->Reserve(this->GetNumberOfEdges());
-            for (i = 0; i < this->GetNumberOfEdges(); i++) {
-                ncell = this->GetEdgePointIds(i, cell);
-                if (cell[0] < 0 || cell[1] < 0) {
-                    igError("The index of the edge is negative.");
-                } else {
-                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
-                }
+        lineIndices->Reserve(this->GetNumberOfEdges());
+        for (i = 0; i < this->GetNumberOfEdges(); i++) {
+            ncell = this->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                igError("The index of the edge is negative.");
+            } else {
+                lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
             }
         }
 
@@ -966,14 +961,12 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
-        if (needLineIndices) {
-            for (i = 0; i < this->GetNumberOfEdges(); i++) {
-                ncell = this->GetEdgePointIds(i, cell);
-                if (cell[0] < 0 || cell[1] < 0) {
-                    igError("The index of the edge is negative.");
-                } else {
-                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
-                }
+        for (i = 0; i < this->GetNumberOfEdges(); i++) {
+            ncell = this->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                igError("The index of the edge is negative.");
+            } else {
+                lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
             }
         }
 

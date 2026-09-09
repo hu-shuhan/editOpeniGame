@@ -32,10 +32,6 @@ void Log::Init() {
 #endif
     s_CoreLogger = std::make_shared<spdlog::logger>("iGameVis_Core", core_sinksInitList);
     s_CoreLogger->set_level(spdlog::level::trace);
-    // Large synchronous readers are monitored from the file log while they
-    // run.  Flush progress and failures immediately so the on-disk log does
-    // not trail the actual reader by several pieces.
-    s_CoreLogger->flush_on(spdlog::level::info);
 
 #ifdef __EMSCRIPTEN__
     spdlog::sinks_init_list rendering_sinksInitList{console_sink};

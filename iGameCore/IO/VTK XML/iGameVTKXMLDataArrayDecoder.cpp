@@ -187,14 +187,10 @@ bool DecompressZLib(const ByteBuffer& encoded, ByteBuffer& output, std::string& 
         output.clear();
         return true;
     }
-    if (blockSize == 0 || lastBlockSize > blockSize) {
+    if (blockSize == 0 || lastBlockSize == 0 || lastBlockSize > blockSize) {
         error = "invalid VTK zlib block dimensions";
         return false;
     }
-    // VTK writers may encode an exactly block-aligned payload with a zero
-    // last-block size.  In that case the final block is a complete block,
-    // rather than an empty one.  ParaView/VTK emit and accept this form.
-    const std::size_t effectiveLastBlockSize = lastBlockSize == 0 ? blockSize : lastBlockSize;
     if (numBlocks > (std::numeric_limits<std::size_t>::max() / sizeof(HeaderT)) - 3) {
         error = "VTK zlib block count overflow";
         return false;
@@ -204,13 +200,11 @@ bool DecompressZLib(const ByteBuffer& encoded, ByteBuffer& output, std::string& 
         error = "truncated VTK zlib block-size table";
         return false;
     }
-    if (numBlocks - 1 >
-        (std::numeric_limits<std::size_t>::max() - effectiveLastBlockSize) / blockSize) {
+    if (numBlocks - 1 > (std::numeric_limits<std::size_t>::max() - lastBlockSize) / blockSize) {
         error = "VTK zlib output size overflow";
         return false;
     }
-    const std::size_t expectedTotal =
-            (numBlocks - 1) * blockSize + effectiveLastBlockSize;
+    const std::size_t expectedTotal = (numBlocks - 1) * blockSize + lastBlockSize;
     output.clear();
     output.reserve(expectedTotal);
 
@@ -228,8 +222,7 @@ bool DecompressZLib(const ByteBuffer& encoded, ByteBuffer& output, std::string& 
             return false;
         }
         const auto compressedSize = static_cast<std::size_t>(compressedSizeValue);
-        const auto expectedSize =
-                block + 1 == numBlocks ? effectiveLastBlockSize : blockSize;
+        const auto expectedSize = block + 1 == numBlocks ? lastBlockSize : blockSize;
         if (compressedSize == 0 || compressedSize > encoded.size() - sourceOffset) {
             error = "VTK zlib block exceeds encoded payload";
             output.clear();

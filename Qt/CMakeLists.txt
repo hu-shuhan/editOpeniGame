@@ -84,7 +84,6 @@ endif ()
 
 target_link_libraries(${MODULE_NAME} PUBLIC ${LINK_LIBS})
 if (WIN32)
-    target_link_libraries(${MODULE_NAME} PRIVATE ws2_32)
     #  内部库在cmake构建时定义IG_QT_COMPILE_EXPORT，使得模式切换为dllexport, 否则外部库在使用编译这个动态库代码时将其模式切换为dllimport
     target_compile_definitions(${MODULE_NAME} PRIVATE IG_QT_COMPILE_EXPORT)
     #  由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录

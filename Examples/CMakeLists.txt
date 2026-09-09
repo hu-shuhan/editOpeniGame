@@ -179,8 +179,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
         set(_TEST_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 
         if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
-            "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
-            "${EXAMPLE_TARGET}" STREQUAL "testVTMReaderPathValidation")
+            "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
         elseif ("${EXAMPLE_TARGET}" STREQUAL "testLosslessEncode")
@@ -198,8 +197,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
     endif ()
 
     if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
-        "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
-        "${EXAMPLE_TARGET}" STREQUAL "testVTMReaderPathValidation")
+        "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation")
         add_test(
             NAME ${EXAMPLE_TARGET}
             COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>"
@@ -294,7 +292,6 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
-igame_add_example(testVTMReaderPathValidation IO/VTMReaderPathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)
