@@ -105,7 +105,11 @@ emcc -v # 检查版本，需使用 3.1.25
 cmake --build . --parallel 8
 python3 -m http.server # 启动 http-server 后访问 http://localhost:8000/Qt_OpenGL.html
 ```
-
+## 运行
+```shell
+cd build #请在build目录下，通过命令行运行iGameVis.exe
+release/iGameVis.exe
+```
 ## 使用说明
 
 详细操作流程见 `iGameVisNoticeToUsers.md`
