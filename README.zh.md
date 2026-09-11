@@ -82,7 +82,7 @@ cmake --build . --target clean
 
 ```shell
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel 12
+cmake --build build --config Release --parallel 12
 cmake --build build --target install
 ```
 
