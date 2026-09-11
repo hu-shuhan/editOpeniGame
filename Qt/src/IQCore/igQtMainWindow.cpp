@@ -15,6 +15,7 @@
 #include "DataProcessing/iGameMeshSimplificationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
+#include "DataProcessing/iGameSurfaceMeshTopologyChecker.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
 #include "DataProcessing/iGameVolumeMeshSimplification.h"
@@ -1186,6 +1187,48 @@ void igQtMainWindow::initAllFilters() {
         }
     };
 
+    auto showSurfaceTopologyReport = [this](const SurfaceMesh::Pointer& mesh, const QString& stage) {
+        const auto report = SurfaceMeshTopologyChecker::Check(mesh);
+        auto formatIds = [](const std::vector<igIndex>& ids) {
+            QString text;
+            const int displayCount = std::min<int>(8, static_cast<int>(ids.size()));
+            for (int i = 0; i < displayCount; ++i) {
+                if (i != 0) { text += QStringLiteral(", "); }
+                text += QString::number(ids[i]);
+            }
+            if (static_cast<int>(ids.size()) > displayCount) { text += QStringLiteral(" ..."); }
+            return text;
+        };
+
+        QString text = QStringLiteral("检查阶段：%1\n点数：%2  边数：%3  面数：%4\n\n")
+                               .arg(stage)
+                               .arg(report.pointCount)
+                               .arg(report.edgeCount)
+                               .arg(report.faceCount);
+        auto appendIssue = [&](const QString& name, const std::vector<igIndex>& ids) {
+            text += QStringLiteral("%1：%2").arg(name).arg(ids.size());
+            if (!ids.empty()) { text += QStringLiteral("（示例 ID：%1）").arg(formatIds(ids)); }
+            text += QLatin1Char('\n');
+        };
+
+        appendIssue(QStringLiteral("非三角形面"), report.nonTriangleFaceIds);
+        appendIssue(QStringLiteral("越界索引面"), report.invalidIndexFaceIds);
+        appendIssue(QStringLiteral("退化三角形"), report.degenerateFaceIds);
+        appendIssue(QStringLiteral("零面积三角形"), report.zeroAreaFaceIds);
+        appendIssue(QStringLiteral("重复三角形"), report.duplicateFaceIds);
+        appendIssue(QStringLiteral("无效边"), report.invalidEdgeIds);
+        appendIssue(QStringLiteral("孤立边"), report.isolatedEdgeIds);
+        appendIssue(QStringLiteral("非流形边"), report.nonManifoldEdgeIds);
+        appendIssue(QStringLiteral("无效边—面邻接"), report.invalidAdjacencyEdgeIds);
+
+        text += report.IsValid()
+                        ? QStringLiteral("\n结论：拓扑检查通过，可进行传统表面网格简化。")
+                        : QStringLiteral("\n结论：拓扑检查未通过。请根据示例 ID 定位并清理异常单元。 ");
+        showDarkFramelessMessage(report.IsValid() ? QStringLiteral("拓扑检查通过")
+                                                  : QStringLiteral("拓扑检查失败"),
+                                     text, report.IsValid());
+    };
+
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
     connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1228,8 +1271,16 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
-                result = QStringLiteral("执行出错");
-                showDarkFramelessMessage(QStringLiteral("执行出错"), result);
+                const QString detail = QString::fromStdString(filter->GetErrorMessage());
+                result = detail.isEmpty()
+                                 ? QStringLiteral("表面网格简化未能完成。")
+                                 : detail;
+                result += QStringLiteral(
+                        "\n\n处理建议：\n"
+                        "1. 检查并清理重复面、退化三角形和非流形边；\n"
+                        "2. 降低简化比例，或取消“检查网格全部标量”后重试；\n"
+                        "3. 若仍无法处理，可改用“快速表面简化”。");
+                showDarkFramelessMessage(QStringLiteral("表面网格简化失败"), result);
                 dialog->close();
                 return;
             }
@@ -1531,6 +1582,7 @@ void igQtMainWindow::initAllFilters() {
 
             modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
             rendererWidget->update();
+            showSurfaceTopologyReport(mesh, QStringLiteral("表面三角化后"));
         }
     });
 
@@ -1567,6 +1619,7 @@ void igQtMainWindow::initAllFilters() {
         surface->SetName(obj->GetName() + "_surface");
         modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
         rendererWidget->update();
+        //showSurfaceTopologyReport(surface, QStringLiteral("表面提取后"));
     });
 
     connect(mesh_processing->addAction("四面体化 (Tetrahedralize)"), &QAction::triggered, this, [&](bool checked) {

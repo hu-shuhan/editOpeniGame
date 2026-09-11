@@ -59,9 +59,11 @@ public:
 		queue.pop();
 	}
 	void remove(int id) {
-		//if (0 <= id && id < handle_to_uniqueId_map.size()) {
-		uniqueId_map[handle_to_uniqueId_map[id]] = uint8_t(0);
-		//}
+		auto iter = handle_to_uniqueId_map.find(id);
+		if (iter == handle_to_uniqueId_map.end()) { return; }
+		const int uniqueId = iter->second;
+		if (uniqueId < 0 || static_cast<size_t>(uniqueId) >= uniqueId_map.size()) { return; }
+		uniqueId_map[uniqueId] = uint8_t(0);
 	}
 	bool empty() const {
 		return queue.empty();

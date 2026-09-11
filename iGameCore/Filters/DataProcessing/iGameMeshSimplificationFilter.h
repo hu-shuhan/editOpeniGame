@@ -7,6 +7,7 @@
 #include "iGameQuadric.h"
 #include "iGameFlexArray.h"
 #include <iGameUnstructuredMesh.h>
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 class MeshSimplificationFilter : public Filter {
@@ -33,6 +34,8 @@ public:
 
     double GetError() { return error; }
 
+    const std::string& GetErrorMessage() const { return ErrorMessage; }
+
 private:
     int TargetFaceNum = 0;             // 目标面数
     double TargetReduction = 0.5;      // 减少的百分比
@@ -46,6 +49,7 @@ private:
     double QualityThr = 0.3;           // 用于质量检查的质量阈值。
     bool ScalarCheck = true;           // 是否进行标量检查。      
     bool IsAllScalarCheck = true;
+    std::string ErrorMessage;
 
     struct AttribInfo {
         int mapId;
@@ -70,6 +74,8 @@ protected:
     ~MeshSimplificationFilter() override = default;
 
     void Initialize();
+
+    bool ValidateMeshTopology();
 
     void InitMemory();
 

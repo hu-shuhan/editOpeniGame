@@ -187,10 +187,20 @@ public:
 	//float GetFaceTransparency() const;
 
 	bool IsCollapsable(igIndex edgeId) {
+		if (edgeId < 0 || edgeId >= GetNumberOfEdges()) { return false; }
 		if (IsEdgeDeleted(edgeId)) { return false; }
 
 		igIndex e[2]{};
-		GetEdgePointIds(edgeId, e);
+		if (GetEdgePointIds(edgeId, e) != 2 || e[0] < 0 || e[1] < 0 ||
+			e[0] >= GetNumberOfPoints() || e[1] >= GetNumberOfPoints() ||
+			e[0] == e[1] || IsPointDeleted(e[0]) || IsPointDeleted(e[1])) {
+			return false;
+		}
+
+		// CollapseEdge stores adjacent faces in a two-element buffer and is
+		// defined only for boundary/manifold edges.
+		const int adjacentFaceCount = GetNumberOfLinks(edgeId, SurfaceMesh::E2F);
+		if (adjacentFaceCount < 1 || adjacentFaceCount > 2) { return false; }
 
 		// 如果两个顶点在边界，边却没在边界，则不能坍缩
 		if (IsBoundaryPoint(e[0]) && IsBoundaryPoint(e[1]) &&
