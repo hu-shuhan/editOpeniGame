@@ -12,6 +12,7 @@
 #include "iGameFileReader.h"
 #include "iGameVTSReader.h"
 #include "iGameVTUReader.h"
+#include "iGameVTRReader.h"
 #include "iGameDataObject.h"
 
 #include "iGameStringArray.h"
@@ -93,6 +94,11 @@ bool iGame::iGamePVDReader::Parsing() {
                 else if(fileSuffix == "vtu"){
                     iGameVTUReader::Pointer rd = iGameVTUReader::New();
                     rd->SetUpdateProgressIndependent(true);
+                    rd->SetFilePath(fileName);
+                    rd->Execute();
+                    newObj = rd->GetOutput();
+                } else if(fileSuffix == "vtr"){
+                    iGameVTRReader::Pointer rd = iGameVTRReader::New();
                     rd->SetFilePath(fileName);
                     rd->Execute();
                     newObj = rd->GetOutput();

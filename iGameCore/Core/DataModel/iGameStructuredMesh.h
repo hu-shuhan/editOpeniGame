@@ -28,7 +28,7 @@ public:
     void SetDimensionSize(igIndex s[3]);
 
     // Set the extent of the mesh (start and end indices in x, y, and z directions).
-    void SetExtent(igIndex e[6]) { std::copy(e, e + 6, this->size); }
+    void SetExtent(igIndex e[6]) { std::copy(e, e + 6, this->extent); }
 
     // Get the dimension sizes of the mesh.
     igIndex* GetDimensionSize() { return this->size; }

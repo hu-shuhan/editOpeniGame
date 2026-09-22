@@ -17,6 +17,25 @@ endif ()
 # Core Module's main Cmake
 #--------------------------------------------------------------------
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
+# 并行体绘制模块（阶段 2）。显式列出，避免增量构建时 GLOB_RECURSE 未重新扫描
+# 导致链接缺符号（LNK2019）。
+list(APPEND IGAME_CORE_FILE
+        "Core/Common/iGameParallelContext.h"
+        "Core/Common/iGameParallelContext.cpp"
+        "Filters/VolumeMeshAlgorithm/iGameVolumeDistributor.h"
+        "Filters/VolumeMeshAlgorithm/iGameVolumeDistributor.cpp"
+        "Filters/VolumeMeshAlgorithm/iGameVolumeResampleFilter.h"
+        "Filters/VolumeMeshAlgorithm/iGameVolumeResampleFilter.cpp"
+        "Rendering/Core/iGameCompositePass.h"
+        "Rendering/Core/iGameCompositePass.cpp"
+)
+
+# 资源路径解析（iGameResourcePath）。同样显式列出，避免增量构建时
+# GLOB_RECURSE 未重新扫描导致链接缺符号（LNK2019）。
+list(APPEND IGAME_CORE_FILE
+        "Core/Common/iGameResourcePath.h"
+        "Core/Common/iGameResourcePath.cpp"
+)
 
 # Currently, only shared libraries for the Linux system are supported
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
@@ -101,6 +120,14 @@ if (ENABLE_CGNS_MODULE)
        # set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
         #find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
     #endif ()
+endif ()
+
+if (ENABLE_MPI_MODULE)
+    find_package(MPI REQUIRED)
+    if (MPI_CXX_FOUND)
+        target_link_libraries(${MODULE_NAME} PUBLIC MPI::MPI_CXX)
+        target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_ENABLE_MPI)
+    endif ()
 endif ()
 
 if (ENABLE_LIBTORCH_MODULE)

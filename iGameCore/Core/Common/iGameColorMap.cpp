@@ -74,6 +74,48 @@ void ColorMap::InitColorBarWithBlueCyanGreenYellowRedMagentaType() {
     m_ColorRange->AddValue(0.8);
     m_ColorRange->AddValue(1.0);
 }
+// 迁移自 UnifiedVersion ColorMapManager::GetFast()（ParaView 彩虹，9 控制点）。
+void ColorMap::InitColorBarWithFastType() {
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(9);
+    m_ColorBar->AddElement3(0.0564, 0.0564, 0.47);
+    m_ColorBar->AddElement3(0.2430, 0.46035, 0.81);
+    m_ColorBar->AddElement3(0.3568, 0.7450, 0.93);
+    m_ColorBar->AddElement3(0.6882, 0.91791, 0.93);
+    m_ColorBar->AddElement3(0.8995, 0.94465, 0.7687);
+    m_ColorBar->AddElement3(0.9571, 0.8338, 0.5089);
+    m_ColorBar->AddElement3(0.9275, 0.6214, 0.3154);
+    m_ColorBar->AddElement3(0.8476, 0.3520, 0.16);
+    m_ColorBar->AddElement3(0.59, 0.0767, 0.1195);
+
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(9);
+    m_ColorRange->AddValue(0.0);
+    m_ColorRange->AddValue(0.1715922394);
+    m_ColorRange->AddValue(0.2984914818);
+    m_ColorRange->AddValue(0.4321287371);
+    m_ColorRange->AddValue(0.5);
+    m_ColorRange->AddValue(0.5882260353);
+    m_ColorRange->AddValue(0.7061412606);
+    m_ColorRange->AddValue(0.8476395309);
+    m_ColorRange->AddValue(1.0);
+}
+// 迁移自 UnifiedVersion ColorMapManager::GetCoolToWarm()（冷->暖，3 控制点）。
+void ColorMap::InitColorBarWithCoolToWarmType() {
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(3);
+    m_ColorBar->AddElement3(0.0, 0.0, 0.9);
+    m_ColorBar->AddElement3(0.6, 0.6, 0.6);
+    m_ColorBar->AddElement3(0.9, 0.0, 0.0);
+
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(3);
+    m_ColorRange->AddValue(0.0);
+    m_ColorRange->AddValue(0.5);
+    m_ColorRange->AddValue(1.0);
+}
 void ColorMap::SetIndexColor(int index, float r, float g, float b) {
     float rgb[3]{r, g, b};
     m_ColorBar->SetElement(index, rgb);

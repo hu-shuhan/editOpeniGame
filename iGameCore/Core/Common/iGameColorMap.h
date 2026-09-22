@@ -1,4 +1,4 @@
-﻿#ifndef iGameColorMap_h
+#ifndef iGameColorMap_h
 #define iGameColorMap_h
 
 #include "iGameFlatArray.h"
@@ -38,6 +38,10 @@ public:
     void InitColorBarWithBlueWhiteRedType();
     void InitColorBarWithBlueCyanGreenYellowRedType();
     void InitColorBarWithBlueCyanGreenYellowRedMagentaType();
+    /*迁移自 UnifiedVersion ColorMapManager 的预设（阶段 3）：
+      Fast = ParaView 彩虹，CoolToWarm = 冷->暖；Grayscale 复用现有 GrayScale。*/
+    void InitColorBarWithFastType();
+    void InitColorBarWithCoolToWarmType();
 
     /*get colorbar*/
     FloatArray::Pointer GetColorBar() { return this->m_ColorBar; };

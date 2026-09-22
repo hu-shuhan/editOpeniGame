@@ -11,6 +11,7 @@
 #include "VTK/iGameVTKReader.h"
 #include "iGameVTSReader.h"
 #include "iGameVTUReader.h"
+#include "iGameVTRReader.h"
 #include "CGNS/iGameCGNSReader.h"
 #include "Log/iGameLogger.h"
 #include <cstddef>
@@ -86,6 +87,11 @@ bool iGameVTMReader::Parsing() {
                         rd->SetFilePath(fileDir + std::string(existAttribute));
                         rd->Execute();
                         newObj = rd->GetOutput();
+                    } else if (fileSuffix == "vtr") {
+                        iGameVTRReader::Pointer rd = iGameVTRReader::New();
+                        rd->SetFilePath(fileDir + std::string(existAttribute));
+                        rd->Execute();
+                        newObj = rd->GetOutput();
                     }
                     #if defined(CGNS_ENABLE)
                     else if (fileSuffix == "cgns") {
@@ -143,6 +149,11 @@ bool iGameVTMReader::Parsing() {
                     newObj = rd->GetOutput();
                 } else if (fileSuffix == "vtk") {
                     VTKReader::Pointer rd = VTKReader::New();
+                    rd->SetFilePath(fileDir + std::string(existAttribute));
+                    rd->Execute();
+                    newObj = rd->GetOutput();
+                } else if (fileSuffix == "vtr") {
+                    iGameVTRReader::Pointer rd = iGameVTRReader::New();
                     rd->SetFilePath(fileDir + std::string(existAttribute));
                     rd->Execute();
                     newObj = rd->GetOutput();

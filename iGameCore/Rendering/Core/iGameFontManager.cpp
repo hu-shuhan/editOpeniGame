@@ -3,6 +3,7 @@
 //
 
 #include "iGameFontManager.h"
+#include "iGameResourcePath.h"
 #include <codecvt>
 #include <locale>
 
@@ -27,8 +28,8 @@ FontManager::~FontManager() {
 }
 
 void FontManager::RegisterWords(const wchar_t* text) {
-    std::string fontPath =
-            "./Resources/Assests/Fonts/SourceHanSansCN-Normal.otf";
+    std::string fontPath = ResolveResourcePath(
+            "./Resources/Assests/Fonts/SourceHanSansCN-Normal.otf");
 
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {

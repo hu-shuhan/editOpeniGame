@@ -31,8 +31,13 @@ bool iGameVolumeRayCastGPU::SetInput(StructuredMesh::Pointer mesh) {
 
     EnsureGLResources();
 
-    if (m_Input == mesh) { return true; }
+    // 同一网格且激活属性未变化时才跳过重传；切换字段需重新上传 3D 纹理与数据范围，
+    // 否则渲染的是旧字段的纹理 + 旧字段的 GetDataMin/Max。
+    if (m_Input == mesh && m_InputAttributeIndex == mesh->GetAttributeIndex()) {
+        return true;
+    }
     m_Input = mesh;
+    m_InputAttributeIndex = mesh->GetAttributeIndex();
 
     return UploadVolumeTexture(mesh);
 }
@@ -257,14 +262,21 @@ bool iGameVolumeRayCastGPU::UploadVolumeTexture(
         if (m_BoxMax[i] - m_BoxMin[i] < 1e-8f) { m_BoxMax[i] = m_BoxMin[i] + 1.0f; }
     }
 
-    m_VolumeTexture->Storage(1, GL_R32F, static_cast<unsigned>(ni),
-                             static_cast<unsigned>(nj),
-                             static_cast<unsigned>(nk));
-    m_VolumeTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    m_VolumeTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    m_VolumeTexture->Parameteri(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    m_VolumeTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    m_VolumeTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // immutable storage（glTextureStorage3D）只能分配一次；切换字段重传时只做
+    // SubImage 上传数据，重复调用 Storage 会触发 GL_INVALID_OPERATION。
+    if (m_VolumeDims[0] != ni || m_VolumeDims[1] != nj || m_VolumeDims[2] != nk) {
+        m_VolumeTexture->Storage(1, GL_R32F, static_cast<unsigned>(ni),
+                                 static_cast<unsigned>(nj),
+                                 static_cast<unsigned>(nk));
+        m_VolumeTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        m_VolumeTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        m_VolumeTexture->Parameteri(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        m_VolumeTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        m_VolumeTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        m_VolumeDims[0] = ni;
+        m_VolumeDims[1] = nj;
+        m_VolumeDims[2] = nk;
+    }
     m_VolumeTexture->SubImage(0, 0, 0, 0, static_cast<unsigned>(ni),
                               static_cast<unsigned>(nj),
                               static_cast<unsigned>(nk), GL_RED, GL_FLOAT,

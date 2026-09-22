@@ -2,6 +2,7 @@
 // Created by Sumzeek on 12/9/2024.
 //
 #include "GLShader.h"
+#include "iGameResourcePath.h"
 #include <filesystem>
 
 IGAME_NAMESPACE_BEGIN
@@ -19,7 +20,7 @@ SmartPointer<GLShader> GLShader::CreateShader(const std::string& path,
                                               GLenum shaderType) {
     auto shader = GLShader::New();
     shader->SetName(std::filesystem::path(path).filename().string());
-    shader->Compile(path.c_str(), shaderType);
+    shader->Compile(ResolveResourcePath(path).c_str(), shaderType);
     return shader;
 }
 

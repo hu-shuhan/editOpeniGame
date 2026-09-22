@@ -286,6 +286,7 @@ igame_add_example(testSetTransparency Rendering/SetTransparency.cpp)
 igame_add_example(testSetViewStyle Rendering/SetViewStyle.cpp)
 igame_add_example(testSetScalarField Rendering/SetScalarField.cpp)
 igame_add_example(testSetVolumeRendering Rendering/SetVolumeRendering.cpp)
+igame_add_example(testParallelVolumeRendering Rendering/ParallelVolumeRendering.cpp)
 igame_add_example(testSetRenderingPressure Rendering/SetRenderingPressure.cpp)
 
 # Attribute

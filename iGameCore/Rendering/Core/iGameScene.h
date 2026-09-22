@@ -392,6 +392,37 @@ public:
     void SetParallelVolumeRendering(bool toggled);
 
     /**
+     * @brief 并行体绘制（阶段 3）：用全局包围盒（而非本 rank 局部模型包围盒）
+     * 计算相机裁剪范围，保证所有 rank 的投影矩阵一致，深度才能跨进程比较。
+     */
+    void SetParallelVolumeClippingBounds(const BoundingBox& bounds);
+    void ClearParallelVolumeClippingBounds();
+
+    /**
+     * @brief 并行体绘制（阶段 3）：设置全局标量范围（所有 rank 经 AllReduce 求出的
+     * min/max），覆盖体渲染 Pass 里按本地数据自动推导的范围，保证各分块颜色/不透明度
+     * 传输函数一致。
+     */
+    void SetParallelVolumeScalarRange(double scalarMin, double scalarMax);
+    void ClearParallelVolumeScalarRange();
+
+    /**
+     * @brief 并行体绘制（阶段 3）：离屏渲染使用透明背景（alpha=0，颜色 0），
+     * 使每个 rank 的帧只含自己的体数据（预乘 alpha + 深度），供 iGameCompositePass
+     * 跨进程合成。单机 -n 1 也走同一路径，保证与 -n N 结果一致。
+     */
+    void SetParallelVolumeTransparentBackground(bool transparent);
+
+    /**
+     * @brief 并行体绘制（阶段 3）：读回当前帧颜色（RGBA8 预乘 alpha）与深度
+     * （float，reversed-z：near=1.0，far=0.0），供 iGameCompositePass 合成。
+     * 读回的是 GL 左下角原点、未镜像的数据；输出长度分别为 width*height*4 与
+     * width*height。
+     */
+    void CaptureParallelVolumeFrame(std::vector<unsigned char>& rgba,
+                                    std::vector<float>& depth) const;
+
+    /**
      * @brief 捕获屏幕图像。
      * @param x 起始位置 X 坐标。
      * @param y 起始位置 Y 坐标。
@@ -587,6 +618,14 @@ protected:
     // GPU 光线投射体渲染（阶段 1）
     SmartPointer<iGameVolumeRayCastGPU> m_VolumeRayCaster;
     SmartPointer<iGameVolumeTransferFunction> m_VolumeTransferFunction;
+
+    // 并行体绘制（阶段 3）：全局裁剪范围 / 全局标量范围 / 透明背景
+    bool m_HasParallelClippingBounds{false};
+    BoundingBox m_ParallelClippingBounds;
+    bool m_HasParallelScalarRange{false};
+    double m_ParallelScalarMin{0.0};
+    double m_ParallelScalarMax{1.0};
+    bool m_ParallelVolumeTransparentBackground{false};
 
     // 帧率/使用率节流控制
     bool m_FramePacingEnabled = false; // 全局开关

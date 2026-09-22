@@ -1,0 +1,65 @@
+#ifndef iGameVolumeResampleFilter_h
+#define iGameVolumeResampleFilter_h
+
+#include "iGameBoundingBox.h"
+#include "iGameFilter.h"
+#include "iGameFlatArray.h"
+#include "iGameStructuredMesh.h"
+#include <string>
+
+IGAME_NAMESPACE_BEGIN
+
+/**
+ * @class iGameVolumeResampleFilter
+ * @brief 体数据 -> 规则体素场重采样（Probe 等价物，阶段 2）。
+ *
+ * @details
+ *  把任意体数据（VolumeMesh / UnstructuredMesh / StructuredMesh，或其多块组合）
+ *  重采样成一个规则体素场 StructuredMesh：
+ *    - 点按 (i + j*ni + k*ni*nj) 行主序排列，i 最快；
+ *    - 标量场作为点标量（FloatArray，dim=1）附加到 AttributeSet；
+ *    - 无效点（落在所有单元之外的采样点）通过 GetValidMask() 返回 UnsignedCharArray。
+ *
+ *  输出可直接作为 iGameVolumeRayCastGPU::SetInput 的输入（其假定体素行主序 + 点标量）。
+ *  插值支持：四面体（重心）、六面体（三线性）；三棱柱/金字塔退化为最近节点；
+ *  若输入已是 StructuredMesh，则在其自身网格上做三线性采样（假定均匀规则网格）。
+ */
+class iGameVolumeResampleFilter : public Filter {
+public:
+    I_OBJECT(iGameVolumeResampleFilter);
+    static Pointer New() { return new iGameVolumeResampleFilter; }
+
+    /** 目标体素网格分辨率（每个维度 >= 2）。 */
+    void SetTargetDims(int ni, int nj, int nk) {
+        m_Dims[0] = ni < 2 ? 2 : ni;
+        m_Dims[1] = nj < 2 ? 2 : nj;
+        m_Dims[2] = nk < 2 ? 2 : nk;
+    }
+
+    /** 目标字段名；为空则自动选择第一个标量/向量（点数据优先，其次单元数据）。 */
+    void SetFieldName(const std::string& name) { m_FieldName = name; }
+
+    /** 输出的规则体素场。 */
+    StructuredMesh::Pointer GetStructuredMesh() const { return m_OutputMesh; }
+    /** 无效点 mask（0=无效/在网格外，1=有效），长度 = ni*nj*nk。 */
+    UnsignedCharArray::Pointer GetValidMask() const { return m_ValidMask; }
+
+    bool Execute() override;
+
+protected:
+    iGameVolumeResampleFilter() {
+        SetNumberOfInputs(1);
+        SetNumberOfOutputs(1);
+    }
+    ~iGameVolumeResampleFilter() override = default;
+
+private:
+    int m_Dims[3]{64, 64, 64};
+    std::string m_FieldName;
+    StructuredMesh::Pointer m_OutputMesh{nullptr};
+    UnsignedCharArray::Pointer m_ValidMask{nullptr};
+};
+
+IGAME_NAMESPACE_END
+
+#endif // iGameVolumeResampleFilter_h

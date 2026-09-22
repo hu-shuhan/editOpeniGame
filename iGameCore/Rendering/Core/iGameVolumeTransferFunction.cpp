@@ -6,6 +6,10 @@ IGAME_NAMESPACE_BEGIN
 
 iGameVolumeTransferFunction::iGameVolumeTransferFunction() {
     SetDefaultOpacityPoints();
+    // 默认配色用 Fast（ParaView 彩虹，迁移自 UnifiedVersion ColorMapManager），
+    // 体渲染观感优于 ColorMap 默认的蓝白红；如需自定义可再调 SetColorMapper 覆盖。
+    m_ColorMapper = ScalarsToColors::New();
+    m_ColorMapper->InitColorBarWithFastType();
 }
 
 void iGameVolumeTransferFunction::SetScalarRange(double minValue,

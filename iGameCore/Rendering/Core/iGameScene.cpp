@@ -1566,10 +1566,12 @@ void Scene::VolumeRayCastPass() {
     }
 
     if (volumes.empty()) {
+        // 没有可光线投射的规则体数据（模型被删除/隐藏，或数据不是 StructuredMesh）：
+        // 关闭并行体绘制，避免下一帧继续进入本分支反复告警；下一帧起走正常渲染路径。
+        m_EnableParallelVolumeRendering = false;
         IGAME_RENDERING_WARN(
-                "[Scene] Parallel volume rendering is enabled, but no "
-                "ray-castable structured volume (StructuredMesh / .vts / .vtr) "
-                "was found. Falling back to the normal rendering path.");
+                "[Scene] Parallel volume rendering disabled: no ray-castable "
+                "structured volume (StructuredMesh / .vts / .vtr) found.");
         ShadowPass();
         ForwardPass();
         TransparentPass();
@@ -1582,7 +1584,17 @@ void Scene::VolumeRayCastPass() {
     // MSAA resolve，因此这里需要显式清除背景与深度。
     m_Framebuffer->Bind();
     glViewport(0, 0, viewport.x, viewport.y);
-    ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
+    if (m_ParallelVolumeTransparentBackground) {
+        // 并行体绘制（阶段 3）：透明背景（黑 + alpha=0），配合预乘 alpha 混合
+        // （GL_ONE, GL_ONE_MINUS_SRC_ALPHA），使帧缓冲只保留本 rank 的体数据，
+        // 空像素保持 (0,0,0,0) + 深度 0（远平面），供 iGameCompositePass 合成。
+        glClearDepth(0.0);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                GL_STENCIL_BUFFER_BIT);
+    } else {
+        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
+    }
 
     // reversed-z：near=1.0, far=0.0
     glEnable(GL_DEPTH_TEST);
@@ -1596,18 +1608,18 @@ void Scene::VolumeRayCastPass() {
     auto shader = this->GetShader(ShaderType::VOLUMERAYCAST);
 
     for (auto& mesh : volumes) {
-        // 从当前颜色映射器刷新传输函数（范围/颜色/不透明度）。
-        auto mapper = mesh->GetColorMapper();
-        double scalarMin = m_VolumeRayCaster->GetDataMin();
-        double scalarMax = m_VolumeRayCaster->GetDataMax();
-        if (mapper && mesh->GetAttributeIndex() >= 0) {
-            const double* range = mapper->GetRange();
-            if (range[1] > range[0]) {
-                scalarMin = range[0];
-                scalarMax = range[1];
-            }
-        }
-        m_VolumeTransferFunction->SetColorMapper(mapper);
+        // 体渲染配色默认用 Fast（iGameVolumeTransferFunction 构造时已设好），
+        // 不从 mesh 的表面 color mapper 复制（否则默认蓝白红会让体渲染观感差）。
+        // 归一化范围优先用全局范围（并行体绘制经 AllReduce 统一，阶段 3）；
+        // 否则用上传标量场的真实数据范围（GetDataMin/Max），而不是 mapper 的
+        // InputRange：后者未显式设置时默认是 [0,255]（见 ScalarsToColors 构造函数），
+        // 会把场值钳到色标一端（全红）或透明端（黑屏）。
+        const double scalarMin =
+                m_HasParallelScalarRange ? m_ParallelScalarMin
+                                         : m_VolumeRayCaster->GetDataMin();
+        const double scalarMax =
+                m_HasParallelScalarRange ? m_ParallelScalarMax
+                                         : m_VolumeRayCaster->GetDataMax();
         m_VolumeTransferFunction->SetScalarRange(scalarMin, scalarMax);
         m_VolumeTransferFunction->SetOpacityMappingEnabled(
                 mesh->GetOpacityMappingEnabled());
@@ -1634,12 +1646,24 @@ void Scene::UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj) {
 }
 
 void Scene::UpdateCameraClippingRange() {
-    // If a model is changed, bounding-box will not be notified to Scene
-    UpdateModelsBoundingSphere();
+    igm::vec3 center;
+    float radius;
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    if (m_HasParallelClippingBounds) {
+        // 并行体绘制：用全局包围盒（而非本 rank 局部模型）计算裁剪范围，
+        // 保证所有 rank 投影矩阵一致（阶段 3）。
+        const Vector3d c = m_ParallelClippingBounds.center();
+        center = igm::vec3{static_cast<float>(c[0]), static_cast<float>(c[1]),
+                           static_cast<float>(c[2])};
+        radius = static_cast<float>(m_ParallelClippingBounds.diag() / 2.0);
+    } else {
+        // If a model is changed, bounding-box will not be notified to Scene
+        UpdateModelsBoundingSphere();
+        center = igm::vec3{m_ModelsBoundingSphere};
+        radius = m_ModelsBoundingSphere.w;
+    }
+
     igm::vec3 centerInWorld = (m_ModelMatrix * igm::vec4{center, 1.0f}).xyz();
-    float radius = m_ModelsBoundingSphere.w;
     igm::vec3 cameraPos = m_Camera->GetPosition();
 
     igm::vec3 front = m_Camera->GetFront();
@@ -1981,6 +2005,43 @@ void Scene::SetParallelVolumeRendering(bool toggled) {
     // 开启并行体绘制时同步启用不透明度映射（光线投射需要不透明度传输函数）。
     SetOpacityMappingEnabled(toggled);
     Update();
+}
+
+void Scene::SetParallelVolumeClippingBounds(const BoundingBox& bounds) {
+    m_ParallelClippingBounds = bounds;
+    m_HasParallelClippingBounds = true;
+}
+
+void Scene::ClearParallelVolumeClippingBounds() {
+    m_HasParallelClippingBounds = false;
+}
+
+void Scene::SetParallelVolumeScalarRange(double scalarMin, double scalarMax) {
+    if (scalarMax <= scalarMin) { scalarMax = scalarMin + 1e-6; }
+    m_ParallelScalarMin = scalarMin;
+    m_ParallelScalarMax = scalarMax;
+    m_HasParallelScalarRange = true;
+}
+
+void Scene::ClearParallelVolumeScalarRange() {
+    m_HasParallelScalarRange = false;
+}
+
+void Scene::SetParallelVolumeTransparentBackground(bool transparent) {
+    m_ParallelVolumeTransparentBackground = transparent;
+}
+
+void Scene::CaptureParallelVolumeFrame(std::vector<unsigned char>& rgba,
+                                       std::vector<float>& depth) const {
+    const auto viewport = m_Camera->GetScaledViewPort();
+    const int w = static_cast<int>(viewport.x);
+    const int h = static_cast<int>(viewport.y);
+
+    m_Framebuffer->Bind();
+    rgba.resize(static_cast<size_t>(w) * h * 4);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+    depth.resize(static_cast<size_t>(w) * h);
+    glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, depth.data());
 }
 
 void Scene::UpdateModelsBoundingSphere() {

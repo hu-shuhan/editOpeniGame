@@ -69,6 +69,8 @@ protected:
     GLVertexArray::Pointer m_EmptyVAO;
 
     StructuredMesh::Pointer m_Input; // 缓存输入，避免每帧重复上传 3D 纹理
+    int m_InputAttributeIndex{-1};   // 上传时的激活属性；切换字段需重传
+    int m_VolumeDims[3]{0, 0, 0};    // 已分配的 3D 纹理尺寸；0 表示尚未分配
     iGameVolumeTransferFunction::Pointer m_TransferFunction;
 
     igm::vec3 m_BoxMin{0.0f};

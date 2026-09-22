@@ -168,6 +168,12 @@ void iGame::RenderWindow::Show() {
     while (!glfwWindowShouldClose(m_Window)) { RenderOneFrame(); }
 }
 
+void iGame::RenderWindow::SetVisible(bool visible) {
+    if (m_Window == nullptr) return;
+    if (visible) { glfwShowWindow(m_Window); }
+    else { glfwHideWindow(m_Window); }
+}
+
 void iGame::RenderWindow::SetScene(iGame::Scene* _scene) {
     m_Scene = _scene;
     if (m_Window == nullptr || m_Scene == nullptr) return;

@@ -26,6 +26,9 @@ public:
 
     void Show();
 
+    /*Set/Get the visibility of the render window. 并行体绘制里无头 worker 进程用它隐藏窗口。*/
+    void SetVisible(bool visible);
+
     void SetSize(int width, int height);
 
     void SetTitle(const char* title);
