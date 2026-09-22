@@ -27,6 +27,7 @@ public:
         VTP,
         VTM,
         VTS,
+        VTR,
         EX2,
         CGNS,
         INP,

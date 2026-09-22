@@ -392,6 +392,19 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->SetName("VOLUMERENDERINGSORT");
             sp->AddShaders(fullScreenTriangle_vert, volumeRenderingSort_frag);
         } break;
+        case ShaderType::VOLUMERAYCAST: {
+            SmartPointer<GLShader> fullScreenTriangle_vert =
+                    GLShader::CreateShader(
+                            std::string("./Resources/Shaders/"
+                                        "FullScreenTriangle.vert"),
+                            GL_VERTEX_SHADER);
+            SmartPointer<GLShader> volumeRayCast_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/VolumeRayCast.frag"),
+                    GL_FRAGMENT_SHADER);
+
+            sp->SetName("VOLUMERAYCAST");
+            sp->AddShaders(fullScreenTriangle_vert, volumeRayCast_frag);
+        } break;
 #endif
         case ShaderType::AXES: {
             SmartPointer<GLShader> axis_vert = GLShader::CreateShader(

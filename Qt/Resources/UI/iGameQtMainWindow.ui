@@ -997,6 +997,7 @@ QLabel#CustomTitleLabel {
     <addaction name="action_Vector"/>
     <addaction name="action_Tensor"/>
     <addaction name="action_FlowField"/>
+    <addaction name="action_ParallelVolumeRendering"/>
     <addaction name="action_ExportAnimation"/>
     <addaction name="menu_DataAnalysis"/>
     <addaction name="menu_clip"/>
@@ -2224,6 +2225,21 @@ QLabel#CustomTitleLabel {
    </property>
    <property name="toolTip">
     <string>启用体绘制</string>
+   </property>
+  </action>
+  <action name="action_ParallelVolumeRendering">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/VolumeRendering.png</normaloff>:/Ticon/Icons/VolumeRendering.png</iconset>
+   </property>
+   <property name="text">
+    <string>并行体渲染</string>
+   </property>
+   <property name="toolTip">
+    <string>GPU 光线投射并行体绘制（需规则体网格，如 .vts）</string>
    </property>
   </action>
   <!-- 传输测试暂未启用

@@ -105,6 +105,9 @@ Scene::Scene() {
 
     m_FinishInit = false;
     m_EnableVolumeRendering = false;
+    m_EnableParallelVolumeRendering = false;
+    m_VolumeRayCaster = iGameVolumeRayCastGPU::New();
+    m_VolumeTransferFunction = iGameVolumeTransferFunction::New();
 
     m_CenterAxesModel = CenterAxesModel::New();
 }
@@ -148,6 +151,8 @@ void Scene::Finalize() {
     m_VolumeFramebuffer = nullptr;
     m_VolumeColorTexture = nullptr;
     m_VolumeDepthTexture = nullptr;
+    m_VolumeRayCaster = nullptr;
+    m_VolumeTransferFunction = nullptr;
     m_HzbTexture = nullptr;
     m_Camera = nullptr;
 }
@@ -1120,7 +1125,9 @@ void Scene::DrawFrame() {
         TransparentPass();
     #endif
 #else
-        if (!m_EnableVolumeRendering) {
+        if (m_EnableParallelVolumeRendering) {
+            VolumeRayCastPass();
+        } else if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
             TransparentPass();
@@ -1542,6 +1549,80 @@ void Scene::VolumeRenderingPass() {
     GLCheckError();
 }
 
+void Scene::VolumeRayCastPass() {
+#ifdef IGAME_OPENGL_VERSION_460
+    // 先收集可光线投射的规则体数据（StructuredMesh / .vts）。体绘制路径会替代
+    // ForwardPass，因此若一个都没有就必须回退到常规渲染，否则只剩背景（看起来像黑屏）。
+    std::vector<SmartPointer<StructuredMesh>> volumes;
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (!model->GetVisibility()) { continue; }
+
+        auto mesh = DynamicCast<StructuredMesh>(model->GetDataObject());
+        if (!mesh) { continue; }
+
+        if (!m_VolumeRayCaster->SetInput(mesh)) { continue; }
+        volumes.push_back(mesh);
+    }
+
+    if (volumes.empty()) {
+        IGAME_RENDERING_WARN(
+                "[Scene] Parallel volume rendering is enabled, but no "
+                "ray-castable structured volume (StructuredMesh / .vts / .vtr) "
+                "was found. Falling back to the normal rendering path.");
+        ShadowPass();
+        ForwardPass();
+        TransparentPass();
+        return;
+    }
+
+    auto viewport = m_Camera->GetScaledViewPort();
+
+    // 直接渲染到主帧缓冲（单采样颜色 + 深度）。体绘制路径不经过 ForwardPass 的
+    // MSAA resolve，因此这里需要显式清除背景与深度。
+    m_Framebuffer->Bind();
+    glViewport(0, 0, viewport.x, viewport.y);
+    ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
+
+    // reversed-z：near=1.0, far=0.0
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
+    glDepthMask(GL_TRUE);
+
+    // 光线投射输出预乘 alpha，叠加到已清除的背景色上。
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    auto shader = this->GetShader(ShaderType::VOLUMERAYCAST);
+
+    for (auto& mesh : volumes) {
+        // 从当前颜色映射器刷新传输函数（范围/颜色/不透明度）。
+        auto mapper = mesh->GetColorMapper();
+        double scalarMin = m_VolumeRayCaster->GetDataMin();
+        double scalarMax = m_VolumeRayCaster->GetDataMax();
+        if (mapper && mesh->GetAttributeIndex() >= 0) {
+            const double* range = mapper->GetRange();
+            if (range[1] > range[0]) {
+                scalarMin = range[0];
+                scalarMax = range[1];
+            }
+        }
+        m_VolumeTransferFunction->SetColorMapper(mapper);
+        m_VolumeTransferFunction->SetScalarRange(scalarMin, scalarMax);
+        m_VolumeTransferFunction->SetOpacityMappingEnabled(
+                mesh->GetOpacityMappingEnabled());
+
+        m_VolumeRayCaster->SetTransferFunction(m_VolumeTransferFunction);
+        m_VolumeRayCaster->Render(shader, m_Camera, m_ModelMatrix, viewport);
+    }
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+#endif
+    glDisable(GL_DEPTH_TEST);
+    GLCheckError();
+}
+
 void Scene::UpdateCameraDataBlock() {
     m_ShaderManager->UpdateCameraBlock(m_Camera);
 }
@@ -1885,6 +1966,20 @@ void Scene::SetVolumeRendering(bool toggled) {
     }
     // 默认关闭不透明度映射
     SetOpacityMappingEnabled(false);
+    Update();
+}
+
+void Scene::SetParallelVolumeRendering(bool toggled) {
+    m_EnableParallelVolumeRendering = toggled;
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+
+        if (!model->GetDataObject()->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        drawObject->SetShellRenderingOption(!toggled);
+    }
+    // 开启并行体绘制时同步启用不透明度映射（光线投射需要不透明度传输函数）。
+    SetOpacityMappingEnabled(toggled);
     Update();
 }
 

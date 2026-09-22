@@ -1056,6 +1056,8 @@ void igQtMainWindow::initAllComponents() {
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+    connect(ui->action_ParallelVolumeRendering, &QAction::triggered, this,
+            [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetParallelVolumeRendering(toggled); });
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);

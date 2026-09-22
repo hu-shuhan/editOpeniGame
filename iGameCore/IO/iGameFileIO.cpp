@@ -27,6 +27,7 @@
 #include "VTK XML/iGameVTMReader.h"
 #include "VTK XML/iGameVTPReader.h"
 #include "VTK XML/iGameVTSReader.h"
+#include "VTK XML/iGameVTRReader.h"
 #include "VTK XML/iGameVTUReader.h"
 #include "VTK/iGameVTKReader.h"
 #include "VTK/iGameVTKWriter.h"
@@ -71,6 +72,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return PVD;
     } else if (FileSuffix == "vts") {
         return VTS;
+    } else if (FileSuffix == "vtr") {
+        return VTR;
     } else if (FileSuffix == "vtu") {
         return VTU;
     } else if (FileSuffix == "vtp") {
@@ -148,6 +151,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "PVD";
         case VTS:
             return "VTS";
+        case VTR:
+            return "VTR";
         case VTM:
             return "VTM";
         case VTU:
@@ -416,6 +421,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
         case iGame::FileIO::VTS: {
             iGameVTSReader::Pointer reader = iGameVTSReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
+        case iGame::FileIO::VTR: {
+            iGameVTRReader::Pointer reader = iGameVTRReader::New();
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();

@@ -23,6 +23,8 @@
 #include "iGameModel.h"
 #include "iGameShaderManager.h"
 #include "iGameTextOverlay2DActor.h"
+#include "iGameVolumeRayCastGPU.h"
+#include "iGameVolumeTransferFunction.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -383,6 +385,13 @@ public:
     void SetVolumeRendering(bool toggled);
 
     /**
+     * @brief 启用或禁用「并行体绘制」（GPU 光线投射，输入为规则体网格 .vts）。
+     * 与原体绘制（OIT）相互独立，不复用原体绘制开关。
+     * @param toggled 是否启用。
+     */
+    void SetParallelVolumeRendering(bool toggled);
+
+    /**
      * @brief 捕获屏幕图像。
      * @param x 起始位置 X 坐标。
      * @param y 起始位置 Y 坐标。
@@ -484,6 +493,7 @@ protected:
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
+    void VolumeRayCastPass();
     void ClearSceneFramebuffer(float depth, int width, int height);
 
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
@@ -572,6 +582,11 @@ protected:
 
     bool m_FinishInit;            // 是否完成初始化
     bool m_EnableVolumeRendering; // 是否启用体绘制
+    bool m_EnableParallelVolumeRendering; // 是否启用并行体绘制（GPU 光线投射）
+
+    // GPU 光线投射体渲染（阶段 1）
+    SmartPointer<iGameVolumeRayCastGPU> m_VolumeRayCaster;
+    SmartPointer<iGameVolumeTransferFunction> m_VolumeTransferFunction;
 
     // 帧率/使用率节流控制
     bool m_FramePacingEnabled = false; // 全局开关

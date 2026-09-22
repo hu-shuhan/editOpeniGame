@@ -36,6 +36,7 @@ enum class ShaderType {
     TRANSPARENCYSORT,    ///< 透明渲染（排序法）
     VOLUMERENDERINGLINK, ///< 体积渲染（链表法）
     VOLUMERENDERINGSORT, ///< 体积渲染（排序法）
+    VOLUMERAYCAST,       ///< GPU 光线投射体渲染
     AXES,                ///< 坐标轴显示Shader
     FONT,                ///< 字体渲染Shader
     ATTACHMENTRESOLVE,   ///< 解析多样本缓冲Shader
