@@ -22,6 +22,9 @@ option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" ON)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" ON)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." ON)
 option(ENABLE_MPI_MODULE "Enable MPI ThirdParty Module" OFF)
+option(IGAME_ENABLE_PARALLEL_VOLUME
+        "Enable the parallel volume rendering module (requires ENABLE_MPI_MODULE=ON)."
+        OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 option(ENABLE_WASM "Build WASM Target." OFF)
 option(IGAME_DEPLOY_ABAQUS_RUNTIME

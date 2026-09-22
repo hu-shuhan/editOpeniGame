@@ -74,6 +74,19 @@ public:
         //                          event.delta);
     };
 
+    /**
+     * @brief 交互开始回调（默认空实现）。
+     *
+     * 由交互风格在开始一次拖拽/旋转等连续交互时调用（对标 MiniPVServer 的交互 LOD：
+     * 在交互过程中降低采样率/分辨率、结束后恢复），供并行体绘制等场景按需切换
+     * maxSamples / pixelStride / screenROI 以提升交互帧率。
+     */
+    virtual void StartInteraction() {};
+    /**
+     * @brief 交互结束回调（默认空实现）。与 StartInteraction 成对，用于恢复高质量参数。
+     */
+    virtual void EndInteraction() {};
+
     
 
 protected:

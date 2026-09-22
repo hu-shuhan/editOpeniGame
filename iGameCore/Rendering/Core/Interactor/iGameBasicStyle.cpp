@@ -34,6 +34,7 @@ void BasicStyle::Initialize(SmartPointer<Interactor> interactor) {
 void BasicStyle::MousePressEvent(IEvent event) {
     m_OldPoint2D = event.pos;
     m_MouseMode = event.button;
+    StartInteraction();
 }
 
 void BasicStyle::MouseMoveEvent(IEvent event) {
@@ -62,6 +63,7 @@ void BasicStyle::MouseMoveEvent(IEvent event) {
 void BasicStyle::MouseReleaseEvent(IEvent event) {
     m_MouseMode = NoButton;
     m_Scene->m_IsInteracting = false;
+    EndInteraction();
 }
 
 void BasicStyle::WheelEvent(IEvent event) {

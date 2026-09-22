@@ -1,11 +1,13 @@
-// ParallelVolumeRendering.cpp — 并行体绘制入口（阶段 3 分布式合成 + 阶段 4 CPU 后端）
+// ParallelVolumeRendering.cpp — 并行体绘制入口（阶段 3 分布式合成 + 阶段 4 CPU 后端 + 阶段 5 交互窗口）
 //
 // CLI（命名参数，默认 CPU 后端）：
-//   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu]
+//   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu] [--interactive]
 //     -i, --input <file>   输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
 //     -t, --timestep <n>   PVD 时间步（默认 0；非 PVD 忽略）
 //     -r, --resample <n>   每块重采样分辨率（默认 64，最小 2）
 //         --gpu / --cpu    渲染后端（默认 --cpu；--cpu 无头、不依赖 OpenGL/GLFW）
+//         --interactive    交互窗口（阶段 5，仅 --cpu 后端）：rank 0 弹窗显示合成结果，
+//                          左键拖动旋转、滚轮缩放、左下角 colorbar、拖动期间显示 fps
 // 启动后 rank0 列出该数据可渲染的字段（点/单元标量、向量），提示按名称或编号选择，
 // 随后把所选字段广播给所有 rank。
 //
@@ -36,6 +38,7 @@
 #include "VolumeMeshAlgorithm/iGameVolumeDistributor.h"
 #include "VolumeMeshAlgorithm/iGameVolumeResampleFilter.h"
 #include "iGameResourcePath.h"
+#include "ParallelVolumeInteractive.h"
 
 #include <algorithm>
 #include <cctype>
@@ -173,6 +176,7 @@ struct CliOptions {
     int timestep{0};
     int resPerChunk{64};
     bool useGPU{false}; // false = CPU 后端（默认）
+    bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
     bool showHelp{false};
     bool valid{false};
 };
@@ -194,6 +198,9 @@ void PrintUsage(const char* prog) {
             << "                           OpenGL/GLFW，各 rank 用隐藏窗口离屏渲染）。\n"
             << "      --cpu                使用 CPU 光线步进后端（阶段 4 生产，无头、\n"
             << "                           不依赖 OpenGL/GLFW；默认）。\n"
+            << "      --interactive        交互窗口（阶段 5，仅 CPU 后端）：rank 0 打开\n"
+            << "                           窗口显示合成结果，左键拖动旋转、滚轮缩放，\n"
+            << "                           左下角 colorbar，拖动期间显示 fps。\n"
             << "  -h, --help               显示本帮助。\n"
             << "\n"
             << "Examples:\n"
@@ -201,6 +208,8 @@ void PrintUsage(const char* prog) {
             << " -i data.pvd -t 0 --resample 64 --cpu\n"
             << "  mpiexec -n 4 " << prog << " -i data.pvd --gpu\n"
             << "  " << prog << " -i data.vts --cpu\n"
+            << "  mpiexec -n 4 " << prog
+            << " -i data.pvd --resample 64 --cpu --interactive\n"
             << std::flush;
 }
 
@@ -243,6 +252,10 @@ CliOptions ParseCli(int argc, char** argv) {
         }
         if (a == "--cpu") {
             opts.useGPU = false;
+            continue;
+        }
+        if (a == "--interactive") {
+            opts.interactive = true;
             continue;
         }
 
@@ -508,6 +521,17 @@ int main(int argc, char** argv) {
         auto cpuCamera = Camera::New();
         cpuCamera->SetViewPort(width, height);
         const igm::mat4 modelMatrix(1.0f);
+
+        // 阶段 5 交互窗口：rank 0 打开窗口显示「各 rank 离屏渲染 → 合成」的结果，
+        // 左键拖动旋转、滚轮缩放、左下角 colorbar、拖动期间显示 fps（仅 CPU 后端）。
+        if (cli.interactive) {
+            const double radius = globalBounds.diag() / 2.0;
+            const int rc = iGameVolInteractive::RunInteractive(
+                    cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
+                    globalMax, gcenter, blockCenter, radius, width, height);
+            ParallelContext::Finalize();
+            return rc;
+        }
 
         for (int v = 0; v < viewCount; ++v) {
             // 相机参数：rank0 从全局包围盒 + 视角方向算参数，广播给所有 rank。

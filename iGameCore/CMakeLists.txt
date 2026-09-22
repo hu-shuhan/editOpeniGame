@@ -132,6 +132,17 @@ if (ENABLE_MPI_MODULE)
     endif ()
 endif ()
 
+# 并行体绘制（阶段 5）：编译开关 IGAME_ENABLE_PARALLEL_VOLUME。开启时强制要求 MPI
+# 后端（进程上下文/分发/合成依赖集合通信），否则 configure 直接报错；同时向核心库
+# 暴露宏，供未来按开关裁剪并行模块使用。
+if (IGAME_ENABLE_PARALLEL_VOLUME)
+    if (NOT ENABLE_MPI_MODULE)
+        message(FATAL_ERROR
+                "IGAME_ENABLE_PARALLEL_VOLUME requires ENABLE_MPI_MODULE=ON")
+    endif ()
+    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_ENABLE_PARALLEL_VOLUME)
+endif ()
+
 if (ENABLE_LIBTORCH_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
