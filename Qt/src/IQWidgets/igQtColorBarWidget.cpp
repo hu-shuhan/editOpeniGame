@@ -213,10 +213,7 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 		QRect rect(0, st - i, colorBarWidth, 1);
 		painter.fillRect(rect, colors.at(i));
 	}
-	painter.fillRect(QRect(0, st - colorBarLength, 2, colorBarLength), this->boundColor);
-	painter.fillRect(QRect(colorBarWidth - 2, st - colorBarLength, 2, colorBarLength), this->boundColor);
-	painter.fillRect(QRect(0, st - colorBarLength, colorBarWidth, 2), this->boundColor);
-	painter.fillRect(QRect(0, st - 2, colorBarWidth, 2), this->boundColor);
+
 
 
 	// draw datarange
