@@ -5832,6 +5832,7 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
 
     QToolBar* wrapper = new QToolBar(this);
     wrapper->setObjectName("wrapper_" + toolbar->objectName());
+    wrapper->setWindowTitle(title);
     wrapper->setMovable(true);
     wrapper->setFloatable(true);
     wrapper->setMinimumHeight(totalH);
