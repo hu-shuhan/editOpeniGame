@@ -1,17 +1,18 @@
-// ParallelVolumeRendering.cpp — 并行体绘制入口（阶段 3：分布式合成 + MPI 批渲染）
+// ParallelVolumeRendering.cpp — 并行体绘制入口（阶段 3 分布式合成 + 阶段 4 CPU 后端）
 //
-// CLI 对标 UnifiedVersion 的 win/TestPVolumeRenderWin.cpp：
-//   <program> <input> [timestep] [resPerChunk]
-//     argv[1] input       输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
-//     argv[2] timestep    PVD 时间步（默认 0；非 PVD 忽略）
-//     argv[3] resPerChunk 每块重采样分辨率（默认 64）
+// CLI（命名参数，默认 CPU 后端）：
+//   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu]
+//     -i, --input <file>   输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
+//     -t, --timestep <n>   PVD 时间步（默认 0；非 PVD 忽略）
+//     -r, --resample <n>   每块重采样分辨率（默认 64，最小 2）
+//         --gpu / --cpu    渲染后端（默认 --cpu；--cpu 无头、不依赖 OpenGL/GLFW）
 // 启动后 rank0 列出该数据可渲染的字段（点/单元标量、向量），提示按名称或编号选择，
 // 随后把所选字段广播给所有 rank。
 //
-// 阶段 3 流程（对标 UnifiedVersion 的 TestPVolumeRender.cpp）：
+// 流程（对标 UnifiedVersion 的 TestPVolumeRender.cpp）：
 //   多分块 → iGameVolumeDistributor 分发 → iGameVolumeResampleFilter 重采样 →
 //   全局标量范围 AllReduce + 相机参数 Broadcast（保证各 rank 传输函数/投影矩阵一致）→
-//   每个 rank 无头离屏渲染自己超块（透明背景 + 预乘 alpha + 深度）→
+//   每个 rank 无头渲染自己超块（透明背景 + 预乘 alpha + 深度）→
 //   iGameCompositePass 深度有序合成 → rank 0 输出合成 PNG。
 //
 // 输出（写入 <exe>/out/<时间戳>_*）：
@@ -19,14 +20,19 @@
 //   - rank 0 输出 6 个主轴视角（±X/±Y/±Z）的合成图（_composited_<axis>.png，用于查验
 //     各分块是否按深度正确合成为一张完整体）。
 //
-// 进程模型：所有 rank（含 rank 0）都用隐藏 GLFW 窗口离屏渲染自己分到的超块
-// （GPU 验证通路的 OffscreenContext = 隐藏窗口，Windows 下配软件 GL / Mesa llvmpipe
-// 即可无显示器运行）。-n 1 与 -n N 走同一代码路径，合成结果可直接逐像素对比。
+// 进程模型：
+//   --cpu（默认）：每个 rank 用 iGameVolumeRayCastCPU 无头渲染自己超块（纯 CPU、
+//                 不依赖 OpenGL/GLFW，超算可用），再经 iGameCompositePass 合成；
+//   --gpu：所有 rank（含 rank 0）用隐藏 GLFW 窗口离屏渲染（GPU 验证通路，Windows
+//          下配软件 GL / Mesa llvmpipe 即可无显示器运行）。
+// -n 1 与 -n N 走同一代码路径，合成结果可直接逐像素对比。
 #include "iGameFileIO.h"
 #include "iGameParallelContext.h"
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 #include "iGameCompositePass.h"
+#include "iGameVolumeRayCastCPU.h"
+#include "iGameVolumeTransferFunction.h"
 #include "VolumeMeshAlgorithm/iGameVolumeDistributor.h"
 #include "VolumeMeshAlgorithm/iGameVolumeResampleFilter.h"
 #include "iGameResourcePath.h"
@@ -157,6 +163,97 @@ void FlipRGBAVertically(std::vector<unsigned char>& img, int width, int height) 
         std::memcpy(b, tmp.data(), static_cast<size_t>(rowBytes));
     }
 }
+
+// ---------------------------------------------------------------------------
+// 命令行参数解析（命名参数）
+// ---------------------------------------------------------------------------
+
+struct CliOptions {
+    std::string input;
+    int timestep{0};
+    int resPerChunk{64};
+    bool useGPU{false}; // false = CPU 后端（默认）
+    bool showHelp{false};
+    bool valid{false};
+};
+
+void PrintUsage(const char* prog) {
+    std::cout
+            << "Usage: " << prog << " -i <input> [options]\n"
+            << "\n"
+            << "Parallel volume rendering entry (阶段 3 GPU 验证 / 阶段 4 CPU 生产后端).\n"
+            << "\n"
+            << "Required:\n"
+            << "  -i, --input <file>       输入数据：多分块 .pvd/.vtm/.igcm，或单块\n"
+            << "                           .vtr/.vts/.vtu。\n"
+            << "\n"
+            << "Options:\n"
+            << "  -t, --timestep <n>       PVD 时间步（默认 0；非 PVD 输入忽略）。\n"
+            << "  -r, --resample <n>       每块重采样分辨率（默认 64，最小 2）。\n"
+            << "      --gpu                使用 GPU 光线投射后端（阶段 3 验证，需要\n"
+            << "                           OpenGL/GLFW，各 rank 用隐藏窗口离屏渲染）。\n"
+            << "      --cpu                使用 CPU 光线步进后端（阶段 4 生产，无头、\n"
+            << "                           不依赖 OpenGL/GLFW；默认）。\n"
+            << "  -h, --help               显示本帮助。\n"
+            << "\n"
+            << "Examples:\n"
+            << "  mpiexec -n 4 " << prog
+            << " -i data.pvd -t 0 --resample 64 --cpu\n"
+            << "  mpiexec -n 4 " << prog << " -i data.pvd --gpu\n"
+            << "  " << prog << " -i data.vts --cpu\n"
+            << std::flush;
+}
+
+CliOptions ParseCli(int argc, char** argv) {
+    CliOptions opts;
+    for (int i = 1; i < argc; ++i) {
+        const std::string a = argv[i];
+
+        if (a == "-h" || a == "--help") {
+            opts.showHelp = true;
+            continue;
+        }
+        if (a == "-i" || a == "--input") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts; // valid = false
+            }
+            opts.input = argv[++i];
+            continue;
+        }
+        if (a == "-t" || a == "--timestep") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.timestep = std::atoi(argv[++i]);
+            continue;
+        }
+        if (a == "-r" || a == "--resample") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.resPerChunk = std::atoi(argv[++i]);
+            continue;
+        }
+        if (a == "--gpu") {
+            opts.useGPU = true;
+            continue;
+        }
+        if (a == "--cpu") {
+            opts.useGPU = false;
+            continue;
+        }
+
+        std::cerr << "Error: unknown option '" << a << "'. Use -h for help.\n";
+        return opts; // valid = false
+    }
+
+    if (opts.resPerChunk < 2) { opts.resPerChunk = 2; }
+    if (!opts.input.empty()) { opts.valid = true; }
+    return opts;
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -167,19 +264,33 @@ int main(int argc, char** argv) {
     const int rank = ctx->Rank();
     const int size = ctx->Size();
 
-    if (argc < 2) {
+    const CliOptions cli = ParseCli(argc, argv);
+
+    // 帮助：rank 0 打印后所有 rank 一致退出。
+    if (cli.showHelp) {
+        if (rank == 0) { PrintUsage(argv[0]); }
+        ParallelContext::Finalize();
+        return 0;
+    }
+
+    // 参数错误：ParseCli 已打印具体错误（未知选项/缺值）；此处补打印用法并退出。
+    if (!cli.valid) {
         if (rank == 0) {
-            std::cerr << "Usage: " << argv[0]
-                      << " <input> [timestep] [resPerChunk]\n";
+            if (cli.input.empty()) {
+                std::cerr << "Error: missing required option '-i/--input "
+                             "<file>'.\n\n";
+            }
+            PrintUsage(argv[0]);
         }
         ParallelContext::Finalize();
         return 1;
     }
 
-    const std::string input = argv[1];
-    const int timestep = (argc > 2) ? std::atoi(argv[2]) : 0;
-    int resPerChunk = (argc > 3) ? std::atoi(argv[3]) : 64;
-    if (resPerChunk < 2) { resPerChunk = 2; }
+    const std::string input = cli.input;
+    const int timestep = cli.timestep;
+    const int resPerChunk = cli.resPerChunk;
+    // 渲染后端：默认 --cpu（阶段 4 生产后端）；--gpu 走阶段 3 验证通路。
+    const bool useCPU = !cli.useGPU;
 
     // 1. 读入数据（当前各 rank 读同一份；阶段 5 再做 per-rank 读取优化）。
     auto root = FileIO::ReadFile(input);
@@ -283,6 +394,7 @@ int main(int argc, char** argv) {
 
     // 6. 得到本 rank 的规则体素场：单块结构化网格直接复用，否则重采样。
     StructuredMesh::Pointer volume = nullptr;
+    UnsignedCharArray::Pointer validMask = nullptr; // 重采样产物的无效点 mask（CPU 后端用）
     if (distributor->GetNumberOfLocalPieces() == 1) {
         volume = DynamicCast<StructuredMesh>(distributor->GetLocalPiece(0));
         if (volume && !selectedField.empty()) {
@@ -301,6 +413,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         volume = resampler->GetStructuredMesh();
+        validMask = resampler->GetValidMask();
     }
 
     // 7. 全局标量范围：各 rank 局部 min/max -> AllReduce -> 全局一致（对标
@@ -331,6 +444,184 @@ int main(int argc, char** argv) {
                               allBoxes[static_cast<size_t>(r) * 6 + 3],
                               allBoxes[static_cast<size_t>(r) * 6 + 5]};
         globalBounds.add(BoundingBox(mn, mx));
+    }
+
+    // -------------------------------------------------------------------------
+    // CPU 后端（阶段 4）：纯 CPU 光线步进体渲染，无头、不依赖 OpenGL/GLFW。
+    // 每个 rank 用自己的超块体素场渲染到 CPU 图像缓冲（RGBA + float 深度），
+    // 再交给 iGameCompositePass 做深度有序合成，rank 0 输出合成 PNG。
+    // 与下方 GPU 路径共用同一分发/重采样/全局标量范围/全局包围盒/相机视角，
+    // 便于逐像素对照。默认仍走 GPU 路径（-n 1 / -n N 行为不变）。
+    // -------------------------------------------------------------------------
+    if (useCPU) {
+        // 6 个主轴视角（与 GPU 路径一致）。
+        struct AxisView {
+            const char* name;
+            double dir[3];
+            double up[3];
+        };
+        const AxisView views[6] = {
+                {"+Z", {0.0, 0.0, 1.0}, {0.0, 1.0, 0.0}},
+                {"-Z", {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0}},
+                {"+X", {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}},
+                {"-X", {-1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}},
+                {"+Y", {0.0, 1.0, 0.0}, {0.0, 0.0, -1.0}},
+                {"-Y", {0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}},
+        };
+        const int viewCount = static_cast<int>(sizeof(views) / sizeof(views[0]));
+
+        const Vector3d gc = globalBounds.center();
+        const double gcenter[3] = {gc[0], gc[1], gc[2]};
+        const double camDist = globalBounds.diag() / 2.0 * 3.0;
+
+        const Vector3d lc = localBounds.center();
+        const double blockCenter[3] = {lc[0], lc[1], lc[2]};
+
+        const int width = 1024;
+        const int height = 1024;
+
+        std::error_code ec;
+        const std::filesystem::path outDir =
+                std::filesystem::path(GetExecutableDirectory()) / "out";
+        std::filesystem::create_directories(outDir, ec);
+        const std::string timestamp = MakeTimestamp();
+
+        // 传输函数：与 Scene 内部 m_VolumeTransferFunction 同口径（Fast 配色 +
+        // 不透明度映射）。开启模型不透明度映射对标 scene->SetParallelVolumeRendering(true)。
+        auto tf = iGameVolumeTransferFunction::New();
+        if (hasRange) { tf->SetScalarRange(globalMin, globalMax); }
+        volume->SetOpacityMappingEnabled(true);
+        tf->SetOpacityMappingEnabled(volume->GetOpacityMappingEnabled());
+
+        auto cpuRayCaster = iGameVolumeRayCastCPU::New();
+        if (!cpuRayCaster->SetInput(volume)) {
+            if (rank == 0) { std::cerr << "CPU ray-caster SetInput failed.\n"; }
+            ParallelContext::Finalize();
+            return 1;
+        }
+        cpuRayCaster->SetValidMask(validMask);
+        cpuRayCaster->SetTransferFunction(tf);
+        cpuRayCaster->SetMaxSamples(512);
+        cpuRayCaster->SetEmptySpaceSkippingEnabled(true);
+
+        // 无头相机（纯数学，不依赖 GL 上下文）。
+        auto cpuCamera = Camera::New();
+        cpuCamera->SetViewPort(width, height);
+        const igm::mat4 modelMatrix(1.0f);
+
+        for (int v = 0; v < viewCount; ++v) {
+            // 相机参数：rank0 从全局包围盒 + 视角方向算参数，广播给所有 rank。
+            double camPos[3] = {0.0, 0.0, 0.0};
+            double camFp[3] = {0.0, 0.0, 0.0};
+            double camUp[3] = {0.0, 1.0, 0.0};
+            if (rank == 0) {
+                for (int d = 0; d < 3; ++d) {
+                    camFp[d] = gcenter[d];
+                    camPos[d] = gcenter[d] + views[v].dir[d] * camDist;
+                    camUp[d] = views[v].up[d];
+                }
+            }
+            ctx->Broadcast(camPos, 3, 0);
+            ctx->Broadcast(camFp, 3, 0);
+            ctx->Broadcast(camUp, 3, 0);
+
+            cpuCamera->SetPosition(static_cast<float>(camPos[0]),
+                                   static_cast<float>(camPos[1]),
+                                   static_cast<float>(camPos[2]));
+            cpuCamera->SetFocal(static_cast<float>(camFp[0]),
+                                static_cast<float>(camFp[1]),
+                                static_cast<float>(camFp[2]));
+            cpuCamera->SetUp(static_cast<float>(camUp[0]),
+                             static_cast<float>(camUp[1]),
+                             static_cast<float>(camUp[2]));
+
+            // 复制 Scene::UpdateCameraClippingRange：用全局包围盒计算裁剪范围，
+            // 保证所有 rank 投影矩阵一致（深度才能跨进程比较）。
+            double front[3] = {camFp[0] - camPos[0], camFp[1] - camPos[1],
+                               camFp[2] - camPos[2]};
+            const double frontLen = std::sqrt(front[0] * front[0] +
+                                              front[1] * front[1] +
+                                              front[2] * front[2]);
+            if (frontLen > 1e-12) {
+                front[0] /= frontLen;
+                front[1] /= frontLen;
+                front[2] /= frontLen;
+            }
+            const double toCenter[3] = {gcenter[0] - camPos[0],
+                                        gcenter[1] - camPos[1],
+                                        gcenter[2] - camPos[2]};
+            const double dist = toCenter[0] * front[0] + toCenter[1] * front[1] +
+                                toCenter[2] * front[2];
+            const double radius = globalBounds.diag() / 2.0;
+            double nearPlane = dist - radius;
+            double farPlane = dist + radius;
+            const double minGap = 0.0001;
+            if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
+            cpuCamera->SetClippingRange(static_cast<float>(nearPlane),
+                                        static_cast<float>(farPlane));
+
+            const igm::mat4 view = cpuCamera->GetViewMatrix();
+            const igm::mat4 proj = cpuCamera->GetProjectionMatrix();
+
+            std::vector<unsigned char> rgba;
+            std::vector<float> depth;
+            cpuRayCaster->Render(view, proj, modelMatrix,
+                                 igm::uvec2{static_cast<unsigned>(width),
+                                            static_cast<unsigned>(height)},
+                                 rgba, depth);
+
+            // 每个 rank 保存自己的局部渲染图（透明背景 -> 叠到黑背景成不透明）。
+            if (v == 0) {
+                auto local = rgba;
+                for (std::size_t p = 0; p + 4 <= local.size(); p += 4) {
+                    local[p + 3] = 255;
+                }
+                FlipRGBAVertically(local, width, height);
+                const std::string fp =
+                        (outDir / (timestamp + "_rank" + std::to_string(rank) +
+                                   ".png"))
+                                .string();
+                if (stbi_write_png(fp.c_str(), width, height, 4, local.data(),
+                                   width * 4) == 0) {
+                    std::cerr << "[rank " << rank << "] failed to write " << fp
+                              << '\n';
+                } else {
+                    std::cout << "[rank " << rank << "] wrote " << fp << '\n';
+                }
+            }
+
+            // 分布式合成（深度排序 + over 混合 + MPI_Gather），与 GPU 路径相同。
+            auto composite = iGameCompositePass::New();
+            composite->SetLocalImage(width, height, rgba, depth);
+            composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
+                    blockCenter, camPos, front));
+            composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            if (!composite->Composite()) {
+                if (rank == 0) { std::cerr << "Composite failed.\n"; }
+                ParallelContext::Finalize();
+                return 1;
+            }
+
+            if (rank == 0) {
+                auto result = composite->GetResultRGBA();
+                FlipRGBAVertically(result, width, height);
+                const std::string fp =
+                        (outDir / (timestamp + "_composited_" + views[v].name +
+                                   ".png"))
+                                .string();
+                if (stbi_write_png(fp.c_str(), width, height, 4, result.data(),
+                                   width * 4) == 0) {
+                    std::cerr << "[rank 0] failed to write " << fp << '\n';
+                } else {
+                    std::cout << "[rank 0] wrote composited " << views[v].name
+                              << ' ' << width << 'x' << height << " -> " << fp
+                              << '\n';
+                }
+            }
+        }
+
+        ParallelContext::Finalize();
+        return 0;
     }
 
     // 9. 场景 + 相机/传输函数全局一致。

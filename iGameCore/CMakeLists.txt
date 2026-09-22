@@ -28,6 +28,8 @@ list(APPEND IGAME_CORE_FILE
         "Filters/VolumeMeshAlgorithm/iGameVolumeResampleFilter.cpp"
         "Rendering/Core/iGameCompositePass.h"
         "Rendering/Core/iGameCompositePass.cpp"
+        "Rendering/Core/iGameVolumeRayCastCPU.h"
+        "Rendering/Core/iGameVolumeRayCastCPU.cpp"
 )
 
 # 资源路径解析（iGameResourcePath）。同样显式列出，避免增量构建时
