@@ -347,28 +347,37 @@ int main(int argc, char** argv) {
     // 渲染后端：默认 --cpu（阶段 4 生产后端）；--gpu 走阶段 3 验证通路。
     const bool useCPU = !cli.useGPU;
 
-    // 1. 读入数据（当前各 rank 读同一份；阶段 5 再做 per-rank 读取优化）。
-    auto root = FileIO::ReadFile(input);
-    if (!root) {
-        if (rank == 0) { std::cerr << "Read ERROR: " << input << '\n'; }
+    // 1. 文件级分发（阶段 7，对齐 UnifiedVersion/DataDistribution::ComputeDistribution）：
+    //    解析 PVD/目录/单文件 → 各 rank 只扫 part%Size==rank 的分块包围盒 → AllReduce
+    //    汇总 → 确定性排序 + 连续切块。每个 rank 只知道自己要读哪些分块文件，**不整读全量**。
+    auto distributor = iGameVolumeDistributor::New();
+    if (!distributor->ComputeFileDistribution(input, timestep)) {
         ParallelContext::Finalize();
         return 1;
     }
+    const int nLocalFiles = distributor->GetNumberOfLocalPieceFiles();
 
-    // 2. PVD 时间步选择（非 PVD / 无时间帧时忽略）。
-    if (timestep > 0) {
-        auto frames = root->PeekTimeFrames();
-        if (frames && static_cast<int>(frames->GetTimeNum()) > timestep) {
-            root->UpdateAnimation(timestep);
+    // 打印本 rank 分配到的分块（对标 TestPVolumeRender 的 rank/block/pieces 输出，
+    // 确认每个 rank 只读自己那部分分块）。
+    {
+        const auto blk = distributor->GetLocalBlock();
+        std::ostringstream oss;
+        oss << "[rank " << rank << "] block=(" << blk.ix0 << ".." << blk.ix1 << ", "
+            << blk.iy0 << ".." << blk.iy1 << ", " << blk.iz0 << ".." << blk.iz1
+            << "), pieces=" << nLocalFiles << ": [";
+        for (int i = 0; i < nLocalFiles; ++i) {
+            if (i) { oss << ", "; }
+            oss << distributor->GetLocalPiecePart(i) << "("
+                << std::filesystem::path(distributor->GetLocalPieceFile(i))
+                           .filename().string()
+                << ")";
         }
+        oss << "]\n";
+        std::cout << oss.str() << std::flush;
     }
 
-    // 3. 收集分块（先只收集，用于列字段；稍后再做分发）。
-    auto distributor = iGameVolumeDistributor::New();
-    distributor->SetInput(root);
-
-    // 4. 字段选择：优先用 --field 直接指定（srun 批处理无 stdin）；否则 rank0 列出
-    //    可渲染字段并等待输入，随后广播给所有 rank。
+    // 2. 字段选择：优先用 --field 直接指定（srun 批处理无 stdin）；否则 rank0 读自己
+    //    第 0 个分块列出可渲染字段并等待输入，随后广播给所有 rank。
     char fieldBuf[1024] = {0};
     if (!cli.field.empty()) {
         std::strncpy(fieldBuf, cli.field.c_str(), sizeof(fieldBuf) - 1);
@@ -376,9 +385,9 @@ int main(int argc, char** argv) {
         std::vector<std::string> names;
         std::vector<int> comps;
         std::vector<bool> isCell;
-        auto piece = distributor->GetPiece(0);
-        if (piece) {
-            auto* attrs = piece->GetAttributeSet();
+        auto probe = FileIO::ReadFile(distributor->GetLocalPieceFile(0));
+        if (probe) {
+            auto* attrs = probe->GetAttributeSet();
             if (attrs) {
                 for (int i = 0; i < static_cast<int>(attrs->GetNumberOfAttributes()); ++i) {
                     auto& a = attrs->GetAttribute(i);
@@ -441,28 +450,39 @@ int main(int argc, char** argv) {
     }
     const std::string selectedField(fieldBuf);
 
-    // 5. 空间分发：每个分块恰好归属一个 rank。
-    if (!distributor->ComputeDistribution()) {
-        if (rank == 0) {
-            std::cerr << "Distribution failed: process count > piece count.\n";
-        }
-        ParallelContext::Finalize();
-        return 1;
-    }
-
-    // 6. 得到本 rank 的规则体素场：单块结构化网格直接复用，否则重采样。
+    // 3. 每个 rank 只读自己分到的分块（对标 DataDistribution：rank 只读 localFiles），
+    //    合并成本地 composite。单块 StructuredMesh 直接复用，否则重采样。
     StructuredMesh::Pointer volume = nullptr;
     UnsignedCharArray::Pointer validMask = nullptr; // 重采样产物的无效点 mask（CPU 后端用）
-    if (distributor->GetNumberOfLocalPieces() == 1) {
-        volume = DynamicCast<StructuredMesh>(distributor->GetLocalPiece(0));
-        if (volume && !selectedField.empty()) {
-            const int idx = volume->GetAttributeSet()->GetAttributeIndex(selectedField);
-            if (idx >= 0) { volume->SetAttributeIndex(idx); }
+    DataObject::Pointer localComposite = nullptr;
+    {
+        auto composite = DataObject::New();
+        for (int i = 0; i < nLocalFiles; ++i) {
+            auto piece = FileIO::ReadFile(distributor->GetLocalPieceFile(i));
+            if (!piece) {
+                std::cerr << "[rank " << rank << "] failed to read "
+                          << distributor->GetLocalPieceFile(i) << '\n';
+                ParallelContext::Finalize();
+                return 1;
+            }
+            composite->AddSubDataObject(piece);
+        }
+        localComposite = composite;
+
+        if (nLocalFiles == 1) {
+            auto it = localComposite->SubDataObjectIteratorBegin();
+            if (it != localComposite->SubDataObjectIteratorEnd()) {
+                volume = DynamicCast<StructuredMesh>(it->second);
+                if (volume && !selectedField.empty()) {
+                    const int idx = volume->GetAttributeSet()->GetAttributeIndex(selectedField);
+                    if (idx >= 0) { volume->SetAttributeIndex(idx); }
+                }
+            }
         }
     }
     if (!volume) {
         auto resampler = iGameVolumeResampleFilter::New();
-        resampler->SetInput(distributor->GetLocalComposite());
+        resampler->SetInput(localComposite);
         resampler->SetFieldName(selectedField);
         resampler->SetTargetDims(resPerChunk, resPerChunk, resPerChunk);
         if (!resampler->Execute()) {

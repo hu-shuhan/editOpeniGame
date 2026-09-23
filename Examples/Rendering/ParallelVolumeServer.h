@@ -219,19 +219,21 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         camera->SetClippingRange(static_cast<float>(nearPlane),
                                  static_cast<float>(farPlane));
 
-        // 交互 LOD（对标 MiniPVServer.cpp:845-847）：交互中采样率砍到 1/4（512→128），
-        // 像素步进 2（1/4 像素），并显式把光线步长增大到「全局对角线/64」——约为 128
-        // 采样自动步长的 2 倍，进一步减少有效采样数、提升拖动帧率。
+        // 交互 LOD（对标 MiniPVServer.cpp:845-847）：交互中采样率砍到 1/4（512→128）、
+        // 像素步进 2（1/4 像素）。步长用自动推导（SetStepSize(0)：按**各自分块对角线** /
+        // maxSamples），保证所有 rank 在交互时用同样的相对采样率与大步长——若用固定全局
+        // 对角线步长，会导致小分块只有 1~2 个采样而大分块仍采满 128 步，出现「只有小分块
+        // rank 变低清、大分块 rank 保持原样」的不一致。
         if (interactive) {
             rayCaster->SetMaxSamples(128);
             rayCaster->SetPixelStride(2);
             rayCaster->SetUseScreenROI(true);
-            rayCaster->SetStepSize(static_cast<float>(radius * 2.0 / 64.0));
+            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 128
         } else {
             rayCaster->SetMaxSamples(512);
             rayCaster->SetPixelStride(1);
             rayCaster->SetUseScreenROI(false);
-            rayCaster->SetStepSize(0.0f); // 自动步长（按 maxSamples 推导）
+            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 512
         }
 
         // 各 rank 无头渲染自己的超块。

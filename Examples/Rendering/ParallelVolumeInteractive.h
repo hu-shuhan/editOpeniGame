@@ -529,17 +529,19 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                                  static_cast<float>(farPlane));
 
         // 交互 LOD（对标 MiniPVServer：交互中低采样 + 大步进 + ROI）。
-        // 采样率砍到 1/4（512→128）、像素步进 2，并显式把步长增大到「全局对角线/64」。
+        // 采样率砍到 1/4（512→128）、像素步进 2。步长用自动推导（按**各自分块对角线** /
+        // maxSamples），保证所有 rank 在交互时用同样的相对采样率与大步长（固定全局步长会
+        // 让小分块只有 1~2 个采样、大分块仍采满 128 步，出现不一致）。
         if (interactive) {
             rayCaster->SetMaxSamples(128);
             rayCaster->SetPixelStride(2);
             rayCaster->SetUseScreenROI(true);
-            rayCaster->SetStepSize(static_cast<float>(radius * 2.0 / 64.0));
+            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 128
         } else {
             rayCaster->SetMaxSamples(512);
             rayCaster->SetPixelStride(1);
             rayCaster->SetUseScreenROI(false);
-            rayCaster->SetStepSize(0.0f); // 自动步长
+            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 512
         }
 
         // 各 rank 无头渲染自己的超块。
