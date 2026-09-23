@@ -5,6 +5,9 @@
 #include "iGameVolumeMesh.h"
 
 IGAME_NAMESPACE_BEGIN
+
+int DataObject::DeferDrawableConversionScope::s_Depth = 0;
+
 DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
     switch (type) {
         case IG_DATA_OBJECT:
@@ -36,7 +39,12 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
 
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
-        drawObject->ConvertToDrawableData();
+        if (DeferDrawableConversionScope::Active()) {
+            // 读取路径：表面抽取/建壳推迟到第一次渲染（Scene::DrawFrame → SyncGpuBuffers）或第一次 GetRenderableObject()。
+            drawObject->MarkDrawableConversionDeferred();
+        } else {
+            drawObject->ConvertToDrawableData();
+        }
     }
 
     DataObjectId id = m_SubDataObjectsHelper->AddSubDataObject(obj);
@@ -155,7 +163,10 @@ bool DataObject::UpdateSubDataObjectDataRange() {
         if (!it->second->IsDrawable()) continue;
         const auto& obj = DynamicCast<DrawObject>(it->second);
         if (!obj) continue;
-        const auto& display_obj = obj->GetRenderableObject();
+        // 读取路径把转换推迟时不要在这里取渲染壳：GetRenderableObject() 会触发
+        // 表面抽取/建壳，把延迟优化抵消掉。
+        const auto& display_obj =
+                obj->IsDrawableConversionDeferred() ? nullptr : obj->GetRenderableObject();
 
         auto subAttrSet = obj->GetAttributeSet();
         auto dispAttrSet = display_obj != nullptr ? display_obj->GetAttributeSet() : nullptr;
@@ -189,7 +200,12 @@ bool DataObject::UpdateSubDataObjectDataRange() {
                 if (di >= 0) { dispAttrSet->GetAttribute(di).dataRange = par.GetDataRange(); }
             }
         }
-        obj->ConvertToDrawableData();
+        // 读取路径已把“转可绘制数据”标记为延迟时不在这里提前拉回来：
+        // 属性范围已同步完毕，真正的表面抽取/建壳留到第一次渲染或第一次
+        // GetRenderableObject() 时执行（见 DrawObject::EnsureDrawableData）。
+        if (!obj->IsDrawableConversionDeferred()) {
+            obj->ConvertToDrawableData();
+        }
     }
     return true;
 }

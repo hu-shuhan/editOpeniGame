@@ -32,6 +32,18 @@ public:
     bool IsDrawable() override { return true; }       // 标识可以被渲染
     virtual void ConvertToDrawableData();             //转化为可渲染模式（当前对象及其所有子对象）
     void ForceReConvertToDrawableData();              // 强制触发重新映射
+
+    /**
+     * @brief 惰性转换（读取路径优化）。
+     *
+     * 读取文件时 AddSubDataObject 不再立刻执行 ConvertToDrawableData()（体积网格的
+     * 表面抽取 + 建渲染壳，百万单元量级约 100 ms），而是标记为"待转换"；等到第一次
+     * 真正需要渲染（Scene::DrawFrame → SyncGpuBuffers）或第一次取渲染壳
+     * （GetRenderableObject）时再执行。这样"打开文件/读取"的耗时只包含读盘+解析+挂载，
+     */
+    void MarkDrawableConversionDeferred();
+    void EnsureDrawableData();                        // 有待转换则立即执行
+    bool IsDrawableConversionDeferred() const { return m_DrawableConversionDeferred; }
     virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
@@ -165,6 +177,7 @@ protected:
     bool m_ForceGpuBufferUpload = false;
     bool m_RestoreMeshletColoring = false;
     bool m_ReConvertToDrawableData; // 是否需要重新转换数据
+    bool m_DrawableConversionDeferred = false; // 读取路径延迟的“转可绘制数据”
 
     bool m_AutoUpdateDrawData;    // 是否自动更新GPU数据
     bool m_ShellRendering = true; // 是否启用抽壳渲染

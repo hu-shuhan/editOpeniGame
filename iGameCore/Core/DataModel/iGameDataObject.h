@@ -15,6 +15,23 @@ IGAME_NAMESPACE_BEGIN
 class DataObject : public Object {
 public:
     I_OBJECT(DataObject);
+
+    /**
+     * 读取路径作用域：期间 AddSubDataObject 不再立刻 ConvertToDrawableData()。
+     * 用于 FileIO::ReadFile —— 读盘/解析/挂载照旧，但“表面抽取 + 建渲染壳”推迟到
+     * 第一次渲染或第一次 GetRenderableObject() 时执行。
+     */
+    class DeferDrawableConversionScope {
+    public:
+        DeferDrawableConversionScope() { ++s_Depth; }
+        ~DeferDrawableConversionScope() { --s_Depth; }
+        DeferDrawableConversionScope(const DeferDrawableConversionScope&) = delete;
+        DeferDrawableConversionScope& operator=(const DeferDrawableConversionScope&) = delete;
+        static bool Active() { return s_Depth > 0; }
+
+    private:
+        static int s_Depth;
+    };
     static Pointer New() { return new DataObject; }
 
     void SetUniqueDataObjectId() { m_UniqueId = GetIncrementDataObjectId(); }

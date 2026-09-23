@@ -771,14 +771,17 @@ void UnstructuredMesh::ConvertToDrawableData() {
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {
     /* 当pointMapper 外部更新（调整颜色映射的 Range）， 则不用调整ColorMap的范围*/
-    if (!m_ColorMapper->GetStable()) {
-        // Configure color mapper range using provided attrRange if available; otherwise initialize from data
-        double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
-        double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
-        if (attrRange && minimal_val < maximal_val) {
-            m_ColorMapper->SetRange(minimal_val, maximal_val);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    // 派生网格（抽壳/简化）只读范围，不写范围（原因见 iGameSurfaceMesh.cpp 同名注释）
+    if (m_IsMainRenderableObject && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        if (!m_ColorMapper->GetStable()) {
+            // Configure color mapper range using provided attrRange if available; otherwise initialize from data
+            double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
+            double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
+            if (attrRange && minimal_val < maximal_val) {
+                m_ColorMapper->SetRange(minimal_val, maximal_val);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension, 4);

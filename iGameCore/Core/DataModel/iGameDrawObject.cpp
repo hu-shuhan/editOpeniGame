@@ -618,6 +618,8 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 }
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
+    // 读取路径可能把“转可绘制数据”推迟到这里（第一次取渲染壳）
+    EnsureDrawableData();
     if (!m_ShellRendering) { return this; }
 
     if (useSimplified && m_RenderableMesh.SimplifiedMesh != nullptr &&
@@ -912,6 +914,9 @@ void DrawObject::SyncGpuBuffers() {
 #ifdef __EMSCRIPTEN__
         convertEnd = RenderTimingClock::now();
 #endif
+    } else {
+        // 读取路径把转换推迟了，第一次渲染前在这里补上
+        EnsureDrawableData();
     }
 
     // 处理其抽壳后的表面网格
@@ -1091,6 +1096,20 @@ void DrawObject::SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Poi
 void DrawObject::ForceReConvertToDrawableData() {
     m_ReConvertToDrawableData = true;
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ForceReConvertToDrawableData); }
+}
+
+void DrawObject::MarkDrawableConversionDeferred() {
+    m_DrawableConversionDeferred = true;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::MarkDrawableConversionDeferred);
+    }
+}
+
+void DrawObject::EnsureDrawableData() {
+    if (!m_DrawableConversionDeferred) { return; }
+    // 先清标志：ConvertToDrawableData 内部会递归子对象，避免重复进入
+    m_DrawableConversionDeferred = false;
+    ConvertToDrawableData();
 }
 
 IGAME_NAMESPACE_END

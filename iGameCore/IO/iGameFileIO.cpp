@@ -332,6 +332,10 @@ DataObject::Pointer FileIO::ReadRemoteFile(const std::string& file_name) {
 }
 
 DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_name, bool remoteRendering) {
+    // 读取阶段不再执行“转可绘制数据”。这里只读盘/解析/挂载，转换推迟到第一次渲染
+    // （Scene::DrawFrame → SyncGpuBuffers）或第一次 GetRenderableObject() 时执行，
+    // 使“打开文件”耗时与 ParaView 的 reader-only 口径对等。
+    DataObject::DeferDrawableConversionScope deferDrawableConversion;
     try {
     IGenum fileType = GetFileType(file_name);
     std::string out;
