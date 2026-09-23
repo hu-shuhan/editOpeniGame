@@ -424,6 +424,9 @@ igame_add_example(testGradientExtraction Filter/FeatureExtraction/GradientExtrac
 igame_add_example(testAdvancedGradientFilter Filter/FeatureExtraction/AdvancedGradientFilterTest.cpp)
 igame_add_example(testLaplacianExtraction Filter/FeatureExtraction/LaplacianExtraction.cpp)
 
+# RandomVectors
+igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
+
 if (ENABLE_LIBTORCH_MODULE)
     igame_add_example(testVortexDetection Filter/FeatureExtraction/VortexDetection.cpp)
     target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
