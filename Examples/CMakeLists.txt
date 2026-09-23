@@ -287,6 +287,15 @@ igame_add_example(testSetViewStyle Rendering/SetViewStyle.cpp)
 igame_add_example(testSetScalarField Rendering/SetScalarField.cpp)
 igame_add_example(testSetVolumeRendering Rendering/SetVolumeRendering.cpp)
 igame_add_example(testParallelVolumeRendering Rendering/ParallelVolumeRendering.cpp)
+
+# 并行体绘制前端（阶段 6）：连接后端、显示合成图 + 鼠标交互。手动添加而不走
+# igame_add_example，避免被 igame_register_example_test 注册成回归测试——它需要远端
+# 服务端（无参数运行会 connect 失败直接退出）。
+add_executable(testParallelVolumeClient Rendering/ParallelVolumeClient.cpp)
+target_link_libraries(testParallelVolumeClient PRIVATE ${_IGAME_EXAMPLE_CORE_LIBS})
+add_dependencies(testParallelVolumeClient
+        iGameCopyExampleAssets
+        iGameDeployExampleRuntime)
 igame_add_example(testSetRenderingPressure Rendering/SetRenderingPressure.cpp)
 
 # Attribute

@@ -1,4 +1,4 @@
-﻿#include "iGameStreamlineSimplifier.h"
+#include "iGameStreamlineSimplifier.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -66,7 +66,7 @@ bool StreamlineSimplifier::ExtractStreamlines() {
 
     // 2) 把每个 LINE 的两个端点 push 到对应流线
     for (IGsize c = 0; c < numCells; ++c) {
-        if (types->GetValue(c) != IG_LINE) continue;
+        if (static_cast<int>(types->GetValue(c)) != static_cast<int>(IG_LINE)) continue;
 
         const igIndex* ids = nullptr;
         int n = cells->GetCellIds(c, ids);

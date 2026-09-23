@@ -1,4 +1,4 @@
-#pragma once;
+#pragma once
 
 #include "iGameFilter.h"
 #include "iGameUnstructuredMesh.h"

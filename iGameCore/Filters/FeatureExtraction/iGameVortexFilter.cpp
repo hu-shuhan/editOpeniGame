@@ -1,4 +1,4 @@
-﻿#include "iGameVortexFilter.h"
+#include "iGameVortexFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
@@ -1502,7 +1502,7 @@ std::array<float, 3> VortexFilter::ComputeQuadPointGradient(Cell* cell, ArrayObj
         center[2] += p[2];
         centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
     }
-    for (int d = 0; d < 4; d++) center[d] /= 3.0f;
+    for (int d = 0; d < 3; d++) center[d] /= 3.0f;
     centerValue /= 3.0f;
 
     std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};

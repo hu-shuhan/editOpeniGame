@@ -283,6 +283,10 @@ inline const unsigned char* Glyph(char c) {
             {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10}, // 'P'
             {0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E}, // 'S'
             {0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x00}, // ':'
+            {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11}, // 'R'
+            {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}, // 'T'
+            {0x00, 0x00, 0x1B, 0x15, 0x15, 0x15, 0x15}, // 'm'
+            {0x00, 0x00, 0x0E, 0x10, 0x0E, 0x01, 0x1E}, // 's'
     };
     static const unsigned char kSpace[7] = {0, 0, 0, 0, 0, 0, 0};
 
@@ -297,6 +301,10 @@ inline const unsigned char* Glyph(char c) {
         case 'P': return kFont[16];
         case 'S': return kFont[17];
         case ':': return kFont[18];
+        case 'R': return kFont[19];
+        case 'T': return kFont[20];
+        case 'm': return kFont[21];
+        case 's': return kFont[22];
         case ' ': return kSpace;
         default: return kSpace;
     }
@@ -521,14 +529,17 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                                  static_cast<float>(farPlane));
 
         // 交互 LOD（对标 MiniPVServer：交互中低采样 + 大步进 + ROI）。
+        // 采样率砍到 1/4（512→128）、像素步进 2，并显式把步长增大到「全局对角线/64」。
         if (interactive) {
             rayCaster->SetMaxSamples(128);
             rayCaster->SetPixelStride(2);
             rayCaster->SetUseScreenROI(true);
+            rayCaster->SetStepSize(static_cast<float>(radius * 2.0 / 64.0));
         } else {
             rayCaster->SetMaxSamples(512);
             rayCaster->SetPixelStride(1);
             rayCaster->SetUseScreenROI(false);
+            rayCaster->SetStepSize(0.0f); // 自动步长
         }
 
         // 各 rank 无头渲染自己的超块。

@@ -37,3 +37,5 @@
 /Examples/out/
 
 CMakeUserPresets.json
+
+Script/pvrender_deploy

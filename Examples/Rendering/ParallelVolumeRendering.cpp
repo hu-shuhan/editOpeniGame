@@ -1,15 +1,21 @@
-// ParallelVolumeRendering.cpp — 并行体绘制入口（阶段 3 分布式合成 + 阶段 4 CPU 后端 + 阶段 5 交互窗口）
+// ParallelVolumeRendering.cpp — 并行体绘制入口（阶段 3 分布式合成 + 阶段 4 CPU 后端 +
+//   阶段 5 交互窗口 + 阶段 6 C/S 服务端）
 //
 // CLI（命名参数，默认 CPU 后端）：
-//   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu] [--interactive]
+//   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu]
+//             [--interactive] [--server [--port <n>]] [-f <field>]
 //     -i, --input <file>   输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
+//     -f, --field <name>   直接指定渲染字段（srun 批处理无 stdin 时必需）
 //     -t, --timestep <n>   PVD 时间步（默认 0；非 PVD 忽略）
 //     -r, --resample <n>   每块重采样分辨率（默认 64，最小 2）
 //         --gpu / --cpu    渲染后端（默认 --cpu；--cpu 无头、不依赖 OpenGL/GLFW）
 //         --interactive    交互窗口（阶段 5，仅 --cpu 后端）：rank 0 弹窗显示合成结果，
 //                          左键拖动旋转、滚轮缩放、左下角 colorbar、拖动期间显示 fps
-// 启动后 rank0 列出该数据可渲染的字段（点/单元标量、向量），提示按名称或编号选择，
-// 随后把所选字段广播给所有 rank。
+//         --server          C/S 服务端（阶段 6，仅 --cpu 后端）：rank 0 开放 TCP 端口
+//                          供前端（ParallelVolumeClient）连接，流式回传合成图
+//         --port <n>        --server 监听端口（默认 11111）
+// 未指定 --field 时，启动后 rank0 列出该数据可渲染的字段（点/单元标量、向量），提示按
+// 名称或编号选择，随后把所选字段广播给所有 rank。
 //
 // 流程（对标 UnifiedVersion 的 TestPVolumeRender.cpp）：
 //   多分块 → iGameVolumeDistributor 分发 → iGameVolumeResampleFilter 重采样 →
@@ -28,6 +34,9 @@
 //   --gpu：所有 rank（含 rank 0）用隐藏 GLFW 窗口离屏渲染（GPU 验证通路，Windows
 //          下配软件 GL / Mesa llvmpipe 即可无显示器运行）。
 // -n 1 与 -n N 走同一代码路径，合成结果可直接逐像素对比。
+// 注意：本头（winsock2）必须最先包含，先于任何会引入 windows.h 的 iGame 头（iGameScene
+// -> GLVendor -> glad -> windows.h），否则 Windows 下 winsock.h 与 winsock2.h 冲突。
+#include "ParallelVolumeProtocol.h"
 #include "iGameFileIO.h"
 #include "iGameParallelContext.h"
 #include "iGameRenderWindow.h"
@@ -38,6 +47,7 @@
 #include "VolumeMeshAlgorithm/iGameVolumeDistributor.h"
 #include "VolumeMeshAlgorithm/iGameVolumeResampleFilter.h"
 #include "iGameResourcePath.h"
+#include "ParallelVolumeServer.h"    // 必须先于 ParallelVolumeInteractive.h（winsock2 先于 windows.h）
 #include "ParallelVolumeInteractive.h"
 
 #include <algorithm>
@@ -67,9 +77,9 @@ std::string MakeTimestamp() {
     const std::time_t t = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
 #if defined(_WIN32)
-    localtime_s(&tm, &t);
+    localtime_s(&tm, &t);   // MSVC: errno_t localtime_s(struct tm*, const time_t*)
 #else
-    localtime_r(&tm, &t);
+    localtime_r(&t, &tm);   // POSIX: struct tm* localtime_r(const time_t*, struct tm*)
 #endif
     char buf[64]{};
     std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", &tm);
@@ -173,10 +183,13 @@ void FlipRGBAVertically(std::vector<unsigned char>& img, int width, int height) 
 
 struct CliOptions {
     std::string input;
+    std::string field; // 非交互指定渲染字段（--field，跳过 stdin 交互，供 srun 批处理）
     int timestep{0};
     int resPerChunk{64};
     bool useGPU{false}; // false = CPU 后端（默认）
     bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
+    bool server{false}; // true = C/S 服务端（阶段 6，仅 CPU 后端有效）
+    int port{11111};    // --server 监听端口
     bool showHelp{false};
     bool valid{false};
 };
@@ -190,6 +203,9 @@ void PrintUsage(const char* prog) {
             << "Required:\n"
             << "  -i, --input <file>       输入数据：多分块 .pvd/.vtm/.igcm，或单块\n"
             << "                           .vtr/.vts/.vtu。\n"
+            << "  -f, --field <name>       直接指定渲染字段（点/单元标量或向量名），跳过\n"
+            << "                           rank0 的交互式字段选择（srun 批处理无 stdin 时\n"
+            << "                           必须指定）。\n"
             << "\n"
             << "Options:\n"
             << "  -t, --timestep <n>       PVD 时间步（默认 0；非 PVD 输入忽略）。\n"
@@ -201,6 +217,10 @@ void PrintUsage(const char* prog) {
             << "      --interactive        交互窗口（阶段 5，仅 CPU 后端）：rank 0 打开\n"
             << "                           窗口显示合成结果，左键拖动旋转、滚轮缩放，\n"
             << "                           左下角 colorbar，拖动期间显示 fps。\n"
+            << "      --server              C/S 服务端（阶段 6，仅 CPU 后端）：rank 0 开放\n"
+            << "                           TCP 端口供前端连接，接收增量交互命令、渲染并\n"
+            << "                           流式回传合成图（对标 MiniPVServer）。\n"
+            << "      --port <n>            --server 监听端口（默认 11111）。\n"
             << "  -h, --help               显示本帮助。\n"
             << "\n"
             << "Examples:\n"
@@ -210,6 +230,8 @@ void PrintUsage(const char* prog) {
             << "  " << prog << " -i data.vts --cpu\n"
             << "  mpiexec -n 4 " << prog
             << " -i data.pvd --resample 64 --cpu --interactive\n"
+            << "  mpiexec -n 4 " << prog
+            << " -i data.pvd --resample 64 --cpu --server --port 11111\n"
             << std::flush;
 }
 
@@ -228,6 +250,14 @@ CliOptions ParseCli(int argc, char** argv) {
                 return opts; // valid = false
             }
             opts.input = argv[++i];
+            continue;
+        }
+        if (a == "-f" || a == "--field") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.field = argv[++i];
             continue;
         }
         if (a == "-t" || a == "--timestep") {
@@ -256,6 +286,18 @@ CliOptions ParseCli(int argc, char** argv) {
         }
         if (a == "--interactive") {
             opts.interactive = true;
+            continue;
+        }
+        if (a == "--server") {
+            opts.server = true;
+            continue;
+        }
+        if (a == "--port") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.port = std::atoi(argv[++i]);
             continue;
         }
 
@@ -325,9 +367,12 @@ int main(int argc, char** argv) {
     auto distributor = iGameVolumeDistributor::New();
     distributor->SetInput(root);
 
-    // 4. 字段选择：rank0 列出可渲染字段并等待输入，随后广播给所有 rank。
+    // 4. 字段选择：优先用 --field 直接指定（srun 批处理无 stdin）；否则 rank0 列出
+    //    可渲染字段并等待输入，随后广播给所有 rank。
     char fieldBuf[1024] = {0};
-    if (rank == 0) {
+    if (!cli.field.empty()) {
+        std::strncpy(fieldBuf, cli.field.c_str(), sizeof(fieldBuf) - 1);
+    } else if (rank == 0) {
         std::vector<std::string> names;
         std::vector<int> comps;
         std::vector<bool> isCell;
@@ -529,6 +574,18 @@ int main(int argc, char** argv) {
             const int rc = iGameVolInteractive::RunInteractive(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height);
+            ParallelContext::Finalize();
+            return rc;
+        }
+
+        // 阶段 6 C/S 服务端：rank 0 开放端口、接收客户端增量交互命令，渲染 + 合成后
+        // 流式回传（对标 MiniPVServer）。仅 CPU 后端；其余 rank 全程无头参与集合通信。
+        if (cli.server) {
+            const double radius = globalBounds.diag() / 2.0;
+            const int rc = iGamePVServer::RunServer(
+                    cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
+                    globalMax, gcenter, blockCenter, radius, width, height,
+                    cli.port);
             ParallelContext::Finalize();
             return rc;
         }
