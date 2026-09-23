@@ -63,7 +63,8 @@ bool iGame::iGamePVDReader::Parsing() {
     }
     auto& firstFrame = m_Data.GetTimeData()->GetArrays()[0];
 
-    m_data_object = DrawObject::New();
+    auto animationObject = DrawObject::New();
+    m_data_object = animationObject;
     //        m_data_object = DataObject::New();
     m_data_object->SetTimeFrames(m_Data.GetTimeData());
     auto attributeSet = AttributeSet::New();
@@ -114,9 +115,19 @@ bool iGame::iGamePVDReader::Parsing() {
         }
         auto t3 = std::chrono::steady_clock::now();
         IGAME_CORE_DEBUG("Read subFiles cost : {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count());
+        unsigned int firstFrameViewStyle = 0;
+        bool hasDrawable = false;
         for(auto obj : results){
+            if (auto draw = DynamicCast<DrawObject>(obj)) {
+                firstFrameViewStyle |= draw->GetViewStyle();
+                hasDrawable = true;
+            }
             m_data_object->AddSubDataObject(obj);
         }
+        // Initialize only at load time: later playback/export preserves the
+        // user's choice. Union the first frame's blocks so mixed point/surface
+        // collections remain visible as well as homogeneous VERTEX sequences.
+        if (hasDrawable) animationObject->SetViewStyle(firstFrameViewStyle);
     }
 
     /* Reset DataObject's scalar range. */

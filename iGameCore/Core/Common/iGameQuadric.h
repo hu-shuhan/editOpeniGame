@@ -6,6 +6,8 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
+#include <cmath>
+
 IGAME_NAMESPACE_BEGIN
 template<class ValueT>
 class Quadric {
@@ -118,9 +120,15 @@ public:
 			a[2], a[4], a[5];
 		be << -b[0], -b[1], -b[2];
 
-		Eigen::FullPivLU<Eigen::MatrixXd> lu(A);
-		if (lu.isInvertible()) {
+		Eigen::FullPivLU<Eigen::Matrix3d> lu(A);
+		// A nearly singular quadric may still be reported as invertible, but its
+		// unconstrained minimum can be many orders of magnitude away from the
+		// mesh. Reject poorly conditioned systems and let the caller fall back to
+		// a position on the edge.
+		constexpr double MinimumReciprocalCondition = 1e-12;
+		if (lu.isInvertible() && lu.rcond() >= MinimumReciprocalCondition) {
 			Eigen::Vector3d xe = lu.solve(be);
+			if (!xe.allFinite()) { return false; }
 			x[0] = xe[0];
 			x[1] = xe[1];
 			x[2] = xe[2];

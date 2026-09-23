@@ -1,5 +1,7 @@
 #include "iGameCASReader.h"
+#include "iGameExternalProcess.h"
 #include <filesystem>
+#include <fstream>
 #include <iGameFileIO.h>
 #include <iGameScene.h>
 #include "Log/iGameLogger.h"
@@ -11,14 +13,14 @@ bool CASReader::Parsing() {
 
     // ??? .cas ???·??
     std::string casPath = this->GetFilePath();
-    fs::path inputPath(casPath);
+    fs::path inputPath = m_RemoteConversionEnabled ? FileSystem::PathFromUtf8(casPath) : fs::path(casPath);
 
     // ===== ????????·?? =====
     fs::path tempDir = fs::current_path() / "temp";
     if (!fs::exists(tempDir)) { fs::create_directories(tempDir); }
 
     // ????¼??? temp ?????
-    std::string outputDir = tempDir.string();
+    std::string outputDir = m_RemoteConversionEnabled ? FileSystem::PathToUtf8(tempDir) : tempDir.string();
 
     // ????¼?????????????¼
     //std::string outputDir = inputPath.parent_path().string();
@@ -36,8 +38,9 @@ bool CASReader::Parsing() {
     bool exeFound = false;
     for (const auto& path: exePaths) {
         // 简单检查文件是否存在
-        std::ifstream file(path);
-        if (file.good()) {
+        const bool exists = m_RemoteConversionEnabled
+                ? fs::exists(FileSystem::PathFromUtf8(path)) : std::ifstream(path).good();
+        if (exists) {
             exePath = path;
             exeFound = true;
             break;
@@ -56,12 +59,22 @@ bool CASReader::Parsing() {
 
     // ?????????????
 
-    std::string arguments = "--input " + casPath + " --output " + outputDir;
-    std::string fullCommand = "\"" + exePath + "\" " + arguments;
-    IGAME_CORE_DEBUG("[CASReader] Running command: {}", fullCommand);
-
-    // ???????????
-    int returnCode = system(fullCommand.c_str());
+    int returnCode = 0;
+    if (m_RemoteConversionEnabled) {
+        // C/S package paths may contain Unicode and spaces.
+        std::vector<std::string> arguments = {"--input", casPath, "--output", outputDir};
+        IGAME_CORE_DEBUG("[CASReader] Running converter: {} --input {} --output {}", exePath, casPath, outputDir);
+        if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+            IGAME_CORE_ERROR("[CASReader] Failed to start converter: {}", exePath);
+            return false;
+        }
+    } else {
+        // Preserve main's command construction and shell invocation for ordinary files.
+        std::string arguments = "--input " + casPath + " --output " + outputDir;
+        std::string fullCommand = "\"" + exePath + "\" " + arguments;
+        IGAME_CORE_DEBUG("[CASReader] Running command: {}", fullCommand);
+        returnCode = std::system(fullCommand.c_str());
+    }
     if (returnCode != 0) {
         IGAME_CORE_ERROR("CAS to VTK conversion failed. Return code: {}", returnCode);
         return false;
@@ -69,8 +82,15 @@ bool CASReader::Parsing() {
 
 
     // ???????????·??
-    fs::path outputFilePath = tempDir / (inputPath.stem().string() + ".vtk");
-    std::string outputFile = outputFilePath.string();
+    fs::path outputFilePath;
+    if (m_RemoteConversionEnabled) {
+        fs::path outputFileName = inputPath.stem();
+        outputFileName += ".vtk";
+        outputFilePath = tempDir / outputFileName;
+    } else {
+        outputFilePath = tempDir / (inputPath.stem().string() + ".vtk");
+    }
+    std::string outputFile = m_RemoteConversionEnabled ? FileSystem::PathToUtf8(outputFilePath) : outputFilePath.string();
 
     /*std::string outputFile = "";
     fs::path outputFilePath = inputPath.parent_path() / (inputPath.stem().string() + ".vtk");
@@ -95,13 +115,13 @@ bool CASReader::Parsing() {
     try {
         if (fs::exists(outputFilePath)) {
             fs::remove(outputFilePath);
-            IGAME_CORE_DEBUG("[Cleanup] Removed temporary file: {}", outputFilePath.string());
+            IGAME_CORE_DEBUG("[Cleanup] Removed temporary file: {}", m_RemoteConversionEnabled ? FileSystem::PathToUtf8(outputFilePath) : outputFilePath.string());
         }
 
         // ??? temp ??????????????
         if (fs::exists(tempDir) && fs::is_empty(tempDir)) {
             fs::remove(tempDir);
-            IGAME_CORE_DEBUG("[Cleanup] Removed empty temp directory: {}", tempDir.string());
+            IGAME_CORE_DEBUG("[Cleanup] Removed empty temp directory: {}", m_RemoteConversionEnabled ? FileSystem::PathToUtf8(tempDir) : tempDir.string());
         }
     } catch (const std::exception& e) {
         IGAME_CORE_WARN("Failed to clean temporary files: {}", e.what());

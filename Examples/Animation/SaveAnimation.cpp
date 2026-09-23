@@ -1,136 +1,110 @@
-//
 // Created by m_ky on 2024/11/26.
-//
-
-/**
- * @class   TestAnimation
- * @brief   TestAnimation's brief
- */
+// Standalone MP4/GIF export example.
+#include "SaveAnimation.h"
 #include <Deformation/iGameStressDeformationFilter.h>
-#include <future>
 #include <iGameFileIO.h>
-#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
-#include <iGameScene.h>
-#include <iGameThreadPool.h>
 #include <iostream>
-#include <string>
 
-#include <FFMPEG/iGameFFMPEGVideoWriter.h>
-void PlayAnimation(iGame::DataObject::Pointer obj, iGame::Scene* scene, int keyframe_idx) {
-    using namespace iGame;
-
-    if (obj == nullptr || obj->GetTimeFrames()->GetArrays().empty()) return;
-    iGame::DrawObject::Pointer currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
-    currentDrawObject->GetTimeFrames()->EnableCache(1000);
-    currentDrawObject->UpdateAnimation(keyframe_idx);
-    if (obj->GetDeformationData()->GetEnableStatus()) {
-        StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
-        deformFilter->SetInput(currentDrawObject);
-        if (!deformFilter->Execute()) std::cout << " error \n";
+namespace {
+class ScopedColorRangeLock {
+public:
+    explicit ScopedColorRangeLock(iGame::ScalarsToColors::Pointer mapper)
+        : m_Mapper(mapper), m_WasStable(mapper->GetStable()) {
+        m_Mapper->SetRangeStable(true);
     }
-    //    /* process Object's scalar range*/
-    //    currentDrawObject->ReCollectSubDataObjectDataRange();
-    //    currentDrawObject->UpdateSubDataObjectDataRange();
+    ~ScopedColorRangeLock() { m_Mapper->SetRangeStable(m_WasStable); }
+    ScopedColorRangeLock(const ScopedColorRangeLock&) = delete;
+    ScopedColorRangeLock& operator=(const ScopedColorRangeLock&) = delete;
+
+private:
+    iGame::ScalarsToColors::Pointer m_Mapper;
+    bool m_WasStable;
+};
+
+void PlayAnimation(iGame::DrawObject::Pointer object, iGame::Scene* scene, int frame) {
+    using namespace iGame;
+    const int attributeIndex = object->GetAttributeIndex();
+    const int attributeDimension = object->GetAttributeDimension();
+    object->GetTimeFrames()->EnableCache(1000);
+    object->UpdateAnimation(frame);
+    if (object->GetDeformationData()->GetEnableStatus()) {
+        auto deformFilter = StressDeformationFilter::New();
+        deformFilter->SetInput(object);
+        if (!deformFilter->Execute()) std::cout << "Deformation failed\n";
+    }
 
     scene->MakeCurrent();
-    currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
-
-    if (currentDrawObject->GetAttributeIndex() != -1) {
-        currentDrawObject->ViewCloudPicture(scene, currentDrawObject->GetAttributeIndex());
+    object->SetViewStyle(object->GetViewStyle());
+    if (attributeIndex != -1) {
+        // New children need the selection even if the parent's index is unchanged.
+        // Keep the selected vector component instead of reverting to magnitude.
+        object->ViewCloudPicture(scene, -1);
+        object->ViewCloudPicture(scene, attributeIndex, attributeDimension);
     }
     scene->DoneCurrent();
     scene->Draw();
 }
-void SaveAnimationToMP4(iGame::Scene* currentScene, iGame::DataObject ::Pointer currentObject,
-                        const std::string& outputPath) {
+} // namespace
+
+iGame::VideoInputInfo CaptureAnimationFrames(iGame::Scene* scene, iGame::DataObject::Pointer object,
+                                             int width, int height) {
     using namespace iGame;
-    if (currentScene->GetCurrentModel() == nullptr) {
-        std::cout << "error\n";
-        return;
-    }
-    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
-    std::cout << "time step size: " << timeStepSize << std::endl;
-    int width = 1920, height = 1080;
-    VideoInputInfo inputInfo;
-    inputInfo.width = 1920;
-    inputInfo.height = 1080;
+    VideoInputInfo inputInfo{};
+    auto draw = DynamicCast<DrawObject>(object);
+    if (!scene || !scene->GetCurrentModel() || !draw || width <= 0 || height <= 0) return inputInfo;
+    const size_t frameCount = object->GetTimeFrames()->GetTimeNum();
+    if (frameCount == 0) return inputInfo;
+
+    // Establish the first frame's range before locking it. An existing user lock
+    // is honored by scalar conversion and preserved, including on early exit.
+    PlayAnimation(draw, scene, 0);
+    ScopedColorRangeLock rangeLock(draw->GetColorMapper());
+    inputInfo.width = width;
+    inputInfo.height = height;
     inputInfo.bit_rate = 1000000;
     inputInfo.frame_rate = 1;
-    for (int i = 0; i < timeStepSize; i++) {
-        PlayAnimation(currentObject, currentScene, i);
-        auto tmp = currentScene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true);
-        inputInfo.bytes_per_line = width * 4;
-        std::cout << i << " " << tmp.size() << "\n";
-        inputInfo.raw_image_data.emplace_back(tmp);
+    inputInfo.bytes_per_line = width * 4;
+    for (size_t frame = 0; frame < frameCount; ++frame) {
+        PlayAnimation(draw, scene, static_cast<int>(frame));
+        inputInfo.raw_image_data.emplace_back(
+                scene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true));
     }
-
-    FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
-    inputInfo.output_path = outputPath;
-    videoWriter->SetVideoInputInfo(inputInfo);
-
-    bool sc = videoWriter->SaveMP4();
-    if (sc) {
-        std::cout << "Success to save\n";
-    } else {
-        std::cout << "Fail to save\n";
-    }
+    return inputInfo;
 }
 
-void SaveAnimationToGIF(iGame::Scene* currentScene, iGame::DataObject ::Pointer currentObject,
-                        const std::string& outputPath) {
-    using namespace iGame;
-    if (currentScene->GetCurrentModel() == nullptr) {
-        std::cout << "error\n";
-        return;
-    }
-    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
-    std::cout << "time step size: " << timeStepSize << std::endl;
-    int width = 1920, height = 1080;
-    VideoInputInfo inputInfo;
-    inputInfo.width = 1920;
-    inputInfo.height = 1080;
-    inputInfo.bit_rate = 1000000;
-    inputInfo.frame_rate = 1;
-    for (int i = 0; i < timeStepSize; i++) {
-        PlayAnimation(currentObject, currentScene, i);
-
-        //        std::vector<uint8_t> tmp(image.bits(),
-        //                                 image.bits() + image.sizeInBytes());
-        //        inputInfo.bytes_per_line = image.bytesPerLine();
-        auto tmp = currentScene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true);
-        inputInfo.bytes_per_line = width * 4;
-        std::cout << i << " " << tmp.size() << "\n";
-        inputInfo.raw_image_data.emplace_back(tmp);
-    }
-
-    FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
+void SaveAnimationToMP4(iGame::Scene* scene, iGame::DataObject::Pointer object, const std::string& outputPath) {
+    auto inputInfo = CaptureAnimationFrames(scene, object);
+    if (inputInfo.raw_image_data.empty()) return;
+    auto writer = iGame::FFMPEGVideoWriter::New();
     inputInfo.output_path = outputPath;
-    videoWriter->SetVideoInputInfo(inputInfo);
-
-    bool sc = videoWriter->SaveGIF();
-    if (sc) {
-        std::cout << "Success to save\n";
-    } else {
-        std::cout << "Fail to save\n";
-    }
+    writer->SetVideoInputInfo(inputInfo);
+    std::cout << (writer->SaveMP4() ? "Success to save MP4\n" : "Fail to save MP4\n");
 }
 
+void SaveAnimationToGIF(iGame::Scene* scene, iGame::DataObject::Pointer object, const std::string& outputPath) {
+    auto inputInfo = CaptureAnimationFrames(scene, object);
+    if (inputInfo.raw_image_data.empty()) return;
+    auto writer = iGame::FFMPEGVideoWriter::New();
+    inputInfo.output_path = outputPath;
+    writer->SetVideoInputInfo(inputInfo);
+    std::cout << (writer->SaveGIF() ? "Success to save GIF\n" : "Fail to save GIF\n");
+}
 
-int main(int argn, char** args) {
+#ifndef IGAME_ANIMATION_EXPORT_LIBRARY
+int main(int argc, char** argv) {
     auto scene = iGame::Scene::New();
     auto obj = iGame::FileIO::ReadFile("./Models/CAD11/_frames.pvd");
-    std::cout << "size : " << obj->GetTimeFrames()->GetArrays().size() << std::endl;
-    if (obj == nullptr) {
-        std::cout << "Read ERROR!\n";
-    } else {
-        scene->AddModel(obj);
+    if (!obj) {
+        std::cerr << "Read ERROR!\n";
+        return 1;
     }
-    /* Scene rendering needs to be done in the OpenGL context provided by GLFW,
-     * so the window needs to be created first */
-    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+    scene->AddModel(obj);
+    // Rendering needs the OpenGL context provided by the window.
+    auto window = iGame::RenderWindow::New();
     window->SetScene(scene);
     window->SetSize(1920, 1080);
     SaveAnimationToMP4(scene, obj, "./AnimationExample.mp4");
     SaveAnimationToGIF(scene, obj, "./AnimationExample.gif");
 }
+#endif

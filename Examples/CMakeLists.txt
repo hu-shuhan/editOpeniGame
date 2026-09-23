@@ -171,6 +171,27 @@ function(igame_register_example_test EXAMPLE_TARGET)
         return()
     endif ()
 
+    if ("${EXAMPLE_TARGET}" STREQUAL "testModelTreeViewStyleValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testAnimationVertexValidation")
+        get_target_property(_VIEW_QMAKE Qt5::qmake IMPORTED_LOCATION)
+        get_filename_component(_VIEW_QT_BIN "${_VIEW_QMAKE}" DIRECTORY)
+        set(_VIEW_ENV)
+        if (WIN32)
+            # The animation test has its own directory to isolate recent-file settings.
+            string(REPLACE ";" "\\;" _VIEW_PATH "$<TARGET_FILE_DIR:iGameVis>;${_VIEW_QT_BIN};$ENV{PATH}")
+            list(APPEND _VIEW_ENV "PATH=${_VIEW_PATH}")
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "${CMAKE_COMMAND}" -E env
+                "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=${_VIEW_QT_BIN}/../plugins/platforms"
+                ${_VIEW_ENV}
+                "$<TARGET_FILE:${EXAMPLE_TARGET}>"
+            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 120)
+        return()
+    endif ()
+
     if (WIN32)
         set(_TEST_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/ci/run_smoke_test.ps1")
         set(_TEST_COMMAND powershell -NoProfile -NonInteractive
@@ -179,12 +200,19 @@ function(igame_register_example_test EXAMPLE_TARGET)
         set(_TEST_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 
         if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
-            "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation")
+            "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
         elseif ("${EXAMPLE_TARGET}" STREQUAL "testLosslessEncode")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 120
                 -Arguments "Models/Quad_Plane_Tensor.vtk")
+        endif ()
+        if ("${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
+            # Shaders/fonts are deployed in the Examples build directory.
+            set(_TEST_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
         endif ()
 
         add_test(
@@ -193,17 +221,31 @@ function(igame_register_example_test EXAMPLE_TARGET)
             WORKING_DIRECTORY "${_TEST_WORKING_DIRECTORY}"
         )
         set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 200)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
+            set_tests_properties(${EXAMPLE_TARGET} PROPERTIES SKIP_RETURN_CODE 77)
+        endif ()
         return()
     endif ()
 
     if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
-        "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation")
+        "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
+        set(_VALIDATION_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
+        if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+            "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
+            list(PREPEND _VALIDATION_COMMAND xvfb-run -a)
+        endif ()
         add_test(
             NAME ${EXAMPLE_TARGET}
-            COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>"
+            COMMAND ${_VALIDATION_COMMAND}
             WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>"
         )
         set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
+            set_tests_properties(${EXAMPLE_TARGET} PROPERTIES SKIP_RETURN_CODE 77)
+        endif ()
         return()
     endif ()
 
@@ -249,6 +291,9 @@ igame_add_example(testSetRenderingPressure Rendering/SetRenderingPressure.cpp)
 # Attribute
 igame_add_example(testChangeRange Attribute/TestSubDataRangeChangeAndRecollect.cpp)
 
+
+# Elevation
+igame_add_example(testElevation Filter/Elevation/TestElevation.cpp)
 # Vector / Tensor
 igame_add_example(testVector Filter/Vector/TestVector.cpp)
 igame_add_example(testTimeVaryingVector Filter/Vector/TestTimeVaryingVector.cpp)
@@ -291,6 +336,8 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
+igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
+igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
@@ -321,9 +368,34 @@ igame_add_example(testLsDynaReader IO/LsDynaReader.cpp)
 # Animation / Filters
 igame_add_example(testAnimation Animation/TestAnimation.cpp)
 
+if (TARGET Qt_module AND TARGET iGameVis)
+    find_package(Qt5 REQUIRED COMPONENTS Core Widgets OpenGL Charts Svg)
+    igame_add_example(testModelTreeViewStyleValidation Rendering/ModelTreeViewStyleValidation.cpp)
+    target_link_libraries(testModelTreeViewStyleValidation PRIVATE Qt_module)
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testModelTreeViewStyleValidation PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+    # Reuse the desktop application's deployed Qt/runtime DLLs.
+    set_target_properties(testModelTreeViewStyleValidation PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:iGameVis>")
+    add_dependencies(testModelTreeViewStyleValidation iGameVis)
+
+    igame_add_example(testAnimationVertexValidation Animation/AnimationVertexValidation.cpp)
+    target_link_libraries(testAnimationVertexValidation PRIVATE Qt_module)
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testAnimationVertexValidation PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+    set_target_properties(testAnimationVertexValidation PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/vertex-animation-validation/$<CONFIG>")
+    add_dependencies(testAnimationVertexValidation iGameVis)
+endif ()
+
 if (FFMPEG_FOUND)
     igame_add_example(testSaveAnimation Animation/SaveAnimation.cpp)
     target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
+    igame_add_example(testAnimationExportRangeValidation Animation/AnimationExportRangeValidation.cpp)
+    target_sources(testAnimationExportRangeValidation PRIVATE Animation/SaveAnimation.cpp)
+    target_compile_definitions(testAnimationExportRangeValidation PRIVATE FFMPEG_ENABLE IGAME_ANIMATION_EXPORT_LIBRARY)
 endif ()
 
 igame_add_example(testClip Filter/TestClip.cpp)
@@ -373,6 +445,31 @@ foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
 endforeach()
 
 enable_testing()
+add_executable(testDrawObjectResourcesValidation IO/DrawObjectResourcesValidation.cpp)
+igame_link_standard_example(testDrawObjectResourcesValidation)
+add_test(NAME testDrawObjectResourcesValidation COMMAND testDrawObjectResourcesValidation)
+set_tests_properties(testDrawObjectResourcesValidation PROPERTIES TIMEOUT 30)
+if (TARGET Qt_module)
+find_package(Qt5 REQUIRED COMPONENTS Core Gui)
+add_executable(testPreparedCpuGpuValidation IO/PreparedCpuGpuValidation.cpp)
+target_link_libraries(testPreparedCpuGpuValidation PRIVATE Qt5::Gui)
+igame_link_standard_example(testPreparedCpuGpuValidation)
+add_test(NAME testPreparedCpuGpuValidation COMMAND testPreparedCpuGpuValidation)
+set_tests_properties(testPreparedCpuGpuValidation PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+get_target_property(_IGAME_TEST_QMAKE Qt5::qmake IMPORTED_LOCATION)
+get_filename_component(_IGAME_TEST_QT_BIN "${_IGAME_TEST_QMAKE}" DIRECTORY)
+set_tests_properties(testPreparedCpuGpuValidation PROPERTIES ENVIRONMENT
+    "QT_QPA_PLATFORM_PLUGIN_PATH=${_IGAME_TEST_QT_BIN}/../plugins/platforms")
+add_executable(testResidentModelCacheValidation
+    IO/ResidentModelCacheValidation.cpp
+    "${CMAKE_SOURCE_DIR}/Qt/src/IQCore/igQtResidentModelCache.cpp")
+target_include_directories(testResidentModelCacheValidation PRIVATE "${CMAKE_SOURCE_DIR}/Qt/include")
+target_compile_definitions(testResidentModelCacheValidation PRIVATE IG_QT_COMPILE_EXPORT)
+target_link_libraries(testResidentModelCacheValidation PRIVATE Qt5::Core)
+igame_link_standard_example(testResidentModelCacheValidation)
+add_test(NAME testResidentModelCacheValidation COMMAND testResidentModelCacheValidation)
+set_tests_properties(testResidentModelCacheValidation PROPERTIES TIMEOUT 30)
+endif ()
 foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
     igame_register_example_test(${EXAMPLE_TARGET})
 endforeach()

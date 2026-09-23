@@ -54,6 +54,8 @@ UnstructuredMesh::UnstructuredMesh() {
 SurfaceMesh::Pointer UnstructuredMesh::TransferToSurfaceMesh() {
 
     int cellNum = this->GetNumberOfCells();
+    // A point cloud has no surface topology, even when it has coordinates.
+    if (cellNum <= 0) { return nullptr; }
     bool CouldTransfer = true;
     igIndex cellType = IG_NONE;
     for (igIndex i = 0; i < cellNum; i++) {
@@ -310,6 +312,10 @@ bool UnstructuredMesh::_GetCell(const IGsize cellId, Cell* cell) const {
 Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
     Cell* cell = nullptr;
     switch (GetCellType(cellId)) {
+        case IG_VERTEX: {
+            if (m_Vertex == nullptr) { m_Vertex = Vertex::New(); }
+            cell = m_Vertex.get();
+        } break;
         case IG_LINE: {
             if (m_Line == nullptr) { m_Line = Line::New(); }
             cell = m_Line.get();
@@ -389,6 +395,9 @@ Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
 void UnstructuredMesh::GetTypedCell(const IGsize cellId, Cell::Pointer& cell) const {
     if (cell != nullptr && cell->GetCellType() == GetCellType(cellId)) return;
     switch (GetCellType(cellId)) {
+        case IG_VERTEX: {
+            cell = Vertex::New();
+        } break;
         case IG_LINE: {
             cell = Line::New();
         } break;
@@ -447,6 +456,15 @@ void UnstructuredMesh::GetTypedCell(const IGsize cellId, Cell::Pointer& cell) co
 }
 
 void UnstructuredMesh::ConvertToDrawableData() {
+    // Zero-cell datasets still contain drawable points. Do not extract an empty
+    // shell or change real VERTEX/mixed-cell topology to make them visible.
+    if (GetNumberOfPoints() > 0 && GetNumberOfCells() == 0) {
+        SetShellRenderingOption(false);
+        m_RenderableMesh.SurfaceMesh = nullptr;
+        m_RenderableMesh.SimplifiedMesh = nullptr;
+        if (m_ViewStyle == IG_SURFACE) { m_ViewStyle = IG_POINTS; }
+    }
+
     bool needReConvertGeometry = m_ReConvertToDrawableData;
     needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
     needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
@@ -457,6 +475,33 @@ void UnstructuredMesh::ConvertToDrawableData() {
     // extract surface mesh
     if (m_ShellRendering) {
         if (!needReConvertGeometry && !needReConvertScalar) { return; }
+
+        if (m_Clipper->IsAllDisable() && this->GetNumberOfCells() > 0) {
+            bool isSurfaceOnly = true;
+            const IGsize cellCount = this->GetNumberOfCells();
+            for (IGsize cellId = 0; cellId < cellCount; ++cellId) {
+                if (Cell::GetCellDimension(this->GetCellType(cellId)) != 2) {
+                    isSurfaceOnly = false;
+                    break;
+                }
+            }
+            if (isSurfaceOnly) {
+                SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+                AttributeSet::Pointer surfaceAttributes = AttributeSet::New();
+                for (IGsize attributeId = 0; attributeId < m_Attributes->GetNumberOfAttributes(); ++attributeId) {
+                    surfaceAttributes->GetAllAttributes()->AddElement(m_Attributes->GetAttribute(attributeId));
+                }
+                surfaceMesh->SetName(this->GetName());
+                surfaceMesh->SetPoints(m_Points);
+                surfaceMesh->SetFaces(m_Cells);
+                surfaceMesh->SetAttributeSet(surfaceAttributes);
+                SetRenderableObject(surfaceMesh);
+                m_PointMap = nullptr;
+                m_ReConvertToDrawableData = false;
+                m_ReConvertHelper->Modified();
+                return;
+            }
+        }
 
         ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
         {

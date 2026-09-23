@@ -60,11 +60,13 @@ iGame::Model* ModelTreeWidgetItem::getModel() { return this->model; }
 
 void ModelTreeWidgetItem::setModel(iGame::Model* model) {
     this->model = model;
-    view_fill->setChecked(true);
+    // Reflect the style chosen by the reader/filter without changing the model.
+    auto drawObject = DynamicCast<iGame::DrawObject>(model->GetDataObject());
+    const auto viewStyle = drawObject ? drawObject->GetViewStyle() : 0;
+    view_points->setChecked((viewStyle & IG_POINTS) != 0);
+    view_wireframe->setChecked((viewStyle & IG_WIREFRAME) != 0);
+    view_fill->setChecked((viewStyle & IG_SURFACE) != 0);
     view_pickedItem->setChecked(true);
-    //    view_wireframe->setChecked(true);
-    //    showWireframe();
-    showFill();
     showPickedItem();
 }
 

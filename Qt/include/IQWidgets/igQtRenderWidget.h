@@ -58,6 +58,22 @@ public:
   void applyThemeBackground();
   void setCornerCover(int radius, const QColor& coverColor);
 
+  // GUI-thread only. Request a normal repaint and acknowledge its Qt swap.
+  // Scene's frame pacing and interaction LOD are unchanged: this notification
+  // does not certify a new full-resolution frame or GPU completion.
+  // Hidden/not-exposed windows may never swap; the caller owns the timeout.
+  void RequestCompletedFrame(quint64 requestId);
+  // Cancels only the matching request, without emitting CompletedFrame.
+  void CancelCompletedFrame(quint64 requestId);
+
+signals:
+  void CompletedFrame(quint64 requestId, bool success, const QString& detail);
+  // Emitted synchronously with this widget's GL context current, before its
+  // Scene/context are released. External owners must release cached GL objects.
+  void ContextAboutToBeReleased();
+
+public:
+
     iGame::Interactor* getInteractor();
 
   protected:
@@ -78,6 +94,15 @@ public:
 
   int m_cornerCoverRadius{0};
   QColor m_cornerCoverColor{0x1E, 0x1E, 0x1E};
+
+private:
+  void CompleteRequestedFrame(bool success, const QString& detail);
+  void OnFrameSwapped();
+
+  bool m_CompletedFrameRequestPending = false;
+  bool m_CompletedFrameAwaitingSwap = false;
+  quint64 m_CompletedFrameRequestId = 0;
+  QString m_CompletedFrameDetail;
 };
 
 struct igQtPanelTheme {

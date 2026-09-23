@@ -325,6 +325,22 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->SetName("SINGLEPASSWIREFRAME");
             sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
         } break;
+        case ShaderType::REMOTE_SINGLEPASSWIREFRAME: {
+            SmartPointer<GLShader> vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/Vertex.vert"),
+                    GL_VERTEX_SHADER);
+
+            SmartPointer<GLShader> wireframe_geom = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/RemoteSinglePassWireframe.geom"),
+                    GL_GEOMETRY_SHADER);
+
+            SmartPointer<GLShader> wireframe_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/SinglePassWireframe.frag"),
+                    GL_FRAGMENT_SHADER);
+
+            sp->SetName("REMOTE_SINGLEPASSWIREFRAME");
+            sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
+        } break;
 #if defined(IGAME_OPENGL_VERSION_460) || defined(__EMSCRIPTEN__)
         case ShaderType::TRANSPARENCYLINK: {
 #ifdef __EMSCRIPTEN__

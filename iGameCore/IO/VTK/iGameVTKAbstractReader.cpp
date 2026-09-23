@@ -1181,6 +1181,7 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
     const int connectCount = static_cast<int>(CellsConnect->GetNumberOfElements());
     int skippedCells = 0;
     int normalizedCells = 0;
+    bool onlyVertexCells = CellNum > 0 && mesh->GetNumberOfCells() == 0;
 
     for (int i = 0; i < CellNum; i++) {
         if (i + 1 >= offsetsCount) {
@@ -1197,6 +1198,7 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
         }
 
         const VTKTYPE declaredType = (VTKTYPE) VtkCellsType->GetValue(i);
+        onlyVertexCells &= declaredType == VERTEX;
         VTKTYPE type = NormalizeVtkCellType(declaredType, size);
         if (type != declaredType) normalizedCells++;
         if (!IsVtkCellSizeValid(type, size)) {
@@ -1273,6 +1275,7 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             case iGame::VTKAbstractReader::T0:
                 break;
             case iGame::VTKAbstractReader::VERTEX:
+                mesh->AddCell(vhs.data(), size, IG_VERTEX);
                 break;
             case iGame::VTKAbstractReader::POLYVERTEX:
                 break;
@@ -1401,6 +1404,12 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
         igDebug("TransferVtkCellToiGameCell normalized mislabeled quadratic cells: {}", normalizedCells);
     }
     if (skippedCells > 0) { igDebug("TransferVtkCellToiGameCell skipped invalid cells: {}", skippedCells); }
+    // A vertex-only grid has no surface to extract. Preserve its cells and
+    // attributes, and draw the original points instead of an empty shell.
+    if (onlyVertexCells && mesh->GetNumberOfCells() == CellNum) {
+        mesh->SetShellRenderingOption(false);
+        mesh->SetViewStyle(IG_POINTS);
+    }
     _mesh = mesh;
 }
 

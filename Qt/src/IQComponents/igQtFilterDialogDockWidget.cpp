@@ -300,3 +300,9 @@ int igQtFilterDialogDockWidget::addParameter(QLabel* label, QWidget* value) {
 
     return index++;
 }
+
+int igQtFilterDialogDockWidget::addRowWidget(QWidget* rowWidget) {
+    // 跨两列追加一行（不登记 itemMap，纯界面扩展，不影响 getDouble 等取值接口）
+    gridLayout->addWidget(rowWidget, index, 0, 1, 2);
+    return index++;
+}

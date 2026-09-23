@@ -151,27 +151,41 @@ QString igQtChatManager::getPythonPath() const
 
 QString igQtChatManager::getDefaultMcpPath() const
 {
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString mcpPath = QDir(appDir).filePath("../../../ThirdParty/MCP");
-    return QDir::cleanPath(mcpPath);
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    const QStringList candidates{
+        appDir.filePath("Resources/MCP"),
+        appDir.filePath("ThirdParty/MCP"),
+        appDir.filePath("../Resources/MCP"),
+        appDir.filePath("../../../ThirdParty/MCP")
+    };
+    for (const QString& candidate : candidates) {
+        if (QFile::exists(QDir(candidate).filePath("iGameVis_Chat.py"))) {
+            return QDir::cleanPath(candidate);
+        }
+    }
+    return QDir::cleanPath(candidates.last());
 }
 
 QString igQtChatManager::getDefaultPythonPath() const
 {
-    // 获取 MCP 文件夹路径
-    QString mcpPath = m_mcpPath;
-    if (mcpPath.isEmpty()) {
-        mcpPath = getDefaultMcpPath();
-    }
-    
-    // Python 就在 MCP 文件夹下的 .venv 虚拟环境中
+    const QDir mcpDir(m_mcpPath.isEmpty() ? getDefaultMcpPath() : m_mcpPath);
 #ifdef Q_OS_WIN
-    QString pythonPath = QDir(mcpPath).filePath(".venv/Scripts/python.exe");
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    const QStringList candidates{
+        mcpDir.filePath("python/python.exe"),
+        mcpDir.filePath(".venv/Scripts/python.exe"),
+        appDir.filePath("runtime/python/python.exe"),
+        appDir.filePath("../runtime/python/python.exe")
+    };
+    for (const QString& candidate : candidates) {
+        if (QFile::exists(candidate)) {
+            return QDir::cleanPath(candidate);
+        }
+    }
+    return QDir::cleanPath(mcpDir.filePath(".venv/Scripts/python.exe"));
 #else
-    QString pythonPath = QDir(mcpPath).filePath(".venv/bin/python");
+    return QDir::cleanPath(mcpDir.filePath(".venv/bin/python"));
 #endif
-    
-    return QDir::cleanPath(pythonPath);
 }
 
 void igQtChatManager::sendMessage(const QJsonObject& message)
