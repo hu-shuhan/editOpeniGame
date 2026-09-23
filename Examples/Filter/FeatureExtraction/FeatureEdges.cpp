@@ -13,6 +13,7 @@ namespace {
 struct FeatureEdgesTestCase {
     const char* name;
     const char* fileName;
+    bool expectSurfaceMesh;
     std::size_t expectedEdgeCount;
 };
 
@@ -54,6 +55,14 @@ bool RunFeatureEdgesTest(
             std::cerr
                 << "Please extract the surface mesh first."
                 << std::endl;
+
+            if (!testCase.expectSurfaceMesh) {
+                std::cout
+                    << "Expected volume/unstructured input rejection: "
+                    << "please extract the surface mesh first."
+                    << std::endl;
+                return true;
+            }
         }
         else {
             std::cerr
@@ -193,12 +202,20 @@ int main() {
         {
             "FeatureEdges_Cube",
             "./Models/FeatureEdges_Cube.vtk",
+            true,
             12
         },
         {
             "FeatureEdges_NonManifold",
             "./Models/FeatureEdges_NonManifold.vtk",
+            true,
             7
+        },
+        {
+            "FeatureEdges_Quad_Bicycle_VolumeInput",
+            "./Models/Quad_Bicycle.vtk",
+            false,
+            0
         }
     };
 
