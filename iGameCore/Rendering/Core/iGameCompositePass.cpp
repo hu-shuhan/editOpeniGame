@@ -80,32 +80,23 @@ bool iGameCompositePass::Composite() {
                   return a < b; // 确定性兜底
               });
 
-    m_RankBlockOrder.resize(static_cast<size_t>(size));
-    for (int i = 0; i < size; ++i) {
-        m_RankBlockOrder[static_cast<size_t>(m_SortOrder[i])] = i;
-    }
-
-    // 3) Gather 各 rank 的 RGBA 与深度到 rank 0。
+    // 3) Gather 各 rank 的 RGBA 到 rank 0（blend 合成不需要深度）。
     const int pixelCount = width * height;
     const int rgbaCount = pixelCount * 4; // 每 rank 的字节数
-    const int depthCount = pixelCount;    // 每 rank 的 float 数
 
     std::vector<unsigned char> allRGBA;
-    std::vector<float> allDepth;
     if (isRoot) {
         allRGBA.resize(static_cast<size_t>(rgbaCount) * size);
-        allDepth.resize(static_cast<size_t>(depthCount) * size);
     }
 
     ctx->Gather(reinterpret_cast<const char*>(m_LocalRGBA.data()),
                 reinterpret_cast<char*>(allRGBA.data()), rgbaCount, 0);
-    ctx->Gather(m_LocalDepth.data(), allDepth.data(), depthCount, 0);
 
-    // 4) rank 0 逐像素深度排序 + front-to-back 合成。
+    // 4) rank 0 按超块全局深度顺序 front-to-back 合成。
     if (isRoot) {
         m_ResultWidth = width;
         m_ResultHeight = height;
-        CompositeOnRoot(size, allRGBA, allDepth);
+        CompositeOnRoot(size, allRGBA);
     } else {
         m_ResultWidth = width;
         m_ResultHeight = height;
@@ -116,43 +107,23 @@ bool iGameCompositePass::Composite() {
 }
 
 void iGameCompositePass::CompositeOnRoot(
-        int size, const std::vector<unsigned char>& allRGBA,
-        const std::vector<float>& allDepth) {
+        int size, const std::vector<unsigned char>& allRGBA) {
     const int n = m_Width * m_Height;
     m_ResultRGBA.assign(static_cast<size_t>(n) * 4, 0);
-    m_PixelOrder.resize(static_cast<size_t>(size));
 
     auto toUChar = [](float v) {
         const float c = std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f;
         return static_cast<unsigned char>(c);
     };
 
+    // 块级有序合成（front-to-back "over"，预乘 alpha）：
+    // m_SortOrder 已是「近→远」的全局超块序（Composite() 里由 AllGather 块深度算出，所有 rank 一致）。
+    // 超块空间互不重叠且可全局排序，因此按块序 over 即等价于正确合成，无需逐像素深度排序，
+    // 也不需要深度缓冲（对标 IceT 有序 BLEND 的 ICET_IMAGE_DEPTH_NONE）。
     for (int p = 0; p < n; ++p) {
-        // 初始化并选择排序：深度大（近）优先，深度相同时按超块全局顺序 + rank 兜底。
-        for (int r = 0; r < size; ++r) { m_PixelOrder[r] = r; }
-        for (int i = 0; i < size; ++i) {
-            int best = i;
-            for (int j = i + 1; j < size; ++j) {
-                const int rj = m_PixelOrder[j];
-                const int rb = m_PixelOrder[best];
-                const float dj =
-                        allDepth[static_cast<size_t>(rj) * n + p];
-                const float db =
-                        allDepth[static_cast<size_t>(rb) * n + p];
-                if (dj > db ||
-                    (dj == db &&
-                     m_RankBlockOrder[static_cast<size_t>(rj)] <
-                             m_RankBlockOrder[static_cast<size_t>(rb)])) {
-                    best = j;
-                }
-            }
-            if (best != i) { std::swap(m_PixelOrder[i], m_PixelOrder[best]); }
-        }
-
-        // front-to-back "over"（预乘 alpha）。
         float c0 = 0.0f, c1 = 0.0f, c2 = 0.0f, a = 0.0f;
         for (int i = 0; i < size && a < 0.999f; ++i) {
-            const int r = m_PixelOrder[i];
+            const int r = m_SortOrder[static_cast<size_t>(i)];
             const size_t base =
                     static_cast<size_t>(r) * n * 4 + static_cast<size_t>(p) * 4;
             const float fragA = static_cast<float>(allRGBA[base + 3]) / 255.0f;

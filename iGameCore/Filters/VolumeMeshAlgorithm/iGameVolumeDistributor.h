@@ -65,6 +65,8 @@ public:
 
     /** 全局分块数 N。 */
     int GetNumberOfPieces() const { return static_cast<int>(m_Pieces.size()); }
+    /** 全局分块总数 N（内存级与文件级两条路径都有效）。用于判断「整个数据集是否单块」。 */
+    int GetTotalPieceCount() const { return m_TotalPieces; }
     /** 本 rank 分到的分块数。 */
     int GetNumberOfLocalPieces() const {
         return static_cast<int>(m_LocalIndices.size());
@@ -106,6 +108,7 @@ protected:
     Block m_LocalBlock;               // 本 rank 的空间超块（文件级路径）
     BoundingBox m_LocalBounds;
     DataObject::Pointer m_Input{nullptr};
+    int m_TotalPieces{0};             // 全局分块总数（两条路径都设）
 };
 
 IGAME_NAMESPACE_END

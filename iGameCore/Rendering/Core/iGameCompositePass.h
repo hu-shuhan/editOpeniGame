@@ -17,9 +17,10 @@ IGAME_NAMESPACE_BEGIN
  *
  *   1. 每 rank 上报自己超块中心沿相机方向的深度（AllGather 得到全局排序顺序，对标
  *      vtkOrderedCompositingHelper::ComputeSortOrder）；
- *   2. 所有 rank 的图像与深度 Gather 到 rank 0（MPI_Gather）；
- *   3. rank 0 对每个像素按深度从近到远排序，做 front-to-back "over" 合成（预乘 alpha），
- *      最后叠到背景色上得到不透明结果。
+ *   2. 所有 rank 的 RGBA 图像 Gather 到 rank 0（MPI_Gather）；
+ *   3. rank 0 按「超块深度全局顺序（近→远）」做 front-to-back "over" 合成（预乘 alpha），
+ *      最后叠到背景色上得到不透明结果。blend 合成不需要深度缓冲（对标 IceT 有序 BLEND
+ *      的 ICET_IMAGE_DEPTH_NONE）。
  *
  *  关键正确性前提（对标 TestPVolumeRender）：所有 rank 必须使用同一相机 + 同一全局
  *  裁剪范围 + 同一传输函数标量范围，否则各 rank 深度不可直接比较、合成会错。
@@ -34,6 +35,7 @@ public:
      * 设置本 rank 渲染出的局部图像。
      * @param rgba 预乘 alpha 的 RGBA8，长度 width*height*4。
      * @param depth reversed-z 深度（near=1.0，far=0.0），长度 width*height。
+     *        目前仅保留（供将来 z-buffer/调试），blend 合成不消费它。
      */
     void SetLocalImage(int width, int height,
                        const std::vector<unsigned char>& rgba,
@@ -74,8 +76,7 @@ protected:
     ~iGameCompositePass() override = default;
 
 private:
-    void CompositeOnRoot(int size, const std::vector<unsigned char>& allRGBA,
-                         const std::vector<float>& allDepth);
+    void CompositeOnRoot(int size, const std::vector<unsigned char>& allRGBA);
 
     int m_Width{0};
     int m_Height{0};
@@ -85,8 +86,6 @@ private:
     float m_Background[3]{0.0f, 0.0f, 0.0f};
 
     std::vector<int> m_SortOrder;      // 全局排序（近 -> 远），所有 rank 一致
-    std::vector<int> m_RankBlockOrder; // rank -> 在 m_SortOrder 中的位置
-    std::vector<int> m_PixelOrder;     // 每像素复用的排序缓冲（size 个 rank 下标）
     int m_ResultWidth{0};
     int m_ResultHeight{0};
     std::vector<unsigned char> m_ResultRGBA; // 仅 rank 0

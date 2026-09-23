@@ -23,15 +23,15 @@
 //        uint32 magic    = 0x50564631 ("PVF1")
 //        int32  width
 //        int32  height
-//        int32  codec    = 0（raw RGBA8）
+//        int32  codec    = 0（raw RGBA8）/ 1（zlib 压缩 RGBA8）
 //        uint32 seq      = 触发本帧的 INTERACT 命令 seq（初始帧/无命令 = 0）
 //        int32  payloadSize = width*height*4
 //        uint8  payload[payloadSize]   // 不透明 RGBA8（合成结果，已叠背景色）
 //
-// 说明：当前帧走 raw RGBA8（实现最小、无编解码依赖，便于先对齐正确性）。若 compute->
-// login 链路带宽成为瓶颈，可仿照参考实现改为 PNG 压缩（server 用 stb_image_write 编码、
-// client 用 stb_image 解码），协议仅需把 codec 置 1 并在 payload 里放 PNG 字节流，帧头
-// 布局保持不变。
+// 说明：codec=0 走 raw RGBA8（实现最小）；codec=1 走 zlib(compress2) 压缩的 RGBA8，服务端
+// 压缩后更小才用 codec=1，否则退回 codec=0；客户端按 codec 用 uncompress 解压。帧头布局
+// 保持不变。若将来需要更高压缩比，可再引入 PNG（server 用 stb_image_write、client 用
+// stb_image），协议仅需新增 codec 值即可。
 
 #include <algorithm>
 #include <cstdint>
@@ -88,6 +88,7 @@ inline constexpr std::uint32_t kFrameMagic = 0x50564631u;     // "PVF1"
 inline constexpr int kColorbarSize = 256;                    // colorbar ramp 的像素数
 inline constexpr int kColorbarBytes = kColorbarSize * 4;      // RGBA8
 inline constexpr std::uint32_t kCodecRawRGBA = 0;             // 帧编码：raw RGBA8
+inline constexpr std::uint32_t kCodecZlib = 1;                // 帧编码：zlib(compress2) 压缩的 RGBA8
 
 // 元数据（握手）二进制长度：magic + width + height + scalarMin/Max + colorbar。
 inline constexpr std::size_t kMetadataBytes =
@@ -311,31 +312,41 @@ inline bool RecvMetadata(PVSocket s, Metadata& meta) {
     return true;
 }
 
-// 发送一帧 raw RGBA8（server -> client）。seq 为触发本帧的 INTERACT 命令序号
-// （用于客户端 RTT 测量；初始帧/无命令时传 0）。
-inline bool SendFrame(PVSocket s, int width, int height,
-                      const unsigned char* rgba, std::uint32_t seq) {
+// 发送一帧（通用）：codec 指明 payload 编码，payload 为已编码字节。
+inline bool SendFramePayload(PVSocket s, int width, int height,
+                             std::uint32_t codec, const void* payload,
+                             std::int32_t payloadSize, std::uint32_t seq) {
     const std::uint32_t magic = kFrameMagic;
     const std::int32_t w = width;
     const std::int32_t h = height;
-    const std::int32_t codec = static_cast<std::int32_t>(kCodecRawRGBA);
-    const std::int32_t payloadSize = width * height * 4;
+    const std::int32_t c = static_cast<std::int32_t>(codec);
+    const std::int32_t ps = payloadSize;
 
     if (!SendAll(s, &magic, sizeof(magic))) { return false; }
     if (!SendAll(s, &w, sizeof(w))) { return false; }
     if (!SendAll(s, &h, sizeof(h))) { return false; }
-    if (!SendAll(s, &codec, sizeof(codec))) { return false; }
+    if (!SendAll(s, &c, sizeof(c))) { return false; }
     if (!SendAll(s, &seq, sizeof(seq))) { return false; }
-    if (!SendAll(s, &payloadSize, sizeof(payloadSize))) { return false; }
-    return SendAll(s, rgba, static_cast<std::size_t>(payloadSize));
+    if (!SendAll(s, &ps, sizeof(ps))) { return false; }
+    if (ps <= 0) { return true; }
+    return SendAll(s, payload, static_cast<std::size_t>(ps));
+}
+
+// 发送一帧 raw RGBA8（codec=0）。
+inline bool SendFrame(PVSocket s, int width, int height,
+                      const unsigned char* rgba, std::uint32_t seq) {
+    return SendFramePayload(s, width, height, kCodecRawRGBA, rgba,
+                            static_cast<std::int32_t>(width) * height * 4, seq);
 }
 
 // 帧（client 端解析结果）。
 struct Frame {
     int width{0};
     int height{0};
-    std::uint32_t seq{0}; // 触发本帧的 INTERACT 命令 seq（0 = 无命令/初始帧）
-    std::vector<unsigned char> rgba;
+    std::uint32_t seq{0};               // 触发本帧的 INTERACT 命令 seq（0 = 无命令/初始帧）
+    std::uint32_t codec{kCodecRawRGBA}; // 帧编码（0=raw RGBA8，1=zlib 压缩）
+    std::vector<unsigned char> payload; // 原始 payload 字节
+    std::vector<unsigned char> rgba;    // 解码后的 RGBA8（客户端解码后填充）
 };
 
 // 从字节流解析一帧；返回 0=成功，1=缓冲不足（需更多数据），-1=格式错误需重对齐。
@@ -366,9 +377,11 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
         payloadSize < 0 || payloadSize > 512 * 1024 * 1024) {
         return -1;
     }
-    if (codec != static_cast<std::int32_t>(kCodecRawRGBA)) {
-        // 未知 codec：仍按 raw RGBA8 解析（向前兼容）。
+    if (codec == static_cast<std::int32_t>(kCodecRawRGBA)) {
+        // raw RGBA8：payload 长度必须严格等于 w*h*4。
         if (payloadSize != w * h * 4) { return -1; }
+    } else if (codec != static_cast<std::int32_t>(kCodecZlib)) {
+        return -1; // 未知 codec
     }
     if (buf.size() - offset - kFrameHeaderBytes <
         static_cast<std::size_t>(payloadSize)) {
@@ -378,8 +391,10 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
     out.width = w;
     out.height = h;
     out.seq = seq;
-    out.rgba.assign(buf.data() + offset + kFrameHeaderBytes,
-                    buf.data() + offset + kFrameHeaderBytes + payloadSize);
+    out.codec = static_cast<std::uint32_t>(codec);
+    out.payload.assign(buf.data() + offset + kFrameHeaderBytes,
+                       buf.data() + offset + kFrameHeaderBytes + payloadSize);
+    out.rgba.clear();
     consumed = kFrameHeaderBytes + static_cast<std::size_t>(payloadSize);
     return 0;
 }

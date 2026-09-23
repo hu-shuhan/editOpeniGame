@@ -330,6 +330,7 @@ bool iGameVolumeDistributor::ComputeDistribution() {
     });
 
     const int n = static_cast<int>(m_Pieces.size());
+    m_TotalPieces = n;
     if (n < 1) { return false; }
 
     // 约束（对标 TestPVolumeRender）：进程数不能超过分块数，否则部分 rank 空跑，
@@ -409,6 +410,7 @@ bool iGameVolumeDistributor::ComputeFileDistribution(const std::string& inputPat
     BroadcastRawPieces(raw, 0);
 
     const int n = static_cast<int>(raw.size());
+    m_TotalPieces = n;
     if (n < 1) {
         if (rank == 0) { std::cerr << "Distribution failed: no pieces.\n"; }
         return false;

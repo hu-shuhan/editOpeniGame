@@ -27,12 +27,14 @@
 #include "iGameVolumeTransferFunction.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <zlib.h>
 
 namespace iGamePVServer {
 
@@ -241,10 +243,12 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         const igm::mat4 proj = camera->GetProjectionMatrix();
         std::vector<unsigned char> rgba;
         std::vector<float> depth;
+        const auto tRender0 = std::chrono::steady_clock::now();
         rayCaster->Render(view, proj, modelMatrix,
                           igm::uvec2{static_cast<unsigned>(width),
                                      static_cast<unsigned>(height)},
                           rgba, depth);
+        const auto tRender1 = std::chrono::steady_clock::now();
 
         // 分布式深度有序合成。
         auto composite = iGame::iGameCompositePass::New();
@@ -252,16 +256,42 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        if (!composite->Composite()) {
+        const auto tComposite0 = std::chrono::steady_clock::now();
+        const bool compositeOk = composite->Composite();
+        const auto tComposite1 = std::chrono::steady_clock::now();
+        if (!compositeOk) {
             if (rank == 0) { std::cerr << "[server] composite failed\n"; }
             return false;
         }
 
-        // rank 0 发送合成图；其余 rank 无事可做。
+        // rank 0 发送合成图（zlib 压缩优先，压缩后更小才用压缩帧）；其余 rank 无事可做。
         if (rank == 0) {
             const auto& result = composite->GetResultRGBA();
-            return iGamePVNet::SendFrame(clientSock, width, height,
-                                         result.data(), frameSeq);
+            const auto tSend0 = std::chrono::steady_clock::now();
+            const std::int32_t rawSize = width * height * 4;
+            std::vector<unsigned char> comp;
+            bool sent = false;
+            // compressBound 给出最坏上界；压缩后更小才用 codec=1，否则退回 raw（codec=0）。
+            uLongf compLen = compressBound(static_cast<uLong>(rawSize));
+            comp.resize(static_cast<std::size_t>(compLen));
+            if (compress2(comp.data(), &compLen, result.data(),
+                          static_cast<uLong>(rawSize), Z_BEST_SPEED) == Z_OK &&
+                static_cast<std::int32_t>(compLen) < rawSize) {
+                sent = iGamePVNet::SendFramePayload(
+                        clientSock, width, height, iGamePVNet::kCodecZlib,
+                        comp.data(), static_cast<std::int32_t>(compLen), frameSeq);
+            } else {
+                sent = iGamePVNet::SendFrame(clientSock, width, height,
+                                             result.data(), frameSeq);
+            }
+            const auto tSend1 = std::chrono::steady_clock::now();
+            auto ms = [](auto a, auto b) {
+                return std::chrono::duration<double, std::milli>(b - a).count();
+            };
+            std::cerr << "[server] render=" << ms(tRender0, tRender1)
+                      << "ms composite=" << ms(tComposite0, tComposite1)
+                      << "ms send=" << ms(tSend0, tSend1) << "ms\n";
+            return sent;
         }
         return true;
     };

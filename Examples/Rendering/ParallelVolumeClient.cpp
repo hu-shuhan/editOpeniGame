@@ -37,6 +37,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <zlib.h>
 
 using namespace iGameVolInteractive; // 复用阶段 5 的显示辅助（InitDisplay/DrawColorBar/...）
 
@@ -264,6 +265,21 @@ int main(int argc, char** argv) {
             const int rc = iGamePVNet::ParseFrame(rxBuf, off, f, consumed);
             if (rc == 1) { break; }      // 缓冲不足，等更多数据
             if (rc == -1) { off += 1; continue; } // 失步，丢 1 字节重对齐
+            // rc == 0：把 payload 解码为 rgba（codec=1 为 zlib 压缩，codec=0 为 raw）。
+            if (f.codec == iGamePVNet::kCodecZlib) {
+                std::vector<unsigned char> dec(
+                        static_cast<std::size_t>(f.width) * f.height * 4);
+                uLongf destLen = static_cast<uLongf>(dec.size());
+                const int zr = uncompress(dec.data(), &destLen, f.payload.data(),
+                                          static_cast<uLong>(f.payload.size()));
+                if (zr != Z_OK || destLen != dec.size()) {
+                    off += consumed;   // 解压失败：丢弃本帧，保留上一帧
+                    continue;
+                }
+                f.rgba = std::move(dec);
+            } else {
+                f.rgba = std::move(f.payload);
+            }
             off += consumed;
             lastFrame = std::move(f);
             hasFrame = true;

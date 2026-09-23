@@ -451,7 +451,9 @@ int main(int argc, char** argv) {
     const std::string selectedField(fieldBuf);
 
     // 3. 每个 rank 只读自己分到的分块（对标 DataDistribution：rank 只读 localFiles），
-    //    合并成本地 composite。单块 StructuredMesh 直接复用，否则重采样。
+    //    合并成本地 composite。仅当「整个数据集是单块」且该单块是 StructuredMesh 时直接复用；
+    //    多块数据（GetTotalPieceCount() > 1）时每个 rank 一律走下方重采样（避免对原始全分辨率
+    //    分块直接光线步进）。
     StructuredMesh::Pointer volume = nullptr;
     UnsignedCharArray::Pointer validMask = nullptr; // 重采样产物的无效点 mask（CPU 后端用）
     DataObject::Pointer localComposite = nullptr;
@@ -469,7 +471,7 @@ int main(int argc, char** argv) {
         }
         localComposite = composite;
 
-        if (nLocalFiles == 1) {
+        if (distributor->GetTotalPieceCount() == 1) {
             auto it = localComposite->SubDataObjectIteratorBegin();
             if (it != localComposite->SubDataObjectIteratorEnd()) {
                 volume = DynamicCast<StructuredMesh>(it->second);
@@ -484,7 +486,32 @@ int main(int argc, char** argv) {
         auto resampler = iGameVolumeResampleFilter::New();
         resampler->SetInput(localComposite);
         resampler->SetFieldName(selectedField);
-        resampler->SetTargetDims(resPerChunk, resPerChunk, resPerChunk);
+        // 目标分辨率按超块各轴块数缩放（对标文档 §5.4：resPerChunk × 各轴块数）。
+        // 只有 k-d 路径（完整规则网格）时 GetLocalBlock() 有效；否则回退为 1×1×1。
+        const auto blk = distributor->GetLocalBlock();
+        int bcx = blk.ix1 - blk.ix0 + 1;
+        int bcy = blk.iy1 - blk.iy0 + 1;
+        int bcz = blk.iz1 - blk.iz0 + 1;
+        if (bcx < 1) { bcx = 1; }
+        if (bcy < 1) { bcy = 1; }
+        if (bcz < 1) { bcz = 1; }
+        int tni = resPerChunk * bcx;
+        int tnj = resPerChunk * bcy;
+        int tnk = resPerChunk * bcz;
+        // 护栏：体素总数上限 512^3，避免单 rank 分到过多 chunk 时 OOM。
+        const long long kMaxVoxels = 512LL * 512 * 512;
+        const long long vox = static_cast<long long>(tni) * tnj * tnk;
+        if (vox > kMaxVoxels) {
+            const double s = std::cbrt(static_cast<double>(kMaxVoxels) / static_cast<double>(vox));
+            tni = std::max(2, static_cast<int>(static_cast<double>(tni) * s));
+            tnj = std::max(2, static_cast<int>(static_cast<double>(tnj) * s));
+            tnk = std::max(2, static_cast<int>(static_cast<double>(tnk) * s));
+            if (rank == 0) {
+                std::cerr << "[resample] target clamped to " << tni << 'x' << tnj
+                          << 'x' << tnk << " (voxel cap " << kMaxVoxels << ").\n";
+            }
+        }
+        resampler->SetTargetDims(tni, tnj, tnk);
         if (!resampler->Execute()) {
             if (rank == 0) { std::cerr << "Resample failed.\n"; }
             ParallelContext::Finalize();
