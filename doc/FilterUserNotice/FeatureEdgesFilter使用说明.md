@@ -48,12 +48,14 @@ auto output = filter->GetOutput();
 ```text
 ./Models/FeatureEdges_Cube.vtk
 ./Models/FeatureEdges_NonManifold.vtk
+./Models/Quad_Bicycle.vtk
 ```
 
 其中：
 
 - `FeatureEdges_Cube.vtk` 为立方体表面模型，默认提取出 12 条特征边；
 - `FeatureEdges_NonManifold.vtk` 为三个三角面共用一条边的非流形模型，默认提取出 6 条边界边和 1 条非流形边，共 7 条边。
+- `Quad_Bicycle.vtk` 为体/非结构网格，直接输入时会被拒绝，并提示先提取表面网格。
 
 编译并运行：
 
