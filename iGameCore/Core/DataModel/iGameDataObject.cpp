@@ -215,7 +215,12 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
     if (m_SubDataObjectsHelper == nullptr) return false;
     auto attributes = this->GetAttributeSet()->GetAllAttributes();
     for (IGsize k = 0; k < attributes->GetNumberOfElements(); k++) {
-        double dataRange_max[64]{DBL_MIN}, dataRange_min[64]{DBL_MAX};
+        // 注意：不能写成 double dataRange_min[64]{DBL_MAX} —— 花括号初始化只会给第 0 个元素赋值，
+        // 其余元素被零初始化，聚合时 min 会从 0 开始，导致分量范围被算成 [0, max]。
+        double dataRange_max[64];
+        double dataRange_min[64];
+        std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
+        std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
         auto par_attr = attributes->GetElement(k);
         if (!par_attr.pointer) continue;
         // 锁定属性：父容器保持固定范围，不被子对象按当帧数据聚合覆盖

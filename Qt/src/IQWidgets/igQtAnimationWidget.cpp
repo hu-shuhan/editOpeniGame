@@ -27,143 +27,8 @@
 #include <iGameProgressObserver.h>
 #include <iGameAttributeSet.h>
 #include <iGameDrawObject.h>
-#include <iGameScalarsToColors.h>
 #include <algorithm>
 #include <iostream>
-#include <limits>
-
-namespace {
-// 读某个属性集里指定属性、指定显示维度的范围；无效（缺失/退化/DBL_MIN 哨兵）返回 false。
-// 成功时 outRange 会带回承载该范围的数组，供后续把权威值共享给其它对象使用。
-bool ReadAttributeRange(iGame::AttributeSet* attributeSet, const std::string& name, int dimension,
-                        double& minValue, double& maxValue, iGame::DoubleArray::Pointer* outRange) {
-    if (attributeSet == nullptr || name.empty()) { return false; }
-    const int index = attributeSet->GetAttributeIndex(name);
-    if (index < 0) { return false; }
-    auto dataRange = attributeSet->GetAttribute(index).GetDataRange();
-    if (!dataRange) { return false; }
-    // dataRange 布局：元素 0/1 = 模长，元素 2+2*i / 3+2*i = 第 i 个分量；dimension=-1 表示模长
-    int element = dimension + 1;
-    if (element < 0 || element >= static_cast<int>(dataRange->GetNumberOfElements())) { element = 0; }
-    const double lo = dataRange->GetValue(2 * element);
-    const double hi = dataRange->GetValue(2 * element + 1);
-    if (!(hi > lo)) { return false; }                                   // 退化范围
-    if (hi == std::numeric_limits<double>::min()) { return false; }      // 未初始化哨兵
-    minValue = lo;
-    maxValue = hi;
-    if (outRange) { *outRange = dataRange; }
-    return true;
-}
-
-// 把“权威范围”显式写进共享 ColorMapper。
-void ApplyAuthoritativeRangeToMapper(iGame::DrawObject* drawObject) {
-    if (drawObject == nullptr) { return; }
-    const int attributeIndex = drawObject->GetAttributeIndex();
-    const int dimension = drawObject->GetAttributeDimension();
-    auto* attributeSet = drawObject->GetAttributeSet();
-    if (attributeIndex < 0 || attributeSet == nullptr) { return; }
-    if (static_cast<int>(attributeSet->GetNumberOfAttributes()) <= attributeIndex) { return; }
-    auto& attribute = attributeSet->GetAttribute(attributeIndex);
-    if (!attribute.pointer) { return; }
-    const std::string attributeName = attribute.pointer->GetName();
-
-    double minValue = 0.0;
-    double maxValue = 0.0;
-    bool found = false;
-    iGame::DoubleArray::Pointer authoritativeRange;
-    auto consider = [&](iGame::AttributeSet* set) {
-        double lo = 0.0;
-        double hi = 0.0;
-        iGame::DoubleArray::Pointer dataRange;
-        if (!ReadAttributeRange(set, attributeName, dimension, lo, hi, &dataRange)) { return; }
-        if (!authoritativeRange && dataRange) { authoritativeRange = dataRange; }
-        if (!found) {
-            minValue = lo;
-            maxValue = hi;
-            found = true;
-        } else {
-            minValue = std::min(minValue, lo);
-            maxValue = std::max(maxValue, hi);
-        }
-    };
-
-    // 数据层权威来源：父容器 + 本帧挂载的子块（与 ReCollect 的聚合语义一致）。
-    // 父容器在 MultiSubFiles 下可能是占位属性（范围无效），所以必须把子块算进来取并集。
-    consider(attributeSet);
-    const bool hasSubDataObject = drawObject->HasSubDataObject();
-    if (hasSubDataObject) {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); ++it) {
-            auto subObject = iGame::DynamicCast<iGame::DataObject>(it->second);
-            if (subObject) { consider(subObject->GetAttributeSet()); }
-        }
-    }
-    // 兜底：若父子属性都拿不到有效范围，再退到抽壳/简化网格自己的属性集
-    if (!found) {
-        if (auto renderable = drawObject->GetRenderableObject()) {
-            consider(renderable->GetAttributeSet());
-        }
-        if (hasSubDataObject) {
-            for (auto it = drawObject->SubDataObjectIteratorBegin();
-                 it != drawObject->SubDataObjectIteratorEnd(); ++it) {
-                auto subDrawObject = iGame::DynamicCast<iGame::DrawObject>(it->second);
-                if (!subDrawObject) { continue; }
-                if (auto renderable = subDrawObject->GetRenderableObject()) {
-                    consider(renderable->GetAttributeSet());
-                }
-            }
-        }
-    }
-    if (!found || !(maxValue > minValue)) {
-        return;
-    }
-
-    // 把权威值写回数据层，并让参与本帧绘制的对象共享这一份范围数组。
-    // 抽壳/简化网格用自己子集数据算出的范围（例如 196 vs 全局 779）就是在这里被消掉的。
-    const int element = (dimension + 1) < 0 ? 0 : (dimension + 1);
-    const int pairs = element + 1;   // 需要覆盖到本维度元素数
-    if (authoritativeRange) {
-        if (static_cast<int>(authoritativeRange->GetNumberOfElements()) < pairs) {
-            authoritativeRange->Resize(pairs);
-        }
-        authoritativeRange->SetElement(element, {minValue, maxValue});
-        authoritativeRange->Modified();
-
-        auto shareRange = [&](iGame::DataObject* target) {
-            if (target == nullptr) { return; }
-            auto* targetAttributes = target->GetAttributeSet();
-            if (targetAttributes == nullptr) { return; }
-            const int targetIndex = targetAttributes->GetAttributeIndex(attributeName);
-            if (targetIndex < 0) { return; }
-            targetAttributes->GetAttribute(targetIndex).dataRange = authoritativeRange;
-        };
-        shareRange(drawObject);
-        if (hasSubDataObject) {
-            for (auto it = drawObject->SubDataObjectIteratorBegin();
-                 it != drawObject->SubDataObjectIteratorEnd(); ++it) {
-                auto subObject = iGame::DynamicCast<iGame::DataObject>(it->second);
-                if (subObject) { shareRange(subObject); }
-                auto subDrawObject = iGame::DynamicCast<iGame::DrawObject>(it->second);
-                if (subDrawObject) {
-                    if (auto subRenderable = subDrawObject->GetRenderableObject()) {
-                        shareRange(subRenderable);
-                    }
-                    if (auto subSimplified = subDrawObject->GetRenderableObject(true)) {
-                        shareRange(subSimplified);
-                    }
-                }
-            }
-        }
-        if (auto renderable = drawObject->GetRenderableObject()) { shareRange(renderable); }
-        if (auto simplified = drawObject->GetRenderableObject(true)) { shareRange(simplified); }
-    }
-
-    auto mapper = drawObject->GetColorMapper();
-    if (!mapper) { return; }
-    mapper->SetRange(minValue, maxValue);
-    mapper->Modified();
-}
-}  // namespace
 
 /**
  * @class   igQtAnimationWidget
@@ -595,10 +460,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         if(!deformFilter->Execute()) std::cout << " deformation error \n";
     }
 
-    // 本帧强制重建/转换全部结束后，由数据层把权威范围写进共享 mapper，
-    // 避免抽壳/简化网格抢先写入偏小的范围
-    ApplyAuthoritativeRangeToMapper(displayDrawObject);
-
     currentScene->DoneCurrent();
 
     // Single render pass - ConvertToDrawableData should NOT run again
@@ -790,8 +651,6 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         displayDrawObject->ViewCloudPicture(
                 currentScene, displayDrawObject->GetAttributeIndex());
     }
-    // 插值路径同样在帧处理末尾写一次权威范围
-    ApplyAuthoritativeRangeToMapper(displayDrawObject);
     currentScene->DoneCurrent();
 
     // Update comboBoxCurrentAnimation for interpolation (block signals to avoid recursion)
