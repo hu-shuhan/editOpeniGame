@@ -55,6 +55,15 @@ int main(int argc,char** argv) {
         const QStringList panelIds={"count_cell_vertices","extract_edges","global_point_and_cell_ids",
             "point_and_cell_ids","process_ids","axis_aligned_reflection","extract_component",
             "merge_vector_components","resample_to_image","resample_to_line","triangle_strips"};
+        // Regression (b23c0dbb): removing unfinished filter implementations also
+        // removed their menu actions. Keep both actions visible so they use the
+        // standard "not integrated" message until their algorithms are ready.
+        // Fix commit: Restore unfinished filter menu actions; find it with
+        // git log --format="%h %s" -- Examples/Filter/StandardFiltersMenuValidation.cpp
+        for (const auto& id : {"feature_edges_region_ids", "point_set_to_octree_image"}) {
+            Check(window.findChild<QAction*>(QStringLiteral("action_filter_") + id),
+                  "unfinished filter action disappeared from the menu");
+        }
         // Dismiss unexpected modal error dialogs and fail instead of hanging.
         bool unexpectedDialog=false;
         QTimer guard;
