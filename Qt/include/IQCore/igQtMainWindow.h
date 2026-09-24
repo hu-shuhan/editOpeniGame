@@ -69,6 +69,7 @@ public:
     void initAllDockWidgetConnectWithAction();
     void initAllMySignalConnections();
     void initAllFilters();
+    bool connectImportedFilterAction(QAction* action, const QString& filterId);
     void initAllSources();
     void initAllInteractor();
     void initArgs(const QStringList& args);
