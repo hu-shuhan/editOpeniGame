@@ -16,7 +16,34 @@
 #include "iGameFileIO.h"
 #include <iostream>
 #include <filesystem>
+
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
+
+namespace {
+void DisableReleaseConsoleQuickEdit()
+{
+#if defined(_WIN32) && defined(NDEBUG)
+    const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
+    if (input == nullptr || input == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    DWORD mode = 0;
+    if (!GetConsoleMode(input, &mode)) {
+        return;
+    }
+
+    mode |= ENABLE_EXTENDED_FLAGS;
+    mode &= ~ENABLE_QUICK_EDIT_MODE;
+    SetConsoleMode(input, mode);
+#endif
+}
+}
+
 int main(int argc, char* argv[]) {
+    DisableReleaseConsoleQuickEdit();
 //    iGame::StressDeformationCodeFilter::Pointer filter = iGame::StressDeformationCodeFilter::New();
 //    //    const std::string fileName = "./Models/sukong_Step-1_2.vtu";
 //    // Any Model with Vector Attribute.
