@@ -10,13 +10,10 @@
 #include <IQWidgets/igQtGlobalIdWidget.h>
 #include <IQWidgets/igQtMergeVectorComponentsWidget.h>
 #include <IQWidgets/igQtPointAndCellIdsWidget.h>
-#include <IQWidgets/igQtPointSetToOctreeWidget.h>
 #include <IQWidgets/igQtResampleToImageWidget.h>
 #include <IQWidgets/igQtResampleToLineWidget.h>
 #include <IQWidgets/igQtTriangleStripWidget.h>
 #include <CellSize/iGameCellSizeFilter.h>
-#include <FeatureExtraction/iGameFeatureEdgeRegionFilter.h>
-#include <FeatureExtraction/iGameFeatureEdgesFilter.h>
 #include <iGameScene.h>
 #include <QDockWidget>
 #include <QScrollArea>
@@ -60,10 +57,10 @@ void showFilterPanel(igQtMainWindow* window, const QString& id) {
 
 bool igQtMainWindow::connectImportedFilterAction(QAction* action, const QString& filterId) {
     static const QStringList ids = {
-        "cell_size", "count_cell_vertices", "extract_edges", "feature_edges_region_ids",
+        "cell_size", "count_cell_vertices", "extract_edges",
         "global_point_and_cell_ids", "point_and_cell_ids", "process_ids", "reflect",
         "axis_aligned_reflection", "extract_component", "merge_vector_components",
-        "resample_to_image", "resample_to_line", "triangle_strips", "point_set_to_octree_image"};
+        "resample_to_image", "resample_to_line", "triangle_strips"};
     if (!ids.contains(filterId)) return false;
 
     auto displayResult = [this](DataObject::Pointer output) {
@@ -99,48 +96,6 @@ bool igQtMainWindow::connectImportedFilterAction(QAction* action, const QString&
                 return;
             }
             displayResult(filter->GetOutput());
-            return;
-        }
-        if (id == "feature_edges_region_ids") {
-            auto surface = DynamicCast<SurfaceMesh>(input);
-            if (!surface) {
-                failed(QStringLiteral("请先通过表面提取将模型转换为表面网格。"));
-                return;
-            }
-            auto* dialog = new igQtFilterDialogDockWidget(this, true);
-            dialog->setObjectName(QStringLiteral("standardFilterParameters_feature_edges_region_ids"));
-            dialog->setFilterTitle(title);
-            const int angleId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                       QStringLiteral("特征角度（0–180°）"), "30");
-            dialog->setApplyFunctor([=]() {
-                bool ok = false;
-                const double angle = dialog->getDouble(angleId, ok);
-                if (!ok || !std::isfinite(angle) || angle < 0 || angle > 180) {
-                    failed(QStringLiteral("特征角度必须在 0–180° 之间。"));
-                    return;
-                }
-                auto edges = FeatureEdgesFilter::New();
-                edges->SetInput(surface);
-                edges->SetFeatureAngle(angle);
-                edges->SetBoundaryEdges(true);
-                edges->SetFeatureEdges(true);
-                edges->SetNonManifoldEdges(true);
-                edges->SetManifoldEdges(false);
-                if (!edges->Execute()) {
-                    failed(QStringLiteral("提取特征边失败。"));
-                    return;
-                }
-                auto regions = FeatureEdgeRegionFilter::New();
-                regions->SetInput(0, surface);
-                regions->SetInput(1, edges->GetOutput());
-                if (!regions->Execute()) {
-                    failed(QStringLiteral("生成特征区域 ID 失败。"));
-                    return;
-                }
-                displayResult(regions->GetOutput());
-                dialog->close();
-            });
-            dialog->show();
             return;
         }
         if (id == "count_cell_vertices") {
@@ -202,12 +157,6 @@ bool igQtMainWindow::connectImportedFilterAction(QAction* action, const QString&
             auto* panel = filterPanel<igQtResampleToImageWidget>(this, id, title, [&](auto* p, auto* dock) {
                 connect(p, &igQtResampleToImageWidget::resultReady, this, displayResult);
                 connect(p, &igQtResampleToImageWidget::closeRequested, dock, &QDockWidget::hide);
-            });
-            panel->setCurrentModel(model);
-        } else if (id == "point_set_to_octree_image") {
-            auto* panel = filterPanel<igQtPointSetToOctreeWidget>(this, id, title, [&](auto* p, auto* dock) {
-                connect(p, &igQtPointSetToOctreeWidget::resultReady, this, displayResult);
-                connect(p, &igQtPointSetToOctreeWidget::closeRequested, dock, &QDockWidget::hide);
             });
             panel->setCurrentModel(model);
         } else if (id == "triangle_strips") {

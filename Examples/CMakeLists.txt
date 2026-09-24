@@ -170,7 +170,6 @@ set(IGAME_BATCH2_EXAMPLES
     testCellSizeExtraction
     testCountCellVertices
     testExtractEdges
-    testFeatureEdgeRegion
     testGenerateGlobalIds
     testPointAndCellIds
     testGenerateProcessIds
@@ -180,8 +179,7 @@ set(IGAME_BATCH2_EXAMPLES
     testResampleToImage
     testResampleToLine
     testTriangleStrip
-    testPointSetToOctree
-    testResampleOctreeChecks
+    testResampleImageChecks
     testTriangleStripWidget
     testBatch2GeometryValidation
     testStandardFiltersMenu
@@ -189,11 +187,9 @@ set(IGAME_BATCH2_EXAMPLES
 set(IGAME_BATCH2_VISUAL_EXAMPLES
     testCountCellVertices
     testExtractEdges
-    testFeatureEdgeRegion
     testAxisAlignedReflection
     testResampleToImage
     testResampleToLine
-    testPointSetToOctree
 )
 
 # Examples for the filters integrated in e7ec6571.
@@ -529,7 +525,6 @@ igame_add_example(testBatch2GeometryValidation Filter/Batch2GeometryValidation.c
 igame_add_example(testCellSizeExtraction Filter/FeatureExtraction/CellSizeExtraction.cpp)
 igame_add_example(testCountCellVertices Filter/TestCountCellVertices.cpp)
 igame_add_example(testExtractEdges Filter/TestExtractEdges.cpp)
-igame_add_example(testFeatureEdgeRegion Filter/FeatureExtraction/FeatureEdgeRegion.cpp)
 igame_add_example(testGenerateGlobalIds Filter/GlobalIds/TestGenerateGlobalIds.cpp)
 igame_add_example(testPointAndCellIds Filter/PointAndCellIds/TestPointAndCellIds.cpp)
 igame_add_example(testGenerateProcessIds Filter/TestGenerateProcessIds.cpp)
@@ -539,8 +534,7 @@ igame_add_example(testMergeVectorComponents Filter/TestMergeVectorComponents.cpp
 igame_add_example(testResampleToImage Filter/Convert/TestResampleToImage.cpp)
 igame_add_example(testResampleToLine Filter/TestResampleToLine.cpp)
 igame_add_example(testTriangleStrip Filter/TriangleStrip/TestTriangleStrip.cpp)
-igame_add_example(testPointSetToOctree Filter/Convert/TestPointSetToOctree.cpp)
-igame_add_example(testResampleOctreeChecks Filter/Convert/TestResampleOctreeChecks.cpp)
+igame_add_example(testResampleImageChecks Filter/Convert/TestResampleImageChecks.cpp)
 if (ENABLE_QT_MODULE)
     igame_add_example(testTriangleStripWidget Filter/TriangleStrip/TestTriangleStripWidget.cpp)
     target_link_libraries(testTriangleStripWidget PRIVATE Qt_module)

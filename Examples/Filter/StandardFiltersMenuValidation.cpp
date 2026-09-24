@@ -5,7 +5,6 @@
 // model-tree nodes cannot pass just because the backend examples compile.
 #include <IQCore/igQtMainWindow.h>
 #include <IQComponents/igQtModelDialogWidget.h>
-#include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtCountCellVerticesWidget.h>
 #include <iGameSurfaceMesh.h>
@@ -55,8 +54,7 @@ int main(int argc,char** argv) {
         const auto modelId=window.modelTreeWidget->addDataObjectToModelTree(mesh,Algorithm);
         const QStringList panelIds={"count_cell_vertices","extract_edges","global_point_and_cell_ids",
             "point_and_cell_ids","process_ids","axis_aligned_reflection","extract_component",
-            "merge_vector_components","resample_to_image","resample_to_line","triangle_strips",
-            "point_set_to_octree_image"};
+            "merge_vector_components","resample_to_image","resample_to_line","triangle_strips"};
         // Dismiss unexpected modal error dialogs and fail instead of hanging.
         bool unexpectedDialog=false;
         QTimer guard;
@@ -90,13 +88,6 @@ int main(int argc,char** argv) {
         Check(!scene->GetCurrentModel()->GetDataObject()->GetAttributeSet()->GetAttribute("Area").IsNone(),
               "cell_size action did not produce attributes");
         Check(mesh->GetAttributeSet()->GetAttribute("Area").IsNone(),"menu action modified input");
-        scene->SetCurrentModel(scene->GetModelById(modelId));
-        window.findChild<QAction*>("action_filter_feature_edges_region_ids")->trigger();
-        auto* regions=window.findChild<igQtFilterDialogDockWidget*>("standardFilterParameters_feature_edges_region_ids");
-        Check(regions,"feature region action did not create parameters");
-        regions->apply();
-        Check(!scene->GetCurrentModel()->GetDataObject()->GetAttributeSet()->GetAttribute("Region Id").IsNone(),
-              "feature region action did not connect its result");
         scene->SetCurrentModel(scene->GetModelById(modelId));
         window.findChild<QAction*>("action_filter_count_cell_vertices")->trigger();
         auto* panel=window.findChild<igQtCountCellVerticesWidget*>();

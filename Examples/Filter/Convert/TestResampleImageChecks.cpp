@@ -1,4 +1,4 @@
-// Find the integration commit: git log --diff-filter=A --format="%h %s" -- Examples/Filter/Convert/TestResampleOctreeChecks.cpp
+// Find the integration commit: git log --diff-filter=A --format="%h %s" -- Examples/Filter/Convert/TestResampleImageChecks.cpp
 // Regression/example imported from dayuwan77/igamevis at
 // eccac729b57aeacbe9312d7d5189f6990bb4eebd (same relative path).
 // Integration regression: these filters and their example assets were missing
@@ -6,7 +6,7 @@
 // geometry contracts; visual examples retain an interactive default mode.
 // Local integration fix: feat: integrate second-batch standard filters.
 // ============================================================================
-// ResampleToImage / PointSetToOctree 数值与逻辑一致性回归检查（无窗口，可直接进 CI）
+// ResampleToImage 数值与逻辑一致性回归检查（无窗口，可直接进 CI）
 //
 // 覆盖内容：
 //   A. 四面体基线回归：与 VTK vtkResampleToImage 对比时的已知基线数值
@@ -16,21 +16,18 @@
 //   D. 四边形单元：平面内与**倾斜平面**均按三维局部坐标判定（Gauss–Newton 残差）
 //   E. 不受支持的单元类型必须显式提示或拒绝，不静默产出不完整结果
 //   F/G. 属性策略：保留存储类型与分量数、ID 类数组禁止线性插值、同名点/单元冲突时点数据优先
-//   H. 点集转八叉树：按 VTK 公式独立复算每个点的体素归属并自行统计，与过滤器输出逐项比对
-//   I. 线性场再现（四面体）：f = 3x+5y+7z 在有效格点上必须被精确再现（同时验证单元搜索与插值权重）
-//   J. 线性场再现（六面体）：同上，与 VTK vtkHexahedron 的权重路径对照
+//   H. 线性场再现（四面体）：f = 3x+5y+7z 在有效格点上必须被精确再现（同时验证单元搜索与插值权重）
+//   I. 线性场再现（六面体）：同上，与 VTK vtkHexahedron 的权重路径对照
 //
 // 失败时返回非 0，成功返回 0。
 // 运行方式（工作目录为 Examples 构建目录，Models 已自动拷贝到 ./Models）：
-//     ./testResampleOctreeChecks
+//     ./testResampleImageChecks
 // ============================================================================
-#include <Convert/iGamePointSetToOctreeFilter.h>
 #include <Convert/iGameResampleToImageFilter.h>
 #include <iGameAttributeSet.h>
 #include <iGameCellType.h>
 #include <iGameFileIO.h>
 #include <iGameFlatArray.h>
-#include <iGamePointSet.h>
 #include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
 
@@ -476,251 +473,12 @@ static void TestAttributePolicy() {
 }
 
 // ---------------------------------------------------------------------------
-// H. 点集转八叉树：独立复算体素归属与统计量
-// ---------------------------------------------------------------------------
-static void TestOctreeParity() {
-    std::cout << "\n=== H. 点集转八叉树：体素归属与统计量的独立复算 ===\n";
-
-    // 可复现的伪随机点集（LCG），标量场 v = x + 10y + 100z
-    const int kNumPoints = 2000;
-    std::vector<Point> pts;
-    std::vector<double> fieldValues;
-    unsigned long long state = 12345ull;
-    auto nextRand = [&state]() {
-        state = state * 6364136223846793005ull + 1442695040888963407ull;
-        return static_cast<double>((state >> 11) & 0x1FFFFFFFFFFFFFull) /
-               static_cast<double>(0x1FFFFFFFFFFFFFull);
-    };
-    for (int i = 0; i < kNumPoints; ++i) {
-        const double x = nextRand(), y = nextRand(), z = nextRand();
-        pts.push_back(Point(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
-        fieldValues.push_back(x + 10.0 * y + 100.0 * z);
-    }
-
-    std::vector<CellSpec> noCells;
-    auto mesh = MakeMesh(pts, noCells, std::string(), 0);
-    {
-        auto vArr = FloatArray::New();
-        vArr->SetName("v");
-        vArr->SetDimension(1);
-        vArr->Resize(kNumPoints);
-        for (int i = 0; i < kNumPoints; ++i) {
-            vArr->SetElement(static_cast<IGsize>(i), &fieldValues[i]);
-        }
-        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, vArr);
-    }
-
-    auto filter = PointSetToOctreeFilter::New();
-    filter->SetInput(mesh);
-    filter->SetNumberOfPointsPerCell(1);
-    filter->SetProcessInputPointArray(true);
-    filter->SetInputPointArrayName("v");
-    filter->SetComputeLastValue(false);
-    filter->SetComputeMin(true);
-    filter->SetComputeMax(true);
-    filter->SetComputeCount(true);
-    filter->SetComputeSum(false);
-    filter->SetComputeMean(true);
-    Check(filter->Execute(), "八叉树转换执行成功");
-    std::cout << "         message: " << filter->GetMessage() << "\n";
-
-    auto out = DynamicCast<StructuredMesh>(filter->GetOutput(0));
-    Check(out != nullptr, "输出为 StructuredMesh");
-    if (out == nullptr) return;
-
-    auto octree = FindArray(out, "octree");
-    Check(octree != nullptr && octree->GetArrayType() == IG_UnsignedCharArray,
-          "octree 单元数组存在且为 unsigned char");
-
-    auto outField = FindArray(out, "v");
-    Check(outField != nullptr, "输出包含以输入数组名命名的统计数组 v");
-    if (outField == nullptr) return;
-    Check(outField->GetDimension() == 5,
-          "默认勾选 Min/Max/Count/Mean → 输出 5 个分量（Min,Max,Count,Sum,Mean）");
-
-    // ---- 从输出格点独立推导网格几何 ----
-    std::vector<double> xs, ys, zs;
-    for (IGsize p = 0; p < out->GetNumberOfPoints(); ++p) {
-        const Point& q = out->GetPoint(p);
-        xs.push_back(static_cast<double>(q[0]));
-        ys.push_back(static_cast<double>(q[1]));
-        zs.push_back(static_cast<double>(q[2]));
-    }
-    auto makeUnique = [](std::vector<double>& v) {
-        std::sort(v.begin(), v.end());
-        v.erase(std::unique(v.begin(), v.end(),
-                            [](double a, double b) { return std::fabs(a - b) < 1.0e-7; }),
-                v.end());
-    };
-    makeUnique(xs);
-    makeUnique(ys);
-    makeUnique(zs);
-
-    const int nx = static_cast<int>(xs.size());
-    const int ny = static_cast<int>(ys.size());
-    const int nz = static_cast<int>(zs.size());
-    std::cout << "         grid dims = " << nx << " x " << ny << " x " << nz
-              << " (points=" << out->GetNumberOfPoints()
-              << " cells=" << out->GetNumberOfCells() << ")\n";
-    const double ox = xs.front(), oy = ys.front(), oz = zs.front();
-    const double sx = (nx > 1) ? (xs.back() - xs.front()) / (nx - 1) : 1.0;
-    const double sy = (ny > 1) ? (ys.back() - ys.front()) / (ny - 1) : 1.0;
-    const double sz = (nz > 1) ? (zs.back() - zs.front()) / (nz - 1) : 1.0;
-
-    const int extentX = std::max(1, nx - 1);
-    const int extentY = std::max(1, ny - 1);
-    const IGsize nCells = out->GetNumberOfCells();
-    Check(nCells == static_cast<IGsize>(extentX) * extentY * std::max(1, nz - 1),
-          "单元数 = (nx-1)(ny-1)(nz-1)");
-
-    // ---- 按 VTK 的公式独立复算每个点的体素归属与统计量 ----
-    auto ijkOf = [](double v, double o, double s, int n) {
-        int k = (s > 0.0) ? static_cast<int>(std::floor((v - o) / s + 1.0e-9)) : 0;
-        if (k < 0) k = 0;
-        if (n >= 2 && k > n - 2) k = n - 2;
-        if (n < 2) k = 0;
-        return k;
-    };
-
-    std::vector<double> refCount(nCells, 0.0);
-    std::vector<double> refSum(nCells, 0.0);
-    std::vector<double> refMin(nCells, 1.0e300);
-    std::vector<double> refMax(nCells, -1.0e300);
-    for (int i = 0; i < kNumPoints; ++i) {
-        const int i0 = ijkOf(pts[i][0], ox, sx, nx);
-        const int j0 = ijkOf(pts[i][1], oy, sy, ny);
-        const int k0 = ijkOf(pts[i][2], oz, sz, nz);
-        const IGsize cid = static_cast<IGsize>(i0) + static_cast<IGsize>(j0) * extentX +
-                           static_cast<IGsize>(k0) * extentX * extentY;
-        if (cid >= nCells) continue;
-        const double v = fieldValues[i];
-        refCount[cid] += 1.0;
-        refSum[cid] += v;
-        if (v < refMin[cid]) refMin[cid] = v;
-        if (v > refMax[cid]) refMax[cid] = v;
-    }
-
-    IGsize countMismatch = 0, minMismatch = 0, maxMismatch = 0, sumMismatch = 0, meanMismatch = 0;
-    IGsize selfInconsistent = 0;
-    IGsize nonEmptyCells = 0;
-    for (IGsize c = 0; c < nCells; ++c) {
-        const double cnt = outField->GetElementValue(c, 2);
-        const double sum = outField->GetElementValue(c, 3);
-        const double mean = outField->GetElementValue(c, 4);
-        const double mn = outField->GetElementValue(c, 0);
-        const double mx = outField->GetElementValue(c, 1);
-        if (refCount[c] != cnt) ++countMismatch;
-        if (refCount[c] > 0) {
-            ++nonEmptyCells;
-            if (std::fabs(mean * cnt - sum) > 1.0e-3 || mn > mx + 1.0e-6 ||
-                mean < mn - 1.0e-6 || mean > mx + 1.0e-6) {
-                ++selfInconsistent;
-            }
-            if (std::fabs(mn - refMin[c]) > 1.0e-5) ++minMismatch;
-            if (std::fabs(mx - refMax[c]) > 1.0e-5) ++maxMismatch;
-            if (std::fabs(sum - refSum[c]) > 1.0e-3) ++sumMismatch;
-            if (std::fabs(mean - refSum[c] / refCount[c]) > 1.0e-4) ++meanMismatch;
-        }
-    }
-    std::cout << "         nonEmptyCells=" << nonEmptyCells << " countMismatch=" << countMismatch
-              << " minMismatch=" << minMismatch << " maxMismatch=" << maxMismatch
-              << " sumMismatch=" << sumMismatch << " meanMismatch=" << meanMismatch
-              << " selfInconsistent=" << selfInconsistent << "\n";
-    Check(selfInconsistent == 0, "每体素内部自洽：mean*count=sum 且 min<=mean<=max");
-    Check(countMismatch == 0, "每体素 Count 与独立复算一致（体素归属与 VTK 公式一致）");
-    Check(minMismatch == 0, "每体素 Min 与独立复算一致");
-    Check(maxMismatch == 0, "每体素 Max 与独立复算一致");
-    Check(sumMismatch == 0, "每体素 Sum 与独立复算一致");
-    Check(meanMismatch == 0, "每体素 Mean = Sum/Count 与独立复算一致");
-
-    double totalCount = 0.0;
-    for (IGsize c = 0; c < nCells; ++c) totalCount += outField->GetElementValue(c, 2);
-    std::cout << "         totalCount=" << totalCount << " (input " << kNumPoints << ")\n";
-    Check(std::fabs(totalCount - static_cast<double>(kNumPoints)) < 0.5,
-          "所有体素 Count 之和 = 输入点数");
-
-    // ---- VTK 特有的 octree 8 位占用编码：以「体素中心」为界，位权 1/2/4/16 按位或累加 ----
-    {
-        std::vector<unsigned char> refOctree(nCells, 0);
-        for (int i = 0; i < kNumPoints; ++i) {
-            const int i0 = ijkOf(pts[i][0], ox, sx, nx);
-            const int j0 = ijkOf(pts[i][1], oy, sy, ny);
-            const int k0 = ijkOf(pts[i][2], oz, sz, nz);
-            const IGsize cid = static_cast<IGsize>(i0) + static_cast<IGsize>(j0) * extentX +
-                               static_cast<IGsize>(k0) * extentX * extentY;
-            if (cid >= nCells) continue;
-            // 体素中心 = 原点 + ijk*spacing + spacing/2（VTK 在中心处比较，而非格点处）
-            const double cx = ox + i0 * sx + 0.5 * sx;
-            const double cy = oy + j0 * sy + 0.5 * sy;
-            const double cz = oz + k0 * sz + 0.5 * sz;
-            unsigned int v = (pts[i][0] > cx ? 2u : 1u);
-            v *= (pts[i][1] > cy ? 4u : 1u);
-            v *= (pts[i][2] > cz ? 16u : 1u);
-            refOctree[cid] |= static_cast<unsigned char>(v);
-        }
-        IGsize octMismatch = 0;
-        for (IGsize c = 0; c < nCells; ++c) {
-            const unsigned char got = static_cast<unsigned char>(octree->GetElementValue(c, 0));
-            if (got != refOctree[c]) ++octMismatch;
-        }
-        Check(octMismatch == 0,
-              "octree 占用位编码与独立复算一致（以体素中心为界、位权 1/2/4/16 按位或）");
-    }
-
-    // ---- 空体素的默认值：VTK 为 Min=FLT_MAX、Max=FLT_LOWEST、Count/Sum/Mean=0 ----
-    {
-        const double fMax = static_cast<double>(std::numeric_limits<float>::max());
-        const double fLow = static_cast<double>(std::numeric_limits<float>::lowest());
-        IGsize emptyCells = 0;
-        IGsize badDefaults = 0;
-        for (IGsize c = 0; c < nCells; ++c) {
-            if (outField->GetElementValue(c, 2) != 0.0) continue; // Count != 0 即非空
-            ++emptyCells;
-            const bool ok = outField->GetElementValue(c, 0) == fMax &&
-                            outField->GetElementValue(c, 1) == fLow &&
-                            outField->GetElementValue(c, 3) == 0.0 &&
-                            outField->GetElementValue(c, 4) == 0.0;
-            if (!ok) ++badDefaults;
-        }
-        std::cout << "         emptyCells=" << emptyCells << " badDefaults=" << badDefaults << "\n";
-        Check(emptyCells > 0, "存在空体素（用于验证默认值语义）");
-        Check(badDefaults == 0,
-              "空体素默认值与 VTK 一致（Min=FLT_MAX、Max=FLT_LOWEST、Count/Sum/Mean=0，非 NaN）");
-    }
-
-    // 关闭「处理点属性」时只输出 octree 编码
-    {
-        auto f2 = PointSetToOctreeFilter::New();
-        f2->SetInput(mesh);
-        f2->SetNumberOfPointsPerCell(1);
-        f2->SetProcessInputPointArray(false);
-        f2->Execute();
-        auto o2 = DynamicCast<StructuredMesh>(f2->GetOutput(0));
-        Check(FindArray(o2, "v") == nullptr, "关闭“处理点属性”时不输出统计数组");
-        Check(FindArray(o2, "octree") != nullptr, "关闭“处理点属性”时仍输出 octree 编码数组");
-    }
-
-    // 「每体素平均点数」参数必须改变输出规模
-    {
-        auto f3 = PointSetToOctreeFilter::New();
-        f3->SetInput(mesh);
-        f3->SetNumberOfPointsPerCell(10);
-        f3->Execute();
-        auto o3 = DynamicCast<StructuredMesh>(f3->GetOutput(0));
-        Check(o3 != nullptr && o3->GetNumberOfCells() < nCells,
-              "每体素平均点数=10 时输出体素数显著减少（参数生效）");
-        std::cout << "         cells(per=1)=" << nCells
-                  << " cells(per=10)=" << (o3 ? o3->GetNumberOfCells() : 0) << "\n";
-    }
-}
-
-// ---------------------------------------------------------------------------
-// I. 线性场再现：同时验证「单元搜索」与「插值权重」
+// H. 线性场再现：同时验证「单元搜索」与「插值权重」
 //    四面体上使用线性场 f = 3x + 5y + 7z，任意有效格点的插值结果必须精确等于
 //    该点处的解析值——这是最能暴露权重错误的判据（权重错则偏差量级为 O(1)）。
 // ---------------------------------------------------------------------------
 static void TestLinearReproduction() {
-    std::cout << "\n=== I. 线性场再现（四面体 + f = 3x+5y+7z，验证插值权重）===\n";
+    std::cout << "\n=== H. 线性场再现（四面体 + f = 3x+5y+7z，验证插值权重）===\n";
     std::vector<Point> pts = {Point(0.f, 0.f, 0.f), Point(1.f, 0.f, 0.f), Point(0.f, 1.f, 0.f),
                               Point(0.f, 0.f, 1.f)};
     std::vector<CellSpec> cells = {{{0, 1, 2, 3}, IG_TETRA}};
@@ -763,10 +521,10 @@ static void TestLinearReproduction() {
 }
 
 // ---------------------------------------------------------------------------
-// J. 线性场再现：六面体（与 VTK 的 vtkHexahedron 权重路径对照）
+// I. 线性场再现：六面体（与 VTK 的 vtkHexahedron 权重路径对照）
 // ---------------------------------------------------------------------------
 static void TestLinearReproductionHexahedron() {
-    std::cout << "\n=== J. 线性场再现（六面体 + f = 3x+5y+7z）===\n";
+    std::cout << "\n=== I. 线性场再现（六面体 + f = 3x+5y+7z）===\n";
     std::vector<Point> pts = {Point(0.f, 0.f, 0.f), Point(1.f, 0.f, 0.f), Point(1.f, 1.f, 0.f),
                               Point(0.f, 1.f, 0.f), Point(0.f, 0.f, 1.f), Point(1.f, 0.f, 1.f),
                               Point(1.f, 1.f, 1.f), Point(0.f, 1.f, 1.f)};
@@ -819,7 +577,6 @@ int main() {
     TestAttributePolicy();
     TestLinearReproduction();
     TestLinearReproductionHexahedron();
-    TestOctreeParity();
 
     std::cout << "\n================ 汇总 ================\n";
     std::cout << "通过 " << (g_total - g_failed) << " / " << g_total << "，失败 " << g_failed << "\n";

@@ -2,11 +2,9 @@
 // Integration regressions (fix: feat: integrate second-batch standard filters): importing ResampleToImage without the
 // structured ghost-surface dependency rendered invalid samples as a full box.
 // Verify hidden, visible, non-hidden flags and malformed masks; also verify
-// numeric cell sizes, line interpolation and feature-region boundaries after
+// numeric cell sizes and line interpolation after
 // adapting the upstream implementations to this branch's data structures.
 #include <CellSize/iGameCellSizeFilter.h>
-#include <FeatureExtraction/iGameFeatureEdgeRegionFilter.h>
-#include <FeatureExtraction/iGameFeatureEdgesFilter.h>
 #include <ModelSurface/iGameModelGeometryFilter.h>
 #include <MergeVectorComponents/iGameMergeVectorComponentsFilter.h>
 #include <ResampleToLine/iGameResampleToLine.h>
@@ -98,33 +96,6 @@ void MergedTopology() {
     for(int i=0;i<4;++i) for(int d=0;d<3;++d)
         Check(vector->GetElementValue(i,d)==i,"vector component order changed");
 }
-void FeatureRegions() {
-    auto mesh=SurfaceMesh::New();
-    auto points=Points::New();
-    points->AddPoint(Point(0,0,0)); points->AddPoint(Point(1,0,0));
-    points->AddPoint(Point(1,1,0)); points->AddPoint(Point(0,1,0));
-    mesh->SetPoints(points);
-    igIndex first[]={0,1,2},second[]={0,2,3};
-    auto faces=CellArray::New(); faces->AddCellIds(first,3); faces->AddCellIds(second,3);
-    mesh->SetFaces(faces);
-    auto edges=FeatureEdgesFilter::New(); edges->SetInput(mesh);
-    auto regions=FeatureEdgeRegionFilter::New(); regions->SetInput(0,mesh);
-    for(bool split:{false,true}) {
-        edges->SetManifoldEdges(split);
-        Check(edges->Execute(),"feature edges failed");
-        regions->SetInput(1,edges->GetOutput());
-        Check(regions->Execute(),"feature region IDs failed");
-        auto output=DynamicCast<SurfaceMesh>(regions->GetOutput());
-        Check(output && output->GetNumberOfFaces()==2,"region output connectivity changed");
-        auto ids=Array(output,"Region Id");
-        Check((ids->GetValue(0)!=ids->GetValue(1))==split,"incorrect feature boundary grouping");
-    }
-    Check(mesh->GetAttributeSet()->GetAttribute("Region Id").IsNone(),"region filter changed input");
-    auto malformed=UnstructuredMesh::New(); malformed->SetPoints(mesh->GetPoints());
-    igIndex edge[]={0,1}; malformed->AddCell(edge,2,IG_LINE);
-    regions->SetInput(1,malformed);
-    Check(!regions->Execute() && !regions->GetOutput(),"missing edge IDs must fail without stale output");
-}
 void GhostSurface() {
     StructuredMesh::Pointer mesh=StructuredMesh::New();
     igIndex size[]={3,2,2}; mesh->SetDimensionSize(size);
@@ -151,9 +122,8 @@ int main() {
         std::cerr << "Checking cell sizes...\n"; CellSizes();
         std::cerr << "Checking line samples...\n"; LineSamples();
         std::cerr << "Checking merged topology...\n"; MergedTopology();
-        std::cerr << "Checking feature regions...\n"; FeatureRegions();
         std::cerr << "Checking ghost surfaces...\n"; GhostSurface();
-        std::cout<<"PASS: cell sizes, line sampling, region IDs and structured ghost surfaces.\n";
+        std::cout<<"PASS: cell sizes, line sampling and structured ghost surfaces.\n";
         return 0;
     } catch(const std::exception& error) {
         std::cerr<<"FAIL: "<<error.what()<<'\n'; return 1;
