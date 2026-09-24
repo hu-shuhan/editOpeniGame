@@ -5,17 +5,47 @@
 // （ParallelVolumeClient.cpp）连接；连接后 rank 0 接收客户端的增量式交互命令
 // （INTERACT <dAzimRad> <dElevRad> <zoomFactor> <interactiveFlag>），把所有命令合并
 // 后广播给各 rank，各 rank 用同一相机 + 同一全局裁剪范围做 CPU 光线步进渲染，再经
-// iGameCompositePass 深度有序合成，最后 rank 0 把合成图（raw RGBA8）流式发给客户端。
+// iGameCompositePass 深度有序合成，最后 rank 0 把合成图（裁非空 ROI + zlib 压缩）流式
+// 发给客户端。
 //
 // 与 RunInteractive（阶段 5）的区别仅在于「rank 0 的显示端」被替换成「socket 发送」，
 // 相机轨道 / LOD / 渲染 / 合成逻辑完全一致，便于逐像素对照。
 //
-// 设计要点（参考 MiniPVServer.cpp:125-132 的流式服务端）：
-//   - 阻塞读到至少一行命令后，非阻塞排空 socket，把积压的多条命令合并成一次相机
-//     更新 + 一次渲染，避免命令堆积导致交互延迟越来越大；
-//   - 拖动时（interactiveFlag=1）降采样 + 大步进（LOD），松手恢复高清（对标
-//     MiniPVServer.cpp:845-847）；
-//   - 除 rank 0 外其余 rank 全程无头、只参与集合通信与渲染。
+// 持久服务：一个客户端断开 / EXIT / 发送失败后，服务端回到 accept 等下一个客户端，
+// 不会退出整个 MPI 作业；只有被外部终止（scancel / Ctrl+C）才会停止。
+//
+// ---------------------------------------------------------------------------
+// 本次修复（对标 UnifiedVersion/MiniPVServer，触发场景：19200 分块 / 1000 rank）
+// ---------------------------------------------------------------------------
+// BUG A：每帧合成把 P 张 1024x1024 全图（4MB/张）汇聚到 rank 0，rank 0 再做
+//        O(P x 像素) 的逐像素块序 over。1000 rank 时汇聚量 4GB 量级、rank 0 单帧
+//        合成几百 ms 起（实测 --tree 档也有 ~150ms）。
+//        触发条件：rank 数越多越严重；每个 rank 的体数据在屏幕上只占很小一片
+//        （19200 块 / 1000 rank 时约 20x20 像素），却要按整屏传输。
+//        修复：合成器默认走「稀疏 ROI 合成」——只上报/汇聚非空像素外接矩形，
+//        rank 0 按超块深度序逐 ROI 矩形 over。见 iGameCompositePass::CompositeSparse。
+//
+// BUG B：不透明度用「每步 alpha 直接相乘」（m_UnitDistance <= 0），累计光学厚度
+//        ∝ 采样步数；而自适应步长下每个 rank 的步数恰好都等于 maxSamples，
+//        于是薄超块和厚超块贡献同样的不透明度 —— 前面的 rank 一饱和就把内部结构
+//        遮住，画面上表现为明显的块状明暗台阶 / 顶面纹理发白发糊。
+//        触发条件：任何多 rank 拆分（每个 rank 分到的超块尺寸不同）都会触发。
+//        修复：SetScalarOpacityUnitDistance(全局体素尺寸) 打开 Beer-Lambert，
+//        并把光线步长改为「全局统一步长 = 体素尺寸 x 档位系数」，使密度只由真实
+//        路径长度决定，且相邻超块的采样点在 t 轴上严格接续（无接缝）。
+//
+// BUG C：拖动档只做了像素步进（stride=2），帧仍是 1024x1024 全分辨率，渲染、
+//        合成、传输三者的量一点没降。
+//        修复：拖动档真的降分辨率（默认 1024 -> 512），对标 MiniPVServer 的
+//        800x800 / 256x256 两档。
+//
+// BUG D：没有背压。服务端出帧快于客户端消费时，帧在 TCP 发送队列里无界堆积，
+//        客户端测到的 RTT 单调增长到几万 ms（「松手后追帧」）。
+//        修复：交互档发帧前用 ioctl(TIOCOUTQ) 查发送队列，超过 512KB 就丢帧
+//        （对标 MiniPVServer.cpp:921-932，仅 Linux）。
+//
+// 修复提交号：待提交。
+//
 // 注意：必须先包含本协议头（其内部先于 windows.h 引入 winsock2），再包含可能引入
 // windows.h / glad 的头，避免 Windows 下 winsock.h 与 winsock2.h 冲突。
 #include "ParallelVolumeProtocol.h"
@@ -30,13 +60,24 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <zlib.h>
 
+#if defined(__linux__)
+#  include <sys/ioctl.h>   // TIOCOUTQ：查询 TCP 发送队列积压字节数（交互时丢帧用）
+#  include <linux/sockios.h>
+#endif
+
 namespace iGamePVServer {
+
+// 交互档 TCP 发送队列积压阈值（字节）：超过它就丢弃本帧（不编码/不发送），
+// 避免「服务端出帧比客户端消费快 → 队列无界增长 → RTT 涨到几十秒」。
+// 对标 UnifiedVersion/MiniPVServer.cpp:266 的 kMaxSendQueueBytes = 512KB。
+inline constexpr int kMaxSendQueueBytes = 512 * 1024;
 
 // 从传输函数颜色映射器构建 256 像素 RGBA8 colorbar ramp（仅颜色，alpha 恒 255）。
 // 与服务端握手时发给客户端，供其重建左下角 colorbar 渐变纹理。
@@ -61,7 +102,16 @@ inline void BuildColorbarRamp(iGame::iGameVolumeTransferFunction* tf,
 
 // ---------------------------------------------------------------------------
 // 服务端交互渲染循环（所有 rank 共同调用，与 RunInteractive 并列）。
-// 返回 0=正常退出（客户端 EXIT/断开），非 0=失败。
+// 持久服务：一个客户端断开/EXIT 后回到 accept 等下一个客户端，直到被外部终止
+// （scancel / Ctrl+C，即手动关闭 MPI 作业）；客户端断开不会让后端退出。
+//
+// LOD 两档（对标 UnifiedVersion/MiniPVServer.cpp:254-266 与 830-857）：
+//   拖动中：分辨率 width/lqDivisor、步长 voxelSize*lqStepScale
+//   松手后：分辨率 width×height、步长 voxelSize*hqStepScale
+// 之所以要「真的降分辨率」而不只是像素步进：像素步进只减少光线数，帧仍是全分辨率，
+// 网络载荷与合成量一点没少（参考实现 800x800 → 256x256，这里 1024x1024 → 512x512）。
+//
+// 返回 0=正常退出（仅监听失败 / accept 失败），非 0=失败。
 // ---------------------------------------------------------------------------
 inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      iGame::Camera* camera,
@@ -69,7 +119,9 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      double globalMin, double globalMax,
                      const double gcenter[3],
                      const double blockCenter[3], double radius,
-                     int width, int height, int port) {
+                     int width, int height, int port, bool useTree,
+                     double voxelSize = 0.0, double hqStepScale = 1.5,
+                     double lqStepScale = 4.0, int lqDivisor = 2) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
 
@@ -135,7 +187,23 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         return 1;
     }
 
-    // 接受客户端（rank 0 阻塞）并发送握手元数据；失败则广播退出。
+    // ---------- 持久服务循环：一个客户端断开后回到 accept 等下一个，直到被外部终止 ----------
+    // 手动关闭 = scancel / Ctrl+C（外部终止 MPI 作业），不需要客户端发任何停止命令。
+    // 所有 rank 必须在此循环里保持集合通信步调一致：rank 0 阻塞在 accept 时，其余 rank
+    // 阻塞在随后的 Broadcast 上等待，不会死锁（与首次 accept 同一模式）。
+    // 注：为保持最小 diff，循环体内沿用原缩进（与 `for` 同级），结构以本注释与函数末尾的
+    // `} // 持久服务循环` 为准，不影响编译。
+    std::string netbuf;
+    for (;;) {
+    // 每个新客户端从默认 +Z 视角、全新交互状态开始（不继承上一个客户端的轨道/帧序号）。
+    azimuth = 0.0;
+    elevation = 0.0;
+    distance = radius * 3.0;
+    frameSeq = 0;
+    netbuf.clear();
+    clientSock = PV_INVALID_SOCKET;
+
+    // 接受客户端（rank 0 阻塞）并发送握手元数据；accept 失败则广播一致退出服务循环。
     serverStatus = 1;
     if (rank == 0) {
         sockaddr_in clientAddr{};
@@ -178,16 +246,47 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     }
     ctx->Broadcast(&serverStatus, 1, 0);
     if (!serverStatus) {
-        if (rank == 0) {
-            iGamePVNet::CloseSocket(clientSock);
-            iGamePVNet::CloseSocket(listenSock);
-        }
-        return 1;
+        if (rank == 0) { iGamePVNet::CloseSocket(clientSock); }
+        break;   // 退出服务循环（listenSock 在函数末尾统一关闭）
     }
 
     // ---------- 渲染一帧（所有 rank）并把结果发给客户端（rank 0） ----------
     const igm::mat4 modelMatrix(1.0f);
+
+    // LOD 两档参数（所有 rank 用同样入参算出同样结果，不需要额外广播）。
+    const int hqW = width;
+    const int hqH = height;
+    const int lqW = std::max(128, width / std::max(1, lqDivisor));
+    const int lqH = std::max(128, height / std::max(1, lqDivisor));
+    // 全局统一步长：voxelSize 是「所有 rank 一致的全局体素尺寸」（由 main 里 AllReduce
+    // 得到）。步长以体素为单位，因此与「本 rank 超块的弦长」无关——配合 Beer-Lambert
+    // 的 unitDistance，光学厚度只由真实路径长度决定，块边界不会出现密度台阶。
+    // 另：步长全局一致 ⇒ 各 rank 的采样点落在同一条「以近裁剪面为原点的 t 栅格」上，
+    // 超块之间严格接续，不会出现缝隙/重复（见 iGameVolumeRayCastCPU::RayCastPixel）。
+    const bool hasGlobalStep = (voxelSize > 0.0);
+    const float hqStep = hasGlobalStep
+                                 ? static_cast<float>(voxelSize * hqStepScale)
+                                 : 0.0f;
+    const float lqStep = hasGlobalStep
+                                 ? static_cast<float>(voxelSize * lqStepScale)
+                                 : 0.0f;
+    // maxSamples 在「全局统一步长」下只作安全护栏：真正迭代次数由本超块弦长决定
+    // （步长固定后，薄超块只跑几十步就出块）。上限取全局对角线/步长 + 余量。
+    auto sampleCap = [&](float step) -> int {
+        if (!(step > 0.0f)) { return 512; }
+        const double n = std::ceil(2.0 * radius / static_cast<double>(step)) + 16.0;
+        return static_cast<int>(std::clamp(n, 8.0, 8192.0));
+    };
+    const int hqMaxSamples = hasGlobalStep ? sampleCap(hqStep) : 512;
+    const int lqMaxSamples = hasGlobalStep ? sampleCap(lqStep) : 128;
+
     auto renderFrame = [&](int interactive) -> bool {
+        // 交互档真的降分辨率（对标 MiniPVServer kW_LQ=256 / kW_HQ=800）：只做像素步进
+        // 不减少网络载荷与合成量，而降分辨率对「渲染 + 合成 + 传输」三者同时生效。
+        const int fw = interactive ? lqW : hqW;
+        const int fh = interactive ? lqH : hqH;
+        camera->SetViewPort(fw, fh);
+
         // 所有 rank 用同一相机（位置/焦点/上方向 + 全局裁剪范围）。
         camera->SetPosition(static_cast<float>(camPos[0]),
                             static_cast<float>(camPos[1]),
@@ -221,22 +320,11 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         camera->SetClippingRange(static_cast<float>(nearPlane),
                                  static_cast<float>(farPlane));
 
-        // 交互 LOD（对标 MiniPVServer.cpp:845-847）：交互中采样率砍到 1/4（512→128）、
-        // 像素步进 2（1/4 像素）。步长用自动推导（SetStepSize(0)：按**各自分块对角线** /
-        // maxSamples），保证所有 rank 在交互时用同样的相对采样率与大步长——若用固定全局
-        // 对角线步长，会导致小分块只有 1~2 个采样而大分块仍采满 128 步，出现「只有小分块
-        // rank 变低清、大分块 rank 保持原样」的不一致。
-        if (interactive) {
-            rayCaster->SetMaxSamples(128);
-            rayCaster->SetPixelStride(2);
-            rayCaster->SetUseScreenROI(true);
-            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 128
-        } else {
-            rayCaster->SetMaxSamples(512);
-            rayCaster->SetPixelStride(1);
-            rayCaster->SetUseScreenROI(false);
-            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 512
-        }
+        rayCaster->SetMaxSamples(interactive ? lqMaxSamples : hqMaxSamples);
+        rayCaster->SetPixelStride(1);
+        rayCaster->SetUseScreenROI(true);
+        // 全局统一步长（voxelSize * scale）；voxelSize 不可用时退回历史自适应步长。
+        rayCaster->SetStepSize(interactive ? lqStep : hqStep);
 
         // 各 rank 无头渲染自己的超块。
         const igm::mat4 view = camera->GetViewMatrix();
@@ -245,17 +333,20 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         std::vector<float> depth;
         const auto tRender0 = std::chrono::steady_clock::now();
         rayCaster->Render(view, proj, modelMatrix,
-                          igm::uvec2{static_cast<unsigned>(width),
-                                     static_cast<unsigned>(height)},
+                          igm::uvec2{static_cast<unsigned>(fw),
+                                     static_cast<unsigned>(fh)},
                           rgba, depth);
         const auto tRender1 = std::chrono::steady_clock::now();
 
-        // 分布式深度有序合成。
+        // 分布式深度有序合成。默认走「稀疏 ROI 合成」：每个 rank 只上报自己非空像素的
+        // 外接矩形，汇聚量与 rank 0 工作量都和 rank 数基本解耦（对标 IceT
+        // valid_pixels_viewport）。--tree 时改走并行树合成。
         auto composite = iGame::iGameCompositePass::New();
-        composite->SetLocalImage(width, height, rgba, depth);
+        composite->SetLocalImage(fw, fh, rgba, depth);
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+        composite->SetUseTreeComposite(useTree);
         const auto tComposite0 = std::chrono::steady_clock::now();
         const bool compositeOk = composite->Composite();
         const auto tComposite1 = std::chrono::steady_clock::now();
@@ -264,33 +355,79 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             return false;
         }
 
-        // rank 0 发送合成图（zlib 压缩优先，压缩后更小才用压缩帧）；其余 rank 无事可做。
+        // rank 0 发送合成图；其余 rank 无事可做。
         if (rank == 0) {
-            const auto& result = composite->GetResultRGBA();
             const auto tSend0 = std::chrono::steady_clock::now();
-            const std::int32_t rawSize = width * height * 4;
-            std::vector<unsigned char> comp;
-            bool sent = false;
-            // compressBound 给出最坏上界；压缩后更小才用 codec=1，否则退回 raw（codec=0）。
-            uLongf compLen = compressBound(static_cast<uLong>(rawSize));
-            comp.resize(static_cast<std::size_t>(compLen));
-            if (compress2(comp.data(), &compLen, result.data(),
-                          static_cast<uLong>(rawSize), Z_BEST_SPEED) == Z_OK &&
-                static_cast<std::int32_t>(compLen) < rawSize) {
-                sent = iGamePVNet::SendFramePayload(
-                        clientSock, width, height, iGamePVNet::kCodecZlib,
-                        comp.data(), static_cast<std::int32_t>(compLen), frameSeq);
-            } else {
-                sent = iGamePVNet::SendFrame(clientSock, width, height,
-                                             result.data(), frameSeq);
+
+            // 1) ROI 由合成器直接给出（稀疏路径在合成时就知道了），无需再扫一遍全图。
+            //    全图路径（--tree）下 Composite() 收尾时也已扫过一次，语义一致。
+            const int rx0 = composite->GetResultROIX();
+            const int ry0 = composite->GetResultROIY();
+            const int roiW = composite->GetResultROIW();
+            const int roiH = composite->GetResultROIH();
+            const std::vector<unsigned char>& roi =
+                    composite->GetResultROIRGBA();
+
+            // 2) 交互档背压：TCP 发送队列积压超过阈值说明客户端消费不过来，此时继续发
+            //    只会让延迟无界增长（「松手后追帧」）。宁可丢帧（返回 true，客户端会话
+            //    保持），等队列排空后再发最新帧。（对标 MiniPVServer.cpp:921-932 的
+            //    ioctl(TIOCOUTQ) 丢帧策略；仅 Linux 可用，其它平台跳过。）
+            bool queueBacklogged = false;
+#if defined(__linux__)
+            if (interactive) {
+                int outq = 0;
+                if (ioctl(clientSock, TIOCOUTQ, &outq) == 0 &&
+                    outq > kMaxSendQueueBytes) {
+                    queueBacklogged = true;
+                }
             }
+#endif
+            if (queueBacklogged) {
+                auto ms = [](auto a, auto b) {
+                    return std::chrono::duration<double, std::milli>(b - a)
+                            .count();
+                };
+                std::cerr << "[server] render=" << ms(tRender0, tRender1)
+                          << "ms composite=" << ms(tComposite0, tComposite1)
+                          << "ms send=DROPPED (send queue backlogged)\n";
+                return true;
+            }
+
+            // 3) 压缩 ROI（压缩后更小才用 codec=1，否则 codec=0 raw ROI）。
+            const std::int32_t rawSize = static_cast<std::int32_t>(roi.size());
+            bool sent = false;
+            if (rawSize <= 0) {
+                sent = iGamePVNet::SendFramePayload(clientSock, fw, fh,
+                        iGamePVNet::kCodecRawRGBA, rx0, ry0, roiW, roiH,
+                        nullptr, 0, frameSeq);
+            } else {
+                std::vector<unsigned char> comp;
+                uLongf compLen = compressBound(static_cast<uLong>(rawSize));
+                comp.resize(static_cast<std::size_t>(compLen));
+                if (compress2(comp.data(), &compLen, roi.data(),
+                              static_cast<uLong>(rawSize), Z_BEST_SPEED) == Z_OK &&
+                    static_cast<std::int32_t>(compLen) < rawSize) {
+                    sent = iGamePVNet::SendFramePayload(
+                            clientSock, fw, fh, iGamePVNet::kCodecZlib,
+                            rx0, ry0, roiW, roiH, comp.data(),
+                            static_cast<std::int32_t>(compLen), frameSeq);
+                } else {
+                    sent = iGamePVNet::SendFramePayload(
+                            clientSock, fw, fh, iGamePVNet::kCodecRawRGBA,
+                            rx0, ry0, roiW, roiH, roi.data(), rawSize, frameSeq);
+                }
+            }
+
             const auto tSend1 = std::chrono::steady_clock::now();
             auto ms = [](auto a, auto b) {
                 return std::chrono::duration<double, std::milli>(b - a).count();
             };
-            std::cerr << "[server] render=" << ms(tRender0, tRender1)
+            std::cerr << "[server] " << fw << 'x' << fh
+                      << " render=" << ms(tRender0, tRender1)
                       << "ms composite=" << ms(tComposite0, tComposite1)
-                      << "ms send=" << ms(tSend0, tSend1) << "ms\n";
+                      << "ms send=" << ms(tSend0, tSend1)
+                      << "ms roi=" << roiW << 'x' << roiH
+                      << " bytes=" << rawSize << '\n';
             return sent;
         }
         return true;
@@ -311,10 +448,9 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     // 保持一致，避免某条 send 失败后 rank 0 提前退循环造成其它 rank 集合通信死锁。
     bool clientAlive = renderFrame(0);
 
-    // ---------- 主循环：读命令 -> 广播 -> 渲染 -> 发送 ----------
-    std::string netbuf;
+    // ---------- 会话循环：读命令 -> 广播 -> 渲染 -> 发送（每 accept 一个客户端进入一次） ----------
     while (true) {
-        // 广播运行状态（rank 0 决定是否继续）；所有 rank 在此同步，随后一致退出。
+        // 广播运行状态（rank 0 决定是否继续）；所有 rank 在此同步，随后一致退出本会话。
         int runningFlag = clientAlive ? 1 : 0;
         ctx->Broadcast(&runningFlag, 1, 0);
         if (!runningFlag) { break; }
@@ -415,8 +551,16 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         if (!renderFrame(interactive)) { clientAlive = false; }
     }
 
+    // 客户端断开/EXIT/发送失败：关闭本会话 socket，回到 accept 等下一个客户端（不退出服务）。
     if (rank == 0) {
         iGamePVNet::CloseSocket(clientSock);
+        clientSock = PV_INVALID_SOCKET;
+        std::cout << "[server] client session ended; waiting for next client...\n";
+        std::cout.flush();
+    }
+    } // 持久服务循环
+
+    if (rank == 0) {
         iGamePVNet::CloseSocket(listenSock);
     }
     return 0;

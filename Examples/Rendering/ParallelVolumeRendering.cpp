@@ -42,6 +42,7 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 #include "iGameCompositePass.h"
+#include "iGameThreadPool.h"
 #include "iGameVolumeRayCastCPU.h"
 #include "iGameVolumeTransferFunction.h"
 #include "VolumeMeshAlgorithm/iGameVolumeDistributor.h"
@@ -60,9 +61,15 @@
 #include <ctime>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <vector>
+
+#if defined(__linux__)
+#  include <sched.h>   // sched_getaffinity：拿到本进程真正可用的核数（srun --cpu-bind 后）
+#endif
 
 #include <GLFW/glfw3.h>
 
@@ -71,9 +78,40 @@
 #include "../../ThirdParty/glfw-3.4/deps/stb_image_write.h"
 
 namespace {
+// ---------------------------------------------------------------------------
+// 本进程真正可用的核数（用于设定 iGame ThreadPool 的线程数）。
+//
+// 为什么必须显式设置：iGameThreadPool 的默认线程数是编译期常量 12，与运行时实际可用
+// 的核数无关。超算上用 `srun --cpu-bind=cores` 把每个 rank 绑到 1 个核上（56 rank/节点），
+// 此时每个 rank 再开 12 个线程就是 12 倍超订，线程切换开销会把每帧渲染时间放大数倍；
+// 更糟的是 ThreadPool 单例会按 std::thread::hardware_concurrency() 预创建线程池，在没有
+// 显式设置线程数时每个 rank 会创建 56 个线程（56 rank/节点 → 3136 线程/节点）。
+//
+// 取值优先级：OMP_NUM_THREADS（作业脚本常用来约束线程数） > sched_getaffinity（Linux，
+// 反映 cgroup/cpu-bind 的真实可用核） > std::thread::hardware_concurrency()。
+// ---------------------------------------------------------------------------
+int DetectUsableCoreCount() {
+    if (const char* omp = std::getenv("OMP_NUM_THREADS")) {
+        if (*omp != '\0') {
+            const int v = std::atoi(omp);
+            if (v >= 1) { return v; }
+        }
+    }
+    int n = 0;
+#if defined(__linux__)
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    if (sched_getaffinity(0, sizeof(set), &set) == 0) { n = CPU_COUNT(&set); }
+#endif
+    if (n <= 0) {
+        n = static_cast<int>(std::thread::hardware_concurrency());
+    }
+    if (n <= 0) { n = 1; }
+    return n;
+}
+
 // 本进程写入 PNG 的时间戳（秒级）；同一批合成图用同一时间戳。
-std::string MakeTimestamp() {
-    const auto now = std::chrono::system_clock::now();
+std::string MakeTimestamp() {    const auto now = std::chrono::system_clock::now();
     const std::time_t t = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
 #if defined(_WIN32)
@@ -138,7 +176,11 @@ double FieldMagnitude(iGame::ArrayObject* arr, IGsize i) {
 }
 
 // 计算本 rank 体数据的局部标量范围（用于 AllReduce 求全局范围）。
-bool ComputeLocalScalarRange(iGame::StructuredMesh* mesh, double& mn,
+// mask 非空时跳过无效体素：重采样产物里未被任何分块覆盖的点标量被写成 0.0（mask=0），
+// 若计入会把正值字段的 min 拉成 0.0，污染颜色映射范围（对标 PVR_REF vtkProbeFilter
+// 用 NaN 无效点、min/max 比较自动跳过无效点的做法）。
+bool ComputeLocalScalarRange(iGame::StructuredMesh* mesh,
+                             iGame::UnsignedCharArray* mask, double& mn,
                              double& mx) {
     bool isCell = false;
     auto arr = PickScalarField(mesh, isCell);
@@ -147,8 +189,12 @@ bool ComputeLocalScalarRange(iGame::StructuredMesh* mesh, double& mn,
     const IGsize n = arr->GetNumberOfElements();
     if (n <= 0) { return false; }
 
+    const unsigned char* maskData = mask ? mask->RawPointer() : nullptr;
+    const IGsize maskCount = mask ? mask->GetNumberOfElements() : 0;
+
     bool first = true;
     for (IGsize i = 0; i < n; ++i) {
+        if (maskData && i < maskCount && maskData[i] == 0) { continue; }
         const double v = FieldMagnitude(arr.get(), i);
         if (first) {
             mn = mx = v;
@@ -189,7 +235,13 @@ struct CliOptions {
     bool useGPU{false}; // false = CPU 后端（默认）
     bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
     bool server{false}; // true = C/S 服务端（阶段 6，仅 CPU 后端有效）
+    bool useTree{false}; // true = 并行树合成（阶段 4）
     int port{11111};    // --server 监听端口
+    // 两档 LOD（仅 --server / --interactive）：拖动中用低清分辨率 + 更大步长。
+    // 步长以「全局体素尺寸」为单位（1.0 = 一个体素），必须全局一致，否则块间密度不均。
+    double hqStepScale{1.5}; // 松手（高清）每步跨越多少个体素
+    double lqStepScale{4.0}; // 拖动（低清）每步跨越多少个体素
+    int lqDivisor{2};   // 拖动时的分辨率除数（2 => 512x512）
     bool showHelp{false};
     bool valid{false};
 };
@@ -221,6 +273,13 @@ void PrintUsage(const char* prog) {
             << "                           TCP 端口供前端连接，接收增量交互命令、渲染并\n"
             << "                           流式回传合成图（对标 MiniPVServer）。\n"
             << "      --port <n>            --server 监听端口（默认 11111）。\n"
+            << "      --tree                并行树合成（阶段 4，O(log P) 轮替代 direct-send，\n"
+            << "                           适合大量 rank 的批渲染；默认关闭）。默认走「稀疏\n"
+            << "                           ROI 合成」：只汇聚各 rank 非空像素外接矩形。\n"
+            << "      --hq-step <f>         高清档每步跨越多少个体素（默认 1.5）。步长以全局\n"
+            << "                           体素尺寸为单位，必须所有 rank 一致。\n"
+            << "      --lq-step <f>         拖动档每步跨越多少个体素（默认 4.0）。\n"
+            << "      --lq-div <n>          拖动档分辨率除数（默认 2，即 1024->512）。\n"
             << "  -h, --help               显示本帮助。\n"
             << "\n"
             << "Examples:\n"
@@ -292,6 +351,10 @@ CliOptions ParseCli(int argc, char** argv) {
             opts.server = true;
             continue;
         }
+        if (a == "--tree") {
+            opts.useTree = true;
+            continue;
+        }
         if (a == "--port") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: option '" << a << "' requires a value.\n";
@@ -300,12 +363,39 @@ CliOptions ParseCli(int argc, char** argv) {
             opts.port = std::atoi(argv[++i]);
             continue;
         }
+        if (a == "--hq-step") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.hqStepScale = std::atof(argv[++i]);
+            continue;
+        }
+        if (a == "--lq-step") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.lqStepScale = std::atof(argv[++i]);
+            continue;
+        }
+        if (a == "--lq-div") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.lqDivisor = std::atoi(argv[++i]);
+            continue;
+        }
 
         std::cerr << "Error: unknown option '" << a << "'. Use -h for help.\n";
         return opts; // valid = false
     }
 
     if (opts.resPerChunk < 2) { opts.resPerChunk = 2; }
+    if (!(opts.hqStepScale > 0.0)) { opts.hqStepScale = 1.5; }
+    if (!(opts.lqStepScale > 0.0)) { opts.lqStepScale = 4.0; }
+    if (opts.lqDivisor < 1) { opts.lqDivisor = 1; }
     if (!opts.input.empty()) { opts.valid = true; }
     return opts;
 }
@@ -318,6 +408,17 @@ int main(int argc, char** argv) {
     auto ctx = ParallelContext::Instance();
     const int rank = ctx->Rank();
     const int size = ctx->Size();
+
+    // iGame 线程池线程数按「本进程实际可用核数」设定（默认 12 在 --cpu-bind=cores 场景
+    // 是 12 倍超订）。必须在任何 parallelFor（重采样 / 光线步进 / 砖块构建）之前设置。
+    {
+        const int cores = DetectUsableCoreCount();
+        ThreadPool::SetDefaultThreadCount(cores);
+        if (rank == 0) {
+            std::cerr << "[threads] iGame ThreadPool default thread count = "
+                      << cores << " (usable cores = " << cores << ")\n";
+        }
+    }
 
     const CliOptions cli = ParseCli(argc, argv);
 
@@ -482,6 +583,10 @@ int main(int argc, char** argv) {
             }
         }
     }
+    // 重采样分辨率诊断（供判断是否欠采样）：输出网格间距 vs 源数据最细间距。
+    // 欠采样（输出间距 > 源间距）会让体数据里的高频结构产生走样，在屏幕上表现为
+    // 「纹理断断续续 / 块状条纹」，因此这里明确告警。
+    double sourceMinSpacing = 0.0;
     if (!volume) {
         auto resampler = iGameVolumeResampleFilter::New();
         resampler->SetInput(localComposite);
@@ -519,16 +624,56 @@ int main(int argc, char** argv) {
         }
         volume = resampler->GetStructuredMesh();
         validMask = resampler->GetValidMask();
+        sourceMinSpacing = resampler->GetSourceMinSpacing();
+        if (rank == 0) {
+            const double outSp = resampler->GetOutputMinSpacing();
+            std::cerr << "[resample] block=(" << bcx << 'x' << bcy << 'x' << bcz
+                      << ") target=" << tni << 'x' << tnj << 'x' << tnk
+                      << " outSpacing(min)=" << outSp
+                      << " sourceSpacing(min)=" << sourceMinSpacing << '\n';
+            if (sourceMinSpacing > 0.0 && outSp > sourceMinSpacing * 1.05) {
+                std::cerr << "[resample] WARNING: undersampling "
+                          << (outSp / sourceMinSpacing)
+                          << "x (output spacing coarser than source). Raise "
+                             "--resample to >= "
+                          << static_cast<int>(std::ceil(
+                                     resPerChunk * outSp / sourceMinSpacing))
+                          << " to keep the source detail (otherwise fine "
+                             "texture aliases into blocky/choppy bands).\n";
+            }
+        }
     }
 
     // 7. 全局标量范围：各 rank 局部 min/max -> AllReduce -> 全局一致（对标
     //    VolumeRenderingCommon.h:44-50 的 AllReduce(MIN/MAX)）。
+    // 注意：无论本 rank 是否有有效体素都参与 AllReduce，避免某 rank 全无效体素时
+    // hasRange=false 导致该 rank 跳过 AllReduce、与其它 rank 集合通信失配（死锁）。
+    // 无有效体素时用 ±inf 作"空贡献"，MIN/MAX 归约不影响其它 rank。
     double localMin = 0.0, localMax = 1.0;
-    const bool hasRange = ComputeLocalScalarRange(volume.get(), localMin, localMax);
-    double globalMin = localMin, globalMax = localMax;
-    if (hasRange) {
-        ctx->AllReduce(&localMin, &globalMin, 1, ParallelContext::ReduceOp::Min);
-        ctx->AllReduce(&localMax, &globalMax, 1, ParallelContext::ReduceOp::Max);
+    const bool hasLocalRange =
+            ComputeLocalScalarRange(volume.get(), validMask.get(), localMin,
+                                    localMax);
+    double reduceMin = hasLocalRange
+                               ? localMin
+                               : std::numeric_limits<double>::infinity();
+    double reduceMax = hasLocalRange
+                               ? localMax
+                               : -std::numeric_limits<double>::infinity();
+    double globalMin = 0.0, globalMax = 1.0;
+    ctx->AllReduce(&reduceMin, &globalMin, 1, ParallelContext::ReduceOp::Min);
+    ctx->AllReduce(&reduceMax, &globalMax, 1, ParallelContext::ReduceOp::Max);
+    // 全员都无有效体素时 globalMin=+inf > globalMax=-inf，视为无范围，回退默认。
+    const bool hasRange = globalMin < globalMax;
+    if (!hasRange) {
+        globalMin = 0.0;
+        globalMax = 1.0;
+    }
+    // 诊断：rank0 打印选中字段与全局标量范围，便于对比本地(6块)/超算(19200块)。
+    // 若超算上 global 范围被 0.0 污染（min 起跳为 0）或跨度异常，即定位到范围问题。
+    if (rank == 0) {
+        std::cerr << "[range] field='" << selectedField
+                  << "' hasRange=" << hasRange << " global=[" << globalMin
+                  << ", " << globalMax << "]\n";
     }
 
     // 8. 全局包围盒：各 rank 局部超块包围盒 -> AllGather -> 求并集。
@@ -549,6 +694,41 @@ int main(int argc, char** argv) {
                               allBoxes[static_cast<size_t>(r) * 6 + 3],
                               allBoxes[static_cast<size_t>(r) * 6 + 5]};
         globalBounds.add(BoundingBox(mn, mx));
+    }
+
+    // 8.5 全局体素尺寸（所有 rank 一致）——并行体绘制正确性的关键量。
+    //   Beer-Lambert 的 ScalarOpacityUnitDistance 与「全局统一光线步长」都取它：
+    //     alphaStep = 1 - exp(-opacity * step / unitDistance)
+    //   只有把 unitDistance 设成真实体素尺寸，累计光学厚度才与步长、与「每个 rank 分到
+    //   多大超块」无关。否则（unitDistance=0，本工程此前的默认）
+    //     alphaStep = opacity  ——累计不透明度 ∝ 采样步数，而自适应步长下每个 rank 的步数
+    //   都恰好等于 maxSamples，于是「薄超块」和「厚超块」贡献同样的不透明度：前面的 rank
+    //   一饱和就把内部结构全遮住，屏幕上表现为明显的块状明暗台阶（对标参考实现
+    //   MiniPVServer.cpp:586-600 / TestPVolumeRender.cpp:504-520 的
+    //   SetScalarOpacityUnitDistance(cbrt(spx*spy*spz))）。
+    //   取 AllReduce(MIN) 是为了让所有 rank 用同一个值（各 rank 重采样网格间距略有差异）。
+    double localVoxel = std::numeric_limits<double>::infinity();
+    if (volume) {
+        const BoundingBox& vb = volume->GetBoundingBox();
+        igIndex* vd = volume->GetDimensionSize();
+        double sp[3];
+        bool ok = true;
+        for (int a = 0; a < 3; ++a) {
+            sp[a] = (vd[a] > 1)
+                            ? (vb.max[a] - vb.min[a]) /
+                                      static_cast<double>(vd[a] - 1)
+                            : 0.0;
+            if (!(sp[a] > 0.0)) { ok = false; }
+        }
+        if (ok) { localVoxel = std::cbrt(sp[0] * sp[1] * sp[2]); }
+    }
+    double voxelSize = 1.0;
+    ctx->AllReduce(&localVoxel, &voxelSize, 1, ParallelContext::ReduceOp::Min);
+    if (!std::isfinite(voxelSize) || voxelSize <= 0.0) { voxelSize = 1.0; }
+    if (rank == 0) {
+        std::cerr << "[voxel] global voxel size (unit distance) = " << voxelSize
+                  << "; HQ step = " << voxelSize * cli.hqStepScale
+                  << ", LQ step = " << voxelSize * cli.lqStepScale << '\n';
     }
 
     // -------------------------------------------------------------------------
@@ -595,8 +775,11 @@ int main(int argc, char** argv) {
         // 不透明度映射）。开启模型不透明度映射对标 scene->SetParallelVolumeRendering(true)。
         auto tf = iGameVolumeTransferFunction::New();
         if (hasRange) { tf->SetScalarRange(globalMin, globalMax); }
-        volume->SetOpacityMappingEnabled(true);
-        tf->SetOpacityMappingEnabled(volume->GetOpacityMappingEnabled());
+        // 显式开启透明度映射：不要从 volume 读回 GetOpacityMappingEnabled()。
+        // 重采样产物的 color mapper/激活属性未初始化（GetAttributeIndex()==-1），
+        // GetOpacityMappingEnabled() 恒为 false，会把 TF 的透明度映射意外关掉，
+        // MapOpacity 恒返回 1.0 → 体渲染退化为表面渲染（本问题根因）。
+        tf->SetOpacityMappingEnabled(true);
 
         auto cpuRayCaster = iGameVolumeRayCastCPU::New();
         if (!cpuRayCaster->SetInput(volume)) {
@@ -608,6 +791,9 @@ int main(int argc, char** argv) {
         cpuRayCaster->SetTransferFunction(tf);
         cpuRayCaster->SetMaxSamples(512);
         cpuRayCaster->SetEmptySpaceSkippingEnabled(true);
+        // Beer-Lambert 单位距离 = 全局体素尺寸：让「每单位长度的光学厚度」与采样步长无关，
+        // 从而与「本 rank 分到多大的超块」无关（消除块状密度台阶，见 8.5 的说明）。
+        cpuRayCaster->SetScalarOpacityUnitDistance(voxelSize);
 
         // 无头相机（纯数学，不依赖 GL 上下文）。
         auto cpuCamera = Camera::New();
@@ -620,7 +806,9 @@ int main(int argc, char** argv) {
             const double radius = globalBounds.diag() / 2.0;
             const int rc = iGameVolInteractive::RunInteractive(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
-                    globalMax, gcenter, blockCenter, radius, width, height);
+                    globalMax, gcenter, blockCenter, radius, width, height,
+                    cli.useTree, voxelSize, cli.hqStepScale, cli.lqStepScale,
+                    cli.lqDivisor);
             ParallelContext::Finalize();
             return rc;
         }
@@ -632,7 +820,8 @@ int main(int argc, char** argv) {
             const int rc = iGamePVServer::RunServer(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.port);
+                    cli.port, cli.useTree, voxelSize, cli.hqStepScale,
+                    cli.lqStepScale, cli.lqDivisor);
             ParallelContext::Finalize();
             return rc;
         }
@@ -724,6 +913,7 @@ int main(int argc, char** argv) {
             composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
                     blockCenter, camPos, front));
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            composite->SetUseTreeComposite(cli.useTree);
             if (!composite->Composite()) {
                 if (rank == 0) { std::cerr << "Composite failed.\n"; }
                 ParallelContext::Finalize();
@@ -881,6 +1071,7 @@ int main(int argc, char** argv) {
         composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+        composite->SetUseTreeComposite(cli.useTree);
 
         if (!composite->Composite()) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }

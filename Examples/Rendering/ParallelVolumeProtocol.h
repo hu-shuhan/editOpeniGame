@@ -94,9 +94,9 @@ inline constexpr std::uint32_t kCodecZlib = 1;                // 帧编码：zli
 inline constexpr std::size_t kMetadataBytes =
         sizeof(std::uint32_t) + 2 * sizeof(std::int32_t) + 2 * sizeof(double) +
         kColorbarBytes;
-// 帧头长度：magic + width + height + codec + seq + payloadSize。
+// 帧头长度：magic + width + height + codec + seq + payloadSize + roiX + roiY + roiW + roiH。
 inline constexpr std::size_t kFrameHeaderBytes =
-        2 * sizeof(std::uint32_t) + 4 * sizeof(std::int32_t);
+        2 * sizeof(std::uint32_t) + 8 * sizeof(std::int32_t);
 
 // ---------------------------------------------------------------------------
 // 平台初始化 / 错误码
@@ -312,10 +312,14 @@ inline bool RecvMetadata(PVSocket s, Metadata& meta) {
     return true;
 }
 
-// 发送一帧（通用）：codec 指明 payload 编码，payload 为已编码字节。
+// 发送一帧（通用）：codec 指明 payload 编码，payload 为「ROI 子矩形」的已编码字节。
+// roi* 为 payload 在全帧中的位置（codec=0 时 payload 为 roiW*roiH*4 字节的 raw RGBA8）。
 inline bool SendFramePayload(PVSocket s, int width, int height,
-                             std::uint32_t codec, const void* payload,
-                             std::int32_t payloadSize, std::uint32_t seq) {
+                             std::uint32_t codec,
+                             std::int32_t roiX, std::int32_t roiY,
+                             std::int32_t roiW, std::int32_t roiH,
+                             const void* payload, std::int32_t payloadSize,
+                             std::uint32_t seq) {
     const std::uint32_t magic = kFrameMagic;
     const std::int32_t w = width;
     const std::int32_t h = height;
@@ -328,15 +332,20 @@ inline bool SendFramePayload(PVSocket s, int width, int height,
     if (!SendAll(s, &c, sizeof(c))) { return false; }
     if (!SendAll(s, &seq, sizeof(seq))) { return false; }
     if (!SendAll(s, &ps, sizeof(ps))) { return false; }
+    if (!SendAll(s, &roiX, sizeof(roiX))) { return false; }
+    if (!SendAll(s, &roiY, sizeof(roiY))) { return false; }
+    if (!SendAll(s, &roiW, sizeof(roiW))) { return false; }
+    if (!SendAll(s, &roiH, sizeof(roiH))) { return false; }
     if (ps <= 0) { return true; }
     return SendAll(s, payload, static_cast<std::size_t>(ps));
 }
 
-// 发送一帧 raw RGBA8（codec=0）。
+// 发送一帧 raw RGBA8（codec=0，整帧无 ROI 裁剪）。
 inline bool SendFrame(PVSocket s, int width, int height,
                       const unsigned char* rgba, std::uint32_t seq) {
-    return SendFramePayload(s, width, height, kCodecRawRGBA, rgba,
-                            static_cast<std::int32_t>(width) * height * 4, seq);
+    return SendFramePayload(s, width, height, kCodecRawRGBA, 0, 0, width, height,
+                            rgba, static_cast<std::int32_t>(width) * height * 4,
+                            seq);
 }
 
 // 帧（client 端解析结果）。
@@ -345,8 +354,9 @@ struct Frame {
     int height{0};
     std::uint32_t seq{0};               // 触发本帧的 INTERACT 命令 seq（0 = 无命令/初始帧）
     std::uint32_t codec{kCodecRawRGBA}; // 帧编码（0=raw RGBA8，1=zlib 压缩）
-    std::vector<unsigned char> payload; // 原始 payload 字节
-    std::vector<unsigned char> rgba;    // 解码后的 RGBA8（客户端解码后填充）
+    int roiX{0}, roiY{0}, roiW{0}, roiH{0}; // payload 在全帧中的子矩形
+    std::vector<unsigned char> payload; // 原始 payload 字节（ROI 子矩形）
+    std::vector<unsigned char> rgba;    // 解码后的全帧 RGBA8（width*height*4，客户端重建后填充）
 };
 
 // 从字节流解析一帧；返回 0=成功，1=缓冲不足（需更多数据），-1=格式错误需重对齐。
@@ -360,16 +370,18 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
     std::uint32_t magic = 0;
     std::int32_t w = 0, h = 0, codec = 0, payloadSize = 0;
     std::uint32_t seq = 0;
-    std::memcpy(&magic, p, sizeof(magic));
-    std::memcpy(&w, p + sizeof(magic), sizeof(w));
-    std::memcpy(&h, p + sizeof(magic) + sizeof(w), sizeof(h));
-    std::memcpy(&codec, p + sizeof(magic) + sizeof(w) + sizeof(h), sizeof(codec));
-    std::memcpy(&seq, p + sizeof(magic) + sizeof(w) + sizeof(h) + sizeof(codec),
-                sizeof(seq));
-    std::memcpy(&payloadSize,
-                p + sizeof(magic) + sizeof(w) + sizeof(h) + sizeof(codec) +
-                        sizeof(seq),
-                sizeof(payloadSize));
+    std::int32_t roiX = 0, roiY = 0, roiW = 0, roiH = 0;
+    std::size_t o = 0;
+    std::memcpy(&magic, p + o, sizeof(magic)); o += sizeof(magic);
+    std::memcpy(&w, p + o, sizeof(w)); o += sizeof(w);
+    std::memcpy(&h, p + o, sizeof(h)); o += sizeof(h);
+    std::memcpy(&codec, p + o, sizeof(codec)); o += sizeof(codec);
+    std::memcpy(&seq, p + o, sizeof(seq)); o += sizeof(seq);
+    std::memcpy(&payloadSize, p + o, sizeof(payloadSize)); o += sizeof(payloadSize);
+    std::memcpy(&roiX, p + o, sizeof(roiX)); o += sizeof(roiX);
+    std::memcpy(&roiY, p + o, sizeof(roiY)); o += sizeof(roiY);
+    std::memcpy(&roiW, p + o, sizeof(roiW)); o += sizeof(roiW);
+    std::memcpy(&roiH, p + o, sizeof(roiH)); o += sizeof(roiH);
 
     if (magic != kFrameMagic) { return -1; }
     // 基本健壮性检查（与 MiniPVClient 一致）。
@@ -377,9 +389,15 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
         payloadSize < 0 || payloadSize > 512 * 1024 * 1024) {
         return -1;
     }
+    // ROI 校验：子矩形必须在全帧内；空 ROI（roiW==0 || roiH==0）要求 payloadSize==0。
+    if (roiX < 0 || roiY < 0 || roiW < 0 || roiH < 0 ||
+        roiX + roiW > w || roiY + roiH > h) {
+        return -1;
+    }
+    if ((roiW == 0 || roiH == 0) && payloadSize != 0) { return -1; }
     if (codec == static_cast<std::int32_t>(kCodecRawRGBA)) {
-        // raw RGBA8：payload 长度必须严格等于 w*h*4。
-        if (payloadSize != w * h * 4) { return -1; }
+        // raw RGBA8：payload 长度必须严格等于 ROI 子矩形字节数。
+        if (payloadSize != roiW * roiH * 4) { return -1; }
     } else if (codec != static_cast<std::int32_t>(kCodecZlib)) {
         return -1; // 未知 codec
     }
@@ -392,6 +410,10 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
     out.height = h;
     out.seq = seq;
     out.codec = static_cast<std::uint32_t>(codec);
+    out.roiX = roiX;
+    out.roiY = roiY;
+    out.roiW = roiW;
+    out.roiH = roiH;
     out.payload.assign(buf.data() + offset + kFrameHeaderBytes,
                        buf.data() + offset + kFrameHeaderBytes + payloadSize);
     out.rgba.clear();

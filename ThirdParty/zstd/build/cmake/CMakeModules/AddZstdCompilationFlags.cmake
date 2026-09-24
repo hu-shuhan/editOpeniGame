@@ -81,7 +81,12 @@ macro(ADD_ZSTD_COMPILATION_FLAGS)
         # LDFLAGS
         EnableCompilerFlag("-Wl,-z,noexecstack" false false true)
         # CFLAGS & CXXFLAGS
-        EnableCompilerFlag("-Qunused-arguments" true true false)
+        # -Qunused-arguments 是 Clang 专有标志，GCC 不支持；只对 Clang/AppleClang
+        # 做检查，避免 GCC 下产生 CMakeError.log 噪声（EnableCompilerFlag 对 GCC
+        # 本就会检查失败并跳过，此处显式收窄到 Clang 更干净）。
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            EnableCompilerFlag("-Qunused-arguments" true true false)
+        endif ()
         EnableCompilerFlag("-Wa,--noexecstack" true true false)
         # NOTE: Using 3 nested ifs because the variables are sometimes
         # empty if the condition is false, and sometimes equal to false.

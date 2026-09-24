@@ -5,6 +5,7 @@
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameStructuredMesh.h"
+#include <algorithm>
 #include <string>
 
 IGAME_NAMESPACE_BEGIN
@@ -44,6 +45,20 @@ public:
     /** 无效点 mask（0=无效/在网格外，1=有效），长度 = ni*nj*nk。 */
     UnsignedCharArray::Pointer GetValidMask() const { return m_ValidMask; }
 
+    /**
+     * 输入分块里最细的一维点间距（Execute 后有效；无结构化输入时为 0）。
+     *
+     * 用途：判断目标分辨率是否相对源数据「欠采样」。输出间距明显大于源间距时，体数据里的
+     * 高频结构会被点采样走样成断断续续的块状条纹——这正是并行体绘制顶面纹理不清的成因之一。
+     */
+    double GetSourceMinSpacing() const { return m_SourceMinSpacing; }
+
+    /** 输出规则网格的三轴间距里最小的一维（Execute 后有效）。 */
+    double GetOutputMinSpacing() const {
+        const double m = std::min(m_OutputSpacing[0], m_OutputSpacing[1]);
+        return std::min(m, m_OutputSpacing[2]);
+    }
+
     bool Execute() override;
 
 protected:
@@ -58,6 +73,8 @@ private:
     std::string m_FieldName;
     StructuredMesh::Pointer m_OutputMesh{nullptr};
     UnsignedCharArray::Pointer m_ValidMask{nullptr};
+    double m_SourceMinSpacing{0.0};          // 输入分块最细点间距（诊断用）
+    double m_OutputSpacing[3]{1.0, 1.0, 1.0}; // 输出规则网格间距（诊断用）
 };
 
 IGAME_NAMESPACE_END

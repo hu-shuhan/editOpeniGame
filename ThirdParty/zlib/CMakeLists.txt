@@ -107,7 +107,9 @@ check_include_file(unistd.h HAVE_UNISTD_H)
 if(MSVC)
     set(CMAKE_REQUIRED_FLAGS "-WX")
 else(MSVC)
-    set(CMAKE_REQUIRED_FLAGS "-WError")
+    # 注意：必须小写 -Werror（GCC 对大小写敏感，-WError 会被拒绝，
+    # 导致 HAVE___ATTR__VIS_HIDDEN 检查失败、zlib 符号无法隐藏）。
+    set(CMAKE_REQUIRED_FLAGS "-Werror")
 endif(MSVC)
 
 check_c_source_compiles(
@@ -118,7 +120,7 @@ check_c_source_compiles(
     "
     HAVE___ATTR__VIS_HIDDEN)
 
-unset(CMAKE_COMPILE_FLAGS)
+unset(CMAKE_REQUIRED_FLAGS)
 set(ZLIB_PC ${zlib_BINARY_DIR}/zlib.pc)
 configure_file(${zlib_SOURCE_DIR}/zlib.pc.cmakein ${ZLIB_PC} @ONLY)
 configure_file(${zlib_BINARY_DIR}/zconf.h.cmakein ${zlib_BINARY_DIR}/zconf.h)

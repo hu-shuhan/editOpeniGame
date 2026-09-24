@@ -627,8 +627,21 @@ void iGameVolumeRayCastCPU::RayCastPixel(
     const float tEnd = tExit;
 
     float step = m_StepSize;
-    if (step <= 0.0f) { step = (tEnd - t) / static_cast<float>(m_MaxSamples); }
-    if (step <= 0.0f) { step = 1e-4f; }
+    if (step <= 0.0f) {
+        // 自适应步长（历史行为，与 GPU 后端 VolumeRayCast.frag 口径一致）：
+        // 步长 = 本超块内光线弦长 / maxSamples。注意此时「不透明度密度」与步长相关，
+        // 各 rank 弦长不同会导致块间明暗不均；并行体绘制请显式 SetStepSize(全局步长)。
+        step = (tEnd - t) / static_cast<float>(m_MaxSamples);
+        if (step <= 0.0f) { step = 1e-4f; }
+    } else if (t > 0.0f) {
+        // 全局统一步长：把首个采样点吸附到「以近裁剪面为原点的全局采样栅格」上。
+        // 所有 rank 用同一相机/同一投影矩阵，同一像素的光线起点与方向逐位一致，因此
+        // 参数 t 是全局量；吸附后相邻超块的采样点在 t 轴上严格接续（既不留缝隙也不
+        // 重复），块边界不会出现接缝/明暗跳变（对标参考实现里全局统一的 sample
+        // distance + 全局 voxel 尺寸的 ScalarOpacityUnitDistance）。
+        const float snapped = std::ceil(t / step) * step;
+        if (snapped <= tEnd) { t = snapped; }
+    }
 
     // grid 空间增量步进（避免每步除法）：dirGrid = dir * invBoxSize * (dims-1)。
     const float invSX = 1.0f / (m_BoxMax.x - m_BoxMin.x);
@@ -660,8 +673,16 @@ void iGameVolumeRayCastCPU::RayCastPixel(
     float bAccum = 0.0f;
     float firstHitT = -1.0f;
 
-    for (int i = 0; i < m_MaxSamples; ++i) {
-        if (t > tEnd) { break; }
+    // 采样预算与迭代上限分离：
+    //   - samples 只统计「真正做了三线性采样」的步（空体素砖块跳跃是纯加速，不应吃掉
+    //     预算，否则半空半实的超块会在大步长下提前截断，产生块状密度错误）；
+    //   - iterations 只作死循环保护（砖块跳跃每次至少前进一个砖块 + 半步长）。
+    int samples = 0;
+    int iterations = 0;
+    const int maxIterations = m_MaxSamples + 8192;
+
+    while (t <= tEnd && samples < m_MaxSamples && iterations < maxIterations) {
+        ++iterations;
 
         // ---- 空体素跳过：当前砖块透明/无效则整体跳到砖块出口 ----
         if (skipEnabled) {
@@ -713,6 +734,9 @@ void iGameVolumeRayCastCPU::RayCastPixel(
                 continue;
             }
         }
+
+        // 本步会真正采样：计入采样预算。
+        ++samples;
 
         // ---- 三线性采样标量 + 有效点 mask ----
         const float scalarVal =

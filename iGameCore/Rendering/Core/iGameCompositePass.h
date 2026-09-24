@@ -54,12 +54,51 @@ public:
      */
     bool Composite();
 
+    /** 是否使用并行树合成（阶段 4，O(log P) 轮）。默认 false。 */
+    void SetUseTreeComposite(bool use) { m_UseTreeComposite = use; }
+    bool GetUseTreeComposite() const { return m_UseTreeComposite; }
+
+    /**
+     * 是否使用「稀疏 ROI 合成」（默认 true，推荐）。
+     *
+     * @details
+     *  每个 rank 先算自己图像上非透明像素的外接矩形（ROI），AllGather 各 rank 的 ROI
+     *  （4 个 int）后，用 Gatherv 只把 ROI 子矩形发给 rank 0；rank 0 再按超块全局深度序
+     *  把各 rank 的 ROI 矩形逐块 front-to-back over 到累加缓冲上。
+     *
+     *  为什么必须默认开：并行体绘制里每个 rank 只持有体数据的一小块，它在屏幕上通常只
+     *  覆盖很小一片（本工程 19200 块 / 1000 rank 时约 20×20 像素），却要发送/接收
+     *  1024×1024×4 = 4MB 的整图。1000 rank 的 direct-send 汇聚量因此是 4GB 量级，
+     *  rank 0 还要做 O(P·像素) 的逐像素循环——这是上千 rank 下延迟爆炸的主因。
+     *  只传 ROI 后汇聚量降到 MB 量级、rank 0 工作量降到 O(Σ ROI 面积)，与 P 基本解耦
+     *  （对标 IceT 的 valid_pixels_viewport）。
+     *
+     *  稀疏路径在「所有 rank 的 ROI 字节数之和」超过 int 上限时自动回退到全图汇聚。
+     */
+    void SetUseSparseComposite(bool use) { m_UseSparseComposite = use; }
+    bool GetUseSparseComposite() const { return m_UseSparseComposite; }
+
     int GetResultWidth() const { return m_ResultWidth; }
     int GetResultHeight() const { return m_ResultHeight; }
     /** 合成结果（不透明 RGBA8，含背景色），仅 rank 0 有效。 */
     const std::vector<unsigned char>& GetResultRGBA() const {
         return m_ResultRGBA;
     }
+
+    /**
+     * 合成结果里「非背景像素」的外接矩形（仅 rank 0 有效）。
+     * 服务端可直接拿它做帧裁剪（sendFrame 的 roiX/roiY/roiW/roiH），无需再扫一遍全图。
+     * ROI 为空时 roiW/roiH 为 0。
+     */
+    int GetResultROIX() const { return m_ResultROIX; }
+    int GetResultROIY() const { return m_ResultROIY; }
+    int GetResultROIW() const { return m_ResultROIW; }
+    int GetResultROIH() const { return m_ResultROIH; }
+    /** 合成结果中 ROI 子矩形的不透明 RGBA8（roiW*roiH*4），仅 rank 0 有效。 */
+    const std::vector<unsigned char>& GetResultROIRGBA() const {
+        return m_ResultROIRGBA;
+    }
+
     /** 全局深度排序顺序（rank 编号，从近到远），所有 rank 一致。 */
     const std::vector<int>& GetSortOrder() const { return m_SortOrder; }
 
@@ -77,6 +116,13 @@ protected:
 
 private:
     void CompositeOnRoot(int size, const std::vector<unsigned char>& allRGBA);
+    bool CompositeTree();
+    // 稀疏 ROI 合成（默认路径）。内部在极端情况下会回退到 CompositeDenseGather()。
+    bool CompositeSparse();
+    // direct-send 全图汇聚合成（阶段 3 原路径，作为稀疏路径的回退）。
+    bool CompositeDenseGather();
+    // 从已合成的全帧结果里扫出非背景像素外接矩形，填充 m_ResultROI*（仅 rank 0）。
+    void ComputeResultROIFromFullFrame();
 
     int m_Width{0};
     int m_Height{0};
@@ -86,9 +132,18 @@ private:
     float m_Background[3]{0.0f, 0.0f, 0.0f};
 
     std::vector<int> m_SortOrder;      // 全局排序（近 -> 远），所有 rank 一致
+    bool m_UseTreeComposite{false};    // 并行树合成开关（阶段 4）
+    bool m_UseSparseComposite{true};   // 稀疏 ROI 合成开关（默认开）
     int m_ResultWidth{0};
     int m_ResultHeight{0};
     std::vector<unsigned char> m_ResultRGBA; // 仅 rank 0
+
+    // 结果的有效区（仅 rank 0）。稀疏路径直接产出，全图路径在收尾时扫描一次得到。
+    int m_ResultROIX{0};
+    int m_ResultROIY{0};
+    int m_ResultROIW{0};
+    int m_ResultROIH{0};
+    std::vector<unsigned char> m_ResultROIRGBA;
 };
 
 IGAME_NAMESPACE_END

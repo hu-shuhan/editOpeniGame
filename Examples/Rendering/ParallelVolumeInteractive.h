@@ -415,9 +415,33 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                           double globalMin, double globalMax,
                           const double gcenter[3],
                           const double blockCenter[3], double radius, int width,
-                          int height) {
+                          int height, bool useTree, double voxelSize = 0.0,
+                          double hqStepScale = 1.5, double lqStepScale = 4.0,
+                          int lqDivisor = 2) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
+
+    // LOD 两档分辨率（与 ParallelVolumeServer 口径一致，所有 rank 同样算得同样结果）。
+    const int hqW = width;
+    const int hqH = height;
+    const int lqW = std::max(128, width / std::max(1, lqDivisor));
+    const int lqH = std::max(128, height / std::max(1, lqDivisor));
+
+    // 全局统一步长（voxelSize 由 main 里 AllReduce 得到，所有 rank 一致）。
+    const bool hasGlobalStep = (voxelSize > 0.0);
+    const float hqStep = hasGlobalStep
+                                 ? static_cast<float>(voxelSize * hqStepScale)
+                                 : 0.0f;
+    const float lqStep = hasGlobalStep
+                                 ? static_cast<float>(voxelSize * lqStepScale)
+                                 : 0.0f;
+    auto sampleCap = [&](float step) -> int {
+        if (!(step > 0.0f)) { return 512; }
+        const double n = std::ceil(2.0 * radius / static_cast<double>(step)) + 16.0;
+        return static_cast<int>(std::clamp(n, 8.0, 8192.0));
+    };
+    const int hqMaxSamples = hasGlobalStep ? sampleCap(hqStep) : 512;
+    const int lqMaxSamples = hasGlobalStep ? sampleCap(lqStep) : 128;
 
     g_center[0] = gcenter[0];
     g_center[1] = gcenter[1];
@@ -528,21 +552,15 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
         camera->SetClippingRange(static_cast<float>(nearPlane),
                                  static_cast<float>(farPlane));
 
-        // 交互 LOD（对标 MiniPVServer：交互中低采样 + 大步进 + ROI）。
-        // 采样率砍到 1/4（512→128）、像素步进 2。步长用自动推导（按**各自分块对角线** /
-        // maxSamples），保证所有 rank 在交互时用同样的相对采样率与大步长（固定全局步长会
-        // 让小分块只有 1~2 个采样、大分块仍采满 128 步，出现不一致）。
-        if (interactive) {
-            rayCaster->SetMaxSamples(128);
-            rayCaster->SetPixelStride(2);
-            rayCaster->SetUseScreenROI(true);
-            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 128
-        } else {
-            rayCaster->SetMaxSamples(512);
-            rayCaster->SetPixelStride(1);
-            rayCaster->SetUseScreenROI(false);
-            rayCaster->SetStepSize(0.0f); // 自动步长：各自分块对角线 / 512
-        }
+        // LOD 两档：交互档真的降分辨率（只做像素步进不减少合成/显示开销），
+        // 步长用「全局统一体素步长 * 档位系数」，保证块间密度一致、采样点跨超块接续。
+        const int fw = interactive ? lqW : hqW;
+        const int fh = interactive ? lqH : hqH;
+        camera->SetViewPort(fw, fh);
+        rayCaster->SetMaxSamples(interactive ? lqMaxSamples : hqMaxSamples);
+        rayCaster->SetPixelStride(1);
+        rayCaster->SetUseScreenROI(true);
+        rayCaster->SetStepSize(interactive ? lqStep : hqStep);
 
         // 各 rank 无头渲染自己的超块。
         const igm::mat4 view = camera->GetViewMatrix();
@@ -550,16 +568,17 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
         std::vector<unsigned char> rgba;
         std::vector<float> depth;
         rayCaster->Render(view, proj, modelMatrix,
-                          igm::uvec2{static_cast<unsigned>(width),
-                                     static_cast<unsigned>(height)},
+                          igm::uvec2{static_cast<unsigned>(fw),
+                                     static_cast<unsigned>(fh)},
                           rgba, depth);
 
-        // 分布式合成。
+        // 分布式合成（默认稀疏 ROI 路径；--tree 时走并行树合成，O(log P) 轮）。
         auto composite = iGame::iGameCompositePass::New();
-        composite->SetLocalImage(width, height, rgba, depth);
+        composite->SetLocalImage(fw, fh, rgba, depth);
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+        composite->SetUseTreeComposite(useTree);
         if (!composite->Composite()) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }
             break;
@@ -584,7 +603,7 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            UploadImageTexture(width, height, composite->GetResultRGBA());
+            UploadImageTexture(fw, fh, composite->GetResultRGBA());
             DrawTexturedQuad(0.0f, 0.0f, static_cast<float>(fbW),
                              static_cast<float>(fbH), 0.0f, 0.0f, 1.0f, 1.0f,
                              g_imageTex, static_cast<float>(fbW),

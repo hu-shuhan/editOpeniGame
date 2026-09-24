@@ -44,9 +44,10 @@ void iGameVolumeTransferFunction::AddOpacityPoint(float value, float opacity) {
 
 void iGameVolumeTransferFunction::SetDefaultOpacityPoints() {
     m_OpacityPoints.clear();
-    // 对标 VolumeRenderingCommon.h：低值 0 -> 中值 0.2 -> 高值 1.0
+    // 对标 VolumeRenderingCommon.h：低值 0 -> 中值 0.2 -> 高值 1.0。
+    // 中间控制点在 PVR_REF 里是 gMin + 0.6*(gMax-gMin)（归一化 0.6），这里保持一致。
     m_OpacityPoints.push_back(OpacityPoint{0.0f, 0.0f});
-    m_OpacityPoints.push_back(OpacityPoint{0.5f, 0.2f});
+    m_OpacityPoints.push_back(OpacityPoint{0.6f, 0.2f});
     m_OpacityPoints.push_back(OpacityPoint{1.0f, 1.0f});
 }
 

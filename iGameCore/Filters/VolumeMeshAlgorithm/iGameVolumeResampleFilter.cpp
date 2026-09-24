@@ -356,6 +356,8 @@ bool SampleCell(const CellRec& c, const std::vector<PointSet*>& pointSets,
 bool iGameVolumeResampleFilter::Execute() {
     m_OutputMesh = nullptr;
     m_ValidMask = nullptr;
+    m_SourceMinSpacing = 0.0;
+    m_OutputSpacing[0] = m_OutputSpacing[1] = m_OutputSpacing[2] = 1.0;
 
     DataObject::Pointer root = GetInput(0);
     if (!root) { return false; }
@@ -466,6 +468,22 @@ bool iGameVolumeResampleFilter::Execute() {
     if (!anyScalar) { return false; }
     if (structs.empty() && cells.empty()) { return false; }
 
+    // 源数据最细一维点间距（诊断：判断本次重采样是否欠采样）。
+    {
+        double mn = 0.0;
+        bool first = true;
+        for (const auto& sp : structs) {
+            for (int a = 0; a < 3; ++a) {
+                if (sp.spacing[a] <= 0.0) { continue; }
+                if (first || sp.spacing[a] < mn) {
+                    mn = sp.spacing[a];
+                    first = false;
+                }
+            }
+        }
+        m_SourceMinSpacing = first ? 0.0 : mn;
+    }
+
     // 2) 目标网格：原点/步长。
     const int ni = m_Dims[0];
     const int nj = m_Dims[1];
@@ -479,6 +497,9 @@ bool iGameVolumeResampleFilter::Execute() {
 
     const IGsize total = static_cast<IGsize>(ni) * nj * nk;
     if (total > static_cast<IGsize>(std::numeric_limits<int>::max())) { return false; }
+    m_OutputSpacing[0] = spacing[0];
+    m_OutputSpacing[1] = spacing[1];
+    m_OutputSpacing[2] = spacing[2];
 
     // 3) 输出 StructuredMesh。
     igIndex s[3] = {ni, nj, nk};

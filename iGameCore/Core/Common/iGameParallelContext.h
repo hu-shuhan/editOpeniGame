@@ -3,6 +3,8 @@
 
 #include "iGameObject.h"
 
+#include <vector>
+
 IGAME_NAMESPACE_BEGIN
 
 /**
@@ -50,6 +52,13 @@ public:
     void AllGather(const double* in, double* out, int count) const;
 
     /**
+     * 收集（int 版）：把每个 rank 的 count 个 int 拼接到 out（out 长度 = Size*count）。
+     * 用于并行合成时交换各 rank 的「有效像素 ROI 矩形」等小整数元数据（避免走 double
+     * 中转再截断，语义更清晰）。
+     */
+    void AllGatherInt(const int* in, int* out, int count) const;
+
+    /**
      * 收集（到 root）：把每个 rank 的 count 个字节拼接到 root 的 recv。
      * recv 仅 root 有效（长度 = Size*count），非 root 可传 nullptr。
      * 用于 iGameCompositePass 把各 rank 的 RGBA 图像汇聚到 rank 0（阶段 3）。
@@ -63,8 +72,30 @@ public:
      */
     void Gather(const float* send, float* recv, int count, int root = 0) const;
 
+    /**
+     * 变长收集（到 root，对标 MPI_Gatherv）：把每个 rank 的 recvCounts[r] 个字节按
+     * displs[r] 的偏移拼进 root 的 recv。所有 rank 的 recvCounts/displs 必须一致
+     * （通常由一次 AllGatherInt 得到）。
+     *
+     * 用于 iGameCompositePass 的「稀疏 ROI 合成」：每个 rank 只把它图上非空像素的
+     * 外接矩形发给 rank 0（1024² 全图 4MB → 单块通常只有几百字节），避免 O(P) 张全图
+     * 汇聚（对标 IceT 的 valid_pixels_viewport）。
+     *
+     * sendCount == 0 时 send 可为 nullptr（MPI 忽略该缓冲区）。
+     */
+    void Gatherv(const char* send, int sendCount, char* recv,
+                 const int* recvCounts, const int* displs, int root = 0) const;
+
     /** 栅栏同步（单进程直通为空操作）。 */
     void Barrier() const;
+
+    // ---- 非阻塞点对点（阶段 4：并行合成用）----
+    // requestId 由本类自增分配；发送/接收缓冲区在对应 Wait/WaitAny 完成前必须保持有效。
+    int Isend(const char* buf, int count, int dest, int tag) const;
+    int Irecv(char* buf, int count, int src, int tag) const;
+    void Wait(int requestId) const;
+    /** 返回最先完成的 requestId；无可等待请求时返回 -1。 */
+    int WaitAny(const int* requestIds, int count) const;
 
 protected:
     ParallelContext() = default;
@@ -73,6 +104,8 @@ protected:
 private:
     int m_Rank{0};
     int m_Size{1};
+    // 非阻塞请求存储（void* 指向 MPI 后端分配的请求句柄；单进程直通不使用）。
+    mutable std::vector<void*> m_Requests;
     static bool s_Initialized;
 };
 
