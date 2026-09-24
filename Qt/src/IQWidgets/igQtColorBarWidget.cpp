@@ -64,7 +64,7 @@ void igQtColorBarWidget::updateColorBarDrawInfo() {
     float max = m_ColorMapper->GetRange()[1];
 	// 若当前属性已锁定范围，刻度直接读父容器固定的 dataRange（与标量场同源），
 	// 避免 mapper 在帧内被临时改回当帧范围导致颜色条刻度跳动
-	if (!m_ColorMapper->GetStable() && !m_AttributeName.empty()) {
+	if (!m_AttributeName.empty()) {
 		auto sc = iGame::SceneManager::Instance()->GetCurrentScene();
 		if (sc && sc->GetCurrentModel() && sc->GetCurrentModel()->GetDataObject()) {
 			auto dataObject = sc->GetCurrentModel()->GetDataObject();

@@ -30,10 +30,8 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::isShowColorLegend);
 	connect(ui->widget_DataRangeSlider, &igQtDataRangeSlider::DataRangeChanged,
 		this, [&](double _min, double _max) {
-			if (!m_ColorMapper) return;
+//            std::cout << m_ColorMapper  << std::endl;
 			m_ColorMapper->SetRange(_min, _max);
-			// Preserve the user's range when mesh colors are rebuilt on repaint.
-			m_ColorMapper->SetRangeStable(true);
 			updateDrawStyle();
 		});
 	connect(SetCustomScaleRangeUi->btnRescale, &QPushButton::clicked, this,
@@ -45,7 +43,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		if(this->m_ColorMapper==nullptr)return;
         if(checked) this->m_ColorMapper->SetMapTypeToRGBLiner();
         else this->m_ColorMapper->SetMapTypeToRGBSTEP();
-        updateDrawStyle();
+        showScalarView();
     });
 	connect(ui->checkBox_EnableOpacityMapping, &QCheckBox::toggled, this,
         [&](bool checked) {
@@ -68,8 +66,6 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
                 return;
             }
 
-            // Reload the selected range policy before converting with a stable mapper.
-            showScalarView();
             if (auto draw = iGame::DynamicCast<iGame::DrawObject>(obj)) {
                 draw->ForceReConvertToDrawableData();
                 draw->ConvertToDrawableData();
@@ -80,7 +76,6 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 void igQtScalarViewWidget::loadScalarData() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	m_ColorMapper = nullptr;
-	currentSelectedScalarIdx = -1;
 	iGame::DataObject::Pointer obj;
 	if (scene) {
 		auto model = scene->GetCurrentModel();
@@ -154,20 +149,6 @@ void igQtScalarViewWidget::showScalarView() {
 		updateDrawStyle();
 	}
 }
-void igQtScalarViewWidget::syncScalarViewFromCurrentModel() {
-	// Cache reattachment must rebind the controls without modifying the mapper
-	// or regenerating the prepared colors/geometry.
-	loadScalarData();
-	initScalarInfo();
-	if (!m_ColorMapper) {
-		ui->widget_DataRangeSlider->hide();
-		return;
-	}
-	const auto* range = m_ColorMapper->GetRange();
-	ui->widget_DataRangeSlider->updateMinAndMax(range[0], range[1]);
-	ui->widget_DataRangeSlider->show();
-}
-
 void igQtScalarViewWidget::updateDrawStyle() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	if (!scene) return;
@@ -178,7 +159,6 @@ void igQtScalarViewWidget::updateDrawStyle() {
 	if (!m_ColorMapper) return;
 	m_ColorMapper->Modified();
 	scene->Update();
-	Q_EMIT updateCurrentModelColor();
 }
 void igQtScalarViewWidget::editColorBar() { 
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -207,7 +187,6 @@ void igQtScalarViewWidget::rescaleRange() {
     scalarMax = attribute.dataRange->GetElement(scalarDimension + 1)[1];
 
 	m_ColorMapper->SetRange(scalarMin, scalarMax);
-	m_ColorMapper->SetRangeStable(true);
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
     initScalarInfo();
 	updateDrawStyle();
@@ -222,7 +201,6 @@ void igQtScalarViewWidget::setCustomScaleRange() {
 	ssmin >> min;
 	ssmax >> max;
 	m_ColorMapper->SetRange(min, max);
-	m_ColorMapper->SetRangeStable(true);
 	ui->widget_DataRangeSlider->updateMinAndMax(min, max);
 	updateDrawStyle();
 	this->SetCustomScaleRangeWidget->hide();

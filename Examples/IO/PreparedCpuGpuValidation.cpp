@@ -62,33 +62,8 @@ static GLuint Shader(GLenum type, const char* source) {
 // constant and nonconstant masks and a local draw after a remote draw.
 // Fix commit: 待提交 (C/S rendering isolation).
 static void CheckWireframeShaders() {
-    // BUG: a packaged test used __FILE__ to find shaders, so it failed on machines
-    // without the build machine's source tree. Use the executable's Resources,
-    // then its parent's Resources (multi-config build layout), before source fallback.
-    // Check the complete shader set in the first existing directory: an incomplete
-    // deployment must fail instead of silently testing unrelated source shaders.
-    // Fix commit: 待提交 (portable prepared CPU/GPU validation shader lookup).
-    const auto applicationDirectory = std::filesystem::u8path(
-        QCoreApplication::applicationDirPath().toUtf8().constData());
-    const std::array<std::filesystem::path, 3> candidates = {
-        applicationDirectory / "Resources/Shaders",
-        applicationDirectory.parent_path() / "Resources/Shaders",
-        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path()
-            / "iGameCore/Rendering/Shaders/GLSL"
-    };
-    std::filesystem::path root;
-    for (const auto& candidate : candidates) {
-        if (!std::filesystem::is_directory(candidate)) continue;
-        for (const char* name : {"SinglePassWireframe.frag", "SinglePassWireframe.geom",
-                                 "RemoteSinglePassWireframe.geom"}) {
-            if (!std::filesystem::is_regular_file(candidate / name)) {
-                throw std::runtime_error("Missing wireframe shader: " + (candidate / name).string());
-            }
-        }
-        root = candidate;
-        break;
-    }
-    Require(!root.empty(), "wireframe-shader-directory-found");
+    const auto root = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path()
+                    / "iGameCore/Rendering/Shaders/GLSL";
     auto source = [&](const char* name) {
         std::ifstream input(root / name);
         Require(input.good(), "actual-wireframe-shader-resource-found");

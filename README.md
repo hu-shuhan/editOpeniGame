@@ -82,8 +82,8 @@ ps. Use Cmake to Build in Command
 
 ```shell
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config release --parallel 12
-cmake --build build --config release --target install
+cmake --build build --parallel 12
+cmake --build build --target install
 ```
 
 use qt-cmake to build project(Only available in qt6 version)
