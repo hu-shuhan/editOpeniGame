@@ -166,8 +166,43 @@ function(igame_link_standard_example EXAMPLE_TARGET)
     target_link_libraries(${EXAMPLE_TARGET} PUBLIC ${_IGAME_EXAMPLE_CORE_LIBS} HDF5::HDF5)
 endfunction()
 
+# Examples for the filters integrated in e7ec6571.
+set(IGAME_BATCH1_EXAMPLES
+    testPointCoordinates testCellCenterFilter testRandomVectors
+    testRemoveGhostInformation testElevation testMaskPoints
+    testFeatureEdges testFeatureEdgesVisualization testExtractSubset
+    testOutlineCorners testProbe testConvertToVertex
+)
+
 function(igame_register_example_test EXAMPLE_TARGET)
     if (NOT TARGET ${EXAMPLE_TARGET})
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH1_EXAMPLES)
+        set(_BATCH1_ARGS)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testRandomVectors")
+            list(APPEND _BATCH1_ARGS Models/CellCenter_hexa_grid.vtk)
+        elseif ("${EXAMPLE_TARGET}" STREQUAL "testFeatureEdges" OR
+                "${EXAMPLE_TARGET}" STREQUAL "testFeatureEdgesVisualization")
+            list(APPEND _BATCH1_ARGS Models/mazewheel.obj)
+        endif ()
+        if ("${EXAMPLE_TARGET}" STREQUAL "testCellCenterFilter" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testFeatureEdgesVisualization" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testExtractSubset" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testConvertToVertex")
+            list(APPEND _BATCH1_ARGS --no-render)
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>" ${_BATCH1_ARGS}
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
+        if ("${EXAMPLE_TARGET}" STREQUAL "testRandomVectors")
+            add_test(NAME testRandomVectorsMixedCells
+                COMMAND "$<TARGET_FILE:testRandomVectors>" Models/CellCenter_surface_mixed.vtk
+                WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+            set_tests_properties(testRandomVectorsMixedCells PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
+        endif ()
         return()
     endif ()
 
@@ -432,6 +467,19 @@ if (ENABLE_LIBTORCH_MODULE)
         target_link_libraries(testVortexDetection PRIVATE OpenMP::OpenMP_CXX)
     endif ()
 endif ()
+
+# First-batch standard filter examples (Elevation is registered above).
+igame_add_example(testPointCoordinates Filter/PointCoordinates/TestPointCoordinates.cpp)
+igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
+igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
+igame_add_example(testRemoveGhostInformation Filter/RemoveGhostInformation/TestRemoveGhostInformation.cpp)
+igame_add_example(testMaskPoints Filter/MaskPoints/TestMaskPoints.cpp)
+igame_add_example(testFeatureEdges Filter/FeatureExtraction/FeatureEdges.cpp)
+igame_add_example(testFeatureEdgesVisualization Filter/FeatureExtraction/FeatureEdgesVisualization.cpp)
+igame_add_example(testOutlineCorners Filter/FeatureExtraction/OutlineCorners.cpp)
+igame_add_example(testProbe Filter/Probe/TestProbe.cpp)
+igame_add_example(testConvertToVertex Filter/Convert/TestConvertToVertex.cpp)
+igame_add_example(testExtractSubset Filter/TestExtractSubset.cpp)
 
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
