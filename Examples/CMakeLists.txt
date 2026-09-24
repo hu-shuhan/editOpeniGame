@@ -200,6 +200,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
         set(_TEST_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 
         if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testVTMReaderPathValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
@@ -228,6 +229,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
     endif ()
 
     if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testVTMReaderPathValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
@@ -339,6 +341,11 @@ igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoder
 igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
 igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
+# The VTM path regression source introduced in 7471af9b5 was omitted
+# from the build, leaving stale binaries in reused build trees. Register it
+# and require successful completion so missing/Unicode path regressions fail.
+# Build registration fix: pending commit.
+igame_add_example(testVTMReaderPathValidation IO/VTMReaderPathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)

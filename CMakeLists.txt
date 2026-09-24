@@ -147,6 +147,14 @@ if (ENABLE_QT_MODULE)
             Qt_module
     )
 
+    # GPSplineLib contains relocatable CUDA device code.  The GUI executable
+    # has no .cu source of its own, so Visual Studio otherwise skips the final
+    # CUDA device-link step and leaves __cudaRegisterLinkedBinary unresolved.
+    if (ENABLE_GPSCUDA_MODULE)
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+                CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+    endif ()
+
     if (WIN32)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")

@@ -1,8 +1,5 @@
 set(MODULE_NAME iGameCore)
 set(CMAKE_CXX_STANDARD 20)
-#=====添加路径======
-set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-#=================
 set(IGAMEVIS_CORE_ROOT_DIR ${IGAMEVIS_ROOT_DIR}/iGameCore)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")

@@ -4298,6 +4298,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             // those would regenerate the complete scalar color arrays.
             modelTreeWidget->setCurrentItem(item);
         }
+        ui->widget_ScalarField->syncScalarViewFromCurrentModel();
         rendererWidget->update();
         rendererWidget->getColorBarWidget()->update();
     });
@@ -4413,6 +4414,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     //&igQtModelDrawWidget::UpdateCurrentModel);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow, this,
             &igQtMainWindow::updateColorBarShow);
+    connect(ui->widget_ScalarField, &igQtScalarViewWidget::updateCurrentModelColor, this, [this]() {
+        if (auto colorBar = rendererWidget->getColorBarWidget()) { colorBar->update(); }
+    });
     /* Animation signal connect END.*/
 
 

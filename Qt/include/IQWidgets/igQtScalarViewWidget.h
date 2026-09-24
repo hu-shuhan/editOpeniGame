@@ -18,6 +18,7 @@ public:
 
 public slots:
 	void showScalarView();
+	void syncScalarViewFromCurrentModel();
 	void editColorBar();
 	void rescaleRange();
 	void setCustomScaleRange();

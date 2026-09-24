@@ -234,6 +234,21 @@ void igQtFileLoader::LoadFile() {
 
     if (filePath.isEmpty()) { return; }
 
+#if defined(NASTRAN_ENABLE)
+    // Route Nastran selections by their actual extensions.  The default
+    // "ALL File" filter is commonly left selected, so relying on the chosen
+    // filter would send a BDF/OP2 pair through OpenFiles one file at a time.
+    const bool containsNastranFile = std::any_of(
+            filePath.cbegin(), filePath.cend(), [](const QString& path) {
+                const QString suffix = QFileInfo(path).suffix().toLower();
+                return suffix == "bdf" || suffix == "op2";
+            });
+    if (containsNastranFile) {
+        OpenNastranFile(filePath);
+        return;
+    }
+#endif
+
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     if(filePath.empty()) return ;
     switch (selected_idx) {

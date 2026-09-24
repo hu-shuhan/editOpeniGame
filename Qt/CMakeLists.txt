@@ -1,20 +1,14 @@
-# 在系统环境变量里设置QT_HOME，值为Qt路径
-if (DEFINED ENV{QT_HOME})
-    set(Qt5_DIR "$ENV{QT_HOME}/5.15.2/msvc2019_64/lib/cmake/Qt5")
-else ()
-    # if complied in Linux,   set Qt5_DIR to e.g.(/usr/lib/Qt/5.14.2/gcc_64/lib/cmake/Qt5)
-    # if complied in Windows, set Qt5_DIR to e.g.(D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5)
-    # set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    # set(Qt5_DIR "F:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    # set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    #set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    #set(Qt5_DIR "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
-    set(Qt5_DIR "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
-    # set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-endif ()
-
-if (UNIX)
-    set(Qt5_DIR "$ENV{HOME}/Qt5.14.2/5.14.2/gcc_64/lib/cmake/Qt5")
+# Respect an explicitly configured Qt5_DIR. Fall back to QT_HOME only when it
+# directly contains a Qt package, so clean builds do not depend on a developer-
+# specific hard-coded drive path.
+if (NOT Qt5_DIR AND DEFINED ENV{QT_HOME})
+    find_path(_IGAME_QT5_CONFIG_DIR Qt5Config.cmake
+        PATHS "$ENV{QT_HOME}"
+        PATH_SUFFIXES lib/cmake/Qt5 5.15.2/msvc2019_64/lib/cmake/Qt5
+        NO_DEFAULT_PATH)
+    if (_IGAME_QT5_CONFIG_DIR)
+        set(Qt5_DIR "${_IGAME_QT5_CONFIG_DIR}")
+    endif ()
 endif ()
 
 set(MODULE_NAME Qt_module)
@@ -99,4 +93,14 @@ if (WIN32)
     set_property(TARGET ${MODULE_NAME} PROPERTY LIBRARY_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     get_target_property(Qt5Core_LOCATION Qt5::Core LOCATION)
     get_filename_component(Qt5_INSTALL_DIR ${Qt5Core_LOCATION} DIRECTORY)
+endif ()
+
+option(IGAME_BUILD_SCALAR_VIEW_TESTS "Build scalar range interaction regression tests" OFF)
+if (IGAME_BUILD_SCALAR_VIEW_TESTS)
+    enable_testing()
+    add_executable(iGameVisScalarViewRangeTests tests/ScalarViewRangeTests.cpp)
+    target_link_libraries(iGameVisScalarViewRangeTests PRIVATE ${MODULE_NAME})
+    add_test(NAME iGameVisScalarViewRangeTests COMMAND iGameVisScalarViewRangeTests)
+    set_tests_properties(iGameVisScalarViewRangeTests PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 endif ()
