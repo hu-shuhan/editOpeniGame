@@ -49,8 +49,8 @@ CTest 自动给可视化示例传入 `--no-render`，Qt 检查使用 `offscreen`
 
 ### 本次验证记录（2026-09-24）
 
-- Windows x64 / MSVC 19.39 / Qt 5.14.2 / Release，构建目录 `out/build/filter-integration`。
-- `iGameVis` 和本页全部示例、检查目标编译通过。
+- Windows x64 / MSVC 19.36 / Qt 5.14.2 / Release，构建目录 `out/build/codex-multifilter`。
+- `iGameVis`、`testResampleImageChecks`、`testBatch2GeometryValidation`、`testStandardFiltersMenu` 和 `testCountCellVertices` 编译通过。
 - 排除两个过滤器后，`batch2-filters`：16/16 通过。
 - 此次构建启用 Qt 和 Examples，关闭 CUDA、LibTorch、CGNS、Nastran 和 Abaqus 可选模块。
 - 尚未进行逐项 OpenGL 画面的人工验收；Qt 菜单与面板连接由 offscreen 自动检查覆盖。
