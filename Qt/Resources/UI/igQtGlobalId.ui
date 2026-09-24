@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>igQtGlobalId</class>
+ <widget class="QWidget" name="igQtGlobalId">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>全局ID</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox_Offsets">
+     <property name="title">
+      <string>Offset 设置</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_Offsets">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_PointOffset">
+        <property name="text">
+         <string>点 Offset：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="lineEdit_PointOffset">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_CellOffset">
+        <property name="text">
+         <string>单元 Offset：</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="lineEdit_CellOffset">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <layout class="QHBoxLayout" name="horizontalLayout_Buttons">
+        <item>
+         <spacer name="horizontalSpacer_Buttons">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_Confirm">
+          <property name="text">
+           <string>确定</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_Cancel">
+          <property name="text">
+           <string>取消</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_Results">
+     <property name="title">
+      <string>输出结果</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_Results">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_DataType">
+        <item>
+         <widget class="QRadioButton" name="radioButton_PointIds">
+          <property name="text">
+           <string>点全局ID</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_CellIds">
+          <property name="text">
+           <string>单元全局ID</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_DataType">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_Summary">
+        <property name="text">
+         <string>GlobalPointIds：尚未生成</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByMouse</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QTableWidget" name="tableWidget_Results">
+        <property name="styleSheet">
+         <string notr="true">QTableWidget {
+    background-color: #252526;
+    alternate-background-color: #252526;
+    color: #FFFFFF;
+    border: 1px solid #3C3C3C;
+    gridline-color: #3C3C3C;
+}
+QTableWidget::item {
+    background-color: #252526;
+    color: #FFFFFF;
+    padding: 4px;
+}
+QTableWidget::item:selected {
+    background-color: #094771;
+    color: #FFFFFF;
+}
+QHeaderView::section {
+    background-color: #333333;
+    color: #FFFFFF;
+    border: 0px;
+    border-right: 1px solid #555555;
+    border-bottom: 1px solid #555555;
+    padding: 4px;
+}</string>
+        </property>
+        <property name="alternatingRowColors">
+         <bool>false</bool>
+        </property>
+        <property name="editTriggers">
+         <set>QAbstractItemView::NoEditTriggers</set>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectRows</enum>
+        </property>
+        <property name="columnCount">
+         <number>2</number>
+        </property>
+        <column>
+         <property name="text">
+          <string>Local</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Global</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

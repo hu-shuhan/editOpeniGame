@@ -1725,6 +1725,7 @@ void igQtMainWindow::initAllFilters() {
     };
 
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
+        if (connectImportedFilterAction(action, filterId)) return true;
         if (filterId == QStringLiteral("coordinates")) {
             connect(action, &QAction::triggered, this, [=, this](bool) {
                 const QString title = QStringLiteral("坐标 (coordinates)");

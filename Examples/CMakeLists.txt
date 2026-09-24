@@ -166,8 +166,94 @@ function(igame_link_standard_example EXAMPLE_TARGET)
     target_link_libraries(${EXAMPLE_TARGET} PUBLIC ${_IGAME_EXAMPLE_CORE_LIBS} HDF5::HDF5)
 endfunction()
 
+set(IGAME_BATCH2_EXAMPLES
+    testCellSizeExtraction
+    testCountCellVertices
+    testExtractEdges
+    testGenerateGlobalIds
+    testPointAndCellIds
+    testGenerateProcessIds
+    testAxisAlignedReflection
+    testExtractComponent
+    testMergeVectorComponents
+    testResampleToImage
+    testResampleToLine
+    testTriangleStrip
+    testResampleImageChecks
+    testTriangleStripWidget
+    testBatch2GeometryValidation
+    testStandardFiltersMenu
+)
+set(IGAME_BATCH2_VISUAL_EXAMPLES
+    testCountCellVertices
+    testExtractEdges
+    testAxisAlignedReflection
+    testResampleToImage
+    testResampleToLine
+)
+
+# Examples for the filters integrated in e7ec6571.
+set(IGAME_BATCH1_EXAMPLES
+    testPointCoordinates testCellCenterFilter testRandomVectors
+    testRemoveGhostInformation testElevation testMaskPoints
+    testFeatureEdges testFeatureEdgesVisualization testExtractSubset
+    testOutlineCorners testProbe testConvertToVertex
+)
+
 function(igame_register_example_test EXAMPLE_TARGET)
     if (NOT TARGET ${EXAMPLE_TARGET})
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH1_EXAMPLES)
+        set(_BATCH1_ARGS)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testRandomVectors")
+            list(APPEND _BATCH1_ARGS Models/CellCenter_hexa_grid.vtk)
+        elseif ("${EXAMPLE_TARGET}" STREQUAL "testFeatureEdges" OR
+                "${EXAMPLE_TARGET}" STREQUAL "testFeatureEdgesVisualization")
+            list(APPEND _BATCH1_ARGS Models/mazewheel.obj)
+        endif ()
+        if ("${EXAMPLE_TARGET}" STREQUAL "testCellCenterFilter" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testFeatureEdgesVisualization" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testExtractSubset" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testConvertToVertex")
+            list(APPEND _BATCH1_ARGS --no-render)
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>" ${_BATCH1_ARGS}
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
+        if ("${EXAMPLE_TARGET}" STREQUAL "testRandomVectors")
+            add_test(NAME testRandomVectorsMixedCells
+                COMMAND "$<TARGET_FILE:testRandomVectors>" Models/CellCenter_surface_mixed.vtk
+                WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+            set_tests_properties(testRandomVectorsMixedCells PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
+        endif ()
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH2_EXAMPLES)
+        set(_BATCH2_ARGS)
+        set(_BATCH2_ENV)
+        if (EXAMPLE_TARGET IN_LIST IGAME_BATCH2_VISUAL_EXAMPLES)
+            list(APPEND _BATCH2_ARGS --no-render)
+        endif ()
+        if ("${EXAMPLE_TARGET}" STREQUAL "testTriangleStripWidget" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testStandardFiltersMenu")
+            get_target_property(_BATCH2_QMAKE Qt5::qmake IMPORTED_LOCATION)
+            get_filename_component(_BATCH2_QT_BIN "${_BATCH2_QMAKE}" DIRECTORY)
+            list(APPEND _BATCH2_ENV "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=${_BATCH2_QT_BIN}/../plugins/platforms")
+            if (WIN32)
+                string(REPLACE ";" "\;" _BATCH2_PATH "${CMAKE_BINARY_DIR};${_BATCH2_QT_BIN};$ENV{PATH}")
+                list(APPEND _BATCH2_ENV "PATH=${_BATCH2_PATH}")
+            endif ()
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "${CMAKE_COMMAND}" -E env ${_BATCH2_ENV}
+                "$<TARGET_FILE:${EXAMPLE_TARGET}>" ${_BATCH2_ARGS}
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch2-filters")
         return()
     endif ()
 
@@ -432,6 +518,47 @@ if (ENABLE_LIBTORCH_MODULE)
         target_link_libraries(testVortexDetection PRIVATE OpenMP::OpenMP_CXX)
     endif ()
 endif ()
+
+
+# Batch 2 filters: algorithms, regression checks, and visual examples.
+igame_add_example(testBatch2GeometryValidation Filter/Batch2GeometryValidation.cpp)
+igame_add_example(testCellSizeExtraction Filter/FeatureExtraction/CellSizeExtraction.cpp)
+igame_add_example(testCountCellVertices Filter/TestCountCellVertices.cpp)
+igame_add_example(testExtractEdges Filter/TestExtractEdges.cpp)
+igame_add_example(testGenerateGlobalIds Filter/GlobalIds/TestGenerateGlobalIds.cpp)
+igame_add_example(testPointAndCellIds Filter/PointAndCellIds/TestPointAndCellIds.cpp)
+igame_add_example(testGenerateProcessIds Filter/TestGenerateProcessIds.cpp)
+igame_add_example(testAxisAlignedReflection Filter/AxisAlignedReflection/TestAxisAlignedReflection.cpp)
+igame_add_example(testExtractComponent Filter/TestExtractComponent.cpp)
+igame_add_example(testMergeVectorComponents Filter/TestMergeVectorComponents.cpp)
+igame_add_example(testResampleToImage Filter/Convert/TestResampleToImage.cpp)
+igame_add_example(testResampleToLine Filter/TestResampleToLine.cpp)
+igame_add_example(testTriangleStrip Filter/TriangleStrip/TestTriangleStrip.cpp)
+igame_add_example(testResampleImageChecks Filter/Convert/TestResampleImageChecks.cpp)
+if (ENABLE_QT_MODULE)
+    igame_add_example(testTriangleStripWidget Filter/TriangleStrip/TestTriangleStripWidget.cpp)
+    target_link_libraries(testTriangleStripWidget PRIVATE Qt_module)
+    igame_add_example(testStandardFiltersMenu Filter/StandardFiltersMenuValidation.cpp)
+    target_link_libraries(testStandardFiltersMenu PRIVATE Qt_module)
+    target_include_directories(testStandardFiltersMenu PRIVATE "${CMAKE_SOURCE_DIR}/Qt")
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testTriangleStripWidget PRIVATE IG_QT_COMPILE_EXPORT)
+        target_compile_definitions(testStandardFiltersMenu PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+endif ()
+
+# First-batch standard filter examples (Elevation is registered above).
+igame_add_example(testPointCoordinates Filter/PointCoordinates/TestPointCoordinates.cpp)
+igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
+igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
+igame_add_example(testRemoveGhostInformation Filter/RemoveGhostInformation/TestRemoveGhostInformation.cpp)
+igame_add_example(testMaskPoints Filter/MaskPoints/TestMaskPoints.cpp)
+igame_add_example(testFeatureEdges Filter/FeatureExtraction/FeatureEdges.cpp)
+igame_add_example(testFeatureEdgesVisualization Filter/FeatureExtraction/FeatureEdgesVisualization.cpp)
+igame_add_example(testOutlineCorners Filter/FeatureExtraction/OutlineCorners.cpp)
+igame_add_example(testProbe Filter/Probe/TestProbe.cpp)
+igame_add_example(testConvertToVertex Filter/Convert/TestConvertToVertex.cpp)
+igame_add_example(testExtractSubset Filter/TestExtractSubset.cpp)
 
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
