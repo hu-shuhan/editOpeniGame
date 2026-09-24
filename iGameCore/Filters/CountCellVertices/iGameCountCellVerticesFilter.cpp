@@ -296,12 +296,29 @@ bool CountCellVerticesFilter::ExecuteInternal() {
     vertexCounts->SetName(kArrayName);
     vertexCounts->SetDimension(1);
     vertexCounts->Reserve(numCells);
+    double minCount = 0.0;
+    double maxCount = 0.0;
     for (IGsize i = 0; i < numCells; ++i) {
         const IGenum cellType = cellTypes->GetValue(i);
         const double count = static_cast<double>(CountVerticesOfCell(cells, i, cellType));
         vertexCounts->AddElement(&count);
+        if (i == 0 || count < minCount) { minCount = count; }
+        if (i == 0 || count > maxCount) { maxCount = count; }
     }
-    outAttrs->AddScalar(IG_CELL, vertexCounts);
+    if (numCells > 0 && minCount == maxCount) {
+        // Uniform meshes (for example, all tetrahedra) have a zero-width data
+        // range. The color mapper rejects [value, value] and otherwise keeps
+        // whichever range belonged to the previously selected point array.
+        // Give this result a stable display interval with the actual value at
+        // its lower end, so repeated selection maps to the same visible color.
+        auto displayRange = DoubleArray::New();
+        displayRange->SetDimension(2);
+        displayRange->AddElement2(minCount, minCount + 1.0);
+        displayRange->AddElement2(minCount, minCount + 1.0);
+        outAttrs->AddScalar(IG_CELL, vertexCounts, displayRange);
+    } else {
+        outAttrs->AddScalar(IG_CELL, vertexCounts);
+    }
 
     // —— 空的模型：仍然产出（长度为 0 的）数组，界面不会出现"执行成功却找不到数组" ——
     if (numCells == 0) {

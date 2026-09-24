@@ -23,11 +23,13 @@
 // 简单任务 #5（复测整改后）配套测试用例：统计每个单元的顶点数
 // 运行：cd Examples && ./testCountCellVertices
 //
-// 覆盖三个场景，全部通过才输出 PASS：
+// 覆盖四个场景，全部通过才输出 PASS：
 //   1) 混合单元网格（CountCellVertices_mixed_cells.vtk）
 //      —— 输出是独立结果节点；cell_vertex_count 长度与各单元顶点数一致；原模型不被修改；
 //   2) 重复执行 —— 同名数组只保留一份（不追加），且始终是最新结果；
-//   3) 0 单元空网格（CountCellVertices_empty.vtk）
+//   3) 顶点数完全相同的四面体网格（CellSize_TetraCube.vtk）
+//      —— 着色范围有效，重复选择仍能映射到可见颜色；
+//   4) 0 单元空网格（CountCellVertices_empty.vtk）
 //      —— 执行成功就必须产出（空）数组，界面不会再出现"未找到数组"。
 
 namespace {
@@ -173,9 +175,53 @@ void TestRepeatedExecute() {
           "input mesh is still untouched after two runs");
 }
 
-/// 场景 3：0 单元空网格 —— 成功就必须产出数组，不能让界面"找不到数组"
+/// A uniform tetrahedral mesh must have a usable color range when selected twice.
+void TestUniformCellColorRange() {
+    std::cerr << "[case 3] uniform tetrahedral cell coloring\n";
+    auto mesh = LoadMesh("./Models/CellSize_TetraCube.vtk");
+    if (mesh == nullptr) { return; }
+    auto filter = iGame::CountCellVerticesFilter::New();
+    filter->SetInput(mesh);
+    if (!filter->Execute()) {
+        Check(false, "uniform tetrahedral filter execution succeeds");
+        return;
+    }
+    auto out = iGame::DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput());
+    if (out == nullptr) {
+        Check(false, "uniform tetrahedral result is an UnstructuredMesh");
+        return;
+    }
+    const int index = out->GetAttributeSet()->GetAttributeIndex("cell_vertex_count");
+    Check(index >= 0, "uniform result has cell_vertex_count");
+    if (index < 0) { return; }
+    auto& attribute = out->GetAttributeSet()->GetAttribute(index);
+    auto range = attribute.GetDataRange();
+    Check(range && range->GetValue(2) < range->GetValue(3),
+          "uniform result has a nondegenerate component color range");
+    Check(attribute.pointer->GetValue(0) == 4.0,
+          "the display range does not change the actual vertex count");
+    if (!range) { return; }
+    auto scene = iGame::Scene::New();
+    out->ViewCloudPicture(scene.GetPointer(), index, 0);
+    out->ConvertToDrawableData();
+    auto renderable = out->GetRenderableObject();
+    renderable->ConvertToDrawableData();
+    out->ViewCloudPicture(scene.GetPointer(), index, 0);
+    out->ConvertToDrawableData();
+    renderable->ConvertToDrawableData();
+    const auto mapperRange = out->GetColorMapper()->GetRange();
+    Check(mapperRange[0] == 4.0 && mapperRange[1] == 5.0,
+          "reselecting the uniform cell array keeps its display color range");
+    auto colors = out->GetColorMapper()->MapScalars(attribute.pointer, 0, 4);
+    float firstColor[4]{};
+    colors->GetElement(0, firstColor);
+    Check(firstColor[2] > firstColor[0],
+          "uniform vertex counts map to a visible blue rather than the white midpoint");
+}
+
+/// 场景 4：0 单元空网格 —— 成功就必须产出数组，不能让界面"找不到数组"
 void TestEmptyMesh() {
-    std::cerr << "[case 3] empty mesh (0 cells)\n";
+    std::cerr << "[case 4] empty mesh (0 cells)\n";
     auto mesh = LoadMesh("./Models/CountCellVertices_empty.vtk");
     if (mesh == nullptr) { return; }
 
@@ -239,6 +285,7 @@ int main(int argc, char** argv) {
     std::cerr << "==== testCountCellVertices ====\n";
     TestMixedCells();
     TestRepeatedExecute();
+    TestUniformCellColorRange();
     TestEmptyMesh();
 
     if (g_failed == 0) {
