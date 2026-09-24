@@ -549,7 +549,7 @@ endif ()
 
 # First-batch standard filter examples (Elevation is registered above).
 igame_add_example(testPointCoordinates Filter/PointCoordinates/TestPointCoordinates.cpp)
-igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
+igame_add_example(testCellCenterFilter Filter/CellCenter/TestCellCenterFilter.cpp)
 igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
 igame_add_example(testRemoveGhostInformation Filter/RemoveGhostInformation/TestRemoveGhostInformation.cpp)
 igame_add_example(testMaskPoints Filter/MaskPoints/TestMaskPoints.cpp)

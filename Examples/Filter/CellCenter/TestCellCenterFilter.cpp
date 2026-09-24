@@ -3,8 +3,8 @@
 // Preserve the numerical/attribute checks below and reject invalid inputs;
 // visual examples support --no-render so CI requires a real exit status.
 // Integration commit: test: add examples for first-batch standard filters
-// Find it: git log --diff-filter=A --format="%h %s" -- Examples/Filter/MyFilter/TestCellCenterFilter.cpp
-#include <MyFilter/iGameCellCenterFilter.h>
+// Find it: git log --diff-filter=A --format="%h %s" -- Examples/Filter/CellCenter/TestCellCenterFilter.cpp
+#include <CellCenter/iGameCellCenterFilter.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
 #include <iGameAttributeSet.h>
