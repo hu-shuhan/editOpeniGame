@@ -1,12 +1,4 @@
-# 八亿级模型 C/S 使用说明
-
-模型包含 **801,357,926 个三角形**，已打包，无需重新打包。以下操作在同一台电脑上进行。
-
-模型包位置：
-
-```text
-D:\10亿网格\csfull-0919-121100\server\DRIVAER-CP-SURF801357926-MULTIBLOCK-SIZED-USTAR.tar.zst
-```
+# 十亿级模型 C/S 使用说明
 
 ## 1. 启动 DataServer
 
