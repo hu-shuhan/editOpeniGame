@@ -141,7 +141,12 @@ add_subdirectory(iGameCore)
 if (ENABLE_QT_MODULE)
     add_subdirectory(Qt)
 
-    add_executable(${PROJECT_NAME} main.cpp)
+    # Compile startup hooks directly into the executable so static Qt_module
+    # linking cannot discard an otherwise unreferenced registration object.
+    add_executable(${PROJECT_NAME}
+            main.cpp
+            Qt/Startup/igQtConsoleInitialization.cpp
+    )
     target_link_libraries(${PROJECT_NAME} PUBLIC
             iGameCore
             Qt_module
