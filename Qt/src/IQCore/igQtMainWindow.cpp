@@ -5440,3 +5440,10 @@ void igQtMainWindow::showEvent(QShowEvent* event) {
     hookResponsiveEvents();
     applyResponsiveToolbarLayout();
 }
+    // 轴拖拽/显隐变化：仅刷新场景渲染（着色在"应用"时统一重算）
+    connect(ElevationFilterPanel, &igQtElevationFilterPanel::axisDragUpdated, this,
+            [this]() { if (rendererWidget) rendererWidget->update(); });
+
+
+
+
