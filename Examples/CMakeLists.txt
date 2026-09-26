@@ -497,6 +497,8 @@ add_custom_command(TARGET testModelGeometryParallelValidation POST_BUILD
         "${CMAKE_SOURCE_DIR}/test/Animation Test/result-case1/VTKfile-0.vtk"
         "$<TARGET_FILE_DIR:testModelGeometryParallelValidation>/VTKfile-0.vtk"
 )
+# MaskPoints
+igame_add_example(testMaskPointsModel Filter/MaskPoints/TestMaskPointsModel.cpp)
 
 # Color bar / interaction
 igame_add_example(testChangeColorRange ColorBar/ChangeColorRange.cpp)
