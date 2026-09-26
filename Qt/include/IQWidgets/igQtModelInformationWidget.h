@@ -27,8 +27,12 @@ private:
 
 	void CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj, QFormLayout* formLayout);
 
+protected:
+	void changeEvent(QEvent* e) override;
+
 private:
 	QScrollArea* scrollArea;
 	QFrame* informationFrame;
 	QVBoxLayout* frameLayout;
+	int m_tableRow{0};
 };

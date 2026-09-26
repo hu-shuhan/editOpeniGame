@@ -120,10 +120,12 @@ private:
     std::string m_DiffSourceAttr;      // 计算 diff 所用的源属性名
     int m_DiffMode{0};                 // 0 带符号差(cur-prev)，1 绝对差，2 相对变化率
     iGame::DataObject* m_DiffBoundModel{nullptr};  // 绑定模型，切换模型时自动关闭
-
     igQtAnimationFilterManager m_AnimationFilterManager;
     QMap<QString, QVariantMap> m_AnimationFilterParameters;
     QString m_SelectedAnimationFilterId;
     iGame::Model::Pointer m_AnimationFilterSourceModel{nullptr};
     iGame::DataObject::Pointer m_AnimationFilterSourceObject{nullptr};
+
+protected:
+    void changeEvent(QEvent* e) override;
 };

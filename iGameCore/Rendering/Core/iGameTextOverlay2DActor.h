@@ -42,7 +42,7 @@ private:
     SmartPointer<Scene> m_Scene;
     bool m_Initialized{false};
     bool m_Visible{true};
-    std::string m_Text{"iGameVis WASM"};
+    std::string m_Text{"iGameVis"};
     igm::vec2 m_Position{12.0f, 10.0f};
     igm::vec3 m_Color{1.0f, 1.0f, 1.0f};
     float m_Scale{0.13f};

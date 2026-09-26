@@ -1,9 +1,12 @@
-﻿#include <IQWidgets/igQtSelectionWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
+#include <IQWidgets/igQtSelectionWidget.h>
 #include <iGameSelectionParameter.h>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SelectionView) {
     ui->setupUi(this);
+
+    igQtPanelTheme::attach(this);
     connect(ui->NONE_SELECTION, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStationNone);
     connect(ui->POINT_SELECTION, &QRadioButton::clicked, this, &igQtSelectionWidget::SelectionStationPoint);
     connect(ui->CELL_SELECTION, &QRadioButton::clicked, this, &igQtSelectionWidget::SelectionStationCell);
@@ -357,4 +360,11 @@ void igQtSelectionWidget::ShowBoxUi() {
     //ui->clearBox->show();
     //ui->settingBox->show();
     //ui->useBox->show();
+}
+
+void igQtSelectionWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refresh(this);
+    }
+    QWidget::changeEvent(e);
 }

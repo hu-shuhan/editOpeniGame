@@ -56,6 +56,7 @@ signals:
     void fileOpenRequested(const QString& filePath);
 
 protected:
+    void changeEvent(QEvent* e) override;
     void resizeEvent(QResizeEvent* event) override;
     bool eventFilter(QObject* obj, QEvent* event) override;  // 事件过滤器
 

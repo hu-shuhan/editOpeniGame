@@ -1,5 +1,6 @@
 #include "ui_igQtDataChangeWidget.h"
 #include <IQWidgets/igQtDataChangeWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QElapsedTimer>
 #include <QEvent>
 #include <iGameThreadPool.h>
@@ -355,8 +356,8 @@ void igQtDataChangeWidget::DrawRadial() {
 }
 
 void igQtDataChangeWidget::GenerateBackgroundColor() {
-    // 与主界面/变量相关性等深色面板一致 (#2b2b2b)
-    m_BackgroundColor = {0x2b, 0x2b, 0x2b};
+    const QColor c = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::CardBg);
+    m_BackgroundColor = {c.red(), c.green(), c.blue()};
 }
 
 void igQtDataChangeWidget::SetUiData() {
@@ -453,7 +454,7 @@ void igQtDataChangeWidget::SetRadialData() {
 void igQtDataChangeWidget::_PaintPlotOnDrawWidget(QPainter& painter) {
     const QRect plotRect = ui->drawWidget->rect();
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) {
-        painter.fillRect(plotRect, QColor(0x2b, 0x2b, 0x2b));
+        painter.fillRect(plotRect, igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::CardBg));
         return;
     }
     QRect smallDrawFrame = InsetRectByBoundaryRatio(plotRect, boundaryRatio);
@@ -695,7 +696,7 @@ void igQtDataChangeWidget::_DrawBackground(QPainter& painter, const QRect& range
 }
 
 void igQtDataChangeWidget::_DrawCoordinateRect(QPainter& painter, const QRect& range) {
-    painter.setPen(QPen(QColor(0xa8, 0xa8, 0xa8), 1));
+    painter.setPen(QPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(range);
 }
@@ -850,4 +851,12 @@ void igQtDataChangeWidget::TempSlot_SetRadialData() {
     _GenerateVariableImage(m_VariableShow, Data);
     _GenerateChoosedVariableImage(m_VariableShow, Data);
     update();
+}
+
+void igQtDataChangeWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        GenerateBackgroundColor();
+        update();
+    }
+    QWidget::changeEvent(e);
 }

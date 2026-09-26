@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @class   igMeshCodecDialog
  * @brief   网格编解码参数设置窗口
  */
@@ -122,6 +122,7 @@ private slots:
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void changeEvent(QEvent* e) override;
 
 private:
     Ui::MeshCodecDialog* ui;

@@ -3,7 +3,10 @@
 //
 
 #include <IQComponents/igQtProgressBarWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QHBoxLayout>
+#include <QColor>
+#include <QEvent>
 #include <QMetaObject>
 #include <QThread>
 #include <string>
@@ -30,6 +33,14 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
     layout->setStretch(1, 3);
     layout->setContentsMargins(0, 0, 0, 0);
     this->setLayout(layout);
+
+    this->hide();
+
+    m_hideTimer = new QTimer(this);
+    m_hideTimer->setSingleShot(true);
+    connect(m_hideTimer, &QTimer::timeout, this, [this]() { this->hide(); });
+
+    applyThemeStyle();
 
     progressObserver = iGame::ProgressObserver::Instance();
 
@@ -86,14 +97,64 @@ void igQtProgressBarWidget::resetTextMode() {
     updateProgressBarLabel(DEFAULT);
 }
 
+void igQtProgressBarWidget::applyThemeStyle() {
+    if (m_applyingTheme) return;
+    m_applyingTheme = true;
+
+    const bool light = igQtRenderWidget::globalLightBackground();
+    const QString textColor = light ? QStringLiteral("#4A5568") : QStringLiteral("#A5ADB8");
+    const QString bgColor   = light ? QStringLiteral("#FFFFFF") : QStringLiteral("#22262B");
+    const QString borderCol = light ? QStringLiteral("#CBD2DC") : QStringLiteral("#343B43");
+    const QString chunkCol  = light ? QStringLiteral("#2B7CD3") : QStringLiteral("#4DD0E1");
+
+    if (progressBarLabel) {
+        progressBarLabel->setStyleSheet(QStringLiteral("color: %1; background: transparent;").arg(textColor));
+    }
+    if (progressBar) {
+        progressBar->setStyleSheet(QStringLiteral(
+                "QProgressBar {"
+                " color: %1;"
+                " background-color: %2;"
+                " border: 1px solid %3;"
+                " border-radius: 4px;"
+                " min-height: 8px;"
+                " text-align: center;"
+                "}"
+                "QProgressBar::chunk { background-color: %4; }")
+                .arg(textColor, bgColor, borderCol, chunkCol));
+    }
+
+    m_applyingTheme = false;
+}
+
+void igQtProgressBarWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        applyThemeStyle();
+        update();
+    }
+    QWidget::changeEvent(e);
+}
+
+void igQtProgressBarWidget::showEvent(QShowEvent* e) {
+    applyThemeStyle();
+    QWidget::showEvent(e);
+}
+
+void igQtProgressBarWidget::showWithAutoHide() {
+    this->show();
+    if (m_hideTimer) {
+        m_hideTimer->start(1500);
+    }
+}
+
 void igQtProgressBarWidget::updateProgressBar(double value) {
     value = std::max(value, 0.0);
     value = std::min(value, 1.0);
 
     int progress = value * 100;
-    
 
     if (progress < 100) {
+        showWithAutoHide();
         if (!hasExternalText) {
             updateProgressBarLabel(PROCESSING);
         }
@@ -102,13 +163,18 @@ void igQtProgressBarWidget::updateProgressBar(double value) {
         resetTextMode();
         progressBar->setValue(100);
         progressBar->setValue(0);
+        this->hide();
+        if (m_hideTimer) m_hideTimer->stop();
     }
 }
 
 void igQtProgressBarWidget::updateProgressBarLabel(const char* info) {
     if (!info || info[0] == '\0') {
         progressBarLabel->setText(DEFAULT);
+        this->hide();
+        if (m_hideTimer) m_hideTimer->stop();
         return;
     }
+    showWithAutoHide();
     progressBarLabel->setText(QString::fromUtf8(info));
 }

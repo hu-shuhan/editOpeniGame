@@ -65,11 +65,19 @@
         <file>Icons/window_minimize_white.svg</file>
         <file>Icons/window_maximize_white.svg</file>
         <file>Icons/window_restore_white.svg</file>
+        <file>Icons/window_minimize_dark.svg</file>
+        <file>Icons/window_maximize_dark.svg</file>
+        <file>Icons/window_restore_dark.svg</file>
+        <file>Icons/dock_close_dark.svg</file>
+        <file>Icons/check_dark.svg</file>
         <file>Icons/spin_up_silver.svg</file>
         <file>Icons/spin_down_silver.svg</file>
         <file>Icons/loop_silver.svg</file>
         <file>Icons/tree_arrow_right_silver.svg</file>
         <file>Icons/tree_arrow_down_silver.svg</file>
+        <file>Icons/check_white.svg</file>
+        <file>Icons/radio_off.svg</file>
+        <file>Icons/radio_on.svg</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>
@@ -82,5 +90,9 @@
     <qresource prefix="/Styles">
         <file>Styles/SourceHanSansCN-Normal.otf</file>
         <file alias="AiChatWidget.qss">../src/IQWidgets/igQtAiChat/igQtAiChatWidget.qss</file>
+        <file alias="iGameVisFloatingDark.qss">Styles/iGameVisFloatingDark.qss</file>
+        <file alias="iGameVisFloatingLight.qss">Styles/iGameVisFloatingLight.qss</file>
+        <file alias="iGameVisFloatingGraphiteModern.qss">Styles/iGameVisFloatingGraphiteModern.qss</file>
+        <file alias="iGameVisFloatingMatteGraphite.qss">Styles/iGameVisFloatingMatteGraphite.qss</file>
     </qresource>
 </RCC>

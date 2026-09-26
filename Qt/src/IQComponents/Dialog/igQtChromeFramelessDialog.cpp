@@ -1,4 +1,5 @@
 #include "IQComponents/Dialog/igQtChromeFramelessDialog.h"
+#include <IQWidgets/igQtRenderWidget.h>
 
 #include <QHBoxLayout>
 #include <QLabel>
@@ -37,7 +38,7 @@ igQtChromeFramelessDialog::igQtChromeFramelessDialog(QWidget* parent) : QDialog(
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint);
     if (parentWidget()) setWindowIcon(parentWidget()->windowIcon());
 
-    setStyleSheet(
+    setStyleSheet(QStringLiteral(
         "QDialog#ChromeToolFramelessDialog { background: transparent; border: none; }"
         "QWidget#ChromeCaptionBar { background: transparent; border: none; }"
         "QLabel#ChromeCaptionTitle { background: transparent; color: rgba(220, 222, 228, 0.88); font-size: 13px; font-weight: 500; padding-left: 10px; }"
@@ -59,7 +60,8 @@ igQtChromeFramelessDialog::igQtChromeFramelessDialog(QWidget* parent) : QDialog(
         "}"
         "QPushButton#ChromeCloseButton:hover { background-color: rgba(232, 17, 35, 0.88); color: rgba(255, 255, 255, 0.95); }"
         "QPushButton#ChromeCloseButton:pressed { background-color: rgba(197, 15, 31, 0.9); color: rgba(255, 255, 255, 0.95); }"
-        "QWidget#ChromeContentHost { background: transparent; border: none; }");
+        "QWidget#ChromeContentHost { background: transparent; border: none; }"));
+    igQtPanelTheme::attach(this);
 
     m_rootLayout = new QVBoxLayout(this);
     m_rootLayout->setContentsMargins(kRootMarginNormal, kRootMarginNormal, kRootMarginNormal, kRootMarginNormal);
@@ -78,7 +80,9 @@ igQtChromeFramelessDialog::igQtChromeFramelessDialog(QWidget* parent) : QDialog(
 
     m_minimizeButton = new QPushButton(m_titleBar);
     m_minimizeButton->setObjectName(QStringLiteral("ChromeMinimizeButton"));
-    m_minimizeButton->setIcon(QIcon(QStringLiteral(":/Ticon/Icons/window_minimize_white.svg")));
+    m_minimizeButton->setIcon(QIcon(igQtRenderWidget::globalLightBackground()
+                                            ? QStringLiteral(":/Ticon/Icons/window_minimize_dark.svg")
+                                            : QStringLiteral(":/Ticon/Icons/window_minimize_white.svg")));
     m_minimizeButton->setIconSize(QSize(12, 12));
     m_minimizeButton->setCursor(Qt::PointingHandCursor);
     m_minimizeButton->setFlat(true);
@@ -123,8 +127,9 @@ void igQtChromeFramelessDialog::paintEvent(QPaintEvent* event) {
     painter.setRenderHint(QPainter::Antialiasing, true);
     const QRect r = rect().adjusted(1, 1, -1, -1);
     const int fillA = isMaximized() ? kShellFillAlphaMaximized : kShellFillAlphaNormal;
-    const QColor fill(30, 30, 30, fillA);
-    const QColor border(90, 92, 98, kShellBorderAlpha);
+    const bool light = igQtRenderWidget::globalLightBackground();
+    const QColor fill = light ? QColor(241, 243, 247, fillA) : QColor(30, 30, 30, fillA);
+    const QColor border = light ? QColor(203, 210, 220, kShellBorderAlpha) : QColor(90, 92, 98, kShellBorderAlpha);
     if (isMaximized()) {
         painter.fillRect(rect(), fill);
         return;
@@ -270,6 +275,10 @@ void igQtChromeFramelessDialog::changeEvent(QEvent* event) {
         updateMaximizeButtonIcon();
         updateFrameMarginsForWindowState();
     }
+    if (event->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refreshDeep(this);
+        update();
+    }
     QDialog::changeEvent(event);
 }
 
@@ -282,8 +291,12 @@ void igQtChromeFramelessDialog::leaveEvent(QEvent* event) {
 
 void igQtChromeFramelessDialog::updateMaximizeButtonIcon() {
     if (!m_maximizeButton) return;
-    m_maximizeButton->setIcon(QIcon(isMaximized() ? QStringLiteral(":/Ticon/Icons/window_restore_white.svg")
-                                                    : QStringLiteral(":/Ticon/Icons/window_maximize_white.svg")));
+    const bool light = igQtRenderWidget::globalLightBackground();
+    m_maximizeButton->setIcon(QIcon(isMaximized()
+                                            ? (light ? QStringLiteral(":/Ticon/Icons/window_restore_dark.svg")
+                                                     : QStringLiteral(":/Ticon/Icons/window_restore_white.svg"))
+                                            : (light ? QStringLiteral(":/Ticon/Icons/window_maximize_dark.svg")
+                                                     : QStringLiteral(":/Ticon/Icons/window_maximize_white.svg"))));
     m_maximizeButton->setIconSize(isMaximized() ? QSize(15, 15) : QSize(12, 12));
     m_maximizeButton->setText(QString());
 }

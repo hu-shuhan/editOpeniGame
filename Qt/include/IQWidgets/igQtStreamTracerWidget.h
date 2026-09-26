@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <ui_igStreamTracer.h>
 //#include <iGameManager.h>
 #include <QHideEvent>
@@ -20,6 +20,7 @@ public:
 protected:
     void hideEvent(QHideEvent* event);
     void showEvent(QShowEvent* event);
+    void changeEvent(QEvent* e) override;
 
 public slots:
     void generateStreamline();

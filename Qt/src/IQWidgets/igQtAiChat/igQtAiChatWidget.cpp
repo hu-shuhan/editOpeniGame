@@ -1,3 +1,4 @@
+#include <IQWidgets/igQtRenderWidget.h>
 /**
  * @class   igQtAiChatWidget
  * @brief   iGameAiTool AI聊天助手Widget实现 - 简化版本
@@ -90,6 +91,8 @@ void igQtAiChatWidget::setupUI()
     
     // 加载样式表
     loadStyleSheet();
+
+    igQtPanelTheme::attach(this);
     
     // Main layout
     mainLayout = new QVBoxLayout(this);
@@ -824,3 +827,9 @@ void igQtAiChatWidget::loadStyleSheet()
     }
 }
 
+void igQtAiChatWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refresh(this);
+    }
+    QWidget::changeEvent(e);
+}

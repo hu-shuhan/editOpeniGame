@@ -31,9 +31,11 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* e) override;
 
 private:
     void updateRoundedMask();
+    void applyTheme();
 
     QChart* chart;
     QChartView* chartView;

@@ -79,6 +79,8 @@
 #include <QPushButton>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
+#include <QRegion>
 #include <QScrollArea>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
@@ -100,15 +102,19 @@
 #include <meshoptimizer.h>
 #include <stdio.h>
 
+#include <QDateTime>
 #include <QDebug>
+#include <QFile>
 #include <QMessageBox>
 #include <QSplitter>
 #include <QPointer>
 #include <QTimer>
+#include <QTextStream>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWindow>
 #include <QApplication>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
 #include <QStyle>
@@ -120,13 +126,41 @@
 #include <QFormLayout>
 #include <QDialogButtonBox>
 #include <QStringList>
+#include <QFile>
+#include <limits>
+#include <QMenu>
+#include <QAction>
 
 #include <cmath>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
+#include <IQWidgets/igQtRoundedCornerHelper.h>
 
 namespace {
+const QColor kFloatingCoverColor(0x1E, 0x1E, 0x1E);
+
+//
+void applyRoundedMask(QWidget* w, int radius) {
+    if (!w || radius <= 0) return;
+    const QSize sz = w->size();
+    if (sz.isEmpty()) return;
+
+    const int ss = 4;
+    QImage big(sz.width() * ss, sz.height() * ss, QImage::Format_ARGB32_Premultiplied);
+    if (big.isNull()) return;
+    big.fill(Qt::transparent);
+    {
+        QPainter p(&big);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(Qt::NoPen);
+        p.setBrush(Qt::black);
+        p.drawRoundedRect(QRectF(0, 0, big.width(), big.height()), qreal(radius) * ss, qreal(radius) * ss);
+    }
+    const QImage small = big.scaled(sz, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    w->setMask(QRegion(QBitmap::fromImage(small.createAlphaMask())));
+}
+
 // ---------------------------------------------------------------------------
 // 「数据转换」辅助：把一个数据对象就地转换，并回传统计信息。
 //   1) 用核心既有的「就地转换」filter（不改动核心代码）；转换后单元属性会变成同名点属性，
@@ -247,7 +281,8 @@ int resolveToolbarIconSizeForWidget(const QWidget* widget) {
 constexpr int kToolbarIconMin = 24;             // 图标尺寸下限（与 resolveToolbarIconSize 的 clamp 下限一致）
 constexpr int kToolbarIconMax = 56;             // 图标尺寸上限（放大填充时允许略超分档表，让宽屏更饱满）
 constexpr double kToolbarFillRatio = 0.92;      // 单排填充目标：工具栏总宽达到可用宽度的 92% 左右即停止放大
-constexpr int kToolbarButtonTextMinWidth = 48;  // 按钮文字列宽下限，超过则自动断成两行（实际上限 = max(2×icon, 48)）
+constexpr int kToolbarButtonTextMinWidth = 48;
+constexpr int kToolbarButtonTextMaxLines = 3;
 
 // 按钮字号（逻辑像素）随图标尺寸联动。
 // 注意：必须用像素单位而非 pt，否则在高 DPI 缩放下文字宽度会随 DPI 放大，导致换行/压宽度失效。
@@ -335,7 +370,7 @@ QScrollBar:vertical {
 QScrollBar::handle:vertical {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                 stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
-    border: 1px solid #7C7C7C;
+    border: none;
     border-radius: 6px;
     min-height: 20px;
 }
@@ -362,7 +397,7 @@ QScrollBar:horizontal {
 QScrollBar::handle:horizontal {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                 stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
-    border: 1px solid #7C7C7C;
+    border: none;
     border-radius: 6px;
     min-width: 20px;
 }
@@ -381,6 +416,57 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0;
 }
 )";
+
+constexpr int kFallbackStyleMode = 12;
+
+bool isStyleModeAvailable(int mode) {
+    return mode >= 12 && mode <= 15;
+}
+
+int normalizeStyleMode(int mode) {
+    return isStyleModeAvailable(mode) ? mode : kFallbackStyleMode;
+}
+
+
+bool isFloatingCardStyle(int mode) { return mode >= 12 && mode <= 15; }
+
+bool isLightStyle(int mode) { return mode == 2 || mode == 13; }
+
+bool isModernDenseStyle(int mode) { return mode >= 9; }
+
+int styleColorFamily(int mode) {
+    switch (mode) {
+        case 2:  case 13: return 2;
+        case 9:  case 14: return 9;
+        case 10: case 15: return 10;
+        case 11: return 11;
+        default: return 12;
+    }
+}
+
+QString loadQssResource(const QString& path) {
+    QFile qssFile(path);
+    if (!qssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "iGameVis: failed to load style sheet" << path;
+        return QString();
+    }
+    return QString::fromUtf8(qssFile.readAll());
+}
+
+struct FloatingCardPalette {
+    const char* backdrop;
+    const char* cardBg;
+    const char* cardBorder;
+};
+
+FloatingCardPalette floatingCardPalette(int mode) {
+    switch (styleColorFamily(mode)) {
+        case 2:  return { "#EAEEF3", "#F1F3F7", "#CBD2DC" };
+        case 9:  return { "#121316", "#22262C", "#31363D" };
+        case 10: return { "#14161A", "#20242A", "#2C3038" };
+        default: return { "#1E1E1E", "#1E1E1E", "#2D2D30" };
+    }
+}
 }
 
 // 「数据转换」：**就地**转换当前帧挂载的数据，转换完模型树里仍然只有这一个模型——
@@ -537,20 +623,52 @@ int igQtMainWindow::createConvertedFrameModel(bool toPointData, QString& reason,
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     qApp->setStyleSheet(qApp->styleSheet() + QString::fromUtf8(kGlobalSpinBoxDarkQss));
+
+    m_originalStyleSheet = this->styleSheet();
+
+    QSettings settings(QStringLiteral("iGame"), QStringLiteral("iGameVis"));
+    const int savedMode = settings.value(QStringLiteral("ui/styleMode"), kFallbackStyleMode).toInt();
+    m_styleMode = normalizeStyleMode(qBound(0, savedMode, 15));
+    igQtRenderWidget::setGlobalStyleMode(m_styleMode);
+    const QString initialQss = styleSheetForMode(m_styleMode);
+    if (!initialQss.isEmpty()) {
+        this->setStyleSheet(initialQss);
+    } else {
+        m_styleMode = kFallbackStyleMode;
+    }
+
     // 设置窗口标题为iGameVis
     this->setWindowTitle("iGameVis");
     // 使用无边框窗口并自定义标题栏
     this->setWindowFlags(Qt::FramelessWindowHint | Qt::Window | Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint);
     initCustomTitleBar();
     initAllUnDefinedComponents();
+    if (isFloatingCardStyle(m_styleMode)) applyFloatingCards(true);
     UpdateIcons();
     initAllComponents();
     initAllFilters();
+
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
     initToolbarComponent();  // 内部会重建 toolBar_4 的 3×2 轴网格 + 4 组「按钮行+标题」容器 + 单排宽度拟合
+
+    updateRecentFilePaths();
+
+
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
+
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
+        if (!m_projectChip) return;
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        auto model = scene ? scene->GetCurrentModel() : nullptr;
+        if (model && model->GetDataObject()) {
+            std::string name = model->GetDataObject()->GetName();
+            m_projectChip->setText(QString::fromStdString(name.empty() ? "模型" : name));
+        } else {
+            m_projectChip->setText(QStringLiteral("iGameVis"));
+        }
+    });
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
     commandManager = new igQtCommandManager(this);
@@ -566,11 +684,10 @@ void igQtMainWindow::initCustomTitleBar() {
 
     m_titleBar = new QWidget(this);
     m_titleBar->setObjectName("CustomTitleBar");
-    // 调高标题栏整体高度
-    m_titleBar->setFixedHeight(72);
+    m_titleBar->setAttribute(Qt::WA_StyledBackground, true);
+    m_titleBar->setFixedHeight(50);
     // 标题栏 QSS 见 iGameQtMainWindow.ui 中 MainWindow.styleSheet（QWidget#CustomTitleBar 等）
 
-    // 垂直布局：第一行标题栏，第二行菜单栏
     auto* mainLayout = new QVBoxLayout(m_titleBar);
     mainLayout->setContentsMargins(8, 0, 0, 0);
     mainLayout->setSpacing(0);
@@ -581,19 +698,47 @@ void igQtMainWindow::initCustomTitleBar() {
     topLayout->setContentsMargins(0, 0, 0, 0);
     topLayout->setSpacing(4);
 
-    // 图标
-    QLabel* iconLabel = new QLabel(topRow);
-    iconLabel->setFixedSize(18, 18);
+    m_logoIconLabel = new QLabel(topRow);
+    m_logoIconLabel->setObjectName(QStringLiteral("AppLogoLabel"));
+    m_logoIconLabel->setFixedSize(28, 28);
+    m_logoIconLabel->setAttribute(Qt::WA_StyledBackground, true);
     QPixmap pm = windowIcon().pixmap(18, 18);
-    iconLabel->setPixmap(pm);
-    iconLabel->setScaledContents(true);
-    topLayout->addWidget(iconLabel);
+    m_logoIconLabel->setPixmap(pm);
+    m_logoIconLabel->setScaledContents(true);
+    m_logoIconLabel->setAlignment(Qt::AlignCenter);
 
-    // 标题（样式见 .ui 中 QLabel#CustomTitleLabel）
-    m_titleLabel = new QLabel(topRow);
+    m_brandBox = new QWidget(topRow);
+    m_brandBox->setObjectName(QStringLiteral("TitleBrandBox"));
+    m_brandBox->setAttribute(Qt::WA_StyledBackground, true);
+    auto* brandLayout = new QHBoxLayout(m_brandBox);
+    brandLayout->setContentsMargins(5, 2, 10, 2);
+    brandLayout->setSpacing(6);
+    brandLayout->addWidget(m_logoIconLabel);
+
+    m_titleLabel = new QLabel(m_brandBox);
     m_titleLabel->setObjectName(QStringLiteral("CustomTitleLabel"));
     m_titleLabel->setText(this->windowTitle());
-    topLayout->addWidget(m_titleLabel, 1);
+    brandLayout->addWidget(m_titleLabel);
+
+    topLayout->addWidget(m_brandBox, 0, Qt::AlignVCenter);
+
+    m_topMenuLayout = topLayout;
+    if (ui->menuBar) {
+        ui->menuBar->setParent(topRow);
+        ui->menuBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        ui->menuBar->setFixedHeight(28);
+        ui->menuBar->show();
+        m_topMenuLayout->insertWidget(1, ui->menuBar, 0, Qt::AlignVCenter);
+    }
+
+    topLayout->addStretch(1);
+
+    m_projectChip = new QLabel(QStringLiteral("iGameVis"), topRow);
+    m_projectChip->setObjectName(QStringLiteral("ProjectChip"));
+    m_projectChip->setAttribute(Qt::WA_StyledBackground, true);
+    m_projectChip->setFixedHeight(30);
+    m_projectChip->setAlignment(Qt::AlignCenter);
+    topLayout->addWidget(m_projectChip, 0);
 
     // 按钮区域（尺寸与 Windows 标题栏按钮比例相近：较宽、易点）
     m_btnMinimize = new QPushButton(topRow);
@@ -603,10 +748,17 @@ void igQtMainWindow::initCustomTitleBar() {
     m_btnClose = new QPushButton(QStringLiteral("×"), topRow);
     m_btnClose->setObjectName(QStringLiteral("CloseButton"));
 
+    m_styleToggleButton = new QPushButton(topRow);
+    m_styleToggleButton->setObjectName(QStringLiteral("StyleToggleButton"));
+    m_styleToggleButton->setCursor(Qt::PointingHandCursor);
+    m_styleToggleButton->setToolTip(QStringLiteral("切换界面风格"));
+
     const QSize captionBtnSize(46, 30);
+    const QSize styleToggleSize(116, 30);
     m_btnMinimize->setFixedSize(captionBtnSize);
     m_btnMaximize->setFixedSize(captionBtnSize);
     m_btnClose->setFixedSize(captionBtnSize);
+    m_styleToggleButton->setFixedSize(styleToggleSize);
 
     m_btnMinimize->setIcon(QIcon(QStringLiteral(":/Ticon/Icons/window_minimize_white.svg")));
     m_btnMinimize->setIconSize(QSize(12, 12));
@@ -616,6 +768,15 @@ void igQtMainWindow::initCustomTitleBar() {
     m_btnMinimize->setFlat(true);
     m_btnClose->setFlat(true);
 
+    topLayout->addWidget(m_styleToggleButton, 0);
+
+    m_rightDivider = new QFrame(topRow);
+    m_rightDivider->setObjectName(QStringLiteral("RightDivider"));
+    m_rightDivider->setFixedSize(1, 24);
+    m_rightDivider->setFrameShape(QFrame::NoFrame);
+    m_rightDivider->setAttribute(Qt::WA_StyledBackground, true);
+    topLayout->addWidget(m_rightDivider, 0);
+
     topLayout->addWidget(m_btnMinimize, 0);
     topLayout->addWidget(m_btnMaximize, 0);
     topLayout->addWidget(m_btnClose, 0);
@@ -623,12 +784,12 @@ void igQtMainWindow::initCustomTitleBar() {
     // 添加顶部行到主布局
     mainLayout->addWidget(topRow, 0);
 
-    // 第二行：原来的菜单栏整行显示
-    if (ui->menuBar) {
-        ui->menuBar->setParent(m_titleBar);
-        ui->menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        mainLayout->addWidget(ui->menuBar, 0);
-    }
+    m_titleAccentLine = new QFrame(m_titleBar);
+    m_titleAccentLine->setObjectName(QStringLiteral("TitleBarAccentLine"));
+    m_titleAccentLine->setFixedHeight(2);
+    m_titleAccentLine->setFrameShape(QFrame::NoFrame);
+    m_titleAccentLine->setAttribute(Qt::WA_StyledBackground, true);
+    mainLayout->addWidget(m_titleAccentLine, 0);
 
     // 放到 QMainWindow 的菜单栏区域，相当于自定义标题栏
     this->setMenuWidget(m_titleBar);
@@ -650,6 +811,10 @@ void igQtMainWindow::initCustomTitleBar() {
         this->close();
     });
 
+    createStyleMenu();
+
+    applyStyleMode(m_styleMode);
+
     // 监听全局鼠标释放，防止拖动状态在某些场景下卡住
     qApp->installEventFilter(this);
     updateMaximizeButtonIcon();
@@ -657,6 +822,30 @@ void igQtMainWindow::initCustomTitleBar() {
 
 bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (!m_titleBar) return QMainWindow::eventFilter(watched, event);
+
+    if (isFloatingCardStyle(m_styleMode) && event->type() == QEvent::Resize) {
+        if (watched == rendererWidget) {
+            applyRoundedMask(rendererWidget, 8);
+        } else if (watched == m_floatingTreeDock) {
+            const int radius = (modelTreeWidget && modelTreeWidget->isTreeDockCollapsed()) ? 12 : 8;
+            applyRoundedMask(m_floatingTreeDock, radius);
+        }
+    }
+
+    if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease) {
+        const QVariant btnProp = watched->property("igToolbarButton");
+        if (btnProp.isValid()) {
+            auto* me = static_cast<QMouseEvent*>(event);
+            if (me->button() == Qt::LeftButton) {
+                if (event->type() == QEvent::MouseButtonRelease) {
+                    auto* btn = qobject_cast<QToolButton*>(btnProp.value<QObject*>());
+                    auto* host = qobject_cast<QWidget*>(watched);
+                    if (btn && host && host->rect().contains(me->pos())) { btn->click(); }
+                }
+                return true;
+            }
+        }
+    }
 
     // 全局兜底：只要左键释放就结束拖动，避免窗口“黏在鼠标上”
     if (m_titleBarDragging) {
@@ -812,8 +1001,12 @@ void igQtMainWindow::toggleMaximizeRestore() {
 
 void igQtMainWindow::updateMaximizeButtonIcon() {
     if (!m_btnMaximize) return;
-    m_btnMaximize->setIcon(QIcon(isMaximized() ? QStringLiteral(":/Ticon/Icons/window_restore_white.svg")
-                                               : QStringLiteral(":/Ticon/Icons/window_maximize_white.svg")));
+    const bool light = isLightStyle(m_styleMode);
+    const QString restoreIcon = light ? QStringLiteral(":/Ticon/Icons/window_restore_dark.svg")
+                                      : QStringLiteral(":/Ticon/Icons/window_restore_white.svg");
+    const QString maximizeIcon = light ? QStringLiteral(":/Ticon/Icons/window_maximize_dark.svg")
+                                       : QStringLiteral(":/Ticon/Icons/window_maximize_white.svg");
+    m_btnMaximize->setIcon(QIcon(isMaximized() ? restoreIcon : maximizeIcon));
     m_btnMaximize->setIconSize(isMaximized() ? QSize(15, 15) : QSize(12, 12));
     m_btnMaximize->setText(QString());
 }
@@ -823,6 +1016,7 @@ void igQtMainWindow::resizeEvent(QResizeEvent* event) {
     // 立刻决定要不要换行（视觉上跟手）；同时 100ms 防抖跑一次全量重排（含 iconSize 重算）
     relayoutToolbarWrappers();
     if (m_ResizeDebounceTimer) { m_ResizeDebounceTimer->start(100); }
+    updateViewRailPosition();
 }
 
 igQtMainWindow::~igQtMainWindow() {
@@ -1092,15 +1286,21 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
             const int curW = m_leftFieldDock->width();
-            const int targetW = qMax(curW + 60, 360); // 比默认稍宽一点
+            const int targetW = qMax(curW + 40, 320);
             this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
         }
     });
 
-    // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
     QTimer::singleShot(100, this, [this]() {
         if (rendererWidget && modelTreeWidget) {
-            modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+            if (m_styleMode == 6) {
+                applyWorkspaceLayout(true);
+            } else if (m_styleMode == 7 || m_styleMode == 8) {
+                applyViewRail(true);
+                modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+            } else {
+                modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+            }
         }
     });
 
@@ -1181,6 +1381,8 @@ void igQtMainWindow::initAllComponents() {
         iGame::SceneManager::Instance()->GetCurrentScene()->ToggleAxes();
         iGame::SceneManager::Instance()->GetCurrentScene()->Update();
    });
+    ui->action_ShowOrientationAxes->setCheckable(true);
+    ui->action_ShowOrientationAxes->setChecked(true);
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
@@ -2768,7 +2970,7 @@ void igQtMainWindow::initAllFilters() {
     //    });
     // 转换就地作用于「当前帧」的数据（普通模型=自身；PVD 等复合模型=当前挂载的所有子块），
     // 因为不再 addDataObjectToModelTree()，所以不会再出现“转换后多出一个同名模型”的问题。
-    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [this](bool checked) {
+    connect(convert->addAction(QStringLiteral("Convert To Point Data（转换为点数据）")), &QAction::triggered, this, [&](bool checked) {
         QString reason;
         QStringList names;
         const int created = createConvertedFrameModel(true, reason, names);
@@ -2783,7 +2985,7 @@ void igQtMainWindow::initAllFilters() {
                         .arg(names.join(QStringLiteral("、"))),
                 true);
     });
-    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this, [this](bool checked) {
+    connect(convert->addAction(QStringLiteral("Convert To Cell Data（转换为单元数据）")), &QAction::triggered, this, [&](bool checked) {
         QString reason;
         QStringList names;
         const int created = createConvertedFrameModel(false, reason, names);
@@ -4325,7 +4527,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
         ui->widget_Animation->initAnimationComponents();
     });
-    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, [this](){
+        DeformationWidget->updateInfo();
+    });
 
     connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -4676,12 +4880,43 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
 }
 void igQtMainWindow::updateRecentFilePaths() {
-    ui->menu_RecentFiles->clear();
-    auto recentFileActions = fileLoader->GetRecentActionList();
-    for (auto i = recentFileActions.size() - 1; i >= 0; i--) {
-        ui->menu_RecentFiles->addAction(recentFileActions.at(i));
+    if (!ui || !ui->menu_RecentFiles || !fileLoader) return;
+
+    QMenu* menu = ui->menu_RecentFiles;
+    const QList<QAction*> oldActions = menu->actions();
+    for (QAction* a : oldActions) {
+        if (a && a->property("igRecentFileEntry").toBool()) menu->removeAction(a);
+    }
+
+    const QList<QAction*> list = fileLoader->GetRecentActionList();
+    for (int i = list.size() - 1; i >= 0; --i) {
+        QAction* a = list.at(i);
+        if (!a) continue;
+        if (menu->actions().contains(a)) continue;
+        a->setProperty("igRecentFileEntry", true);
+        menu->addAction(a);
     }
 }
+
+void igQtMainWindow::applyTopMenuButtonStyle() {
+    const bool menuLight = isLightStyle(m_styleMode);
+    if (m_brandBox) {
+        m_brandBox->setStyleSheet(menuLight
+                ? QStringLiteral("QWidget#TitleBrandBox { background-color: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.10); border-radius: 6px; }")
+                : QStringLiteral("QWidget#TitleBrandBox { background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); border-radius: 6px; }"));
+    }
+    if (ui && ui->menuBar) {
+        ui->menuBar->setStyleSheet(menuLight
+                ? QStringLiteral("QMenuBar { background: transparent; color: #1F2A3A; border: none; }"
+                                 "QMenuBar::item { background: transparent; padding: 3px 10px; }"
+                                 "QMenuBar::item:selected { background-color: rgba(0,0,0,0.08); border-radius: 4px; }")
+                : QStringLiteral("QMenuBar { background: transparent; color: #D4D4D4; border: none; }"
+                                 "QMenuBar::item { background: transparent; padding: 3px 10px; }"
+                                 "QMenuBar::item:selected { background-color: rgba(255,255,255,0.12); border-radius: 4px; }"));
+    }
+}
+
+
 void igQtMainWindow::updateColorBarShow() {
     auto colorBar = this->rendererWidget->getColorBarWidget();
     if (!colorBar) { return; }
@@ -5152,6 +5387,881 @@ QString igQtMainWindow::LoadExternalFonts() {
 
     return family;
 }
+
+QString igQtMainWindow::styleSheetForMode(int mode) const {
+    if (mode == 12) return loadQssResource(QStringLiteral(":/Styles/iGameVisFloatingDark.qss"));
+    if (mode == 13) return loadQssResource(QStringLiteral(":/Styles/iGameVisFloatingLight.qss"));
+    if (mode == 14) return loadQssResource(QStringLiteral(":/Styles/iGameVisFloatingGraphiteModern.qss"));
+    if (mode == 15) return loadQssResource(QStringLiteral(":/Styles/iGameVisFloatingMatteGraphite.qss"));
+    return m_originalStyleSheet;
+}
+
+QString igQtMainWindow::styleToggleButtonQss() const {
+    const int fam = styleColorFamily(m_styleMode);
+    if (fam == 1) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: rgba(56, 189, 248, 0.12);"
+                " color: #7FD4FF;"
+                " border: 1px solid rgba(56, 189, 248, 0.45);"
+                " border-radius: 8px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: rgba(56, 189, 248, 0.22);"
+                " border-color: rgba(56, 189, 248, 0.70);"
+                "}");
+    }
+    if (fam == 2) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: rgba(37, 99, 235, 0.10);"
+                " color: #2563EB;"
+                " border: 1px solid rgba(37, 99, 235, 0.45);"
+                " border-radius: 8px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: rgba(37, 99, 235, 0.18);"
+                " border-color: rgba(37, 99, 235, 0.70);"
+                "}");
+    }
+    if (fam == 4) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: rgba(77, 208, 225, 0.14);"
+                " color: #5CE1F0;"
+                " border: 1px solid rgba(77, 208, 225, 0.48);"
+                " border-radius: 8px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: rgba(77, 208, 225, 0.24);"
+                " border-color: rgba(77, 208, 225, 0.72);"
+                "}");
+    }
+    if (fam == 6 || fam == 8) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: rgba(77, 208, 225, 0.14);"
+                " color: #5CE1F0;"
+                " border: 1px solid rgba(77, 208, 225, 0.48);"
+                " border-radius: 8px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: rgba(77, 208, 225, 0.24);"
+                " border-color: rgba(77, 208, 225, 0.72);"
+                "}");
+    }
+    if (fam == 9) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: rgba(108, 142, 174, 0.12);"
+                " color: #9FB6C9;"
+                " border: 1px solid rgba(108, 142, 174, 0.38);"
+                " border-radius: 6px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: rgba(108, 142, 174, 0.22);"
+                " border-color: rgba(108, 142, 174, 0.60);"
+                "}");
+    }
+    if (fam == 10) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: rgba(42, 48, 58, 0.30);"
+                " color: #A2A8B0;"
+                " border: 1px solid #2C3038;"
+                " border-radius: 4px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: #2A303A;"
+                " border-color: #3A414C;"
+                "}");
+    }
+    if (fam == 11 || fam == 12) {
+        return QStringLiteral(
+                "QPushButton#StyleToggleButton {"
+                " background-color: #252526;"
+                " color: #858585;"
+                " border: 1px solid #2D2D30;"
+                " border-radius: 4px;"
+                " font-size: 10pt;"
+                " padding: 0 12px;"
+                "}"
+                "QPushButton#StyleToggleButton:hover {"
+                " background-color: #2A2A2C;"
+                " border-color: #37373D;"
+                "}");
+    }
+    return QStringLiteral(
+            "QPushButton#StyleToggleButton {"
+            " background-color: #2A2A2A;"
+            " color: #CCCCCC;"
+            " border: 1px solid #3C3C3C;"
+            " border-radius: 6px;"
+            " font-size: 10pt;"
+            " padding: 0 10px;"
+            "}"
+            "QPushButton#StyleToggleButton:hover {"
+            " background-color: #3A3A3A;"
+            " border-color: #555555;"
+            "}");
+}
+
+QString igQtMainWindow::styleModeDisplayName(int mode) const {
+    if (mode == 12) return QStringLiteral("✦ 深灰");
+    if (mode == 13) return QStringLiteral("✦ 浅白");
+    if (mode == 14) return QStringLiteral("✦ 石墨");
+    if (mode == 15) return QStringLiteral("✦ 哑光");
+    return QStringLiteral("✦ 深灰");
+}
+
+void igQtMainWindow::createStyleMenu() {
+    if (m_styleMenu) return;
+    m_styleMenu = new QMenu(m_styleToggleButton);
+    static const int kStyleModes[] = {12, 13, 14, 15};
+    for (const int mode : kStyleModes) {
+        QAction* act = m_styleMenu->addAction(styleModeDisplayName(mode));
+        act->setCheckable(true);
+        act->setData(mode);
+        connect(act, &QAction::triggered, this, [this, mode]() {
+            applyStyleMode(mode);
+            QSettings settings(QStringLiteral("iGame"), QStringLiteral("iGameVis"));
+            settings.setValue(QStringLiteral("ui/styleMode"), mode);
+        });
+    }
+    m_styleToggleButton->setMenu(m_styleMenu);
+}
+
+void igQtMainWindow::updateTitleBarIcons() {
+    const bool light = isLightStyle(m_styleMode);
+    if (m_btnMinimize) {
+        m_btnMinimize->setIcon(QIcon(light ? QStringLiteral(":/Ticon/Icons/window_minimize_dark.svg")
+                                           : QStringLiteral(":/Ticon/Icons/window_minimize_white.svg")));
+    }
+    updateMaximizeButtonIcon();
+}
+
+void igQtMainWindow::applyStyleMode(int mode) {
+    mode = normalizeStyleMode(qBound(0, mode, 15));
+    if (styleSheetForMode(mode).isEmpty()) {
+        mode = kFallbackStyleMode;
+    }
+
+    if (m_styleMode == 6 && mode != 6 && modelTreeWidget) {
+        applyWorkspaceLayout(false);
+    }
+    if (isFloatingCardStyle(m_styleMode) && !isFloatingCardStyle(mode)) {
+        if (modelTreeWidget && modelTreeWidget->isTreeDockCollapsed()) {
+            modelTreeWidget->setTreeDockCollapsed(false);
+        }
+        applyFloatingCards(false);
+    }
+    if ((m_styleMode == 7 || m_styleMode == 8) && mode != 7 && mode != 8) {
+        applyViewRail(false);
+    }
+    m_styleMode = mode;
+    igQtRenderWidget::setGlobalStyleMode(m_styleMode);
+    this->setStyleSheet(styleSheetForMode(mode));
+
+    if (m_styleToggleButton) {
+        m_styleToggleButton->setText(styleModeDisplayName(mode));
+        m_styleToggleButton->setStyleSheet(styleToggleButtonQss());
+    }
+    applyTopMenuButtonStyle();
+    QString accent = QStringLiteral("#4DD0E1");
+    switch (styleColorFamily(mode)) {
+        case 0:  accent = QStringLiteral("#3C3C3C"); break;
+        case 1:  accent = QStringLiteral("#38BDF8"); break;
+        case 2:  accent = QStringLiteral("#2563EB"); break;
+        case 3:  accent = QStringLiteral("#4A4E54"); break;
+        case 9:  accent = QStringLiteral("#6C8EAE"); break;
+        case 10: accent = QStringLiteral("#3A414C"); break;
+        case 11: accent = QStringLiteral("#37373D"); break;
+        case 12: accent = QStringLiteral("#37373D"); break;
+        default: accent = QStringLiteral("#4DD0E1"); break;
+    }
+    const bool isLight = isLightStyle(mode);
+
+    if (m_logoIconLabel) {
+        QString grad;
+        if (isLight) {
+            grad = QStringLiteral("qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #FFFFFF, stop:1 #E9EFF9)");
+        } else if (styleColorFamily(mode) == 10) {
+            grad = QStringLiteral("qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2A303A, stop:1 #1C1F25)");
+        } else if (styleColorFamily(mode) >= 11) {
+            grad = QStringLiteral("qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2A2A2C, stop:1 #1E1E1E)");
+        } else {
+            grad = QStringLiteral("qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #4DD0E1, stop:1 #2B7CD3)");
+        }
+        m_logoIconLabel->setStyleSheet(
+                QStringLiteral("QLabel#AppLogoLabel { background: %1; border-radius: 8px; padding: 3px; }")
+                        .arg(grad));
+    }
+
+    if (m_projectChip) {
+        if (isLight) {
+            m_projectChip->setStyleSheet(
+                    "QLabel#ProjectChip { color: #1F2A3A; background-color: rgba(37,99,235,0.08);"
+                    " border: 1px solid rgba(37,99,235,0.30); border-radius: 999px; padding: 3px 10px; font-size: 10pt; }");
+        } else {
+            m_projectChip->setStyleSheet(
+                    QStringLiteral("QLabel#ProjectChip { color: #B8C0CA; background-color: rgba(255,255,255,0.05);"
+                                   " border: 1px solid %1; border-radius: 999px; padding: 3px 10px; font-size: 10pt; }")
+                            .arg(accent));
+        }
+    }
+
+    if (m_titleAccentLine) {
+        m_titleAccentLine->setStyleSheet(
+                QStringLiteral("QFrame#TitleBarAccentLine { background-color: %1; }").arg(accent));
+    }
+
+    if (m_rightDivider) {
+        m_rightDivider->setStyleSheet(
+                isLight
+                        ? "QFrame#RightDivider { background-color: rgba(0,0,0,0.12); }"
+                        : "QFrame#RightDivider { background-color: rgba(255,255,255,0.12); }");
+    }
+    if (m_styleMenu) {
+        const QList<QAction*> acts = m_styleMenu->actions();
+        for (QAction* act : acts) {
+            act->setChecked(act->data().toInt() == mode);
+        }
+    }
+    updateTitleBarIcons();
+    if (rendererWidget) rendererWidget->applyThemeBackground();
+    if (isFloatingCardStyle(m_styleMode)) applyFloatingCardPalette();
+    if (modelTreeWidget) modelTreeWidget->refreshStyle();
+
+    if (mode == 6 && modelTreeWidget) {
+        applyWorkspaceLayout(true);
+    }
+    if (mode == 12) {
+        applyFloatingCards(true);
+    }
+    if (mode == 7 || mode == 8) {
+        applyViewRail(true);
+    }
+
+    const bool wrappersExist = (this->findChild<QToolBar*>(QStringLiteral("wrapper_toolBar_meshfile")) != nullptr);
+    if (wrappersExist && !m_toolbarRebuilding) {
+        rebuildToolbarRow(m_currentToolbarIconSize);
+        relayoutToolbarWrappers();
+    }
+
+    {
+        const QWidgetList tops = QApplication::topLevelWidgets();
+        for (QWidget* top : tops) {
+            if (!top) continue;
+            QList<QWidget*> widgets = top->findChildren<QWidget*>();
+            widgets.prepend(top);
+            for (QWidget* w : widgets) {
+                if (!w) continue;
+                if (!w->property("igPanelBaseQss").toString().isEmpty()) {
+                    igQtPanelTheme::refresh(w);
+                }
+            }
+            if (top != this) {
+                QEvent styleEvent(QEvent::StyleChange);
+                QCoreApplication::sendEvent(top, &styleEvent);
+            }
+        }
+    }
+}
+
+void igQtMainWindow::applyFloatingCardPalette() {
+    if (!isFloatingCardStyle(m_styleMode)) return;
+    const FloatingCardPalette cardPal = floatingCardPalette(m_styleMode);
+    const QString backdrop = QString::fromLatin1(cardPal.backdrop);
+
+    if (rendererWidget) {
+        QPalette rendererPal = rendererWidget->palette();
+        rendererPal.setColor(QPalette::Window, QColor(backdrop));
+        rendererWidget->setPalette(rendererPal);
+        rendererWidget->setStyleSheet(QStringLiteral("background-color: %1;").arg(backdrop));
+    }
+    if (m_floatingCardWidget) {
+        m_floatingCardWidget->setStyleSheet(
+                QStringLiteral("QWidget#FloatingCard { background-color: %1; border: 1px solid %2;"
+                               " border-radius: 8px; }")
+                        .arg(QString::fromLatin1(cardPal.cardBg), QString::fromLatin1(cardPal.cardBorder)));
+    }
+}
+
+void igQtMainWindow::applyFloatingCards(bool enabled) {
+    if (enabled && m_centralCardContainer) {
+        applyFloatingCardPalette();
+        return;
+    }
+    if (!enabled && !m_centralCardContainer) return;
+
+    if (enabled) {
+        if (!m_centralCardContainer && rendererWidget) {
+            auto* container = new QWidget(this);
+            container->setObjectName(QStringLiteral("CentralCardContainer"));
+            container->setAttribute(Qt::WA_StyledBackground, true);
+            auto* lay = new QVBoxLayout(container);
+            lay->setContentsMargins(11, 6, 11, 6);
+            lay->setSpacing(0);
+            lay->addWidget(rendererWidget);
+            m_centralCardContainer = container;
+            this->setCentralWidget(m_centralCardContainer);
+        }
+        if (rendererWidget) {
+            rendererWidget->setAutoFillBackground(true);
+            applyFloatingCardPalette();
+            applyRoundedMask(rendererWidget, 8);
+        }
+        if (modelTreeWidget) {
+            QDockWidget* props = modelTreeWidget->getPropertiesDock();
+            if (!props) return;
+            m_propertiesOriginalMinWidth = props->minimumWidth();
+            props->setMinimumWidth(200);
+            {
+                auto* emptyTitle = new QWidget(props);
+                emptyTitle->setFixedHeight(0);
+                props->setTitleBarWidget(emptyTitle);
+            }
+            QWidget* original = props->widget();
+            m_floatingCardOriginalWidget = original;
+            if (original) {
+                props->setAttribute(Qt::WA_TranslucentBackground, true);
+                props->setAutoFillBackground(false);
+                props->setStyleSheet(
+                        "QDockWidget#LayerPropertiesDock { background-color: transparent; border: none; }");
+                auto* outer = new QWidget(props);
+                outer->setObjectName(QStringLiteral("FloatingCardOuter"));
+                outer->setAttribute(Qt::WA_StyledBackground, true);
+                outer->setAttribute(Qt::WA_TranslucentBackground, true);
+                outer->setAutoFillBackground(false);
+                auto* outerLayout = new QVBoxLayout(outer);
+                outerLayout->setContentsMargins(11, 6, 11, 6);
+                outerLayout->setSpacing(0);
+                original->setParent(outer);
+                original->setObjectName(QStringLiteral("FloatingCard"));
+                original->setContentsMargins(0, 0, 0, 0);
+                outerLayout->addWidget(original);
+                props->setWidget(outer);
+                m_floatingCardWidget = original;
+                applyFloatingCardPalette();
+                igQtDetachRoundedCorners(original);
+            }
+            m_floatingCardDock = props;
+            QTimer::singleShot(0, this, [this, props]() {
+                if (props) this->resizeDocks({props}, {210}, Qt::Horizontal);
+            });
+            if (QDockWidget* treeDock = modelTreeWidget->getTreeDock()) {
+                m_floatingTreeDock = treeDock;
+                applyRoundedMask(treeDock, 8);
+
+                QWidget* originalTree = treeDock->widget();
+                m_floatingTreeOriginalWidget = originalTree;
+
+                if (originalTree) {
+                    auto* treeOuter = new QWidget(treeDock);
+                    treeOuter->setObjectName(QStringLiteral("FloatingTreeOuter"));
+                    treeOuter->setAttribute(Qt::WA_TranslucentBackground, true);
+                    auto* treeLayout = new QVBoxLayout(treeOuter);
+                    treeLayout->setContentsMargins(0, 20, 0, 0);
+                    treeLayout->setSpacing(0);
+                    originalTree->setParent(treeOuter);
+                    originalTree->setContentsMargins(0, 0, 0, 0);
+                    treeLayout->addWidget(originalTree);
+                    treeDock->setWidget(treeOuter);
+                    m_floatingTreeWrapper = treeOuter;
+                }
+            }
+        }
+
+    } else {
+        if (m_centralCardContainer && rendererWidget) {
+            QWidget* old = m_centralCardContainer;
+            m_centralCardContainer = nullptr;
+            this->setCentralWidget(rendererWidget);
+            old->deleteLater();
+        }
+        if (rendererWidget) {
+            rendererWidget->setCornerCover(0, QColor());
+            rendererWidget->setMask(QRegion());
+        }        if (m_floatingCardWidget) {
+            igQtDetachRoundedCorners(m_floatingCardWidget);
+            m_floatingCardWidget->setMask(QRegion());
+            m_floatingCardWidget = nullptr;
+        }
+        if (m_floatingCardDock) {
+            m_floatingCardDock->setMask(QRegion());
+            m_floatingCardDock = nullptr;
+        }
+        if (m_floatingTreeDock) {
+            QDockWidget* treeDock = m_floatingTreeDock;
+            igQtDetachRoundedCorners(treeDock);
+            if (m_floatingTreeOriginalWidget) {
+                QWidget* original = m_floatingTreeOriginalWidget;
+                QWidget* wrapper = treeDock->widget();
+                original->setContentsMargins(0, 0, 0, 0);
+                original->setParent(treeDock);
+                treeDock->setWidget(original);
+                if (wrapper && wrapper != original) wrapper->deleteLater();
+                m_floatingTreeOriginalWidget = nullptr;
+                m_floatingTreeWrapper = nullptr;
+            }
+            treeDock->setMask(QRegion());
+            m_floatingTreeDock = nullptr;
+        }
+        if (modelTreeWidget) {
+            QDockWidget* props = modelTreeWidget->getPropertiesDock();
+            if (props) {
+                const int restoreW = m_propertiesOriginalMinWidth > 0 ? m_propertiesOriginalMinWidth : 220;
+                m_propertiesOriginalMinWidth = 0;
+                props->setMinimumWidth(restoreW);
+                if (m_floatingCardOriginalWidget) {
+                    QWidget* original = m_floatingCardOriginalWidget;
+                    QWidget* wrapper = props->widget();
+                    original->setObjectName(QString());
+                    original->setContentsMargins(0, 0, 0, 0);
+                    original->setStyleSheet(QString());
+                    original->setParent(props);
+                    props->setWidget(original);
+                    if (wrapper && wrapper != original) wrapper->deleteLater();
+                    m_floatingCardOriginalWidget = nullptr;
+                } else if (QWidget* w = props->widget()) {
+                    w->setObjectName(QString());
+                    w->setContentsMargins(0, 0, 0, 0);
+                    w->setStyleSheet(QString());
+                }
+                props->setStyleSheet(QString());
+                props->setAttribute(Qt::WA_TranslucentBackground, false);
+                props->setAutoFillBackground(true);
+                props->setTitleBarWidget(nullptr);
+                QTimer::singleShot(0, this, [this, props, restoreW]() {
+                    if (props) this->resizeDocks({props}, {restoreW}, Qt::Horizontal);
+                });
+            }
+        }
+    }
+}
+
+void igQtMainWindow::applyWorkspaceLayout(bool enabled) {
+    if (!modelTreeWidget) return;
+
+    QDockWidget* propertiesDock = modelTreeWidget->getPropertiesDock();
+    if (!propertiesDock) return;
+
+    const QList<QDockWidget*> analysisDocks = {
+            ui->dockWidget_ScalarField,
+            ui->dockWidget_VectorField,
+            ui->dockWidget_FlowField,
+            ui->dockWidget_TensorField,
+            ui->dockWidget_ParallelCoordinatesField,
+            ui->dockWidget_VariableCorrelationField,
+            ui->dockWidget_VariableDensityField,
+            ui->dockWidget_DataChangeField,
+            ui->dockWidget_SelectionField,
+            ui->dockWidget_ContextPreservingShowField,
+            ui->dockWidget_QualityDetection,
+            ui->dockWidget_EditMode,
+            ui->dockWidget_ModelList,
+            ui->dockWidget_ContourExtract
+    };
+
+    if (enabled) {
+        for (QDockWidget* d : analysisDocks) {
+            if (d) this->addDockWidget(Qt::RightDockWidgetArea, d);
+        }
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ParallelCoordinatesField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableCorrelationField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableDensityField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_DataChangeField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContextPreservingShowField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_QualityDetection);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_EditMode);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
+
+        this->addDockWidget(Qt::LeftDockWidgetArea, propertiesDock);
+        if (m_leftFieldDock) this->addDockWidget(Qt::LeftDockWidgetArea, m_leftFieldDock);
+        this->splitDockWidget(m_leftFieldDock, propertiesDock, Qt::Vertical);
+
+        QTimer::singleShot(0, this, [this, propertiesDock]() {
+            if (ui->dockWidget_SelectionField) {
+                this->resizeDocks({ui->dockWidget_SelectionField}, {300}, Qt::Horizontal);
+            }
+            if (propertiesDock) {
+                this->resizeDocks({propertiesDock}, {260}, Qt::Horizontal);
+            }
+        });
+
+        modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+    } else {
+        for (QDockWidget* d : analysisDocks) {
+            if (d) this->addDockWidget(Qt::LeftDockWidgetArea, d);
+        }
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ParallelCoordinatesField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableCorrelationField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_VariableDensityField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_DataChangeField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContextPreservingShowField);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_QualityDetection);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_EditMode);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ModelList);
+        this->tabifyDockWidget(ui->dockWidget_SelectionField, ui->dockWidget_ContourExtract);
+
+        this->addDockWidget(Qt::LeftDockWidgetArea, m_leftFieldDock);
+        this->addDockWidget(Qt::LeftDockWidgetArea, propertiesDock);
+        this->splitDockWidget(m_leftFieldDock, propertiesDock, Qt::Vertical);
+
+        if (rendererWidget) {
+            modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+        }
+    }
+}
+
+void igQtMainWindow::applyViewRail(bool enabled) {
+    if (!rendererWidget) return;
+
+    if (enabled && !m_viewDock) {
+        m_viewDock = new QDockWidget(QStringLiteral("视图"), this);
+        m_viewDock->setObjectName(QStringLiteral("ViewDock"));
+        m_viewDock->setAllowedAreas(Qt::RightDockWidgetArea);
+        m_viewDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable);
+        m_viewDock->setMinimumWidth(40);
+        m_viewDock->setMaximumWidth(42);
+
+        QWidget* railWidget = new QWidget(m_viewDock);
+        QVBoxLayout* railLayout = new QVBoxLayout(railWidget);
+        railLayout->setContentsMargins(2, 2, 2, 2);
+        railLayout->setSpacing(3);
+
+        auto addRailButton = [&](QAction* act, const QString& tip) {
+            if (!act) return;
+            QToolButton* b = new QToolButton(railWidget);
+            b->setDefaultAction(act);
+            b->setIconSize(QSize(18, 18));
+            b->setToolButtonStyle(Qt::ToolButtonIconOnly);
+            b->setAutoRaise(true);
+            b->setFocusPolicy(Qt::NoFocus);
+            b->setFixedSize(26, 26);
+            b->setToolTip(tip);
+            b->setCursor(Qt::PointingHandCursor);
+            b->setStyleSheet(
+                    "QToolButton { border-radius: 0; }"
+                    "QToolButton:hover { background-color: rgba(255,255,255,0.10); }");
+            railLayout->addWidget(b, 0, Qt::AlignHCenter);
+        };
+
+        addRailButton(ui->action_ShowOrientationAxes, QStringLiteral("定向轴"));
+        addRailButton(ui->action_ResetCameraView, QStringLiteral("重置视角"));
+        addRailButton(ui->action_UseOrthographic, QStringLiteral("正交投影"));
+        addRailButton(ui->action_setViewToIsometric, QStringLiteral("等轴测视图"));
+        addRailButton(ui->action_setViewToPositiveX, QStringLiteral("+X 方向"));
+        addRailButton(ui->action_setViewToNegativeX, QStringLiteral("-X 方向"));
+        addRailButton(ui->action_setViewToPositiveY, QStringLiteral("+Y 方向"));
+        addRailButton(ui->action_setViewToNegativeY, QStringLiteral("-Y 方向"));
+        addRailButton(ui->action_setViewToPositiveZ, QStringLiteral("+Z 方向"));
+        addRailButton(ui->action_setViewToNegativeZ, QStringLiteral("-Z 方向"));
+        addRailButton(ui->action_rotateNinetyCounterClockwise, QStringLiteral("逆时针 90°"));
+        addRailButton(ui->action_rotateNinetyClockwise, QStringLiteral("顺时针 90°"));
+        addRailButton(ui->action_ShowCenter, QStringLiteral("显示中心"));
+        addRailButton(ui->action_PickCenter, QStringLiteral("选择中心"));
+
+        m_viewDock->setWidget(railWidget);
+        this->addDockWidget(Qt::RightDockWidgetArea, m_viewDock);
+    }
+    if (m_viewDock) {
+        m_viewDock->setVisible(enabled);
+        if (enabled) updateViewRailPosition();
+    }
+}
+
+void igQtMainWindow::updateViewRailPosition() {
+    if (m_viewDock && m_viewDock->isVisible()) {
+        QTimer::singleShot(0, this, [this]() {
+            if (m_viewDock) this->resizeDocks({m_viewDock}, {40}, Qt::Horizontal);
+        });
+    }
+}
+
+QString igQtMainWindow::toolbarButtonQss(int fontPx) const {
+    const int fam = styleColorFamily(m_styleMode);
+    if (fam == 1) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 8px; margin: 0; padding: 2px; font-size: %1px; color: #B8C4D4; }"
+                "QToolButton:hover { background-color: rgba(56, 189, 248, 0.10); border-color: rgba(56, 189, 248, 0.30); color: #E8EEF7; }"
+                "QToolButton:pressed { background-color: rgba(56, 189, 248, 0.18); }"
+                "QToolButton:checked { background-color: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.45); color: #38BDF8; }")
+                .arg(fontPx);
+    }
+    if (fam == 2) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 8px; margin: 0; padding: 2px; font-size: %1px; color: #33405B; }"
+                "QToolButton:hover { background-color: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.30); color: #1F2A3A; }"
+                "QToolButton:pressed { background-color: rgba(37, 99, 235, 0.16); }"
+                "QToolButton:checked { background-color: rgba(37, 99, 235, 0.14); border-color: rgba(37, 99, 235, 0.45); color: #2563EB; }")
+                .arg(fontPx);
+    }
+    if (fam == 4) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 6px; margin: 0; padding: 1px; font-size: %1px; color: #B8C0CA; }"
+                "QToolButton:hover { background-color: rgba(77, 208, 225, 0.14); border-color: rgba(77, 208, 225, 0.36); color: #FFFFFF; }"
+                "QToolButton:pressed { background-color: rgba(77, 208, 225, 0.26); }"
+                "QToolButton:checked { background-color: rgba(77, 208, 225, 0.20); border-color: rgba(77, 208, 225, 0.52); color: #5CE1F0; }")
+                .arg(fontPx);
+    }
+    if (fam == 6 || fam == 8) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 6px; margin: 0; padding: 1px; font-size: %1px; color: #B8C0CA; }"
+                "QToolButton:hover { background-color: rgba(77, 208, 225, 0.14); border-color: rgba(77, 208, 225, 0.36); color: #FFFFFF; }"
+                "QToolButton:pressed { background-color: rgba(77, 208, 225, 0.26); }"
+                "QToolButton:checked { background-color: rgba(77, 208, 225, 0.20); border-color: rgba(77, 208, 225, 0.52); color: #5CE1F0; }")
+                .arg(fontPx);
+    }
+    if (fam == 9) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 5px; margin: 0; padding: 5px; font-size: %1px; color: #C3CBD5; }"
+                "QToolButton:hover { background-color: rgba(108, 142, 174, 0.10); border-color: rgba(108, 142, 174, 0.24); color: #E9EDF2; }"
+                "QToolButton:pressed { background-color: rgba(108, 142, 174, 0.18); }"
+                "QToolButton:checked { background-color: rgba(108, 142, 174, 0.16); border-color: rgba(108, 142, 174, 0.40); color: #9FB6C9; }")
+                .arg(fontPx);
+    }
+    if (fam == 10) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 4px; margin: 0; padding: 5px; font-size: %1px; color: #A2A8B0; }"
+                "QToolButton:hover { background-color: #242830; border-color: #2A303A; color: #E2E4E8; }"
+                "QToolButton:pressed { background-color: #2A303A; }"
+                "QToolButton:checked { background-color: #2A303A; border-color: #3A414C; color: #E2E4E8; }")
+                .arg(fontPx);
+    }
+    if (fam == 11 || fam == 12) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 4px; margin: 0; padding: 5px; font-size: %1px; color: #858585; }"
+                "QToolButton:hover { background-color: #2A2A2C; border-color: #37373D; color: #CCCCCC; }"
+                "QToolButton:pressed { background-color: #404045; }"
+                "QToolButton:checked { background-color: #37373D; border-color: #404045; color: #CCCCCC; }")
+                .arg(fontPx);
+    }
+    return QStringLiteral(
+            "QToolButton { border: none; margin: 0; padding: 1px; font-size: %1px; }"
+            "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
+            "QToolButton:pressed { background-color: #4A4A4A; }")
+            .arg(fontPx);
+}
+
+QString igQtMainWindow::twoRowGridButtonQss() const {
+    const int fam = styleColorFamily(m_styleMode);
+    if (fam == 1) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 6px; margin: 0; padding: 0; }"
+                "QToolButton:hover { background-color: rgba(56, 189, 248, 0.10); border-color: rgba(56, 189, 248, 0.30); }"
+                "QToolButton:pressed { background-color: rgba(56, 189, 248, 0.18); }"
+                "QToolButton:checked { background-color: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.45); }");
+    }
+    if (fam == 2) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 6px; margin: 0; padding: 0; }"
+                "QToolButton:hover { background-color: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.30); }"
+                "QToolButton:pressed { background-color: rgba(37, 99, 235, 0.16); }"
+                "QToolButton:checked { background-color: rgba(37, 99, 235, 0.14); border-color: rgba(37, 99, 235, 0.45); }");
+    }
+    if (fam == 4) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 6px; margin: 0; padding: 0; }"
+                "QToolButton:hover { background-color: rgba(77, 208, 225, 0.14); border-color: rgba(77, 208, 225, 0.36); }"
+                "QToolButton:pressed { background-color: rgba(77, 208, 225, 0.26); }"
+                "QToolButton:checked { background-color: rgba(77, 208, 225, 0.20); border-color: rgba(77, 208, 225, 0.52); }");
+    }
+    if (fam == 6 || fam == 8) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 6px; margin: 0; padding: 0; }"
+                "QToolButton:hover { background-color: rgba(77, 208, 225, 0.14); border-color: rgba(77, 208, 225, 0.36); }"
+                "QToolButton:pressed { background-color: rgba(77, 208, 225, 0.26); }"
+                "QToolButton:checked { background-color: rgba(77, 208, 225, 0.20); border-color: rgba(77, 208, 225, 0.52); }");
+    }
+    if (fam == 9) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 5px; margin: 0; padding: 3px; }"
+                "QToolButton:hover { background-color: rgba(108, 142, 174, 0.10); border-color: rgba(108, 142, 174, 0.24); }"
+                "QToolButton:pressed { background-color: rgba(108, 142, 174, 0.18); }"
+                "QToolButton:checked { background-color: rgba(108, 142, 174, 0.16); border-color: rgba(108, 142, 174, 0.40); }");
+    }
+    if (fam == 10) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 4px; margin: 0; padding: 3px; }"
+                "QToolButton:hover { background-color: #242830; border-color: #2A303A; }"
+                "QToolButton:pressed { background-color: #2A303A; }"
+                "QToolButton:checked { background-color: #2A303A; border-color: #3A414C; }");
+    }
+    if (fam == 11 || fam == 12) {
+        return QStringLiteral(
+                "QToolButton { border: 1px solid transparent; border-radius: 4px; margin: 0; padding: 3px; }"
+                "QToolButton:hover { background-color: #2A2A2C; border-color: #37373D; }"
+                "QToolButton:pressed { background-color: #404045; }"
+                "QToolButton:checked { background-color: #37373D; border-color: #404045; }");
+    }
+    return QStringLiteral(
+            "QToolButton { border: none; margin: 0; padding: 0; }"
+            "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
+            "QToolButton:pressed { background-color: #4A4A4A; }");
+}
+
+QString igQtMainWindow::toolbarItemQss() const {
+    const int fam = styleColorFamily(m_styleMode);
+    QString hover;
+    switch (fam) {
+        case 1:  hover = QStringLiteral("rgba(56, 189, 248, 0.10)"); break;
+        case 2:  hover = QStringLiteral("rgba(37, 99, 235, 0.08)"); break;
+        case 4:  hover = QStringLiteral("rgba(77, 208, 225, 0.14)"); break;
+        case 6:  hover = QStringLiteral("rgba(77, 208, 225, 0.14)"); break;
+        case 8:  hover = QStringLiteral("rgba(77, 208, 225, 0.14)"); break;
+        case 9:  hover = QStringLiteral("rgba(108, 142, 174, 0.10)"); break;
+        case 10: hover = QStringLiteral("#242830"); break;
+        case 11: hover = QStringLiteral("#2A2A2C"); break;
+        case 12: hover = QStringLiteral("#2A2A2C"); break;
+        default: hover = QStringLiteral("#3A3A3A"); break;
+    }
+    return QStringLiteral(
+            "QWidget#toolbarButtonItem { background: transparent; border: none; border-radius: 4px; }"
+            "QWidget#toolbarButtonItem:hover { background-color: %1; }")
+            .arg(hover);
+}
+
+QString igQtMainWindow::toolbarTitleLabelQss() const {
+    const int fam = styleColorFamily(m_styleMode);
+    if (fam == 1) {
+        return QStringLiteral(
+                "QLabel { color: #8A99AC; padding: 3px 12px; background-color: rgba(255, 255, 255, 0.03); "
+                "border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 6px; font-family: 'PingFang SC'; }");
+    }
+    if (fam == 2) {
+        return QStringLiteral(
+                "QLabel { color: #5A6577; padding: 3px 12px; background-color: rgba(0, 0, 0, 0.03); "
+                "border: 1px solid #D9DEE7; border-radius: 6px; font-family: 'PingFang SC'; }");
+    }
+    if (fam == 4) {
+        return QStringLiteral(
+                "QLabel { color: #5E6670; padding: 2px 8px; background-color: rgba(77, 208, 225, 0.06); "
+                "border: 1px solid rgba(77, 208, 225, 0.24); border-radius: 6px; font-family: 'PingFang SC'; }");
+    }
+    if (fam == 6 || fam == 8) {
+        return QStringLiteral(
+                "QLabel { color: #5E6670; padding: 2px 8px; background-color: rgba(77, 208, 225, 0.06); "
+                "border: 1px solid rgba(77, 208, 225, 0.24); border-radius: 6px; font-family: 'PingFang SC'; }");
+    }
+    if (fam == 9) {
+        return QStringLiteral(
+                "QLabel { color: #8B96A3; padding: 2px 4px; background-color: transparent; "
+                "border: none; border-radius: 0; font-family: 'PingFang SC'; }");
+    }
+    if (fam == 10) {
+        return QStringLiteral(
+                "QLabel { color: #7E858E; padding: 2px 4px; background-color: transparent; "
+                "border: none; border-radius: 0; font-family: 'PingFang SC'; }");
+    }
+    if (fam == 11 || fam == 12) {
+        return QStringLiteral(
+                "QLabel { color: #858585; padding: 2px 4px; background-color: transparent; "
+                "border: none; border-radius: 0; font-family: 'PingFang SC'; }");
+    }
+    return QStringLiteral(
+            "QLabel { color: #9A9A9A; padding: 3px 12px; background-color: rgba(255, 255, 255, 0.03); "
+            "border: 1px solid #3C3C3C; border-radius: 6px; font-family: 'PingFang SC'; }");
+}
+
+QString igQtMainWindow::toolbarCaptionLabelQss(int fontPx) const {
+    const int fam = styleColorFamily(m_styleMode);
+    if (fam == 1) {
+        return QStringLiteral(
+                "QLabel { color: #B8C4D4; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    if (fam == 2) {
+        return QStringLiteral(
+                "QLabel { color: #4A5568; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    if (fam == 4) {
+        return QStringLiteral(
+                "QLabel { color: #B8C0CA; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    if (fam == 6 || fam == 8) {
+        return QStringLiteral(
+                "QLabel { color: #B8C0CA; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    if (fam == 9) {
+        return QStringLiteral(
+                "QLabel { color: #C7D0DA; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    if (fam == 10) {
+        return QStringLiteral(
+                "QLabel { color: #9AA1AA; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    if (fam == 11 || fam == 12) {
+        return QStringLiteral(
+                "QLabel { color: #858585; padding: 0; background-color: transparent; border: none; "
+                "font-family: 'PingFang SC'; font-size: %1px; }")
+                .arg(fontPx);
+    }
+    return QStringLiteral(
+            "QLabel { color: #D2D2D2; padding: 0; background-color: transparent; border: none; "
+            "font-family: 'PingFang SC'; font-size: %1px; }")
+            .arg(fontPx);
+}
+
+QString igQtMainWindow::toolbarSeamColor() const {
+    const int fam = styleColorFamily(m_styleMode);
+    switch (fam) {
+        case 0:  return QStringLiteral("#3C3C3C");
+        case 1:  return QStringLiteral("#2E3D52");
+        case 2:  return QStringLiteral("#CBD2DC");
+        case 4:  return QStringLiteral("#343B43");
+        case 5:  return QStringLiteral("#3A414D");
+        case 6:  return QStringLiteral("#343B43");
+        case 8:  return QStringLiteral("#343B43");
+        case 9:  return QStringLiteral("#2B2F36");
+        case 10: return QStringLiteral("#2C3038");
+        case 11: return QStringLiteral("#2D2D30");
+        case 12: return QStringLiteral("#2D2D30");
+        default: return QStringLiteral("#3E4550");
+    }
+}
+
+QString igQtMainWindow::toolbarAccentColor() const {
+    const int fam = styleColorFamily(m_styleMode);
+    switch (fam) {
+        case 0:  return QStringLiteral("#007ACC");
+        case 1:  return QStringLiteral("#38BDF8");
+        case 2:  return QStringLiteral("#2563EB");
+        case 3:  return QStringLiteral("#4A4E54");
+        case 7:  return QStringLiteral("#4A4E54");
+        case 5:  return QStringLiteral("#60CDFF");
+        case 9:  return QStringLiteral("#3F5568");
+        case 10: return QStringLiteral("#2A303A");
+        case 11: return QStringLiteral("#37373D");
+        case 12: return QStringLiteral("#37373D");
+        default: return QStringLiteral("#4DD0E1");
+    }
+}
+
 void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions,
                                                   int columns, QAction* insertBefore) {
     if (!toolbar || targetActions.isEmpty())
@@ -5167,13 +6277,14 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
     QWidget* container = new QWidget(toolbar);
     QGridLayout* grid = new QGridLayout(container);
     QSize iconSize = toolbar->iconSize();
-    const int gridSpacing = qMax(4, iconSize.height() / 6);
+    int gridSpacing = qMax(2, iconSize.height() / 12);
+    if (isModernDenseStyle(m_styleMode)) gridSpacing += 2;
     grid->setSpacing(gridSpacing);
     grid->setContentsMargins(0, 0, 0, 0);
 
     // 两行视图按钮：小图标时按钮也相应做小，避免网格占用过多宽度
-    const int targetIcon = qMax(16, static_cast<int>(iconSize.height() * 0.65));
-    const int rowHeight = targetIcon + 8;
+    const int targetIcon = qMax(12, qMin(16, static_cast<int>(iconSize.height() * 0.45)));
+    const int rowHeight = targetIcon + 6 + (isModernDenseStyle(m_styleMode) ? 2 : 0);
     const int containerHeight = 2 * rowHeight + gridSpacing;
     QSize btnSize(rowHeight, rowHeight);
 
@@ -5196,11 +6307,7 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
         btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         btn->setMinimumSize(btnSize);
         btn->setMaximumSize(btnSize);
-        btn->setStyleSheet(R"(
-            QToolButton { border: none; margin: 0; padding: 0; }
-            QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }
-            QToolButton:pressed { background-color: #4A4A4A; }
-        )");
+        btn->setStyleSheet(twoRowGridButtonQss());
         grid->addWidget(btn, row, col, Qt::AlignVCenter | Qt::AlignHCenter);
         if (++col >= columns) {
             col = 0;
@@ -5226,18 +6333,25 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
     if (area == Qt::NoToolBarArea)
         area = Qt::TopToolBarArea; // 重建时原 toolbar 已不在 QMainWindow 管理下，统一回到顶部区域
     const QSize iconSize(iconSizePx, iconSizePx);
-    const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize.width());
-    Qt::ToolButtonStyle btnStyle = toolbar->toolButtonStyle();
+    ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize.width());
+    if (isModernDenseStyle(m_styleMode)) {
+        spacing.btnGap += 2;
+        spacing.edgeMargin += 2;
+        spacing.buttonPadding += 3;
+        spacing.bottomMargin += 2;
+    }
     const QList<QAction*> actions = toolbar->actions();
     const int fontPx = toolbarButtonFontPixel(iconSizePx);
 
     QFont titleFont(QStringLiteral("PingFang SC"));
     titleFont.setPointSize(titlePointSizeForIcon(iconSizePx));
-    const int titleTextH = QFontMetrics(titleFont).height();
+    const bool compact = (m_styleMode == 6);
+    const int titleTextH = compact ? 0 : QFontMetrics(titleFont).height();
 
     QWidget* container = new QWidget(this);
     container->setObjectName("toolbarContainer_" + toolbar->objectName());
     container->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    container->setAttribute(Qt::WA_StyledBackground, true);
 
     QWidget* topRow = new QWidget(container);
     topRow->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -5261,26 +6375,27 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
             }
         }
 
-        // 普通按钮：文字超宽自动断成两行（最多两行，第二行仍超宽用省略号收尾）
-        QToolButton* b = new QToolButton(topRow);
-        b->setDefaultAction(act);
-        b->setIconSize(iconSize);
-        b->setToolButtonStyle(btnStyle);
-        b->setAutoRaise(true);
-        b->setFocusPolicy(Qt::NoFocus);
-        // 字号（逻辑像素）随图标联动，并写进按钮自身样式表，覆盖主样式表的 8pt
-        // 注意：必须用本地构造的字体做度量，不能读 b->font()——setFont 会触发样式表 polish，
-        // 主样式表里的 `* { font-size: 14pt; }` 会把字体覆盖成 14pt，导致度量宽度虚高。
-        QFont btnFont = b->font();
+        if (compact) {
+            QToolButton* b = new QToolButton(topRow);
+            b->setDefaultAction(act);
+            b->setIconSize(iconSize);
+            b->setToolButtonStyle(Qt::ToolButtonIconOnly);
+            b->setAutoRaise(true);
+            b->setFocusPolicy(Qt::NoFocus);
+            b->setFixedSize(iconSize.width(), iconSize.height());
+            b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            b->setToolTip(act->text());
+            b->setStyleSheet(toolbarButtonQss(fontPx));
+            hLayout->addWidget(b, 0, Qt::AlignLeft | Qt::AlignVCenter);
+            continue;
+        }
+
+        QFont btnFont(QStringLiteral("PingFang SC"));
         btnFont.setPixelSize(fontPx);
         const QFontMetrics fm(btnFont);
-        b->setFont(btnFont);
-        // 文字列宽上限随图标尺寸放大：宽屏大图标时允许单行显示，窄屏小图标时才收紧触发换行
-        const int textMaxW = qMax(iconSize.width() * 2, kToolbarButtonTextMinWidth);
+        const int textMaxW = qMax(kToolbarButtonTextMinWidth, iconSize.width() + 16);
         const QString rawText = act->text();
         const QString wrappedText = wrapToolbarButtonText(rawText, textMaxW, fm);
-        if (!wrappedText.isEmpty())
-            b->setText(wrappedText);
         const int textLines = wrappedText.isEmpty() ? 1 : wrappedText.count(QLatin1Char('\n')) + 1;
         // 按钮宽度按「换行后最宽的一行」计算，避免换行后按钮仍然过宽
         int widestTextW = fm.horizontalAdvance(rawText);
@@ -5292,19 +6407,47 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
             }
         }
         const int btnW = qMax(iconSize.width(), widestTextW) + 2 * spacing.buttonPadding;
-        // 文字行高用 lineSpacing()（含行距的真实高度），并留 8px 余量，避免文字上下被裁掉
         const int textLineH = qMax(fm.height(), fm.lineSpacing());
-        const int btnH = iconSize.height() + textLines * textLineH + 8;
-        // 固定尺寸：布局不能再把按钮拉宽，保证「测量宽度 == 实际宽度」
-        b->setFixedSize(btnW, btnH);
+        const int captionH = textLines * textLineH + 2;
+
+        QWidget* item = new QWidget(topRow);
+        QVBoxLayout* itemLayout = new QVBoxLayout(item);
+        itemLayout->setContentsMargins(spacing.buttonPadding, 0, spacing.buttonPadding, 0);
+        itemLayout->setSpacing(2);
+        itemLayout->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+
+        QToolButton* b = new QToolButton(item);
+        b->setDefaultAction(act);
+        b->setIconSize(iconSize);
+        b->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        b->setAutoRaise(true);
+        b->setFocusPolicy(Qt::NoFocus);
+        b->setFixedSize(iconSize.width(), iconSize.height());
         b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        b->setStyleSheet(
-                QStringLiteral("QToolButton { border: none; margin: 0; padding: 1px; font-size: %1px; }"
-                               "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
-                               "QToolButton:pressed { background-color: #4A4A4A; }")
-                        .arg(fontPx)
-        );
-        hLayout->addWidget(b, 0, Qt::AlignLeft | Qt::AlignVCenter);
+        b->setStyleSheet(twoRowGridButtonQss());
+        itemLayout->addWidget(b, 0, Qt::AlignHCenter);
+
+        QLabel* caption = new QLabel(wrappedText, item);
+        caption->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+        caption->setFixedSize(qMax(iconSize.width(), widestTextW), captionH);
+        caption->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        caption->setStyleSheet(toolbarCaptionLabelQss(fontPx));
+        itemLayout->addWidget(caption, 0, Qt::AlignHCenter);
+
+        item->setFixedSize(btnW, iconSize.height() + captionH + 2);
+        item->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+        item->setObjectName(QStringLiteral("toolbarButtonItem"));
+        item->setAttribute(Qt::WA_StyledBackground, true);
+        item->setStyleSheet(toolbarItemQss());
+        item->setCursor(Qt::PointingHandCursor);
+        item->setToolTip(act->text());
+        item->setProperty("igToolbarButton", QVariant::fromValue<QObject*>(b));
+        b->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        caption->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        item->installEventFilter(this);
+
+        hLayout->addWidget(item, 0, Qt::AlignLeft | Qt::AlignVCenter);
     }
 
     // 容器高度：按钮换行后变高，用 topRow 的实际 sizeHint 兜底
@@ -5315,26 +6458,40 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
     this->removeToolBar(toolbar);
     toolbar->hide();
 
-    // 垂直布局逻辑（不变）
     QVBoxLayout* vLayout = new QVBoxLayout(container);
-    vLayout->setContentsMargins(spacing.edgeMargin, 0, spacing.edgeMargin, spacing.bottomMargin);
-    vLayout->setSpacing(spacing.verticalGap);
+    const int frameInset = 4;
+    vLayout->setContentsMargins(spacing.edgeMargin + frameInset, frameInset,
+                                spacing.edgeMargin + frameInset, frameInset + 2);
+    vLayout->setSpacing(2);
     vLayout->setSizeConstraint(QLayout::SetFixedSize);
-    vLayout->addWidget(topRow, 1);
 
-    QLabel* titleLabel = new QLabel(title, container);
-    titleLabel->setObjectName("toolbarTitle_" + toolbar->objectName());
-    titleLabel->setFont(titleFont);
-    titleLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-    // 不再在 CSS 里硬写 font-size，让 setFont(titleFont) 生效并可被响应式重排刷新
-    titleLabel->setStyleSheet(
-            "QLabel { color: #6B6B6B; padding: 0; "
-            "background-color: transparent; border: none; font-family: 'PingFang SC'; }"
-    );
-    vLayout->addWidget(titleLabel, 0);
+    QLabel* titleLabel = nullptr;
+    if (!compact) {
+        titleLabel = new QLabel(title, container);
+        titleLabel->setObjectName("toolbarTitle_" + toolbar->objectName());
+        titleLabel->setFont(titleFont);
+        titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        titleLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        titleLabel->setStyleSheet(toolbarTitleLabelQss());
+        vLayout->addWidget(titleLabel, 0, Qt::AlignLeft);
+    }
+
+    vLayout->addStretch(1);
+    vLayout->addWidget(topRow, 0, Qt::AlignHCenter);
+    vLayout->addStretch(1);
+
+    QFrame* bottomLine = new QFrame(container);
+    bottomLine->setObjectName("toolbarAccentLine_" + toolbar->objectName());
+    bottomLine->setFixedHeight(2);
+    bottomLine->setFrameShape(QFrame::NoFrame);
+    bottomLine->setAttribute(Qt::WA_StyledBackground, true);
+    bottomLine->setStyleSheet(
+            QStringLiteral("QFrame { background-color: %1; }").arg(toolbarAccentColor()));
+    vLayout->addWidget(bottomLine, 0);
 
     QToolBar* wrapper = new QToolBar(this);
     wrapper->setObjectName("wrapper_" + toolbar->objectName());
+    wrapper->setWindowTitle(title);
     wrapper->setMovable(true);
     wrapper->setFloatable(true);
     wrapper->setMinimumHeight(totalH);
@@ -5399,7 +6556,9 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     }
 
     const ToolbarSpacingMetrics spacing = metricsForIconSize(m_currentToolbarIconSize);
-    const int gap = spacing.groupGap;
+    const int gap = isModernDenseStyle(m_styleMode)
+            ? 2
+            : spacing.groupGap;
     const int rowGap = spacing.rowGap;
     int usedWidth = 0;
 
@@ -5412,9 +6571,22 @@ void igQtMainWindow::relayoutToolbarWrappers() {
             startsNewRow = true;
             usedWidth = 0;
         }
-        tb->setStyleSheet(QStringLiteral("#%1 { margin-top: %2px; border: none; }")
-                                  .arg(tb->objectName())
-                                  .arg(startsNewRow ? rowGap : 0));
+        const bool firstInRow = (usedWidth == 0);
+        const QString seam = toolbarSeamColor();
+        if (isModernDenseStyle(m_styleMode)) {
+            tb->setStyleSheet(QStringLiteral("#%1 { margin-top: %2px; border: none; border-top: 1px solid %3; %4 }")
+                                      .arg(tb->objectName())
+                                      .arg(startsNewRow ? rowGap : 0)
+                                      .arg(seam)
+                                      .arg(firstInRow
+                                               ? QStringLiteral("")
+                                               : QStringLiteral("border-left: 1px solid %1;").arg(seam)));
+        } else {
+            tb->setStyleSheet(QStringLiteral("#%1 { margin-top: %2px; border: none; border-top: 1px solid %3; }")
+                                      .arg(tb->objectName())
+                                      .arg(startsNewRow ? rowGap : 0)
+                                      .arg(seam));
+        }
         usedWidth += needWidth + gap;
     }
 }
@@ -5423,6 +6595,11 @@ void igQtMainWindow::relayoutToolbarWrappers() {
 void igQtMainWindow::rebuildToolbarRow(int iconSize) {
     if (m_toolbarRebuilding) return;
     m_toolbarRebuilding = true;
+
+    const int originalIconSize = iconSize;
+    if (m_styleMode == 7 || m_styleMode == 8) {
+        iconSize = qMin(iconSize, 28);
+    }
 
     // 1. 先摘掉 toolBar_4 上残留的两行网格 QWidgetAction（此刻旧容器还活着，可安全比对）
     const QList<QAction*> t4Actions = ui->toolBar_4->actions();
@@ -5462,13 +6639,38 @@ void igQtMainWindow::rebuildToolbarRow(int iconSize) {
             ui->action_rotateNinetyCounterClockwise
     );
 
-    // 5. 重建 4 组「按钮行 + 标题」容器（顺序：文件与输出、可视化、选择与编辑、视图设置）
     addToolbarTitle(ui->toolBar_meshfile, QStringLiteral("文件与输出"), iconSize);
     addToolbarTitle(ui->toolBar_3, QStringLiteral("可视化"), iconSize);
     addToolbarTitle(ui->toolBar_2, QStringLiteral("选择与编辑"), iconSize);
-    addToolbarTitle(ui->toolBar_4, QStringLiteral("视图设置"), iconSize);
+    if (m_styleMode != 7 && m_styleMode != 8) {
+        addToolbarTitle(ui->toolBar_4, QStringLiteral("视图设置"), iconSize);
+    } else {
+        this->removeToolBar(ui->toolBar_4);
+        ui->toolBar_4->hide();
+    }
 
-    m_currentToolbarIconSize = iconSize;
+    {
+        const QStringList names = {QStringLiteral("toolBar_meshfile"), QStringLiteral("toolBar_3"),
+                                   QStringLiteral("toolBar_2"), QStringLiteral("toolBar_4")};
+        int maxH = 0;
+        QList<QWidget*> containers;
+        for (const QString& n : names) {
+            if (QWidget* c = this->findChild<QWidget*>(QStringLiteral("toolbarContainer_") + n)) {
+                containers.push_back(c);
+                maxH = qMax(maxH, c->sizeHint().height());
+            }
+        }
+        // 容器内部 vLayout 带 SetFixedSize 约束，会按自身 sizeHint 反压高度，
+        // 必须先解除该约束，统一 setFixedHeight 才能让四组底部分隔线对齐。
+        for (QWidget* c : containers) {
+            if (maxH > 0) {
+                if (QLayout* lay = c->layout()) { lay->setSizeConstraint(QLayout::SetDefaultConstraint); }
+                c->setFixedHeight(maxH);
+            }
+        }
+    }
+
+    m_currentToolbarIconSize = originalIconSize;
     m_toolbarRebuilding = false;
 }
 
@@ -5495,7 +6697,9 @@ int igQtMainWindow::measureToolbarRowWidth() const {
             "wrapper_toolBar_4"
     };
     const ToolbarSpacingMetrics spacing = metricsForIconSize(m_currentToolbarIconSize);
-    const int gap = spacing.groupGap;
+    const int gap = isModernDenseStyle(m_styleMode)
+            ? 2
+            : spacing.groupGap;
     int used = 0;
     int count = 0;
     for (const QString& name : orderedNames) {
@@ -5510,43 +6714,72 @@ int igQtMainWindow::measureToolbarRowWidth() const {
 
 QString igQtMainWindow::wrapToolbarButtonText(const QString& text, int maxWidth, const QFontMetrics& fm) const {
     if (text.isEmpty() || maxWidth <= 0) return text;
-    if (fm.horizontalAdvance(text) <= maxWidth) return text;
+    const int n = text.size();
+    if (n <= 1 || fm.horizontalAdvance(text) <= maxWidth) return text;
 
-    // 找断点：优先「两行都放得下且宽度最均衡」；否则退而求其次选「两行最大宽度最小」的断点
-    int bestFit = -1;
-    int bestFitImbalance = 1 << 30;
-    int bestAny = -1;
-    int bestAnyMax = 1 << 30;
-    for (int i = 1; i < text.size(); ++i) {
-        const int w1 = fm.horizontalAdvance(text.left(i));
-        const int w2 = fm.horizontalAdvance(text.mid(i));
-        const int maxLine = qMax(w1, w2);
-        if (maxLine < bestAnyMax) {
-            bestAnyMax = maxLine;
-            bestAny = i;
+    const auto lineWidth = [&](int from, int count) {
+        return fm.horizontalAdvance(text.mid(from, count));
+    };
+
+    int bestScore = std::numeric_limits<int>::max();
+    int bestImbalance = std::numeric_limits<int>::max();
+    int bestB1 = -1;
+    int bestB2 = -1;
+
+    for (int b1 = 1; b1 < n; ++b1) {
+        const int w1 = lineWidth(0, b1);
+        const int w2 = lineWidth(b1, n - b1);
+        if (w1 > maxWidth || w2 > maxWidth) continue;
+        const int score = qMax(w1, w2);
+        const int imbalance = qAbs(w1 - w2);
+        if (score < bestScore || (score == bestScore && imbalance < bestImbalance)) {
+            bestScore = score;
+            bestImbalance = imbalance;
+            bestB1 = b1;
+            bestB2 = n;
         }
-        if (w1 <= maxWidth && w2 <= maxWidth) {
-            const int imbalance = qAbs(w1 - w2);
-            if (imbalance < bestFitImbalance) {
-                bestFitImbalance = imbalance;
-                bestFit = i;
+    }
+
+    if (n >= 3) {
+        for (int b1 = 1; b1 < n - 1; ++b1) {
+            const int w1 = lineWidth(0, b1);
+            if (w1 > maxWidth) continue;
+            for (int b2 = b1 + 1; b2 < n; ++b2) {
+                const int w2 = lineWidth(b1, b2 - b1);
+                const int w3 = lineWidth(b2, n - b2);
+                if (w2 > maxWidth || w3 > maxWidth) continue;
+                const int score = qMax(w1, qMax(w2, w3));
+                const int imbalance = qMax(w1, qMax(w2, w3)) - qMin(w1, qMin(w2, w3));
+                if (score < bestScore || (score == bestScore && imbalance < bestImbalance)) {
+                    bestScore = score;
+                    bestImbalance = imbalance;
+                    bestB1 = b1;
+                    bestB2 = b2;
+                }
             }
         }
     }
 
-    const int split = bestFit >= 0 ? bestFit : bestAny;
-    if (split > 0 && split < text.size()) {
-        const QString second = text.mid(split);
-        QString wrapped = text.left(split) + QLatin1Char('\n') + second;
-        // 第二行若仍超宽，用省略号收尾（最多两行）
-        if (fm.horizontalAdvance(second) > maxWidth) {
-            wrapped = text.left(split) + QLatin1Char('\n') + fm.elidedText(second, Qt::ElideRight, maxWidth);
+    if (bestB1 > 0) {
+        if (bestB2 >= n) {
+            return text.left(bestB1) + QLatin1Char('\n') + text.mid(bestB1);
         }
-        return wrapped;
+        return text.left(bestB1) + QLatin1Char('\n') + text.mid(bestB1, bestB2 - bestB1) + QLatin1Char('\n') + text.mid(bestB2);
     }
 
-    // 兜底：单行省略
-    return fm.elidedText(text, Qt::ElideRight, maxWidth);
+    QStringList lines;
+    int pos = 0;
+    while (pos < n) {
+        int end = pos + 1;
+        while (end < n && lineWidth(pos, end - pos + 1) <= maxWidth) ++end;
+        lines.append(text.mid(pos, end - pos));
+        pos = end;
+        if (lines.size() >= kToolbarButtonTextMaxLines && pos < n) {
+            break;
+        }
+    }
+    if (pos < n) lines.append(text.mid(pos));
+    return lines.join(QStringLiteral("\n"));
 }
 
 
@@ -5593,4 +6826,5 @@ void igQtMainWindow::showEvent(QShowEvent* event) {
     // 修正启动阶段按"主屏宽度"猜的档位。
     hookResponsiveEvents();
     applyResponsiveToolbarLayout();
+    updateViewRailPosition();
 }

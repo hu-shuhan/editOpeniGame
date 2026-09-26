@@ -380,7 +380,7 @@ QScrollBar:vertical {
 QScrollBar::handle:vertical {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                 stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
-    border: 1px solid #7C7C7C;
+    border: 1px solid #A6A6A6;
     border-radius: 6px;
     min-height: 20px;
 }
@@ -468,7 +468,7 @@ QTabWidget#LeftFieldTabs QScrollBar:vertical {
 QTabWidget#LeftFieldTabs QScrollBar::handle:vertical {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                 stop:0 #9E9E9E, stop:0.5 #BEBEBE, stop:1 #989898);
-    border: 1px solid #7C7C7C;
+    border: 1px solid #A6A6A6;
     border-radius: 6px;
     min-height: 20px;
 }
@@ -843,7 +843,7 @@ QDockWidget#LayerTreeDock QScrollBar::sub-line:vertical {
 /* ========== Custom title bar (frameless caption, code-built widget) ========== */
 QWidget#CustomTitleBar {
     background-color: #181818;
-    border-bottom: 1px solid #181818;
+    border-bottom: 1px solid #2A2A2A; /* 与下方快捷工具栏的分隔线 */
 }
 QWidget#CustomTitleBar QPushButton {
     border: none;
@@ -881,10 +881,11 @@ QPushButton#CloseButton:pressed {
 QWidget#CustomTitleBar QMenuBar {
     background: #181818;
     color: #dddddd;
+    border-top: 1px solid #2A2A2A; /* 与上方窗口图标行的分隔线 */
 }
 QWidget#CustomTitleBar QMenuBar::item {
     background: transparent;
-    padding: 0 8px;
+    padding: 5px 12px;
 }
 QWidget#CustomTitleBar QMenuBar::item:selected {
     background: #444444;
@@ -954,7 +955,7 @@ QLabel#CustomTitleLabel {
       <iconset resource="../iGameQtMainWindow.qrc">
        <normaloff>:/Ticon/Icons/Open.png</normaloff>:/Ticon/Icons/Open.png</iconset>
      </property>
-     <addaction name="action_TmpFile"/>
+     <!-- action_TmpFile 的引用已移除：该 action 文字为空且全代码零引用，会在「最近文件」菜单顶部显示成一个空白行 -->
     </widget>
     <addaction name="menu_RecentFiles"/>
     <addaction name="action_SaveMeshAs"/>

@@ -72,6 +72,8 @@ private slots:
     void RangeChooseButtonClicked(bool checked);
 
 protected:
+    void changeEvent(QEvent* e) override;
+    void applyChromeTheme();
     void mousePressEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event);
     void paintEvent(QPaintEvent* QPE);

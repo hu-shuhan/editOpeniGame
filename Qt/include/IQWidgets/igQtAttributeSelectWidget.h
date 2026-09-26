@@ -56,9 +56,14 @@ private slots:
     void onAsyncFinished(bool success, const QString& message);
     void onCheckBoxToggled(bool checked);
 
+protected:
+    void changeEvent(QEvent* e) override;
+    void showEvent(QShowEvent* e) override;
+
 private:
     void setupUI();
-    void setStatus(const QString& msg);
+    void applyThemeQss();
+    void applyPaletteTheme();    void setStatus(const QString& msg);
     void setBusy(bool busy);
 
     iGame::DataObject::Pointer m_dataObj{nullptr};
@@ -67,6 +72,7 @@ private:
     QScrollArea*  m_scrollArea{nullptr};
     QWidget*      m_container{nullptr};
     QVector<QPair<QString, QCheckBox*>> m_checkBoxes;
+    bool m_applyingTheme{false};
     // 勾选顺序队列（最早勾选的在最前）：勾选数超过 m_maxSelectableCount 时，最早勾选的被自动取消
     QVector<QCheckBox*> m_selectionOrder;
 

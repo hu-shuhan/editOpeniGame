@@ -15,6 +15,7 @@
 #include <QObject>
 #include <QString>
 #include <QTreeWidget>
+#include <functional>
 #include <iostream>
 
 class QDockWidget;
@@ -50,12 +51,21 @@ public slots:
     void updateCurrentModelProperty();
     int updateCloudPicture();
     void deleteCurrentModel();
+    /** 主题切换后刷新模型树标题栏配色（文字、图标、背景） */
+    void refreshStyle();
     void onPropertyChanged(QtProperty* property, const QVariant& value);
     iGame::Model* GetCurrentModel();
     void setCurrentItem(QTreeWidgetItem* item) {
         if (modelTreeWidget) modelTreeWidget->setCurrentItem(item);
     }
     void positionTreeDockToRendererCorner(QWidget* rendererWidget);
+
+    void setTreeDockCollapsed(bool collapsed);
+    bool isTreeDockCollapsed() const { return m_treeCollapsed; }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();
@@ -81,4 +91,17 @@ private:
     QDockWidget* m_treeDock = nullptr;       // 上半
     QDockWidget* m_propertiesDock = nullptr; // 下半
     static bool m_AutoAccelerate;
+
+    bool m_treeCollapsed = false;
+    QRect m_treeGeomBeforeCollapse;
+    QSize m_treeMinBeforeCollapse;
+    QWidget* m_treeTitleBar = nullptr;
+    QWidget* m_collapsedBlock = nullptr;
+    QString m_treeDockSavedStyleSheet;
+    bool m_blockDragActive = false;
+    bool m_blockDragged = false;
+    QRect m_blockRectAtCollapse;
+    QPoint m_blockDragOffset;
+    std::function<void(bool)> m_setCollapseVisible;
+    void refreshCollapsedBlockStyle();
 };

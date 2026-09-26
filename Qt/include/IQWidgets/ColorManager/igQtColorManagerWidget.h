@@ -1,4 +1,4 @@
-﻿#ifndef IGQTCOLORMANAGERWIDGET_H
+#ifndef IGQTCOLORMANAGERWIDGET_H
 #define IGQTCOLORMANAGERWIDGET_H
 
 #include <IQCore/igQtExportModule.h>
@@ -59,6 +59,7 @@ protected:
 	void syncSpinBoxesFromColor(const QColor& c);
 	void applyColorBarToModel();
 
+	void changeEvent(QEvent* e) override;
 	Ui::ColorManager* ui{nullptr};
 	QColor myColor;
 	QString customColorStr;

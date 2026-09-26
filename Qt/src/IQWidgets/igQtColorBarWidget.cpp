@@ -1,4 +1,5 @@
-﻿#include <IQWidgets/igQtColorBarWidget.h>
+#include <IQWidgets/igQtColorBarWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QDebug>
 #include <iGameSceneManager.h>
 #include "iGameSmartPointer.h"
@@ -143,7 +144,7 @@ void igQtColorBarWidget::initDrawStringStyle()
 void igQtColorBarWidget::mousePressEvent(QMouseEvent* _event)
 {
 	this->isPressed = true;
-	this->boundColor = Qt::white;
+	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
 	this->lastPos = _event->pos();
 }
 void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
@@ -160,7 +161,7 @@ void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
 void igQtColorBarWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
 	this->isPressed = false;
-	this->boundColor = Qt::white;
+	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
 	update();
 
 }
@@ -182,10 +183,10 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 {
 	updateColorBarDrawInfo();
 	QPainter painter(this);
-	painter.setPen(Qt::white); // Set text color to white
+	painter.setPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text));
 	
 	// Set boundColor to white for ParaView style
-	this->boundColor = Qt::white;
+	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
 	
 	QVector<QRect>data;
 	data.resize(6);
@@ -212,10 +213,7 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 		QRect rect(0, st - i, colorBarWidth, 1);
 		painter.fillRect(rect, colors.at(i));
 	}
-	painter.fillRect(QRect(0, st - colorBarLength, 2, colorBarLength), this->boundColor);
-	painter.fillRect(QRect(colorBarWidth - 2, st - colorBarLength, 2, colorBarLength), this->boundColor);
-	painter.fillRect(QRect(0, st - colorBarLength, colorBarWidth, 2), this->boundColor);
-	painter.fillRect(QRect(0, st - 2, colorBarWidth, 2), this->boundColor);
+
 
 
 	// draw datarange
@@ -268,5 +266,13 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 	
 	//std::cout << minWidth << " " << this->width() << '\n';
 	Q_EMIT PaintFinished();
+}
+
+void igQtColorBarWidget::changeEvent(QEvent* e)
+{
+	if (e && e->type() == QEvent::StyleChange) {
+		update();
+	}
+	QWidget::changeEvent(e);
 }
 

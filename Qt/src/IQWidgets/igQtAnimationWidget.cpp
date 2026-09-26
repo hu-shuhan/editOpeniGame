@@ -11,6 +11,7 @@
 #include <IQCore/igQtAnimationVcrController.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
 #include <IQWidgets/igQtAnimationWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QAbstractButton>
 #include <QCheckBox>
 #include <QComboBox>
@@ -37,6 +38,8 @@
 igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::Animation) {
     ui->setupUi(this);
+
+    igQtPanelTheme::attachDeep(this);
     VcrController = new igQtAnimationVcrController(this);
     ui->SliderAnimationTrack->installEventFilter(this);
 
@@ -220,6 +223,7 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
             QString::asprintf("%.20f", *(timevalue.end() - 1)));
     connect(ui->SliderAnimationTrack, &QSlider::sliderMoved, VcrController,
             &igQtAnimationVcrController::updateCurrentKeyframe);
+
 }
 
 bool igQtAnimationWidget::eventFilter(QObject* watched, QEvent* event) {
@@ -1478,4 +1482,11 @@ int igQtAnimationWidget::EnsureTimeDifferenceForCurrentFrame(iGame::DataObject::
     auto parentAttr = obj->GetAttributeSet();
     if (!parentAttr) return -1;
     return parentAttr->GetAttributeIndex(outputName);
+}
+
+void igQtAnimationWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refreshDeep(this);
+    }
+    QWidget::changeEvent(e);
 }

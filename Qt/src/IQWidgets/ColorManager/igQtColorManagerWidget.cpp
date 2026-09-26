@@ -1,5 +1,6 @@
-﻿#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
+#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
 #include "IQCore/igQtFramelessWidget.h"
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QMessageBox>
 #include <QPainter>
 #include <QSignalBlocker>
@@ -61,6 +62,8 @@ igQtColorManagerWidget::igQtColorManagerWidget(QWidget* parent)
 	connect(ui->spinBox_B, SIGNAL(valueChanged(int)), this, SLOT(slotValueChangedB(int)));
 
 	connect(ui->comboBox_ColorMode, SIGNAL(currentIndexChanged(QString)), this, SLOT(changeColorMapMode()));
+
+	igQtPanelTheme::attach(this);
 }
 
 igQtColorManagerWidget::~igQtColorManagerWidget() {}
@@ -70,8 +73,8 @@ void igQtColorManagerWidget::paintEvent(QPaintEvent* event) {
 	QPainter painter(this);
 	painter.setRenderHint(QPainter::Antialiasing, true);
 	const QRect r = this->rect().adjusted(1, 1, -1, -1);
-	painter.setPen(QPen(QColor("#4A4A4A"), 2));
-	painter.setBrush(QColor("#1E1E1E"));
+	painter.setPen(QPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::BorderStrong), 2));
+	painter.setBrush(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::PanelBg2));
 	painter.drawRoundedRect(r, 10, 10);
 }
 
@@ -231,4 +234,13 @@ void igQtColorManagerWidget::slotSetTmpHSVToColor() {
 	if (ui->checkBox_UpdateInRealTime->isChecked()) {
 		ui->widget_ColorRangeSlider->updateColorInIndex(myColor);
 	}
+}
+
+void igQtColorManagerWidget::changeEvent(QEvent* e)
+{
+	if (e && e->type() == QEvent::StyleChange) {
+		igQtPanelTheme::refresh(this);
+		update();
+	}
+	QWidget::changeEvent(e);
 }

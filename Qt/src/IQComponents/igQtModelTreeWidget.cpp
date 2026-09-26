@@ -2,11 +2,15 @@
 #include <QAction>
 #include <QMenu>
 #include <QHeaderView>
+#include <QEvent>
+#include <QStyle>
+#include <QStyleOptionViewItem>
 
 #include "iGameSceneManager.h"
 
 ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(parent), visibility(true) {
     QWidget* buttonWidget = new QWidget(parent);
+    buttonWidget->setStyleSheet(QStringLiteral("background-color: transparent; border: none;"));
     QHBoxLayout* layout = new QHBoxLayout(buttonWidget);
 
     view_bbox = new HoverButton(buttonWidget);
@@ -28,6 +32,7 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(
     layout->addWidget(view_wireframe);
     layout->addWidget(view_fill);
     layout->addWidget(view_pickedItem);
+    layout->addStretch();
     layout->setContentsMargins(0, 2, 2, 2);
 
     parent->setItemWidget(this, 1, buttonWidget);
@@ -165,9 +170,13 @@ AttribTreeWidgetItem::AttribTreeWidgetItem(int index, QTreeWidget* treeview, Mod
     : index(index), QTreeWidgetItem(parent), parent(parent) {
 
     QWidget* widget = new QWidget(treeview);
+    widget->setStyleSheet(QStringLiteral("background-color: transparent; border: none;"));
     comboBox = new MComboBox(this, widget);
-    comboBox->setStyleSheet("QComboBox { background-color: transparent; }"
-                            "QComboBox QAbstractItemView { background-color: white; }");
+    auto* comboLayout = new QHBoxLayout(widget);
+    comboLayout->setContentsMargins(0, 0, 0, 0);
+    comboLayout->addWidget(comboBox);
+    comboBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    comboBox->setStyleSheet("QComboBox { background-color: transparent; }");
 
     setDimension(1);
 
@@ -209,11 +218,70 @@ igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) 
     }
 }
 
+void igQtModelTreeWidget::setLeftColumnPercent(int percent) {
+    m_leftPercent = qBound(30, percent, 60);
+    m_lastLeft = -1;
+    m_lastRight = -1;
+    applyColumnProportions();
+}
+
+void igQtModelTreeWidget::resizeEvent(QResizeEvent* event) {
+    QTreeWidget::resizeEvent(event);
+    applyColumnProportions();
+}
+
+void igQtModelTreeWidget::showEvent(QShowEvent* event) {
+    QTreeWidget::showEvent(event);
+    applyColumnProportions();
+}
+
+void igQtModelTreeWidget::applyColumnProportions() {
+    if (!header() || columnCount() < 2) return;
+    const int sbW = style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, this);
+    const int vw = qMax(220, width() - sbW);
+    int leftW = qRound(vw * m_leftPercent / 100.0);
+    const int minLeft = 108;
+    const int maxLeft = qMax(minLeft, vw - 140);
+    leftW = qBound(minLeft, leftW, maxLeft);
+    const int rightW = vw - leftW;
+    if (leftW == m_lastLeft && rightW == m_lastRight) return;
+    m_lastLeft = leftW;
+    m_lastRight = rightW;
+    setColumnWidth(0, leftW);
+    setColumnWidth(1, rightW);
+}
+
 ModelTreeWidgetItem* igQtModelTreeWidget::getItem(const QPoint& p) const {
     return dynamic_cast<ModelTreeWidgetItem*>(itemAt(p));
 }
 QTreeWidgetItem* igQtModelTreeWidget::getChild(const QPoint& p) const {
     return dynamic_cast<QTreeWidgetItem*>(itemAt(p));
+}
+
+QRect igQtModelTreeWidget::eyeHitRect(const QTreeWidgetItem* item) const {
+    if (!item) return QRect();
+    const QRect cell = visualItemRect(item);
+    if (cell.isEmpty()) return QRect();
+
+    QStyleOptionViewItem opt;
+    opt.initFrom(this);
+    opt.rect = cell;
+    opt.features = QStyleOptionViewItem::HasDecoration | QStyleOptionViewItem::HasDisplay;
+    opt.decorationPosition = QStyleOptionViewItem::Left;
+    opt.decorationAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+    opt.displayAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+    opt.text = item->text(0);
+    opt.icon = item->icon(0);
+    opt.decorationSize = iconSize();
+    opt.font = font();
+    opt.fontMetrics = QFontMetrics(opt.font);
+    const QRect textRect = style()->subElementRect(QStyle::SE_ItemViewItemText, &opt, this);
+    if (textRect.isValid() && !textRect.isEmpty() && textRect.left() > cell.left() + 2) {
+        return QRect(cell.left(), cell.top(), textRect.left() - cell.left(), cell.height());
+    }
+
+    const QSize sz = item->icon(0).actualSize(iconSize());
+    return QRect(cell.left() + 4, cell.top() + (cell.height() - sz.height()) / 2, sz.width(), sz.height());
 }
 
 //void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
@@ -239,11 +307,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
     QTreeWidgetItem* child = nullptr;
 
     if (item) {
-        // Gets the position of the click and the position of the icon
-        QRect iconItem = visualItemRect(item);
-        QSize iconSize = item->icon(0).actualSize(QSize(20, 24));
-        QRect iconRect(iconItem.left() + 4, iconItem.top() + (iconItem.height() - iconSize.height()) / 2,
-                       iconSize.width(), iconSize.height());
+        const QRect iconItem = visualItemRect(item);
+        const QRect eyeRect = eyeHitRect(item);
 
         // Check if click is on the expand/collapse indicator (branch arrow)
         int indentation_level = 0;
@@ -313,8 +378,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             menu.exec(viewport()->mapToGlobal(event->pos()));
         }
 
-        // Determine if the icon area has been clicked
-        if (iconRect.contains(event->pos())) {
+        if (clickedOnIndicator) {
+        } else if (eyeRect.contains(event->pos())) {
             item->changeVisibility();
             // sync all sub-block icons under this model to reflect current visibility
             for (int i = 0; i < item->childCount(); ++i) {
@@ -323,9 +388,6 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 }
             }
             call = false;
-        } else if (clickedOnIndicator) {
-            // Clicked on expand/collapse indicator, only handle expand/collapse, don't change attribute display
-            // Just let the base class handle the expand/collapse
         } else if (currentItem() != item) { // Check operation - only when clicking on the model itself
             if (item->getModel() != iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
                 iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
@@ -361,11 +423,11 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 menu.exec(viewport()->mapToGlobal(event->pos()));
             } else {
                 // Left click: eye icon toggle or select parent model
-                QRect iconItem = visualItemRect(sub);
-                QSize iconSize = sub->icon(0).actualSize(QSize(20, 24));
-                QRect iconRect(iconItem.left() + 4, iconItem.top() + (iconItem.height() - iconSize.height()) / 2,
-                               iconSize.width(), iconSize.height());
-                if (iconRect.contains(event->pos())) {
+                const QRect eyeRect = eyeHitRect(sub);
+                int subLevel = 0;
+                for (QTreeWidgetItem* p = sub->parent(); p; p = p->parent()) { ++subLevel; }
+                const QRect subIndicator(0, eyeRect.top(), indentation() * (subLevel + 1), eyeRect.height());
+                if (!subIndicator.contains(event->pos()) && eyeRect.contains(event->pos())) {
                     sub->changeVisibility();
                     call = false;
                 } else {

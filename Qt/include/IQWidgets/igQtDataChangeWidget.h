@@ -90,6 +90,7 @@ protected:
 
 protected:
     void hideEvent(QHideEvent* event) override;
+    void changeEvent(QEvent* e) override;
 
 signals:
     void Hided();
