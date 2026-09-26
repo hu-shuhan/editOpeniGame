@@ -3599,6 +3599,15 @@ void igQtMainWindow::initAllMySignalConnections() {
         SliceWidget->ClipModel();
 //        SliceWidget->UpdateOriginDataObject()
     });
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationDataChanged,
+            this, [this]() {
+                auto* scene = rendererWidget ? rendererWidget->GetScene() : nullptr;
+                auto model = scene ? scene->GetCurrentModel() : nullptr;
+                auto data = model ? model->GetDataObject() : nullptr;
+                if (data && modelTreeWidget) {
+                    modelTreeWidget->updateAllAttriubute(data);
+                }
+            });
 //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
 //            DeformationWidget, &igQtDeformationWidget::updateInfo);
 

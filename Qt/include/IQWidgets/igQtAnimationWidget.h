@@ -6,6 +6,7 @@
 #pragma once
 #include <ui_Animation.h>
 #include <IQCore/igQtAnimationFilterManager.h>
+#include <IQCore/igQtAnimationPipeline.h>
 #include <IQCore/igQtExportModule.h>
 #include <iGameDataObject.h>
 #include <iGameModel.h>
@@ -77,12 +78,18 @@ private slots:
     void changeAnimationMode();
     void onCacheNumChanged(int cacheNum);  // 缓存数量变化槽函数
     void onAnimationFilterChanged(int index);
+    void onPipelineSelectionChanged();
+    void addSelectedFilterToPipeline();
+    void removeSelectedPipelineStep();
+    void moveSelectedPipelineStep(bool up);
+    void clearAnimationPipeline();
     void openAnimationFilterParameters();
 
 
 signals:
     void UpdateScene();
     void AnimationFrameChanged();  // Signal when animation frame changes, triggers scalar UI update
+    void AnimationDataChanged();   // 原地修改属性的 Filter 执行后通知模型树刷新
 
     void PlayAnimation_snap(int keyframe_idx);
 
@@ -94,6 +101,8 @@ private:
     QString selectedAnimationFilterId() const;
     iGame::DataObject::Pointer animationFilterInput() const;
     void updateAnimationFilterSummary();
+    void applyPipelineDisplaySettings(iGame::DataObject::Pointer displayObject,
+                                      iGame::DataObject::Pointer sourceObject);
     bool executeSelectedAnimationFilter(
             const igQtAnimationFrameContext& context,
             iGame::DataObject::Pointer& output,
@@ -122,8 +131,9 @@ private:
     iGame::DataObject* m_DiffBoundModel{nullptr};  // 绑定模型，切换模型时自动关闭
 
     igQtAnimationFilterManager m_AnimationFilterManager;
-    QMap<QString, QVariantMap> m_AnimationFilterParameters;
-    QString m_SelectedAnimationFilterId;
+    igQtAnimationPipelineSteps m_AnimationPipeline;
+    QString m_AnimationPipelineDisplayAttribute;
+    int m_AnimationPipelineDisplayDimension{-1};
     iGame::Model::Pointer m_AnimationFilterSourceModel{nullptr};
     iGame::DataObject::Pointer m_AnimationFilterSourceObject{nullptr};
 };

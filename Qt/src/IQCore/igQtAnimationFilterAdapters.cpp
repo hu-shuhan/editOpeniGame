@@ -2,16 +2,20 @@
 #include <IQCore/igQtAnimationFilterManager.h>
 
 #include <Contour/iGameContourFilter.h>
+#include <Convert/iGameConvertToPointDataFilter.h>
 #include <IsoVolume/iGameIsoVolumeFilter.h>
+#include <iGameDrawObject.h>
 #include <iGameType.h>
 #include <iGameUnstructuredMesh.h>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace {
 
 constexpr auto ContourFilterId = "contour";
+constexpr auto ConvertToPointDataFilterId = "convertToPointData";
 constexpr auto IsoVolumeFilterId = "isoVolume";
 constexpr auto ScalarNameKey = "scalarName";
 constexpr auto ScalarDimensionKey = "scalarDimension";
@@ -40,6 +44,7 @@ iGame::DataObject::Pointer parameterSource(iGame::DataObject::Pointer input) {
         auto attributes = input->GetAttributeSet()->GetAllPointAttributes();
         if (attributes && attributes->GetNumberOfElements() > 0) return input;
     }
+    if (!input->HasSubDataObject()) return nullptr;
     for (auto it = input->SubDataObjectIteratorBegin();
          it != input->SubDataObjectIteratorEnd(); ++it) {
         auto object = iGame::DynamicCast<iGame::DataObject>(it->second);
@@ -49,6 +54,94 @@ iGame::DataObject::Pointer parameterSource(iGame::DataObject::Pointer input) {
         if (attributes && attributes->GetNumberOfElements() > 0) return object;
     }
     return nullptr;
+}
+
+bool scanAttributeRange(iGame::ArrayObject::Pointer array, double& minimum,
+                        double& maximum) {
+    if (!array || array->GetNumberOfValues() == 0) return false;
+    minimum = std::numeric_limits<double>::max();
+    maximum = -std::numeric_limits<double>::max();
+    for (size_t i = 0; i < array->GetNumberOfValues(); ++i) {
+        const double value = array->GetValue(i);
+        if (!std::isfinite(value)) continue;
+        minimum = std::min(minimum, value);
+        maximum = std::max(maximum, value);
+    }
+    return minimum <= maximum;
+}
+
+bool hasMeshGeometry(iGame::DataObject::Pointer input) {
+    if (!input) return false;
+    if (input->GetPoints() && input->GetCellArray()) return true;
+    if (!input->HasSubDataObject()) return false;
+    for (auto it = input->SubDataObjectIteratorBegin();
+         it != input->SubDataObjectIteratorEnd(); ++it) {
+        if (hasMeshGeometry(
+                    iGame::DynamicCast<iGame::DataObject>(it->second))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool convertToPointData(iGame::DataObject::Pointer input, QString& error,
+                        int& convertedCount) {
+    if (!input) return true;
+
+    if (input->GetPoints() && input->GetCellArray()) {
+        auto filter = iGame::ConvertToPointDataFilter::New();
+        filter->SetInput(input);
+        if (!filter->Execute()) {
+            error = QStringLiteral("点数据转换执行失败。");
+            return false;
+        }
+        if (auto drawObject = iGame::DynamicCast<iGame::DrawObject>(input)) {
+            drawObject->ForceReConvertToDrawableData();
+        }
+        ++convertedCount;
+    }
+
+    if (!input->HasSubDataObject()) return true;
+    for (auto it = input->SubDataObjectIteratorBegin();
+         it != input->SubDataObjectIteratorEnd(); ++it) {
+        if (!convertToPointData(
+                    iGame::DynamicCast<iGame::DataObject>(it->second), error,
+                    convertedCount)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void syncConvertedAttributes(iGame::DataObject::Pointer input) {
+    if (!input || !input->HasSubDataObject()) return;
+
+    if (auto parentAttrs = input->GetAttributeSet()) {
+        for (int i = 0; i < parentAttrs->GetNumberOfAttributes(); ++i) {
+            auto& parentAttr = parentAttrs->GetAttribute(i);
+            if (parentAttr.isDeleted || !parentAttr.pointer) continue;
+            const std::string name = parentAttr.pointer->GetName();
+            for (auto it = input->SubDataObjectIteratorBegin();
+                 it != input->SubDataObjectIteratorEnd(); ++it) {
+                auto sub =
+                        iGame::DynamicCast<iGame::DataObject>(it->second);
+                if (!sub) continue;
+                auto subAttrs = sub->GetAttributeSet();
+                if (!subAttrs) continue;
+                const int subIndex = subAttrs->GetAttributeIndex(name);
+                if (subIndex < 0) continue;
+                parentAttr.attachmentType =
+                        subAttrs->GetAttribute(subIndex).attachmentType;
+                break;
+            }
+        }
+    }
+
+    input->ReCollectSubDataObjectDataRange();
+    input->UpdateSubDataObjectDataRange();
+    if (auto drawObject = iGame::DynamicCast<iGame::DrawObject>(input)) {
+        drawObject->ForceReConvertToDrawableData();
+    }
 }
 
 bool readContourParameters(const QVariantMap& parameters,
@@ -233,14 +326,34 @@ void appendPointAttributeParameters(
         if (attributes->GetNumberOfElements() > 0) {
             auto& attribute = attributes->GetElement(0);
             auto range = attribute.GetDataRange();
+            double minimum = 0.0;
+            double maximum = 1.0;
+            bool haveRange = false;
             if (range) {
-                if (range->GetNumberOfElements() >= 4) {
-                    defaultLower = range->GetValue(2);
-                    defaultUpper = range->GetValue(3);
-                } else if (range->GetNumberOfElements() >= 2) {
-                    defaultLower = range->GetValue(0);
-                    defaultUpper = range->GetValue(1);
+                if (range->GetNumberOfValues() >= 4) {
+                    minimum = range->GetValue(2);
+                    maximum = range->GetValue(3);
+                    haveRange = true;
+                } else if (range->GetNumberOfValues() >= 2) {
+                    minimum = range->GetValue(0);
+                    maximum = range->GetValue(1);
+                    haveRange = true;
                 }
+            }
+            if (!haveRange || !std::isfinite(minimum) || !std::isfinite(maximum) ||
+                maximum < minimum) {
+                haveRange = scanAttributeRange(attribute.pointer, minimum,
+                                               maximum);
+            }
+            if (haveRange) {
+                if (maximum == minimum) {
+                    const double pad =
+                            std::max(1.0, std::abs(maximum) * 0.1);
+                    minimum -= pad;
+                    maximum += pad;
+                }
+                defaultLower = minimum;
+                defaultUpper = maximum;
             }
         }
     }
@@ -267,6 +380,45 @@ QString framePrefix(const igQtAnimationFrameContext& context) {
 }
 
 } // namespace
+
+igQtAnimationFilterDescriptor
+igQtCreateConvertToPointDataAnimationFilterDescriptor() {
+    igQtAnimationFilterDescriptor descriptor;
+    descriptor.id = QString::fromLatin1(ConvertToPointDataFilterId);
+    descriptor.displayName =
+            QStringLiteral("单元数据转点数据（ConvertToPointData）");
+    descriptor.outputPolicy = igQtAnimationFilterOutputPolicy::ModifyInput;
+
+    descriptor.supports = [](iGame::DataObject::Pointer input, QString& error) {
+        if (!hasMeshGeometry(input)) {
+            error = QStringLiteral("当前动画帧没有可转换的网格几何。");
+            return false;
+        }
+        return true;
+    };
+
+    descriptor.execute = [](const igQtAnimationFrameContext& context,
+                            const QVariantMap&) {
+        igQtAnimationFilterResult result;
+        int convertedCount = 0;
+        if (!convertToPointData(context.input, result.error, convertedCount)) {
+            result.error = framePrefix(context) + QStringLiteral("：") +
+                           result.error;
+            return result;
+        }
+        if (convertedCount == 0) {
+            result.error = framePrefix(context) +
+                           QStringLiteral("：没有找到可转换的网格对象。");
+            return result;
+        }
+        syncConvertedAttributes(context.input);
+        result.output = context.input;
+        result.success = true;
+        return result;
+    };
+
+    return descriptor;
+}
 
 igQtAnimationFilterDescriptor igQtCreateContourAnimationFilterDescriptor() {
     igQtAnimationFilterDescriptor descriptor;
@@ -339,6 +491,8 @@ igQtAnimationFilterDescriptor igQtCreateContourAnimationFilterDescriptor() {
             contour->SetViewStyle(IG_SURFACE);
             result.output = contour;
             result.success = true;
+            result.displayAttribute = scalarName;
+            result.displayDimension = dimension;
             return result;
         }
 
@@ -379,6 +533,8 @@ igQtAnimationFilterDescriptor igQtCreateContourAnimationFilterDescriptor() {
 
         result.output = container;
         result.success = true;
+        result.displayAttribute = scalarName;
+        result.displayDimension = dimension;
         return result;
     };
 
@@ -470,6 +626,8 @@ igQtCreateIsoVolumeAnimationFilterDescriptor() {
             output->SetViewStyle(IG_SURFACE);
             result.output = output;
             result.success = true;
+            result.displayAttribute = scalarName;
+            result.displayDimension = dimension;
             return result;
         }
 
@@ -511,6 +669,8 @@ igQtCreateIsoVolumeAnimationFilterDescriptor() {
 
         result.output = container;
         result.success = true;
+        result.displayAttribute = scalarName;
+        result.displayDimension = dimension;
         return result;
     };
 
@@ -521,6 +681,11 @@ bool igQtRegisterBuiltinAnimationFilters(
         igQtAnimationFilterManager& manager, QString* error) {
     if (!manager.registerFilter(
                 igQtCreateContourAnimationFilterDescriptor(), error)) {
+        return false;
+    }
+    if (!manager.registerFilter(
+                igQtCreateConvertToPointDataAnimationFilterDescriptor(),
+                error)) {
         return false;
     }
     return manager.registerFilter(

@@ -367,6 +367,15 @@ igame_add_example(testAnimation Animation/TestAnimation.cpp)
 
 if (TARGET Qt_module AND TARGET iGameVis)
     find_package(Qt5 REQUIRED COMPONENTS Core Widgets OpenGL Charts Svg)
+    igame_add_example(testAnimationPipelineValidation
+        Animation/AnimationPipelineValidation.cpp)
+    target_link_libraries(testAnimationPipelineValidation PRIVATE Qt_module)
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testAnimationPipelineValidation PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+    set_target_properties(testAnimationPipelineValidation PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
     igame_add_example(testModelTreeViewStyleValidation Rendering/ModelTreeViewStyleValidation.cpp)
     target_link_libraries(testModelTreeViewStyleValidation PRIVATE Qt_module)
     if (NOT IGAME_BUILD_SHARED)

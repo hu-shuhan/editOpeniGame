@@ -45,7 +45,8 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
                   << registrationError.toStdString() << std::endl;
     }
     ui->comboBoxAnimationFilter->clear();
-    ui->comboBoxAnimationFilter->addItem(QStringLiteral("无"), QString());
+    ui->comboBoxAnimationFilter->addItem(QStringLiteral("添加 Filter..."),
+                                         QString());
     for (const auto& id : m_AnimationFilterManager.filterIds()) {
         const auto* descriptor = m_AnimationFilterManager.descriptor(id);
         if (descriptor) {
@@ -58,6 +59,18 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
             this, &igQtAnimationWidget::onAnimationFilterChanged);
     connect(ui->btnAnimationFilterParameters, &QPushButton::clicked,
             this, &igQtAnimationWidget::openAnimationFilterParameters);
+    connect(ui->btnAnimationFilterAdd, &QPushButton::clicked, this,
+            &igQtAnimationWidget::addSelectedFilterToPipeline);
+    connect(ui->btnAnimationFilterRemove, &QPushButton::clicked, this,
+            &igQtAnimationWidget::removeSelectedPipelineStep);
+    connect(ui->btnAnimationFilterUp, &QPushButton::clicked, this,
+            [this]() { moveSelectedPipelineStep(true); });
+    connect(ui->btnAnimationFilterDown, &QPushButton::clicked, this,
+            [this]() { moveSelectedPipelineStep(false); });
+    connect(ui->btnAnimationFilterClear, &QPushButton::clicked, this,
+            &igQtAnimationWidget::clearAnimationPipeline);
+    connect(ui->listWidgetAnimationPipeline, &QListWidget::currentRowChanged,
+            this, &igQtAnimationWidget::onPipelineSelectionChanged);
     onAnimationFilterChanged(ui->comboBoxAnimationFilter->currentIndex());
 
     connect(VcrController, &igQtAnimationVcrController::timeStepChanged_snap,
@@ -279,17 +292,16 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         return;
     }
     auto currentModel = currentScene->GetCurrentModel();
-    const QString filterId = selectedAnimationFilterId();
-    const bool filterSelected = m_AnimationFilterManager.contains(filterId);
-    if (filterSelected && m_AnimationFilterSourceModel &&
+    const bool pipelineActive = !m_AnimationPipeline.isEmpty();
+    if (pipelineActive && m_AnimationFilterSourceModel &&
         m_AnimationFilterSourceModel.GetPointer() != currentModel.GetPointer()) {
         restoreAnimationFilterSource();
     }
-    if (filterSelected && !m_AnimationFilterSourceModel) {
+    if (pipelineActive && !m_AnimationFilterSourceModel) {
         m_AnimationFilterSourceModel = currentModel;
         m_AnimationFilterSourceObject = currentModel->GetDataObject();
     }
-    auto sourceObject = filterSelected && m_AnimationFilterSourceObject
+    auto sourceObject = pipelineActive && m_AnimationFilterSourceObject
                                 ? m_AnimationFilterSourceObject
                                 : currentModel->GetDataObject();
     auto currentDrawObject = DynamicCast<DrawObject>(sourceObject);
@@ -355,30 +367,31 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     }
 
     DataObject::Pointer displayObject = currentDrawObject;
-    if (filterSelected) {
+    if (pipelineActive) {
         QString error;
         igQtAnimationFrameContext context;
         context.input = currentDrawObject;
         context.sourceFrameIndex = static_cast<int>(keyframe_idx);
         context.outputFrameIndex = static_cast<int>(keyframe_idx);
         if (!executeSelectedAnimationFilter(context, displayObject, error)) {
-            std::cout << "[Animation][Filter][" << filterId.toStdString()
-                      << "] " << error.toStdString() << std::endl;
-            VcrController->onPause();
-            m_IsAnimationPlaying = false;
-            return;
+            std::cout << "[Animation][Pipeline] " << error.toStdString()
+                      << std::endl;
+            displayObject = currentDrawObject;
         }
-        const auto* descriptor = m_AnimationFilterManager.descriptor(filterId);
-        if (descriptor && descriptor->outputPolicy ==
-                                  igQtAnimationFilterOutputPolicy::ReplaceFrame) {
+        if (displayObject.GetPointer() != currentDrawObject.GetPointer()) {
             currentModel->SetDataObject(displayObject);
         }
+    }
+    if (pipelineActive &&
+        displayObject.GetPointer() == currentDrawObject.GetPointer()) {
+        Q_EMIT AnimationDataChanged();
     }
     auto displayDrawObject = DynamicCast<DrawObject>(displayObject);
     if (!displayDrawObject) {
         m_IsAnimationPlaying = false;
         return;
     }
+    applyPipelineDisplaySettings(displayDrawObject, currentDrawObject);
 
     currentScene->MakeCurrent();
 
@@ -484,17 +497,16 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         return;
     }
     auto currentModel = currentScene->GetCurrentModel();
-    const QString filterId = selectedAnimationFilterId();
-    const bool filterSelected = m_AnimationFilterManager.contains(filterId);
-    if (filterSelected && m_AnimationFilterSourceModel &&
+    const bool pipelineActive = !m_AnimationPipeline.isEmpty();
+    if (pipelineActive && m_AnimationFilterSourceModel &&
         m_AnimationFilterSourceModel.GetPointer() != currentModel.GetPointer()) {
         restoreAnimationFilterSource();
     }
-    if (filterSelected && !m_AnimationFilterSourceModel) {
+    if (pipelineActive && !m_AnimationFilterSourceModel) {
         m_AnimationFilterSourceModel = currentModel;
         m_AnimationFilterSourceObject = currentModel->GetDataObject();
     }
-    auto sourceObject = filterSelected && m_AnimationFilterSourceObject
+    auto sourceObject = pipelineActive && m_AnimationFilterSourceObject
                                 ? m_AnimationFilterSourceObject
                                 : currentModel->GetDataObject();
     auto currentDrawObject = DynamicCast<DrawObject>(sourceObject);
@@ -590,7 +602,7 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     }
 
     DataObject::Pointer displayObject = currentDrawObject;
-    if (filterSelected) {
+    if (pipelineActive) {
         QString error;
         igQtAnimationFrameContext context;
         context.input = currentDrawObject;
@@ -598,31 +610,31 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         context.outputFrameIndex = keyframe_0;
         context.outputTime = t;
         if (!executeSelectedAnimationFilter(context, displayObject, error)) {
-            std::cout << "[Animation][Filter][" << filterId.toStdString()
-                      << "] " << error.toStdString() << std::endl;
-            VcrController->onPause();
-            m_IsAnimationPlaying = false;
-            return;
+            std::cout << "[Animation][Pipeline] " << error.toStdString()
+                      << std::endl;
+            displayObject = currentDrawObject;
         }
-        const auto* descriptor = m_AnimationFilterManager.descriptor(filterId);
-        if (descriptor && descriptor->outputPolicy ==
-                                  igQtAnimationFilterOutputPolicy::ReplaceFrame) {
+        if (displayObject.GetPointer() != currentDrawObject.GetPointer()) {
             currentModel->SetDataObject(displayObject);
         }
+    }
+    if (pipelineActive &&
+        displayObject.GetPointer() == currentDrawObject.GetPointer()) {
+        Q_EMIT AnimationDataChanged();
     }
     auto displayDrawObject = DynamicCast<DrawObject>(displayObject);
     if (!displayDrawObject) {
         m_IsAnimationPlaying = false;
         return;
     }
+    applyPipelineDisplaySettings(displayDrawObject, currentDrawObject);
 
     // Drawable conversion and all OpenGL-related work must happen while the
     // scene's context is current on this GUI thread.
     currentScene->MakeCurrent();
-    const auto* descriptor = m_AnimationFilterManager.descriptor(filterId);
-    const bool replacesFrame = descriptor && descriptor->outputPolicy ==
-                                               igQtAnimationFilterOutputPolicy::ReplaceFrame;
-    if (!replacesFrame) {
+    const bool pipelineReplaced =
+            displayObject.GetPointer() != currentDrawObject.GetPointer();
+    if (!pipelineReplaced) {
         for (const auto& obj : results_0) {
             auto subObject = DynamicCast<PointSet>(obj);
             if (subObject) subObject->ConvertToDrawableData();
@@ -672,18 +684,67 @@ void igQtAnimationWidget::onAnimationFilterChanged(int index) {
                                      ? ui->comboBoxAnimationFilter
                                                ->itemData(index).toString()
                                      : QString();
-    if (filterId != m_SelectedAnimationFilterId) {
-        restoreAnimationFilterSource();
-        m_SelectedAnimationFilterId = filterId;
-    }
-
-    ui->btnAnimationFilterParameters->setEnabled(
+    ui->btnAnimationFilterAdd->setEnabled(
             m_AnimationFilterManager.contains(filterId));
     updateAnimationFilterSummary();
 }
 
-void igQtAnimationWidget::openAnimationFilterParameters() {
+void igQtAnimationWidget::onPipelineSelectionChanged() {
+    const int row = ui->listWidgetAnimationPipeline->currentRow();
+    const int count = ui->listWidgetAnimationPipeline->count();
+    ui->btnAnimationFilterParameters->setEnabled(row >= 0);
+    ui->btnAnimationFilterRemove->setEnabled(row >= 0);
+    ui->btnAnimationFilterUp->setEnabled(row > 0);
+    ui->btnAnimationFilterDown->setEnabled(row >= 0 && row < count - 1);
+}
+
+void igQtAnimationWidget::addSelectedFilterToPipeline() {
     const QString filterId = selectedAnimationFilterId();
+    if (!m_AnimationFilterManager.contains(filterId)) return;
+
+    igQtAnimationPipelineStep step;
+    step.filterId = filterId;
+    m_AnimationPipeline.push_back(step);
+    updateAnimationFilterSummary();
+    ui->listWidgetAnimationPipeline->setCurrentRow(
+            static_cast<int>(m_AnimationPipeline.size()) - 1);
+}
+
+void igQtAnimationWidget::removeSelectedPipelineStep() {
+    const int row = ui->listWidgetAnimationPipeline->currentRow();
+    if (row < 0 || row >= static_cast<int>(m_AnimationPipeline.size())) return;
+
+    m_AnimationPipeline.removeAt(row);
+    if (m_AnimationPipeline.isEmpty()) restoreAnimationFilterSource();
+    updateAnimationFilterSummary();
+}
+
+void igQtAnimationWidget::moveSelectedPipelineStep(bool up) {
+    const int row = ui->listWidgetAnimationPipeline->currentRow();
+    const int target = row + (up ? -1 : 1);
+    if (row < 0 || row >= static_cast<int>(m_AnimationPipeline.size()) ||
+        target < 0 || target >= static_cast<int>(m_AnimationPipeline.size())) {
+        return;
+    }
+
+    std::swap(m_AnimationPipeline[row], m_AnimationPipeline[target]);
+    updateAnimationFilterSummary();
+    ui->listWidgetAnimationPipeline->setCurrentRow(target);
+}
+
+void igQtAnimationWidget::clearAnimationPipeline() {
+    if (m_AnimationPipeline.isEmpty()) return;
+    m_AnimationPipeline.clear();
+    restoreAnimationFilterSource();
+    updateAnimationFilterSummary();
+}
+
+void igQtAnimationWidget::openAnimationFilterParameters() {
+    const int row = ui->listWidgetAnimationPipeline->currentRow();
+    if (row < 0 || row >= static_cast<int>(m_AnimationPipeline.size())) return;
+
+    const auto& step = m_AnimationPipeline.at(row);
+    const QString filterId = step.filterId;
     const auto* descriptor = m_AnimationFilterManager.descriptor(filterId);
     if (!descriptor) return;
 
@@ -701,7 +762,7 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
             QStringLiteral("动画 Filter 参数 - %1").arg(descriptor->displayName));
     dialog->setFilterDescription(QStringLiteral("参数将在播放或导出时应用到每一帧。"));
 
-    const QVariantMap existing = m_AnimationFilterParameters.value(filterId);
+    const QVariantMap existing = step.parameters;
     QMap<QString, int> widgetIds;
     for (const auto& parameter : schema) {
         const QVariant initial = existing.contains(parameter.key)
@@ -741,7 +802,7 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
     }
 
     dialog->setApplyFunctor(
-            [this, dialog, filterId, schema, widgetIds]() {
+            [this, dialog, row, filterId, schema, widgetIds]() {
                 QVariantMap values;
                 for (const auto& parameter : schema) {
                     const int widgetId = widgetIds.value(parameter.key, -1);
@@ -791,7 +852,10 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
                                          QStringLiteral("动画 Filter"), error);
                     return;
                 }
-                m_AnimationFilterParameters.insert(filterId, values);
+                if (row < 0 || row >= static_cast<int>(m_AnimationPipeline.size())) {
+                    return;
+                }
+                m_AnimationPipeline[row].parameters = values;
                 updateAnimationFilterSummary();
             });
 
@@ -816,56 +880,78 @@ iGame::DataObject::Pointer igQtAnimationWidget::animationFilterInput() const {
 }
 
 void igQtAnimationWidget::updateAnimationFilterSummary() {
-    const QString filterId = selectedAnimationFilterId();
-    const auto* descriptor = m_AnimationFilterManager.descriptor(filterId);
-    if (!descriptor) {
-        ui->labelAnimationFilterSummary->setText(QStringLiteral("无需参数"));
-        return;
-    }
-
-    const QVariantMap parameters = m_AnimationFilterParameters.value(filterId);
-    if (parameters.isEmpty()) {
-        ui->labelAnimationFilterSummary->setText(QStringLiteral("未设置参数"));
-        return;
-    }
-
-    QStringList summary;
-    const auto schema = descriptor->parameterSchema
-                                ? descriptor->parameterSchema(animationFilterInput())
-                                : igQtAnimationFilterParameterSchema{};
-    for (const auto& parameter : schema) {
-        if (parameters.contains(parameter.key)) {
-            summary.push_back(QStringLiteral("%1 %2")
-                                      .arg(parameter.title,
-                                           parameters.value(parameter.key).toString()));
+    const int previousRow = ui->listWidgetAnimationPipeline->currentRow();
+    ui->listWidgetAnimationPipeline->clear();
+    for (int i = 0; i < static_cast<int>(m_AnimationPipeline.size()); ++i) {
+        const auto& step = m_AnimationPipeline.at(i);
+        const auto* descriptor = m_AnimationFilterManager.descriptor(step.filterId);
+        QString text = QStringLiteral("%1. %2")
+                               .arg(i + 1)
+                               .arg(descriptor ? descriptor->displayName
+                                               : step.filterId);
+        if (!step.parameters.isEmpty()) {
+            text += QStringLiteral("（参数已设置）");
         }
+        ui->listWidgetAnimationPipeline->addItem(text);
     }
-    ui->labelAnimationFilterSummary->setText(
-            summary.isEmpty() ? QStringLiteral("参数已设置")
-                              : summary.join(QStringLiteral(" / ")));
+    if (previousRow >= 0 &&
+        previousRow < ui->listWidgetAnimationPipeline->count()) {
+        ui->listWidgetAnimationPipeline->setCurrentRow(previousRow);
+    }
+
+    if (m_AnimationPipeline.isEmpty()) {
+        ui->labelAnimationFilterSummary->setText(
+                QStringLiteral("未启用 Pipeline"));
+    } else {
+        ui->labelAnimationFilterSummary->setText(
+                QStringLiteral("%1 步 Filter").arg(m_AnimationPipeline.size()));
+    }
+    onPipelineSelectionChanged();
 }
 
 bool igQtAnimationWidget::executeSelectedAnimationFilter(
         const igQtAnimationFrameContext& context,
         iGame::DataObject::Pointer& output,
         QString& error) {
-    const QString filterId = selectedAnimationFilterId();
-    if (!m_AnimationFilterManager.contains(filterId)) {
+    if (m_AnimationPipeline.isEmpty()) {
         output = context.input;
         error.clear();
+        m_AnimationPipelineDisplayAttribute.clear();
+        m_AnimationPipelineDisplayDimension = -1;
         return true;
     }
 
-    const auto result = m_AnimationFilterManager.execute(
-            filterId, context, m_AnimationFilterParameters.value(filterId));
-    if (!result.success) {
+    igQtAnimationFilterResult finalResult;
+    if (!igQtExecuteAnimationPipeline(
+                m_AnimationFilterManager, m_AnimationPipeline, context,
+                finalResult, &error)) {
         output = nullptr;
-        error = result.error;
+        m_AnimationPipelineDisplayAttribute.clear();
+        m_AnimationPipelineDisplayDimension = -1;
         return false;
     }
-    output = result.output;
+    output = finalResult.output;
+    m_AnimationPipelineDisplayAttribute = finalResult.displayAttribute;
+    m_AnimationPipelineDisplayDimension = finalResult.displayDimension;
     error.clear();
     return true;
+}
+
+void igQtAnimationWidget::applyPipelineDisplaySettings(
+        iGame::DataObject::Pointer displayObject,
+        iGame::DataObject::Pointer sourceObject) {
+    if (m_AnimationPipelineDisplayAttribute.isEmpty() || !displayObject) {
+        return;
+    }
+    auto attrSet = displayObject->GetAttributeSet();
+    if (!attrSet) return;
+    const int index = attrSet->GetAttributeIndex(
+            m_AnimationPipelineDisplayAttribute.toStdString());
+    if (index < 0) return;
+    displayObject->SetAttributeIndex(index);
+    if (sourceObject) {
+        displayObject->SetColorMapper(sourceObject->GetColorMapper());
+    }
 }
 
 void igQtAnimationWidget::restoreAnimationFilterSource() {
@@ -1258,9 +1344,8 @@ bool igQtAnimationWidget::saveAnimation() {
                                      QStringLiteral("请导入带时间帧的文件"), true);
         return false;
     }
-    const QString filterId = selectedAnimationFilterId();
-    const bool filterSelected = m_AnimationFilterManager.contains(filterId);
-    auto currentObject = (filterSelected && m_AnimationFilterSourceModel &&
+    const bool pipelineActive = !m_AnimationPipeline.isEmpty();
+    auto currentObject = (pipelineActive && m_AnimationFilterSourceModel &&
                           m_AnimationFilterSourceModel.GetPointer() == currentModel.GetPointer())
                                  ? m_AnimationFilterSourceObject
                                  : currentModel->GetDataObject();
