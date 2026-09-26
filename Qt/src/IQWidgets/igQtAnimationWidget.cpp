@@ -25,6 +25,8 @@
 #include <FeatureExtraction/iGameVortexFilter.h>
 #include <Animation/iGameAttrDiff.h>
 #include <iGameProgressObserver.h>
+#include <iGameAttributeSet.h>
+#include <iGameDrawObject.h>
 #include <algorithm>
 #include <iostream>
 
@@ -358,7 +360,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
                 sa.rangeLocked = true;
             }
         }
-        currentDrawObject->ForceReConvertToDrawableData();
     }
 
     if (m_DiffAutoCompute && !m_DiffSourceAttr.empty()) {
@@ -471,7 +472,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         deformFilter->SetInput(displayDrawObject);
         if(!deformFilter->Execute()) std::cout << " deformation error \n";
     }
-
 
     currentScene->DoneCurrent();
 

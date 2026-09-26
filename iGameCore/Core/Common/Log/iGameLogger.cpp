@@ -41,6 +41,7 @@ void Log::Init() {
 #endif
     s_RenderingLogger = std::make_shared<spdlog::logger>("iGameVis_Rendering", rendering_sinksInitList);
     s_RenderingLogger->set_level(spdlog::level::trace);
+    s_RenderingLogger->flush_on(spdlog::level::info);
 
 #ifdef __EMSCRIPTEN__
     spdlog::sinks_init_list client_sinksInitList{console_sink};

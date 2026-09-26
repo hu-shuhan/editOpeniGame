@@ -97,6 +97,11 @@ public:
 
     IGsize Size() const { return this->VectorType::size(); }
 
+    // Allocation accounting without changing legacy size-based estimates.
+    IGsize GetAllocatedMemorySize() const {
+        return this->VectorType::capacity() * sizeof(TElement);
+    }
+
     TElement* RawPointer() { return this->VectorType::data(); }
 
 protected:

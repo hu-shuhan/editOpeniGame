@@ -44,7 +44,8 @@ enum class ShaderType {
     SCREEN,              ///< 屏幕渲染Shader
     FXAA,                ///< 快速抗锯齿（FXAA）
     CULLINGPHASE1,       ///< 裁剪阶段1
-    CULLINGPHASE2        ///< 裁剪阶段2
+    CULLINGPHASE2,       ///< 裁剪阶段2
+    REMOTE_SINGLEPASSWIREFRAME ///< C/S-only constant edge-mask shader
 };
 
 

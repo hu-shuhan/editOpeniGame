@@ -47,7 +47,7 @@ Meshleter::~Meshleter() {}
 void Meshleter::SetInput(SmartPointer<DataObject> obj) {
     m_DataObject = obj;
     // this->SetName(std::format("{}'s Meshleter", m_DataObject->GetName()));
-    this->SetName(m_DataObject->GetName());
+    if (m_DataObject) { this->SetName(m_DataObject->GetName()); }
 }
 
 SmartPointer<DataObject> Meshleter::GetInput() const { return m_DataObject; }
@@ -207,6 +207,27 @@ void Meshleter::ReleaseGpuBuffers() {
     m_DrawCommandBuffer = GLBuffer::New();
     m_VisibleMeshletBuffer = GLBuffer::New();
     m_FinalDrawCommandBuffer = GLBuffer::New();
+    m_CellTriangleVAO = GLVertexArray::New();
+    m_CellPositionVBO = GLBuffer::New();
+    m_CellColorVBO = GLBuffer::New();
+    m_CellDrawCommandBuffer = GLBuffer::New();
+    m_CellFinalDrawCommandBuffer = GLBuffer::New();
+#endif
+}
+
+bool Meshleter::HasGpuResources() const {
+    auto live = [](const auto& object) { return object && object->Handle() != 0; };
+#ifdef GL_SUPPORTS_MESH_SHADER
+    return live(m_MeshletBuffer) || live(m_MeshletVertexBuffer) || live(m_MeshletTriangleBuffer) ||
+           live(m_MeshletDescriptorBuffer) || live(m_InvisibleMeshletBuffer) ||
+           live(m_PositionBuffer) || live(m_ColorBuffer) || live(m_NormalBuffer) || live(m_UVBuffer);
+#else
+    return live(m_TriangleVAO) || live(m_TriangleEBO) || live(m_PositionVBO) ||
+           live(m_ColorVBO) || live(m_NormalVBO) || live(m_UVVBO) ||
+           live(m_MeshletDescriptorBuffer) || live(m_VisibleMeshletBuffer) ||
+           live(m_DrawCommandBuffer) || live(m_FinalDrawCommandBuffer) ||
+           live(m_CellTriangleVAO) || live(m_CellPositionVBO) || live(m_CellColorVBO) ||
+           live(m_CellDrawCommandBuffer) || live(m_CellFinalDrawCommandBuffer);
 #endif
 }
 

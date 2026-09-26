@@ -33,12 +33,14 @@ class igQtProgressBarWidget;
 class igQtModelDialogWidget;
 class igQtModelClipWidget;
 class igQtDeformationWidget;
+class igQtElevationFilterPanel;
 class igQtAiChatWidget;
 class igQtCommandManager;
 class QFontMetrics;
 class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
 class igQtAttributeSelectWidget;
+class igQtRemoteModelLibrary;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -68,6 +70,7 @@ public:
     void initAllDockWidgetConnectWithAction();
     void initAllMySignalConnections();
     void initAllFilters();
+    bool connectImportedFilterAction(QAction* action, const QString& filterId);
     void initAllSources();
     void initAllInteractor();
     void initArgs(const QStringList& args);
@@ -91,6 +94,9 @@ public:
     QDockWidget* DeformationDockWidget;
     igQtDeformationWidget* DeformationWidget;
 
+    // 高程 (Elevation) 实时参数面板：入口对话框首次执行后绑定会话并显示
+    igQtElevationFilterPanel* ElevationFilterPanel{nullptr};
+
     igQtProgressBarWidget* progressBarWidget;
     QComboBox* viewStyleCombox;
     QComboBox* attributeViewIndexCombox;
@@ -111,9 +117,15 @@ public:
     igQtChromeFramelessDialog* reportGenerateDialog{nullptr};
     igQtAttributeSelectWidget* reportGenerateWidget{nullptr};
 
+    // Remote Model Library dialog (C/S package catalog and cache controls)
+    igQtRemoteModelLibrary* remoteModelLibrary{nullptr};
+
 private slots:
     void updateRecentFilePaths();
     void updateColorBarShow();
+    void ConfigureRemoteCacheBenchmark(const QString& package, const QString& host,
+                                       quint16 port, const QString& cacheDirectory,
+                                       int rounds, const QString& outputPath);
 
     //void ChangeViewStyle();
     //void ChangeScalarView();

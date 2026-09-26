@@ -17,6 +17,7 @@ public:
     static Pointer New(){return new iGameVTMReader;}
 
     bool Parsing() override;
+    void SetRemoteRenderingEnabled(bool enabled) { m_RemoteRenderingEnabled = enabled; }
 
 protected:
 
@@ -30,6 +31,7 @@ protected:
 
 protected:
     DataObject::Pointer parseData;
+    bool m_RemoteRenderingEnabled{false};
 
 };
 IGAME_NAMESPACE_END

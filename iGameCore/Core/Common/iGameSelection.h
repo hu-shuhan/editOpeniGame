@@ -230,5 +230,24 @@ protected:
     std::function<void()> Update;
 };
 
+// Shared endpoint state between ResampleToLineStyle and its parameter panel.
+class LineSelection : public Selection {
+public:
+    I_OBJECT(LineSelection);
+    static Pointer New() { return new LineSelection; }
+    Vector3d Orig{0, 0, 0};
+    Vector3d Target{1, 0, 0};
+    int Selected{-1};
+    void UpdateLine() { if (Update) Update(); }
+    template<typename Functor, typename... Args>
+    void SetUpdateFunction(Functor&& functor, Args&&... args) {
+        Update = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+    }
+protected:
+    LineSelection() = default;
+    ~LineSelection() override = default;
+    std::function<void()> Update;
+};
+
 IGAME_NAMESPACE_END
 #endif

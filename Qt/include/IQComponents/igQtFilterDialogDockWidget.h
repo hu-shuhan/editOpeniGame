@@ -111,6 +111,9 @@ public:
 		return item == itemMap.end() ? nullptr : item->second.widget;
 	}
 
+    /// 在参数区末尾追加一行跨两列的自定义控件（如 X/Y/Z 按钮行）；不参与 getDouble 等取值
+    int addRowWidget(QWidget* rowWidget);
+
     template<typename Functor, typename... Args>
     void setApplyFunctor(Functor&& functor, Args&&... args) {
         applyFunctor = std::bind(functor, args...);

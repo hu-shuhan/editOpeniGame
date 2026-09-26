@@ -1,4 +1,4 @@
-#include "iGameModelGeometryFilter.h"
+﻿#include "iGameModelGeometryFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Mutex/iGameAtomicMutex.h"
 #include "iGameThreadPool.h"
@@ -1267,7 +1267,83 @@ struct ExtractSG : public ExtractCellBoundaries {
     }
     void Initialize() override { this->ExtractCellBoundaries::Initialize(); }
 
+    void ExecuteBlanking() {
+        auto size = Mesh->GetDimensionSize();
+        const igIndex d0 = size[0], d1 = size[1], d2 = size[2];
+        const igIndex cd0 = d0 - 1, cd1 = d1 - 1, cd2 = d2 - 1;
+        const igIndex plane01 = d0 * d1;
+        const igIndex cellPlane01 = cd0 * cd1;
+        igIndex vhs[4];
+
+        for (igIndex k = 0; k < cd2; ++k) {
+            for (igIndex j = 0; j < cd1; ++j) {
+                for (igIndex i = 0; i < cd0; ++i) {
+                    const igIndex cellId = i + cd0 * j + cellPlane01 * k;
+                    if ((this->CellGhosts[cellId] & 32) != 0) continue; // 跳过 ghost 单元
+                    if (this->CellVis && !this->CellVis[cellId]) continue;
+                    const igIndex base = i + d0 * j + plane01 * k;
+
+                    // k- 面
+                    if (k == 0 || (this->CellGhosts[cellId - cellPlane01] & 32) != 0) {
+                        vhs[0] = base;
+                        vhs[1] = base + 1;
+                        vhs[2] = base + 1 + d0;
+                        vhs[3] = base + d0;
+                        Quads->AddCellIds(vhs, 4);
+                        f2c.emplace_back(cellId);
+                    }
+                    // k+ 面
+                    if (k == cd2 - 1 || (this->CellGhosts[cellId + cellPlane01] & 32) != 0) {
+                        vhs[0] = base + plane01;
+                        vhs[1] = base + plane01 + 1;
+                        vhs[2] = base + plane01 + 1 + d0;
+                        vhs[3] = base + plane01 + d0;
+                        Quads->AddCellIds(vhs, 4);
+                        f2c.emplace_back(cellId);
+                    }
+                    // j- 面
+                    if (j == 0 || (this->CellGhosts[cellId - cd0] & 32) != 0) {
+                        vhs[0] = base;
+                        vhs[1] = base + 1;
+                        vhs[2] = base + 1 + plane01;
+                        vhs[3] = base + plane01;
+                        Quads->AddCellIds(vhs, 4);
+                        f2c.emplace_back(cellId);
+                    }
+                    // j+ 面
+                    if (j == cd1 - 1 || (this->CellGhosts[cellId + cd0] & 32) != 0) {
+                        vhs[0] = base + d0;
+                        vhs[1] = base + d0 + 1;
+                        vhs[2] = base + d0 + 1 + plane01;
+                        vhs[3] = base + d0 + plane01;
+                        Quads->AddCellIds(vhs, 4);
+                        f2c.emplace_back(cellId);
+                    }
+                    // i- 面
+                    if (i == 0 || (this->CellGhosts[cellId - 1] & 32) != 0) {
+                        vhs[0] = base;
+                        vhs[1] = base + d0;
+                        vhs[2] = base + d0 + plane01;
+                        vhs[3] = base + plane01;
+                        Quads->AddCellIds(vhs, 4);
+                        f2c.emplace_back(cellId);
+                    }
+                    // i+ 面
+                    if (i == cd0 - 1 || (this->CellGhosts[cellId + 1] & 32) != 0) {
+                        vhs[0] = base + 1;
+                        vhs[1] = base + 1 + d0;
+                        vhs[2] = base + 1 + d0 + plane01;
+                        vhs[3] = base + 1 + plane01;
+                        Quads->AddCellIds(vhs, 4);
+                        f2c.emplace_back(cellId);
+                    }
+                }
+            }
+        }
+    }
+
     void Execute() {
+        if (this->CellGhosts) { ExecuteBlanking(); return; }
         auto size = Mesh->GetDimensionSize();
         igIndex i = 0, j = 0, k = 0;
         igIndex vhs[4] = {0};
@@ -1411,8 +1487,22 @@ int ModelGeometryFilter::ExecuteWithStructuredMesh(DataObject::Pointer input, Su
     CharArray::Pointer CellVisibleArray = CharArray::New();
     char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetCells());
     if (CellVisible) { return this->ExecuteWithVolumeMesh(input, output); }
-    unsigned char* cellGhosts = nullptr;
-    unsigned char* pointGhosts = nullptr;
+    // ResampleToImage writes vtkGhostType=32 for invalid samples. Validate
+    // association, tuple count and storage before using the contiguous mask.
+    const unsigned char* cellGhosts = nullptr;
+    const unsigned char* pointGhosts = nullptr;
+    if (inAllDataArray) {
+        auto attrs = inAllDataArray->GetAllAttributes();
+        for (IGsize index = 0; index < attrs->GetNumberOfElements(); ++index) {
+            const auto& attr = attrs->GetElement(index);
+            if (attr.isDeleted || !attr.pointer || attr.attachmentType != IG_CELL ||
+                attr.pointer->GetName() != "vtkGhostType") continue;
+            auto mask = DynamicCast<UnsignedCharArray>(attr.pointer);
+            if (mask && mask->GetDimension() == 1 && mask->GetNumberOfValues() == numCells)
+                cellGhosts = mask->RawPointer();
+            break;
+        }
+    }
 
     auto* extract =
             new ExtractSG(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);

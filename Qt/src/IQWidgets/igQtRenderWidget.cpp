@@ -23,10 +23,14 @@ igQtRenderWidget::igQtRenderWidget(QWidget* parent) : QOpenGLWidget(parent) {
     setMouseTracking(true);
     setMinimumHeight(185);
     setMinimumWidth(320);
+    connect(this, &QOpenGLWidget::frameSwapped, this,
+            &igQtRenderWidget::OnFrameSwapped);
 }
 
 igQtRenderWidget::~igQtRenderWidget() {
+    if (context()) { disconnect(context(), nullptr, this, nullptr); }
     makeCurrent();
+    emit ContextAboutToBeReleased();
     iGame::SceneManager::Pointer sceneManager = iGame::SceneManager::Instance();
     sceneManager->DeleteScene(m_Scene);
     m_Scene = nullptr;
@@ -176,6 +180,11 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
 iGame::Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
 void igQtRenderWidget::initializeGL() {
+    connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, [this]() {
+        makeCurrent();
+        emit ContextAboutToBeReleased();
+        doneCurrent();
+    }, Qt::DirectConnection);
     // 目前当窗口
     iGame::SceneManager::Pointer sceneManager = iGame::SceneManager::Instance();
     m_Scene = sceneManager->NewScene();
@@ -194,7 +203,71 @@ void igQtRenderWidget::resizeGL(int w, int h) {
     m_Scene->Resize(width(), height(), ratio);
 }
 
-void igQtRenderWidget::paintGL() { m_Scene->Draw(); }
+void igQtRenderWidget::RequestCompletedFrame(quint64 requestId) {
+    if (m_CompletedFrameRequestPending) {
+        emit CompletedFrame(requestId, false,
+                            QStringLiteral("A completed-frame request is already pending"));
+        return;
+    }
+    if (!m_Scene || !isValid()) {
+        emit CompletedFrame(requestId, false,
+                            QStringLiteral("Render scene or OpenGL context is not ready"));
+        return;
+    }
+    m_CompletedFrameRequestPending = true;
+    m_CompletedFrameAwaitingSwap = false;
+    m_CompletedFrameRequestId = requestId;
+    m_CompletedFrameDetail.clear();
+    update();
+}
+
+void igQtRenderWidget::CancelCompletedFrame(quint64 requestId) {
+    if (!m_CompletedFrameRequestPending || m_CompletedFrameRequestId != requestId) {
+        return;
+    }
+    m_CompletedFrameRequestPending = false;
+    m_CompletedFrameAwaitingSwap = false;
+    m_CompletedFrameDetail.clear();
+    // A queued ordinary repaint needs no Scene-level cancellation.
+}
+
+void igQtRenderWidget::CompleteRequestedFrame(bool success, const QString& detail) {
+    const quint64 requestId = m_CompletedFrameRequestId;
+    // Clear before emitting: a receiver may schedule the next request.
+    m_CompletedFrameRequestPending = false;
+    m_CompletedFrameAwaitingSwap = false;
+    m_CompletedFrameDetail.clear();
+    emit CompletedFrame(requestId, success, detail);
+}
+
+void igQtRenderWidget::OnFrameSwapped() {
+    if (!m_CompletedFrameRequestPending || !m_CompletedFrameAwaitingSwap) { return; }
+    if (!m_Scene || !isValid()) {
+        CompleteRequestedFrame(false, QStringLiteral(
+                "Render scene or OpenGL context was lost before Qt frameSwapped"));
+        return;
+    }
+    const QString detail = m_CompletedFrameDetail +
+            QStringLiteral("; Qt frameSwapped completed");
+    CompleteRequestedFrame(true, detail);
+}
+
+void igQtRenderWidget::paintGL() {
+    const bool acknowledgeRepaint =
+            m_CompletedFrameRequestPending && !m_CompletedFrameAwaitingSwap;
+    const quint64 requestedId = m_CompletedFrameRequestId;
+    m_Scene->Draw();
+    if (!acknowledgeRepaint || !m_CompletedFrameRequestPending ||
+        m_CompletedFrameRequestId != requestedId) {
+        return;
+    }
+    // Observe the normal renderer without overriding pacing or interaction.
+    // Draw may reuse the old framebuffer; do not label this as full rendering.
+    m_CompletedFrameDetail = QStringLiteral(
+            "Normal Scene::Draw returned with original frame pacing and interaction LOD; "
+            "new full-resolution rendering and GPU completion are not verified");
+    m_CompletedFrameAwaitingSwap = true;
+}
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
