@@ -209,7 +209,7 @@ bool Scene::Initialize() {
     // 添加中心坐标轴到模型池
     m_CenterAxesModel->AddViewStyle(
             IG_WIREFRAME);                   // 添加线框视图样式（默认不显示线）
-    //m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
+    m_CenterAxesModel->SetAlwaysOnTop(true);
     m_CenterAxesModel->ConvertToDrawableData(); // 初始化几何数据
     m_CenterAxesModel->SyncGpuBuffers();        // 上传GPU数据
     this->AddModel(m_CenterAxesModel);          // 加入模型池
@@ -1130,7 +1130,7 @@ void Scene::DrawFrame() {
 #endif
 
         // Draw painter 2d and axes
-        BindFramebuffer();
+        m_Framebuffer->Bind();
         glViewport(0, 0, viewport.x, viewport.y);
         {
             // Draw painter 2D in the image top
@@ -1140,10 +1140,9 @@ void Scene::DrawFrame() {
             }
             if (m_TextOverlay2DActor) { m_TextOverlay2DActor->Draw(); }
 
-            // Draw axes in bottom left
             if (m_AxesVisible) {
                 int mx = std::max(viewport.x, viewport.y);
-                glViewport(0, 0, mx / 10, mx / 10);
+                glViewport(0, 0, mx / 12, mx / 12);
                 m_Axes->Draw();
             }
         }

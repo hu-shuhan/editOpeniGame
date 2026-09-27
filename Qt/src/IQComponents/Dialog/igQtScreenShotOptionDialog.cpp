@@ -1,5 +1,7 @@
 #include "IQComponents/Dialog/igQtScreenShotOptionDialog.h"
 
+#include <IQWidgets/igQtRenderWidget.h>
+#include <QEvent>
 #include <QFormLayout>
 #include <QIntValidator>
 #include <QLabel>
@@ -7,20 +9,34 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+namespace {
+QString bodyThemeQss() {
+    return QStringLiteral(
+                   "QWidget { background-color: transparent; color: %1; }"
+                   "QLabel { color: %1; }"
+                   "QLineEdit { background-color: %2; color: %1; border: 1px solid %3; padding: 4px; border-radius: 3px; }"
+                   "QLineEdit:focus { border: 1px solid %4; }"
+                   "QPushButton { background-color: %2; color: %1; border: 1px solid %3; padding: 6px 12px; border-radius: 4px; }"
+                   "QPushButton:hover { background-color: %5; }"
+                   "QPushButton:pressed { background-color: %6; }")
+            .arg(igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Text),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::PanelBg2),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Border),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Accent),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::HoverBg),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::SelectionBg));
+}
+}
+
 igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget* parent) : igQtChromeFramelessDialog(parent) {
     setMinimumSize(460, 260);
     resize(520, 280);
     setMaximizeEnabled(false);
 
     auto* body = new QWidget(this);
+    m_body = body;
     body->setAttribute(Qt::WA_StyledBackground, true);
-    body->setStyleSheet(
-        "QWidget { background-color: transparent; color: #EAEAEA; }"
-        "QLabel { color: #D8D8D8; }"
-        "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 4px; border-radius: 3px; }"
-        "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 6px 12px; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #3A3A3A; }"
-        "QPushButton:pressed { background-color: #252526; }");
+    body->setStyleSheet(bodyThemeQss());
 
     auto* layout = new QVBoxLayout(body);
     layout->setContentsMargins(14, 10, 14, 14);
@@ -60,4 +76,11 @@ igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget* parent) : igQtCh
 
 std::pair<int, int> igQtScreenShotOptionDialog::getInput() {
     return {m_WidthLineEdit->text().toInt(), m_HeightLineEdit->text().toInt()};
+}
+
+void igQtScreenShotOptionDialog::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange && m_body) {
+        m_body->setStyleSheet(bodyThemeQss());
+    }
+    igQtChromeFramelessDialog::changeEvent(e);
 }

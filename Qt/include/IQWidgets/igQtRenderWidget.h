@@ -34,6 +34,29 @@ public:
   void ChangeInteractor(iGame::SmartPointer<iGame::Interactor> it);
   void ChangeInteractorStyle(IGenum style);
   void update() { QOpenGLWidget::update(); }
+  static void setGlobalStyleMode(int mode);
+  static int globalStyleMode();
+  static bool globalLightBackground();
+  static QString adaptQssToLightPalette(const QString& qss);
+
+  enum class UiRole {
+      PanelBg,
+      PanelBg2,
+      CardBg,
+      Border,
+      BorderStrong,
+      Text,
+      TextDim,
+      TextStrong,
+      Accent,
+      HoverBg,
+      SelectionBg
+  };
+  static QColor uiRole(UiRole role);
+  static QString uiRoleCss(UiRole role);
+  static QString themeRemapQss(const QString& baseQss);
+  void applyThemeBackground();
+  void setCornerCover(int radius, const QColor& coverColor);
 
   // GUI-thread only. Request a normal repaint and acknowledge its Qt swap.
   // Scene's frame pacing and interaction LOD are unchanged: this notification
@@ -67,6 +90,10 @@ public:
 
   iGame::SmartPointer<iGame::Scene> m_Scene;
   iGame::SmartPointer<iGame::Interactor> m_Interactor;
+  static int s_styleMode;
+
+  int m_cornerCoverRadius{0};
+  QColor m_cornerCoverColor{0x1E, 0x1E, 0x1E};
 
 private:
   void CompleteRequestedFrame(bool success, const QString& detail);
@@ -76,4 +103,47 @@ private:
   bool m_CompletedFrameAwaitingSwap = false;
   quint64 m_CompletedFrameRequestId = 0;
   QString m_CompletedFrameDetail;
+};
+
+struct igQtPanelTheme {
+    static void attach(QWidget* panel) {
+        if (!panel) return;
+        if (!panel->property("igPanelBaseQss").toString().isEmpty()) {
+            refresh(panel);
+            return;
+        }
+        panel->setProperty("igPanelBaseQss", panel->styleSheet());
+        refresh(panel);
+    }
+    static void refresh(QWidget* panel) {
+        if (!panel) return;
+        const QString base = panel->property("igPanelBaseQss").toString();
+        if (base.isEmpty()) return;
+        const QString mapped = igQtRenderWidget::themeRemapQss(base);
+        if (panel->styleSheet() == mapped) return;
+        panel->setStyleSheet(mapped);
+    }
+
+    static void attachDeep(QWidget* root) {
+        const QList<QWidget*> all = styledWidgets(root);
+        for (QWidget* w : all) { attach(w); }
+    }
+    static void refreshDeep(QWidget* root) {
+        const QList<QWidget*> all = styledWidgets(root);
+        for (QWidget* w : all) { refresh(w); }
+    }
+
+private:
+    static QList<QWidget*> styledWidgets(QWidget* root) {
+        QList<QWidget*> out;
+        if (!root) return out;
+        out << root;
+        const QList<QWidget*> kids = root->findChildren<QWidget*>();
+        for (QWidget* w : kids) {
+            if (!w->styleSheet().isEmpty() || !w->property("igPanelBaseQss").toString().isEmpty()) {
+                out << w;
+            }
+        }
+        return out;
+    }
 };

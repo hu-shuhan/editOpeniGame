@@ -1,5 +1,6 @@
 #include "IQWidgets/igQtSearchInfoWidget.h"
 #include "ui_igQtSearchInfo.h"
+#include <IQWidgets/igQtRenderWidget.h>
 
 #include <QDockWidget>
 #include <QHBoxLayout>
@@ -24,6 +25,8 @@ igQtSearchInfoWidget::igQtSearchInfoWidget(QWidget* parent)
     ui->setupUi(this);
     initUI();
     initConnections();
+
+    igQtPanelTheme::attachDeep(this);
 }
 
 igQtSearchInfoWidget::~igQtSearchInfoWidget() { delete ui; }
@@ -527,4 +530,11 @@ void igQtSearchInfoWidget::renderCurrentPage() {
     }
     table->resizeColumnsToContents();
     table->setSortingEnabled(true);
+}
+
+void igQtSearchInfoWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refreshDeep(this);
+    }
+    QWidget::changeEvent(e);
 }

@@ -1,4 +1,5 @@
-﻿#include <IQWidgets/igQtVariableDensityWidget.h>
+#include <IQWidgets/igQtVariableDensityWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include "ui_igQtVariableDensityWidget.h"
 #include <QElapsedTimer>
 #include <QEvent>
@@ -474,14 +475,14 @@ void igQtVariableDensityWidget::GenerateSecondChoosedDensityImage() {
 }
 
 void igQtVariableDensityWidget::GenerateBackgroundColor() {
-    // 与路径图/变量相关性等深色面板一致；原 colorBar 自适应逻辑被早退屏蔽，此处统一深色底
-    m_BackgroundColor = {0x2b, 0x2b, 0x2b};
+    const QColor c = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::CardBg);
+    m_BackgroundColor = {c.red(), c.green(), c.blue()};
 }
 
 void igQtVariableDensityWidget::_PaintPlotOnDrawWidget(QPainter& painter) {
     const QRect plotRect = ui->drawWidget->rect();
     if (m_CurrentModelDataIndex < 0 || m_VariableDensityDatas.size() <= m_CurrentModelDataIndex) {
-        painter.fillRect(plotRect, QColor(0x2b, 0x2b, 0x2b));
+        painter.fillRect(plotRect, igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::CardBg));
         return;
     }
     QRect smallDrawFrame = InsetRectByBoundaryRatio(plotRect, boundaryRatio);
@@ -662,13 +663,13 @@ void igQtVariableDensityWidget::_CalculateFrameCenterCut(const QRect& frame, QRe
 }
 
 void igQtVariableDensityWidget::_DrawCoordinateRect(QPainter& painter, const QRect& range) {
-    painter.setPen(QPen(QColor(0xa8, 0xa8, 0xa8), 1));
+    painter.setPen(QPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(range);
 }
 
 void igQtVariableDensityWidget::_DrawCenterLine(QPainter& painter, const QRect& range) {
-    painter.setPen(QPen(QColor(0xa8, 0xa8, 0xa8), 1));
+    painter.setPen(QPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text), 1));
     painter.setBrush(Qt::NoBrush);
     if (m_ImageShowDirection == ImageShowDirection::Vertical)
         painter.drawLine(QPoint(range.center().x(), range.bottom()), QPoint(range.center().x(), range.top()));
@@ -962,4 +963,12 @@ void igQtVariableDensityWidget::RefreshData() {
     //ClearVariableChoose();
     //GenerateVariableChoose();
     //GenerateBackgroundColor();
+}
+
+void igQtVariableDensityWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        GenerateBackgroundColor();
+        update();
+    }
+    QWidget::changeEvent(e);
 }

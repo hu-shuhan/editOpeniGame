@@ -1,4 +1,4 @@
-﻿#include "iGameCenterAxesModel.h"
+#include "iGameCenterAxesModel.h"
 #include "OpenGL/GLShader.h"
 #include "iGameCenterAxesModel.h"
 
@@ -65,16 +65,15 @@ void CenterAxesModel::InitializeGeometry() {
                              DEFAULT_AXIS_LENGTH); // Z轴终点 (索引6)
 
     //=== 2. 初始化颜色数据 ===
-    //m_Colors = FloatArray::New();
-    m_Colors->SetDimension(3);
+    m_Colors->SetDimension(4);
     // 每个顶点对应颜色（与位置一一对应）
-    m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // 原点颜色
-    m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // X轴红色
-    m_Colors->AddElement3(1.0f, 0.0f, 0.0f);
-    m_Colors->AddElement3(0.0f, 1.0f, 0.0f); // Y轴绿色
-    m_Colors->AddElement3(0.0f, 1.0f, 0.0f);
-    m_Colors->AddElement3(0.0f, 0.0f, 1.0f); // Z轴蓝色
-    m_Colors->AddElement3(0.0f, 0.0f, 1.0f);
+    m_Colors->AddElement4(1.0f, 0.0f, 0.0f, 1.0f);
+    m_Colors->AddElement4(1.0f, 0.0f, 0.0f, 1.0f);
+    m_Colors->AddElement4(1.0f, 0.0f, 0.0f, 1.0f);
+    m_Colors->AddElement4(0.0f, 1.0f, 0.0f, 1.0f);
+    m_Colors->AddElement4(0.0f, 1.0f, 0.0f, 1.0f);
+    m_Colors->AddElement4(0.0f, 0.0f, 1.0f, 1.0f);
+    m_Colors->AddElement4(0.0f, 0.0f, 1.0f, 1.0f);
 
     //=== 3. 初始化线段索引 ===
     //m_LineIndices = UnsignedIntArray::New();
@@ -166,26 +165,24 @@ void CenterAxesModel::SetHighlight(bool highlight) {
     if (highlight) {
         // 应用高亮颜色：所有轴变为橙色
         m_Colors->Reset();
-        m_Colors->SetDimension(3);
+        m_Colors->SetDimension(4);
 
-        // 所有顶点使用橙色
         igm::vec3 orange(1.0f, 0.5f, 0.0f);
         for (int i = 0; i < 7; i++) {
-            m_Colors->AddElement3(orange.x, orange.y, orange.z);
+            m_Colors->AddElement4(orange.x, orange.y, orange.z, 1.0f);
         }
     } else {
         // 恢复原始颜色
         m_Colors->Reset();
-        m_Colors->SetDimension(3);
+        m_Colors->SetDimension(4);
 
-        // 原始颜色布局
-        m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // 原点红色
-        m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // X轴红色
-        m_Colors->AddElement3(1.0f, 0.0f, 0.0f);
-        m_Colors->AddElement3(0.0f, 1.0f, 0.0f); // Y轴绿色
-        m_Colors->AddElement3(0.0f, 1.0f, 0.0f);
-        m_Colors->AddElement3(0.0f, 0.0f, 1.0f); // Z轴蓝色
-        m_Colors->AddElement3(0.0f, 0.0f, 1.0f);
+        m_Colors->AddElement4(1.0f, 0.0f, 0.0f, 1.0f);
+        m_Colors->AddElement4(1.0f, 0.0f, 0.0f, 1.0f);
+        m_Colors->AddElement4(1.0f, 0.0f, 0.0f, 1.0f);
+        m_Colors->AddElement4(0.0f, 1.0f, 0.0f, 1.0f);
+        m_Colors->AddElement4(0.0f, 1.0f, 0.0f, 1.0f);
+        m_Colors->AddElement4(0.0f, 0.0f, 1.0f, 1.0f);
+        m_Colors->AddElement4(0.0f, 0.0f, 1.0f, 1.0f);
     }
 
     // 标记数据已修改

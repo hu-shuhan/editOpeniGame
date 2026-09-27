@@ -1,3 +1,4 @@
+#include <IQWidgets/igQtRenderWidget.h>
 #include "ui_igQtVariableCorrelationWidget.h"
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <QElapsedTimer>
@@ -174,6 +175,8 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
     ui->setupUi(this);
 
+    igQtPanelTheme::attachDeep(this);
+
     // Qt 5 uic may misread Qt 6-style orientation enums from the .ui file.
     // Keep the correlation table's column separators vertical at runtime as well.
     for (QFrame* separator : {ui->line_3, ui->line_4, ui->line_6, ui->line_7}) {
@@ -252,6 +255,8 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     forceSpinBoxDark(ui->unChoosedAlphaSpinBox);
     forceSpinBoxDark(ui->choosedLightSpinBox);
     forceSpinBoxDark(ui->unChoosedLightSpinBox);
+
+    applyChromeTheme();
 
     connect(ui->choosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtVariableCorrelationWidget::ChoosedAlphaSliderChanged);
@@ -1082,4 +1087,80 @@ void igQtVariableCorrelationWidget::CompleteImageLoading() {
     setDisabled(false);
     m_ImageLoading = false;
     update();
+}
+
+void igQtVariableCorrelationWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refreshDeep(this);
+        applyChromeTheme();
+    }
+    QWidget::changeEvent(e);
+}
+
+void igQtVariableCorrelationWidget::applyChromeTheme() {
+    using Role = igQtRenderWidget::UiRole;
+    const QColor line = igQtRenderWidget::uiRole(Role::BorderStrong);
+    const QColor text = igQtRenderWidget::uiRole(Role::Text);
+    const QColor dim = igQtRenderWidget::uiRole(Role::TextDim);
+    const QColor spinBg = igQtRenderWidget::uiRole(Role::PanelBg2);
+    const QColor spinBtn = igQtRenderWidget::uiRole(Role::CardBg);
+
+    if (ui->splitter) {
+        ui->splitter->setStyleSheet(QStringLiteral(
+                "QSplitter::handle:horizontal { background-color: rgba(%1,%2,%3,0.55); margin: 0 1px; }"
+                "QSplitter::handle:horizontal:hover { background-color: rgba(%1,%2,%3,0.85); }")
+                                            .arg(line.red())
+                                            .arg(line.green())
+                                            .arg(line.blue()));
+    }
+    for (QFrame* fr : findChildren<QFrame*>()) {
+        const QFrame::Shape sh = fr->frameShape();
+        if (sh == QFrame::HLine) {
+            fr->setStyleSheet(QStringLiteral("QFrame { background-color: rgba(%1,%2,%3,0.55); border: none;"
+                                             " min-height: 1px; max-height: 2px; }")
+                                      .arg(line.red())
+                                      .arg(line.green())
+                                      .arg(line.blue()));
+        } else if (sh == QFrame::VLine) {
+            fr->setStyleSheet(QStringLiteral("QFrame { background-color: rgba(%1,%2,%3,0.55); border: none;"
+                                             " min-width: 1px; max-width: 3px; }")
+                                      .arg(line.red())
+                                      .arg(line.green())
+                                      .arg(line.blue()));
+        }
+    }
+
+    ApplyCaptionLabelStyle(ui->label_10, text.red(), text.green(), text.blue(), 0.96, 15);
+    for (QLabel* hdr : {ui->label, ui->label_2, ui->label_3, ui->label_4, ui->label_5}) {
+        ApplyCaptionLabelStyle(hdr, text.red(), text.green(), text.blue(), 0.97, 16);
+    }
+    for (QLabel* row : {ui->label_6, ui->label_7, ui->label_8, ui->label_9}) {
+        ApplyCaptionLabelStyle(row, dim.red(), dim.green(), dim.blue(), 0.95, 15);
+    }
+    for (QLabel* meta : {ui->mainVariableName, ui->subVariableName, ui->mainVariablePos, ui->subVariablePos}) {
+        ApplyCaptionLabelStyle(meta, dim.red(), dim.green(), dim.blue(), 0.94, 15);
+    }
+
+    auto themedSpin = [&](QAbstractSpinBox* sb) {
+        if (!sb) return;
+        QPalette p = sb->palette();
+        p.setColor(QPalette::Base, spinBg);
+        p.setColor(QPalette::Window, spinBg);
+        p.setColor(QPalette::Button, spinBtn);
+        p.setColor(QPalette::Text, text);
+        p.setColor(QPalette::WindowText, text);
+        p.setColor(QPalette::ButtonText, text);
+        sb->setAutoFillBackground(true);
+        sb->setPalette(p);
+        sb->setStyleSheet(QStringLiteral(
+                "QAbstractSpinBox { background-color: %1; color: %2; border: 1px solid %3; border-radius: 4px; }"
+                "QAbstractSpinBox QLineEdit { background-color: transparent; color: %2; border: none; }")
+                                  .arg(igQtRenderWidget::uiRoleCss(Role::PanelBg2),
+                                       igQtRenderWidget::uiRoleCss(Role::Text),
+                                       igQtRenderWidget::uiRoleCss(Role::Border)));
+    };
+    themedSpin(ui->choosedAlphaSpinBox);
+    themedSpin(ui->unChoosedAlphaSpinBox);
+    themedSpin(ui->choosedLightSpinBox);
+    themedSpin(ui->unChoosedLightSpinBox);
 }

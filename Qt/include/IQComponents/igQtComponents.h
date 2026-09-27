@@ -42,12 +42,12 @@ public:
 
 protected:
     void init() {
-        defaultStyle = "width:24px;height:24px;border-style:solid;border-width:"
+        defaultStyle = "width:20px;height:20px;border-style:solid;border-width:"
                        "1px;border-color:rgba(0,0,0,0);border-radius:2px;";
-        honorStyle = "width:24px;height:24px;border-style:solid;border-width:"
+        honorStyle = "width:20px;height:20px;border-style:solid;border-width:"
                      "1px;border-color:rgba(0,0,0,0);border-radius:2px;"
                      "background-color: #cce8ff;";
-        checkedStyle = "width:24px;height:24px;border-style:solid;border-width:"
+        checkedStyle = "width:20px;height:20px;border-style:solid;border-width:"
                        "1px;border-color:#99d1ff;border-radius:2px;background-"
                        "color: #cce8ff;";
         setAttribute(Qt::WA_Hover, true);
@@ -76,6 +76,15 @@ protected:
     void leaveEvent(QEvent* event) override {
         QPushButton::leaveEvent(event);
         if (!m_checked) { setStyleSheet(defaultStyle); }
+    }
+
+    bool event(QEvent* e) override {
+        if (e->type() == QEvent::HoverEnter || e->type() == QEvent::HoverMove) {
+            if (!m_checked && styleSheet() != honorStyle) { setStyleSheet(honorStyle); }
+        } else if (e->type() == QEvent::HoverLeave) {
+            if (!m_checked && styleSheet() != defaultStyle) { setStyleSheet(defaultStyle); }
+        }
+        return QPushButton::event(e);
     }
 
 private:
