@@ -120,6 +120,11 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      const double gcenter[3],
                      const double blockCenter[3], double radius,
                      int width, int height, int port, bool useTree,
+                     bool useRadixK,
+                     const std::vector<iGame::StructuredMesh::Pointer>& volumes,
+                     const std::vector<iGame::UnsignedCharArray::Pointer>& masks,
+                     int numFrames, int startFrame,
+                     const std::string& fieldName,
                      double voxelSize = 0.0, double hqStepScale = 1.5,
                      double lqStepScale = 4.0, int lqDivisor = 2) {
     auto ctx = iGame::ParallelContext::Instance();
@@ -138,6 +143,9 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
     // 触发本帧的 INTERACT 命令序号（rank 0 维护，随帧回传给客户端测 RTT）。
     std::uint32_t frameSeq = 0;
+
+    // 多帧播放：当前帧序号（0..numFrames-1）。所有 rank 保持一致（由 frameStep 广播驱动）。
+    int curFrame = startFrame;
 
     // ---------- socket 监听 / 接受（仅 rank 0） ----------
     // 注意：任何 rank 0 侧的 socket 失败都必须通过 Broadcast 通知所有 rank 一起退出，
@@ -200,6 +208,12 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     elevation = 0.0;
     distance = radius * 3.0;
     frameSeq = 0;
+    curFrame = startFrame;
+    // 新客户端回到起始帧：把光线步进器输入切回起始帧（上一客户端可能切到过别的帧）。
+    if (numFrames > 1) {
+        rayCaster->SetInput(volumes[static_cast<size_t>(startFrame)]);
+        rayCaster->SetValidMask(masks[static_cast<size_t>(startFrame)]);
+    }
     netbuf.clear();
     clientSock = PV_INVALID_SOCKET;
 
@@ -231,13 +245,19 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 #endif
                        sizeof(one));
 
-            // 握手：发送标量范围 + colorbar ramp + 渲染分辨率。
+            // 握手：发送标量范围 + colorbar ramp + 渲染分辨率 + 帧数 + 字段名。
             iGamePVNet::Metadata meta;
             meta.width = width;
             meta.height = height;
+            meta.numFrames = numFrames;
             meta.scalarMin = globalMin;
             meta.scalarMax = globalMax;
             BuildColorbarRamp(tf, meta.colorbar);
+            std::memset(meta.fieldName, 0, sizeof(meta.fieldName));
+            if (!fieldName.empty()) {
+                std::strncpy(meta.fieldName, fieldName.c_str(),
+                             sizeof(meta.fieldName) - 1);
+            }
             if (!iGamePVNet::SendMetadata(clientSock, meta)) {
                 std::cerr << "[server] send metadata failed\n";
                 serverStatus = 0;
@@ -340,13 +360,15 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
         // 分布式深度有序合成。默认走「稀疏 ROI 合成」：每个 rank 只上报自己非空像素的
         // 外接矩形，汇聚量与 rank 0 工作量都和 rank 数基本解耦（对标 IceT
-        // valid_pixels_viewport）。--tree 时改走并行树合成。
+        // valid_pixels_viewport）。--tree 时改走并行树合成；--radix-k 时改走 radix-k
+        // 合成（对标 IceT icetRadixkCompose，通信与合成摊到所有 rank）。
         auto composite = iGame::iGameCompositePass::New();
         composite->SetLocalImage(fw, fh, rgba, depth);
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
         composite->SetUseTreeComposite(useTree);
+        composite->SetUseRadixKComposite(useRadixK);
         const auto tComposite0 = std::chrono::steady_clock::now();
         const bool compositeOk = composite->Composite();
         const auto tComposite1 = std::chrono::steady_clock::now();
@@ -399,7 +421,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             if (rawSize <= 0) {
                 sent = iGamePVNet::SendFramePayload(clientSock, fw, fh,
                         iGamePVNet::kCodecRawRGBA, rx0, ry0, roiW, roiH,
-                        nullptr, 0, frameSeq);
+                        nullptr, 0, frameSeq, curFrame);
             } else {
                 std::vector<unsigned char> comp;
                 uLongf compLen = compressBound(static_cast<uLong>(rawSize));
@@ -410,11 +432,13 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                     sent = iGamePVNet::SendFramePayload(
                             clientSock, fw, fh, iGamePVNet::kCodecZlib,
                             rx0, ry0, roiW, roiH, comp.data(),
-                            static_cast<std::int32_t>(compLen), frameSeq);
+                            static_cast<std::int32_t>(compLen), frameSeq,
+                            curFrame);
                 } else {
                     sent = iGamePVNet::SendFramePayload(
                             clientSock, fw, fh, iGamePVNet::kCodecRawRGBA,
-                            rx0, ry0, roiW, roiH, roi.data(), rawSize, frameSeq);
+                            rx0, ry0, roiW, roiH, roi.data(), rawSize, frameSeq,
+                            curFrame);
                 }
             }
 
@@ -459,6 +483,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         bool cameraChanged = false;
         double accAzim = 0.0, accElev = 0.0, accZoom = 1.0;
         int interactiveMode = 0;
+        int frameStep = 0; // 本批 NEXT/PREV 累积的帧步进（+1/-1）
 
         if (rank == 0) {
             // 1) 阻塞读到至少一行命令。
@@ -506,6 +531,16 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                         }
                         continue;
                     }
+                    if (op == "NEXT") {
+                        frameStep += 1;
+                        needRender = true;
+                        continue;
+                    }
+                    if (op == "PREV") {
+                        frameStep -= 1;
+                        needRender = true;
+                        continue;
+                    }
                     std::cerr << "[server] unknown cmd: " << line << '\n';
                 }
             }
@@ -517,10 +552,21 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         ctx->Broadcast(&needRenderFlag, 1, 0);
         ctx->Broadcast(&cameraChangedFlag, 1, 0);
         ctx->Broadcast(&interactiveMode, 1, 0);
+        ctx->Broadcast(&frameStep, 1, 0);
 
         if (!needRenderFlag) { continue; }
 
         const int interactive = (interactiveMode != 0) ? 1 : 0;
+
+        // 多帧播放切帧：NEXT/PREV 越界回绕。所有 rank 用同一 frameStep + 同一
+        // numFrames，因此 curFrame 全程一致；切帧只换数据指针（SetInput 重提标量场），
+        // 渲染/合成路径不变，帧率不受影响。
+        if (frameStep != 0 && numFrames > 1) {
+            curFrame = (curFrame + frameStep) % numFrames;
+            if (curFrame < 0) { curFrame += numFrames; }
+            rayCaster->SetInput(volumes[static_cast<size_t>(curFrame)]);
+            rayCaster->SetValidMask(masks[static_cast<size_t>(curFrame)]);
+        }
 
         // rank 0 累积轨道增量并计算绝对相机参数。
         if (rank == 0 && cameraChangedFlag) {

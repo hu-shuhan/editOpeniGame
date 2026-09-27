@@ -49,6 +49,7 @@ inline double g_elevation = 0.0;   // 相机轨道仰角（弧度）
 inline double g_distance = 1.0;    // 相机到全局中心的距离
 inline double g_center[3] = {0.0, 0.0, 0.0}; // 全局包围盒中心（世界坐标）
 inline double g_diag = 1.0;        // 全局包围盒对角线（用于缩放/初始距离）
+inline int g_frameStepRequest = 0; // 待处理的切帧请求（+1=N 下一帧，-1=P 上一帧），仅 rank 0
 
 inline void ClampElevation() {
     const double kMaxElev = 1.55; // ~89°，避免 up 向量退化
@@ -287,6 +288,52 @@ inline const unsigned char* Glyph(char c) {
             {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}, // 'T'
             {0x00, 0x00, 0x1B, 0x15, 0x15, 0x15, 0x15}, // 'm'
             {0x00, 0x00, 0x0E, 0x10, 0x0E, 0x01, 0x1E}, // 's'
+            {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11}, // 'N'
+            {0x00, 0x00, 0x11, 0x0A, 0x04, 0x0A, 0x11}, // 'x'
+            {0x04, 0x04, 0x0E, 0x04, 0x04, 0x04, 0x06}, // 't'
+            {0x00, 0x00, 0x16, 0x19, 0x10, 0x10, 0x10}, // 'r'
+            {0x00, 0x00, 0x0E, 0x01, 0x0F, 0x11, 0x0F}, // 'a'
+            {0x00, 0x00, 0x11, 0x11, 0x0A, 0x0A, 0x04}, // 'v'
+            {0x04, 0x00, 0x0C, 0x04, 0x04, 0x04, 0x0E}, // 'i'
+            {0x00, 0x00, 0x0E, 0x11, 0x11, 0x11, 0x0E}, // 'o'
+            {0x00, 0x00, 0x11, 0x11, 0x11, 0x13, 0x0D}, // 'u'
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0x04}, // ','
+            {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}, // 'A'
+            {0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E}, // 'B'
+            {0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E}, // 'C'
+            {0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E}, // 'D'
+            {0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F}, // 'G'
+            {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}, // 'H'
+            {0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E}, // 'I'
+            {0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0C}, // 'J'
+            {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11}, // 'K'
+            {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F}, // 'L'
+            {0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11}, // 'M'
+            {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}, // 'O'
+            {0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D}, // 'Q'
+            {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}, // 'U'
+            {0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04}, // 'V'
+            {0x11, 0x11, 0x11, 0x15, 0x15, 0x1B, 0x11}, // 'W'
+            {0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11}, // 'X'
+            {0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04}, // 'Y'
+            {0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F}, // 'Z'
+            {0x10, 0x10, 0x16, 0x19, 0x11, 0x11, 0x1E}, // 'b'
+            {0x00, 0x00, 0x0E, 0x10, 0x10, 0x11, 0x0E}, // 'c'
+            {0x01, 0x01, 0x0D, 0x13, 0x11, 0x11, 0x0F}, // 'd'
+            {0x06, 0x09, 0x08, 0x1C, 0x08, 0x08, 0x08}, // 'f'
+            {0x00, 0x00, 0x0F, 0x11, 0x0F, 0x01, 0x0E}, // 'g'
+            {0x10, 0x10, 0x16, 0x19, 0x11, 0x11, 0x11}, // 'h'
+            {0x02, 0x00, 0x06, 0x02, 0x02, 0x12, 0x0C}, // 'j'
+            {0x10, 0x10, 0x12, 0x14, 0x18, 0x14, 0x12}, // 'k'
+            {0x0C, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E}, // 'l'
+            {0x00, 0x00, 0x16, 0x19, 0x11, 0x11, 0x11}, // 'n'
+            {0x00, 0x00, 0x1E, 0x11, 0x1E, 0x10, 0x10}, // 'p'
+            {0x00, 0x00, 0x0D, 0x13, 0x0F, 0x01, 0x01}, // 'q'
+            {0x00, 0x00, 0x11, 0x11, 0x15, 0x15, 0x0A}, // 'w'
+            {0x00, 0x00, 0x11, 0x11, 0x0F, 0x01, 0x0E}, // 'y'
+            {0x00, 0x00, 0x1F, 0x02, 0x04, 0x08, 0x1F}, // 'z'
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F}, // '_'
+            {0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10}, // '/'
     };
     static const unsigned char kSpace[7] = {0, 0, 0, 0, 0, 0, 0};
 
@@ -305,6 +352,52 @@ inline const unsigned char* Glyph(char c) {
         case 'T': return kFont[20];
         case 'm': return kFont[21];
         case 's': return kFont[22];
+        case 'N': return kFont[23];
+        case 'x': return kFont[24];
+        case 't': return kFont[25];
+        case 'r': return kFont[26];
+        case 'a': return kFont[27];
+        case 'v': return kFont[28];
+        case 'i': return kFont[29];
+        case 'o': return kFont[30];
+        case 'u': return kFont[31];
+        case ',': return kFont[32];
+        case 'A': return kFont[33];
+        case 'B': return kFont[34];
+        case 'C': return kFont[35];
+        case 'D': return kFont[36];
+        case 'G': return kFont[37];
+        case 'H': return kFont[38];
+        case 'I': return kFont[39];
+        case 'J': return kFont[40];
+        case 'K': return kFont[41];
+        case 'L': return kFont[42];
+        case 'M': return kFont[43];
+        case 'O': return kFont[44];
+        case 'Q': return kFont[45];
+        case 'U': return kFont[46];
+        case 'V': return kFont[47];
+        case 'W': return kFont[48];
+        case 'X': return kFont[49];
+        case 'Y': return kFont[50];
+        case 'Z': return kFont[51];
+        case 'b': return kFont[52];
+        case 'c': return kFont[53];
+        case 'd': return kFont[54];
+        case 'f': return kFont[55];
+        case 'g': return kFont[56];
+        case 'h': return kFont[57];
+        case 'j': return kFont[58];
+        case 'k': return kFont[59];
+        case 'l': return kFont[60];
+        case 'n': return kFont[61];
+        case 'p': return kFont[62];
+        case 'q': return kFont[63];
+        case 'w': return kFont[64];
+        case 'y': return kFont[65];
+        case 'z': return kFont[66];
+        case '_': return kFont[67];
+        case '/': return kFont[68];
         case ' ': return kSpace;
         default: return kSpace;
     }
@@ -406,6 +499,13 @@ inline void ScrollCallback(GLFWwindow*, double, double yoffset) {
     ClampDistance();
 }
 
+// 键盘回调（仅 rank 0）：N = 下一帧，P = 上一帧（越界由渲染循环回绕）。
+inline void KeyCallback(GLFWwindow*, int key, int, int action, int) {
+    if (action != GLFW_PRESS) { return; }
+    if (key == GLFW_KEY_N) { g_frameStepRequest += 1; }
+    else if (key == GLFW_KEY_P) { g_frameStepRequest -= 1; }
+}
+
 // ---------------------------------------------------------------------------
 // 交互渲染循环（所有 rank 共同调用）。
 // ---------------------------------------------------------------------------
@@ -415,11 +515,16 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                           double globalMin, double globalMax,
                           const double gcenter[3],
                           const double blockCenter[3], double radius, int width,
-                          int height, bool useTree, double voxelSize = 0.0,
-                          double hqStepScale = 1.5, double lqStepScale = 4.0,
-                          int lqDivisor = 2) {
+                          int height, bool useTree, bool useRadixK,
+                          const std::vector<iGame::StructuredMesh::Pointer>& volumes,
+                          const std::vector<iGame::UnsignedCharArray::Pointer>& masks,
+                          int numFrames, int startFrame,
+                          const std::string& fieldName,
+                          double voxelSize = 0.0, double hqStepScale = 1.5,
+                          double lqStepScale = 4.0, int lqDivisor = 2) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
+    int curFrame = startFrame; // 多帧播放当前帧（所有 rank 一致，由 frameStep 广播驱动）
 
     // LOD 两档分辨率（与 ParallelVolumeServer 口径一致，所有 rank 同样算得同样结果）。
     const int hqW = width;
@@ -475,11 +580,16 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
         glfwSetMouseButtonCallback(rawWindow, MouseButtonCallback);
         glfwSetCursorPosCallback(rawWindow, CursorPosCallback);
         glfwSetScrollCallback(rawWindow, ScrollCallback);
+        glfwSetKeyCallback(rawWindow, KeyCallback);
 
         std::cout << "[rank 0] scalar range [" << globalMin << ", "
                   << globalMax << "]\n";
         std::cout << "[rank 0] interactive: left-drag = rotate, wheel = zoom; "
                      "fps shown while rotating.\n";
+        if (numFrames > 1) {
+            std::cout << "[rank 0] playback: N = next frame, P = previous frame"
+                         " (wraps around).\n";
+        }
         std::cout.flush();
     }
 
@@ -491,6 +601,7 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
     while (true) {
         int shouldClose = 0;
         int interactive = 0;
+        int frameStep = 0;
         double camPos[3] = {0.0, 0.0, 0.0};
         double camFp[3] = {0.0, 0.0, 0.0};
         double camUp[3] = {0.0, 1.0, 0.0};
@@ -499,6 +610,8 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
             glfwPollEvents();
             shouldClose = glfwWindowShouldClose(rawWindow) ? 1 : 0;
             interactive = g_interacting ? 1 : 0;
+            frameStep = g_frameStepRequest;
+            g_frameStepRequest = 0;
 
             const double elev = g_elevation;
             const double dir[3] = {
@@ -515,9 +628,18 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
         ctx->Broadcast(&shouldClose, 1, 0);
         if (shouldClose) { break; }
         ctx->Broadcast(&interactive, 1, 0);
+        ctx->Broadcast(&frameStep, 1, 0);
         ctx->Broadcast(camPos, 3, 0);
         ctx->Broadcast(camFp, 3, 0);
         ctx->Broadcast(camUp, 3, 0);
+
+        // 多帧播放切帧：N/P 越界回绕；只换数据指针，渲染/合成路径不变，帧率不受影响。
+        if (frameStep != 0 && numFrames > 1) {
+            curFrame = (curFrame + frameStep) % numFrames;
+            if (curFrame < 0) { curFrame += numFrames; }
+            rayCaster->SetInput(volumes[static_cast<size_t>(curFrame)]);
+            rayCaster->SetValidMask(masks[static_cast<size_t>(curFrame)]);
+        }
 
         // 所有 rank 更新相机（位置/焦点/上方向 + 全局裁剪范围）。
         camera->SetPosition(static_cast<float>(camPos[0]),
@@ -572,13 +694,15 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                                      static_cast<unsigned>(fh)},
                           rgba, depth);
 
-        // 分布式合成（默认稀疏 ROI 路径；--tree 时走并行树合成，O(log P) 轮）。
+        // 分布式合成（默认稀疏 ROI 路径；--tree 走并行树合成，--radix-k 走 radix-k
+        // 合成，O(log_k P) 轮）。
         auto composite = iGame::iGameCompositePass::New();
         composite->SetLocalImage(fw, fh, rgba, depth);
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
         composite->SetUseTreeComposite(useTree);
+        composite->SetUseRadixKComposite(useRadixK);
         if (!composite->Composite()) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }
             break;
@@ -611,6 +735,28 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
 
             DrawColorBar(globalMin, globalMax, static_cast<float>(fbW),
                          static_cast<float>(fbH));
+
+            const float white[3] = {1.0f, 1.0f, 1.0f};
+
+            // 字段名（放在 colorbar 附近，其刻度下方）。
+            if (!fieldName.empty()) {
+                DrawText(("Field: " + fieldName).c_str(), 24.0f, 24.0f, 2.0f,
+                         white, static_cast<float>(fbW),
+                         static_cast<float>(fbH));
+            }
+
+            // 多帧播放：当前帧号 + 操作说明（英文，常驻显示）。
+            if (numFrames > 1) {
+                char frameBuf[64];
+                std::snprintf(frameBuf, sizeof(frameBuf), "Frame %d/%d",
+                              curFrame + 1, numFrames);
+                DrawText(frameBuf, 24.0f, static_cast<float>(fbH) - 112.0f, 2.0f,
+                         white, static_cast<float>(fbW),
+                         static_cast<float>(fbH));
+                DrawText("N-Next Frame, P-Previous Frame", 24.0f,
+                         static_cast<float>(fbH) - 88.0f, 2.0f, white,
+                         static_cast<float>(fbW), static_cast<float>(fbH));
+            }
 
             if (g_interacting) {
                 char fpsBuf[64];

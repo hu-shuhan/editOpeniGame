@@ -20,12 +20,19 @@ IGAME_NAMESPACE_BEGIN
 namespace {
 
 // ---------------------------------------------------------------------------
-// PVD 轻量解析：提取某个 timestep 的 <DataSet timestep= part= file=/>。
+// PVD 轻量解析：一次性提取「所有时间步」的 <DataSet timestep= part= file=/>。
 // 对齐 UnifiedVersion/DataDistribution.cpp::ParsePvd —— 只解析 XML，不读分块数据。
+//
+// 多帧播放的关键先验（并行体绘制正确性前提）：每一帧的分块数量一致、相同 part 的
+// 空间位置不变，因此「part」是跨时间步的稳定键；文件路径才随时间步变化。
 // ---------------------------------------------------------------------------
-bool ParsePvdPieces(const std::string& pvdPath, int timestep,
-                    std::vector<std::pair<int, std::string>>& pieces,
-                    std::string& err) {
+struct PvdAllFrames {
+    std::vector<int> timesteps;                                // 时间步值（首次出现顺序）
+    std::vector<std::vector<std::pair<int, std::string>>> pieces; // [frame]，按 part 升序
+};
+
+bool ParsePvdAllFrames(const std::string& pvdPath, PvdAllFrames& out,
+                       std::string& err) {
     tinyxml2::XMLDocument doc;
     if (doc.LoadFile(pvdPath.c_str()) != tinyxml2::XML_SUCCESS) {
         err = "cannot open pvd: " + pvdPath;
@@ -40,23 +47,43 @@ bool ParsePvdPieces(const std::string& pvdPath, int timestep,
     const std::string dir =
             (slash == std::string::npos) ? std::string() : pvdPath.substr(0, slash + 1);
 
-    std::map<int, std::string> byPart;
+    // 先按时间步分组（保持时间步首次出现顺序）。
+    std::map<int, int> tsIndex;               // timestep -> frame index
+    std::vector<std::map<int, std::string>> byFrame;
     for (tinyxml2::XMLElement* ds = collection->FirstChildElement("DataSet"); ds;
          ds = ds->NextSiblingElement("DataSet")) {
         const int t = ds->IntAttribute("timestep", 0);
-        if (t != timestep) continue;
         const char* file = ds->Attribute("file");
         if (!file || !*file) continue;
-        const int part = ds->IntAttribute("part", static_cast<int>(byPart.size()));
-        byPart[part] = dir + file;
+
+        int idx = -1;
+        const auto it = tsIndex.find(t);
+        if (it == tsIndex.end()) {
+            idx = static_cast<int>(byFrame.size());
+            tsIndex[t] = idx;
+            byFrame.emplace_back();
+        } else {
+            idx = it->second;
+        }
+        const int part = ds->IntAttribute("part", static_cast<int>(byFrame[idx].size()));
+        byFrame[idx][part] = dir + file;
     }
-    if (byPart.empty()) {
-        err = "pvd has no <DataSet> for timestep " + std::to_string(timestep);
+    if (byFrame.empty()) {
+        err = "pvd has no <DataSet>";
         return false;
     }
-    pieces.clear();
-    pieces.reserve(byPart.size());
-    for (auto& kv : byPart) { pieces.emplace_back(kv.first, kv.second); }
+
+    out.timesteps.resize(byFrame.size());
+    out.pieces.resize(byFrame.size());
+    for (const auto& kv : tsIndex) {
+        out.timesteps[static_cast<size_t>(kv.second)] = kv.first;
+    }
+    for (size_t f = 0; f < byFrame.size(); ++f) {
+        out.pieces[f].reserve(byFrame[f].size());
+        for (const auto& kv : byFrame[f]) {
+            out.pieces[f].emplace_back(kv.first, kv.second);
+        }
+    }
     return true;
 }
 
@@ -154,6 +181,64 @@ void BroadcastRawPieces(std::vector<std::pair<int, std::string>>& pieces, int ro
             pieces[i].first = part;
             pieces[i].second.resize(static_cast<size_t>(len));
             is.read(pieces[i].second.data(), len);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 广播所有帧的 (timestep, part -> file) 映射。root 序列化，非 root 反序列化。
+// 与 BroadcastRawPieces 同一套二进制口径（x86_64 小端）。
+// ---------------------------------------------------------------------------
+void BroadcastAllFrames(std::vector<int>& timesteps,
+                        std::vector<std::map<int, std::string>>& frames, int root) {
+    auto* ctx = ParallelContext::Instance().GetPointer();
+    const int rank = ctx->Rank();
+
+    std::string buf;
+    if (rank == root) {
+        std::ostringstream os(std::ios::binary);
+        const int nf = static_cast<int>(frames.size());
+        os.write(reinterpret_cast<const char*>(&nf), sizeof(nf));
+        for (int f = 0; f < nf; ++f) {
+            const int t = (f < static_cast<int>(timesteps.size())) ? timesteps[f] : 0;
+            const int np = static_cast<int>(frames[f].size());
+            os.write(reinterpret_cast<const char*>(&t), sizeof(t));
+            os.write(reinterpret_cast<const char*>(&np), sizeof(np));
+            for (const auto& kv : frames[f]) {
+                const int part = kv.first;
+                const int len = static_cast<int>(kv.second.size());
+                os.write(reinterpret_cast<const char*>(&part), sizeof(part));
+                os.write(reinterpret_cast<const char*>(&len), sizeof(len));
+                os.write(kv.second.data(), len);
+            }
+        }
+        buf = os.str();
+    }
+
+    int bufLen = static_cast<int>(buf.size());
+    ctx->Broadcast(&bufLen, 1, root);
+    if (rank != root) { buf.resize(static_cast<size_t>(bufLen)); }
+    if (bufLen > 0) { ctx->Broadcast(buf.data(), bufLen, root); }
+
+    if (rank != root) {
+        std::istringstream is(buf, std::ios::binary);
+        int nf = 0;
+        is.read(reinterpret_cast<char*>(&nf), sizeof(nf));
+        timesteps.resize(static_cast<size_t>(nf));
+        frames.assign(static_cast<size_t>(nf), {});
+        for (int f = 0; f < nf; ++f) {
+            int t = 0, np = 0;
+            is.read(reinterpret_cast<char*>(&t), sizeof(t));
+            is.read(reinterpret_cast<char*>(&np), sizeof(np));
+            timesteps[static_cast<size_t>(f)] = t;
+            for (int p = 0; p < np; ++p) {
+                int part = 0, len = 0;
+                is.read(reinterpret_cast<char*>(&part), sizeof(part));
+                is.read(reinterpret_cast<char*>(&len), sizeof(len));
+                std::string s(static_cast<size_t>(len), '\0');
+                is.read(s.data(), len);
+                frames[static_cast<size_t>(f)][part] = std::move(s);
+            }
         }
     }
 }
@@ -385,13 +470,19 @@ bool iGameVolumeDistributor::ComputeFileDistribution(const std::string& inputPat
     const int rank = ctx->Rank();
 
     // 1) 枚举分块文件列表（rank0 解析，广播给所有 rank）。
-    std::vector<std::pair<int, std::string>> raw;
+    //    PVD 一次性解析「所有时间步」（多帧播放）；目录 / 单文件只有 1 帧。
+    std::vector<std::pair<int, std::string>> raw; // 分发所用的那一帧（按 timestep 选定）
     std::string err;
     std::error_code ec;
     const bool isDir = std::filesystem::is_directory(inputPath, ec);
     if (rank == 0) {
+        m_Timesteps.clear();
+        m_PartFileByTimestep.clear();
         if (isDir) {
             EnumerateDirPieces(inputPath, raw, err);
+            m_Timesteps.push_back(0);
+            m_PartFileByTimestep.emplace_back();
+            for (const auto& kv : raw) { m_PartFileByTimestep.back()[kv.first] = kv.second; }
         } else {
             std::string lower = inputPath;
             std::transform(lower.begin(), lower.end(), lower.begin(),
@@ -399,14 +490,33 @@ bool iGameVolumeDistributor::ComputeFileDistribution(const std::string& inputPat
             const bool isPvd =
                     lower.size() >= 4 && lower.substr(lower.size() - 4) == ".pvd";
             if (isPvd) {
-                ParsePvdPieces(inputPath, timestep, raw, err);
+                PvdAllFrames frames;
+                if (ParsePvdAllFrames(inputPath, frames, err)) {
+                    m_Timesteps = std::move(frames.timesteps);
+                    m_PartFileByTimestep.resize(frames.pieces.size());
+                    for (size_t f = 0; f < frames.pieces.size(); ++f) {
+                        for (const auto& kv : frames.pieces[f]) {
+                            m_PartFileByTimestep[f][kv.first] = kv.second;
+                        }
+                    }
+                    // 选定 timestep 对应的帧（找不到退回第 0 帧）。
+                    int fi = 0;
+                    for (int f = 0; f < static_cast<int>(m_Timesteps.size()); ++f) {
+                        if (m_Timesteps[f] == timestep) { fi = f; break; }
+                    }
+                    raw = std::move(frames.pieces[fi]);
+                }
             } else {
                 raw.emplace_back(0, inputPath); // 单文件 = 一个分块
+                m_Timesteps.push_back(0);
+                m_PartFileByTimestep.emplace_back();
+                m_PartFileByTimestep.back()[0] = inputPath;
             }
         }
         if (raw.empty() && err.empty()) { err = "no pieces to render"; }
         if (!err.empty()) { std::cerr << "[distributor] " << err << '\n'; }
     }
+    BroadcastAllFrames(m_Timesteps, m_PartFileByTimestep, 0);
     BroadcastRawPieces(raw, 0);
 
     const int n = static_cast<int>(raw.size());
@@ -567,6 +677,25 @@ bool iGameVolumeDistributor::ComputeFileDistribution(const std::string& inputPat
         }
     }
     return true;
+}
+
+const std::string& iGameVolumeDistributor::GetLocalPieceFile(int i,
+                                                             int frameIndex) const {
+    // 越界 / 该帧缺该 part 时退回「分发所用的那一帧」的文件（不应发生：各帧 part 集合一致）。
+    if (frameIndex >= 0 &&
+        frameIndex < static_cast<int>(m_PartFileByTimestep.size())) {
+        const auto& m = m_PartFileByTimestep[static_cast<size_t>(frameIndex)];
+        const auto it = m.find(m_LocalFiles[static_cast<size_t>(i)].part);
+        if (it != m.end()) { return it->second; }
+    }
+    return m_LocalFiles[static_cast<size_t>(i)].file;
+}
+
+int iGameVolumeDistributor::GetFrameIndexForTimestep(int timestep) const {
+    for (int f = 0; f < static_cast<int>(m_Timesteps.size()); ++f) {
+        if (m_Timesteps[static_cast<size_t>(f)] == timestep) { return f; }
+    }
+    return -1;
 }
 
 IGAME_NAMESPACE_END

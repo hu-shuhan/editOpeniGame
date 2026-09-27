@@ -78,6 +78,26 @@ public:
     void SetUseSparseComposite(bool use) { m_UseSparseComposite = use; }
     bool GetUseSparseComposite() const { return m_UseSparseComposite; }
 
+    /**
+     * 是否使用 radix-k 合成（默认 false，即用稀疏 ROI 合成）。
+     *
+     * @details
+     *  对标 IceT 的 radix-k / radix-kr 单图子策略（IceT `icetRadixkCompose`）：
+     *  把整张图按 radix 因子在 ⌈log_k P⌉ 轮内分块交换并「前端 OVER 后端」合成，
+     *  每进程每轮只收发「自己负责的那一块」，汇聚量 O(图像大小)、无 rank0 单点瓶颈；
+     *  最后把 P 块合成结果 Gatherv 回 rank 0 拼成完整图。与「稀疏 ROI + Gatherv」
+     *  的区别是：稀疏路径把 O(P) 条点对点全部打到 rank 0，radix-k 把合成工作与通信
+     *  分摊到所有 rank（P 到 10⁴ 以上时更有意义，见设计文档 §6/§10）。
+     *
+     *  顺序正确性（Swizzle）：进程按「块深度近→远」排序得到 compose_group，radix-k
+     *  按 compose_group 里的位置做 mixed-radix 数字分解——每一轮的组内数字序即深度序，
+     *  因此「按数字序 front-to-back over」即保持透明度有序；轮次结束后每个进程持有的
+     *  分块索引是 group_rank 的「数字反转」，配合 interlace（按位反序的块重排）把
+     *  最终分块落回正确的屏幕位置（`icetGetInterlaceOffset` 同款换算）。
+     */
+    void SetUseRadixKComposite(bool use) { m_UseRadixKComposite = use; }
+    bool GetUseRadixKComposite() const { return m_UseRadixKComposite; }
+
     int GetResultWidth() const { return m_ResultWidth; }
     int GetResultHeight() const { return m_ResultHeight; }
     /** 合成结果（不透明 RGBA8，含背景色），仅 rank 0 有效。 */
@@ -121,6 +141,8 @@ private:
     bool CompositeSparse();
     // direct-send 全图汇聚合成（阶段 3 原路径，作为稀疏路径的回退）。
     bool CompositeDenseGather();
+    // radix-k 合成（对标 IceT icetRadixkCompose，O(log_k P) 轮、无单点汇聚）。
+    bool CompositeRadixK();
     // 从已合成的全帧结果里扫出非背景像素外接矩形，填充 m_ResultROI*（仅 rank 0）。
     void ComputeResultROIFromFullFrame();
 
@@ -134,6 +156,7 @@ private:
     std::vector<int> m_SortOrder;      // 全局排序（近 -> 远），所有 rank 一致
     bool m_UseTreeComposite{false};    // 并行树合成开关（阶段 4）
     bool m_UseSparseComposite{true};   // 稀疏 ROI 合成开关（默认开）
+    bool m_UseRadixKComposite{false};  // radix-k 合成开关（默认关）
     int m_ResultWidth{0};
     int m_ResultHeight{0};
     std::vector<unsigned char> m_ResultRGBA; // 仅 rank 0

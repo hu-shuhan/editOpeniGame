@@ -4,6 +4,7 @@
 #include "iGameBoundingBox.h"
 #include "iGameDataObject.h"
 #include "iGameObject.h"
+#include <map>
 #include <string>
 #include <vector>
 
@@ -51,10 +52,26 @@ public:
     int GetNumberOfLocalPieceFiles() const {
         return static_cast<int>(m_LocalFiles.size());
     }
-    /** 本 rank 分到的第 i 个分块文件的绝对路径。 */
+    /** 本 rank 分到的第 i 个分块文件的绝对路径（分发所用的那一帧）。 */
     const std::string& GetLocalPieceFile(int i) const { return m_LocalFiles[i].file; }
+    /** 本 rank 分到的第 i 个分块在第 frameIndex 帧的文件绝对路径（多帧 PVD）。 */
+    const std::string& GetLocalPieceFile(int i, int frameIndex) const;
     /** 本 rank 分到的第 i 个分块的 part 号。 */
     int GetLocalPiecePart(int i) const { return m_LocalFiles[i].part; }
+
+    // ---- PVD 多帧播放 ----
+    /** 帧（时间步）总数；非 PVD 输入恒为 1。 */
+    int GetNumberOfTimesteps() const {
+        return static_cast<int>(m_Timesteps.size());
+    }
+    /** 第 i 帧的时间步值（按 PVD 中出现的顺序）。 */
+    int GetTimestep(int i) const {
+        return (i >= 0 && i < static_cast<int>(m_Timesteps.size()))
+                       ? m_Timesteps[static_cast<size_t>(i)]
+                       : 0;
+    }
+    /** 时间步值 -> 帧序号；找不到返回 -1。 */
+    int GetFrameIndexForTimestep(int timestep) const;
 
     /** 空间超块：网格坐标空间里连续的一段 [ix0..ix1]×[iy0..iy1]×[iz0..iz1]。 */
     struct Block {
@@ -109,6 +126,11 @@ protected:
     BoundingBox m_LocalBounds;
     DataObject::Pointer m_Input{nullptr};
     int m_TotalPieces{0};             // 全局分块总数（两条路径都设）
+
+    // PVD 多帧：时间步值（按出现顺序）+ 每帧的 part -> 文件路径映射。
+    // 关键先验：各帧分块数一致、相同 part 空间位置不变，因此 part 是跨帧稳定的键。
+    std::vector<int> m_Timesteps;
+    std::vector<std::map<int, std::string>> m_PartFileByTimestep;
 };
 
 IGAME_NAMESPACE_END

@@ -18,6 +18,8 @@
 //          增量式：seq 为客户端单调递增的命令序号（用于 RTT 测量，服务端在回帧里原样
 //          带回）；dAzimRad/dElevRad 为本次帧间轨道旋转增量（弧度），zoomFactor 为距离
 //          缩放因子（0.9=拉近，1.1=拉远），interactiveFlag 0=松手/高清，1=拖动/低清。
+//        NEXT\n / PREV\n
+//          多帧播放切帧（N 键下一帧 / P 键上一帧，越界自动回绕）；服务端切帧后渲染一帧回传。
 //        EXIT\n
 //   3) 帧（server -> client，二进制，每次合成后一帧）：
 //        uint32 magic    = 0x50564631 ("PVF1")
@@ -87,16 +89,18 @@ inline constexpr std::uint32_t kMetadataMagic = 0x50564D31u; // "PVM1"
 inline constexpr std::uint32_t kFrameMagic = 0x50564631u;     // "PVF1"
 inline constexpr int kColorbarSize = 256;                    // colorbar ramp 的像素数
 inline constexpr int kColorbarBytes = kColorbarSize * 4;      // RGBA8
+inline constexpr int kFieldNameMaxLen = 256;                  // 字段名最大字节数（握手元数据）
 inline constexpr std::uint32_t kCodecRawRGBA = 0;             // 帧编码：raw RGBA8
 inline constexpr std::uint32_t kCodecZlib = 1;                // 帧编码：zlib(compress2) 压缩的 RGBA8
 
-// 元数据（握手）二进制长度：magic + width + height + scalarMin/Max + colorbar。
+// 元数据（握手）二进制长度：magic + width + height + numFrames + scalarMin/Max +
+// colorbar + fieldName。
 inline constexpr std::size_t kMetadataBytes =
-        sizeof(std::uint32_t) + 2 * sizeof(std::int32_t) + 2 * sizeof(double) +
-        kColorbarBytes;
-// 帧头长度：magic + width + height + codec + seq + payloadSize + roiX + roiY + roiW + roiH。
+        sizeof(std::uint32_t) + 3 * sizeof(std::int32_t) + 2 * sizeof(double) +
+        kColorbarBytes + kFieldNameMaxLen;
+// 帧头长度：magic + width + height + codec + seq + frameIndex + payloadSize + roiX + roiY + roiW + roiH。
 inline constexpr std::size_t kFrameHeaderBytes =
-        2 * sizeof(std::uint32_t) + 8 * sizeof(std::int32_t);
+        2 * sizeof(std::uint32_t) + 9 * sizeof(std::int32_t);
 
 // ---------------------------------------------------------------------------
 // 平台初始化 / 错误码
@@ -273,13 +277,15 @@ inline bool PopLine(std::string& buf, std::string& line) {
 // 协议数据包收发
 // ---------------------------------------------------------------------------
 
-// 握手元数据：渲染分辨率 + 标量范围 + colorbar ramp（RGBA8，仅颜色）。
+// 握手元数据：渲染分辨率 + 帧数（多帧播放用）+ 标量范围 + colorbar ramp + 字段名。
 struct Metadata {
     int width{0};
     int height{0};
+    int numFrames{1};
     double scalarMin{0.0};
     double scalarMax{1.0};
     unsigned char colorbar[kColorbarBytes]{};
+    char fieldName[kFieldNameMaxLen]{};
 };
 
 // 发送握手元数据（server -> client，连接建立后调用一次）。
@@ -288,38 +294,46 @@ inline bool SendMetadata(PVSocket s, const Metadata& meta) {
     std::uint32_t magic = kMetadataMagic;
     std::int32_t w = meta.width;
     std::int32_t h = meta.height;
+    std::int32_t nf = meta.numFrames;
     if (!SendAll(s, &magic, sizeof(magic))) { return false; }
     if (!SendAll(s, &w, sizeof(w))) { return false; }
     if (!SendAll(s, &h, sizeof(h))) { return false; }
+    if (!SendAll(s, &nf, sizeof(nf))) { return false; }
     if (!SendAll(s, &meta.scalarMin, sizeof(meta.scalarMin))) { return false; }
     if (!SendAll(s, &meta.scalarMax, sizeof(meta.scalarMax))) { return false; }
-    return SendAll(s, meta.colorbar, kColorbarBytes);
+    if (!SendAll(s, meta.colorbar, kColorbarBytes)) { return false; }
+    return SendAll(s, meta.fieldName, kFieldNameMaxLen);
 }
 
 // 接收握手元数据（client 端）。返回 false 表示断开或 magic 不匹配。
 inline bool RecvMetadata(PVSocket s, Metadata& meta) {
     std::uint32_t magic = 0;
-    std::int32_t w = 0, h = 0;
+    std::int32_t w = 0, h = 0, nf = 1;
     if (!RecvFull(s, &magic, sizeof(magic))) { return false; }
     if (magic != kMetadataMagic) { return false; }
     if (!RecvFull(s, &w, sizeof(w))) { return false; }
     if (!RecvFull(s, &h, sizeof(h))) { return false; }
+    if (!RecvFull(s, &nf, sizeof(nf))) { return false; }
     if (!RecvFull(s, &meta.scalarMin, sizeof(meta.scalarMin))) { return false; }
     if (!RecvFull(s, &meta.scalarMax, sizeof(meta.scalarMax))) { return false; }
     if (!RecvFull(s, meta.colorbar, kColorbarBytes)) { return false; }
+    if (!RecvFull(s, meta.fieldName, kFieldNameMaxLen)) { return false; }
+    meta.fieldName[kFieldNameMaxLen - 1] = '\0'; // 防御：保证以 '\0' 结尾
     meta.width = w;
     meta.height = h;
+    meta.numFrames = nf;
     return true;
 }
 
 // 发送一帧（通用）：codec 指明 payload 编码，payload 为「ROI 子矩形」的已编码字节。
 // roi* 为 payload 在全帧中的位置（codec=0 时 payload 为 roiW*roiH*4 字节的 raw RGBA8）。
+// frameIndex 为当前帧序号（多帧播放时显示用，0 起始）。
 inline bool SendFramePayload(PVSocket s, int width, int height,
                              std::uint32_t codec,
                              std::int32_t roiX, std::int32_t roiY,
                              std::int32_t roiW, std::int32_t roiH,
                              const void* payload, std::int32_t payloadSize,
-                             std::uint32_t seq) {
+                             std::uint32_t seq, std::int32_t frameIndex = 0) {
     const std::uint32_t magic = kFrameMagic;
     const std::int32_t w = width;
     const std::int32_t h = height;
@@ -331,6 +345,7 @@ inline bool SendFramePayload(PVSocket s, int width, int height,
     if (!SendAll(s, &h, sizeof(h))) { return false; }
     if (!SendAll(s, &c, sizeof(c))) { return false; }
     if (!SendAll(s, &seq, sizeof(seq))) { return false; }
+    if (!SendAll(s, &frameIndex, sizeof(frameIndex))) { return false; }
     if (!SendAll(s, &ps, sizeof(ps))) { return false; }
     if (!SendAll(s, &roiX, sizeof(roiX))) { return false; }
     if (!SendAll(s, &roiY, sizeof(roiY))) { return false; }
@@ -342,10 +357,11 @@ inline bool SendFramePayload(PVSocket s, int width, int height,
 
 // 发送一帧 raw RGBA8（codec=0，整帧无 ROI 裁剪）。
 inline bool SendFrame(PVSocket s, int width, int height,
-                      const unsigned char* rgba, std::uint32_t seq) {
+                      const unsigned char* rgba, std::uint32_t seq,
+                      std::int32_t frameIndex = 0) {
     return SendFramePayload(s, width, height, kCodecRawRGBA, 0, 0, width, height,
                             rgba, static_cast<std::int32_t>(width) * height * 4,
-                            seq);
+                            seq, frameIndex);
 }
 
 // 帧（client 端解析结果）。
@@ -355,6 +371,7 @@ struct Frame {
     std::uint32_t seq{0};               // 触发本帧的 INTERACT 命令 seq（0 = 无命令/初始帧）
     std::uint32_t codec{kCodecRawRGBA}; // 帧编码（0=raw RGBA8，1=zlib 压缩）
     int roiX{0}, roiY{0}, roiW{0}, roiH{0}; // payload 在全帧中的子矩形
+    int frameIndex{0};                  // 当前帧序号（0 起始，多帧播放显示用）
     std::vector<unsigned char> payload; // 原始 payload 字节（ROI 子矩形）
     std::vector<unsigned char> rgba;    // 解码后的全帧 RGBA8（width*height*4，客户端重建后填充）
 };
@@ -370,6 +387,7 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
     std::uint32_t magic = 0;
     std::int32_t w = 0, h = 0, codec = 0, payloadSize = 0;
     std::uint32_t seq = 0;
+    std::int32_t frameIndex = 0;
     std::int32_t roiX = 0, roiY = 0, roiW = 0, roiH = 0;
     std::size_t o = 0;
     std::memcpy(&magic, p + o, sizeof(magic)); o += sizeof(magic);
@@ -377,6 +395,7 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
     std::memcpy(&h, p + o, sizeof(h)); o += sizeof(h);
     std::memcpy(&codec, p + o, sizeof(codec)); o += sizeof(codec);
     std::memcpy(&seq, p + o, sizeof(seq)); o += sizeof(seq);
+    std::memcpy(&frameIndex, p + o, sizeof(frameIndex)); o += sizeof(frameIndex);
     std::memcpy(&payloadSize, p + o, sizeof(payloadSize)); o += sizeof(payloadSize);
     std::memcpy(&roiX, p + o, sizeof(roiX)); o += sizeof(roiX);
     std::memcpy(&roiY, p + o, sizeof(roiY)); o += sizeof(roiY);
@@ -410,6 +429,7 @@ inline int ParseFrame(const std::vector<char>& buf, std::size_t offset,
     out.height = h;
     out.seq = seq;
     out.codec = static_cast<std::uint32_t>(codec);
+    out.frameIndex = frameIndex;
     out.roiX = roiX;
     out.roiY = roiY;
     out.roiW = roiW;
@@ -447,6 +467,11 @@ inline bool ParseInteractCommand(const std::string& line, std::uint32_t& seq,
     int flag = 0;
     if (iss >> flag) { interactiveFlag = flag; }
     return true;
+}
+
+// 拼接一条切帧命令（client -> server）：step = +1 下一帧（NEXT）、-1 上一帧（PREV）。
+inline std::string MakeFrameStepCommand(int step) {
+    return (step > 0) ? std::string("NEXT\n") : std::string("PREV\n");
 }
 
 } // namespace iGamePVNet

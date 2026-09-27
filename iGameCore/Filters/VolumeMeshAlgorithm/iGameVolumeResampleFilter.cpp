@@ -508,8 +508,16 @@ bool iGameVolumeResampleFilter::Execute() {
     igIndex e[6] = {0, ni - 1, 0, nj - 1, 0, nk - 1};
     m_OutputMesh->SetExtent(e);
 
-    Points::Pointer pts = Points::New();
-    pts->SetNumberOfPoints(total);
+    // 几何共享：多帧空间位置一致时复用模板点坐标（12 B/体素），只重算标量 + mask。
+    const bool shareGeom = m_GeometryTemplate &&
+                           m_GeometryTemplate->GetNumberOfPoints() == total;
+    Points::Pointer pts;
+    if (shareGeom) {
+        pts = m_GeometryTemplate->GetPoints();
+    } else {
+        pts = Points::New();
+        pts->SetNumberOfPoints(total);
+    }
     m_OutputMesh->SetPoints(pts);
 
     FloatArray::Pointer scalarArr = FloatArray::New();
@@ -523,7 +531,8 @@ bool iGameVolumeResampleFilter::Execute() {
     m_ValidMask->Resize(total);
 
     // 4) 并行逐体素采样（读共享只读结构，写各自不重叠的输出区间）。
-    float* ptBuf = pts->RawPointer();
+    //    共享几何时不写点坐标（ptBuf 为空），避免覆盖模板的共享缓冲。
+    float* ptBuf = shareGeom ? nullptr : pts->RawPointer();
     float* scalarBuf = scalarArr->RawPointer();
     unsigned char* maskBuf = m_ValidMask->RawPointer();
 
@@ -561,9 +570,11 @@ bool iGameVolumeResampleFilter::Execute() {
                 }
             }
 
-            ptBuf[p * 3 + 0] = static_cast<float>(q[0]);
-            ptBuf[p * 3 + 1] = static_cast<float>(q[1]);
-            ptBuf[p * 3 + 2] = static_cast<float>(q[2]);
+            if (ptBuf) {
+                ptBuf[p * 3 + 0] = static_cast<float>(q[0]);
+                ptBuf[p * 3 + 1] = static_cast<float>(q[1]);
+                ptBuf[p * 3 + 2] = static_cast<float>(q[2]);
+            }
             scalarBuf[p] = static_cast<float>(val);
             maskBuf[p] = valid;
         }

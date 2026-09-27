@@ -236,6 +236,7 @@ struct CliOptions {
     bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
     bool server{false}; // true = C/S 服务端（阶段 6，仅 CPU 后端有效）
     bool useTree{false}; // true = 并行树合成（阶段 4）
+    bool useRadixK{false}; // true = radix-k 合成（对标 IceT icetRadixkCompose）
     int port{11111};    // --server 监听端口
     // 两档 LOD（仅 --server / --interactive）：拖动中用低清分辨率 + 更大步长。
     // 步长以「全局体素尺寸」为单位（1.0 = 一个体素），必须全局一致，否则块间密度不均。
@@ -260,7 +261,9 @@ void PrintUsage(const char* prog) {
             << "                           必须指定）。\n"
             << "\n"
             << "Options:\n"
-            << "  -t, --timestep <n>       PVD 时间步（默认 0；非 PVD 输入忽略）。\n"
+            << "  -t, --timestep <n>       PVD 时间步（默认 0；非 PVD 输入忽略）。多帧播放时\n"
+            << "                           作为起始帧：PVD 的时间步不一定从 0 开始，按文件里\n"
+            << "                           出现的时间步值匹配；若该值不存在则回退到第 1 帧。\n"
             << "  -r, --resample <n>       每块重采样分辨率（默认 64，最小 2）。\n"
             << "      --gpu                使用 GPU 光线投射后端（阶段 3 验证，需要\n"
             << "                           OpenGL/GLFW，各 rank 用隐藏窗口离屏渲染）。\n"
@@ -276,6 +279,11 @@ void PrintUsage(const char* prog) {
             << "      --tree                并行树合成（阶段 4，O(log P) 轮替代 direct-send，\n"
             << "                           适合大量 rank 的批渲染；默认关闭）。默认走「稀疏\n"
             << "                           ROI 合成」：只汇聚各 rank 非空像素外接矩形。\n"
+            << "      --radix-k             radix-k 合成（对标 IceT icetRadixkCompose）：\n"
+            << "                           按 radix 因子在 O(log_k P) 轮内分块交换 + 有序\n"
+            << "                           over，通信与合成摊到所有 rank、无 rank0 单点\n"
+            << "                           汇聚，适合上万 rank。与 --tree 互斥时 --tree\n"
+            << "                           优先。\n"
             << "      --hq-step <f>         高清档每步跨越多少个体素（默认 1.5）。步长以全局\n"
             << "                           体素尺寸为单位，必须所有 rank 一致。\n"
             << "      --lq-step <f>         拖动档每步跨越多少个体素（默认 4.0）。\n"
@@ -353,6 +361,10 @@ CliOptions ParseCli(int argc, char** argv) {
         }
         if (a == "--tree") {
             opts.useTree = true;
+            continue;
+        }
+        if (a == "--radix-k") {
+            opts.useRadixK = true;
             continue;
         }
         if (a == "--port") {
@@ -551,60 +563,46 @@ int main(int argc, char** argv) {
     }
     const std::string selectedField(fieldBuf);
 
-    // 3. 每个 rank 只读自己分到的分块（对标 DataDistribution：rank 只读 localFiles），
-    //    合并成本地 composite。仅当「整个数据集是单块」且该单块是 StructuredMesh 时直接复用；
-    //    多块数据（GetTotalPieceCount() > 1）时每个 rank 一律走下方重采样（避免对原始全分辨率
-    //    分块直接光线步进）。
-    StructuredMesh::Pointer volume = nullptr;
-    UnsignedCharArray::Pointer validMask = nullptr; // 重采样产物的无效点 mask（CPU 后端用）
-    DataObject::Pointer localComposite = nullptr;
-    {
-        auto composite = DataObject::New();
-        for (int i = 0; i < nLocalFiles; ++i) {
-            auto piece = FileIO::ReadFile(distributor->GetLocalPieceFile(i));
-            if (!piece) {
-                std::cerr << "[rank " << rank << "] failed to read "
-                          << distributor->GetLocalPieceFile(i) << '\n';
-                ParallelContext::Finalize();
-                return 1;
-            }
-            composite->AddSubDataObject(piece);
-        }
-        localComposite = composite;
-
-        if (distributor->GetTotalPieceCount() == 1) {
-            auto it = localComposite->SubDataObjectIteratorBegin();
-            if (it != localComposite->SubDataObjectIteratorEnd()) {
-                volume = DynamicCast<StructuredMesh>(it->second);
-                if (volume && !selectedField.empty()) {
-                    const int idx = volume->GetAttributeSet()->GetAttributeIndex(selectedField);
-                    if (idx >= 0) { volume->SetAttributeIndex(idx); }
-                }
-            }
+    // 3. 多帧枚举：PVD 会解析出所有时间步（每帧分块数一致、相同 part 空间位置不变）；
+    //    目录/单文件只有 1 帧。时间步按文件里实际出现的值记录（不一定从 0 开始），
+    //    startFrame 由 -t/--timestep 匹配；匹配不到则回退到 PVD 里的第 1 帧。
+    const int numFrames = distributor->GetNumberOfTimesteps();
+    int startFrame = distributor->GetFrameIndexForTimestep(timestep);
+    if (startFrame < 0) {
+        startFrame = 0;
+        if (rank == 0) {
+            std::cerr << "[frames] timestep " << timestep
+                      << " not found in pvd; falling back to the first frame.\n";
         }
     }
-    // 重采样分辨率诊断（供判断是否欠采样）：输出网格间距 vs 源数据最细间距。
-    // 欠采样（输出间距 > 源间距）会让体数据里的高频结构产生走样，在屏幕上表现为
-    // 「纹理断断续续 / 块状条纹」，因此这里明确告警。
-    double sourceMinSpacing = 0.0;
-    if (!volume) {
-        auto resampler = iGameVolumeResampleFilter::New();
-        resampler->SetInput(localComposite);
-        resampler->SetFieldName(selectedField);
-        // 目标分辨率按超块各轴块数缩放（对标文档 §5.4：resPerChunk × 各轴块数）。
-        // 只有 k-d 路径（完整规则网格）时 GetLocalBlock() 有效；否则回退为 1×1×1。
-        const auto blk = distributor->GetLocalBlock();
-        int bcx = blk.ix1 - blk.ix0 + 1;
-        int bcy = blk.iy1 - blk.iy0 + 1;
-        int bcz = blk.iz1 - blk.iz0 + 1;
-        if (bcx < 1) { bcx = 1; }
-        if (bcy < 1) { bcy = 1; }
-        if (bcz < 1) { bcz = 1; }
-        int tni = resPerChunk * bcx;
-        int tnj = resPerChunk * bcy;
-        int tnk = resPerChunk * bcz;
-        // 护栏：体素总数上限 512^3，避免单 rank 分到过多 chunk 时 OOM。
-        const long long kMaxVoxels = 512LL * 512 * 512;
+    if (rank == 0 && numFrames > 1) {
+        std::cerr << "[frames] " << numFrames << " timesteps; start frame = "
+                  << startFrame << " (timestep "
+                  << distributor->GetTimestep(startFrame) << ")\n";
+    }
+
+    // 每个 rank 只读自己分到的分块（对标 DataDistribution：rank 只读 localFiles），
+    // 合并成本地 composite 后重采样。多帧时每个 rank 读 numFrames 倍的分块（相同 part、
+    // 不同 timestep），重采样产物按帧缓存，切帧只换数据指针——渲染/合成路径不变，帧率不变。
+    // 仅当「整个数据集是单块」且该单块是 StructuredMesh 时直接复用（跳过重采样）；
+    // 否则（多块，或单块但不是结构化网格）一律重采样。
+    std::vector<StructuredMesh::Pointer> volumes(static_cast<size_t>(numFrames));
+    std::vector<UnsignedCharArray::Pointer> masks(static_cast<size_t>(numFrames));
+
+    // 重采样目标分辨率（只算一次：各帧空间位置一致，网格完全相同）。
+    const auto blk = distributor->GetLocalBlock();
+    int bcx = blk.ix1 - blk.ix0 + 1;
+    int bcy = blk.iy1 - blk.iy0 + 1;
+    int bcz = blk.iz1 - blk.iz0 + 1;
+    if (bcx < 1) { bcx = 1; }
+    if (bcy < 1) { bcy = 1; }
+    if (bcz < 1) { bcz = 1; }
+    int tni = resPerChunk * bcx;
+    int tnj = resPerChunk * bcy;
+    int tnk = resPerChunk * bcz;
+    // 护栏：体素总数上限 512^3，避免单 rank 分到过多 chunk 时 OOM。
+    const long long kMaxVoxels = 512LL * 512 * 512;
+    {
         const long long vox = static_cast<long long>(tni) * tnj * tnk;
         if (vox > kMaxVoxels) {
             const double s = std::cbrt(static_cast<double>(kMaxVoxels) / static_cast<double>(vox));
@@ -616,30 +614,72 @@ int main(int argc, char** argv) {
                           << 'x' << tnk << " (voxel cap " << kMaxVoxels << ").\n";
             }
         }
-        resampler->SetTargetDims(tni, tnj, tnk);
-        if (!resampler->Execute()) {
-            if (rank == 0) { std::cerr << "Resample failed.\n"; }
-            ParallelContext::Finalize();
-            return 1;
+    }
+
+    double sourceMinSpacing = 0.0;
+    for (int f = 0; f < numFrames; ++f) {
+        auto composite = DataObject::New();
+        for (int i = 0; i < nLocalFiles; ++i) {
+            auto piece = FileIO::ReadFile(distributor->GetLocalPieceFile(i, f));
+            if (!piece) {
+                std::cerr << "[rank " << rank << "] failed to read "
+                          << distributor->GetLocalPieceFile(i, f) << '\n';
+                ParallelContext::Finalize();
+                return 1;
+            }
+            composite->AddSubDataObject(piece);
         }
-        volume = resampler->GetStructuredMesh();
-        validMask = resampler->GetValidMask();
-        sourceMinSpacing = resampler->GetSourceMinSpacing();
-        if (rank == 0) {
-            const double outSp = resampler->GetOutputMinSpacing();
-            std::cerr << "[resample] block=(" << bcx << 'x' << bcy << 'x' << bcz
-                      << ") target=" << tni << 'x' << tnj << 'x' << tnk
-                      << " outSpacing(min)=" << outSp
-                      << " sourceSpacing(min)=" << sourceMinSpacing << '\n';
-            if (sourceMinSpacing > 0.0 && outSp > sourceMinSpacing * 1.05) {
-                std::cerr << "[resample] WARNING: undersampling "
-                          << (outSp / sourceMinSpacing)
-                          << "x (output spacing coarser than source). Raise "
-                             "--resample to >= "
-                          << static_cast<int>(std::ceil(
-                                     resPerChunk * outSp / sourceMinSpacing))
-                          << " to keep the source detail (otherwise fine "
-                             "texture aliases into blocky/choppy bands).\n";
+
+        StructuredMesh::Pointer direct = nullptr;
+        if (distributor->GetTotalPieceCount() == 1) {
+            auto it = composite->SubDataObjectIteratorBegin();
+            if (it != composite->SubDataObjectIteratorEnd()) {
+                direct = DynamicCast<StructuredMesh>(it->second);
+                if (direct && !selectedField.empty()) {
+                    const int idx =
+                            direct->GetAttributeSet()->GetAttributeIndex(selectedField);
+                    if (idx >= 0) { direct->SetAttributeIndex(idx); }
+                }
+            }
+        }
+        if (direct) {
+            volumes[static_cast<size_t>(f)] = direct;
+        } else {
+            auto resampler = iGameVolumeResampleFilter::New();
+            resampler->SetInput(composite);
+            resampler->SetFieldName(selectedField);
+            resampler->SetTargetDims(tni, tnj, tnk);
+            // 多帧共享几何：各帧空间位置一致，复用第 0 帧的点坐标，只重算标量 + mask。
+            if (f > 0 && volumes[0]) {
+                resampler->SetGeometryTemplate(volumes[0]);
+            }
+            if (!resampler->Execute()) {
+                if (rank == 0) { std::cerr << "Resample failed.\n"; }
+                ParallelContext::Finalize();
+                return 1;
+            }
+            volumes[static_cast<size_t>(f)] = resampler->GetStructuredMesh();
+            masks[static_cast<size_t>(f)] = resampler->GetValidMask();
+            if (f == startFrame) {
+                // 诊断只打一次（起始帧），避免多帧刷屏。
+                sourceMinSpacing = resampler->GetSourceMinSpacing();
+                if (rank == 0) {
+                    const double outSp = resampler->GetOutputMinSpacing();
+                    std::cerr << "[resample] block=(" << bcx << 'x' << bcy << 'x' << bcz
+                              << ") target=" << tni << 'x' << tnj << 'x' << tnk
+                              << " outSpacing(min)=" << outSp
+                              << " sourceSpacing(min)=" << sourceMinSpacing << '\n';
+                    if (sourceMinSpacing > 0.0 && outSp > sourceMinSpacing * 1.05) {
+                        std::cerr << "[resample] WARNING: undersampling "
+                                  << (outSp / sourceMinSpacing)
+                                  << "x (output spacing coarser than source). Raise "
+                                     "--resample to >= "
+                                  << static_cast<int>(std::ceil(
+                                             resPerChunk * outSp / sourceMinSpacing))
+                                  << " to keep the source detail (otherwise fine "
+                                     "texture aliases into blocky/choppy bands).\n";
+                    }
+                }
             }
         }
     }
@@ -649,10 +689,23 @@ int main(int argc, char** argv) {
     // 注意：无论本 rank 是否有有效体素都参与 AllReduce，避免某 rank 全无效体素时
     // hasRange=false 导致该 rank 跳过 AllReduce、与其它 rank 集合通信失配（死锁）。
     // 无有效体素时用 ±inf 作"空贡献"，MIN/MAX 归约不影响其它 rank。
+    // 全局标量范围取「所有帧」的并集（多帧播放时颜色映射跨帧稳定、colorbar 只需发一次）。
     double localMin = 0.0, localMax = 1.0;
-    const bool hasLocalRange =
-            ComputeLocalScalarRange(volume.get(), validMask.get(), localMin,
-                                    localMax);
+    bool hasLocalRange = false;
+    for (int f = 0; f < numFrames; ++f) {
+        double mn = 0.0, mx = 1.0;
+        if (ComputeLocalScalarRange(volumes[static_cast<size_t>(f)].get(),
+                                    masks[static_cast<size_t>(f)].get(), mn, mx)) {
+            if (!hasLocalRange) {
+                localMin = mn;
+                localMax = mx;
+                hasLocalRange = true;
+            } else {
+                localMin = std::min(localMin, mn);
+                localMax = std::max(localMax, mx);
+            }
+        }
+    }
     double reduceMin = hasLocalRange
                                ? localMin
                                : std::numeric_limits<double>::infinity();
@@ -708,9 +761,10 @@ int main(int argc, char** argv) {
     //   SetScalarOpacityUnitDistance(cbrt(spx*spy*spz))）。
     //   取 AllReduce(MIN) 是为了让所有 rank 用同一个值（各 rank 重采样网格间距略有差异）。
     double localVoxel = std::numeric_limits<double>::infinity();
-    if (volume) {
-        const BoundingBox& vb = volume->GetBoundingBox();
-        igIndex* vd = volume->GetDimensionSize();
+    // 各帧空间位置一致，体素尺寸相同；取起始帧即可。
+    if (volumes[static_cast<size_t>(startFrame)]) {
+        const BoundingBox& vb = volumes[static_cast<size_t>(startFrame)]->GetBoundingBox();
+        igIndex* vd = volumes[static_cast<size_t>(startFrame)]->GetDimensionSize();
         double sp[3];
         bool ok = true;
         for (int a = 0; a < 3; ++a) {
@@ -782,12 +836,12 @@ int main(int argc, char** argv) {
         tf->SetOpacityMappingEnabled(true);
 
         auto cpuRayCaster = iGameVolumeRayCastCPU::New();
-        if (!cpuRayCaster->SetInput(volume)) {
+        if (!cpuRayCaster->SetInput(volumes[static_cast<size_t>(startFrame)])) {
             if (rank == 0) { std::cerr << "CPU ray-caster SetInput failed.\n"; }
             ParallelContext::Finalize();
             return 1;
         }
-        cpuRayCaster->SetValidMask(validMask);
+        cpuRayCaster->SetValidMask(masks[static_cast<size_t>(startFrame)]);
         cpuRayCaster->SetTransferFunction(tf);
         cpuRayCaster->SetMaxSamples(512);
         cpuRayCaster->SetEmptySpaceSkippingEnabled(true);
@@ -807,8 +861,9 @@ int main(int argc, char** argv) {
             const int rc = iGameVolInteractive::RunInteractive(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.useTree, voxelSize, cli.hqStepScale, cli.lqStepScale,
-                    cli.lqDivisor);
+                    cli.useTree, cli.useRadixK, volumes, masks, numFrames,
+                    startFrame, selectedField, voxelSize, cli.hqStepScale,
+                    cli.lqStepScale, cli.lqDivisor);
             ParallelContext::Finalize();
             return rc;
         }
@@ -820,8 +875,9 @@ int main(int argc, char** argv) {
             const int rc = iGamePVServer::RunServer(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.port, cli.useTree, voxelSize, cli.hqStepScale,
-                    cli.lqStepScale, cli.lqDivisor);
+                    cli.port, cli.useTree, cli.useRadixK, volumes, masks,
+                    numFrames, startFrame, selectedField, voxelSize,
+                    cli.hqStepScale, cli.lqStepScale, cli.lqDivisor);
             ParallelContext::Finalize();
             return rc;
         }
@@ -914,6 +970,7 @@ int main(int argc, char** argv) {
                     blockCenter, camPos, front));
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
             composite->SetUseTreeComposite(cli.useTree);
+            composite->SetUseRadixKComposite(cli.useRadixK);
             if (!composite->Composite()) {
                 if (rank == 0) { std::cerr << "Composite failed.\n"; }
                 ParallelContext::Finalize();
@@ -942,11 +999,11 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // 9. 场景 + 相机/传输函数全局一致。
+    // 9. 场景 + 相机/传输函数全局一致（GPU 批渲染用起始帧；多帧播放仅 CPU 交互/服务端）。
     auto scene = Scene::New();
     scene->SetBackGround(0, 0, 0);
     scene->SetAxesVisible(false);  // 批渲染不画坐标轴，避免各 rank 图像里的轴被重复合成
-    scene->AddModel(volume);
+    scene->AddModel(volumes[static_cast<size_t>(startFrame)]);
     scene->SetParallelVolumeRendering(true);
     // 裁剪范围用全局包围盒（否则各 rank 投影矩阵不一致，深度无法跨进程比较）。
     scene->SetParallelVolumeClippingBounds(globalBounds);
@@ -1072,6 +1129,7 @@ int main(int argc, char** argv) {
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
         composite->SetUseTreeComposite(cli.useTree);
+        composite->SetUseRadixKComposite(cli.useRadixK);
 
         if (!composite->Composite()) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }

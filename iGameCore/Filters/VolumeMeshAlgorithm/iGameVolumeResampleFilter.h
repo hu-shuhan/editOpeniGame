@@ -40,6 +40,17 @@ public:
     /** 目标字段名；为空则自动选择第一个标量/向量（点数据优先，其次单元数据）。 */
     void SetFieldName(const std::string& name) { m_FieldName = name; }
 
+    /**
+     * 共享几何模板（多帧播放用）：设置后 Execute 复用该网格的点坐标（要求目标网格
+     * 维度/原点/间距与模板一致），只重算标量场 + 有效点 mask，不再分配点坐标缓冲。
+     *
+     * 依据：多帧 PVD 各帧分块数一致、相同 part 空间位置不变，因此重采样网格（几何点）
+     * 完全相同，只有标量随 timestep 变化。点坐标 12 B/体素占大头，共享后每帧只需缓存
+     * 标量（4 B/体素）+ mask（1 B/体素），内存下降约 70%。
+     */
+    void SetGeometryTemplate(StructuredMesh::Pointer mesh) { m_GeometryTemplate = mesh; }
+    StructuredMesh::Pointer GetGeometryTemplate() const { return m_GeometryTemplate; }
+
     /** 输出的规则体素场。 */
     StructuredMesh::Pointer GetStructuredMesh() const { return m_OutputMesh; }
     /** 无效点 mask（0=无效/在网格外，1=有效），长度 = ni*nj*nk。 */
@@ -75,6 +86,7 @@ private:
     UnsignedCharArray::Pointer m_ValidMask{nullptr};
     double m_SourceMinSpacing{0.0};          // 输入分块最细点间距（诊断用）
     double m_OutputSpacing[3]{1.0, 1.0, 1.0}; // 输出规则网格间距（诊断用）
+    StructuredMesh::Pointer m_GeometryTemplate{nullptr}; // 共享几何模板（多帧播放）
 };
 
 IGAME_NAMESPACE_END

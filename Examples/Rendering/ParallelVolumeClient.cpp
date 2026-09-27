@@ -78,6 +78,7 @@ double g_cliPendingAzim = 0.0; // 待发送的轨道方位角增量（弧度）
 double g_cliPendingElev = 0.0; // 待发送的仰角增量（弧度）
 double g_cliPendingZoom = 1.0; // 待发送的距离缩放因子（累积）
 bool g_cliModeDirty = false;   // 交互状态变化需立刻发送一帧
+int g_cliPendingFrameStep = 0; // 待发送的切帧步进（N=+1 / P=-1，累积）
 
 // RTT 测量：seq -> 发送时刻（服务端在回帧里原样带回 seq）。由 g_ioMutex 保护。
 std::uint32_t g_cliSeq = 0;
@@ -94,6 +95,11 @@ std::mutex g_frameMutex;
 iGamePVNet::Frame g_latestFrame;   // I/O 线程写，主线程取
 bool g_latestFrameReady = false;
 std::uint64_t g_latestFrameId = 0; // 单调递增，主线程用来判断是否是新帧
+
+// 显示循环三段耗时累加器（仅主线程访问），每 5s 打印一次后清零。
+double g_diagPollMs = 0.0;   // glfwPollEvents
+double g_diagUploadMs = 0.0; // 纹理上传（仅新帧）
+double g_diagSwapMs = 0.0;   // 绘制 + glfwSwapBuffers
 
 // 当前 g_imageTex 的尺寸（帧分辨率变化时重新分配纹理）。仅主线程访问。
 int g_imgTexW = 0;
@@ -150,6 +156,14 @@ void ClientCursorPosCallback(GLFWwindow*, double x, double y) {
 void ClientScrollCallback(GLFWwindow*, double, double yoffset) {
     std::lock_guard<std::mutex> lk(g_ioMutex);
     g_cliPendingZoom *= (yoffset > 0.0) ? 0.9 : 1.1;
+}
+
+// 键盘回调：N = 下一帧，P = 上一帧（多帧播放，越界由服务端回绕）。
+void ClientKeyCallback(GLFWwindow*, int key, int, int action, int) {
+    if (action != GLFW_PRESS) { return; }
+    std::lock_guard<std::mutex> lk(g_ioMutex);
+    if (key == GLFW_KEY_N) { g_cliPendingFrameStep += 1; }
+    else if (key == GLFW_KEY_P) { g_cliPendingFrameStep -= 1; }
 }
 
 // 发送当前累积的 INTERACT 命令（带单调递增 seq 用于 RTT 测量），成功后清零 pending。
@@ -218,6 +232,20 @@ void IoThreadMain(PVSocket sock) {
             if (hasPending && !SendInteractLocked(sock)) {
                 g_serverGone.store(true);
                 break;
+            }
+        }
+
+        // ---- 1b) 发送切帧命令（N/P 累积的步进，每次一条 ±1）----
+        {
+            std::lock_guard<std::mutex> lk(g_ioMutex);
+            while (g_cliPendingFrameStep != 0) {
+                const int step = g_cliPendingFrameStep > 0 ? 1 : -1;
+                g_cliPendingFrameStep -= step;
+                const std::string cmd = iGamePVNet::MakeFrameStepCommand(step);
+                if (!iGamePVNet::SendAll(sock, cmd.data(), cmd.size())) {
+                    g_serverGone.store(true);
+                    break;
+                }
             }
         }
 
@@ -402,6 +430,7 @@ int main(int argc, char** argv) {
     glfwSetMouseButtonCallback(raw, ClientMouseButtonCallback);
     glfwSetCursorPosCallback(raw, ClientCursorPosCallback);
     glfwSetScrollCallback(raw, ClientScrollCallback);
+    glfwSetKeyCallback(raw, ClientKeyCallback);
 
     // 启动网络 I/O 线程（独占 socket 收发），主线程只做显示。
     std::thread ioThread(IoThreadMain, sock);
@@ -417,7 +446,13 @@ int main(int argc, char** argv) {
     double smoothedFps = 0.0;
 
     while (!glfwWindowShouldClose(raw)) {
+        // glfwPollEvents 决定鼠标事件的采样率，也就决定 INTERACT 命令的发送频率
+        // （光标回调只在 poll 时触发）——它是整个交互闭环的节奏上限，因此单独计时。
+        const auto tPoll0 = std::chrono::steady_clock::now();
         glfwPollEvents();
+        g_diagPollMs += std::chrono::duration<double, std::milli>(
+                                std::chrono::steady_clock::now() - tPoll0)
+                                .count();
 
         // 取 I/O 线程送来的最新帧（没有新帧就不动纹理，只重画上一帧）。
         bool gotNewFrame = false;
@@ -453,11 +488,15 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         // 只在新帧到达时上传纹理（4MB 上传是客户端循环的最大开销）。
+        const auto tUpload0 = std::chrono::steady_clock::now();
         if (gotNewFrame) {
             EnsureImageTexture(displayFrame.width, displayFrame.height);
             UploadImageTexture(displayFrame.width, displayFrame.height,
                                displayFrame.rgba);
         }
+        g_diagUploadMs += std::chrono::duration<double, std::milli>(
+                                  std::chrono::steady_clock::now() - tUpload0)
+                                  .count();
         if (hasFrame) {
             DrawTexturedQuad(0.0f, 0.0f, static_cast<float>(fbW),
                              static_cast<float>(fbH), 0.0f, 0.0f, 1.0f, 1.0f,
@@ -467,6 +506,28 @@ int main(int argc, char** argv) {
 
         DrawColorBar(meta.scalarMin, meta.scalarMax, static_cast<float>(fbW),
                      static_cast<float>(fbH));
+
+        const float white[3] = {1.0f, 1.0f, 1.0f};
+
+        // 字段名（放在 colorbar 附近，其刻度下方）。
+        if (meta.fieldName[0] != '\0') {
+            DrawText(("Field: " + std::string(meta.fieldName)).c_str(), 24.0f,
+                     24.0f, 2.0f, white, static_cast<float>(fbW),
+                     static_cast<float>(fbH));
+        }
+
+        // 多帧播放：当前帧号 + 操作说明（英文，常驻显示）。
+        if (meta.numFrames > 1) {
+            char frameBuf[64];
+            std::snprintf(frameBuf, sizeof(frameBuf), "Frame %d/%d",
+                          displayFrame.frameIndex + 1, meta.numFrames);
+            DrawText(frameBuf, 24.0f, static_cast<float>(fbH) - 112.0f, 2.0f,
+                     white, static_cast<float>(fbW),
+                     static_cast<float>(fbH));
+            DrawText("N-Next Frame, P-Previous Frame", 24.0f,
+                     static_cast<float>(fbH) - 88.0f, 2.0f, white,
+                     static_cast<float>(fbW), static_cast<float>(fbH));
+        }
 
         if (g_cliInteracting.load()) {
             // RTT 显示在 FPS 上方（黄色，毫秒）。
@@ -486,12 +547,20 @@ int main(int argc, char** argv) {
                      static_cast<float>(fbW), static_cast<float>(fbH));
         }
 
+        const auto tSwap0 = std::chrono::steady_clock::now();
         glfwSwapBuffers(raw);
+        g_diagSwapMs += std::chrono::duration<double, std::milli>(
+                                std::chrono::steady_clock::now() - tSwap0)
+                                .count();
         if (g_serverGone.load()) { break; }
 
-        // 诊断：每 5s 打印「显示循环速率 / 到达帧率 / 丢弃帧数 / 收字节数 / RTT」。
-        //   display ~60Hz 且 rx ~服务端出帧率 → I/O 与显示都已解耦，RTT 即真实往返时延；
-        //   dropped 持续增长            → 服务端出帧快于显示（正常，客户端只显示最新帧）。
+        // 诊断：每 5s 打印显示循环速率、到达帧率、丢弃帧数、收字节数、RTT，
+        // 以及**显示循环三段耗时的单次平均值**（poll=事件, upload=纹理上传, swap=绘制+换缓冲）。
+        // 判读方法：
+        //   display 明显低于 60Hz 且 swap_ms 占掉大半 → 显示循环被「绘制+换缓冲」限制
+        //     （软件 GL / X11 转发下按窗口面积走），此时服务端再怎么降分辨率也没用，
+        //     客户端收到的帧只会被 dropped 丢掉；
+        //   display ≈ 60Hz 而 rx ≈ 服务端出帧率 → 网络/服务端才是节奏来源。
         {
             static int iter = 0;
             static auto t0 = std::chrono::steady_clock::now();
@@ -505,15 +574,22 @@ int main(int argc, char** argv) {
                 const std::uint64_t fr = g_rxFrames.load();
                 const std::uint64_t by = g_rxBytes.load();
                 const std::uint64_t dr = g_rxDropped.load();
+                const double n = iter > 0 ? static_cast<double>(iter) : 1.0;
                 std::cerr << "[client] display=" << (iter / sec)
                           << "Hz rx=" << ((fr - lastFrames) / sec)
                           << "Hz dropped=" << (dr - lastDropped)
                           << " rxKB/s=" << ((by - lastBytes) / sec / 1024.0)
-                          << " rtt=" << g_rttMs.load() << "ms\n";
+                          << " rtt=" << g_rttMs.load() << "ms"
+                          << " | ms/iter[poll=" << (g_diagPollMs / n)
+                          << " upload=" << (g_diagUploadMs / n)
+                          << " draw+swap=" << (g_diagSwapMs / n) << "]\n";
                 iter = 0;
                 lastFrames = fr;
                 lastBytes = by;
                 lastDropped = dr;
+                g_diagPollMs = 0.0;
+                g_diagUploadMs = 0.0;
+                g_diagSwapMs = 0.0;
                 t0 = now;
             }
         }
