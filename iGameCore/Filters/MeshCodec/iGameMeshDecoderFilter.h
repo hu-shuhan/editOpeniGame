@@ -58,6 +58,27 @@ public:
             if (!ProcessPayload(buf)) { return false; }
         }
 
+        // 结构化网格维度补正（兼容 UnifiedVersion 产出的 .igc）：
+        //   iGameVis 自己的编码器对结构化网格也会写一个「空拓扑块」（WritePayloads 无条件
+        //   写 param/geom/topo/attr，TopoEncoder 对结构化网格把 payload 置空但仍写出），
+        //   于是解码时 TopoDecoder 会调用 SetStructuredMeshDimension。
+        //   UnifiedVersion 的 igc 编码器（IgcEncoder.cpp:793-794）对结构化网格**不写拓扑块**，
+        //   axisSize 只存在于参数块里，拓扑块回调永远不会发生 → 网格维度一直是 0 →
+        //   下游 GetDimensionSize() 得 {0,0,0}，重采样把该分块判为无效（表现为
+        //   「cannot read bounds」/ 分块被跳过）。
+        //   这里按参数块里的 axisSize 补一次。SetDimensionSize / GenStructuredCellConnectivities
+        //   都有幂等短路（尺寸未变直接返回、已构建直接返回），因此对含拓扑块的 .igc 是零开销的。
+        if (m_DecoderAdapter && m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            const int* axis = m_codecParams.structuredMeshParams.axisSize;
+            // 防御：损坏/截断的参数块可能给出 {0,0,0}，直接拿去 SetDimensionSize 会让
+            // GenStructuredCellConnectivities 里出现「尺寸-1」为负的 Resize。结构化网格
+            // 至少要求 x/y >= 2（z 允许为 1，即二维结构化网格）。
+            if (axis[0] >= 2 && axis[1] >= 2 && axis[2] >= 1) {
+                m_DecoderAdapter->SetStructuredMeshDimension(
+                    m_codecParams.structuredMeshParams.axisSize);
+            }
+        }
+
         // 将 adapter 的输出设置到 DecodeOutput
         if (m_DecoderAdapter) {
             m_DecoderOutput->SetOutput(m_DecoderAdapter->GetOutput());
@@ -111,7 +132,13 @@ private:
                 return false;
         }
 
-        if (this->m_codecParams.geomParams.valueSize != sizeof(float)) { return false; }
+        // 几何分量尺寸：接受 float32 / float64。
+        // UnifiedVersion 的 igc 编码器把几何按 float64 无损存储（IgcEncoder.cpp:513 的
+        // "valueSize=8(float64)"），其自带解码器同样两种都收（IgcDecoder.cpp:139-141）。
+        // 这里只放宽校验；解码后统一窄化为 float32，因为 iGame 的 Points 内部固定 float
+        // （与 iGameVis 自身 igc / vtr / 重采样产物口径一致）。
+        const IGsize geomValueSize = this->m_codecParams.geomParams.valueSize;
+        if (geomValueSize != sizeof(float) && geomValueSize != sizeof(double)) { return false; }
         if (this->m_codecParams.geomParams.dimension != 3) { return false; }
         if (MulWillOverflow(this->m_codecParams.geomParams.elementCount,
                             static_cast<IGsize>(this->m_codecParams.geomParams.dimension))) {
@@ -245,12 +272,30 @@ private:
         UpdateProgress(m_DecompressProgress);
 
         IGsize bufferSize = this->m_codecParams.geomParams.elementCount * this->m_codecParams.geomParams.dimension;
-        std::vector<float> decodedFloat(bufferSize);
 
-        MeshFloatCodec::FloatDecoder(decodedFloat, uCharBuffer, this->m_codecParams.geomParams);
-        if (decodedFloat.size() != bufferSize) {
-            IGAME_CORE_ERROR("Invalid IGC geometry payload");
-            return false;
+        // 几何按 valueSize 分成 float32 / float64 两路解码（对标 UnifiedVersion
+        // IgcDecoder.cpp:144-175：旧版 float32 先解码到 float 缓冲再提升；float64 直接解）。
+        // 注意 meshopt_decodeVertexBuffer 的元素跨度是 valueSize*dimension，因此用 float64
+        // 缓冲区去解 float64 数据是必须的——用 float 缓冲会写出 2 倍长度而越界。
+        std::vector<float> decodedFloat;
+        if (this->m_codecParams.geomParams.valueSize == sizeof(double)) {
+            std::vector<double> decodedDouble(bufferSize);
+            MeshFloatCodec::FloatDecoder(decodedDouble, uCharBuffer, this->m_codecParams.geomParams);
+            if (decodedDouble.size() != bufferSize) {
+                IGAME_CORE_ERROR("Invalid IGC geometry payload");
+                return false;
+            }
+            decodedFloat.resize(bufferSize);
+            for (IGsize i = 0; i < bufferSize; ++i) {
+                decodedFloat[i] = static_cast<float>(decodedDouble[i]);
+            }
+        } else {
+            decodedFloat.resize(bufferSize);
+            MeshFloatCodec::FloatDecoder(decodedFloat, uCharBuffer, this->m_codecParams.geomParams);
+            if (decodedFloat.size() != bufferSize) {
+                IGAME_CORE_ERROR("Invalid IGC geometry payload");
+                return false;
+            }
         }
 
         m_DecompressProgress += 0.15;
