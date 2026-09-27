@@ -106,8 +106,15 @@ private:
     std::vector<int>    m_TetVerts; // [M*4] flat: 4 vert indices per tet
 
     // Attribute metadata
-    struct AttrInfo { std::string name; int ncomp; };
+    struct AttrInfo {
+        std::string name;
+        int ncomp;
+        IGenum arrayType;
+        IGenum attributeType;
+        IGenum attachmentType;
+    };
     std::vector<AttrInfo> m_AttrInfo;
+    std::vector<igIndex> m_TetSourceIds{};
 
     // ─── Normalization ───
     double m_PtsMin[3] = {0,0,0};
@@ -232,8 +239,15 @@ private:
     std::vector<double> m_Attrs;    // [N*D]
     std::vector<int>    m_TetVerts; // [M*4]
 
-    struct AttrInfo { std::string name; int ncomp; };
+    struct AttrInfo {
+        std::string name;
+        int ncomp;
+        IGenum arrayType;
+        IGenum attributeType;
+        IGenum attachmentType;
+    };
     std::vector<AttrInfo> m_AttrInfo;
+    std::vector<igIndex> m_TetSourceIds{};
 
     // ─── Normalization ───
     double m_PtsMin[3] = {0,0,0};
