@@ -235,8 +235,7 @@ struct CliOptions {
     bool useGPU{false}; // false = CPU 后端（默认）
     bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
     bool server{false}; // true = C/S 服务端（阶段 6，仅 CPU 后端有效）
-    bool useTree{false}; // true = 并行树合成（阶段 4）
-    bool useRadixK{false}; // true = radix-k 合成（对标 IceT icetRadixkCompose）
+    bool useBinarySwap{false}; // true = binary-swap 合成（对标 IceT icetBSwapCompose）
     int port{11111};    // --server 监听端口
     // 两档 LOD（仅 --server / --interactive）：拖动中用低清分辨率 + 更大步长。
     // 步长以「全局体素尺寸」为单位（1.0 = 一个体素），必须全局一致，否则块间密度不均。
@@ -276,14 +275,13 @@ void PrintUsage(const char* prog) {
             << "                           TCP 端口供前端连接，接收增量交互命令、渲染并\n"
             << "                           流式回传合成图（对标 MiniPVServer）。\n"
             << "      --port <n>            --server 监听端口（默认 11111）。\n"
-            << "      --tree                并行树合成（阶段 4，O(log P) 轮替代 direct-send，\n"
-            << "                           适合大量 rank 的批渲染；默认关闭）。默认走「稀疏\n"
-            << "                           ROI 合成」：只汇聚各 rank 非空像素外接矩形。\n"
-            << "      --radix-k             radix-k 合成（对标 IceT icetRadixkCompose）：\n"
-            << "                           按 radix 因子在 O(log_k P) 轮内分块交换 + 有序\n"
-            << "                           over，通信与合成摊到所有 rank、无 rank0 单点\n"
-            << "                           汇聚，适合上万 rank。与 --tree 互斥时 --tree\n"
-            << "                           优先。\n"
+            << "      --direct              使用稀疏 ROI 合成（默认；把各 rank 非空像素外接\n"
+            << "                           矩形汇聚到 rank 0，O(Σ ROI 面积)）。\n"
+            << "      --binary-swap         binary-swap 合成（对标 IceT icetBSwapCompose）：\n"
+            << "                           在 O(log P) 轮内两两交换半张图 + 有序 over，\n"
+            << "                           通信与合成摊到所有 rank、无 rank0 单点汇聚，\n"
+            << "                           适合上千 rank。与 --direct 同时给出时以最后出现\n"
+            << "                           的那个为准。\n"
             << "      --hq-step <f>         高清档每步跨越多少个体素（默认 1.5）。步长以全局\n"
             << "                           体素尺寸为单位，必须所有 rank 一致。\n"
             << "      --lq-step <f>         拖动档每步跨越多少个体素（默认 4.0）。\n"
@@ -359,12 +357,12 @@ CliOptions ParseCli(int argc, char** argv) {
             opts.server = true;
             continue;
         }
-        if (a == "--tree") {
-            opts.useTree = true;
+        if (a == "--binary-swap") {
+            opts.useBinarySwap = true;
             continue;
         }
-        if (a == "--radix-k") {
-            opts.useRadixK = true;
+        if (a == "--direct") {
+            opts.useBinarySwap = false;
             continue;
         }
         if (a == "--port") {
@@ -861,7 +859,7 @@ int main(int argc, char** argv) {
             const int rc = iGameVolInteractive::RunInteractive(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.useTree, cli.useRadixK, volumes, masks, numFrames,
+                    cli.useBinarySwap, volumes, masks, numFrames,
                     startFrame, selectedField, voxelSize, cli.hqStepScale,
                     cli.lqStepScale, cli.lqDivisor);
             ParallelContext::Finalize();
@@ -875,7 +873,7 @@ int main(int argc, char** argv) {
             const int rc = iGamePVServer::RunServer(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.port, cli.useTree, cli.useRadixK, volumes, masks,
+                    cli.port, cli.useBinarySwap, volumes, masks,
                     numFrames, startFrame, selectedField, voxelSize,
                     cli.hqStepScale, cli.lqStepScale, cli.lqDivisor);
             ParallelContext::Finalize();
@@ -969,8 +967,7 @@ int main(int argc, char** argv) {
             composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
                     blockCenter, camPos, front));
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            composite->SetUseTreeComposite(cli.useTree);
-            composite->SetUseRadixKComposite(cli.useRadixK);
+            composite->SetUseBinarySwapComposite(cli.useBinarySwap);
             if (!composite->Composite()) {
                 if (rank == 0) { std::cerr << "Composite failed.\n"; }
                 ParallelContext::Finalize();
@@ -1128,8 +1125,7 @@ int main(int argc, char** argv) {
         composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        composite->SetUseTreeComposite(cli.useTree);
-        composite->SetUseRadixKComposite(cli.useRadixK);
+        composite->SetUseBinarySwapComposite(cli.useBinarySwap);
 
         if (!composite->Composite()) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }

@@ -19,7 +19,7 @@
 // ---------------------------------------------------------------------------
 // BUG A：每帧合成把 P 张 1024x1024 全图（4MB/张）汇聚到 rank 0，rank 0 再做
 //        O(P x 像素) 的逐像素块序 over。1000 rank 时汇聚量 4GB 量级、rank 0 单帧
-//        合成几百 ms 起（实测 --tree 档也有 ~150ms）。
+//        合成几百 ms 起。
 //        触发条件：rank 数越多越严重；每个 rank 的体数据在屏幕上只占很小一片
 //        （19200 块 / 1000 rank 时约 20x20 像素），却要按整屏传输。
 //        修复：合成器默认走「稀疏 ROI 合成」——只上报/汇聚非空像素外接矩形，
@@ -119,8 +119,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      double globalMin, double globalMax,
                      const double gcenter[3],
                      const double blockCenter[3], double radius,
-                     int width, int height, int port, bool useTree,
-                     bool useRadixK,
+                     int width, int height, int port, bool useBinarySwap,
                      const std::vector<iGame::StructuredMesh::Pointer>& volumes,
                      const std::vector<iGame::UnsignedCharArray::Pointer>& masks,
                      int numFrames, int startFrame,
@@ -360,15 +359,14 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
         // 分布式深度有序合成。默认走「稀疏 ROI 合成」：每个 rank 只上报自己非空像素的
         // 外接矩形，汇聚量与 rank 0 工作量都和 rank 数基本解耦（对标 IceT
-        // valid_pixels_viewport）。--tree 时改走并行树合成；--radix-k 时改走 radix-k
-        // 合成（对标 IceT icetRadixkCompose，通信与合成摊到所有 rank）。
+        // valid_pixels_viewport）。--binary-swap 时改走 binary-swap 合成（对标 IceT
+        // icetBSwapCompose，通信与合成摊到所有 rank）。
         auto composite = iGame::iGameCompositePass::New();
         composite->SetLocalImage(fw, fh, rgba, depth);
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        composite->SetUseTreeComposite(useTree);
-        composite->SetUseRadixKComposite(useRadixK);
+        composite->SetUseBinarySwapComposite(useBinarySwap);
         const auto tComposite0 = std::chrono::steady_clock::now();
         const bool compositeOk = composite->Composite();
         const auto tComposite1 = std::chrono::steady_clock::now();
@@ -382,7 +380,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             const auto tSend0 = std::chrono::steady_clock::now();
 
             // 1) ROI 由合成器直接给出（稀疏路径在合成时就知道了），无需再扫一遍全图。
-            //    全图路径（--tree）下 Composite() 收尾时也已扫过一次，语义一致。
+            //    全图路径（binary-swap）下 Composite() 收尾时也已扫过一次，语义一致。
             const int rx0 = composite->GetResultROIX();
             const int ry0 = composite->GetResultROIY();
             const int roiW = composite->GetResultROIW();

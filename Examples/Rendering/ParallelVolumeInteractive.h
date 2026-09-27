@@ -515,7 +515,7 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                           double globalMin, double globalMax,
                           const double gcenter[3],
                           const double blockCenter[3], double radius, int width,
-                          int height, bool useTree, bool useRadixK,
+                          int height, bool useBinarySwap,
                           const std::vector<iGame::StructuredMesh::Pointer>& volumes,
                           const std::vector<iGame::UnsignedCharArray::Pointer>& masks,
                           int numFrames, int startFrame,
@@ -694,15 +694,13 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                                      static_cast<unsigned>(fh)},
                           rgba, depth);
 
-        // 分布式合成（默认稀疏 ROI 路径；--tree 走并行树合成，--radix-k 走 radix-k
-        // 合成，O(log_k P) 轮）。
+        // 分布式合成（默认稀疏 ROI 路径；--binary-swap 走 binary-swap 合成，O(log P) 轮）。
         auto composite = iGame::iGameCompositePass::New();
         composite->SetLocalImage(fw, fh, rgba, depth);
         composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
                 blockCenter, camPos, front));
         composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        composite->SetUseTreeComposite(useTree);
-        composite->SetUseRadixKComposite(useRadixK);
+        composite->SetUseBinarySwapComposite(useBinarySwap);
         if (!composite->Composite()) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }
             break;

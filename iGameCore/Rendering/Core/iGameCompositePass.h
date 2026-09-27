@@ -54,10 +54,6 @@ public:
      */
     bool Composite();
 
-    /** 是否使用并行树合成（阶段 4，O(log P) 轮）。默认 false。 */
-    void SetUseTreeComposite(bool use) { m_UseTreeComposite = use; }
-    bool GetUseTreeComposite() const { return m_UseTreeComposite; }
-
     /**
      * 是否使用「稀疏 ROI 合成」（默认 true，推荐）。
      *
@@ -79,24 +75,25 @@ public:
     bool GetUseSparseComposite() const { return m_UseSparseComposite; }
 
     /**
-     * 是否使用 radix-k 合成（默认 false，即用稀疏 ROI 合成）。
+     * 是否使用 binary-swap 合成（默认 false，即用稀疏 ROI 合成）。
      *
      * @details
-     *  对标 IceT 的 radix-k / radix-kr 单图子策略（IceT `icetRadixkCompose`）：
-     *  把整张图按 radix 因子在 ⌈log_k P⌉ 轮内分块交换并「前端 OVER 后端」合成，
-     *  每进程每轮只收发「自己负责的那一块」，汇聚量 O(图像大小)、无 rank0 单点瓶颈；
-     *  最后把 P 块合成结果 Gatherv 回 rank 0 拼成完整图。与「稀疏 ROI + Gatherv」
-     *  的区别是：稀疏路径把 O(P) 条点对点全部打到 rank 0，radix-k 把合成工作与通信
-     *  分摊到所有 rank（P 到 10⁴ 以上时更有意义，见设计文档 §6/§10）。
+     *  对标 IceT 的 `ICET_SINGLE_IMAGE_STRATEGY_BSWAP`（即 radix-k 的 k=2 特例，
+     *  `icetBSwapCompose`）：把整张图在 ⌈log₂P₂⌉ 轮内两两交换半张图并「前端 OVER 后端」
+     *  合成，每进程每轮只收发「自己负责的那一半」，汇聚量 O(图像大小)、无 rank0 单点
+     *  瓶颈；最后把 P 块合成结果 Gatherv 回 rank 0 拼成完整图。与「稀疏 ROI + Gatherv」
+     *  的区别是：稀疏路径把 O(P) 条点对点全部打到 rank 0，binary-swap 把合成工作与
+     *  通信分摊到所有 rank（P 到上千 rank 时更有意义）。
      *
-     *  顺序正确性（Swizzle）：进程按「块深度近→远」排序得到 compose_group，radix-k
-     *  按 compose_group 里的位置做 mixed-radix 数字分解——每一轮的组内数字序即深度序，
-     *  因此「按数字序 front-to-back over」即保持透明度有序；轮次结束后每个进程持有的
-     *  分块索引是 group_rank 的「数字反转」，配合 interlace（按位反序的块重排）把
-     *  最终分块落回正确的屏幕位置（`icetGetInterlaceOffset` 同款换算）。
+     *  顺序正确性（Swizzle）：进程按「块深度近→远」排序得到 groupRank（0=最前），
+     *  binary-swap 按 groupRank 做逐轮配对（partner = groupRank ^ 2^r），每轮组内
+     *  「数字小者更靠前」，因此「按数字序 front-to-back over」即保持透明度有序；
+     *  轮次结束后每个进程持有的分块索引是 groupRank 的「按位反序」，分块在最终图上
+     *  平坦连续、互不重叠，Gatherv 即可无损重组。非 2 幂 P 用 next_pow2(P) 补齐，
+     *  不存在的 rank 视作全透明（不实际通信）。
      */
-    void SetUseRadixKComposite(bool use) { m_UseRadixKComposite = use; }
-    bool GetUseRadixKComposite() const { return m_UseRadixKComposite; }
+    void SetUseBinarySwapComposite(bool use) { m_UseBinarySwapComposite = use; }
+    bool GetUseBinarySwapComposite() const { return m_UseBinarySwapComposite; }
 
     int GetResultWidth() const { return m_ResultWidth; }
     int GetResultHeight() const { return m_ResultHeight; }
@@ -136,13 +133,12 @@ protected:
 
 private:
     void CompositeOnRoot(int size, const std::vector<unsigned char>& allRGBA);
-    bool CompositeTree();
     // 稀疏 ROI 合成（默认路径）。内部在极端情况下会回退到 CompositeDenseGather()。
     bool CompositeSparse();
-    // direct-send 全图汇聚合成（阶段 3 原路径，作为稀疏路径的回退）。
+    // direct-send 全图汇聚合成（作为稀疏路径的回退）。
     bool CompositeDenseGather();
-    // radix-k 合成（对标 IceT icetRadixkCompose，O(log_k P) 轮、无单点汇聚）。
-    bool CompositeRadixK();
+    // binary-swap 合成（对标 IceT icetBSwapCompose，O(log P) 轮、无单点汇聚）。
+    bool CompositeBinarySwap();
     // 从已合成的全帧结果里扫出非背景像素外接矩形，填充 m_ResultROI*（仅 rank 0）。
     void ComputeResultROIFromFullFrame();
 
@@ -154,9 +150,8 @@ private:
     float m_Background[3]{0.0f, 0.0f, 0.0f};
 
     std::vector<int> m_SortOrder;      // 全局排序（近 -> 远），所有 rank 一致
-    bool m_UseTreeComposite{false};    // 并行树合成开关（阶段 4）
     bool m_UseSparseComposite{true};   // 稀疏 ROI 合成开关（默认开）
-    bool m_UseRadixKComposite{false};  // radix-k 合成开关（默认关）
+    bool m_UseBinarySwapComposite{false};  // binary-swap 合成开关（默认关）
     int m_ResultWidth{0};
     int m_ResultHeight{0};
     std::vector<unsigned char> m_ResultRGBA; // 仅 rank 0
