@@ -16,6 +16,12 @@ struct IG_QT_MODULE_EXPORT igQtAnimationPipelineStep {
 
 using igQtAnimationPipelineSteps = QList<igQtAnimationPipelineStep>;
 
+// Describe the input to row `beforeStep`; evaluates metadata callbacks only.
+IG_QT_MODULE_EXPORT bool igQtDescribeAnimationPipelineInput(
+        const igQtAnimationFilterManager& manager, const igQtAnimationPipelineSteps& steps,
+        int beforeStep, const igQtAnimationDataInfo& source,
+        igQtAnimationDataInfo& input, QString& error);
+
 /**
  * 按顺序执行动画 Pipeline。
  *

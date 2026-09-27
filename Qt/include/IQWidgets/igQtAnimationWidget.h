@@ -100,8 +100,10 @@ private:
     void updateAnimationModeControls();
     QString selectedAnimationFilterId() const;
     iGame::DataObject::Pointer animationFilterInput() const;
+    bool animationPipelineInputInfo(int row, igQtAnimationDataInfo& input, QString& error) const;
     void updateAnimationFilterSummary();
-    void applyPipelineDisplaySettings(iGame::DataObject::Pointer displayObject,
+    void applyPipelineDisplaySettings(iGame::Scene* scene,
+                                      iGame::DataObject::Pointer displayObject,
                                       iGame::DataObject::Pointer sourceObject);
     bool executeSelectedAnimationFilter(
             const igQtAnimationFrameContext& context,
@@ -132,6 +134,7 @@ private:
 
     igQtAnimationFilterManager m_AnimationFilterManager;
     igQtAnimationPipelineSteps m_AnimationPipeline;
+    unsigned long long m_AnimationPipelineRevision{0};
     QString m_AnimationPipelineDisplayAttribute;
     int m_AnimationPipelineDisplayDimension{-1};
     iGame::Model::Pointer m_AnimationFilterSourceModel{nullptr};

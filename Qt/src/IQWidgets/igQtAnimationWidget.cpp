@@ -392,9 +392,8 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         m_IsAnimationPlaying = false;
         return;
     }
-    applyPipelineDisplaySettings(displayDrawObject, currentDrawObject);
-
     currentScene->MakeCurrent();
+    applyPipelineDisplaySettings(currentScene, displayDrawObject, currentDrawObject);
 
 
     if (m_VortexAutoCompute && !m_VortexSourceAttr.empty()) {
@@ -627,11 +626,10 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         m_IsAnimationPlaying = false;
         return;
     }
-    applyPipelineDisplaySettings(displayDrawObject, currentDrawObject);
-
     // Drawable conversion and all OpenGL-related work must happen while the
     // scene's context is current on this GUI thread.
     currentScene->MakeCurrent();
+    applyPipelineDisplaySettings(currentScene, displayDrawObject, currentDrawObject);
     const bool pipelineReplaced =
             displayObject.GetPointer() != currentDrawObject.GetPointer();
     if (!pipelineReplaced) {
@@ -661,7 +659,8 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
 
     if (displayDrawObject->GetAttributeIndex() != -1) {
         displayDrawObject->ViewCloudPicture(
-                currentScene, displayDrawObject->GetAttributeIndex());
+                currentScene, displayDrawObject->GetAttributeIndex(),
+                displayDrawObject->GetAttributeDimension());
     }
     currentScene->DoneCurrent();
 
@@ -705,6 +704,7 @@ void igQtAnimationWidget::addSelectedFilterToPipeline() {
     igQtAnimationPipelineStep step;
     step.filterId = filterId;
     m_AnimationPipeline.push_back(step);
+    ++m_AnimationPipelineRevision;
     updateAnimationFilterSummary();
     ui->listWidgetAnimationPipeline->setCurrentRow(
             static_cast<int>(m_AnimationPipeline.size()) - 1);
@@ -715,6 +715,7 @@ void igQtAnimationWidget::removeSelectedPipelineStep() {
     if (row < 0 || row >= static_cast<int>(m_AnimationPipeline.size())) return;
 
     m_AnimationPipeline.removeAt(row);
+    ++m_AnimationPipelineRevision;
     if (m_AnimationPipeline.isEmpty()) restoreAnimationFilterSource();
     updateAnimationFilterSummary();
 }
@@ -728,6 +729,7 @@ void igQtAnimationWidget::moveSelectedPipelineStep(bool up) {
     }
 
     std::swap(m_AnimationPipeline[row], m_AnimationPipeline[target]);
+    ++m_AnimationPipelineRevision;
     updateAnimationFilterSummary();
     ui->listWidgetAnimationPipeline->setCurrentRow(target);
 }
@@ -735,6 +737,7 @@ void igQtAnimationWidget::moveSelectedPipelineStep(bool up) {
 void igQtAnimationWidget::clearAnimationPipeline() {
     if (m_AnimationPipeline.isEmpty()) return;
     m_AnimationPipeline.clear();
+    ++m_AnimationPipelineRevision;
     restoreAnimationFilterSource();
     updateAnimationFilterSummary();
 }
@@ -748,19 +751,24 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
     const auto* descriptor = m_AnimationFilterManager.descriptor(filterId);
     if (!descriptor) return;
 
+    VcrController->onPause();
     QString error;
-    auto input = animationFilterInput();
-    auto schema = m_AnimationFilterManager.parameterSchema(
-            filterId, input, &error);
-    if (!error.isEmpty()) {
+    igQtAnimationDataInfo input;
+    igQtAnimationFilterParameterSchema schema;
+    if (!animationPipelineInputInfo(row, input, error) ||
+        !m_AnimationFilterManager.parameterSchema(filterId, input, schema, error)) {
         QMessageBox::warning(this, QStringLiteral("动画 Filter"), error);
         return;
     }
 
     auto* dialog = new igQtFilterDialogDockWidget(this, true);
+    dialog->setObjectName(QStringLiteral("animationFilterParameters"));
+    dialog->setProperty("pipelineRow", row);
     dialog->setFilterTitle(
             QStringLiteral("动画 Filter 参数 - %1").arg(descriptor->displayName));
-    dialog->setFilterDescription(QStringLiteral("参数将在播放或导出时应用到每一帧。"));
+    dialog->setFilterDescription(schema.empty()
+            ? QStringLiteral("此步骤无需参数，将在每个动画帧上执行。")
+            : QStringLiteral("可选字段来自前序步骤。请填写等值或上下限；参数将在每个动画帧上生效。"));
 
     const QVariantMap existing = step.parameters;
     QMap<QString, int> widgetIds;
@@ -787,6 +795,12 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
                             dialog->getWidget(widgetId))) {
                     const int initialIndex = combo->findText(initial.toString());
                     if (initialIndex >= 0) combo->setCurrentIndex(initialIndex);
+                    else if (existing.contains(parameter.key)) {
+                        // Keep stale choices visible for correction; never silently pick another field.
+                        combo->addItem(initial.toString());
+                        combo->setCurrentIndex(combo->count() - 1);
+                        combo->setToolTip(QStringLiteral("原参数不在当前上游选项中，请重新选择。"));
+                    }
                 }
                 break;
             }
@@ -798,11 +812,26 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
                         parameter.title, initial.toString());
                 break;
         }
-        if (widgetId >= 0) widgetIds.insert(parameter.key, widgetId);
+        if (widgetId >= 0) {
+            widgetIds.insert(parameter.key, widgetId);
+            dialog->getWidget(widgetId)->setObjectName("animationParam_" + parameter.key);
+        }
     }
 
+    auto* parameterError = new QLabel(dialog);
+    parameterError->setObjectName(QStringLiteral("animationParameterError"));
+    parameterError->setWordWrap(true);
+    parameterError->setStyleSheet(QStringLiteral("color: #e0a050;"));
+    dialog->addRowWidget(parameterError);
     dialog->setApplyFunctor(
-            [this, dialog, row, filterId, schema, widgetIds]() {
+            [this, dialog, parameterError, row, filterId, schema, widgetIds,
+             revision = m_AnimationPipelineRevision, source = animationFilterInput()]() mutable {
+                parameterError->clear();
+                if (revision != m_AnimationPipelineRevision || source != animationFilterInput() ||
+                    row >= m_AnimationPipeline.size() || m_AnimationPipeline[row].filterId != filterId) {
+                    parameterError->setText(QStringLiteral("流程或输入已改变，请关闭并重新打开参数窗口。"));
+                    return;
+                }
                 QVariantMap values;
                 for (const auto& parameter : schema) {
                     const int widgetId = widgetIds.value(parameter.key, -1);
@@ -846,16 +875,17 @@ void igQtAnimationWidget::openAnimationFilterParameters() {
                 }
 
                 QString error;
-                if (!m_AnimationFilterManager.validateParameters(
-                            filterId, values, animationFilterInput(), error)) {
-                    QMessageBox::warning(dialog,
-                                         QStringLiteral("动画 Filter"), error);
+                igQtAnimationDataInfo input, output;
+                if (!animationPipelineInputInfo(row, input, error) ||
+                    !m_AnimationFilterManager.describeOutput(filterId, input, values, output, error)) {
+                    parameterError->setText(error);
                     return;
                 }
                 if (row < 0 || row >= static_cast<int>(m_AnimationPipeline.size())) {
                     return;
                 }
                 m_AnimationPipeline[row].parameters = values;
+                revision = ++m_AnimationPipelineRevision;
                 updateAnimationFilterSummary();
             });
 
@@ -879,9 +909,20 @@ iGame::DataObject::Pointer igQtAnimationWidget::animationFilterInput() const {
     return model->GetDataObject();
 }
 
+bool igQtAnimationWidget::animationPipelineInputInfo(
+        int row, igQtAnimationDataInfo& input, QString& error) const {
+    igQtAnimationDataInfo source;
+    if (!igQtDescribeAnimationData(animationFilterInput(), source, error)) return false;
+    return igQtDescribeAnimationPipelineInput(m_AnimationFilterManager, m_AnimationPipeline,
+                                             row, source, input, error);
+}
+
 void igQtAnimationWidget::updateAnimationFilterSummary() {
     const int previousRow = ui->listWidgetAnimationPipeline->currentRow();
     ui->listWidgetAnimationPipeline->clear();
+    igQtAnimationDataInfo upstream;
+    QString descriptionError;
+    bool described = igQtDescribeAnimationData(animationFilterInput(), upstream, descriptionError);
     for (int i = 0; i < static_cast<int>(m_AnimationPipeline.size()); ++i) {
         const auto& step = m_AnimationPipeline.at(i);
         const auto* descriptor = m_AnimationFilterManager.descriptor(step.filterId);
@@ -889,10 +930,21 @@ void igQtAnimationWidget::updateAnimationFilterSummary() {
                                .arg(i + 1)
                                .arg(descriptor ? descriptor->displayName
                                                : step.filterId);
-        if (!step.parameters.isEmpty()) {
-            text += QStringLiteral("（参数已设置）");
+        igQtAnimationDataInfo output;
+        QString rowError = descriptionError;
+        const bool valid = described && m_AnimationFilterManager.describeOutput(
+                step.filterId, upstream, step.parameters, output, rowError);
+        if (valid) {
+            if (!step.parameters.isEmpty()) text += QStringLiteral("（参数已设置）");
+            upstream = std::move(output);
+        } else {
+            text += described ? QStringLiteral("（需配置）") : QStringLiteral("（上游未就绪）");
+            if (described) descriptionError = QStringLiteral("第 %1 步未就绪：%2").arg(i + 1).arg(rowError);
+            described = false;
         }
         ui->listWidgetAnimationPipeline->addItem(text);
+        ui->listWidgetAnimationPipeline->item(i)->setToolTip(valid ? QString() : rowError);
+        if (!valid) ui->listWidgetAnimationPipeline->item(i)->setForeground(QColor(220, 150, 60));
     }
     if (previousRow >= 0 &&
         previousRow < ui->listWidgetAnimationPipeline->count()) {
@@ -938,19 +990,34 @@ bool igQtAnimationWidget::executeSelectedAnimationFilter(
 }
 
 void igQtAnimationWidget::applyPipelineDisplaySettings(
+        iGame::Scene* scene,
         iGame::DataObject::Pointer displayObject,
         iGame::DataObject::Pointer sourceObject) {
-    if (m_AnimationPipelineDisplayAttribute.isEmpty() || !displayObject) {
+    if (m_AnimationPipelineDisplayAttribute.isEmpty() || !displayObject || !scene) {
         return;
     }
-    auto attrSet = displayObject->GetAttributeSet();
-    if (!attrSet) return;
-    const int index = attrSet->GetAttributeIndex(
-            m_AnimationPipelineDisplayAttribute.toStdString());
-    if (index < 0) return;
-    displayObject->SetAttributeIndex(index);
     if (sourceObject) {
         displayObject->SetColorMapper(sourceObject->GetColorMapper());
+    }
+    auto drawObject = iGame::DynamicCast<iGame::DrawObject>(displayObject);
+    auto attrSet = displayObject->GetAttributeSet();
+    if (drawObject && attrSet) {
+        const int index = attrSet->GetAttributeIndex(
+                m_AnimationPipelineDisplayAttribute.toStdString());
+        if (index >= 0) {
+            // SetAttributeIndex alone bypasses the color/dirty flags and makes
+            // ViewCloudPicture's unchanged-selection guard skip initialization.
+            drawObject->ViewCloudPicture(scene, index,
+                                         m_AnimationPipelineDisplayDimension);
+        }
+    }
+    // Output blocks were attached before assigning the source color mapper.
+    // Share it explicitly and resolve the display field in each block by name.
+    if (displayObject->HasSubDataObject()) {
+        for (auto it = displayObject->SubDataObjectIteratorBegin();
+             it != displayObject->SubDataObjectIteratorEnd(); ++it) {
+            applyPipelineDisplaySettings(scene, it->second, sourceObject);
+        }
     }
 }
 
@@ -1289,6 +1356,7 @@ void igQtAnimationWidget::initAnimationComponents() {
     connect(ui->comboBoxCurrentAnimation, QOverload<int>::of(&QComboBox::currentIndexChanged),
             VcrController, &igQtAnimationVcrController::updateCurrentKeyframe, Qt::UniqueConnection);
     updateAnimationModeControls();
+    updateAnimationFilterSummary();
 }
 
 void igQtAnimationWidget::ClearAnimationVCRInfo() {

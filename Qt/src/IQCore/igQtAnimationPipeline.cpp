@@ -4,6 +4,24 @@
 
 #include <QString>
 
+bool igQtDescribeAnimationPipelineInput(
+        const igQtAnimationFilterManager& manager, const igQtAnimationPipelineSteps& steps,
+        int beforeStep, const igQtAnimationDataInfo& source,
+        igQtAnimationDataInfo& input, QString& error) {
+    error.clear(); input = source;
+    if (beforeStep < 0 || beforeStep > steps.size()) {
+        error = QStringLiteral("Filter 位置无效。"); return false;
+    }
+    for (int i = 0; i < beforeStep; ++i) {
+        igQtAnimationDataInfo output;
+        if (!manager.describeOutput(steps[i].filterId, input, steps[i].parameters, output, error)) {
+            error = QStringLiteral("第 %1 步：%2").arg(i + 1).arg(error); return false;
+        }
+        input = std::move(output);
+    }
+    return true;
+}
+
 bool igQtExecuteAnimationPipeline(
         const igQtAnimationFilterManager& manager,
         const igQtAnimationPipelineSteps& steps,

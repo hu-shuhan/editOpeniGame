@@ -47,6 +47,24 @@ struct IG_QT_MODULE_EXPORT igQtAnimationFilterParameter {
 using igQtAnimationFilterParameterSchema =
         std::vector<igQtAnimationFilterParameter>;
 
+// Configuration metadata only: no arrays, numerical ranges or mesh ownership.
+struct IG_QT_MODULE_EXPORT igQtAnimationFieldInfo {
+    QString name;
+    IGenum association{IG_NONE};
+    int components{0};
+    IGenum type{IG_NONE};
+};
+
+struct IG_QT_MODULE_EXPORT igQtAnimationDataInfo {
+    IGenum meshType{IG_NONE};
+    bool hasGeometry{false};
+    std::vector<igQtAnimationFieldInfo> fields;
+    std::vector<igQtAnimationDataInfo> blocks;
+};
+
+IG_QT_MODULE_EXPORT bool igQtDescribeAnimationData(
+        iGame::DataObject::Pointer input, igQtAnimationDataInfo& info, QString& error);
+
 /**
  * 动画系统传给 Filter Adapter 的单帧上下文。
  * input 必须是完成原始帧加载或数值插值后的本帧对象。
@@ -88,4 +106,11 @@ struct IG_QT_MODULE_EXPORT igQtAnimationFilterDescriptor {
     std::function<igQtAnimationFilterResult(
             const igQtAnimationFrameContext&,
             const QVariantMap&)> execute;
+
+    // Optional for legacy adapters. Missing callbacks are reported as unknown;
+    // configuration must never call execute() to manufacture a description.
+    std::function<bool(const igQtAnimationDataInfo&, const QVariantMap&,
+                       igQtAnimationDataInfo&, QString&)> describeOutput;
+    std::function<bool(const igQtAnimationDataInfo&,
+                       igQtAnimationFilterParameterSchema&, QString&)> parameterSchemaFromInfo;
 };

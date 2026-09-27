@@ -204,6 +204,12 @@ if (ENABLE_QT_MODULE)
 endif ()
 
 # 导入example
+option(IGAME_BUILD_ANIMATION_INFO_TESTS "Build animation field-description regressions" OFF)
+if (IGAME_BUILD_ANIMATION_INFO_TESTS AND ENABLE_QT_MODULE)
+    enable_testing()
+    add_subdirectory(Examples/Animation/FieldInfo)
+endif ()
+
 if (EXAMPLE_COMPILE)
     add_subdirectory(Examples)
 endif ()
