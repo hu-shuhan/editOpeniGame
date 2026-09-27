@@ -55,12 +55,17 @@ private:
 #define IGAME_CPP_PUSHED_SLOTS
 #endif
 #include <ATen/ATen.h>
-#include <ATen/cuda/CUDAContext.h>
 #include <c10/core/DeviceType.h>
 #include <c10/core/ScalarType.h>
+// CUDA 专有头只在链接 GPU 版 LibTorch 时才有，CPU 版里不存在。
+// 这里只是包含，代码里并没有直接调用任何 CUDA API，所以条件编译掉即可。
+#ifdef IGAME_LIBTORCH_CUDA
+#include <ATen/cuda/CUDAContext.h>
 #include <cuda_runtime.h>
+#endif
 #include <torch/script.h>
 #include <torch/torch.h>
+#include <thread>
 using namespace torch::nn::functional;
 #ifdef IGAME_CPP_PUSHED_SLOTS
 #pragma pop_macro("slots")
@@ -274,6 +279,30 @@ struct BlockInfo {
     std::vector<int64_t> prediction;
 };
 
+namespace {
+
+// 是否可以用 GPU 跑推理。
+// 编译成 CPU 版 LibTorch 时 torch::cuda::is_available() 恒为 false，
+// 因此同一份代码在两种构建下都能工作。
+bool VortexInferenceUseCuda() {
+    static const bool useCuda = torch::cuda::is_available();
+    return useCuda;
+}
+
+torch::Device VortexInferenceDevice() {
+    return VortexInferenceUseCuda() ? torch::Device(torch::kCUDA) : torch::Device(torch::kCPU);
+}
+
+// 按设备挑选模型文件。
+// TorchScript 模型会记住保存时所在的设备，用 CUDA 上保存的模型在没有显卡的机器上
+// 直接 load 会失败，所以两种设备各用一份权重。
+std::string VortexModelPath() {
+    return VortexInferenceUseCuda() ? std::string("./Resources/AI/model_1x64x64x64_1108_cuda.pt")
+                                    : std::string("./Resources/AI/model_1x64x64x64_0810_cpu.pt");
+}
+
+} // namespace
+
 bool VortexDetection::DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
                                                      int Index, std::string name) {
     std::cout << "VortexDetection::DetectionVortex must in VolumeMesh!" << std::endl;
@@ -283,7 +312,8 @@ bool VortexDetection::DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, 
 bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
                                                     int Index, std::string name) {
 
-    std::cout << "[RUNTIME] torch::cuda::is_available=" << torch::cuda::is_available() << std::endl;
+    std::cout << "[RUNTIME] vortex inference device = "
+              << (VortexInferenceUseCuda() ? "CUDA" : "CPU") << std::endl;
     auto t0 = std::chrono::high_resolution_clock::now();
     int NumPoints = Mesh->GetNumberOfPoints();
     ArrayObject::Pointer velocityData = Attributes->GetAttribute(Index).pointer;
@@ -478,11 +508,19 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     int progress = 10;
     UpdateProgress(progress * 0.01);
 
-    std::string model_path = "./Resources/AI/model_1x64x64x64_1108_cuda.pt";
+    std::string model_path = VortexModelPath();
 
     auto [result_volume_11, global_step, predict_vals] =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split, nx, ny, nz, Mesh,
                            Attributes, Index, uniform);
+
+    // 模型加载失败时 process_blocks 返回空结果，这里直接停下，
+    // 否则后面拿未定义的 Tensor 继续算必然崩溃
+    if (!result_volume_11.defined() || predict_vals.empty()) {
+        std::cerr << "[VortexDetection] inference aborted: model \"" << model_path
+                  << "\" could not be loaded or produced no result." << std::endl;
+        return false;
+    }
 
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
 
@@ -1284,7 +1322,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
     constexpr int patch_size = 64;
     constexpr int stride = 32;
     constexpr int BATCH = 8;
-    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
+    const torch::Device device = VortexInferenceDevice();
     auto [padded, pad_D, pad_H, pad_W] = pad_tensor(grid_tensor, patch_size);
     std::vector<torch::Tensor> patches = extract_patches(padded, patch_size, stride);
     const int padded_D = padded.size(0);
@@ -1498,7 +1536,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
     const int64_t W = prob_vol_1.size(2);
     const int64_t M = static_cast<int64_t>(query_points.size());
 
-    const bool prefer_cuda = prob_vol_1.is_cuda() && torch::cuda::is_available();
+    const bool prefer_cuda = prob_vol_1.is_cuda() && VortexInferenceUseCuda();
     const torch::Device device = prefer_cuda ? prob_vol_1.device() : torch::kCPU;
     const bool use_fp16 = prefer_cuda;
 
@@ -1932,13 +1970,24 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                                 int split, int nx, int ny, int nz, VolumeMesh::Pointer mesh, AttributeSet* Attributes,
                                 int Index, bool uniform) {
     torch::jit::script::Module model;
+    const torch::Device device = VortexInferenceDevice();
     try {
-        model = torch::jit::load(model_path);
-        std::cout << "Model loaded successfully." << std::endl;
-    } catch (const c10::Error& e) { std::cerr << "Error loading the model. " << e.what() << std::endl; }
-    if (torch::cuda::is_available()) {
+        // 显式给出目标设备，避免模型按保存时的设备去恢复权重
+        model = torch::jit::load(model_path, device);
+        std::cout << "Model loaded successfully: " << model_path << std::endl;
+    } catch (const c10::Error& e) {
+        std::cerr << "Error loading the model. " << e.what() << std::endl;
+        return {};
+    }
+    if (device.is_cuda()) {
         std::cout << "[RUNTIME] Moving model to CUDA device" << std::endl;
         model.to(torch::kCUDA);
+    } else {
+        // CPU 推理是计算密集的，留一个核给界面线程，避免整个程序卡住
+        const int cores = static_cast<int>(std::thread::hardware_concurrency());
+        const int threads = cores > 2 ? cores - 1 : 1;
+        torch::set_num_threads(threads);
+        std::cout << "[RUNTIME] CPU inference, torch threads = " << threads << std::endl;
     }
     model.eval();
     // 验证 eval 真的生效了
@@ -2165,7 +2214,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     std::cout << "Computed mean: [" << mean[0] << ", " << mean[1] << ", " << mean[2] << "]" << std::endl;
     std::cout << "Computed std: [" << std[0] << ", " << std[1] << ", " << std[2] << "]" << std::endl;
 
-    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
+    // device 已在函数开头随模型一起确定，这里直接复用
     for (auto& t: all_grid_tensors) {
         if (device.is_cuda() && t.device().is_cpu()) { t = t.to(device, true); }
     }

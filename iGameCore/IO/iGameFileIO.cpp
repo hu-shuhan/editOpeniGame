@@ -1,4 +1,5 @@
 #include "iGameFileIO.h"
+#include "iGameDrawObject.h"
 
 #include "Abaqus/iGameODBReader.h"
 #include "CGNS/iGameCGNSReader.h"
@@ -323,6 +324,18 @@ static DataObject::Pointer FinalizeLoadedObject(DataObject::Pointer resObj, cons
 }
 
 DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
+    return ReadFileWithRenderingPolicy(file_name, false);
+}
+
+DataObject::Pointer FileIO::ReadRemoteFile(const std::string& file_name) {
+    return ReadFileWithRenderingPolicy(file_name, true);
+}
+
+DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_name, bool remoteRendering) {
+    // 读取阶段不再执行“转可绘制数据”。这里只读盘/解析/挂载，转换推迟到第一次渲染
+    // （Scene::DrawFrame → SyncGpuBuffers）或第一次 GetRenderableObject() 时执行，
+    // 使“打开文件”耗时与 ParaView 的 reader-only 口径对等。
+    DataObject::DeferDrawableConversionScope deferDrawableConversion;
     try {
     IGenum fileType = GetFileType(file_name);
     std::string out;
@@ -445,6 +458,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
         }
         case iGame::FileIO::VTM: {
             iGameVTMReader::Pointer reader = iGameVTMReader::New();
+            reader->SetRemoteRenderingEnabled(remoteRendering);
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();
@@ -452,6 +466,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
         }
         case iGame::FileIO::BDF: {
             NastranReader::Pointer reader = NastranReader::New();
+            reader->SetRemoteConversionEnabled(remoteRendering);
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();
@@ -459,6 +474,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
         }
         case iGame::FileIO::CAS: {
             CASReader::Pointer reader = CASReader::New();
+            reader->SetRemoteConversionEnabled(remoteRendering);
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();
@@ -495,6 +511,9 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     std::string baseName = file_name.substr(slash == std::string::npos ? 0 : slash + 1);
     const auto dot = baseName.find_last_of('.');
     if (dot != std::string::npos) { baseName.erase(dot); }
+    if (remoteRendering && resObj) {
+        if (auto draw = DynamicCast<DrawObject>(resObj)) draw->SetRemoteRenderingEnabled(true);
+    }
     resObj = FinalizeLoadedObject(resObj, baseName);
 
     end = clock();

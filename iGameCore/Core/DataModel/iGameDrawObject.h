@@ -14,6 +14,7 @@
 #include "OpenGL/GLVertexArray.h"
 
 #include "Meshleter/iGameMeshleter.h"
+#include <cstdint>
 
 IGAME_NAMESPACE_BEGIN
 class Scene;
@@ -31,9 +32,55 @@ public:
     bool IsDrawable() override { return true; }       // 标识可以被渲染
     virtual void ConvertToDrawableData();             //转化为可渲染模式（当前对象及其所有子对象）
     void ForceReConvertToDrawableData();              // 强制触发重新映射
+
+    /**
+     * @brief 惰性转换（读取路径优化）。
+     *
+     * 读取文件时 AddSubDataObject 不再立刻执行 ConvertToDrawableData()（体积网格的
+     * 表面抽取 + 建渲染壳，百万单元量级约 100 ms），而是标记为"待转换"；等到第一次
+     * 真正需要渲染（Scene::DrawFrame → SyncGpuBuffers）或第一次取渲染壳
+     * （GetRenderableObject）时再执行。这样"打开文件/读取"的耗时只包含读盘+解析+挂载，
+     */
+    void MarkDrawableConversionDeferred();
+    void EnsureDrawableData();                        // 有待转换则立即执行
+    bool IsDrawableConversionDeferred() const { return m_DrawableConversionDeferred; }
     virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
+
+    // Opt-in static display cache. Unlike ReleaseDrawableResources(), keep
+    // extracted surface, LOD, colors and CPU drawing arrays. The owning GL
+    // context must be current if any handle is live. Eviction must still use
+    // ReleaseDrawableResources() to break derived-object ownership cycles.
+    void ReleaseGpuResourcesKeepCpuData();
+    // Upload a validated, GPU-detached prepared graph without CPU conversion.
+    // Requires a current owning GL context; does not enable empty attributes.
+    bool UploadPreparedCpuData();
+
+    struct CpuDisplayCacheState {
+        std::vector<std::uint64_t> signature;
+        std::uint64_t estimatedBytes{0};
+        bool ready{true};
+        std::string notReadyReason;
+    };
+    // Metadata-only inspection, no mesh scan, conversion or GL calls. Supports
+    // the ordinary (non-meshlet) surface path. Estimate includes original and
+    // derived arrays/capacity and can conservatively double-count shared data;
+    // it is not process RSS or a hard process-memory limit.
+    CpuDisplayCacheState InspectCpuDisplayCache();
+
+    // Explicit CPU-only cache boundary. Recursively release GL objects and
+    // derived CPU draw arrays, including shell/LOD/meshlet ownership cycles.
+    // Original points, cells, attributes and display settings are retained.
+    // If HasGpuResources() is true, the owning GL context MUST be current.
+    // Safe without GL for data that has never been uploaded; next draw rebuilds.
+    void ReleaseDrawableResources();
+    bool HasGpuResources() const;
+
+    // Per-dataset opt-in. Local files keep main's upload and wireframe path.
+    // Propagates to existing children, extracted surfaces and interaction LOD.
+    void SetRemoteRenderingEnabled(bool enabled);
+    bool GetRemoteRenderingEnabled() const { return m_RemoteRenderingEnabled; }
 
     bool IsUseColor();        //是否使用颜色
     bool IsUseNormalSmooth(); //是否使用法线平滑
@@ -78,6 +125,8 @@ public:
     // 设置和获取显示对象
     void SetRenderableObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
+    void SetAutoBuildInteractionLod(bool enabled);
+    bool GetAutoBuildInteractionLod() const;
 
     // 设置/获取"始终置顶"标志位
     void SetAlwaysOnTop(bool enable);
@@ -124,7 +173,11 @@ protected:
 
     Object::Pointer m_ReConvertHelper = Object::New();
     bool m_AttributeChanged = false;
+    bool m_RemoteRenderingEnabled = false;
+    bool m_ForceGpuBufferUpload = false;
+    bool m_RestoreMeshletColoring = false;
     bool m_ReConvertToDrawableData; // 是否需要重新转换数据
+    bool m_DrawableConversionDeferred = false; // 读取路径延迟的“转可绘制数据”
 
     bool m_AutoUpdateDrawData;    // 是否自动更新GPU数据
     bool m_ShellRendering = true; // 是否启用抽壳渲染
@@ -156,15 +209,21 @@ protected:
     UnsignedIntArray::Pointer m_TriangleIndices;
     // 单通道线框渲染
     bool m_UseSinglePassWireframeRendering{true};
+    bool m_ForceExplicitWireframeGeometry{false};
+    bool m_AutoBuildInteractionLod{true};
     UnsignedCharArray::Pointer m_TriangleEdgeMasks;
     GLBuffer::Pointer m_EdgeMaskBuffer;
     GLTextureBuffer::Pointer m_EdgeMaskTexture;
+    int m_ConstantEdgeMask{-1};
+    bool m_EdgeMaskAvailable{false};
     // 单元数据
     FloatArray::Pointer m_CellPositions;
     FloatArray::Pointer m_CellColors;
     UnsignedCharArray::Pointer m_CellTriangleEdgeMasks;
     GLBuffer::Pointer m_CellEdgeMaskBuffer;
     GLTextureBuffer::Pointer m_CellEdgeMaskTexture;
+    int m_ConstantCellEdgeMask{-1};
+    bool m_CellEdgeMaskAvailable{false};
 
     unsigned int m_ViewStyle; // 视图样式
     bool m_Visibility;        //是否可见
@@ -208,6 +267,8 @@ protected:
 
     void BuildSimplifiedRenderableObject();
     void SyncRenderableState(const DrawObject::Pointer& renderableObject);
+    bool NeedsExplicitWireframeGeometry(IGenum viewStyle);
+    void MarkWireframeGeometryDirtyIfNeeded(IGenum viewStyle);
 };
 //递归处理所有子对象的模板函数实现
 template<typename Functor, typename... Args>

@@ -1,4 +1,5 @@
 #include <IQWidgets/igQtAttributeSelectWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 
 #include <IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <iGameAttributeSet.h>
@@ -7,6 +8,9 @@
 #include "MeshReport/iGameMeshReportGenerator.h"
 
 #include <QFileDialog>
+#include <QEvent>
+#include <QTimer>
+#include <QStyle>
 #include <QHBoxLayout>
 #include <QThread>
 #include <QSettings>
@@ -65,6 +69,17 @@ QCheckBox:hover {
     border-radius: 3px;
 }
 )";
+
+const char* kPanelDarkQss = R"(
+igQtAttributeSelectWidget { background-color: #222222; }
+QLabel { color: rgba(255,255,255,204); font-size: 10pt; }
+QScrollArea { background-color: #1E1E1E; border: 1px solid #3C3C3C; border-radius: 4px; }
+QScrollArea > QWidget { background-color: #1E1E1E; }
+QWidget#attrContainer { background-color: #1E1E1E; }
+)";
+
+const char* kSectionLabelDarkQss =
+        "color: rgba(255,255,255,120); font-size: 9pt; padding: 4px 2px 2px 6px;";
 } // namespace
 
 igQtAttributeSelectWidget::igQtAttributeSelectWidget(QWidget* parent) : QWidget(parent) {
@@ -85,10 +100,7 @@ igQtAttributeSelectWidget::~igQtAttributeSelectWidget() {
 }
 
 void igQtAttributeSelectWidget::setupUI() {
-    setStyleSheet("igQtAttributeSelectWidget { background-color: #222222; } "
-                  "QLabel { color: rgba(255,255,255,204); font-size: 10pt; } "
-                  "QScrollArea { background-color: #1E1E1E; border: 1px solid #3C3C3C; border-radius: 4px; } "
-                  "QWidget#attrContainer { background-color: #1E1E1E; }");
+    setStyleSheet(QString::fromUtf8(kPanelDarkQss));
 
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(8, 8, 8, 8);
@@ -106,6 +118,7 @@ void igQtAttributeSelectWidget::setupUI() {
 
     m_container = new QWidget();
     m_container->setObjectName("attrContainer");
+    m_container->setAttribute(Qt::WA_StyledBackground, true);
     m_container->setLayout(new QVBoxLayout());
     m_container->layout()->setContentsMargins(4, 4, 4, 4);
     m_container->layout()->setSpacing(2);
@@ -133,10 +146,100 @@ void igQtAttributeSelectWidget::setupUI() {
     connect(m_btnRefresh, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onRefreshClicked);
     connect(m_configBtn, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onConfigClicked);
     connect(m_btnGenerate, &QPushButton::clicked, this, &igQtAttributeSelectWidget::onGenerateClicked);
+
+    applyThemeQss();
+    applyPaletteTheme();
 }
 
 void igQtAttributeSelectWidget::setStatus(const QString& msg) {
     m_statusLabel->setText(msg);
+}
+
+void igQtAttributeSelectWidget::applyThemeQss() {
+    if (m_applyingTheme) return;
+    m_applyingTheme = true;
+
+    const QString panelBase = QString::fromUtf8(kPanelDarkQss);
+    this->setProperty("igPanelBaseQss", panelBase);
+    const QString panelThemed = igQtRenderWidget::themeRemapQss(panelBase);
+    if (this->styleSheet() != panelThemed) this->setStyleSheet(panelThemed);
+
+    const QString btnBase = QString::fromUtf8(kDarkButtonQss);
+    const QString btnThemed = igQtRenderWidget::themeRemapQss(btnBase);
+    for (QPushButton* b : {m_btnRefresh, m_configBtn, m_btnGenerate}) {
+        if (!b) continue;
+        b->setProperty("igPanelBaseQss", btnBase);
+        if (b->styleSheet() != btnThemed) b->setStyleSheet(btnThemed);
+    }
+
+    const QString cbBase = QString::fromUtf8(kCheckBoxQss);
+    const QString cbThemed = igQtRenderWidget::themeRemapQss(cbBase);
+    for (const QPair<QString, QCheckBox*>& entry : m_checkBoxes) {
+        QCheckBox* cb = entry.second;
+        if (!cb) continue;
+        cb->setProperty("igPanelBaseQss", cbBase);
+        if (cb->styleSheet() != cbThemed) cb->setStyleSheet(cbThemed);
+    }
+
+    m_applyingTheme = false;
+}
+
+void igQtAttributeSelectWidget::applyPaletteTheme() {
+    using Role = igQtRenderWidget::UiRole;
+    const QColor areaBg = igQtRenderWidget::uiRole(Role::PanelBg2);
+    const QColor fg = igQtRenderWidget::uiRole(Role::Text);
+
+    if (m_statusLabel) {
+        m_statusLabel->setStyleSheet(QStringLiteral("color:%1; background:transparent; font-size:10pt;")
+                                            .arg(fg.name()));
+    }
+    auto paintArea = [&](QWidget* w) {
+        if (!w) return;
+        w->setAutoFillBackground(true);
+        QPalette p = w->palette();
+        p.setColor(QPalette::Base, areaBg);
+        p.setColor(QPalette::Window, areaBg);
+        p.setColor(QPalette::Text, fg);
+        p.setColor(QPalette::WindowText, fg);
+        w->setPalette(p);
+        w->update();
+    };
+    if (m_scrollArea) {
+        const QColor border = igQtRenderWidget::uiRole(Role::Border);
+        m_scrollArea->setStyleSheet(QStringLiteral(
+                "QScrollArea { background-color: %1; border: 1px solid %2; border-radius: 4px; }"
+                "QScrollArea > QWidget { background-color: %1; }"
+                "QWidget#attrContainer { background-color: %1; }")
+                                            .arg(areaBg.name(), border.name()));
+        paintArea(m_scrollArea);
+        paintArea(m_scrollArea->viewport());
+    }
+    paintArea(m_container);
+    update();
+}
+
+void igQtAttributeSelectWidget::showEvent(QShowEvent* e) {
+    applyThemeQss();
+    applyPaletteTheme();
+    if (style()) {
+        style()->unpolish(this);
+        style()->polish(this);
+    }
+    update();
+    if (m_scrollArea) {
+        if (m_scrollArea->viewport()) m_scrollArea->viewport()->update();
+        m_scrollArea->update();
+    }
+    if (m_container) m_container->update();
+    updateGeometry();
+    QWidget::showEvent(e);
+    QTimer::singleShot(0, this, [this]() {
+        update();
+        if (m_scrollArea) {
+            if (m_scrollArea->viewport()) m_scrollArea->viewport()->update();
+        }
+        if (m_container) m_container->update();
+    });
 }
 
 void igQtAttributeSelectWidget::setBusy(bool busy) {
@@ -248,15 +351,20 @@ void igQtAttributeSelectWidget::RefreshAttributeList() {
         delete it;
     }
 
-    const QString checkboxStyle = QString::fromUtf8(kCheckBoxQss);
+    const QString cbBase = QString::fromUtf8(kCheckBoxQss);
+    const QString cbThemed = igQtRenderWidget::themeRemapQss(cbBase);
+    const QString sectionBase = QString::fromUtf8(kSectionLabelDarkQss);
+    const QString sectionThemed = igQtRenderWidget::themeRemapQss(sectionBase);
     auto addSection = [&](const QString& title, const QStringList& names) {
         if (names.isEmpty()) return;
         auto* titleLabel = new QLabel(title, m_container);
-        titleLabel->setStyleSheet("color: rgba(255,255,255,120); font-size: 9pt; padding: 4px 2px 2px 6px;");
+        titleLabel->setProperty("igPanelBaseQss", sectionBase);
+        titleLabel->setStyleSheet(sectionThemed);
         containerLayout->addWidget(titleLabel);
         for (const QString& name : names) {
             auto* cb = new QCheckBox(name, m_container);
-            cb->setStyleSheet(checkboxStyle);
+            cb->setProperty("igPanelBaseQss", cbBase);
+            cb->setStyleSheet(cbThemed);
             containerLayout->addWidget(cb);
             m_checkBoxes.append({name, cb});
             connect(cb, &QCheckBox::toggled, this, &igQtAttributeSelectWidget::onCheckBoxToggled);
@@ -266,6 +374,8 @@ void igQtAttributeSelectWidget::RefreshAttributeList() {
     addSection(QStringLiteral("— 单元属性 (Cell) —"), cellNames);
 
     containerLayout->addStretch();
+
+    applyThemeQss();
 
     if (m_checkBoxes.isEmpty()) {
         setStatus(QStringLiteral("当前模型没有任何属性"));
@@ -294,7 +404,7 @@ void igQtAttributeSelectWidget::onConfigClicked() {
 
     auto* body = new QWidget(cfgDlg.contentHost());
     body->setAttribute(Qt::WA_StyledBackground, true);
-    body->setStyleSheet(
+    body->setStyleSheet(QStringLiteral(
         "QWidget { background-color: transparent; color: #EAEAEA; }"
         "QLabel { color: #D8D8D8; }"
         "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
@@ -303,7 +413,7 @@ void igQtAttributeSelectWidget::onConfigClicked() {
         "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
         "              padding: 6px 16px; border-radius: 4px; }"
         "QPushButton:hover { background-color: #3A3A3A; }"
-        "QPushButton:pressed { background-color: #252526; }");
+        "QPushButton:pressed { background-color: #252526; }"));
 
     auto* form = new QFormLayout(body);
     form->setContentsMargins(12, 12, 12, 12);
@@ -318,6 +428,7 @@ void igQtAttributeSelectWidget::onConfigClicked() {
 
     cfgDlg.setContentWidget(body);
     cfgDlg.resize(300, 160);
+    igQtPanelTheme::attachDeep(&cfgDlg);
 
     bool accepted = false;
     QObject::connect(btns, &QDialogButtonBox::accepted, &cfgDlg, [&]() { accepted = true; cfgDlg.accept(); });
@@ -436,4 +547,13 @@ void igQtAttributeSelectWidget::onAsyncFinished(bool success, const QString& mes
                                      message.isEmpty() ? QStringLiteral("未知错误") : message);
     }
     emit SIGNAL_ReportFinished(success, message);
+}
+
+void igQtAttributeSelectWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        applyThemeQss();
+        applyPaletteTheme();
+        update();
+    }
+    QWidget::changeEvent(e);
 }

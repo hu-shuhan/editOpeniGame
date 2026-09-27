@@ -6,7 +6,9 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <iomanip>
+#include <limits>
 #include <numeric>
+#include <stdexcept>
 
 IGAME_NAMESPACE_BEGIN
 namespace meshsmp
@@ -550,12 +552,12 @@ public:
     node** data;
 
 public:
-    FastEdgeHashMap(int initCapacity = 16) : count(0), capacity(initCapacity) {
+    FastEdgeHashMap(size_t initCapacity = 16) : count(0), capacity(NextPowerOfTwo(initCapacity)) {
         data = new node*[capacity];
-        for (int i = 0; i < capacity; i++) { data[i] = nullptr; }
+        for (size_t i = 0; i < capacity; i++) { data[i] = nullptr; }
     }
     ~FastEdgeHashMap() {
-        for (int i = 0; i < capacity; i++) {
+        for (size_t i = 0; i < capacity; i++) {
             if (data[i]) {
                 node* p = data[i];
                 while (p) {
@@ -576,7 +578,7 @@ public:
     }
 
     bool addOrRemove(key_t key, val_t value, val_t& oldValue) {
-        if (count == capacity * 0.75) { resize(); }
+        if (count >= capacity - capacity / 4) { resize(); }
 
         size_t index = getIndex(key);
         if (data[index] == nullptr) {
@@ -616,12 +618,27 @@ public:
 
     
 private:
+    static size_t NextPowerOfTwo(size_t value) {
+        size_t result = 1;
+        while (result < value) {
+            if (result > std::numeric_limits<size_t>::max() / 2) {
+                throw std::length_error("FastEdgeHashMap capacity is too large");
+            }
+            result <<= 1;
+        }
+        return result;
+    }
+
     void resize() {
+        if (capacity > std::numeric_limits<size_t>::max() / 2) {
+            throw std::length_error("FastEdgeHashMap cannot grow further");
+        }
+        const size_t oldCapacity = capacity;
         capacity *= 2;
         node** old_data = data;
         data = new node*[capacity];
-        for (int i = 0; i < capacity; i++) { data[i] = nullptr; }
-        for (int i = 0; i < capacity / 2; i++) {
+        for (size_t i = 0; i < capacity; i++) { data[i] = nullptr; }
+        for (size_t i = 0; i < oldCapacity; i++) {
             if (old_data[i]) {
                 node* cur = old_data[i];
                 while (cur) {
@@ -631,6 +648,7 @@ private:
                 }
             }
         }
+        delete[] old_data;
     }
     void insert(node* p) {
         size_t index = getIndex(p->key);

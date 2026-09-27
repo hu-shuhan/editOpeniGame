@@ -1,3 +1,4 @@
+#include <IQWidgets/igQtRenderWidget.h>
 #include "iGameSceneManager.h"
 #include <IQWidgets/igQtScalarViewWidget.h>
 #include <QRegExpValidator>
@@ -17,6 +18,8 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 	SetCustomScaleRangeWidget = new QWidget;
 	SetCustomScaleRangeUi = new Ui::SetCustomScaleRange;
 	SetCustomScaleRangeUi->setupUi(SetCustomScaleRangeWidget);
+
+	igQtPanelTheme::attachDeep(this);
 	SetCustomScaleRangeWidget->hide();
 	ui->widget_DataRangeSlider->hide();
 
@@ -232,4 +235,11 @@ void igQtScalarViewWidget::isShowColorLegend() { Q_EMIT changeColorBarShow(); }
 
 int igQtScalarViewWidget::getCurrentSelectedScalarIdx() {
 	return currentSelectedScalarIdx;
+}
+
+void igQtScalarViewWidget::changeEvent(QEvent* e) {
+	if (e && e->type() == QEvent::StyleChange) {
+		igQtPanelTheme::refreshDeep(this);
+	}
+	QWidget::changeEvent(e);
 }

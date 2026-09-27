@@ -11,7 +11,7 @@
 #include "MeshCodec/iGameMeshDecoderFilter.h"
 #include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
-#include "MyFilter/iGameCellCenterFilter.h"
+#include "CellCenter/iGameCellCenterFilter.h"
 #include "ParallelCoordinates/iGameGenerateParallelCoordinatesData.h"
 #include "PlotLine/iGameGeneratePlotLineDataFilter.h"
 #include "PointCoordinates/iGamePointCoordinatesFilter.h"

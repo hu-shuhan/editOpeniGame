@@ -26,6 +26,9 @@ public:
     I_OBJECT(NastranReader);
     static Pointer New() { return new NastranReader; }
 
+    // Only verified C/S entry points opt in. Ordinary readers keep main's converter behavior.
+    void SetRemoteConversionEnabled(bool enabled) { m_RemoteConversionEnabled = enabled; }
+
     // 设置BDF文件路径（几何数据）
     void SetBDFFileName(const std::string& filename);
 
@@ -74,6 +77,7 @@ private:
 //    bool AddResultArrays(pybind11::dict& results_dict);
 
 private:
+    bool m_RemoteConversionEnabled{false};
     std::string m_BDFFilePath;          // BDF文件路径
     std::string m_OP2FilePath;          // OP2文件路径（可选）
     DataObject::Pointer m_Output;

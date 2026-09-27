@@ -8,6 +8,7 @@
  */
 
 #include "iGameNastranReader.h"
+#include "iGameExternalProcess.h"
 #include "iGamePoints.h"
 #include "iGameFlatArray.h"
 
@@ -89,8 +90,9 @@ bool NastranReader::Parsing() {
     bool exeFound = false;
     for (const auto& path : exePaths) {
         // 简单检查文件是否存在
-        std::ifstream file(path);
-        if (file.good()) {
+        const bool exists = m_RemoteConversionEnabled
+                ? std::filesystem::exists(FileSystem::PathFromUtf8(path)) : std::ifstream(path).good();
+        if (exists) {
             exePath = path;
             exeFound = true;
             break;
@@ -105,13 +107,31 @@ bool NastranReader::Parsing() {
 
 
     std::string outputPath = m_BDFFilePath + ".vtu";
-
-    std::string arguments = " --force --bdf " + m_BDFFilePath + " --output " + outputPath;
-    if(!m_OP2FilePath.empty()) arguments += " --op2 " + m_OP2FilePath;
-    else
-        IGAME_WARN("Not set op2");
-    std::string fullCommand = exePath + arguments;
-    int returnCode = system(fullCommand.c_str());
+    int returnCode = 0;
+    if (m_RemoteConversionEnabled) {
+        std::filesystem::path outputFilePath = FileSystem::PathFromUtf8(m_BDFFilePath);
+        outputFilePath += ".vtu";
+        outputPath = FileSystem::PathToUtf8(outputFilePath);
+        // C/S package paths may contain Unicode and spaces.
+        std::vector<std::string> arguments = {"--force", "--bdf", m_BDFFilePath, "--output", outputPath};
+        if (!m_OP2FilePath.empty()) {
+            arguments.push_back("--op2");
+            arguments.push_back(m_OP2FilePath);
+        } else {
+            IGAME_WARN("Not set op2");
+        }
+        if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+            IGAME_ERROR("[NastranReader] Failed to start converter: {}", exePath);
+            return false;
+        }
+    } else {
+        // Preserve main's command construction and shell invocation for ordinary files.
+        std::string arguments = " --force --bdf " + m_BDFFilePath + " --output " + outputPath;
+        if (!m_OP2FilePath.empty()) arguments += " --op2 " + m_OP2FilePath;
+        else IGAME_WARN("Not set op2");
+        std::string fullCommand = exePath + arguments;
+        returnCode = std::system(fullCommand.c_str());
+    }
 
     if (returnCode == 0) {
         IGAME_CORE_DEBUG("Success to  transfer Nastran to VTK");

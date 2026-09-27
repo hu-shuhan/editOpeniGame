@@ -315,7 +315,12 @@ bool CountCellVerticesFilter::ExecuteInternal() {
         displayRange->SetDimension(2);
         displayRange->AddElement2(minCount, minCount + 1.0);
         displayRange->AddElement2(minCount, minCount + 1.0);
+        displayRange->Modified();
         outAttrs->AddScalar(IG_CELL, vertexCounts, displayRange);
+        // The renderer may keep its default [0, 255] range when the mapper is
+        // newer than the attribute range. Initialize this output's mapper to
+        // the same interval so selecting the array again keeps its color.
+        outMesh->GetColorMapper()->SetRange(minCount, minCount + 1.0);
     } else {
         outAttrs->AddScalar(IG_CELL, vertexCounts);
     }

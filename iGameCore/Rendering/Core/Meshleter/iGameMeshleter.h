@@ -16,6 +16,7 @@
 #include "OpenGL/GLVertexArray.h"
 #include "iGameDataObject.h"
 #include "iGameObject.h"
+#include <cstdint>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -77,6 +78,16 @@ public:
      * @warning 调用该函数后必须重新调用SyncToGpu()才能继续渲染
      */
     void ReleaseGpuBuffers();
+    bool HasGpuResources() const;
+
+    // CPU payload only; input mesh ownership is accounted by the caller.
+    std::uint64_t GetRetainedCpuMemorySize() const {
+        return m_MeshletIndices.capacity() * sizeof(unsigned int) +
+               m_TriangleToFace.capacity() * sizeof(unsigned int) +
+               m_MeshletDescriptors.capacity() * sizeof(MeshletDescriptor) +
+               m_ElementsDrawCommands.capacity() * sizeof(DrawElementsIndirectCommand) +
+               m_ArraysDrawCommands.capacity() * sizeof(DrawArraysIndirectCommand);
+    }
 
     void SetRenderWithMeshlet(bool val) {
         if (val != m_RenderWithMeshlet) {

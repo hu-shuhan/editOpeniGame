@@ -12,6 +12,10 @@ igQtCreateContourAnimationFilterDescriptor();
 IG_QT_MODULE_EXPORT igQtAnimationFilterDescriptor
 igQtCreateIsoVolumeAnimationFilterDescriptor();
 
+/** 创建内置的单元数据转点数据动画 Filter 描述。 */
+IG_QT_MODULE_EXPORT igQtAnimationFilterDescriptor
+igQtCreateConvertToPointDataAnimationFilterDescriptor();
+
 /** 注册当前可用于动画的全部内置 Filter Adapter。 */
 IG_QT_MODULE_EXPORT bool igQtRegisterBuiltinAnimationFilters(
         igQtAnimationFilterManager& manager,

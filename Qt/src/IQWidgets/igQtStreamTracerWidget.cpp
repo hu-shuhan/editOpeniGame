@@ -1,6 +1,7 @@
-﻿#include "StreamView/iGameStreamlineSimplifier.h"
+#include "StreamView/iGameStreamlineSimplifier.h"
 #include "iGameSelection.h"
 #include <IQWidgets/igQtStreamTracerWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <iGameBoxStyle.h>
 #include <iGameSceneManager.h>
 
@@ -181,6 +182,8 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     haveClicked = true;
     ui->control_comboBox->setCurrentIndex(1);
     streamlineResult = UnstructuredMesh::New();
+
+    igQtPanelTheme::attach(this);
 }
 
 void igQtStreamTracerWidget::refresh() {
@@ -855,4 +858,11 @@ void igQtStreamTracerWidget::Simplifier() {
 
     target->ConvertToDrawableData();
     Q_EMIT UpdateStreamObject(target);
+}
+
+void igQtStreamTracerWidget::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refresh(this);
+    }
+    QWidget::changeEvent(e);
 }

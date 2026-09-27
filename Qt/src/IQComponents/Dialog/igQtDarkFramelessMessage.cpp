@@ -1,4 +1,5 @@
 #include "IQComponents/Dialog/igQtDarkFramelessMessage.h"
+#include <IQWidgets/igQtRenderWidget.h>
 
 #include <QHBoxLayout>
 #include <QLabel>
@@ -38,13 +39,14 @@ igQtDarkFramelessMessageDialog::igQtDarkFramelessMessageDialog(QWidget* parent, 
 
     auto* body = new QWidget(this);
     body->setAttribute(Qt::WA_StyledBackground, true);
-    body->setStyleSheet(
+    body->setStyleSheet(QStringLiteral(
         "QWidget { background-color: transparent; color: #EAEAEA; }"
         "QLabel#DarkMessageText { color: #C9C9C9; background: transparent; }"
         "QPushButton { background-color: #5A6066; color: #ECECEC; border: 1px solid #747C84;"
         "  padding: 6px 16px; border-radius: 4px; min-width: 64px; }"
         "QPushButton:hover { background-color: #666D74; }"
-        "QPushButton:pressed { background-color: #4A5056; }");
+        "QPushButton:pressed { background-color: #4A5056; }"));
+    igQtPanelTheme::attachDeep(this);
 
     auto* root = new QVBoxLayout(body);
     root->setContentsMargins(14, 10, 14, 14);

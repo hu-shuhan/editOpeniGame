@@ -832,13 +832,61 @@ double MeshSimplificationFilter::ComputePriority(igIndex edgeId, double& geo_pri
 Vector3f MeshSimplificationFilter::ComputePosition(igIndex edgeId) {
     igIndex e[2]{};
     mesh->GetEdgePointIds(edgeId, e);
-    Vector3f newPos = (mesh->GetPoint(e[0]) + mesh->GetPoint(e[1])) / 2.0;
-    if (this->OptimalPosition) {
-        Quadric q = quadrics[e[0]];
-        q += quadrics[e[1]];
-        if (q.apply(newPos) > this->QuadricEpsilon) { q.findMinimum(newPos); }
+    const Vector3f v0 = mesh->GetPoint(e[0]);
+    const Vector3f v1 = mesh->GetPoint(e[1]);
+    const Vector3f midpoint = (v0 + v1) / 2.0;
+
+    Quadric q = quadrics[e[0]];
+    q += quadrics[e[1]];
+
+    // These three candidates are always local and therefore provide a safe
+    // fallback when the unconstrained QEM system is singular or unstable.
+    Vector3f bestPos = midpoint;
+    double bestError = q.apply(bestPos);
+    const double error0 = q.apply(v0);
+    const double error1 = q.apply(v1);
+    if (std::isfinite(error0) && (!std::isfinite(bestError) || error0 < bestError)) {
+        bestPos = v0;
+        bestError = error0;
     }
-    return newPos;
+    if (std::isfinite(error1) && (!std::isfinite(bestError) || error1 < bestError)) {
+        bestPos = v1;
+        bestError = error1;
+    }
+
+    if (!this->OptimalPosition || !(bestError > this->QuadricEpsilon)) { return bestPos; }
+
+    Vector3f optimizedPos = midpoint;
+    if (!q.findMinimum(optimizedPos) || !std::isfinite(optimizedPos[0]) ||
+        !std::isfinite(optimizedPos[1]) || !std::isfinite(optimizedPos[2])) {
+        return bestPos;
+    }
+
+    // A valid edge collapse must remain near its one-ring neighborhood. Even
+    // a formally solvable QEM system can be ill-conditioned and return a very
+    // distant point, which creates the long spikes seen in the renderer.
+    SurfaceMesh::ReturnContainer oneRingPoints;
+    GetEdgeToOneRingPoints(edgeId, oneRingPoints);
+    Vector3f localMin(std::min(v0[0], v1[0]), std::min(v0[1], v1[1]), std::min(v0[2], v1[2]));
+    Vector3f localMax(std::max(v0[0], v1[0]), std::max(v0[1], v1[1]), std::max(v0[2], v1[2]));
+    for (int i = 0; i < oneRingPoints.size(); ++i) {
+        const Vector3f point = mesh->GetPoint(oneRingPoints[i]);
+        for (int component = 0; component < 3; ++component) {
+            localMin[component] = std::min(localMin[component], point[component]);
+            localMax[component] = std::max(localMax[component], point[component]);
+        }
+    }
+
+    const double localDiagonal = (localMax - localMin).norm();
+    const double optimizedDistance = (optimizedPos - midpoint).norm();
+    const double optimizedError = q.apply(optimizedPos);
+    if (!std::isfinite(localDiagonal) || !std::isfinite(optimizedDistance) ||
+        !std::isfinite(optimizedError) || optimizedDistance > 2.0 * localDiagonal ||
+        optimizedError > bestError) {
+        return bestPos;
+    }
+
+    return optimizedPos;
 }
 
 Vector3f MeshSimplificationFilter::Normal(igIndex faceId) {

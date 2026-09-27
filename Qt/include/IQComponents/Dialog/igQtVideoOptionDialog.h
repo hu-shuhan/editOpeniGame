@@ -20,9 +20,12 @@ public:
     iGame::VideoInputInfo getInput();
 
 protected:
+    void changeEvent(QEvent* e) override;
+
     QLineEdit* m_Width_LineEdit{nullptr};
     QLineEdit* m_Height_LineEdit{nullptr};
     QLineEdit* m_frameRate_LineEdit{nullptr};
     QLineEdit* m_bitRate_LineEdit{nullptr};
+    QWidget* m_body{nullptr};
 };
 #endif

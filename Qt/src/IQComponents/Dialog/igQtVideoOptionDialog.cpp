@@ -1,6 +1,8 @@
 #if defined(FFMPEG_ENABLE)
 #include "IQComponents/Dialog/igQtVideoOptionDialog.h"
 
+#include <IQWidgets/igQtRenderWidget.h>
+#include <QEvent>
 #include <QFormLayout>
 #include <QIntValidator>
 #include <QLabel>
@@ -9,6 +11,25 @@
 #include <QRegExpValidator>
 #include <QVBoxLayout>
 
+namespace {
+QString bodyThemeQss() {
+    return QStringLiteral(
+                   "QWidget { background-color: transparent; color: %1; }"
+                   "QLabel { color: %1; }"
+                   "QLineEdit { background-color: %2; color: %1; border: 1px solid %3; padding: 4px; border-radius: 3px; }"
+                   "QLineEdit:focus { border: 1px solid %4; }"
+                   "QPushButton { background-color: %2; color: %1; border: 1px solid %3; padding: 6px 12px; border-radius: 4px; }"
+                   "QPushButton:hover { background-color: %5; }"
+                   "QPushButton:pressed { background-color: %6; }")
+            .arg(igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Text),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::PanelBg2),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Border),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Accent),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::HoverBg),
+                 igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::SelectionBg));
+}
+}
+
 igQtVideoOptionDialog::igQtVideoOptionDialog(QWidget* parent) : igQtChromeFramelessDialog(parent) {
     setDialogTitle(QStringLiteral("保存动画选项"));
     setMinimumSize(460, 300);
@@ -16,14 +37,9 @@ igQtVideoOptionDialog::igQtVideoOptionDialog(QWidget* parent) : igQtChromeFramel
     setMaximizeEnabled(false);
 
     auto* body = new QWidget(this);
+    m_body = body;
     body->setAttribute(Qt::WA_StyledBackground, true);
-    body->setStyleSheet(
-        "QWidget { background-color: transparent; color: #EAEAEA; }"
-        "QLabel { color: #D8D8D8; }"
-        "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 4px; border-radius: 3px; }"
-        "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A; padding: 6px 12px; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #3A3A3A; }"
-        "QPushButton:pressed { background-color: #252526; }");
+    body->setStyleSheet(bodyThemeQss());
 
     auto* layout = new QVBoxLayout(body);
     layout->setContentsMargins(14, 10, 14, 14);
@@ -74,5 +90,12 @@ iGame::VideoInputInfo igQtVideoOptionDialog::getInput() {
     res.frame_rate = m_frameRate_LineEdit->text().toInt();
     res.bit_rate = m_bitRate_LineEdit->text().toInt();
     return res;
+}
+
+void igQtVideoOptionDialog::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange && m_body) {
+        m_body->setStyleSheet(bodyThemeQss());
+    }
+    igQtChromeFramelessDialog::changeEvent(e);
 }
 #endif
