@@ -10,6 +10,8 @@
 
 #include "IQComponents/Dialog/igQtChangeBackGroundDialog.h"
 #include "ui_igQtChangeBackGroundDialog.h"
+#include <IQWidgets/igQtRenderWidget.h>
+#include <QEvent>
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QPushButton>
@@ -91,6 +93,21 @@ public:
 };
 }
 
+static void ApplyInputTheme(QWidget* root) {
+    if (!root) return;
+    const QString qss = QStringLiteral(
+            "QLineEdit { background-color: %1; color: %2; border: 1px solid %3; border-radius: 4px; padding: 4px 6px; }"
+            "QLineEdit:focus { border: 1px solid %4; }")
+                                .arg(igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::PanelBg2),
+                                     igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Text),
+                                     igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Border),
+                                     igQtRenderWidget::uiRoleCss(igQtRenderWidget::UiRole::Accent));
+    const QList<QLineEdit*> edits = root->findChildren<QLineEdit*>();
+    for (QLineEdit* e : edits) {
+        if (e) e->setStyleSheet(qss);
+    }
+}
+
 igQtChangeBackGroundDialog::igQtChangeBackGroundDialog(QWidget *parent) : QDialog(parent) {
     ui = new Ui::igQtChangeBackGroundDialog();
     ui->setupUi(this);
@@ -99,6 +116,8 @@ igQtChangeBackGroundDialog::igQtChangeBackGroundDialog(QWidget *parent) : QDialo
     setAttribute(Qt::WA_StyledBackground, true);
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAutoFillBackground(false);
+    igQtPanelTheme::attachDeep(this);
+    ApplyInputTheme(this);
     if (parentWidget()) {
         setWindowIcon(parentWidget()->windowIcon());
     }
@@ -117,11 +136,13 @@ igQtChangeBackGroundDialog::igQtChangeBackGroundDialog(QWidget *parent) : QDialo
     m_Green_LineEdit->setText(QString::number(m_G));
     m_Blue_LineEdit->setText(QString::number(m_B));
     if (ui->frame_ColorPreview) {
+        ui->frame_ColorPreview->setProperty("igPanelBaseQss", QVariant());
         ui->frame_ColorPreview->setStyleSheet(
-            QString("QFrame#frame_ColorPreview { background-color: rgb(%1,%2,%3); border: 1px solid #3C3C3C; border-radius: 4px; }")
+            QString("QFrame#frame_ColorPreview { background-color: rgb(%1,%2,%3); border: 1px solid %4; border-radius: 4px; }")
                 .arg(m_R)
                 .arg(m_G)
-                .arg(m_B));
+                .arg(m_B)
+                .arg(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Border).name()));
     }
 
     // 创建一个正则表达式，匹配 0~255 的数字
@@ -207,9 +228,9 @@ void igQtChangeBackGroundDialog::paintEvent(QPaintEvent* event) {
 
     QPainterPath path;
     path.addRoundedRect(r, m_cornerRadius, m_cornerRadius);
-    p.fillPath(path, QColor("#1F1F1F")); // 内容背景
+    p.fillPath(path, igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::PanelBg2));
 
-    QPen pen(QColor("#3C3C3C"));
+    QPen pen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Border));
     pen.setWidth(1);
     p.setPen(pen);
     p.drawPath(path);
@@ -218,6 +239,15 @@ void igQtChangeBackGroundDialog::paintEvent(QPaintEvent* event) {
 void igQtChangeBackGroundDialog::resizeEvent(QResizeEvent* event) {
     QDialog::resizeEvent(event);
     updateRoundedMask();
+}
+
+void igQtChangeBackGroundDialog::changeEvent(QEvent* e) {
+    if (e && e->type() == QEvent::StyleChange) {
+        igQtPanelTheme::refreshDeep(this);
+        ApplyInputTheme(this);
+        update();
+    }
+    QDialog::changeEvent(e);
 }
 
 void igQtChangeBackGroundDialog::showEvent(QShowEvent* event) {

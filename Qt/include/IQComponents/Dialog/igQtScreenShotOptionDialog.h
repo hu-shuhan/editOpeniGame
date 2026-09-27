@@ -13,6 +13,9 @@ public:
     std::pair<int, int> getInput();
 
 protected:
+    void changeEvent(QEvent* e) override;
+
     QLineEdit* m_WidthLineEdit{nullptr};
     QLineEdit* m_HeightLineEdit{nullptr};
+    QWidget* m_body{nullptr};
 };

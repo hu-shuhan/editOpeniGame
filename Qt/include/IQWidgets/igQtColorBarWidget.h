@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <QApplication>
 #include <QWidget>
 #include <QPainter>
@@ -18,6 +18,7 @@ protected:
 	void mousePressEvent(QMouseEvent* _event)override;
 	void mouseMoveEvent(QMouseEvent* _event)override;
 	void mouseReleaseEvent(QMouseEvent* _event)override;
+	void changeEvent(QEvent* e) override;
 
 signals:
 	void PaintFinished();

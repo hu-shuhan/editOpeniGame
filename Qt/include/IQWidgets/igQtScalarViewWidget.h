@@ -34,6 +34,7 @@ signals:
 	void ChangeShowColorManager();
 	void UpdateRenderWidget();
 protected:
+	void changeEvent(QEvent* e) override;
 
 private:
 	Ui::ScalarView* ui;

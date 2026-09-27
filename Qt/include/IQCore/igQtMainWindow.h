@@ -24,6 +24,9 @@
 #include <array>
 #undef QT_NO_OPENGL
 
+class QMenu;
+class QHBoxLayout;
+
 class igQtModelDrawWidget;
 class igQtFileLoader;
 class igQtColorManagerWidget;
@@ -82,32 +85,32 @@ public:
     void closeLeftToolPanel(LeftToolPanelId id);
 
 public:
-    igQtModelDrawWidget* rendererWidget;
-    igQtFileLoader* fileLoader;
-    igQtModelDialogWidget* modelTreeWidget;
+    igQtModelDrawWidget* rendererWidget = nullptr;
+    igQtFileLoader* fileLoader = nullptr;
+    igQtModelDialogWidget* modelTreeWidget = nullptr;
 
-    igQtColorManagerWidget* ColorManagerWidget;
-    igQtFilterDialogDockWidget* filterDialogDockWidget;
-    QDockWidget* SliceDockWidget;
-    QDockWidget* ContourDockWidget;
-    igQtModelClipWidget* SliceWidget;
-    QDockWidget* DeformationDockWidget;
-    igQtDeformationWidget* DeformationWidget;
+    igQtColorManagerWidget* ColorManagerWidget = nullptr;
+    igQtFilterDialogDockWidget* filterDialogDockWidget = nullptr;
+    QDockWidget* SliceDockWidget = nullptr;
+    QDockWidget* ContourDockWidget = nullptr;
+    igQtModelClipWidget* SliceWidget = nullptr;
+    QDockWidget* DeformationDockWidget = nullptr;
+    igQtDeformationWidget* DeformationWidget = nullptr;
 
     // 高程 (Elevation) 实时参数面板：入口对话框首次执行后绑定会话并显示
     igQtElevationFilterPanel* ElevationFilterPanel{nullptr};
 
-    igQtProgressBarWidget* progressBarWidget;
-    QComboBox* viewStyleCombox;
-    QComboBox* attributeViewIndexCombox;
-    QComboBox* attributeViewDimCombox;
+    igQtProgressBarWidget* progressBarWidget = nullptr;
+    QComboBox* viewStyleCombox = nullptr;
+    QComboBox* attributeViewIndexCombox = nullptr;
+    QComboBox* attributeViewDimCombox = nullptr;
     
     // AI Chat DockWidget
-    QDockWidget* aiChatDockWidget;
-    igQtAiChatWidget* aiChatWidget;
+    QDockWidget* aiChatDockWidget = nullptr;
+    igQtAiChatWidget* aiChatWidget = nullptr;
 
     // Command Manager for MCP Server (端口 12345)
-    igQtCommandManager* commandManager;
+    igQtCommandManager* commandManager = nullptr;
 
     // 零件聚焦弹窗
     igQtChromeFramelessDialog* partFocusDialog{nullptr};
@@ -149,9 +152,17 @@ private:
     // 自定义标题栏相关
     QWidget* m_titleBar = nullptr;
     QLabel* m_titleLabel = nullptr;
+    QWidget* m_brandBox = nullptr;
+    QHBoxLayout* m_topMenuLayout = nullptr;
+    void applyTopMenuButtonStyle();
     QPushButton* m_btnMinimize = nullptr;
     QPushButton* m_btnMaximize = nullptr;
     QPushButton* m_btnClose = nullptr;
+    QPushButton* m_styleToggleButton = nullptr;
+    QLabel* m_logoIconLabel = nullptr;
+    QLabel* m_projectChip = nullptr;
+    QFrame* m_titleAccentLine = nullptr;
+    QFrame* m_rightDivider = nullptr;
     bool m_titleBarDragging = false;
     QPoint m_dragOffset;
     bool m_isMinimizing = false;
@@ -192,6 +203,27 @@ private:
     void relayoutToolbarWrappers();
     void initCustomTitleBar();
 
+    void applyStyleMode(int mode);
+    QString styleSheetForMode(int mode) const;
+    QString styleToggleButtonQss() const;
+    QString styleModeDisplayName(int mode) const;
+    void createStyleMenu();
+    void updateTitleBarIcons();
+    QString toolbarButtonQss(int fontPx) const;
+    QString twoRowGridButtonQss() const;
+    QString toolbarTitleLabelQss() const;
+    QString toolbarCaptionLabelQss(int fontPx) const;
+    QString toolbarItemQss() const;
+    QString toolbarSeamColor() const;
+    QString toolbarAccentColor() const;
+
+    void applyWorkspaceLayout(bool enabled);
+    void applyFloatingCards(bool enabled);
+    void applyFloatingCardPalette();
+    void applyViewRail(bool enabled);
+    void updateViewRailPosition();
+    QDockWidget* m_viewDock = nullptr;
+
     // ---- 工具栏单排适配（宽度拟合 + 文字自动换行）----
     /** 按指定 iconSize 重建 3×2 轴网格与 4 组「按钮行 + 标题」容器 */
     void rebuildToolbarRow(int iconSize);
@@ -204,6 +236,19 @@ private:
 
     int m_currentToolbarIconSize = 40;
     bool m_toolbarRebuilding = false;
+
+    QString m_originalStyleSheet;
+    int m_styleMode = 9;
+    QWidget* m_centralCardContainer = nullptr;
+    QWidget* m_floatingCardWidget = nullptr;
+    QDockWidget* m_floatingCardDock = nullptr;
+    QDockWidget* m_floatingTreeDock = nullptr;
+    QWidget* m_floatingTreeWrapper = nullptr;
+    QWidget* m_floatingTreeOriginalWidget = nullptr;
+    QWidget* m_floatingTreeOriginalTitleBar = nullptr;
+    QWidget* m_floatingCardOriginalWidget = nullptr;
+    int m_propertiesOriginalMinWidth = 0;
+    QMenu* m_styleMenu = nullptr;
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

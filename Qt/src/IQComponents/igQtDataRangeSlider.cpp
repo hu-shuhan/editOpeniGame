@@ -1,4 +1,5 @@
 #include "IQComponents/igQtDataRangeSlider.h"
+#include <IQWidgets/igQtRenderWidget.h>
 #include <sstream>
 #include <iomanip>
 
@@ -30,10 +31,12 @@ void igQtDataRangeSlider::updateMinAndMax(float _min, float _max) {
 void igQtDataRangeSlider::paintEvent(QPaintEvent* aEvent)
 {
 	Q_UNUSED(aEvent);
+	using Role = igQtRenderWidget::UiRole;
 	QPainter painter(this);
 	this->sliderBarLength = this->width() - 2 * LeftRightMargin;
 	int st = range[0] * sliderBarLength;
 	int ed = range[1] * sliderBarLength;
+	const QColor trackColor = igQtRenderWidget::uiRole(Role::CardBg);
 	for (int i = 0; i < sliderBarLength; i++) {
 		if (i >= st && i <= ed) {
 			QRect rect(LeftRightMargin + i, TopMargin - 1, 1, SliderBarHeight + 2);
@@ -41,16 +44,16 @@ void igQtDataRangeSlider::paintEvent(QPaintEvent* aEvent)
 		}
 		else {
 			QRect rect(LeftRightMargin + i, TopMargin, 1, SliderBarHeight);
-			painter.fillRect(rect, rangeOutColor);
+			painter.fillRect(rect, trackColor);
 		}
 	}
 	QPen pen;
 	painter.setRenderHint(QPainter::Antialiasing);
-	QBrush handleBrush(QColor(0xFA, 0xFA, 0xFA));
+	QBrush handleBrush(igQtRenderWidget::uiRole(Role::Text));
 	painter.setBrush(handleBrush);
 
 	for (int i = 0; i < 2; i++) {
-		pen.setColor(Qt::darkGray);
+		pen.setColor(igQtRenderWidget::uiRole(Role::Border));
 		pen.setWidth(static_cast<int>(0.5));
 		painter.setPen(pen);
 		QRectF HandleRect = getHandleRectWithFloatValue(range[i]);
@@ -74,6 +77,10 @@ void igQtDataRangeSlider::paintEvent(QPaintEvent* aEvent)
 	int textWidth = rect.width();
 	int textHeight = rect.height();
 	QRect textRect(LeftRightMargin, 2 * TopMargin + SliderBarHeight + 5, 2 * textWidth, textHeight);
+	pen.setColor(igQtRenderWidget::uiRole(Role::Text));
+	pen.setWidth(1);
+	painter.setPen(pen);
+	painter.setFont(font);
 	painter.drawText(textRect, QString::fromStdString(str));
 
 }

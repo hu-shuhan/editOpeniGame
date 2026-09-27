@@ -1,5 +1,6 @@
 #include "Sources/iGameLineTypePointsSourceFilter.h"
 #include <IQComponents/igQtModelDialogWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
 #include <QApplication>
 #include <QMainWindow>
@@ -14,6 +15,176 @@
 #include <QHeaderView>
 #include <QPalette>
 #include <iGameSceneManager.h>
+#include <QPainter>
+#include <QPixmap>
+#include <QPainterPath>
+#include <QRegion>
+#include <QEvent>
+#include <QTimer>
+#include <functional>
+
+namespace {
+constexpr int kTreeCollapsedSize = 48;
+
+constexpr int kDockTitleBarHeight = 40;
+constexpr int kTitleLeftPad = 14;
+constexpr int kIconGap = 10;
+constexpr int kTitleLabelLeft = kTitleLeftPad + 16 + kIconGap;
+
+void clampRectToAvailable(QRect& rect, const QWidget* w) {
+    QScreen* screen = w ? w->screen() : nullptr;
+    if (!screen) screen = QGuiApplication::screenAt(rect.center());
+    if (!screen) return;
+    const QRect avail = screen->availableGeometry();
+    if (rect.right() > avail.right()) rect.moveRight(avail.right());
+    if (rect.bottom() > avail.bottom()) rect.moveBottom(avail.bottom());
+    if (rect.left() < avail.left()) rect.moveLeft(avail.left());
+    if (rect.top() < avail.top()) rect.moveTop(avail.top());
+}
+
+QPixmap buildCollapsedFacePixmap(int size, qreal dpr) {
+    const qreal s = qMax(24, size);
+    QPixmap pm(qRound(s * dpr), qRound(s * dpr));
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+
+    const bool light = igQtRenderWidget::globalLightBackground();
+    const QColor ink = light ? QColor("#1A1A1A") : QColor("#FFFFFF");
+
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const qreal cx = s / 2.0;
+    const qreal top = s * 0.19;
+    QColor back = ink;
+    back.setAlpha(72);
+    QColor front = ink;
+    front.setAlpha(160);
+    QPainterPath backPath;
+    backPath.addRoundedRect(QRectF(cx - s * 0.215, top, s * 0.30, s * 0.225), s * 0.055, s * 0.055);
+    p.fillPath(backPath, back);
+    QPainterPath frontPath;
+    frontPath.addRoundedRect(QRectF(cx - s * 0.125, top + s * 0.125, s * 0.32, s * 0.25), s * 0.065, s * 0.065);
+    p.fillPath(frontPath, front);
+
+    QFont f = QApplication::font();
+    f.setPixelSize(qMax(8, qRound(s * 0.215)));
+    f.setWeight(QFont::DemiBold);
+    f.setLetterSpacing(QFont::AbsoluteSpacing, 0.4);
+    p.setFont(f);
+    QColor text = ink;
+    text.setAlpha(200);
+    p.setPen(text);
+    p.drawText(QRectF(0, s * 0.56, s, s * 0.30), Qt::AlignHCenter | Qt::AlignTop, QStringLiteral("模型树"));
+
+    p.end();
+    return pm;
+}
+
+QString collapsedRingColor() {
+    switch (igQtRenderWidget::globalStyleMode()) {
+        case 13: return QStringLiteral("#D3DBE6");
+        case 14: return QStringLiteral("#1A1D22");
+        case 15: return QStringLiteral("#16181C");
+        default: return QStringLiteral("#151517");
+    }
+}
+
+QString collapsedBlockQss() {
+    switch (igQtRenderWidget::globalStyleMode()) {
+        case 13:
+            return QStringLiteral(
+                    "QPushButton#TreeDockCollapsedButton {"
+                    " color: #1F2A3A; font-size: 11px; font-weight: 600;"
+                    " border: 1px solid rgba(0, 0, 0, 0.10);"
+                    " border-top-color: rgba(255, 255, 255, 0.92);"
+                    " border-radius: 10px;"
+                    " padding: 0;"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #FBFCFE, stop:1 #E2E8F0);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:hover {"
+                    " border-color: rgba(37, 99, 235, 1.0); border-top-color: rgba(37, 99, 235, 1.0);"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #FFFFFF, stop:1 #E9EFF7);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:pressed {"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #E2E8F0, stop:1 #D3DBE6);"
+                    "}");
+        case 14:
+            return QStringLiteral(
+                    "QPushButton#TreeDockCollapsedButton {"
+                    " color: #D5DAE1; font-size: 11px; font-weight: 600;"
+                    " border: 1px solid rgba(0, 0, 0, 0.30);"
+                    " border-top-color: rgba(255, 255, 255, 0.06);"
+                    " border-radius: 10px;"
+                    " padding: 0;"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #343A42, stop:1 #20242A);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:hover {"
+                    " border-color: rgba(108, 142, 174, 1.0); border-top-color: rgba(108, 142, 174, 1.0);"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #3D4550, stop:1 #262B32);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:pressed {"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #20242A, stop:1 #1A1D22);"
+                    "}");
+        case 15:
+            return QStringLiteral(
+                    "QPushButton#TreeDockCollapsedButton {"
+                    " color: #D9DDE3; font-size: 11px; font-weight: 600;"
+                    " border: 1px solid rgba(0, 0, 0, 0.30);"
+                    " border-top-color: rgba(255, 255, 255, 0.06);"
+                    " border-radius: 10px;"
+                    " padding: 0;"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #2E343C, stop:1 #1C1F25);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:hover {"
+                    " border-color: rgba(106, 112, 121, 1.0); border-top-color: rgba(106, 112, 121, 1.0);"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #363D46, stop:1 #23272E);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:pressed {"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #1C1F25, stop:1 #16181C);"
+                    "}");
+        default:
+            return QStringLiteral(
+                    "QPushButton#TreeDockCollapsedButton {"
+                    " color: #C6C6C6; font-size: 11px; font-weight: 600;"
+                    " border: 1px solid rgba(0, 0, 0, 0.32);"
+                    " border-top-color: rgba(255, 255, 255, 0.06);"
+                    " border-radius: 10px;"
+                    " padding: 0;"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #34343A, stop:1 #1A1A1D);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:hover {"
+                    " border-color: rgba(122, 127, 136, 1.0); border-top-color: rgba(122, 127, 136, 1.0);"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #3E3E45, stop:1 #232327);"
+                    "}"
+                    "QPushButton#TreeDockCollapsedButton:pressed {"
+                    " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                    "                             stop:0 #1C1C1F, stop:1 #171719);"
+                    "}");
+    }
+}
+
+void applyRoundedMask(QWidget* w, int radius) {
+    if (!w) return;
+    const QRect r = w->rect();
+    if (r.isEmpty()) return;
+    QPainterPath path;
+    path.addRoundedRect(QRectF(r), radius, radius);
+    w->setMask(QRegion(path.toFillPolygon().toPolygon()));
+}
+}
 #include <qaction.h>
 #include <qdebug.h>
 #include <qmenu.h>
@@ -29,33 +200,121 @@ public:
         : QWidget(parent), m_dock(dock) {
         setObjectName("DockTitleBar");
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        setFixedHeight(32);
+        setFixedHeight(kDockTitleBarHeight);
+        setAttribute(Qt::WA_StyledBackground, true);
+        setStyleSheet(
+                "DockTitleBar {"
+                "  background-color: #252526;"
+                "  border: none;"
+                "}"
+                "DockTitleLabel {"
+                "  color: #FFFFFF !important;"
+                "  font-size: 12px !important;"
+                "  font-weight: 700 !important;"
+                "  background: transparent !important;"
+                "}"
+                "DockTitleCloseButton {"
+                "  background: transparent;"
+                "  border: none;"
+                "}"
+                "DockTitleCloseButton:hover {"
+                "  background-color: rgba(255, 255, 255, 0.15);"
+                "  border-radius: 6px;"
+                "}");
 
         auto* layout = new QHBoxLayout(this);
-        layout->setContentsMargins(10, 0, 6, 0);
-        layout->setSpacing(8);
+        layout->setContentsMargins(kTitleLabelLeft, 0, 8, 0);
+        layout->setSpacing(6);
 
         m_titleLabel = new QLabel(title, this);
         m_titleLabel->setObjectName("DockTitleLabel");
         m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         layout->addWidget(m_titleLabel);
 
-        auto* closeBtn = new QPushButton(this);
-        closeBtn->setObjectName("DockTitleCloseButton");
-        closeBtn->setFixedSize(24, 24);
-        closeBtn->setFlat(true);
-        closeBtn->setFocusPolicy(Qt::NoFocus);
-        closeBtn->setIcon(QIcon(":/Ticon/Icons/dock_close_white.svg"));
-        closeBtn->setIconSize(QSize(16, 16));
-        layout->addWidget(closeBtn);
+        m_collapseBtn = new QPushButton(QStringLiteral("–"), this);
+        m_collapseBtn->setObjectName("DockTitleCollapseButton");
+        m_collapseBtn->setFixedSize(22, 22);
+        m_collapseBtn->setFlat(true);
+        m_collapseBtn->setFocusPolicy(Qt::NoFocus);
+        m_collapseBtn->setCursor(Qt::PointingHandCursor);
+        m_collapseBtn->setToolTip(QStringLiteral("收起模型树"));
+        m_collapseBtn->setVisible(false);
+        layout->addWidget(m_collapseBtn);
+        connect(m_collapseBtn, &QPushButton::clicked, this, [this]() {
+            if (onCollapse) onCollapse();
+        });
+
+        m_closeBtn = new QPushButton(QStringLiteral("×"), this);
+        m_closeBtn->setObjectName("DockTitleCloseButton");
+        m_closeBtn->setFixedSize(22, 22);
+        m_closeBtn->setFlat(true);
+        m_closeBtn->setFocusPolicy(Qt::NoFocus);
+        m_closeBtn->setCursor(Qt::PointingHandCursor);
+        layout->addWidget(m_closeBtn);
 
         if (m_dock) {
-            connect(closeBtn, &QPushButton::clicked, m_dock, &QDockWidget::close);
+            connect(m_closeBtn, &QPushButton::clicked, m_dock, &QDockWidget::close);
         }
+
+        applyTheme();
     }
 
     void setTitle(const QString& t) {
         if (m_titleLabel) m_titleLabel->setText(t);
+    }
+
+    void setCollapseVisible(bool visible) {
+        if (m_collapseBtn) m_collapseBtn->setVisible(visible);
+    }
+    std::function<void()> onCollapse;
+
+    void applyTheme() {
+        const bool light = igQtRenderWidget::globalLightBackground();
+
+        if (m_titleLabel) {
+            QString labelStyle;
+            if (light) {
+                labelStyle = QStringLiteral("color: #1A1A1A; font-size: 12px; font-weight: 700; background: transparent;");
+            } else {
+                labelStyle = QStringLiteral("color: #FFFFFF; font-size: 12px; font-weight: 700; background: transparent;");
+            }
+            m_titleLabel->setStyleSheet(labelStyle);
+        }
+        if (m_closeBtn) {
+            if (light) {
+                m_closeBtn->setStyleSheet(
+                        "QPushButton#DockTitleCloseButton {"
+                        " color: #4A5568; background: transparent; border: none; border-radius: 6px;"
+                        " font-size: 15px; padding: 0;"
+                        "}"
+                        "QPushButton#DockTitleCloseButton:hover { background-color: #E2E8F0; }");
+            } else {
+                m_closeBtn->setStyleSheet(
+                        "QPushButton#DockTitleCloseButton {"
+                        " color: #A5ADB8; background: transparent; border: none; border-radius: 6px;"
+                        " font-size: 15px; padding: 0;"
+                        "}"
+                        "QPushButton#DockTitleCloseButton:hover { background-color: rgba(255,255,255,0.10); }");
+            }
+        }
+        if (m_collapseBtn) {
+            if (light) {
+                m_collapseBtn->setStyleSheet(
+                        "QPushButton#DockTitleCollapseButton {"
+                        " color: #4A5568; background: transparent; border: none; border-radius: 6px;"
+                        " font-size: 16px; font-weight: 700; padding: 0 0 3px 0;"
+                        "}"
+                        "QPushButton#DockTitleCollapseButton:hover { background-color: #E2E8F0; }");
+            } else {
+                m_collapseBtn->setStyleSheet(
+                        "QPushButton#DockTitleCollapseButton {"
+                        " color: #A5ADB8; background: transparent; border: none; border-radius: 6px;"
+                        " font-size: 16px; font-weight: 700; padding: 0 0 3px 0;"
+                        "}"
+                        "QPushButton#DockTitleCollapseButton:hover { background-color: rgba(255,255,255,0.10); }");
+            }
+        }
+        update();
     }
 
 protected:
@@ -89,9 +348,144 @@ protected:
         QWidget::mousePressEvent(e);
     }
 
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        const QRect r = rect();
+        const int styleMode = igQtRenderWidget::globalStyleMode();
+        int mode = styleMode;
+        if (mode == 13) mode = 2;
+        else if (mode == 14) mode = 9;
+        else if (mode == 15) mode = 10;
+
+        QColor titleBg, accent, bottomLine;
+        switch (mode) {
+            case 0:
+                titleBg    = QColor("#2D2D30");
+                accent     = QColor("#3F3F46");
+                bottomLine = QColor(255, 255, 255, 40);
+                break;
+            case 1:
+                titleBg    = QColor("#2A3648");
+                accent     = QColor("#38BDF8");
+                bottomLine = QColor(56, 189, 248, 115);
+                break;
+            case 2:
+                titleBg    = QColor("#E4E9EF");
+                accent     = QColor("#3B82F6");
+                bottomLine = QColor("#8DA2B8");
+                break;
+            case 3:
+                titleBg    = QColor("#2B2D30");
+                accent     = QColor("#4A4E54");
+                bottomLine = QColor(255, 255, 255, 30);
+                break;
+            case 4:
+                titleBg    = QColor("#24282E");
+                accent     = QColor("#4DD0E1");
+                bottomLine = QColor(77, 208, 225, 115);
+                break;
+            case 6:
+                titleBg    = QColor("#24282E");
+                accent     = QColor("#4DD0E1");
+                bottomLine = QColor(77, 208, 225, 115);
+                break;
+            case 7:
+                titleBg    = QColor("#2B2D30");
+                accent     = QColor("#4A4E54");
+                bottomLine = QColor(255, 255, 255, 30);
+                break;
+            case 8:
+                titleBg    = QColor("#24282E");
+                accent     = QColor("#4DD0E1");
+                bottomLine = QColor(77, 208, 225, 115);
+                break;
+            case 9:
+                titleBg    = QColor("#22262C");
+                accent     = QColor("#6C8EAE");
+                bottomLine = QColor(108, 142, 174, 90);
+                break;
+            case 10:
+                titleBg    = QColor("#20242A");
+                accent     = QColor("#2A303A");
+                bottomLine = QColor(42, 48, 58, 120);
+                break;
+            case 11:
+                titleBg    = QColor("#252526");
+                accent     = QColor("#37373D");
+                bottomLine = QColor(55, 55, 61, 120);
+                break;
+            case 12:
+                titleBg    = QColor("#252526");
+                accent     = QColor("#37373D");
+                bottomLine = QColor("#4A4D52");
+                break;
+            default:
+                titleBg    = QColor("#2A3648");
+                accent     = QColor("#38BDF8");
+                bottomLine = QColor(56, 189, 248, 115);
+                break;
+        }
+
+        const bool rounded = (mode == 9 || mode == 10 || mode == 11 || mode == 12 || styleMode >= 12);
+        const qreal radius = (styleMode >= 12) ? 8.0 : ((mode == 9) ? 6.0 : 4.0);
+        QPainterPath titlePath;
+        if (rounded) {
+            titlePath.addRoundedRect(QRectF(r), radius, radius);
+        } else {
+            titlePath.addRect(QRectF(r));
+        }
+
+        const bool light = igQtRenderWidget::globalLightBackground();
+        const QColor bgTop = light ? titleBg.lighter(104) : titleBg.lighter(112);
+        QLinearGradient bgGrad(0, 0, 0, r.height());
+        bgGrad.setColorAt(0.0, bgTop);
+        bgGrad.setColorAt(1.0, titleBg);
+        p.fillPath(titlePath, bgGrad);
+
+        const QColor highlight = light ? QColor(0, 0, 0, 16) : QColor(255, 255, 255, 15);
+        QPainterPath hiPath;
+        hiPath.addRect(QRectF(r.left() + 6, r.top(), r.width() - 12, 1));
+        p.fillPath(hiPath.intersected(titlePath), highlight);
+
+        Q_UNUSED(accent);
+        const int cy = r.height() / 2;
+        {
+            const int x = kTitleLeftPad;
+            const QColor iconBase = light ? QColor("#1A1A1A") : QColor("#FFFFFF");
+            QColor back = iconBase;
+            back.setAlpha(55);
+            QColor front = iconBase;
+            front.setAlpha(130);
+            QPainterPath backPath;
+            backPath.addRoundedRect(QRectF(x, cy - 7, 12, 9), 2.0, 2.0);
+            p.fillPath(backPath.intersected(titlePath), back);
+            QPainterPath frontPath;
+            frontPath.addRoundedRect(QRectF(x + 3, cy - 2, 12, 9), 2.0, 2.0);
+            p.fillPath(frontPath.intersected(titlePath), front);
+        }
+
+        {
+            QColor line = bottomLine;
+            line.setAlpha(qMin(255, int(line.alpha() * 0.95)));
+            QColor fade = line;
+            fade.setAlpha(0);
+            QLinearGradient lineGrad(r.left(), 0, r.right(), 0);
+            lineGrad.setColorAt(0.00, fade);
+            lineGrad.setColorAt(0.14, line);
+            lineGrad.setColorAt(0.86, line);
+            lineGrad.setColorAt(1.00, fade);
+            QPainterPath bottomPath;
+            bottomPath.addRect(QRectF(r.left(), r.bottom() - 1.0, r.width(), 1.0));
+            p.fillPath(bottomPath.intersected(titlePath), QBrush(lineGrad));
+        }
+    }
+
 private:
     QDockWidget* m_dock = nullptr;
     QLabel* m_titleLabel = nullptr;
+    QPushButton* m_closeBtn = nullptr;
+    QPushButton* m_collapseBtn = nullptr;
     bool m_dragging = false;
     QPoint m_dragOffset;
 };
@@ -174,7 +568,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     modelTreeWidget = ui->modelTreeWidget;
     propertyWidget = ui->propertyWidget;
 
-    int totalWidth = parent ? parent->width() / 6 : 200;
+    int totalWidth = parent ? qBound(200, parent->width() / 10, 240) : 220;
 
     // 上半部分：圖層/模型樹 Dock（可單獨拖出懸浮）
     m_treeDock = new QDockWidget(QStringLiteral("模型树"), parent);
@@ -191,6 +585,9 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
     // 自定义标题栏（用于无边框 floating 时提供可拖拽移动）
     auto* treeTitle = new DockTitleBar(m_treeDock, m_treeDock->windowTitle(), m_treeDock);
     m_treeDock->setTitleBarWidget(treeTitle);
+    m_treeTitleBar = treeTitle;
+    treeTitle->onCollapse = [this]() { setTreeDockCollapsed(true); };
+    m_setCollapseVisible = [treeTitle](bool visible) { treeTitle->setCollapseVisible(visible); };
 
     //  Properties Dock（也可懸浮）
     m_propertiesDock = new QDockWidget(QStringLiteral("属性"), parent);
@@ -213,12 +610,17 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
             // 關閉透明背景：使用樣式表來控制外觀與邊框
             m_treeDock->setAttribute(Qt::WA_TranslucentBackground, false);
             m_treeDock->show();
+            m_treeDock->setMask(QRegion());
         } else {
             // 回到 docked：让 Qt 恢复正常 DockWidget 行为
+            setTreeDockCollapsed(false);
             m_treeDock->setWindowFlags(Qt::Widget);
             m_treeDock->show();
+            m_treeDock->setMask(QRegion());
         }
+        if (m_setCollapseVisible) m_setCollapseVisible(floating && !m_treeCollapsed);
     });
+    m_treeDock->installEventFilter(this);
     connect(m_propertiesDock, &QDockWidget::topLevelChanged, m_propertiesDock, [this](bool floating) {
         if (!m_propertiesDock) return;
         if (floating) {
@@ -241,16 +643,16 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
 
     modelTreeWidget->setColumnCount(2);
     modelTreeWidget->header()->hide();
-    modelTreeWidget->setColumnWidth(0, 140);
-    modelTreeWidget->setColumnWidth(1, 200);
+    modelTreeWidget->setLeftColumnPercent(36);
+    modelTreeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     // 减小缩进，让模型和 attribute 文本更靠近左侧
-    modelTreeWidget->setIndentation(10);
+    modelTreeWidget->setIndentation(8);
     modelTreeWidget->setAlternatingRowColors(true);
     modelTreeWidget->setUniformRowHeights(true);
-    // 修复：首行图标显示被裁剪（行高小于图标高度时会只显示上半截）
-    modelTreeWidget->setIconSize(QSize(20, 24));
+    modelTreeWidget->setIconSize(QSize(16, 16));
     modelTreeWidget->setStyleSheet(modelTreeWidget->styleSheet() +
-                                   QStringLiteral("QTreeView::item{height:28px;}"));
+                                   QStringLiteral("QTreeView::item{height:24px;}"
+                                                  "QTreeView{font-size:12px;}"));
 
     connect(modelTreeWidget, &QTreeWidget::itemExpanded, this, [this](QTreeWidgetItem* treeItem) {
         auto* subItem = dynamic_cast<SubObjectTreeWidgetItem*>(treeItem);
@@ -264,6 +666,10 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
 
 
     propertyWidget->setHeaderVisible(false);
+    propertyWidget->setStyleSheet(QStringLiteral(
+            "QTreeView { font-size: 12px; }"
+            "QLabel { font-size: 12px; }"
+            "QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox { font-size: 12px; }"));
     propertyManager = new QtVariantPropertyManager(propertyWidget);
     editFactory = new QtVariantEditorFactory(propertyWidget);
     propertyWidget->setFactoryForManager(propertyManager, editFactory);
@@ -323,6 +729,105 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QObject(parent),
             &igQtModelDialogWidget::updateCurrentModelInfo);
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
     connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
+}
+
+void igQtModelDialogWidget::refreshStyle() {
+    if (m_treeDock) {
+        if (auto* bar = dynamic_cast<DockTitleBar*>(m_treeDock->titleBarWidget())) {
+            bar->applyTheme();
+        }
+    }
+    refreshCollapsedBlockStyle();
+    if (ui && ui->ModelInformationWidget) {
+        ui->ModelInformationWidget->updateInformationFrame();
+    }
+}
+
+void igQtModelDialogWidget::refreshCollapsedBlockStyle() {
+    if (!m_collapsedBlock) return;
+    m_collapsedBlock->setStyleSheet(collapsedBlockQss());
+    if (auto* btn = qobject_cast<QPushButton*>(m_collapsedBlock)) {
+        qreal dpr = 1.0;
+        if (m_treeDock) {
+            if (QScreen* scr = m_treeDock->screen()) dpr = scr->devicePixelRatio();
+        }
+        const int faceSize = kTreeCollapsedSize - 4;
+        btn->setIcon(QIcon(buildCollapsedFacePixmap(faceSize, dpr)));
+        btn->setIconSize(QSize(faceSize, faceSize));
+    }
+    if (m_treeDock && m_treeCollapsed) {
+        m_treeDock->setStyleSheet(
+                QStringLiteral("QDockWidget#LayerTreeDock { background-color: %1; border: none; }")
+                        .arg(collapsedRingColor()));
+    }
+}
+
+void igQtModelDialogWidget::setTreeDockCollapsed(bool collapsed) {
+    if (!m_treeDock) return;
+    if (collapsed == m_treeCollapsed) return;
+    if (collapsed && !m_treeDock->isFloating()) return;
+
+    if (collapsed) {
+        m_treeGeomBeforeCollapse = m_treeDock->geometry();
+        m_treeMinBeforeCollapse = m_treeDock->minimumSize();
+        m_treeDockSavedStyleSheet = m_treeDock->styleSheet();
+        m_treeCollapsed = true;
+
+        if (QWidget* content = m_treeDock->widget()) content->hide();
+        if (m_treeTitleBar) m_treeTitleBar->hide();
+
+        if (!m_collapsedBlock) {
+            auto* block = new QPushButton(m_treeDock);
+            block->setObjectName(QStringLiteral("TreeDockCollapsedButton"));
+            block->setCursor(Qt::SizeAllCursor);
+            block->setFocusPolicy(Qt::NoFocus);
+            block->setText(QString());
+            block->setToolTip(QStringLiteral("点击展开模型树；按住可拖动"));
+            connect(block, &QPushButton::clicked, this, [this]() { setTreeDockCollapsed(false); });
+            block->installEventFilter(this);
+            m_collapsedBlock = block;
+        }
+        refreshCollapsedBlockStyle();
+
+        m_treeDock->setMinimumSize(kTreeCollapsedSize, kTreeCollapsedSize);
+        m_treeDock->setMaximumSize(kTreeCollapsedSize, kTreeCollapsedSize);
+        m_treeDock->resize(kTreeCollapsedSize, kTreeCollapsedSize);
+        const QSize actual = m_treeDock->size();
+        const QRect g = m_treeGeomBeforeCollapse;
+        m_treeDock->move(g.right() - actual.width() + 1, g.bottom() - actual.height() + 1);
+
+        m_collapsedBlock->setParent(m_treeDock);
+        m_collapsedBlock->setGeometry(2, 2, qMax(8, actual.width() - 4), qMax(8, actual.height() - 4));
+        m_collapsedBlock->raise();
+        m_collapsedBlock->show();
+        m_treeDock->show();
+        m_blockRectAtCollapse = m_treeDock->geometry();
+    } else {
+        m_treeCollapsed = false;
+        m_treeDock->setStyleSheet(m_treeDockSavedStyleSheet);
+        if (m_collapsedBlock) m_collapsedBlock->hide();
+        if (m_treeTitleBar) m_treeTitleBar->show();
+        m_treeDock->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        m_treeDock->setMinimumSize(m_treeMinBeforeCollapse.isValid() ? m_treeMinBeforeCollapse
+                                                                    : QSize(0, 0));
+        if (QWidget* content = m_treeDock->widget()) content->show();
+        const QRect g = m_treeGeomBeforeCollapse;
+        if (g.isValid() && !g.isEmpty()) {
+            const QPoint delta = m_treeDock->geometry().topLeft() - m_blockRectAtCollapse.topLeft();
+            QRect target = g.translated(delta);
+            clampRectToAvailable(target, m_treeDock);
+            m_treeDock->resize(target.size());
+            const QSize actual = m_treeDock->size();
+            QRect actualRect(target.topLeft(), actual);
+            clampRectToAvailable(actualRect, m_treeDock);
+            m_treeDock->setGeometry(actualRect);
+            QTimer::singleShot(0, this, [this, actualRect]() {
+                if (m_treeDock && !m_treeCollapsed) { m_treeDock->setGeometry(actualRect); }
+            });
+        }
+        m_treeDock->show();
+    }
+    if (m_setCollapseVisible) m_setCollapseVisible(m_treeDock->isFloating() && !m_treeCollapsed);
 }
 
 ModelTreeWidgetItem* igQtModelDialogWidget::getItemFromObject(iGame::DataObject::Pointer obj) {
@@ -455,6 +960,44 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     return id;
 }
 
+bool igQtModelDialogWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_collapsedBlock && m_treeCollapsed && m_treeDock) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            auto* me = static_cast<QMouseEvent*>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_blockDragActive = true;
+                m_blockDragged = false;
+                m_blockDragOffset = me->globalPos() - m_treeDock->frameGeometry().topLeft();
+            }
+        } else if (event->type() == QEvent::MouseMove) {
+            auto* me = static_cast<QMouseEvent*>(event);
+            if (m_blockDragActive && (me->buttons() & Qt::LeftButton)) {
+                const QPoint target = me->globalPos() - m_blockDragOffset;
+                if (!m_blockDragged &&
+                    (target - m_treeDock->frameGeometry().topLeft()).manhattanLength() > 8) {
+                    m_blockDragged = true;
+                }
+                if (m_blockDragged) {
+                    QRect r(QPoint(0, 0), m_treeDock->size());
+                    r.moveTopLeft(target);
+                    clampRectToAvailable(r, m_treeDock);
+                    m_treeDock->move(r.topLeft());
+                    return true;
+                }
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            if (m_blockDragActive) {
+                m_blockDragActive = false;
+                if (m_blockDragged) {
+                    m_blockDragged = false;
+                    return true;
+                }
+            }
+        }
+    }
+    return QObject::eventFilter(watched, event);
+}
+
 void igQtModelDialogWidget::refreshAttributeBadges(iGame::DataObject::Pointer obj) {
     auto item = getItemFromObject(obj);
     if (item == nullptr) { return; }
@@ -528,8 +1071,15 @@ int igQtModelDialogWidget::updateCurrentModelInfo() {
 }
 void igQtModelDialogWidget::updateCurrentModelProperty() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    auto model=scene->GetCurrentModel();
+    if (!scene) return;
+    auto model = scene->GetCurrentModel();
     if (!model) {
+        prop_PointSize->setEnabled(false);
+        prop_PointSize->setValue(0);
+        pror_LineWidth->setEnabled(false);
+        pror_LineWidth->setValue(0);
+        prop_Transparency->setEnabled(false);
+        prop_Transparency->setValue(0);
         return;
     }
     //currentModel = model;
@@ -616,13 +1166,25 @@ void igQtModelDialogWidget::deleteCurrentModel() {
         Q_EMIT ModelDeleted(modelName);
     }
 
-    int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
-    if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }
+    const int removedIndex = modelTreeWidget->indexOfTopLevelItem(currentItem);
+    if (removedIndex != -1) { delete modelTreeWidget->takeTopLevelItem(removedIndex); }
 
-    currentItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem());
-    if (currentItem) {
-        scene->SetCurrentModel(currentItem->getModelId());
+    ModelTreeWidgetItem* nextItem = nullptr;
+    const int count = modelTreeWidget->topLevelItemCount();
+    if (count > 0) {
+        const int nextIndex = qBound(0, removedIndex < 0 ? 0 : removedIndex, count - 1);
+        nextItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->topLevelItem(nextIndex));
+        if (!nextItem) { nextItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->topLevelItem(0)); }
     }
+
+    if (nextItem) {
+        scene->SetCurrentModel(nextItem->getModelId());
+        modelTreeWidget->setCurrentItem(nextItem);
+        nextItem->setSelected(true);
+    }
+
+    updateCurrentModelProperty();
+    updateCurrentModelInfo();
 }
 
 void igQtModelDialogWidget::onPropertyChanged(QtProperty* property, const QVariant& value) {
@@ -678,9 +1240,8 @@ void igQtModelDialogWidget::positionTreeDockToRendererCorner(QWidget* rendererWi
     // 關閉透明背景，讓樣式表的背景與邊框生效
     m_treeDock->setAttribute(Qt::WA_TranslucentBackground, false);
 
-    // 先设置窗口大小
-    int dockWidth = 380;  // 悬浮窗口宽度
-    int dockHeight = 280; // 悬浮窗口高度
+    int dockWidth = m_treeCollapsed ? kTreeCollapsedSize : 300;
+    int dockHeight = m_treeCollapsed ? kTreeCollapsedSize : 250;
     m_treeDock->resize(dockWidth, dockHeight);
     m_treeDock->show(); // window flags 变更后需要 show()
     

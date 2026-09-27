@@ -83,6 +83,7 @@ private slots:
     void BoxSettingDialog();
 
 protected:
+    void changeEvent(QEvent* e) override;
     void hideEvent(QHideEvent* event) override;
     
 private:

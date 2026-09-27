@@ -104,4 +104,7 @@ private:
     bool currentPropertyValue(int itemId, double& value) const;
     void rebuildFilteredItems(const QString& operatorStr = QString(), bool hasFilter = false, double filterValue = 0.0);
     void renderCurrentPage();
+
+protected:
+    void changeEvent(QEvent* e) override;
 };
