@@ -226,6 +226,75 @@ void igQtCharts::drawLineChart(iGame::ArrayObject::Pointer m_data) {
  * @brief   Returns the QChartView associated with this chart.
  * @return  A pointer to the QChartView object.
  */
+void igQtCharts::drawLineChart(iGame::ArrayObject::Pointer data,
+                               const std::vector<double>& xValues,
+                               int component,
+                               const QString& xAxisTitle) {
+    if (!data || data->GetNumberOfElements() == 0 ||
+        xValues.size() != data->GetNumberOfElements() || component < 0 || component >= data->GetDimension()) {
+        return;
+    }
+
+    auto* series = new QLineSeries();
+    const QString arrayName = QString::fromStdString(data->GetName());
+    const QString componentSuffix = data->GetDimension() > 1
+                                            ? QStringLiteral(" [%1]").arg(component)
+                                            : QString();
+    series->setName(arrayName + componentSuffix);
+    series->setColor(QColor("#4FC3F7"));
+
+    double minY = std::numeric_limits<double>::max();
+    double maxY = std::numeric_limits<double>::lowest();
+    const int dimension = data->GetDimension();
+    for (size_t i = 0; i < xValues.size(); ++i) {
+        const double value = data->GetValue(i * dimension + component);
+        series->append(xValues[i], value);
+        minY = std::min(minY, value);
+        maxY = std::max(maxY, value);
+    }
+
+    chart->removeAllSeries();
+    const auto oldAxes = chart->axes();
+    for (auto* axis : oldAxes) {
+        chart->removeAxis(axis);
+        axis->deleteLater();
+    }
+    chart->addSeries(series);
+
+    auto* axisX = new QValueAxis();
+    double minX = xValues.front();
+    double maxX = xValues.back();
+    if (minX == maxX) {
+        minX -= 0.5;
+        maxX += 0.5;
+    }
+    axisX->setRange(minX, maxX);
+    axisX->setTitleText(xAxisTitle);
+    axisX->setLabelFormat("%.6g");
+    axisX->setTickCount(std::min<int>(6, std::max<int>(2, static_cast<int>(xValues.size()))));
+    chart->addAxis(axisX, Qt::AlignBottom);
+    series->attachAxis(axisX);
+
+    auto* axisY = new QValueAxis();
+    if (minY == maxY) {
+        const double padding = std::max(std::abs(minY) * 0.05, 1.0);
+        minY -= padding;
+        maxY += padding;
+    }
+    axisY->setRange(minY, maxY);
+    axisY->setTitleText(arrayName + componentSuffix);
+    axisY->setLabelFormat("%.6g");
+    chart->addAxis(axisY, Qt::AlignLeft);
+    series->attachAxis(axisY);
+
+    chart->setTitle(QStringLiteral("沿线属性：%1%2").arg(arrayName, componentSuffix));
+    applyTheme();
+    chart->legend()->setVisible(true);
+    setWindowTitle(QStringLiteral("沿线属性曲线"));
+    m_titleLabel->setText(QStringLiteral("沿线属性曲线"));
+    chartView->setChart(chart);
+}
+
 QChartView* igQtCharts::getChartView() const { return chartView; }
 
 void igQtCharts::updateRoundedMask() {

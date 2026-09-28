@@ -166,6 +166,31 @@ function(igame_link_standard_example EXAMPLE_TARGET)
     target_link_libraries(${EXAMPLE_TARGET} PUBLIC ${_IGAME_EXAMPLE_CORE_LIBS} HDF5::HDF5)
 endfunction()
 
+set(IGAME_BATCH3_EXAMPLES
+    testThirdBatchMenu
+    testThirdBatchData
+    testAngularPeriodic
+    testAngularPeriodicSelfCheck
+    testAppendLocationAttributeFilter
+    testBoundaryMeshQuality
+    testCleanToGridFilter
+    testCountCellFaces
+    testCountCellFacesOutput
+    testFeatureEdgeRegion
+    testThresholdAndGenerateIds
+    testMeshQuality
+    testPointLineInterpolator
+    testPointSetToOctree
+    testResampleOctreeChecks
+    testPointVolumeInterpolator
+    testPointVolumeInterpolatorSelfCheck
+    testShrink
+    testShrinkModel
+    testSurfaceNormalsFilter
+    testVolumeMeshSimplification
+    testMeshTetrahedralize
+)
+
 set(IGAME_BATCH2_EXAMPLES
     testCellSizeExtraction
     testCountCellVertices
@@ -229,6 +254,26 @@ function(igame_register_example_test EXAMPLE_TARGET)
                 WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
             set_tests_properties(testRandomVectorsMixedCells PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
         endif ()
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH3_EXAMPLES)
+        set(_BATCH3_ENV "IGAME_EXAMPLE_NO_RENDER=1")
+        if ("${EXAMPLE_TARGET}" STREQUAL "testThirdBatchMenu")
+            get_target_property(_BATCH3_QMAKE Qt5::qmake IMPORTED_LOCATION)
+            get_filename_component(_BATCH3_QT_BIN "${_BATCH3_QMAKE}" DIRECTORY)
+            list(APPEND _BATCH3_ENV "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=${_BATCH3_QT_BIN}/../plugins/platforms")
+            if (WIN32)
+                string(REPLACE ";" "\;" _BATCH3_PATH "${CMAKE_BINARY_DIR};${_BATCH3_QT_BIN};$ENV{PATH}")
+                list(APPEND _BATCH3_ENV "PATH=${_BATCH3_PATH}")
+            endif ()
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "${CMAKE_COMMAND}" -E env ${_BATCH3_ENV}
+                "$<TARGET_FILE:${EXAMPLE_TARGET}>"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch3-filters")
         return()
     endif ()
 
@@ -545,6 +590,12 @@ igame_add_example(testResampleToLine Filter/TestResampleToLine.cpp)
 igame_add_example(testTriangleStrip Filter/TriangleStrip/TestTriangleStrip.cpp)
 igame_add_example(testResampleImageChecks Filter/Convert/TestResampleImageChecks.cpp)
 if (ENABLE_QT_MODULE)
+    igame_add_example(testThirdBatchMenu Filter/ThirdBatchMenuValidation.cpp)
+    target_link_libraries(testThirdBatchMenu PRIVATE Qt_module)
+    target_include_directories(testThirdBatchMenu PRIVATE "${CMAKE_SOURCE_DIR}/Qt")
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testThirdBatchMenu PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
     igame_add_example(testTriangleStripWidget Filter/TriangleStrip/TestTriangleStripWidget.cpp)
     target_link_libraries(testTriangleStripWidget PRIVATE Qt_module)
     igame_add_example(testStandardFiltersMenu Filter/StandardFiltersMenuValidation.cpp)
@@ -555,6 +606,29 @@ if (ENABLE_QT_MODULE)
         target_compile_definitions(testStandardFiltersMenu PRIVATE IG_QT_COMPILE_EXPORT)
     endif ()
 endif ()
+
+# Third-batch filter examples and numerical acceptance checks.
+igame_add_example(testThirdBatchData Filter/ThirdBatchDataValidation.cpp)
+igame_add_example(testAngularPeriodic Filter/Periodic/TestAngularPeriodic.cpp)
+igame_add_example(testAngularPeriodicSelfCheck Filter/Periodic/TestAngularPeriodicSelfCheck.cpp)
+igame_add_example(testAppendLocationAttributeFilter Filter/TestAppendLocationAttribute.cpp)
+igame_add_example(testBoundaryMeshQuality Filter/TestBoundaryMeshQuality.cpp)
+igame_add_example(testCleanToGridFilter Filter/TestCleanToGridFilter.cpp)
+igame_add_example(testCountCellFaces Filter/FeatureExtraction/CountCellFaces.cpp)
+igame_add_example(testCountCellFacesOutput Filter/FeatureExtraction/CountCellFacesOutput.cpp)
+igame_add_example(testFeatureEdgeRegion Filter/FeatureExtraction/FeatureEdgeRegion.cpp)
+igame_add_example(testThresholdAndGenerateIds Filter/TestThresholdAndGenerateIds.cpp)
+igame_add_example(testMeshQuality Filter/MeshQuality/TestMeshQuality.cpp)
+igame_add_example(testPointLineInterpolator Filter/PointLineInterpolator/TestPointLineInterpolator.cpp)
+igame_add_example(testPointSetToOctree Filter/Convert/TestPointSetToOctree.cpp)
+igame_add_example(testResampleOctreeChecks Filter/Convert/TestResampleOctreeChecks.cpp)
+igame_add_example(testPointVolumeInterpolator Filter/Interpolation/TestPointVolumeInterpolator.cpp)
+igame_add_example(testPointVolumeInterpolatorSelfCheck Filter/Interpolation/TestPointVolumeInterpolatorSelfCheck.cpp)
+igame_add_example(testShrink Filter/Shrink/TestShrink.cpp)
+igame_add_example(testShrinkModel Filter/Shrink/TestShrinkModel.cpp)
+igame_add_example(testSurfaceNormalsFilter Filter/SurfaceNormals/TestSurfaceNormalsFilter.cpp)
+igame_add_example(testVolumeMeshSimplification Filter/TestVolumeMeshSimplification.cpp)
+igame_add_example(testMeshTetrahedralize Filter/TestMeshTetrahedralize.cpp)
 
 # First-batch standard filter examples (Elevation is registered above).
 igame_add_example(testPointCoordinates Filter/PointCoordinates/TestPointCoordinates.cpp)
@@ -609,4 +683,3 @@ endif ()
 foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
     igame_register_example_test(${EXAMPLE_TARGET})
 endforeach()
-

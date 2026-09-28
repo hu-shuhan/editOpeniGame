@@ -37,10 +37,18 @@ void CellArray::Squeeze() {
 bool CellArray::ShallowCopy(CellArray::Pointer o) { return false; }
 bool CellArray::DeepCopy(CellArray::Pointer o) {
     if (o == nullptr) return false;
-    m_Buffer = IdArray::New();
-    m_Buffer->DeepCopy(o->m_Buffer);
-    m_Offsets->DeepCopy(o->m_Offsets);
-    m_DeleteMasker->DeepCopy(o->m_DeleteMasker);
+    if (o.get() == this) return true;
+    // FlatArray::DeepCopy appends. The constructor already seeds offset zero,
+    // so copying into the existing offsets shifts every variable-sized cell.
+    auto buffer = IdArray::New();
+    auto offsets = UnsignedIntArray::New();
+    auto deleted = DeleteMarker::New();
+    buffer->DeepCopy(o->m_Buffer);
+    offsets->DeepCopy(o->m_Offsets);
+    deleted->DeepCopy(o->m_DeleteMasker);
+    m_Buffer = buffer;
+    m_Offsets = offsets;
+    m_DeleteMasker = deleted;
     m_NumberOfCells = o->m_NumberOfCells;
     m_FixedCellSize = o->m_FixedCellSize;
     m_UseOffsets = o->m_UseOffsets;

@@ -1,4 +1,5 @@
 #include "IQCore/igQtMainWindow.h"
+#include <IQWidgets/igQtProbeWidget.h>
 //
 // Created by m_ky on 2024/4/10.
 //
@@ -1927,6 +1928,7 @@ void igQtMainWindow::initAllFilters() {
     };
 
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
+        if (connectThirdBatchFilterAction(action, filterId)) return true;
         if (connectImportedFilterAction(action, filterId)) return true;
         if (filterId == QStringLiteral("coordinates")) {
             connect(action, &QAction::triggered, this, [=, this](bool) {
@@ -2301,64 +2303,29 @@ void igQtMainWindow::initAllFilters() {
         }
 
         if (filterId == QStringLiteral("probe") || filterId == QStringLiteral("probe_location")) {
-            connect(action, &QAction::triggered, this, [=, this](bool) {
-                const QString title = filterId == QStringLiteral("probe")
-                                              ? QStringLiteral("探测 (probe)")
-                                              : QStringLiteral("位置探测 (probe_location)");
-                auto obj = currentFilterInput(title);
-                if (!obj) return;
-                const auto& bounds = obj->GetBoundingBox();
-                const double cx = 0.5 * (bounds.min[0] + bounds.max[0]);
-                const double cy = 0.5 * (bounds.min[1] + bounds.max[1]);
-                const double cz = 0.5 * (bounds.min[2] + bounds.max[2]);
-                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-                dialog->setFilterTitle(title);
-                int xId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("X"), QString::number(cx));
-                int yId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("Y"), QString::number(cy));
-                int zId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("Z"), QString::number(cz));
-                int radiusId = -1;
-                int countId = -1;
-                if (filterId == QStringLiteral("probe")) {
-                    radiusId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                    QStringLiteral("采样半径"), QString::number(bounds.diag() * 0.05));
-                    countId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                   QStringLiteral("采样点数"), "100");
+            connect(action, &QAction::triggered, this, [this](bool) {
+                if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) return;
+                auto* dock = findChild<QDockWidget*>(QStringLiteral("probeFilterPanel"));
+                if (!dock) {
+                    dock = new QDockWidget(QStringLiteral("探测 / 位置探测"), this);
+                    dock->setObjectName(QStringLiteral("probeFilterPanel"));
+                    auto* widget = new igQtProbeWidget(dock);
+                    dock->setWidget(widget);
+                    widget->setRenderWidget(rendererWidget);
+                    widget->setContext([this]() { return rendererWidget->GetScene(); }, modelTreeWidget,
+                                       [this]() { rendererWidget->update(); });
+                    addDockWidget(Qt::RightDockWidgetArea, dock);
+                    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, widget,
+                            [dock, widget]() {
+                                if (dock->isVisible()) widget->refreshFromCurrentModel();
+                            });
                 }
-                dialog->show();
-                dialog->setApplyFunctor([=, this]() {
-                    bool okX = false, okY = false, okZ = false;
-                    const double x = dialog->getDouble(xId, okX);
-                    const double y = dialog->getDouble(yId, okY);
-                    const double z = dialog->getDouble(zId, okZ);
-                    if (!okX || !okY || !okZ) {
-                        showDarkFramelessMessage(title, QStringLiteral("请输入有效探测位置。"));
-                        return;
-                    }
-                    auto query = PointSet::New();
-                    query->SetName(obj->GetName() + "_probe");
-                    Point center(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
-                    if (filterId == QStringLiteral("probe")) {
-                        bool okRadius = false, okCount = false;
-                        const double radius = dialog->getDouble(radiusId, okRadius);
-                        const int count = dialog->getInt(countId, okCount);
-                        if (!okRadius || !okCount || radius < 0.0 || count <= 0) {
-                            showDarkFramelessMessage(title, QStringLiteral("请输入有效采样半径和点数。"));
-                            return;
-                        }
-                        ProbeFilter::GenerateSpherePoints(query, center, static_cast<float>(radius), count);
-                    } else {
-                        query->GetPoints()->AddPoint(center);
-                    }
-                    auto filter = ProbeFilter::New();
-                    filter->SetInput(0, obj);
-                    filter->SetInput(1, query);
-                    if (!filter->Execute()) {
-                        showDarkFramelessMessage(title, QStringLiteral("探测失败。当前数据可能没有可定位单元。"));
-                        return;
-                    }
-                    refreshFilterResult(obj, filter->GetOutput(), title);
-                    dialog->close();
-                });
+                auto* widget = qobject_cast<igQtProbeWidget*>(dock->widget());
+                widget->ensureQueryPointSet();
+                widget->refreshFromCurrentModel();
+                dock->show();
+                dock->raise();
+                resizeDocks({dock}, {440}, Qt::Horizontal);
             });
             return true;
         }
@@ -2798,126 +2765,12 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("Tetrahedralize（四面体化）")), &QAction::triggered, this, [&](bool checked) {
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return;
-
-        MeshTetrahedralize::Pointer filter = MeshTetrahedralize::New();
-        filter->SetInput(obj);
-        filter->Execute();
-        auto newMesh = filter->GetOutput();
-
-        modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
-        rendererWidget->update();
-    });
-
-    connect(mesh_processing->addAction(QStringLiteral("Volume Mesh Simplification（体网格简化）")), &QAction::triggered, this, [&](bool checked) {
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        auto in = DynamicCast<DataObject>(obj);
-        if (!in) return;
-
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        dialog->setFilterTitle("四面体边坍缩简化");
-        dialog->setFilterDescription("基于ADQ的边坍缩体网格简化（保留属性）");
-
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "简化比例 (0..1)", "0.5");
-        int tetCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "目标四面体数量", "0");
-        /*int boundaryPenaltyId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "边界惩罚", "100.0");
-        int lambdaId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Lambda", "0.1");
-        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "保留边界", "false");*/
-        int allAttrId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "使用所有点属性", "true");
-        /*int stretchId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "拉伸因子", "10.0");
-        int aspectId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "最大纵横比", "30.0");*/
-
-        dialog->show();
-        dialog->setApplyFunctor([=, this]() {
-            // ─── 1. 获取当前场景对象 ───
-            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-            if (!obj) {
-                QString result = QString("未选择任何模型");
-                showDarkFramelessMessage(QStringLiteral("错误"), result);
-                dialog->close();
-                return;
-            }
-
-
-            // ─── 2. 判断是否为纯四面体体网格 ───
-            bool isPureTetMesh = false;
-
-            if (obj->GetDataObjectType() == IG_VOLUME_MESH) {
-                auto mesh = DynamicCast<VolumeMesh>(obj);
-                if (mesh) {
-                    isPureTetMesh = true;
-                    igIndex ids[IGAME_CELL_MAX_SIZE];
-                    const IGsize nVol = mesh->GetNumberOfVolumes();
-                    for (IGsize i = 0; i < nVol; ++i) {
-                        if (mesh->GetVolumePointIds(i, ids) != 4) {
-                            isPureTetMesh = false;
-                            break;
-                        }
-                    }
-                }
-            } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
-                auto um = DynamicCast<UnstructuredMesh>(obj);
-                if (um) {
-                    isPureTetMesh = true;
-                    const IGsize nCells = um->GetNumberOfCells();
-                    for (IGsize i = 0; i < nCells; ++i) {
-                        if (um->GetCellType(i) != IG_TETRA) {
-                            isPureTetMesh = false;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (!isPureTetMesh) {
-                /*QMessageBox::information(this, "非纯四面体网格",
-                                         "该简化算法只支持纯四面体体网格。\n"
-                                         "请先执行「Tetrahedralize」将当前对象四面体化。");*/
-                
-                QString result = QString("该简化算法只支持纯四面体体网格。\n请先执行「Tetrahedralize」将当前对象四面体化。");
-                showDarkFramelessMessage(QStringLiteral("非纯四面体网格"), result);
-                    
-                
-                dialog->close();
-                return;
-            }
-
-
-            bool ok = false;
-
-            TetraEdgeSimplification::Pointer filter = TetraEdgeSimplification::New();
-            filter->SetInput(in);
-            filter->SetTargetReduction(float(dialog->getDouble(reductionId, ok)));
-            filter->SetTargetTetraCount(dialog->getInt(tetCountId, ok));
-            //filter->SetBoundaryPenalty(dialog->getDouble(boundaryPenaltyId, ok));
-            //filter->SetLambda(dialog->getDouble(lambdaId, ok));
-            //filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
-            filter->SetUseAllPointAttributes(dialog->getChecked(allAttrId, ok));
-            //filter->SetStretchFactor(dialog->getDouble(stretchId, ok));
-            //filter->SetMaxAspectRatio(dialog->getDouble(aspectId, ok));
-
-            if (!filter->Execute()) {
-                QMessageBox::information(this, "执行出错", "边坍缩简化失败");
-                dialog->close();
-                return;
-            }
-
-            auto out = filter->GetOutput(0);
-            if (!out) {
-                QMessageBox::information(this, "执行出错", "未生成输出结果");
-                dialog->close();
-                return;
-            }
-
-            modelTreeWidget->addDataObjectToModelTree(out, Algorithm);
-            rendererWidget->update();
-            dialog->close();
-        });
-    });
+    auto* tetraAction = mesh_processing->addAction(QStringLiteral("Mesh Tetrahedralize（四面体化）"));
+    tetraAction->setObjectName("action_filter_mesh_tetrahedralize");
+    connectThirdBatchFilterAction(tetraAction, "mesh_tetrahedralize");
+    auto* simplifyAction = mesh_processing->addAction(QStringLiteral("Volume Mesh Simplification（体网格简化）"));
+    simplifyAction->setObjectName("action_filter_volume_mesh_simplification");
+    connectThirdBatchFilterAction(simplifyAction, "volume_mesh_simplification");
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();

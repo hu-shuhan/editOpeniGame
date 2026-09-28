@@ -1046,10 +1046,13 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
     IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
     newPositions->Reserve(faceIdNum - fcnt * 2);
     newColors->Reserve(faceIdNum - fcnt * 2);
+    CellToPointColorBuilder pointColors;
+    pointColors.Initialize(this->GetNumberOfPoints());
     float color[4]{};
     for (int i = 0; i < this->GetNumberOfFaces(); i++) {
         Face* face = this->GetFace(i);
         colors->GetElement(i, color);
+        pointColors.AddCell(face->m_PointIds->RawPointer(), face->GetCellSize(), color);
         for (int j = 1; j < face->GetCellSize() - 1; j++) {
             auto& p0 = face->m_Points->GetPoint(0);
             newPositions->AddElement3(p0[0], p0[1], p0[2]);
@@ -1066,6 +1069,9 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
             newEdgeMasks->AddValue(mask);
         }
     }
+    m_Colors = pointColors.Build(this->GetDefaultColor());
+    m_Colors->Modified();
+
     m_CellPositionSize = newPositions->GetNumberOfElements();
 
     m_CellPositions = newPositions;
