@@ -58,6 +58,12 @@ public:
     const std::string& GetInputPointArrayName() const { return m_InputArrayName; }
     //@}
 
+    // Optional display convenience, independent of point-array statistics.
+    // Maps the input display attribute's voxel means to grid vertices. The
+    // generated name includes its provenance; disabled by default.
+    void SetInheritDisplayAttribute(bool enabled) { m_InheritDisplayAttribute = enabled; }
+    bool GetInheritDisplayAttribute() const { return m_InheritDisplayAttribute; }
+
     //@{
     /// 需要计算的统计函数。默认仅开启 Min/Max/Count/Mean（当 ProcessInputPointArray
     /// 关闭时这些开关不影响输出）。语义与 VTK 一致：
@@ -106,6 +112,7 @@ protected:
     bool m_ComputeMean{true};
     std::string m_InputArrayName{};
     std::string m_Message;
+    bool m_InheritDisplayAttribute{false};
 
     // VTK vtkBoundingBox::ComputeDivisions / ClampDivisions 的等价实现。
     static void ComputeDivisions(igIndex64 totalBins, const double minPnt[3], const double maxPnt[3],

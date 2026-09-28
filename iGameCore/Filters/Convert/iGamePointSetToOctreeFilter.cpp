@@ -309,20 +309,19 @@ bool PointSetToOctreeFilter::Execute() {
     output->SetPoints(points);
 
     output->GetAttributeSet()->AddScalar(IG_CELL, octree);
+    output->SetAttributeIndex(0);
     if (outField) {
         output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, outField);
     }
 
-    // 继承输入的显示属性到输出格点：输入点云之所以有颜色，是因为模型上设置了“活动属性”
-    // （等价 VTK 的活动标量/颜色），过滤器输出如果既不搬运该数组、也不设置活动属性，新模型
-    // 就会以“无属性 → 统一白色”显示。八叉树输出是 StructuredMesh（PointSet 的子类），只支持
-    // 按点属性着色（SetAttributeWithCellData 在 PointSet 中是空实现），因此这里把体素内点属性
-    // 的均值写到该体素的 8 个角格点上，角点取相邻体素均值的平均。
+    // Display inheritance is an explicit opt-in, independent of statistics.
+    // Average each voxel's input values, then average incident voxel means at
+    // grid vertices. This derived point array is not the original field.
     AttributeSet::Attribute colorAttr = AttributeSet::Attribute::None();
     ArrayObject::Pointer outColor = nullptr;
     const IGsize gridPointCount =
         static_cast<IGsize>(dimensions[0]) * dimensions[1] * dimensions[2];
-    {
+    if (m_InheritDisplayAttribute) {
         AttributeSet* inAttrs = pointSet->GetAttributeSet();
         const int activeIndex = pointSet->GetAttributeIndex();
         if (activeIndex >= 0) {
@@ -368,7 +367,11 @@ bool PointSetToOctreeFilter::Execute() {
         }
         if (colorAttr.pointer) {
             outColor = NewArrayLike(colorAttr.pointer);
-            outColor->SetName(colorAttr.pointer->GetName());
+            const std::string baseName = colorAttr.pointer->GetName() + "_体素均值映射";
+            std::string name = baseName;
+            for (int suffix = 2; !output->GetAttributeSet()->GetAttribute(name).IsNone(); ++suffix)
+                name = baseName + "_" + std::to_string(suffix);
+            outColor->SetName(name);
             outColor->SetDimension(colorAttr.pointer->GetDimension());
             outColor->Resize(gridPointCount);
             output->GetAttributeSet()->AddAttribute(colorAttr.type, IG_POINT, outColor);
@@ -532,11 +535,15 @@ bool PointSetToOctreeFilter::Execute() {
             info += " 已对点属性 \"" + inFieldArr->GetName() + "\" 统计 " +
                     std::to_string(static_cast<int>(functions.size())) + " 个分量。";
         } else {
-            info += " 未处理点属性数组（仅输出 octree 占用位编码）。";
+            info += " 未处理点属性数组。";
+        }
+        if (m_InheritDisplayAttribute && !outColor) {
+            info += " 未找到可继承的输入点显示属性，未生成均值映射数组。";
         }
         if (outColor) {
-            info += " 已把输入的显示属性 \"" + outColor->GetName() +
-                    "\" 继承到输出格点（按体素均值），输出模型会沿用输入的着色。";
+            info += " 输入显示属性：" + colorAttr.pointer->GetName() +
+                    "；派生点属性：" + outColor->GetName() +
+                    "（体素均值映射，用于输出着色，不代表原始数据）。";
         }
         m_Message = info;
     }

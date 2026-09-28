@@ -11,6 +11,27 @@
 IGAME_NAMESPACE_BEGIN
 namespace {
 constexpr double kPi = 3.14159265358979323846;
+// Like CountCellVertices, give constant scalars a nonzero display interval.
+// Keep the unit/zero normal magnitudes unchanged; only the color range is padded.
+void AddMagnitudeAttribute(SurfaceMesh* mesh, IGenum attachment, FloatArray::Pointer values) {
+    double minimum = 0.0, maximum = 0.0;
+    for (IGsize i = 0; i < values->GetNumberOfValues(); ++i) {
+        const double value = values->GetValue(i);
+        if (i == 0) minimum = maximum = value;
+        else { minimum = std::min(minimum, value); maximum = std::max(maximum, value); }
+    }
+    if (values->GetNumberOfValues() > 0 && minimum == maximum) {
+        auto range = DoubleArray::New();
+        range->SetDimension(2);
+        range->AddElement2(minimum, minimum + 1.0); // magnitude
+        range->AddElement2(minimum, minimum + 1.0); // scalar component
+        range->Modified();
+        mesh->GetAttributeSet()->AddScalar(attachment, values, range);
+        mesh->GetColorMapper()->SetRange(minimum, minimum + 1.0);
+    } else {
+        mesh->GetAttributeSet()->AddScalar(attachment, values);
+    }
+}
 struct EdgeKey {
     igIndex a;
     igIndex b;
@@ -427,7 +448,7 @@ bool SurfaceNormalsFilter::Execute() {
             cellMag->AddValue(degenerate[static_cast<size_t>(faceId)] ? 0.0f : 1.0f);
         }
         newAttrs->AddAttribute(IG_NORMAL, IG_CELL, cellNormals);
-        newAttrs->AddAttribute(IG_SCALAR, IG_CELL, cellMag);
+        AddMagnitudeAttribute(newMesh, IG_CELL, cellMag);
     }
     // ---------------------------------------------------------------
     // 10. 添加点法向量属性。
@@ -454,7 +475,7 @@ bool SurfaceNormalsFilter::Execute() {
             pointMag->AddValue(len > 1e-30f ? 1.0f : 0.0f);
         }
         newAttrs->AddAttribute(IG_NORMAL, IG_POINT, pointNormalsArr);
-        newAttrs->AddAttribute(IG_SCALAR, IG_POINT, pointMag);
+        AddMagnitudeAttribute(newMesh, IG_POINT, pointMag);
     }
     // A newly constructed mesh's default AttributeSet has no owner binding.
     newMesh->ForceReConvertToDrawableData();

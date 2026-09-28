@@ -1,4 +1,5 @@
 #include "IQCore/igQtMainWindow.h"
+#include <IQWidgets/igQtProbeWidget.h>
 //
 // Created by m_ky on 2024/4/10.
 //
@@ -2302,64 +2303,29 @@ void igQtMainWindow::initAllFilters() {
         }
 
         if (filterId == QStringLiteral("probe") || filterId == QStringLiteral("probe_location")) {
-            connect(action, &QAction::triggered, this, [=, this](bool) {
-                const QString title = filterId == QStringLiteral("probe")
-                                              ? QStringLiteral("探测 (probe)")
-                                              : QStringLiteral("位置探测 (probe_location)");
-                auto obj = currentFilterInput(title);
-                if (!obj) return;
-                const auto& bounds = obj->GetBoundingBox();
-                const double cx = 0.5 * (bounds.min[0] + bounds.max[0]);
-                const double cy = 0.5 * (bounds.min[1] + bounds.max[1]);
-                const double cz = 0.5 * (bounds.min[2] + bounds.max[2]);
-                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-                dialog->setFilterTitle(title);
-                int xId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("X"), QString::number(cx));
-                int yId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("Y"), QString::number(cy));
-                int zId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("Z"), QString::number(cz));
-                int radiusId = -1;
-                int countId = -1;
-                if (filterId == QStringLiteral("probe")) {
-                    radiusId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                    QStringLiteral("采样半径"), QString::number(bounds.diag() * 0.05));
-                    countId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                   QStringLiteral("采样点数"), "100");
+            connect(action, &QAction::triggered, this, [this](bool) {
+                if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) return;
+                auto* dock = findChild<QDockWidget*>(QStringLiteral("probeFilterPanel"));
+                if (!dock) {
+                    dock = new QDockWidget(QStringLiteral("探测 / 位置探测"), this);
+                    dock->setObjectName(QStringLiteral("probeFilterPanel"));
+                    auto* widget = new igQtProbeWidget(dock);
+                    dock->setWidget(widget);
+                    widget->setRenderWidget(rendererWidget);
+                    widget->setContext([this]() { return rendererWidget->GetScene(); }, modelTreeWidget,
+                                       [this]() { rendererWidget->update(); });
+                    addDockWidget(Qt::RightDockWidgetArea, dock);
+                    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, widget,
+                            [dock, widget]() {
+                                if (dock->isVisible()) widget->refreshFromCurrentModel();
+                            });
                 }
-                dialog->show();
-                dialog->setApplyFunctor([=, this]() {
-                    bool okX = false, okY = false, okZ = false;
-                    const double x = dialog->getDouble(xId, okX);
-                    const double y = dialog->getDouble(yId, okY);
-                    const double z = dialog->getDouble(zId, okZ);
-                    if (!okX || !okY || !okZ) {
-                        showDarkFramelessMessage(title, QStringLiteral("请输入有效探测位置。"));
-                        return;
-                    }
-                    auto query = PointSet::New();
-                    query->SetName(obj->GetName() + "_probe");
-                    Point center(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
-                    if (filterId == QStringLiteral("probe")) {
-                        bool okRadius = false, okCount = false;
-                        const double radius = dialog->getDouble(radiusId, okRadius);
-                        const int count = dialog->getInt(countId, okCount);
-                        if (!okRadius || !okCount || radius < 0.0 || count <= 0) {
-                            showDarkFramelessMessage(title, QStringLiteral("请输入有效采样半径和点数。"));
-                            return;
-                        }
-                        ProbeFilter::GenerateSpherePoints(query, center, static_cast<float>(radius), count);
-                    } else {
-                        query->GetPoints()->AddPoint(center);
-                    }
-                    auto filter = ProbeFilter::New();
-                    filter->SetInput(0, obj);
-                    filter->SetInput(1, query);
-                    if (!filter->Execute()) {
-                        showDarkFramelessMessage(title, QStringLiteral("探测失败。当前数据可能没有可定位单元。"));
-                        return;
-                    }
-                    refreshFilterResult(obj, filter->GetOutput(), title);
-                    dialog->close();
-                });
+                auto* widget = qobject_cast<igQtProbeWidget*>(dock->widget());
+                widget->ensureQueryPointSet();
+                widget->refreshFromCurrentModel();
+                dock->show();
+                dock->raise();
+                resizeDocks({dock}, {440}, Qt::Horizontal);
             });
             return true;
         }

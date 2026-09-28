@@ -42,6 +42,38 @@ template<class F> DataObject::Pointer Run(F filter, DataObject::Pointer input) {
     filter->SetInput(input); Check(filter->Execute(), "filter failed");
     auto output=filter->GetOutput(); Check(output && output != input, "output aliases source"); return output;
 }
+// 待提交：点/单元法向模长全为 1（或退化时全为 0）会产生零宽范围，
+// 选中后沿用旧色标而显示白模。保证数值不变、显示区间有效、重复切换稳定；
+// 混合有效/退化面仍使用真实 [0,1] 范围，不能把有效性差异掩盖掉。
+void CheckMagnitudeColors(SurfaceMesh::Pointer input, double expectedMinimum, double expectedMaximum) {
+    auto filter = SurfaceNormalsFilter::New(); filter->SetSplitting(false);
+    auto output = DynamicCast<SurfaceMesh>(Run(filter, input));
+    int magnitudeCount = 0;
+    for (IGsize i = 0; i < output->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
+        auto& attribute = output->GetAttributeSet()->GetAttribute(i);
+        if (attribute.pointer->GetName() != "Normals_Magnitude") continue;
+        ++magnitudeCount;
+        auto range = attribute.GetDataRange();
+        Near(range->GetValue(0), expectedMinimum, "normal magnitude display minimum incorrect");
+        Near(range->GetValue(1), expectedMaximum, "normal magnitude display maximum incorrect");
+        for (IGsize j = 0; j < attribute.pointer->GetNumberOfElements(); ++j) {
+            const double value = attribute.pointer->GetElementValue(j, 0);
+            Check(value == 0.0 || value == 1.0, "normal magnitude data was padded");
+        }
+        auto mapper = output->GetColorMapper();
+        mapper->SetRange(-10, 10); // Simulate switching from a different attribute.
+        for (int component : {-1, 0, -1}) {
+            const int offset = 2 + component * 2;
+            mapper->SetRange(range->GetValue(offset), range->GetValue(offset + 1));
+            auto colors = mapper->MapScalars(attribute.pointer, component, 4);
+            Check(colors && colors->GetNumberOfElements() == attribute.pointer->GetNumberOfElements(),
+                  "normal magnitude colors missing");
+            Near(mapper->GetRange()[0], expectedMinimum, "normal magnitude retained old range");
+            Near(mapper->GetRange()[1], expectedMaximum, "normal magnitude retained old range");
+        }
+    }
+    Check(magnitudeCount == 2, "point/cell normal magnitude attributes missing");
+}
 }
 int main() {
     try {
@@ -55,6 +87,28 @@ int main() {
         Check(loaded->GetFaces()->GetCellSize(0)==4 && loaded->GetFaces()->GetCellSize(1)==3,
               "VTK mixed face offsets changed");
         auto mesh=Fixture();
+        CheckMagnitudeColors(mesh, 1, 2);
+        auto degenerate = SurfaceMesh::New();
+        for (Point p : {Point{0,0,0}, Point{1,0,0}, Point{2,0,0}})
+            degenerate->GetPoints()->AddPoint(p);
+        auto degenerateFaces = CellArray::New();
+        igIndex lineFace[] = {0,1,2}; degenerateFaces->AddCellIds(lineFace, 3);
+        degenerate->SetFaces(degenerateFaces);
+        CheckMagnitudeColors(degenerate, 0, 1);
+        auto mixedNormals = Fixture();
+        igIndex repeatedFace[] = {0,0,0}; mixedNormals->GetFaces()->AddCellIds(repeatedFace, 3);
+        // Cell magnitudes are mixed; point magnitudes remain all unit length.
+        auto mixedFilter = SurfaceNormalsFilter::New(); mixedFilter->SetSplitting(false);
+        auto mixedOutput = Run(mixedFilter, mixedNormals);
+        bool checkedMixed = false;
+        for (IGsize i = 0; i < mixedOutput->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
+            auto& attribute = mixedOutput->GetAttributeSet()->GetAttribute(i);
+            if (attribute.attachmentType != IG_CELL || attribute.pointer->GetName() != "Normals_Magnitude") continue;
+            Near(attribute.GetDataRange()->GetValue(0), 0, "mixed magnitudes lost zero");
+            Near(attribute.GetDataRange()->GetValue(1), 1, "mixed magnitudes range was padded");
+            checkedMixed = true;
+        }
+        Check(checkedMixed, "mixed cell magnitude missing");
         auto copy=CellArray::New();
         for (int i=0;i<2;++i) { Check(copy->DeepCopy(mesh->GetFaces()), "copy failed"); SameCells(copy,mesh->GetFaces()); }
         Check(copy->DeepCopy(copy), "self copy failed"); SameCells(copy,mesh->GetFaces());

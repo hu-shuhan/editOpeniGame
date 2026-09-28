@@ -815,7 +815,132 @@ static void TestLinearReproductionHexahedron() {
     Check(bad == 0, "六面体线性场被精确再现");
 }
 
-int main() {
+// Regression (fix pending commit): imported octree filters retained their cell
+// arrays but omitted StructuredMesh cell rendering and the point-color path.
+// Cover planar quads and 3D hexes: both must produce complete RGBA buffers,
+// shared vertices must average incident cell colors, and empty data must clear
+// the buffers rather than reuse colors from a previous attribute.
+class CellColorTestMesh : public StructuredMesh {
+public:
+    static SmartPointer<CellColorTestMesh> New() { return new CellColorTestMesh; }
+    using DrawObject::m_Positions;
+    using DrawObject::m_Colors;
+    using DrawObject::m_CellColors;
+    using DrawObject::m_CellPositionSize;
+};
+
+void TestStructuredCellColors() {
+    for (int depth : {1, 2}) {
+        auto mesh = CellColorTestMesh::New();
+        igIndex dims[3] = {3, 2, depth};
+        mesh->SetDimensionSize(dims);
+        auto points = Points::New();
+        for (int z = 0; z < depth; ++z)
+            for (int y = 0; y < 2; ++y)
+                for (int x = 0; x < 3; ++x) points->AddPoint(x, y, z);
+        mesh->SetPoints(points);
+        mesh->m_Positions = points->ConvertToArray();
+        auto values = UnsignedCharArray::New();
+        values->SetDimension(1);
+        values->AddValue(0);
+        values->AddValue(255);
+        mesh->SetAttributeWithCellData(values, nullptr, 0);
+        auto expected = mesh->GetColorMapper()->MapScalars(values, 0, 4);
+        Check(mesh->m_CellColors->GetDimension() == 4 &&
+              mesh->m_CellColors->GetNumberOfElements() == (depth == 1 ? 12 : 72),
+              "structured cell geometry has complete RGBA colors");
+        Check(mesh->HasPointColorsForCellData(), "structured cell colors support point rendering");
+        const auto colors = mesh->m_Colors;
+        bool matches = colors->GetNumberOfElements() == points->GetNumberOfPoints();
+        for (IGsize i = 0; i < points->GetNumberOfPoints() && matches; ++i) {
+            const int x = i % 3;
+            for (int c = 0; c < 4; ++c) {
+                const double want = x == 1
+                    ? 0.5 * (expected->GetElementValue(0, c) + expected->GetElementValue(1, c))
+                    : expected->GetElementValue(x == 0 ? 0 : 1, c);
+                matches = matches && std::abs(colors->GetElementValue(i, c) - want) < 1e-6;
+            }
+        }
+        Check(matches, "point colors average adjacent structured cells including alpha");
+        values->SetName("octree");
+        mesh->GetAttributeSet()->AddScalar(IG_CELL, values);
+        mesh->SetAttributeIndex(0);
+        auto renderable = mesh->GetRenderableObject();
+        Check(renderable && renderable->HasPointColorsForCellData(),
+              "structured cell colors survive surface extraction for point rendering");
+        mesh->SetAttributeWithCellData(nullptr, nullptr, 0);
+        Check(!mesh->HasPointColorsForCellData() && mesh->m_CellPositionSize == 0,
+              "empty structured attributes clear obsolete geometry and point colors");
+    }
+}
+
+// Regression (fix pending commit / 待提交): display inheritance used to add an
+// averaged point field even with statistics disabled and kept the original name.
+// All four opt-in combinations must have distinct, correctly associated arrays;
+// switching inheritance off again must not retain a previous derived field.
+void TestOctreeDisplayInheritance() {
+    auto input = PointSet::New();
+    input->AddPoint(Point(-1, -1, -1));
+    input->AddPoint(Point(1, 1, 1));
+    auto scalar = FloatArray::New(); scalar->SetName("Temperature"); scalar->SetDimension(1);
+    scalar->AddValue(2); scalar->AddValue(6);
+    input->GetAttributeSet()->AddScalar(IG_POINT, scalar);
+    auto vector = FloatArray::New(); vector->SetName("Displacement"); vector->SetDimension(3);
+    vector->AddElement3(2, 4, 6); vector->AddElement3(6, 8, 10);
+    input->GetAttributeSet()->AddAttribute(IG_VECTOR, IG_POINT, vector);
+    input->SetAttributeIndex(1);
+    auto filter = PointSetToOctreeFilter::New();
+    filter->SetInput(input); filter->SetNumberOfPointsPerCell(2);
+    filter->SetInputPointArrayName("Temperature");
+    Check(!filter->GetInheritDisplayAttribute(), "display inheritance is disabled by default");
+    for (bool process : {false, true}) {
+        filter->SetProcessInputPointArray(process);
+        for (bool inherit : {true, false}) {
+            filter->SetInheritDisplayAttribute(inherit);
+            Check(filter->Execute(), "octree explicit display/statistics options execute");
+            auto out = DynamicCast<StructuredMesh>(filter->GetOutput());
+            if (!out) continue;
+            auto* attrs = out->GetAttributeSet();
+            Check(attrs->GetNumberOfAttributes() == 1 + int(process) + int(inherit),
+                  "output only contains requested statistics and display mapping");
+            Check(attrs->GetAttribute("Displacement").IsNone(), "averaged display data cannot masquerade as original displacement");
+            auto& mapped = attrs->GetAttribute("Displacement_体素均值映射");
+            Check(!mapped.IsNone() == inherit, "mapped array has explicit provenance and requires opt-in");
+            if (inherit && mapped.pointer) {
+                bool valuesMatch = mapped.attachmentType == IG_POINT && mapped.pointer->GetDimension() == 3;
+                for (IGsize i = 0; i < mapped.pointer->GetNumberOfElements(); ++i)
+                    for (int c = 0; c < 3; ++c)
+                        valuesMatch &= std::abs(mapped.pointer->GetElementValue(i, c) - (4 + c * 2)) < 1e-6;
+                Check(valuesMatch, "one voxel maps the component-wise mean to all eight grid points");
+            }
+            auto& statistics = attrs->GetAttribute("Temperature");
+            Check(!statistics.IsNone() == process, "point-array statistics are independent of display inheritance");
+            if (process && statistics.pointer) {
+                Check(statistics.attachmentType == IG_CELL && statistics.pointer->GetDimension() == 5 &&
+                      std::abs(statistics.pointer->GetElementValue(0, 4) - 4) < 1e-6,
+                      "statistics remain a separate cell array with the expected mean");
+            }
+            Check(out->GetAttributeIndex() == attrs->GetAttributeIndex(inherit ? "Displacement_体素均值映射" : "octree"),
+                  "default display uses octree unless inheritance is explicitly enabled");
+        }
+    }
+    // An input array can already use the mapping suffix; do not let the derived
+    // point array collide with the separately requested cell statistics.
+    scalar->SetName("Displacement_体素均值映射");
+    filter->SetInputPointArrayName(scalar->GetName());
+    filter->SetProcessInputPointArray(true); filter->SetInheritDisplayAttribute(true);
+    Check(filter->Execute(), "mapping/statistics name collision remains executable");
+    auto out = filter->GetOutput();
+    Check(!out->GetAttributeSet()->GetAttribute("Displacement_体素均值映射_2").IsNone(),
+          "mapping receives a unique name when statistics already use its suffix");
+}
+
+int main(int argc, char** argv) {
+    TestStructuredCellColors();
+    if (argc > 1 && std::string(argv[1]) == "--structured-colors-only") {
+        std::cout << "Structured color checks: " << (g_total - g_failed) << "/" << g_total << std::endl;
+        return g_failed == 0 ? 0 : 1;
+    }
     TestTetraBaseline();
     TestLowDimensionalCells();
     TestUnsupportedCells();
@@ -823,6 +948,7 @@ int main() {
     TestLinearReproduction();
     TestLinearReproductionHexahedron();
     TestOctreeParity();
+    TestOctreeDisplayInheritance();
 
     std::cout << "\n================ 汇总 ================\n";
     std::cout << "通过 " << (g_total - g_failed) << " / " << g_total << "，失败 " << g_failed << "\n";

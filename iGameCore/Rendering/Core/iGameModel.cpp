@@ -275,8 +275,8 @@ void Model::Draw() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && renderableObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
 #ifdef __EMSCRIPTEN__
@@ -543,8 +543,8 @@ void Model::DrawWithTransparency() {
             shader->SetUniformi("uUseLighting", 0);
             shader->SetUniformi("colorMode", 1);
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && renderableObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 #ifdef __EMSCRIPTEN__
@@ -730,8 +730,8 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -867,8 +867,8 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -1018,8 +1018,8 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -1156,8 +1156,8 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
