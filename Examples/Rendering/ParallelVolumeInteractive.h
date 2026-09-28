@@ -571,6 +571,18 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
             std::cerr << "[rank 0] gladLoadGL failed.\n";
             return 1;
         }
+        // 插桩：打印 GL 后端（llvmpipe/softpipe/Mesa ⇒ 软件路径；NVIDIA/Quadro ⇒ 硬件）。
+        {
+            const char* vendor =
+                    reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+            const char* renderer =
+                    reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+            const char* version =
+                    reinterpret_cast<const char*>(glGetString(GL_VERSION));
+            std::cerr << "[rank 0] GL vendor=" << (vendor ? vendor : "?")
+                      << " renderer=" << (renderer ? renderer : "?")
+                      << " version=" << (version ? version : "?") << '\n';
+        }
         if (!InitDisplay(width, height)) {
             std::cerr << "[rank 0] display init failed.\n";
             return 1;

@@ -96,10 +96,11 @@ iGamePVNet::Frame g_latestFrame;   // I/O 线程写，主线程取
 bool g_latestFrameReady = false;
 std::uint64_t g_latestFrameId = 0; // 单调递增，主线程用来判断是否是新帧
 
-// 显示循环三段耗时累加器（仅主线程访问），每 5s 打印一次后清零。
+// 显示循环四段耗时累加器（仅主线程访问），每 5s 打印一次后清零。
 double g_diagPollMs = 0.0;   // glfwPollEvents
 double g_diagUploadMs = 0.0; // 纹理上传（仅新帧）
-double g_diagSwapMs = 0.0;   // 绘制 + glfwSwapBuffers
+double g_diagDrawMs = 0.0;   // 绘制（quad + colorbar + 文字），不含换缓冲
+double g_diagSwapMs = 0.0;   // glfwSwapBuffers（等 vblank / X11 传输）
 
 // 当前 g_imageTex 的尺寸（帧分辨率变化时重新分配纹理）。仅主线程访问。
 int g_imgTexW = 0;
@@ -417,6 +418,18 @@ int main(int argc, char** argv) {
         iGamePVNet::Cleanup();
         return 1;
     }
+    // 插桩：打印 GL 后端。llvmpipe/softpipe/Mesa ⇒ 软件路径；NVIDIA/Quadro ⇒ 硬件路径。
+    // 客户端走 RenderWindow + gladLoadGL，不经过 Scene::InitOpenGL，因此这里单独打。
+    {
+        const char* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+        const char* renderer =
+                reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+        const char* version =
+                reinterpret_cast<const char*>(glGetString(GL_VERSION));
+        std::cerr << "[client] GL vendor=" << (vendor ? vendor : "?")
+                  << " renderer=" << (renderer ? renderer : "?")
+                  << " version=" << (version ? version : "?") << '\n';
+    }
     if (!InitDisplay(meta.width, meta.height)) {
         std::cerr << "[client] display init failed.\n";
         iGamePVNet::CloseSocket(sock);
@@ -497,6 +510,10 @@ int main(int argc, char** argv) {
         g_diagUploadMs += std::chrono::duration<double, std::milli>(
                                   std::chrono::steady_clock::now() - tUpload0)
                                   .count();
+
+        // 绘制（quad + colorbar + 文字）单独计时，与换缓冲（swap）分开：
+        // 软件 GL 下 draw 耗时 ∝ 光栅化量，swap 耗时 ∝ 等 vblank 或 X11 传输。
+        const auto tDraw0 = std::chrono::steady_clock::now();
         if (hasFrame) {
             DrawTexturedQuad(0.0f, 0.0f, static_cast<float>(fbW),
                              static_cast<float>(fbH), 0.0f, 0.0f, 1.0f, 1.0f,
@@ -546,6 +563,9 @@ int main(int argc, char** argv) {
             DrawText(fpsBuf, 24.0f, static_cast<float>(fbH) - 40.0f, 2.0f, white,
                      static_cast<float>(fbW), static_cast<float>(fbH));
         }
+        g_diagDrawMs += std::chrono::duration<double, std::milli>(
+                                std::chrono::steady_clock::now() - tDraw0)
+                                .count();
 
         const auto tSwap0 = std::chrono::steady_clock::now();
         glfwSwapBuffers(raw);
@@ -555,11 +575,14 @@ int main(int argc, char** argv) {
         if (g_serverGone.load()) { break; }
 
         // 诊断：每 5s 打印显示循环速率、到达帧率、丢弃帧数、收字节数、RTT，
-        // 以及**显示循环三段耗时的单次平均值**（poll=事件, upload=纹理上传, swap=绘制+换缓冲）。
+        // 以及显示循环各段耗时的单次平均值（poll=事件, upload=纹理上传, draw=绘制,
+        // swap=换缓冲），外加窗口面积与最近一帧 ROI 面积（判断 draw+swap ∝ 窗口面积
+        // 还是 ∝ ROI，见设计文档 §10.1/§10.10）。
         // 判读方法：
-        //   display 明显低于 60Hz 且 swap_ms 占掉大半 → 显示循环被「绘制+换缓冲」限制
-        //     （软件 GL / X11 转发下按窗口面积走），此时服务端再怎么降分辨率也没用，
-        //     客户端收到的帧只会被 dropped 丢掉；
+        //   display 明显低于 60Hz 且 swap 占掉大半、draw 很小 → 瓶颈是等 vblank 或
+        //     X11 传输（换缓冲），此时服务端再怎么降分辨率也没用；
+        //   display 明显低于 60Hz 且 draw 占掉大半 → 软件 GL 光栅化按窗口面积走，
+        //     缩小窗口最有效；
         //   display ≈ 60Hz 而 rx ≈ 服务端出帧率 → 网络/服务端才是节奏来源。
         {
             static int iter = 0;
@@ -580,15 +603,20 @@ int main(int argc, char** argv) {
                           << "Hz dropped=" << (dr - lastDropped)
                           << " rxKB/s=" << ((by - lastBytes) / sec / 1024.0)
                           << " rtt=" << g_rttMs.load() << "ms"
+                          << " win=" << fbW << 'x' << fbH
+                          << " roi=" << displayFrame.roiW << 'x'
+                          << displayFrame.roiH
                           << " | ms/iter[poll=" << (g_diagPollMs / n)
                           << " upload=" << (g_diagUploadMs / n)
-                          << " draw+swap=" << (g_diagSwapMs / n) << "]\n";
+                          << " draw=" << (g_diagDrawMs / n)
+                          << " swap=" << (g_diagSwapMs / n) << "]\n";
                 iter = 0;
                 lastFrames = fr;
                 lastBytes = by;
                 lastDropped = dr;
                 g_diagPollMs = 0.0;
                 g_diagUploadMs = 0.0;
+                g_diagDrawMs = 0.0;
                 g_diagSwapMs = 0.0;
                 t0 = now;
             }

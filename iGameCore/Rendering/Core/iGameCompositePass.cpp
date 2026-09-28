@@ -238,11 +238,11 @@ std::vector<unsigned char> BinarySwapCompositeTwo(
 // `bianry_swap算法实现.md`）：
 //   1) AllGather 尺寸校验 + 块深度排序 → m_SortOrder（近→远）；
 //      groupRank = 本进程在深度序中的位置（0=最前）。
-//   2) 补齐到 2 的幂 P2 = next_pow2(P)；非 2 幂时「幽灵」位置视作全透明、不实际通信。
+//   2) 仅支持 2 的幂 P：非 2 幂会在入口打印警告并回退到稀疏 ROI 合成（见 0)）。
 //   3) 工作图 = 本 rank 的整张局部图（预乘 alpha RGBA8）。
-//   4) ⌈log₂P2⌉ 轮：第 r 轮按 groupRank 的第 r 位把当前块平分成两半，与
+//   4) ⌈log₂P⌉ 轮：第 r 轮按 groupRank 的第 r 位把当前块平分成两半，与
 //      partner = groupRank ^ (1<<r) 交换「自己不负责的那半」、收「自己负责的那半」，
-//      再按数字序（=深度序）front-to-back over 合成；partner 是幽灵则无通信、直接留半。
+//      再按数字序（=深度序）front-to-back over 合成。
 //   5) 结束后每个进程持有一块完全合成的分块（索引 = 按位反序的 groupRank），Gatherv 到
 //      rank 0 拼成完整图（分块在最终图上平坦连续、互不重叠，rank0 无需再排序），
 //      叠背景输出不透明 RGBA8 + 非空 ROI。
@@ -256,6 +256,19 @@ bool iGameCompositePass::CompositeBinarySwap() {
     const int size = ctx->Size();
     const int rank = ctx->Rank();
     const bool isRoot = (rank == 0);
+
+    // 0) binary-swap（k=2 逐轮对半分）只对 2 的幂 P 严格成立。非 2 幂时若把不存在的
+    //    「幽灵」rank 当全透明、又跳过与它的通信，那么幽灵负责的那半张图（里面是本方
+    //    真实数据）就没人接收、数据丢失，最终该分区会缺块/变黑。正确做法是
+    //    「伸缩/telescoping」，目前未实现；这里直接回退到稀疏 ROI 合成（结果始终正确）。
+    if ((size & (size - 1)) != 0) {
+        if (isRoot) {
+            std::cerr << "[iGameCompositePass] binary-swap requires a "
+                         "power-of-2 rank count (got "
+                      << size << "); falling back to sparse ROI compositing.\n";
+        }
+        return CompositeSparse();
+    }
 
     // 1) 尺寸一致性校验（AllGather 全员一致，避免死锁）。
     double localDims[2] = {static_cast<double>(m_Width),
@@ -307,11 +320,11 @@ bool iGameCompositePass::CompositeBinarySwap() {
         return CompositeSparse();
     }
 
-    // 3) 补齐到 2 的幂（非 2 幂 P：不存在的 rank 视作全透明，实际不通信）。
-    int P2 = 1;
-    while (P2 < size) { P2 <<= 1; }
+    // 3) P 已由入口守卫保证为 2 的幂，轮数 = log2(P)。
+    const int P2 = size;
     const int rounds =
-            (P2 > 1) ? static_cast<int>(std::log2(static_cast<double>(P2))) : 0;
+            (size > 1) ? static_cast<int>(std::log2(static_cast<double>(size)))
+                       : 0;
 
     // 4) 工作图 = 本 rank 的整张局部图（预乘 alpha RGBA8）；截断/补零到恰好 N*4。
     std::vector<unsigned char> work = m_LocalRGBA;
@@ -336,38 +349,34 @@ bool iGameCompositePass::CompositeBinarySwap() {
                 work.begin() + static_cast<size_t>(myStart) * 4,
                 work.begin() + static_cast<size_t>(myStart + myLen) * 4);
 
-        if (partner < size) {
-            // 真实伙伴：发「我不负责的那半」，收「我负责的那半」。
-            const int partnerDigit = 1 - myDigit;
-            const long long otherStart = offs[static_cast<size_t>(partnerDigit)];
-            const long long otherLen =
-                    offs[static_cast<size_t>(partnerDigit) + 1] - otherStart;
+        // 与伙伴交换：发「我不负责的那半」，收「我负责的那半」（2 的幂下 partner 恒为
+        // 真实 rank，不存在幽灵）。
+        const int partnerDigit = 1 - myDigit;
+        const long long otherStart = offs[static_cast<size_t>(partnerDigit)];
+        const long long otherLen =
+                offs[static_cast<size_t>(partnerDigit) + 1] - otherStart;
 
-            std::vector<unsigned char> sendBuf =
-                    BinarySwapPack(work, otherStart, otherLen);
-            const long long maxMsg = 4 + myLen * 4;  // 头 + 最坏情况（密集 myLen 像素）
-            std::vector<unsigned char> recvBuf(static_cast<size_t>(maxMsg));
-            const int worldPartner = m_SortOrder[static_cast<size_t>(partner)];
-            const int recvReq =
-                    ctx->Irecv(reinterpret_cast<char*>(recvBuf.data()),
-                               static_cast<int>(maxMsg), worldPartner, r);
-            const int sendReq =
-                    ctx->Isend(reinterpret_cast<const char*>(sendBuf.data()),
-                               static_cast<int>(sendBuf.size()), worldPartner, r);
-            ctx->Wait(recvReq);
-            std::vector<unsigned char> otherPiece =
-                    BinarySwapUnpack(recvBuf, myLen);
-            ctx->Wait(sendReq);
+        std::vector<unsigned char> sendBuf =
+                BinarySwapPack(work, otherStart, otherLen);
+        const long long maxMsg = 4 + myLen * 4;  // 头 + 最坏情况（密集 myLen 像素）
+        std::vector<unsigned char> recvBuf(static_cast<size_t>(maxMsg));
+        const int worldPartner = m_SortOrder[static_cast<size_t>(partner)];
+        const int recvReq =
+                ctx->Irecv(reinterpret_cast<char*>(recvBuf.data()),
+                           static_cast<int>(maxMsg), worldPartner, r);
+        const int sendReq =
+                ctx->Isend(reinterpret_cast<const char*>(sendBuf.data()),
+                           static_cast<int>(sendBuf.size()), worldPartner, r);
+        ctx->Wait(recvReq);
+        std::vector<unsigned char> otherPiece =
+                BinarySwapUnpack(recvBuf, myLen);
+        ctx->Wait(sendReq);
 
-            // pieces[d] = 数字 d（=深度序）的贡献；按数字序 front-to-back over。
-            std::vector<std::vector<unsigned char>> pieces(2);
-            pieces[static_cast<size_t>(myDigit)] = std::move(myPiece);
-            pieces[static_cast<size_t>(partnerDigit)] = std::move(otherPiece);
-            work = BinarySwapCompositeTwo(pieces[0], pieces[1], myLen);
-        } else {
-            // 幽灵伙伴（补齐的非 2 幂空 rank，全透明）：无通信，直接留半张。
-            work = std::move(myPiece);
-        }
+        // pieces[d] = 数字 d（=深度序）的贡献；按数字序 front-to-back over。
+        std::vector<std::vector<unsigned char>> pieces(2);
+        pieces[static_cast<size_t>(myDigit)] = std::move(myPiece);
+        pieces[static_cast<size_t>(partnerDigit)] = std::move(otherPiece);
+        work = BinarySwapCompositeTwo(pieces[0], pieces[1], myLen);
 
         pieceLen = myLen;
         remaining /= 2;

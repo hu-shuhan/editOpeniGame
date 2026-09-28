@@ -79,7 +79,7 @@ public:
      *
      * @details
      *  对标 IceT 的 `ICET_SINGLE_IMAGE_STRATEGY_BSWAP`（即 radix-k 的 k=2 特例，
-     *  `icetBSwapCompose`）：把整张图在 ⌈log₂P₂⌉ 轮内两两交换半张图并「前端 OVER 后端」
+     *  `icetBSwapCompose`）：把整张图在 ⌈log₂P⌉ 轮内两两交换半张图并「前端 OVER 后端」
      *  合成，每进程每轮只收发「自己负责的那一半」，汇聚量 O(图像大小)、无 rank0 单点
      *  瓶颈；最后把 P 块合成结果 Gatherv 回 rank 0 拼成完整图。与「稀疏 ROI + Gatherv」
      *  的区别是：稀疏路径把 O(P) 条点对点全部打到 rank 0，binary-swap 把合成工作与
@@ -89,8 +89,10 @@ public:
      *  binary-swap 按 groupRank 做逐轮配对（partner = groupRank ^ 2^r），每轮组内
      *  「数字小者更靠前」，因此「按数字序 front-to-back over」即保持透明度有序；
      *  轮次结束后每个进程持有的分块索引是 groupRank 的「按位反序」，分块在最终图上
-     *  平坦连续、互不重叠，Gatherv 即可无损重组。非 2 幂 P 用 next_pow2(P) 补齐，
-     *  不存在的 rank 视作全透明（不实际通信）。
+     *  平坦连续、互不重叠，Gatherv 即可无损重组。
+     *
+     *  ⚠️ 只支持 2 的幂 P：非 2 幂 P 会打印警告并回退到稀疏 ROI 合成（把不存在的
+     *  rank 当全透明 + 跳过通信会丢失本方数据，需「伸缩/telescoping」，未实现）。
      */
     void SetUseBinarySwapComposite(bool use) { m_UseBinarySwapComposite = use; }
     bool GetUseBinarySwapComposite() const { return m_UseBinarySwapComposite; }
