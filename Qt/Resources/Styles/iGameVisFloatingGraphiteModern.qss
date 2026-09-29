@@ -1016,6 +1016,14 @@ QtPropertyEditorView::item {
     padding: 4px 6px;
     min-height: 28px;
 }
+/* 属性浏览器内的编辑器：行高由 QtPropertyEditorDelegate 决定（不看 QSS，只多给 4px），
+   这里收紧纵向内边距，避免数字被上下裁掉 */
+QtTreePropertyBrowser QSpinBox, QtTreePropertyBrowser QDoubleSpinBox,
+QtTreePropertyBrowser QLineEdit, QtTreePropertyBrowser QComboBox,
+QtPropertyEditorView QSpinBox, QtPropertyEditorView QDoubleSpinBox,
+QtPropertyEditorView QLineEdit, QtPropertyEditorView QComboBox {
+    padding: 0px 6px;
+}
 
 QtTreePropertyBrowser QTreeWidget::item:alternate,
 QtPropertyEditorView::item:alternate {
