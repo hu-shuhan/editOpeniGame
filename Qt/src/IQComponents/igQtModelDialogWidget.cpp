@@ -845,8 +845,18 @@ void igQtModelDialogWidget::updateItemName(iGame::DataObject::Pointer obj) {
     return;
 }
 void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) {
+    rebuildAttributes(obj, false);
+}
+
+void igQtModelDialogWidget::refreshAnimationAttributes(iGame::DataObject::Pointer obj) {
+    rebuildAttributes(obj, true);
+}
+
+void igQtModelDialogWidget::rebuildAttributes(iGame::DataObject::Pointer obj, bool preserveDisplay) {
     auto item = getItemFromObject(obj);
     if (!item) return;
+    QSignalBlocker blocker(modelTreeWidget);
+    if (!preserveDisplay) blocker.unblock();
     item->setCurrentChild(nullptr);
 
     while (item->childCount() > 0) { delete item->takeChild(0); }
@@ -868,6 +878,11 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, igQtModelTreeIcons::Cell());
         child->setDimension(attr.pointer->GetDimension());
+        if (preserveDisplay && obj->GetAttributeIndex() == i) {
+            item->setCurrentChild(child);
+            child->setSelected(true);
+            modelTreeWidget->setCurrentItem(child);
+        }
         // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
 
@@ -880,8 +895,11 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         child->setDimension(1);
     }
 
-    item->viewAttribute(-1);
-    iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
+    if (!preserveDisplay) {
+        blocker.unblock();
+        item->viewAttribute(-1);
+        iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
+    }
 }
 
 QString igQtModelDialogWidget::renameModelRow(iGame::DataObject::Pointer obj, const QString& newName) {

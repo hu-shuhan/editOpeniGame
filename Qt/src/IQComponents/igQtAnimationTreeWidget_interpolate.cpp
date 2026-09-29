@@ -4,6 +4,7 @@
 
 #include <IQComponents/igQtAnimationTreeWidget_interpolate.h>
 #include <QDebug>
+#include <algorithm>
 igQtAnimationTreeWidget_interpolate::igQtAnimationTreeWidget_interpolate(QWidget *parent) : igQtAnimationTreeWidget(parent) {
 //    setHeaderLabels({"插值时间序列", "值"});
 }
@@ -62,6 +63,9 @@ void igQtAnimationTreeWidget_interpolate::updateInterpolateSequence(int num) {
             ratio = 1.0f;
         }
 
+        // Endpoints can drift outside [0,1] by float roundoff; the configured
+        // time range is already validated, so do not extrapolate a final frame.
+        ratio = std::max(0.0f, std::min(1.0f, ratio));
         interpolate_sequence.emplace_back(start_keyframe_idx, ratio);
         interpolate_timeSequence.push_back(t);
     }

@@ -42,6 +42,7 @@ public slots:
     int addModelToModelTree(iGame::Model::Pointer model);
     ModelTreeWidgetItem* getItemFromObject(iGame::DataObject::Pointer obj);
     void updateAllAttriubute(iGame::DataObject::Pointer obj);
+    void refreshAnimationAttributes(iGame::DataObject::Pointer obj);
     void updateItemName(iGame::DataObject::Pointer obj);
     int addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source);
     /** 就地刷新属性行的挂载类型图标/提示（只改图标和提示，不重建行，避免丢掉子块行） */
@@ -73,6 +74,7 @@ signals:
     void Update();
 
 private:
+    void rebuildAttributes(iGame::DataObject::Pointer obj, bool preserveDisplay);
     //iGame::Model* currentModel;
 
     igQtModelTreeWidget* modelTreeWidget;

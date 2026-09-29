@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <vector>
 #include "igQtExportModule.h"
+#include "igQtAnimationOutputCache.h"
 
 class IG_QT_MODULE_EXPORT igQtAnimationVcrController : public QObject {
 Q_OBJECT
@@ -37,6 +38,8 @@ public:
 
     // 当前帧在“源时间序列”中的下标（0 基）。供「转换当前帧」等功能读取。
     int currentKeyframeIndex() const { return current_keyframe_index; }
+    int frameCount() const { return keyframe_sum; }
+    bool frameRequest(int index, igQtAnimationFrameRequest& request) const;
 
     void onTick();
 

@@ -553,6 +553,13 @@ const BoundingBox& DataObject::GetBoundingBox() {
     return m_Bounding;
 }
 
+void DataObject::RefreshAnimationOutputRanges() {
+    ReapplyRangeLocks();
+    ExpandRangeLocksForCurrentFrame();
+    ReCollectSubDataObjectDataRange();
+    UpdateSubDataObjectDataRange();
+}
+
 void DataObject::UpdateAnimation(int keyframe_idx) {
     if (this->GetTimeFrames() == nullptr || this->GetTimeFrames()->GetTimeNum() <= keyframe_idx) return;
     auto timeFrameType = this->GetTimeFrames()->GetTargetFrameType(keyframe_idx);

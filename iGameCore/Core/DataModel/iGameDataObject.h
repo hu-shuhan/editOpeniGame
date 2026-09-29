@@ -75,6 +75,8 @@ public:
     // 帧挂载后重放范围锁定：把父容器已锁定属性的固定范围同步到挂载子对象，
     // 避免缓存重读/初始加载的帧对象（未带锁）把父范围重新聚合成当帧值
     void ReapplyRangeLocks();
+    // Refresh ranges on an already evaluated output without loading source frames.
+    void RefreshAnimationOutputRanges();
 
     void SetBlockMapping(IntArray::Pointer p);
     IntArray* GetBlockMapping();

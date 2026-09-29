@@ -10,6 +10,12 @@
 #include <IQCore/igQtAnimationPipeline.h>
 #include <IQCore/igQtAnimationVcrController.h>
 #include <IQWidgets/igQtAnimationWidget.h>
+#include <IQCore/igQtMainWindow.h>
+#include <QSurfaceFormat>
+#include <QEventLoop>
+#include <QTimer>
+#include <IQWidgets/igQtScalarViewWidget.h>
+#include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <iGameFileIO.h>
 #include <iGameSceneManager.h>
@@ -111,7 +117,8 @@ void DialogTest() {
             std::ofstream vtu(dir/("frame"+std::to_string(i)+".vtu"));
             vtu<<"<VTKFile type=\"UnstructuredGrid\" byte_order=\"LittleEndian\"><UnstructuredGrid>"
                    "<Piece NumberOfPoints=\"5\" NumberOfCells=\"2\"><CellData>"
-                   "<DataArray Name=\"density\" type=\"Float32\" format=\"ascii\">0 "<<2*(i+1)<<"</DataArray></CellData>"
+                   "<DataArray Name=\"density\" type=\"Float32\" format=\"ascii\">0 "<<2*(i+1)<<"</DataArray>"
+                   "<DataArray Name=\"temperature\" type=\"Float32\" format=\"ascii\">10 "<<20*(i+1)<<"</DataArray></CellData>"
                    "<Points><DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">0 0 0 1 0 0 0 1 0 0 0 1 0 0 -1</DataArray></Points>"
                    "<Cells><DataArray Name=\"connectivity\" type=\"Int32\" format=\"ascii\">0 1 2 3 0 2 1 4</DataArray>"
                    "<DataArray Name=\"offsets\" type=\"Int32\" format=\"ascii\">4 8</DataArray>"
@@ -131,6 +138,22 @@ void DialogTest() {
     auto id=scene->AddModel(source); scene->ResetCameraView(source->GetBoundingBox());
     {
         igQtAnimationWidget widget; widget.initAnimationComponents();
+        // Regression (2026-09-28, fix: 待提交): real main-window callbacks
+        // rebuilt the attribute tree by selecting -1 after every frame, disabling
+        // scalar coloring. Include both UI callbacks, not just the frame producer.
+        QWidget panels;
+        igQtModelDialogWidget tree(&panels);
+        auto treeControl=tree.getTreeDock()->findChild<igQtModelTreeWidget*>();
+        Check(treeControl!=nullptr,"model tree missing");
+        auto modelRow=new ModelTreeWidgetItem(treeControl);
+        modelRow->setModel(scene->GetCurrentModel());
+        treeControl->addTopLevelItem(modelRow);
+        igQtScalarViewWidget scalar;
+        QObject::connect(&widget,&igQtAnimationWidget::AnimationDataChanged,&tree,[&] {
+            tree.refreshAnimationAttributes(scene->GetCurrentModel()->GetDataObject());
+        });
+        QObject::connect(&widget,&igQtAnimationWidget::AnimationFrameChanged,
+                         &scalar,&igQtScalarViewWidget::showScalarView);
         widget.show(); QApplication::processEvents();
         auto combo=Control<QComboBox>(widget,"comboBoxAnimationFilter");
         auto list=Control<QListWidget>(widget,"listWidgetAnimationPipeline");
@@ -186,6 +209,12 @@ void DialogTest() {
         Check(list->item(1)->text().contains(QStringLiteral("参数已设置")),"reordered prefix did not recover");
         unchanged();
         auto controller=widget.findChild<igQtAnimationVcrController*>(); Check(controller!=nullptr,"VCR missing");
+        // Regression (2026-09-28, commit: 待提交): cache final independent outputs
+        // for both playback modes; revisiting a frame must not rerun extraction
+        // or mutate the source, and changing capacity must not target the output's
+        // time-frame metadata instead of the animation cache.
+        Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(2);
+        DataObject::Pointer cachedFirst;
         // Verify rendering as well as geometry: captured scalar coloring must
         // differ from a solid-color rendering of the exact same frame. Include
         // interpolation so it cannot silently reset the component to magnitude.
@@ -214,6 +243,7 @@ void DialogTest() {
         };
         for (int i=0;i<2;++i) { controller->updateCurrentKeyframe(i);
             auto display=scene->GetCurrentModel()->GetDataObject();
+            if (i==0) cachedFirst=display;
             Check(display!=source && display->HasSubDataObject(),"animation did not present extraction output");
             auto mesh=DynamicCast<UnstructuredMesh>(display->SubDataObjectIteratorBegin()->second);
             Check(mesh && mesh->GetNumberOfCells()>0,"animation volume empty");
@@ -232,9 +262,132 @@ void DialogTest() {
             }
             verifyColoring(i ? "second" : "first");
         }
+        controller->updateCurrentKeyframe(0);
+        Check(scene->GetCurrentModel()->GetDataObject()==cachedFirst,"final output cache missed");
+        unchanged();
+        Check(source->PeekTimeFrames()->GetCurrentCacheCount()==0,"source frames were also cached");
+        Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(0);
+        controller->updateCurrentKeyframe(0);
+        Check(scene->GetCurrentModel()->GetDataObject()!=cachedFirst,"zero capacity retained final output");
+        Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(2);
         Check(QMetaObject::invokeMethod(&widget,"playAnimation_interpolate",Qt::DirectConnection,
                                        Q_ARG(int,0),Q_ARG(float,.5f)),"interpolation slot failed");
         verifyColoring("interpolated");
+        auto interpolated=scene->GetCurrentModel()->GetDataObject();
+        Check(QMetaObject::invokeMethod(&widget,"playAnimation_interpolate",Qt::DirectConnection,
+                                       Q_ARG(int,0),Q_ARG(float,.5f)),"interpolation replay failed");
+        Check(scene->GetCurrentModel()->GetDataObject()==interpolated,"interpolation output cache missed");
+        unchanged();
+        // Regression (2026-09-28, fix: 待提交): each frame reapplied the Filter's
+        // default selection. Use the EXISTING expand-only mode instead of adding
+        // a manual-fixed mode to the shared scalar panel. Its three modes and
+        // explicit per-frame selection must remain available (fix: 待提交).
+        Check(Control<QComboBox>(scalar,"comboBox_RangeMode")->count()==3,"unexpected public range mode added");
+        Check(Control<QComboBox>(scalar,"comboBox_RangeMode")->currentIndex()==1,"animation did not initialize expand-only mode");
+        auto mapper=scene->GetCurrentModel()->GetDataObject()->GetColorMapper();
+        mapper->InitColorBarWithGrayScaleType();
+        auto palette=mapper->GetColorBar();
+        auto checkColorState=[&] {
+            scene->MakeCurrent(); glBindFramebuffer(GL_FRAMEBUFFER,0); scene->Draw(); glFinish();
+            auto output=DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+            Check(output->IsUseColor(),"model tree refresh disabled coloring");
+            Check(output->GetColorMapper()==mapper && mapper->GetColorBar()==palette,"frame reset palette");
+            Check(Control<QComboBox>(scalar,"comboBox_RangeMode")->currentIndex()==1,"expand-only mode lost on frame change");
+            Check(modelRow->getCurrentChild()!=nullptr,"tree lost selected field");
+        };
+        Check(widget.renderAnimationOutputFrame(0),"expand-only first frame"); checkColorState();
+        Check(widget.renderAnimationOutputFrame(1),"expand-only next frame"); checkColorState();
+        Check(widget.renderAnimationOutputFrame(0,true),"expand-only cached export"); checkColorState();
+        Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(0);
+        Check(widget.renderAnimationOutputFrame(1),"expand-only uncached output"); checkColorState();
+        Check(QMetaObject::invokeMethod(&widget,"playAnimation_interpolate",Qt::DirectConnection,
+                                       Q_ARG(int,0),Q_ARG(float,.5f)),"expand-only interpolation"); checkColorState();
+        auto output=DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+        output->ViewCloudPicture(scene,output->GetAttributeSet()->GetAttributeIndex("temperature"),-1);
+        scalar.showScalarView();
+        Check(widget.renderAnimationOutputFrame(0),"manual field next frame");
+        output=DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+        Check(output->GetAttributeIndex()==output->GetAttributeSet()->GetAttributeIndex("temperature") &&
+              output->GetAttributeDimension()==-1,"filter reset chosen field/component");
+        output->ViewCloudPicture(scene,-1);
+        Check(widget.renderAnimationOutputFrame(1),"solid-color next frame");
+        Check(!DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject())->IsUseColor(),"filter reenabled scalar coloring");
+        output=DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+        output->ViewCloudPicture(scene,output->GetAttributeSet()->GetAttributeIndex("density"),0);
+        scalar.showScalarView();
+        Control<QComboBox>(scalar,"comboBox_RangeMode")->setCurrentIndex(0);
+        Check(widget.renderAnimationOutputFrame(0),"automatic range next frame");
+        Check(!mapper->GetStable() && std::abs(mapper->GetRange()[0]-.25)<1e-5 &&
+              std::abs(mapper->GetRange()[1]-.75)<1e-5,"automatic range did not resume");
+        Check(Control<QComboBox>(scalar,"comboBox_RangeMode")->currentIndex()==0,"explicit per-frame choice overridden");
+        Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(2);
+        // Invalidation must cover saved parameters and an empty pipeline too.
+        list->setCurrentRow(1); Control<QPushButton>(widget,"btnAnimationFilterParameters")->click();
+        QApplication::processEvents();
+        dialog=Control<igQtFilterDialogDockWidget>(widget,"animationFilterParameters");
+        Control<QLineEdit>(*dialog,"animationParam_lowerValue")->setText("0.4"); dialog->apply(); dialog->close();
+        Check(QMetaObject::invokeMethod(&widget,"playAnimation_interpolate",Qt::DirectConnection,
+                                       Q_ARG(int,0),Q_ARG(float,.5f)),"changed interpolation failed");
+        Check(scene->GetCurrentModel()->GetDataObject()!=interpolated,"parameter change used stale output");
+        auto changed=scene->GetCurrentModel()->GetDataObject()->SubDataObjectIteratorBegin()->second;
+        auto changedDensity=changed->GetAttributeSet()->GetAttribute("density").pointer;
+        for (IGsize i=0;i<changedDensity->GetNumberOfValues();++i)
+            Check(changedDensity->GetValue(i)>=.4-1e-5,"old extraction threshold was cached");
+        Control<QPushButton>(widget,"btnAnimationFilterClear")->click();
+        Check(widget.renderAnimationOutputFrame(0),"empty pipeline output failed");
+        auto empty=scene->GetCurrentModel()->GetDataObject();
+        Check(empty->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute("density").attachmentType==IG_CELL,
+              "empty pipeline returned converted cached data");
+        widget.initAnimationComponents();
+        Check(widget.renderAnimationOutputFrame(1),"empty pipeline second output failed");
+        auto& lockedRange=scene->GetCurrentModel()->GetDataObject()->GetAttributeSet()->GetAttribute("density");
+        lockedRange.rangeLocked=true; lockedRange.rangeLockedDimension=0;
+        lockedRange.GetDataRange()->SetElement(1,{-1.,5.});
+        // Simulate unavailable disk data: export must reuse the displayed final
+        // output cache, not enter a separate file-loading path.
+        fs::rename(dir/"frame0.vtu",dir/"frame0.hidden");
+        const bool exportHit=widget.renderAnimationOutputFrame(0,true);
+        fs::rename(dir/"frame0.hidden",dir/"frame0.vtu");
+        Check(exportHit && scene->GetCurrentModel()->GetDataObject()==empty,"export did not share final-output cache");
+        Check(empty->GetAttributeSet()->GetAttribute("density").rangeLocked,"cache hit lost range lock");
+        auto& expanding=empty->GetAttributeSet()->GetAttribute("density");
+        expanding.rangeMode=AttributeSet::RangeMode::ExpandOnly;
+        expanding.runningRangeValid=true; expanding.runningMin=0; expanding.runningMax=2;
+        Check(widget.renderAnimationOutputFrame(1),"expanding range output failed");
+        Check(scene->GetCurrentModel()->GetDataObject()->GetAttributeSet()->GetAttribute("density").runningMax==4,
+              "cached frame did not expand color range");
+        Check(widget.renderAnimationOutputFrame(0),"expanding range replay failed");
+        Check(empty->GetAttributeSet()->GetAttribute("density").runningMax==4,"cached frame shrank expanding range");
+        Check(std::abs(mapper->GetRange()[0])<1e-5 && std::abs(mapper->GetRange()[1]-4)<1e-5,
+              "scalar panel shrank the accumulated range on cached replay");
+        Control<QRadioButton>(widget,"rbtnInterpolateTimeMode")->setChecked(true);
+        Control<QLineEdit>(widget,"lineEditKeyframeNum")->setText("3");
+        Control<QPushButton>(widget,"btnApplyAnimationOperation")->click();
+        Check(widget.animationOutputFrameCount()==3,"export still uses original frame count");
+        Check(widget.renderAnimationOutputFrame(1,true),"interpolated export output failed");
+        auto middle=scene->GetCurrentModel()->GetDataObject();
+        auto middleDensity=middle->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute("density").pointer;
+        Check(std::abs(middleDensity->GetValue(1)-3.)<1e-5,"export did not interpolate raw field");
+        Check(std::abs(mapper->GetRange()[1]-4)<1e-5,"interpolation shrank accumulated range");
+        controller->updateCurrentKeyframe(1);
+        Check(scene->GetCurrentModel()->GetDataObject()==middle,"playback did not share export output cache");
+        Control<QLineEdit>(widget,"lineEditKeyframeNum")->setText("5");
+        Control<QPushButton>(widget,"btnApplyAnimationOperation")->click();
+        Check(widget.renderAnimationOutputFrame(1),"new timeline output failed");
+        auto quarter=scene->GetCurrentModel()->GetDataObject();
+        Check(quarter!=middle && std::abs(quarter->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute("density").pointer->GetValue(1)-2.5)<1e-5,
+              "timeline change returned stale middle frame");
+        unchanged();
+        auto secondSource=FileIO::ReadFile((dir/"data.pvd").generic_string());
+        auto secondId=scene->AddModel(secondSource);
+        scene->SetCurrentModel(static_cast<int>(secondId)); widget.initAnimationComponents();
+        Check(widget.renderAnimationOutputFrame(0),"new source output failed");
+        Check(scene->GetCurrentModel()->GetDataObject()!=empty && scene->GetCurrentModel()->GetDataObject()!=quarter,
+              "source switch reused old cache");
+        scene->SetCurrentModel(static_cast<int>(id)); widget.initAnimationComponents();
+        Check(widget.renderAnimationOutputFrame(0),"returning source output failed");
+        Check(scene->GetCurrentModel()->GetDataObject()!=empty,"returning source retained stale cache");
+        scene->RemoveModel(secondId);
     }
     scene->RemoveModel(id); source=nullptr; scene->Finalize(); glfwDestroyWindow(window); glfwTerminate();
 }
@@ -285,11 +438,111 @@ void DatasetTest(const std::filesystem::path& directory) {
                  <<" seconds="<<seconds<<std::endl;
     }
 }
+// Acceptance (2026-09-28, commit: 待提交): use the user's real PVD in the same
+// widget/output path as playback and export; repeat samples to verify hits and
+// ensure the old source cache remains empty, with the source still Cell Density.
+void DatasetCacheTest(const std::filesystem::path& directory) {
+    Check(std::filesystem::exists("Resources/Shaders/FullScreenTriangle.vert"),"run dataset-cache from the build directory");
+    Check(glfwInit()!=0,"dataset GLFW init"); glfwWindowHint(GLFW_VISIBLE,GLFW_FALSE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4); glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
+    auto window=glfwCreateWindow(320,240,"Dataset output cache",nullptr,nullptr);
+    Check(window!=nullptr,"dataset OpenGL unavailable"); glfwMakeContextCurrent(window);
+    auto scene=SceneManager::Instance()->NewScene(); scene->Initialize(); scene->Resize(320,240,1);
+    scene->EnableFramePacing(false); scene->SetMakeCurrentFunctor([&] { glfwMakeContextCurrent(window); });
+    auto source=FileIO::ReadFile((directory/"Result.pvd").generic_string()); Check(source!=nullptr,"read dataset PVD");
+    auto id=scene->AddModel(source); scene->ResetCameraView(source->GetBoundingBox());
+    {
+        igQtAnimationWidget widget; widget.initAnimationComponents(); widget.setPreferredCacheNum(2);
+        auto combo=Control<QComboBox>(widget,"comboBoxAnimationFilter");
+        for (const char* name : {"convertToPointData","isoVolume"}) {
+            combo->setCurrentIndex(combo->findData(name)); Control<QPushButton>(widget,"btnAnimationFilterAdd")->click();
+        }
+        Control<QListWidget>(widget,"listWidgetAnimationPipeline")->setCurrentRow(1);
+        Control<QPushButton>(widget,"btnAnimationFilterParameters")->click(); QApplication::processEvents();
+        auto dialog=Control<igQtFilterDialogDockWidget>(widget,"animationFilterParameters");
+        Check(Control<QComboBox>(*dialog,"animationParam_scalarName")->currentText()=="Density","dataset field inference");
+        Control<QLineEdit>(*dialog,"animationParam_lowerValue")->setText("0.2");
+        Control<QLineEdit>(*dialog,"animationParam_upperValue")->setText("1.0"); dialog->apply(); dialog->close();
+        for (int frame : {0,49,99}) {
+            const auto start=std::chrono::steady_clock::now();
+            Check(widget.renderAnimationOutputFrame(frame),"real dataset output failed");
+            auto output=scene->GetCurrentModel()->GetDataObject();
+            auto mesh=DynamicCast<UnstructuredMesh>(output->SubDataObjectIteratorBegin()->second);
+            Check(mesh && mesh->GetNumberOfCells()>0 && mesh->IsUseColor(),"real output geometry/color missing");
+            const auto hitStart=std::chrono::steady_clock::now();
+            Check(widget.renderAnimationOutputFrame(frame,true),"real dataset export hit failed");
+            const auto end=std::chrono::steady_clock::now();
+            Check(scene->GetCurrentModel()->GetDataObject()==output,"real dataset final output not reused");
+            Check(source->PeekTimeFrames()->GetCurrentCacheCount()==0,"real dataset source cache active");
+            Check(source->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute("Density").attachmentType==IG_CELL,
+                  "real source was converted in place");
+            std::cout<<"DATASET_CACHE frame="<<frame+1<<" isoCells="<<mesh->GetNumberOfCells()
+                     <<" computeSeconds="<<std::chrono::duration<double>(hitStart-start).count()
+                     <<" hitSeconds="<<std::chrono::duration<double>(end-hitStart).count()<<std::endl;
+        }
+        scene->MakeCurrent(); glBindFramebuffer(GL_FRAMEBUFFER,0); scene->Draw(); glFinish();
+        auto pixels=scene->CaptureScreen(0,0,320,240,GLFramebuffer::Type::RGBA,true);
+        Check(pixels.size()==320*240*4,"dataset screenshot");
+        QImage image(pixels.data(),320,240,QImage::Format_RGBA8888);
+        image.save(QCoreApplication::applicationDirPath()+"/output-cache-density.png");
+        Check(glGetError()==GL_NO_ERROR,"dataset rendering error");
+    }
+    scene->RemoveModel(id); source=nullptr; scene->Finalize(); glfwDestroyWindow(window); glfwTerminate();
+}
+
+// Regression investigation (2026-09-29, fix: 待提交): opening the user's
+// 2.32 GB sukong VTU crashes. Log completed stages to distinguish reading,
+// static-model animation initialization and the first render.
+void SingleFileTest(const std::filesystem::path& path) {
+    Check(glfwInit()!=0,"file GLFW init"); glfwWindowHint(GLFW_VISIBLE,GLFW_FALSE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4); glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
+    auto window=glfwCreateWindow(320,240,"Single file regression",nullptr,nullptr);
+    Check(window!=nullptr,"file OpenGL unavailable"); glfwMakeContextCurrent(window);
+    auto scene=SceneManager::Instance()->NewScene(); scene->Initialize(); scene->Resize(320,240,1);
+    scene->SetMakeCurrentFunctor([&] { glfwMakeContextCurrent(window); });
+    std::cout<<"FILE_STAGE reading "<<path.generic_string()<<std::endl;
+    auto source=FileIO::ReadFile(path.generic_string()); Check(source!=nullptr,"single file read failed");
+    auto mesh=DynamicCast<PointSet>(source); Check(mesh!=nullptr,"single file mesh missing");
+    std::cout<<"FILE_STAGE read points="<<mesh->GetNumberOfPoints()<<" cells="<<(mesh->GetCellArray() ? mesh->GetCellArray()->GetNumberOfCells() : 0)
+             <<" fields="<<source->GetAttributeSet()->GetNumberOfAttributes()<<std::endl;
+    const auto id=scene->AddModel(source); scene->ResetCameraView(source->GetBoundingBox());
+    { igQtAnimationWidget widget; widget.initAnimationComponents();
+      std::cout<<"FILE_STAGE animation initialized"<<std::endl;
+      scene->MakeCurrent(); scene->Draw(); glFinish();
+      Check(glGetError()==GL_NO_ERROR,"single file draw failed");
+      std::cout<<"FILE_STAGE rendered"<<std::endl;
+    }
+    scene->RemoveModel(id); mesh=nullptr; source=nullptr;
+    scene->Finalize(); glfwDestroyWindow(window); glfwTerminate();
+}
+void SingleFileUiTest(const std::filesystem::path& path) {
+    QSurfaceFormat format; format.setRenderableType(QSurfaceFormat::OpenGL);
+    format.setVersion(4,6); format.setProfile(QSurfaceFormat::CoreProfile);
+    format.setDepthBufferSize(32); format.setStencilBufferSize(8); format.setSamples(1);
+    QSurfaceFormat::setDefaultFormat(format);
+    std::cout<<"UI_STAGE constructing"<<std::endl;
+    igQtMainWindow window; window.setAttribute(Qt::WA_DontShowOnScreen);
+    window.resize(1000,700); window.show(); QApplication::processEvents();
+    std::cout<<"UI_STAGE opening"<<std::endl;
+    window.initArgs({"file-regression","--filepath",QString::fromStdString(path.generic_string())});
+    std::cout<<"UI_STAGE opened"<<std::endl;
+    QEventLoop loop; QTimer::singleShot(2000,&loop,&QEventLoop::quit); loop.exec();
+    auto scene=SceneManager::Instance()->GetCurrentScene();
+    Check(scene && scene->GetCurrentModel(),"UI model missing");
+    auto source=scene->GetCurrentModel()->GetDataObject();
+    Check(source && DynamicCast<PointSet>(source),"UI data missing");
+    std::cout<<"UI_STAGE rendered points="<<DynamicCast<PointSet>(source)->GetNumberOfPoints()<<std::endl;
+}
 int main(int argc,char** argv) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QApplication app(argc,argv); Log::Init();
     try {
-        if (argc>2 && std::string(argv[1])=="dataset") DatasetTest(argv[2]);
+        if (argc>2 && std::string(argv[1])=="file-ui") SingleFileUiTest(argv[2]);
+        else if (argc>2 && std::string(argv[1])=="file") SingleFileTest(argv[2]);
+        else if (argc>2 && std::string(argv[1])=="dataset-cache") DatasetCacheTest(argv[2]);
+        else if (argc>2 && std::string(argv[1])=="dataset") DatasetTest(argv[2]);
         else if (argc>1 && std::string(argv[1])=="dialog") DialogTest(); else Descriptions();
         std::cout<<"PASS field descriptions and execution\n"; return 0;
     }

@@ -4616,7 +4616,7 @@ void igQtMainWindow::initAllMySignalConnections() {
                 auto model = scene ? scene->GetCurrentModel() : nullptr;
                 auto data = model ? model->GetDataObject() : nullptr;
                 if (data && modelTreeWidget) {
-                    modelTreeWidget->updateAllAttriubute(data);
+                    modelTreeWidget->refreshAnimationAttributes(data);
                 }
             });
 //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,

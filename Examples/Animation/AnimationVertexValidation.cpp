@@ -8,6 +8,9 @@
 // hits, disk reloads, interpolation and the frame capture used by export. Surface
 // and mixed-block cases guard against fixing points by forcing all animations to
 // point mode; manual overrides must survive subsequent frames.
+// Regression update (2026-09-28, commit: 待提交): final-output caching replaces
+// the displayed object even for an empty pipeline. Assert the actual model
+// output, and exercise the UI output-cache setting rather than source caching.
 #include <IQCore/igQtFileLoader.h>
 #include <IQWidgets/igQtAnimationWidget.h>
 #include <Log/iGameLogger.h>
@@ -115,13 +118,13 @@ void Run(Scene* scene, const fs::path& dir, const std::string& kind, bool multiS
     scene->ResetCameraView(root->GetBoundingBox());
     {
         igQtAnimationWidget animation;
-        auto frames = root->GetTimeFrames();
-        if (cache) frames->EnableCache(Frames);
-        else frames->DisableCache();
+        animation.initAnimationComponents();
+        animation.setPreferredCacheNum(cache ? Frames : 0);
         root->ViewCloudPicture(scene, 0, 0);
         for (int f : {0, 1, 2, 0, 2}) {
             Snap(animation, f); // saveAnimation() calls this same slot before capturing each output frame.
-            CheckFrame(root, expected, kind == "points");
+            auto display = DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+            CheckFrame(display, expected, kind == "points");
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             scene->Draw();
             glFinish();
@@ -130,11 +133,11 @@ void Run(Scene* scene, const fs::path& dir, const std::string& kind, bool multiS
             Require(pixels.size() == Width * Height * 4, "export frame capture failed");
             if (kind == "points") {
                 // Compare with a hidden-model frame so axes/background cannot pass this check.
-                root->SetVisibility(false);
+                display->SetVisibility(false);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 scene->Draw();
                 auto blank = scene->CaptureScreen(0, 0, Width, Height, GLFramebuffer::Type::RGBA, true);
-                root->SetVisibility(true);
+                display->SetVisibility(true);
                 int changed = 0;
                 for (size_t p = 0; p < pixels.size(); p += 4)
                     if (pixels[p] != blank[p] || pixels[p + 1] != blank[p + 1] || pixels[p + 2] != blank[p + 2]) ++changed;
@@ -144,15 +147,23 @@ void Run(Scene* scene, const fs::path& dir, const std::string& kind, bool multiS
                 Require(image.save(QString::fromStdString(path.string())), "could not save captured point frame");
             }
         }
+        auto beforeInterpolation = scene->GetCurrentModel()->GetDataObject();
         Require(QMetaObject::invokeMethod(&animation, "playAnimation_interpolate", Qt::DirectConnection,
                                          Q_ARG(int, 0), Q_ARG(float, .5f)), "interpolation slot failed");
-        CheckFrame(root, expected, kind == "points");
+        Require(scene->GetCurrentModel()->GetDataObject() != beforeInterpolation, "interpolation retained stale output");
+        CheckFrame(DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject()), expected, kind == "points");
         // A one-time default must not force points back on after the user disables them.
         for (unsigned int manual : {0u, static_cast<unsigned int>(IG_WIREFRAME | IG_SURFACE)}) {
-            root->SetViewStyle(manual);
+            DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject())->SetViewStyle(manual);
             Snap(animation, 1);
-            CheckFrame(root, manual, kind == "points");
+            CheckFrame(DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject()), manual, kind == "points");
         }
+        DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject())->ViewCloudPicture(scene,-1);
+        Snap(animation,0);
+        auto solid=DynamicCast<DrawObject>(scene->GetCurrentModel()->GetDataObject());
+        Require(!solid->IsUseColor(),"cache restored a disabled color map");
+        for (auto it=solid->SubDataObjectIteratorBegin(); it!=solid->SubDataObjectIteratorEnd(); ++it)
+            Require(!DynamicCast<DrawObject>(it->second)->IsUseColor(),"cached child restored a disabled color map");
     }
 }
 } // namespace
