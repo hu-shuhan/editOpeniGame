@@ -292,8 +292,10 @@ int igQtFilterDialogDockWidget::addParameter(WidgetType type, const QString& tit
 
 int igQtFilterDialogDockWidget::addParameter(QLabel* label, QWidget* value) {
     label->setAlignment(Qt::AlignRight | Qt::AlignCenter);
-    label->setMinimumHeight(20);
-    value->setMinimumHeight(20);
+    // 行高按字体实际高度推算（含样式表上下内边距与边框），避免高 DPI 下数字被上下裁掉
+    const int rowMinHeight = qMax(20, qMax(label->fontMetrics().height(), value->fontMetrics().height()) + 12);
+    label->setMinimumHeight(rowMinHeight);
+    value->setMinimumHeight(rowMinHeight);
 
     gridLayout->addWidget(label, index, 0);
     gridLayout->addWidget(value, index, 1);
