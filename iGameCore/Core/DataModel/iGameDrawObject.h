@@ -1,5 +1,6 @@
-﻿#ifndef iGameDrawObject_h
+#ifndef iGameDrawObject_h
 #define iGameDrawObject_h
+#include <array>
 
 #include "iGameClipper.h"
 #include "iGameDataObject.h"
@@ -82,6 +83,12 @@ public:
     void SetRemoteRenderingEnabled(bool enabled);
     bool GetRemoteRenderingEnabled() const { return m_RemoteRenderingEnabled; }
 
+    // Cell attributes may also supply a complete point RGBA buffer.
+    bool HasPointColorsForCellData() const {
+        return m_Colors && m_Positions &&
+               m_Colors->GetDimension() == 4 && m_Colors->GetNumberOfElements() > 0 &&
+               m_Colors->GetNumberOfElements() == m_Positions->GetNumberOfElements();
+    }
     bool IsUseColor();        //是否使用颜色
     bool IsUseNormalSmooth(); //是否使用法线平滑
 
@@ -163,6 +170,31 @@ public:
 
 protected:
     // OpenGL资源管理
+    struct CellToPointColorBuilder {
+        std::vector<std::array<double, 4>> sums;
+        std::vector<IGsize> counts;
+        void Initialize(IGsize n) { sums.resize(n); counts.resize(n, 0); }
+        void AddCell(const igIndex* ids, int n, const float rgba[4]) {
+            for (int i = 0; i < n; ++i) {
+                const igIndex id = ids[i];
+                if (id < 0 || static_cast<IGsize>(id) >= counts.size()) continue;
+                for (int c = 0; c < 4; ++c) sums[id][c] += rgba[c];
+                ++counts[id];
+            }
+        }
+        FloatArray::Pointer Build(const igm::vec3& fallback) const {
+            auto colors = FloatArray::New();
+            colors->SetDimension(4);
+            for (size_t i = 0; i < counts.size(); ++i) {
+                if (counts[i]) {
+                    const double n = static_cast<double>(counts[i]);
+                    colors->AddElement4(sums[i][0] / n, sums[i][1] / n, sums[i][2] / n, sums[i][3] / n);
+                } else colors->AddElement4(fallback.x, fallback.y, fallback.z, 1.0f);
+            }
+            return colors;
+        }
+    };
+
     void CreateDrawBuffer();
     void SyncGpuBuffers();
     // VAO配置辅助方法

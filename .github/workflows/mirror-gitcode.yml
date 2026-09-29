@@ -57,6 +57,14 @@ jobs:
           ref: ${{ steps.meta.outputs.commit }}
           fetch-depth: 0
 
+      - name: Fetch LFS objects from GitHub
+        run: |
+          set -euo pipefail
+          git lfs install --local
+          # Full Git history does not include the LFS payloads. Fetch objects
+          # reachable from the mirrored commit, including historical versions.
+          git lfs fetch --all origin HEAD
+
       - name: Push to GitCode
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}

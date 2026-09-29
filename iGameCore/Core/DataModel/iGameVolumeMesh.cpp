@@ -1488,11 +1488,14 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
     newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
+    CellToPointColorBuilder pointColors;
+    pointColors.Initialize(this->GetNumberOfPoints());
     float color[4]{};
     for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
         Volume* volume = this->GetVolume(i);
         const igIndex* face;
         colors->GetElement(i, color);
+        pointColors.AddCell(volume->m_PointIds->RawPointer(), volume->GetNumberOfPoints(), color);
         for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
             int size = volume->GetFacePointIds(j, face);
             for (int k = 1; k < size - 1; k++) {
@@ -1512,6 +1515,9 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
             }
         }
     }
+
+    m_Colors = pointColors.Build(this->GetDefaultColor());
+    m_Colors->Modified();
 
     m_CellPositionSize = newPositions->GetNumberOfElements();
 

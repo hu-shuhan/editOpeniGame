@@ -794,6 +794,8 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
     newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
+    CellToPointColorBuilder pointColors;
+    pointColors.Initialize(this->GetNumberOfPoints());
     float color[4]{};
     igIndex ids[IGAME_CELL_MAX_SIZE]{};
 
@@ -801,6 +803,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
     for (IGsize cid = 0; cid < nCells; ++cid) {
         const int size = this->GetCellPointIds(cid, ids);
         colors->GetElement(cid, color);
+        pointColors.AddCell(ids, size, color);
 
         const IGenum type = this->GetCellType(cid);
         switch (type) {
@@ -972,6 +975,9 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                 break;
         }
     }
+
+    m_Colors = pointColors.Build(this->GetDefaultColor());
+    m_Colors->Modified();
 
     m_CellPositionSize = newPositions->GetNumberOfElements();
 
