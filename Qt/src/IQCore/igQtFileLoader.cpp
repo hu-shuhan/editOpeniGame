@@ -254,7 +254,7 @@ void igQtFileLoader::LoadFile() {
             break;
 #endif
         default:
-            if (filePath.size() == 1) {
+            if (filePath.size() == 1 && !filePath[0].endsWith(".xml", Qt::CaseInsensitive)) {
                 this->OpenFile(filePath[0].toStdString());
             } else {
                 this->OpenFiles(filePath);
