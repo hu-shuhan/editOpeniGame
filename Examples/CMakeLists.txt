@@ -332,6 +332,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
 
         if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
@@ -360,6 +361,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
 
     if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
@@ -466,6 +468,7 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
+igame_add_example(testSpectralReaderCPU ../iGameCore/IO/Spectral/tests/SpectralReaderValidation.cxx)
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
 igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
 igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
@@ -683,3 +686,9 @@ endif ()
 foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
     igame_register_example_test(${EXAMPLE_TARGET})
 endforeach()
+
+add_test(NAME testSpectralReaderCPUSamples
+    COMMAND "$<TARGET_FILE:testSpectralReaderCPU>" --samples
+        "${CMAKE_CURRENT_SOURCE_DIR}/../test/Spectral Test"
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:testSpectralReaderCPU>")
+set_tests_properties(testSpectralReaderCPUSamples PROPERTIES TIMEOUT 180)

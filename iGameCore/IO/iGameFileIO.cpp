@@ -1,4 +1,5 @@
 #include "iGameFileIO.h"
+#include "Spectral/iGameSpectralReaderCPU.h"
 #include "iGameDrawObject.h"
 
 #include "Abaqus/iGameODBReader.h"
@@ -48,7 +49,12 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
     for (char& c: FileSuffix) {
         if (c >= 'A' && c <= 'Z') { c = static_cast<char>(c - 'A' + 'a'); }
     }
-    if (FileSuffix == "vtk") {
+    if (FileSuffix == "dat") {
+        return SPECTRAL_DAT;
+    } else if (FileSuffix == "fld" ||
+               (FileSuffix == "xml" && SpectralReaderCPU::IsNektarFile(file_name))) {
+        return SPECTRAL_NEKTAR;
+    } else if (FileSuffix == "vtk") {
         return VTK;
     } else if (FileSuffix == "igc") {
         return IGC;
@@ -173,6 +179,10 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "RTH";
         case D3PLOT:
             return "D3PLOT";
+        case SPECTRAL_DAT:
+            return "ElVis Jacobi DAT";
+        case SPECTRAL_NEKTAR:
+            return "Nektar++ XML/FLD";
         default:
             return "NONE";
     }
@@ -346,6 +356,12 @@ DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_
 
     start = clock();
     switch (fileType) {
+        case SPECTRAL_DAT:
+        case SPECTRAL_NEKTAR: {
+            auto reader = SpectralReaderCPU::New();
+            resObj = reader->ReadFile(file_name);
+            break;
+        }
         case NONE: {
             break;
         }
