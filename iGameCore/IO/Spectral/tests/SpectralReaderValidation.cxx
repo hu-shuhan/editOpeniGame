@@ -1,8 +1,8 @@
-// Integration gap (2026-10-01): ElVis DAT/Nektar files had no OpeniGame reader;
+// Integration gap (2026-10-01): Jacobi DAT/Nektar files had no OpeniGame reader;
 // XML was always sent to the spline-mode dialog. Verify endian handling, the
 // two different modal orderings, nondegenerate prism sampling, compressed fields,
 // curved geometry, FileIO dispatch and original coefficient retention.
-// Fix commit subject: feat: add CPU spectral readers and sample datasets
+// Fix commit: b1161467 (feat: add CPU spectral readers and sample datasets).
 // Find the first commit with:
 // git log --diff-filter=A --format="%h %s" -- iGameCore/IO/Spectral/tests/SpectralReaderValidation.cxx
 #include "Spectral/iGameSpectralReaderCPU.h"
@@ -139,7 +139,7 @@ void CheckSamples(const std::filesystem::path& directory) {
         mesh->ConvertToDrawableData();Require(mesh->GetRenderableObject()!=nullptr,"drawable conversion failed");
         std::cout<<"PASS "<<path.filename().string()<<" elements="<<data.elements.size()<<" points="<<mesh->GetNumberOfPoints()<<" cells="<<mesh->GetNumberOfCells()<<'\n';++count;
     }
-    Require(count>0,"sample directory contains no inputs");std::cout<<"PASS "<<count<<" ElVis sample datasets\n";
+    Require(count>0,"sample directory contains no inputs");std::cout<<"PASS "<<count<<" spectral sample datasets\n";
 }
 void Render(const std::string& path,const std::string& snapshot) {
     auto object=FileIO::ReadFile(path);auto mesh=DynamicCast<SpectralMesh>(object);Require(mesh!=nullptr,"FileIO spectral read failed");

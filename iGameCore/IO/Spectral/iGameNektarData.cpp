@@ -100,7 +100,7 @@ std::vector<double> FieldValues(const XMLElement* e,size_t count) {
         bool little=format.find("LittleEndian")!=std::string::npos||format=="B64Z-LE";
         Check(big!=little,"missing or ambiguous field byte order");
     }
-    // ElVis' older Nektar fixtures omit COMPRESSED and contain little-endian doubles.
+    // Older Nektar fixtures omit COMPRESSED and contain little-endian doubles.
     bool swap=big!=(std::endian::native==std::endian::big);
     std::vector<double> out(count);
     for(size_t i=0;i<count;++i) {

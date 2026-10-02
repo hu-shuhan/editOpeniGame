@@ -180,7 +180,7 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
         case D3PLOT:
             return "D3PLOT";
         case SPECTRAL_DAT:
-            return "ElVis Jacobi DAT";
+            return "Jacobi DAT";
         case SPECTRAL_NEKTAR:
             return "Nektar++ XML/FLD";
         default:

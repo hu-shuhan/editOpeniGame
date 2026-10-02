@@ -89,7 +89,7 @@ Vec3 EdgePosition(const Element& e, Vec3 p) {
 }
 }
 
-// Recurrence and modal ordering adapted from ElVis Jacobi.hpp,
+// Recurrence and modal ordering adapted from Jacobi.hpp,
 // HexahedronCommon.cu, PrismCommon.cu and NektarPlusPlusExtension/Expansions.cu.
 // Original code license (MIT):
 // Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
@@ -150,7 +150,7 @@ double Element::Evaluate(const std::string& field, const Vec3& p) const {
             power*=1-p[2];
         }
     } else if (nektar) {
-        // Nektar++ has i fastest; ElVis DAT has k fastest.
+        // Nektar++ has i fastest; Jacobi DAT has k fastest.
         for(int k=0;k<modes[2];++k) for(int j=0;j<modes[1];++j) for(int i=0;i<modes[0];++i)
             result+=c.at(index++)*phi[0][i]*phi[1][j]*(shape==Shape::Quadrilateral?1:phi[2][k]);
     } else {
@@ -193,7 +193,7 @@ Vec3 Element::Position(const Vec3& p) const {
 Data ReadJacobi(const void* bytes, size_t size) {
     constexpr char header[]="Finite Element Volume  ";
     Require(bytes&&size>=sizeof(header)+8,"Jacobi DAT header missing");
-    Require(std::memcmp(bytes,header,sizeof(header))==0,"Not an ElVis Finite Element Volume DAT");
+    Require(std::memcmp(bytes,header,sizeof(header))==0,"Not a Jacobi Finite Element Volume DAT");
     Binary in{static_cast<const unsigned char*>(bytes)+sizeof(header),size-sizeof(header)};
     auto endian=in.Get<std::int32_t>();
     if(endian!=1) { Require(endian==0x01000000,"Invalid DAT endian marker"); in.swap=true; }
@@ -203,7 +203,7 @@ Data ReadJacobi(const void* bytes, size_t size) {
     for(int id=0;id<count;++id) {
         Element e; e.id=id;
         int type=in.Get<std::int32_t>();
-        Require(type==1||type==3,"DAT supports only ElVis hex and prism elements");
+        Require(type==1||type==3,"DAT supports only hex and prism elements");
         e.shape=type==1?Shape::Hexahedron:Shape::Prism;
         int hasRange=in.Get<std::int32_t>();
         Require(hasRange==0||hasRange==1,"Invalid DAT range flag");
@@ -218,7 +218,7 @@ Data ReadJacobi(const void* bytes, size_t size) {
         size_t n=0;
         if(type==1) n=size_t(e.modes[0])*e.modes[1]*e.modes[2];
         else {
-            // ElVis' file writer uses this count and assumes equal triangle orders.
+            // The DAT file writer uses this count and assumes equal triangle orders.
             Require(e.modes[0]==e.modes[2],"DAT prism requires equal first and third degrees");
             n=size_t(e.modes[0])*e.modes[1]*(e.modes[2]+1)/2;
         }

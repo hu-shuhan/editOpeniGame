@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-// Portable CPU implementation of the ElVis Jacobi and Nektar++ expansions.
+// Portable CPU implementation of the Jacobi and Nektar++ expansions.
 // Kept independent of Qt/OpenGL so file parsing and numerical evaluation can
 // also be validated without a graphics context.
 namespace iGame::Spectral {
