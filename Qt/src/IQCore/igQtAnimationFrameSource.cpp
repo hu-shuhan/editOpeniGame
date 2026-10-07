@@ -5,8 +5,22 @@
 namespace {
 using namespace iGame;
 
-DataObject::Pointer loadFrame(DataObject::Pointer source, int index, QString& error) {
-    auto frames = source->PeekTimeFrames();
+// Reuse the existing file readers without reading, clearing or populating the
+// source's legacy cache. Copy metadata only, never cached objects or LRU state.
+StreamingData::Pointer independentFrames(StreamingData::Pointer source) {
+    auto frames = StreamingData::New();
+    for (auto& frame : source->GetArrays()) {
+        auto files = StringArray::New();
+        if (auto metadata = frame.GetMetaData())
+            for (IGsize i = 0; i < metadata->GetNumberOfElements(); ++i)
+                files->AddElement(metadata->GetElement(i));
+        frames->AddTimeStep(frame.GetTimeValue(), files, frame.GetFrameType());
+    }
+    return frames;
+}
+
+DataObject::Pointer loadFrame(DataObject::Pointer source, StreamingData::Pointer frames,
+                              int index, QString& error) {
     auto loaded = frames->GetTargetTimeFrameData(index);
     if (loaded.empty()) { error = QStringLiteral("时间帧没有数据。"); return nullptr; }
     if (frames->GetTargetFrameType(index) == StreamingType::SingleFieldAttributes) {
@@ -113,15 +127,15 @@ bool igQtLoadAnimationFrame(iGame::DataObject::Pointer source,
          !std::isfinite(request.weight) || request.weight < 0 || request.weight > 1))) {
         error = QStringLiteral("动画时间帧或插值比例无效。"); return false;
     }
-    // This output path owns caching. Disable the old source-frame cache even if
-    // another legacy control enabled it, avoiding a second persistent cache.
-    frames->DisableCache();
+    // Keep all original indices (including ODB field indices). This private
+    // context also isolates any frame reads made by animation preprocessing.
+    frames = independentFrames(frames);
     iGame::DataObject::DeferDrawableConversionScope cpu;
     const int index = request.sourceFrame + (request.interpolate && request.weight == 1 ? 1 : 0);
-    auto output = loadFrame(source, index, error);
+    auto output = loadFrame(source, frames, index, error);
     if (!output) return false;
     if (request.interpolate && request.weight > 0 && request.weight < 1) {
-        auto next = loadFrame(source, request.sourceFrame + 1, error);
+        auto next = loadFrame(source, frames, request.sourceFrame + 1, error);
         if (!next || !interpolate(output, next, request.weight, error)) return false;
     }
     output->SetName(source->GetName());
