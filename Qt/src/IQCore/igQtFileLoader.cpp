@@ -26,6 +26,7 @@
 #endif
 #include "Nastran/iGameNastranReader.h"
 #include "Spline XML/iGameSplineReaderCPU.h"
+#include "Spectral/iGameSpectralReaderCPU.h"
 
 #include <IQComponents/Dialog/igQtBasicListOptionDialog.h>
 #include <IQComponents/Dialog/igQtSplineOptionDialog.h>
@@ -207,7 +208,7 @@ void igQtFileLoader::LoadFile() {
     #endif
     QStringList filters = {
         "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-        "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.rst *.rth *.xml"
+        "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.rst *.rth *.xml *.dat *.fld"
 #if defined(AbqSDK_ENABLE)
         " *.odb"
 #endif
@@ -230,7 +231,8 @@ void igQtFileLoader::LoadFile() {
         "Fluent file(*.cas)",
         "STAR-CCM+ file(*.ccm)",
         "Ansys file(*.rst *.rth)",
-        "LS-DYNA file(d3plot* *.d3plot)"
+        "LS-DYNA file(d3plot* *.d3plot)",
+        "Spectral file(*.dat *.xml *.fld)"
     };
     QString selectedFilter;
     QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
@@ -254,8 +256,8 @@ void igQtFileLoader::LoadFile() {
             break;
 #endif
         default:
-            if (filePath.size() == 1) {
-                this->OpenFile(filePath[0].toStdString());
+            if (filePath.size() == 1 && !filePath[0].endsWith(".xml", Qt::CaseInsensitive)) {
+                this->OpenFile(ToUtf8FilePath(filePath[0]));
             } else {
                 this->OpenFiles(filePath);
             }
@@ -299,7 +301,7 @@ bool igQtFileLoader::TryOpenFile(const std::string& filePath, bool remoteRenderi
         igDebug("This file read error.");
         return false;
     }
-    auto filename = filePath.substr(filePath.find_last_of('/') + 1);
+    auto filename = filePath.substr(filePath.find_last_of("/\\") + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
     obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
@@ -401,6 +403,17 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     }
 
     const std::string first_file_path = ToUtf8FilePath(filePaths[0]);
+    // XML and FLD are one Nektar dataset, not two animation frames.
+    if (filePaths.size() == 2 &&
+        FileIO::GetFileType(first_file_path) == FileIO::SPECTRAL_NEKTAR) {
+        const QFileInfo a(filePaths[0]), b(filePaths[1]);
+        const QString ae = a.suffix().toLower(), be = b.suffix().toLower();
+        if (a.absolutePath() == b.absolutePath() && a.completeBaseName() == b.completeBaseName() &&
+            ((ae == "xml" && be == "fld") || (ae == "fld" && be == "xml"))) {
+            this->OpenFile(first_file_path);
+            return;
+        }
+    }
     // d3plot 文件无扩展名（d3plot / d3plot01 / ...），需放行；其余无扩展名文件仍拒绝
     if (strrchr(first_file_path.data(), '.') == nullptr &&
         FileIO::GetFileType(first_file_path) != FileIO::D3PLOT) return;
@@ -572,6 +585,10 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
 void igQtFileLoader::OpenSplineFile(const std::string& filePath, bool remoteRendering) {
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
+    if (SpectralReaderCPU::IsNektarFile(filePath)) {
+        this->TryOpenFile(filePath, remoteRendering);
+        return;
+    }
     igQtSplineOptionDialog dialog;
     dialog.setFileName(FromUtf8FilePath(filePath));
 

@@ -38,6 +38,8 @@ public:
         BDF,
         IGCM,
         D3PLOT,
+        SPECTRAL_DAT,
+        SPECTRAL_NEKTAR,
         FILETYPE_COUNT
     };
 
