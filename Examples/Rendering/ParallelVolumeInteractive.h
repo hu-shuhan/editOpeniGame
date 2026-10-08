@@ -24,6 +24,7 @@
 #include "iGameRenderWindow.h"
 #include "iGameVolumeRayCastCPU.h"
 #include "iGameVolumeTransferFunction.h"
+#include "ParallelVolumePixelComposite.h" // --pixelwise 逐像素合成（pvr 模块内）
 
 #include <algorithm>
 #include <chrono>
@@ -521,7 +522,8 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                           int numFrames, int startFrame,
                           const std::string& fieldName,
                           double voxelSize = 0.0, double hqStepScale = 1.5,
-                          double lqStepScale = 4.0, int lqDivisor = 2) {
+                          double lqStepScale = 4.0, int lqDivisor = 2,
+                          bool usePixelwise = false) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
     int curFrame = startFrame; // 多帧播放当前帧（所有 rank 一致，由 frameStep 广播驱动）
@@ -706,14 +708,30 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                                      static_cast<unsigned>(fh)},
                           rgba, depth);
 
-        // 分布式合成（默认稀疏 ROI 路径；--binary-swap 走 binary-swap 合成，O(log P) 轮）。
+        // 分布式合成：默认稀疏 ROI 路径（--binary-swap 走 binary-swap 合成，O(log P) 轮）；
+        // --pixelwise 换用逐像素首命中深度排序（ParallelVolumePixelComposite，pvr 模块内）。
         auto composite = iGame::iGameCompositePass::New();
-        composite->SetLocalImage(fw, fh, rgba, depth);
-        composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
-                blockCenter, camPos, front));
-        composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        composite->SetUseBinarySwapComposite(useBinarySwap);
-        if (!composite->Composite()) {
+        iGamePVPixel::PixelCompositePass pixelComposite;
+        const double blockDepth = iGame::iGameCompositePass::ComputeBlockDepth(
+                blockCenter, camPos, front);
+        const std::vector<unsigned char>* frameRGBA = nullptr;
+        bool compositeOk = false;
+        if (usePixelwise) {
+            pixelComposite.SetLocalImage(fw, fh, rgba, depth);
+            pixelComposite.SetBlockDepth(blockDepth);
+            pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            pixelComposite.SetUseBinarySwapComposite(useBinarySwap);
+            compositeOk = pixelComposite.Composite();
+            frameRGBA = &pixelComposite.GetResultRGBA();
+        } else {
+            composite->SetLocalImage(fw, fh, rgba, depth);
+            composite->SetBlockDepth(blockDepth);
+            composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            composite->SetUseBinarySwapComposite(useBinarySwap);
+            compositeOk = composite->Composite();
+            frameRGBA = &composite->GetResultRGBA();
+        }
+        if (!compositeOk) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }
             break;
         }
@@ -737,7 +755,7 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            UploadImageTexture(fw, fh, composite->GetResultRGBA());
+            UploadImageTexture(fw, fh, *frameRGBA);
             DrawTexturedQuad(0.0f, 0.0f, static_cast<float>(fbW),
                              static_cast<float>(fbH), 0.0f, 0.0f, 1.0f, 1.0f,
                              g_imageTex, static_cast<float>(fbW),

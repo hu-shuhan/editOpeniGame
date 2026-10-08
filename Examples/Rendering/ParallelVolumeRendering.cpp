@@ -4,6 +4,7 @@
 // CLI（命名参数，默认 CPU 后端）：
 //   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu]
 //             [--interactive] [--server [--port <n>]] [-f <field>]
+//             [--direct|--binary-swap] [--blockwise|--pixelwise]
 //     -i, --input <file>   输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
 //     -f, --field <name>   直接指定渲染字段（srun 批处理无 stdin 时必需）
 //     -t, --timestep <n>   PVD 时间步（默认 0；非 PVD 忽略）
@@ -14,6 +15,10 @@
 //         --server          C/S 服务端（阶段 6，仅 --cpu 后端）：rank 0 开放 TCP 端口
 //                          供前端（ParallelVolumeClient）连接，流式回传合成图
 //         --port <n>        --server 监听端口（默认 11111）
+//         --direct / --binary-swap
+//                          图像合成策略：稀疏 ROI 汇聚（默认）/ binary-swap 交换
+//         --blockwise / --pixelwise
+//                          合成的深度口径：块级超块中心深度（默认）/ 逐像素首命中深度
 // 未指定 --field 时，启动后 rank0 列出该数据可渲染的字段（点/单元标量、向量），提示按
 // 名称或编号选择，随后把所选字段广播给所有 rank。
 //
@@ -50,6 +55,7 @@
 #include "iGameResourcePath.h"
 #include "ParallelVolumeServer.h"    // 必须先于 ParallelVolumeInteractive.h（winsock2 先于 windows.h）
 #include "ParallelVolumeInteractive.h"
+#include "ParallelVolumePixelComposite.h" // --pixelwise 逐像素合成（pvr 模块内，不动 iGameCore）
 
 #include <algorithm>
 #include <cctype>
@@ -236,6 +242,12 @@ struct CliOptions {
     bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
     bool server{false}; // true = C/S 服务端（阶段 6，仅 CPU 后端有效）
     bool useBinarySwap{false}; // true = binary-swap 合成（对标 IceT icetBSwapCompose）
+    // 合成的深度口径（--blockwise 默认 / --pixelwise）：
+    //   false = blockwise：每 rank 一个「超块中心深度」，rank0 按该全局块序整幅 over
+    //   true  = pixelwise：每个像素用各自的「首命中深度」排序 over
+    //                       （与 --direct / --binary-swap 正交组合；实现在
+    //                        ParallelVolumePixelComposite.h，不动 iGameCore）
+    bool usePixelwise{false};
     int port{11111};    // --server 监听端口
     // 两档 LOD（仅 --server / --interactive）：拖动中用低清分辨率 + 更大步长。
     // 步长以「全局体素尺寸」为单位（1.0 = 一个体素），必须全局一致，否则块间密度不均。
@@ -247,46 +259,70 @@ struct CliOptions {
 };
 
 void PrintUsage(const char* prog) {
+    // 说明：帮助文本一律用 ASCII 英文——控制台代码页不是 UTF-8 时，中文会变成乱码。
     std::cout
             << "Usage: " << prog << " -i <input> [options]\n"
             << "\n"
-            << "Parallel volume rendering entry (阶段 3 GPU 验证 / 阶段 4 CPU 生产后端).\n"
+            << "Parallel volume rendering entry (stage 3 GPU validation / stage 4 CPU\n"
+            << "production backend).\n"
             << "\n"
             << "Required:\n"
-            << "  -i, --input <file>       输入数据：多分块 .pvd/.vtm/.igcm，或单块\n"
-            << "                           .vtr/.vts/.vtu。\n"
-            << "  -f, --field <name>       直接指定渲染字段（点/单元标量或向量名），跳过\n"
-            << "                           rank0 的交互式字段选择（srun 批处理无 stdin 时\n"
-            << "                           必须指定）。\n"
+            << "  -i, --input <file>       Input data: multi-piece .pvd/.vtm/.igcm, or a\n"
+            << "                           single .vtr/.vts/.vtu file.\n"
+            << "  -f, --field <name>       Field to render (point/cell scalar or vector\n"
+            << "                           name). Skips the interactive field prompt on\n"
+            << "                           rank 0; required when there is no stdin (srun).\n"
             << "\n"
             << "Options:\n"
-            << "  -t, --timestep <n>       PVD 时间步（默认 0；非 PVD 输入忽略）。多帧播放时\n"
-            << "                           作为起始帧：PVD 的时间步不一定从 0 开始，按文件里\n"
-            << "                           出现的时间步值匹配；若该值不存在则回退到第 1 帧。\n"
-            << "  -r, --resample <n>       每块重采样分辨率（默认 64，最小 2）。\n"
-            << "      --gpu                使用 GPU 光线投射后端（阶段 3 验证，需要\n"
-            << "                           OpenGL/GLFW，各 rank 用隐藏窗口离屏渲染）。\n"
-            << "      --cpu                使用 CPU 光线步进后端（阶段 4 生产，无头、\n"
-            << "                           不依赖 OpenGL/GLFW；默认）。\n"
-            << "      --interactive        交互窗口（阶段 5，仅 CPU 后端）：rank 0 打开\n"
-            << "                           窗口显示合成结果，左键拖动旋转、滚轮缩放，\n"
-            << "                           左下角 colorbar，拖动期间显示 fps。\n"
-            << "      --server              C/S 服务端（阶段 6，仅 CPU 后端）：rank 0 开放\n"
-            << "                           TCP 端口供前端连接，接收增量交互命令、渲染并\n"
-            << "                           流式回传合成图（对标 MiniPVServer）。\n"
-            << "      --port <n>            --server 监听端口（默认 11111）。\n"
-            << "      --direct              使用稀疏 ROI 合成（默认；把各 rank 非空像素外接\n"
-            << "                           矩形汇聚到 rank 0，O(Σ ROI 面积)）。\n"
-            << "      --binary-swap         binary-swap 合成（对标 IceT icetBSwapCompose）：\n"
-            << "                           在 O(log P) 轮内两两交换半张图 + 有序 over，\n"
-            << "                           通信与合成摊到所有 rank、无 rank0 单点汇聚，\n"
-            << "                           适合上千 rank。与 --direct 同时给出时以最后出现\n"
-            << "                           的那个为准。\n"
-            << "      --hq-step <f>         高清档每步跨越多少个体素（默认 1.5）。步长以全局\n"
-            << "                           体素尺寸为单位，必须所有 rank 一致。\n"
-            << "      --lq-step <f>         拖动档每步跨越多少个体素（默认 4.0）。\n"
-            << "      --lq-div <n>          拖动档分辨率除数（默认 2，即 1024->512）。\n"
-            << "  -h, --help               显示本帮助。\n"
+            << "  -t, --timestep <n>       PVD timestep (default 0; ignored for non-PVD\n"
+            << "                           input). For multi-frame data this is the start\n"
+            << "                           frame: matched against the timestep values that\n"
+            << "                           actually appear in the file, falling back to the\n"
+            << "                           first frame if not found.\n"
+            << "  -r, --resample <n>       Resample resolution per piece (default 64, min 2).\n"
+            << "      --gpu                GPU ray-casting backend (stage 3 validation;\n"
+            << "                           needs OpenGL/GLFW, each rank renders offscreen\n"
+            << "                           into a hidden window).\n"
+            << "      --cpu                CPU ray-stepping backend (stage 4 production;\n"
+            << "                           headless, no OpenGL/GLFW; default).\n"
+            << "      --interactive        Interactive window (stage 5, CPU backend only):\n"
+            << "                           rank 0 opens a window showing the composited\n"
+            << "                           image; left-drag rotates, wheel zooms, colorbar\n"
+            << "                           in the lower left, fps shown while dragging.\n"
+            << "      --server             Client/server mode (stage 6, CPU backend only):\n"
+            << "                           rank 0 listens on a TCP port, receives incremental\n"
+            << "                           interaction commands, renders and streams the\n"
+            << "                           composited image (cf. MiniPVServer).\n"
+            << "      --port <n>           --server listen port (default 11111).\n"
+            << "      --direct             Sparse-ROI compositing (default): each rank\n"
+            << "                           gathers the bounding box of its non-empty pixels\n"
+            << "                           to rank 0, O(sum of ROI areas).\n"
+            << "      --binary-swap        binary-swap compositing (cf. IceT\n"
+            << "                           icetBSwapCompose): ceil(log2 P) rounds of pairwise\n"
+            << "                           half-image exchange plus ordered over, work spread\n"
+            << "                           over all ranks and no rank-0 hotspot; meant for\n"
+            << "                           thousands of ranks. If given together with\n"
+            << "                           --direct, the last one wins.\n"
+            << "      --blockwise          Depth criterion for compositing (default): one\n"
+            << "                           depth per rank (that of the super-block center),\n"
+            << "                           and rank 0 blends whole images in that global\n"
+            << "                           block order.\n"
+            << "      --pixelwise          Depth criterion for compositing: each pixel is\n"
+            << "                           ordered by its own first-hit depth (the reversed-z\n"
+            << "                           value written back by the ray caster), so overlap\n"
+            << "                           ordering is correct per pixel. Cost: the payload\n"
+            << "                           carries an extra depth plane and rank 0 must\n"
+            << "                           depth-sort per pixel. Combines with both --direct\n"
+            << "                           and --binary-swap; if given together with\n"
+            << "                           --blockwise, the last one wins.\n"
+            << "      --hq-step <f>        Voxels per step for the high-quality (mouse-up)\n"
+            << "                           setting (default 1.5). The step is in units of the\n"
+            << "                           global voxel size and must match on all ranks.\n"
+            << "      --lq-step <f>        Voxels per step for the low-quality (dragging)\n"
+            << "                           setting (default 4.0).\n"
+            << "      --lq-div <n>         Resolution divisor while dragging (default 2,\n"
+            << "                           i.e. 1024 -> 512).\n"
+            << "  -h, --help               Show this help.\n"
             << "\n"
             << "Examples:\n"
             << "  mpiexec -n 4 " << prog
@@ -297,6 +333,8 @@ void PrintUsage(const char* prog) {
             << " -i data.pvd --resample 64 --cpu --interactive\n"
             << "  mpiexec -n 4 " << prog
             << " -i data.pvd --resample 64 --cpu --server --port 11111\n"
+            << "  mpiexec -n 4 " << prog
+            << " -i data.pvd --resample 64 --cpu --server --pixelwise\n"
             << std::flush;
 }
 
@@ -363,6 +401,14 @@ CliOptions ParseCli(int argc, char** argv) {
         }
         if (a == "--direct") {
             opts.useBinarySwap = false;
+            continue;
+        }
+        if (a == "--pixelwise") {
+            opts.usePixelwise = true;
+            continue;
+        }
+        if (a == "--blockwise") {
+            opts.usePixelwise = false;
             continue;
         }
         if (a == "--port") {
@@ -861,7 +907,7 @@ int main(int argc, char** argv) {
                     globalMax, gcenter, blockCenter, radius, width, height,
                     cli.useBinarySwap, volumes, masks, numFrames,
                     startFrame, selectedField, voxelSize, cli.hqStepScale,
-                    cli.lqStepScale, cli.lqDivisor);
+                    cli.lqStepScale, cli.lqDivisor, cli.usePixelwise);
             ParallelContext::Finalize();
             return rc;
         }
@@ -875,7 +921,8 @@ int main(int argc, char** argv) {
                     globalMax, gcenter, blockCenter, radius, width, height,
                     cli.port, cli.useBinarySwap, volumes, masks,
                     numFrames, startFrame, selectedField, voxelSize,
-                    cli.hqStepScale, cli.lqStepScale, cli.lqDivisor);
+                    cli.hqStepScale, cli.lqStepScale, cli.lqDivisor,
+                    cli.usePixelwise);
             ParallelContext::Finalize();
             return rc;
         }
@@ -962,20 +1009,37 @@ int main(int argc, char** argv) {
             }
 
             // 分布式合成（深度排序 + over 混合 + MPI_Gather），与 GPU 路径相同。
+            // --blockwise（默认）用 iGameCompositePass（超块中心深度，块级有序）；
+            // --pixelwise 用 ParallelVolumePixelComposite（逐像素首命中深度排序）。
             auto composite = iGameCompositePass::New();
-            composite->SetLocalImage(width, height, rgba, depth);
-            composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
-                    blockCenter, camPos, front));
-            composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            composite->SetUseBinarySwapComposite(cli.useBinarySwap);
-            if (!composite->Composite()) {
+            iGamePVPixel::PixelCompositePass pixelComposite;
+            const std::vector<unsigned char>* frameRGBA = nullptr;
+            bool compositeOk = false;
+            if (cli.usePixelwise) {
+                pixelComposite.SetLocalImage(width, height, rgba, depth);
+                pixelComposite.SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
+                        blockCenter, camPos, front));
+                pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
+                pixelComposite.SetUseBinarySwapComposite(cli.useBinarySwap);
+                compositeOk = pixelComposite.Composite();
+                frameRGBA = &pixelComposite.GetResultRGBA();
+            } else {
+                composite->SetLocalImage(width, height, rgba, depth);
+                composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
+                        blockCenter, camPos, front));
+                composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+                composite->SetUseBinarySwapComposite(cli.useBinarySwap);
+                compositeOk = composite->Composite();
+                frameRGBA = &composite->GetResultRGBA();
+            }
+            if (!compositeOk) {
                 if (rank == 0) { std::cerr << "Composite failed.\n"; }
                 ParallelContext::Finalize();
                 return 1;
             }
 
             if (rank == 0) {
-                auto result = composite->GetResultRGBA();
+                auto result = *frameRGBA;
                 FlipRGBAVertically(result, width, height);
                 const std::string fp =
                         (outDir / (timestamp + "_composited_" + views[v].name +
@@ -1109,8 +1173,11 @@ int main(int argc, char** argv) {
         }
 
         // 分布式合成（深度排序 + over 混合 + MPI_Gather）。
+        // --blockwise（默认）用 iGameCompositePass；--pixelwise 用逐像素路径
+        // （--gpu 路径的深度来自 Scene::CaptureParallelVolumeFrame 读回的 GL 深度缓冲，
+        //   与 CPU 光线步进同为 reversed-z：大 = 近，口径一致）。
         auto composite = iGameCompositePass::New();
-        composite->SetLocalImage(fbW, fbH, rgba, depth);
+        iGamePVPixel::PixelCompositePass pixelComposite;
 
         double front[3] = {camFp[0] - camPos[0], camFp[1] - camPos[1],
                            camFp[2] - camPos[2]};
@@ -1122,12 +1189,34 @@ int main(int argc, char** argv) {
             front[1] /= frontLen;
             front[2] /= frontLen;
         }
-        composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
-                blockCenter, camPos, front));
-        composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        composite->SetUseBinarySwapComposite(cli.useBinarySwap);
+        const double blockDepth = iGameCompositePass::ComputeBlockDepth(
+                blockCenter, camPos, front);
 
-        if (!composite->Composite()) {
+        const std::vector<unsigned char>* frameRGBA = nullptr;
+        int resultW = 0;
+        int resultH = 0;
+        bool compositeOk = false;
+        if (cli.usePixelwise) {
+            pixelComposite.SetLocalImage(fbW, fbH, rgba, depth);
+            pixelComposite.SetBlockDepth(blockDepth);
+            pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            pixelComposite.SetUseBinarySwapComposite(cli.useBinarySwap);
+            compositeOk = pixelComposite.Composite();
+            frameRGBA = &pixelComposite.GetResultRGBA();
+            resultW = pixelComposite.GetResultWidth();
+            resultH = pixelComposite.GetResultHeight();
+        } else {
+            composite->SetLocalImage(fbW, fbH, rgba, depth);
+            composite->SetBlockDepth(blockDepth);
+            composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            composite->SetUseBinarySwapComposite(cli.useBinarySwap);
+            compositeOk = composite->Composite();
+            frameRGBA = &composite->GetResultRGBA();
+            resultW = composite->GetResultWidth();
+            resultH = composite->GetResultHeight();
+        }
+
+        if (!compositeOk) {
             if (rank == 0) { std::cerr << "Composite failed.\n"; }
             ParallelContext::Finalize();
             return 1;
@@ -1135,9 +1224,9 @@ int main(int argc, char** argv) {
 
         // rank0 输出该视角的合成图。
         if (rank == 0) {
-            auto result = composite->GetResultRGBA(); // 复制，翻转不破坏内部结果
-            const int rw = composite->GetResultWidth();
-            const int rh = composite->GetResultHeight();
+            auto result = *frameRGBA; // 复制，翻转不破坏内部结果
+            const int rw = resultW;
+            const int rh = resultH;
             FlipRGBAVertically(result, rw, rh);
 
             const std::string fp =

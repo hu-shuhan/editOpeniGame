@@ -55,6 +55,7 @@
 #include "iGameParallelContext.h"
 #include "iGameVolumeRayCastCPU.h"
 #include "iGameVolumeTransferFunction.h"
+#include "ParallelVolumePixelComposite.h" // --pixelwise 逐像素合成（pvr 模块内）
 
 #include <algorithm>
 #include <chrono>
@@ -125,7 +126,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      int numFrames, int startFrame,
                      const std::string& fieldName,
                      double voxelSize = 0.0, double hqStepScale = 1.5,
-                     double lqStepScale = 4.0, int lqDivisor = 2) {
+                     double lqStepScale = 4.0, int lqDivisor = 2,
+                     bool usePixelwise = false) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
 
@@ -361,14 +363,42 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         // 外接矩形，汇聚量与 rank 0 工作量都和 rank 数基本解耦（对标 IceT
         // valid_pixels_viewport）。--binary-swap 时改走 binary-swap 合成（对标 IceT
         // icetBSwapCompose，通信与合成摊到所有 rank）。
+        // --pixelwise 则换用「逐像素首命中深度排序」的合成路径（ParallelVolumePixelComposite，
+        // 实现放在 pvr 模块内，不改 iGameCore）；与上面两个策略正交组合。
         auto composite = iGame::iGameCompositePass::New();
-        composite->SetLocalImage(fw, fh, rgba, depth);
-        composite->SetBlockDepth(iGame::iGameCompositePass::ComputeBlockDepth(
-                blockCenter, camPos, front));
-        composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-        composite->SetUseBinarySwapComposite(useBinarySwap);
+        iGamePVPixel::PixelCompositePass pixelComposite;
+        int resROIX = 0;
+        int resROIY = 0;
+        int resROIW = 0;
+        int resROIH = 0;
+        const std::vector<unsigned char>* resROIRGBA = nullptr;
+        const double blockDepth = iGame::iGameCompositePass::ComputeBlockDepth(
+                blockCenter, camPos, front);
         const auto tComposite0 = std::chrono::steady_clock::now();
-        const bool compositeOk = composite->Composite();
+        bool compositeOk = false;
+        if (usePixelwise) {
+            pixelComposite.SetLocalImage(fw, fh, rgba, depth);
+            pixelComposite.SetBlockDepth(blockDepth);
+            pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            pixelComposite.SetUseBinarySwapComposite(useBinarySwap);
+            compositeOk = pixelComposite.Composite();
+            resROIX = pixelComposite.GetResultROIX();
+            resROIY = pixelComposite.GetResultROIY();
+            resROIW = pixelComposite.GetResultROIW();
+            resROIH = pixelComposite.GetResultROIH();
+            resROIRGBA = &pixelComposite.GetResultROIRGBA();
+        } else {
+            composite->SetLocalImage(fw, fh, rgba, depth);
+            composite->SetBlockDepth(blockDepth);
+            composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
+            composite->SetUseBinarySwapComposite(useBinarySwap);
+            compositeOk = composite->Composite();
+            resROIX = composite->GetResultROIX();
+            resROIY = composite->GetResultROIY();
+            resROIW = composite->GetResultROIW();
+            resROIH = composite->GetResultROIH();
+            resROIRGBA = &composite->GetResultROIRGBA();
+        }
         const auto tComposite1 = std::chrono::steady_clock::now();
         if (!compositeOk) {
             if (rank == 0) { std::cerr << "[server] composite failed\n"; }
@@ -381,12 +411,11 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
             // 1) ROI 由合成器直接给出（稀疏路径在合成时就知道了），无需再扫一遍全图。
             //    全图路径（binary-swap）下 Composite() 收尾时也已扫过一次，语义一致。
-            const int rx0 = composite->GetResultROIX();
-            const int ry0 = composite->GetResultROIY();
-            const int roiW = composite->GetResultROIW();
-            const int roiH = composite->GetResultROIH();
-            const std::vector<unsigned char>& roi =
-                    composite->GetResultROIRGBA();
+            const int rx0 = resROIX;
+            const int ry0 = resROIY;
+            const int roiW = resROIW;
+            const int roiH = resROIH;
+            const std::vector<unsigned char>& roi = *resROIRGBA;
 
             // 2) 交互档背压：TCP 发送队列积压超过阈值说明客户端消费不过来，此时继续发
             //    只会让延迟无界增长（「松手后追帧」）。宁可丢帧（返回 true，客户端会话
