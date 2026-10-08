@@ -258,6 +258,14 @@ void Model::Draw() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
+        // 纯线对象（流线、等值线等，没有任何三角形）按单元数据着色时，
+        // m_Colors 已经由 SetAttributeWithCellData 摊到每个点上了，可以直接用顶点色。
+        // 面网格上的线框叠加仍走纯色，保持原来的观感。
+        const bool lineOnlyObject =
+                renderableObject->m_TriangleIndices == nullptr ||
+                renderableObject->m_TriangleIndices->GetNumberOfValues() == 0;
+        const bool lineUsesVertexColor = useColor && (!colorWithCell || lineOnlyObject);
+
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
@@ -448,7 +456,7 @@ void Model::Draw() {
                     glDepthFunc(wireframeDepthFunc);
                 }
 #endif
-                if (useColor && !colorWithCell) {
+                if (lineUsesVertexColor) {
                     auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
                     shader->Use();
 #ifdef __EMSCRIPTEN__
@@ -534,6 +542,14 @@ void Model::DrawWithTransparency() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
+        // 纯线对象（流线、等值线等，没有任何三角形）按单元数据着色时，
+        // m_Colors 已经由 SetAttributeWithCellData 摊到每个点上了，可以直接用顶点色。
+        // 面网格上的线框叠加仍走纯色，保持原来的观感。
+        const bool lineOnlyObject =
+                renderableObject->m_TriangleIndices == nullptr ||
+                renderableObject->m_TriangleIndices->GetNumberOfValues() == 0;
+        const bool lineUsesVertexColor = useColor && (!colorWithCell || lineOnlyObject);
+
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
@@ -576,7 +592,7 @@ void Model::DrawWithTransparency() {
         const bool drawTransparentWireframe = viewStyle & IG_WIREFRAME;
 #endif
         if (drawTransparentWireframe) {
-            if (useColor && !colorWithCell) {
+            if (lineUsesVertexColor) {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
                 #ifdef __EMSCRIPTEN__

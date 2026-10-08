@@ -485,26 +485,28 @@ bool StreamTracer::Execute() {
     for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
         auto& streamline = streamlines[streamlineIdx];
         auto& streamlinecolor = streamColor[streamlineIdx];
-        if (streamline.size() <= 6) continue; // 至少需要两个点（6个float值）
+        if (streamline.size() < 6) continue; // 至少需要两个点（6个float值）才能连出一段线
 
         igIndex lineStartIndex = globalPointIndex;
-        int numPoints = streamline.size() / 6;
+        // 积分每走一步往 streamline 里压 3 个 float（一个点的 xyz），
+        // 所以点数是除以 3；颜色数组 streamlinecolor 的布局与之一致。
+        int numPoints = streamline.size() / 3;
 
-        // 添加流线的所有点
+        // 添加流线的所有点：每个点只存一次，相邻两点连成一段线
         for (int i = 0; i < numPoints; i++) {
-            Point p1(streamline[i * 6], streamline[i * 6 + 1], streamline[i * 6 + 2]);
-            Point p2(streamline[i * 6 + 3], streamline[i * 6 + 4], streamline[i * 6 + 5]);
-            points->AddPoint(p1);
-            points->AddPoint(p2);
-            velocityArray->AddElement3(streamlinecolor[i * 6], streamlinecolor[i * 6 + 1], streamlinecolor[i * 6 + 2]);
-            velocityArray->AddElement3(streamlinecolor[i * 6 + 3], streamlinecolor[i * 6 + 4],
-                                       streamlinecolor[i * 6 + 5]);
-            int tem[2]{globalPointIndex, globalPointIndex + 1};
-            cells->AddCellIds(tem, 2);
-            types->AddValue(IG_LINE);
-            globalPointIndex += 2;
-            streamIdArray->AddValue(streamlineIdx);
+            points->AddPoint(Point(streamline[i * 3], streamline[i * 3 + 1], streamline[i * 3 + 2]));
+            velocityArray->AddElement3(streamlinecolor[i * 3], streamlinecolor[i * 3 + 1],
+                                       streamlinecolor[i * 3 + 2]);
+
+            // 第一个点没有前驱，从第二个点开始与前一个点连线
+            if (i > 0) {
+                int tem[2]{lineStartIndex + i - 1, lineStartIndex + i};
+                cells->AddCellIds(tem, 2);
+                types->AddValue(IG_LINE);
+                streamIdArray->AddValue(streamlineIdx);
+            }
         }
+        globalPointIndex += numPoints;
     }
     //   std::cout << "1111111111111111111" << std::endl;
     // 设置点数据和单元数据
@@ -1107,27 +1109,33 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
         traceOneWay(1.0f, fPts, fCols);  // Forward
         traceOneWay(-1.0f, bPts, bCols); // Backward
 
-        // Merge: Backward (reversed) + Forward
-        // Backward segments are (S, B1), (B1, B2)...
-        // We want (Bn, Bn-1), ..., (B1, S)
-        for (int k = (int) bPts.size() / 6 - 1; k >= 0; --k) {
-            tem[i].push_back(bPts[k * 6 + 3]);
-            tem[i].push_back(bPts[k * 6 + 4]);
-            tem[i].push_back(bPts[k * 6 + 5]);
-            tem[i].push_back(bPts[k * 6 + 0]);
-            tem[i].push_back(bPts[k * 6 + 1]);
-            tem[i].push_back(bPts[k * 6 + 2]);
+        // 合并成一条完整流线：反向段倒序 + 正向段
+        // pts / cols 都是每个点 3 个 float，按点倒序即可
+        //（之前按 6 个 float 一组处理，点数为奇数时会丢掉最后一个点）
+        const int bPointNum = static_cast<int>(bPts.size()) / 3;
+        for (int k = bPointNum - 1; k >= 0; --k) {
+            tem[i].push_back(bPts[k * 3 + 0]);
+            tem[i].push_back(bPts[k * 3 + 1]);
+            tem[i].push_back(bPts[k * 3 + 2]);
 
-            streamColor[i].push_back(bCols[k * 6 + 3]);
-            streamColor[i].push_back(bCols[k * 6 + 4]);
-            streamColor[i].push_back(bCols[k * 6 + 5]);
-            streamColor[i].push_back(bCols[k * 6 + 0]);
-            streamColor[i].push_back(bCols[k * 6 + 1]);
-            streamColor[i].push_back(bCols[k * 6 + 2]);
+            streamColor[i].push_back(bCols[k * 3 + 0]);
+            streamColor[i].push_back(bCols[k * 3 + 1]);
+            streamColor[i].push_back(bCols[k * 3 + 2]);
         }
-        // Add Forward segments
-        for (float val: fPts) tem[i].push_back(val);
-        for (float val: fCols) streamColor[i].push_back(val);
+
+        // 正反向都是从种子点出发，反向段倒序后最后一个点就是种子点，
+        // 所以正向段要跳过它自己的第一个点，避免种子点重复
+        const int fPointNum = static_cast<int>(fPts.size()) / 3;
+        const int fBegin = (bPointNum > 0 && fPointNum > 0) ? 1 : 0;
+        for (int k = fBegin; k < fPointNum; ++k) {
+            tem[i].push_back(fPts[k * 3 + 0]);
+            tem[i].push_back(fPts[k * 3 + 1]);
+            tem[i].push_back(fPts[k * 3 + 2]);
+
+            streamColor[i].push_back(fCols[k * 3 + 0]);
+            streamColor[i].push_back(fCols[k * 3 + 1]);
+            streamColor[i].push_back(fCols[k * 3 + 2]);
+        }
     };
 
     processCount = 0;
