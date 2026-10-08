@@ -117,6 +117,7 @@ protected:
                                     const QString& packageId, const QString& cacheDirectory,
                                     bool preloadOnly = false);
     bool ReadResidentRemotePreload(const QString& datasetPath);
+    bool PrepareResidentRemoteCpuData(DataObject::Pointer data, const QString& datasetPath);
     bool ResidentRemotePreloadOnly() const;
     void FinishResidentRemotePreload();
     bool ResidentRemoteEnabled() const;
