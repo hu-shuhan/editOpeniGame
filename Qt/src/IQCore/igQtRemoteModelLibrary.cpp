@@ -360,7 +360,7 @@ igQtRemoteModelLibrary::igQtRemoteModelLibrary(igQtFileLoader* fileLoader,
     m_MemoryLimitGiB->setSuffix(QStringLiteral(" GiB"));
     m_MemoryLimitGiB->setValue(96);
     m_MemoryLimitGiB->setToolTip(QStringLiteral(
-            "Limit for retained parsed CPU mesh data, not total process RAM. Preloading does not render the model."));
+            "Limit for retained CPU mesh, surface, LOD and drawing arrays, not peak process RAM. Preloading does not render the model."));
     memoryLayout->addRow(QStringLiteral("CPU cache limit"), m_MemoryLimitGiB);
     m_ClearMemoryButton = new QPushButton(QStringLiteral("Clear Memory Cache"), memoryBox);
     m_ClearMemoryButton->setObjectName(QStringLiteral("RemoteCpuCacheClear"));
@@ -378,8 +378,8 @@ igQtRemoteModelLibrary::igQtRemoteModelLibrary(igQtFileLoader* fileLoader,
     m_PreloadButton = new QPushButton(QStringLiteral("Cache to CPU"), this);
     m_PreloadButton->setObjectName(QStringLiteral("RemoteCatalogPreloadCpu"));
     m_PreloadButton->setToolTip(QStringLiteral(
-            "Download and parse the selected package into CPU memory only; do not add a displayed model or upload GPU resources. "
-            "The existing mesh parser runs on the GUI thread: the interface and Cancel may pause while parsing."));
+            "Download, parse and prepare CPU surface, interaction LOD and drawing arrays, as retained after Open and deletion; no displayed model or GPU upload. "
+            "Parsing and preparation run on the GUI thread: the interface and Cancel may pause during this work."));
     m_CancelButton = new QPushButton(QStringLiteral("Cancel"), this);
     m_CancelButton->setObjectName(QStringLiteral("RemoteCatalogCancel"));
     footer->addWidget(m_StatusLabel, 1);

@@ -115,6 +115,66 @@ void CheckPreparedCpuCache() {
     Require(!cache.HasPreparedCpuData(), "prepared-clear-removes-display-signature");
 }
 
+// BUG: Cache to CPU retained only raw arrays, unlike Open -> delete. A hit
+// still rebuilt shell/LOD/drawing data. Verify GPU-free preparation, the
+// detached cache contract and invalidation.
+// Fix subject: fix: prepare CPU display data during remote preload
+// Find fix: git log --oneline --fixed-strings --grep="fix: prepare CPU display data during remote preload" -- Examples/IO/ResidentModelCacheValidation.cpp
+// Test origin: git log --diff-filter=A --format="%h %s" -- Examples/IO/ResidentModelCacheValidation.cpp
+void CheckPreparedPreload(bool largeLod) {
+    auto scene = iGame::Scene::New();
+    auto root = iGame::DrawObject::New();
+    const int n = largeLod ? 708 : 1; // 1,002,528 faces crosses automatic LOD threshold.
+    auto points = iGame::Points::New();
+    auto faces = iGame::CellArray::New();
+    auto cp = iGame::FloatArray::New(); cp->SetName("PressureCoefficient");
+    for (int y = 0; y <= n; ++y) for (int x = 0; x <= n; ++x) {
+        points->AddPoint(float(x), float(y), 0.f); cp->AddValue(float(x) / n - 0.5f);
+    }
+    for (int y = 0; y < n; ++y) for (int x = 0; x < n; ++x) {
+        const int a = y * (n + 1) + x;
+        faces->AddCellId3(a, a + 1, a + n + 1);
+        faces->AddCellId3(a + 1, a + n + 2, a + n + 1);
+    }
+    auto mesh = iGame::UnstructuredMesh::New();
+    auto types = iGame::UnsignedIntArray::New();
+    for (IGsize i = 0; i < faces->GetNumberOfCells(); ++i) types->AddValue(iGame::IG_TRIANGLE);
+    mesh->SetPoints(points); mesh->SetCells(faces, types);
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, cp);
+    root->AddSubDataObject(mesh); root->SetRemoteRenderingEnabled(true);
+    mesh->ViewCloudPicture(scene.get(), 0, -1);
+    std::string error;
+    Require(root->PrepareRemoteCpuDisplayData(error), error.c_str());
+    Require(root->InspectCpuDisplayCache().ready && !root->HasGpuResources(), "preload-prepared-without-GL-context");
+    Require(scene->GetModelList()->GetObjectCount() == 0, "preparation-does-not-mount-scene-model");
+    Require(mesh->GetRenderableObject().get() != mesh.get(), "preload-retains-extracted-surface");
+    if (largeLod) {
+        auto lod = mesh->GetRenderableObject(true);
+        Require(lod.get() != mesh->GetRenderableObject().get(), "preload-retains-real-interaction-LOD");
+        Require(lod->GetCellArray()->GetNumberOfCells() < faces->GetNumberOfCells(), "LOD-has-fewer-faces");
+    }
+    igQtResidentModelCache cache;
+    cache.CapturePreparedCpu(scene, root, "preload", "entry.vtm");
+    QString reason;
+    Require(cache.HasPreparedCpuData() && cache.LookupData(scene, "preload", reason), "preload-prepared-entry-hits");
+    const auto bytes = cache.MemoryBytes();
+    const auto signature = root->InspectCpuDisplayCache().signature;
+    Require(root->PrepareRemoteCpuDisplayData(error), "repeat-prepare-is-ready");
+    Require(root->InspectCpuDisplayCache().signature == signature, "repeat-prepare-does-not-rebuild-arrays");
+    auto model = iGame::Model::New(); model->SetDataObject(root);
+    const auto id = RegisterHidden(scene, model);
+    cache.CapturePrepared(scene, model, "preload", "entry.vtm");
+    scene->RemoveModel(id); model->SetScene(nullptr);
+    root->ReleaseGpuResourcesKeepCpuData();
+    cache.CapturePreparedCpu(scene, root, "preload", "entry.vtm");
+    Require(cache.HasPreparedCpuData() && cache.MemoryBytes() == bytes, "preload-and-detached-display-have-same-CPU-memory");
+    cp->Modified();
+    Require(!cache.LookupData(scene, "preload", reason), "prepared-preload-still-invalidates-edits");
+    root->ReleaseDrawableResources(); cache.Clear(); scene->Finalize();
+    auto local = iGame::SurfaceMesh::New();
+    Require(!local->PrepareRemoteCpuDisplayData(error), "CPU-prepare-does-not-opt-in-local-models");
+}
+
 void CheckCpuPreload() {
     // Parse before even constructing a Scene. No GUI application or OpenGL
     // context exists, so any actual GPU call would fail this headless test.
@@ -373,8 +433,13 @@ void CheckSurfaceSnapshotLogicalConnectivity() {
 }
 }
 
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc > 1 && std::string(argv[1]) == "--prepared-lod") {
+            CheckPreparedPreload(true);
+            return 0;
+        }
+        CheckPreparedPreload(false);
         CheckPreparedCpuCache();
         CheckCpuPreload();
         CheckSurfaceSnapshotLogicalConnectivity();

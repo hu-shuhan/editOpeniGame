@@ -9,6 +9,63 @@
 
 IGAME_NAMESPACE_BEGIN
 
+bool DrawObject::PrepareRemoteCpuDisplayData(std::string& reason) {
+    reason.clear();
+    if (!m_RemoteRenderingEnabled || HasGpuResources()) {
+        reason = "CPU preparation requires remote, GPU-free data";
+        return false;
+    }
+    // Restrict the new entry to the static mesh path supported by the cache.
+    // In particular, meshlet preparation mixes CPU and GPU work.
+    std::unordered_set<DataObject*> checked;
+    std::function<bool(DataObject*)> validate = [&](DataObject* node) {
+        if (!node || !checked.insert(node).second) return false;
+        auto* draw = dynamic_cast<DrawObject*>(node);
+        if (!draw || !draw->m_RemoteRenderingEnabled || draw->m_AccelerationOption) return false;
+        auto frames = node->PeekTimeFrames();
+        if (frames && frames->GetTimeNum()) return false;
+        if (node->HasSubDataObject()) {
+            for (auto it = node->SubDataObjectIteratorBegin(); it != node->SubDataObjectIteratorEnd(); ++it)
+                if (!validate(it->second.get())) return false;
+            return true;
+        }
+        return node->GetDataObjectType() == IG_SURFACE_MESH ||
+               node->GetDataObjectType() == IG_UNSTRUCTURED_MESH;
+    };
+    if (!validate(this)) {
+        reason = "Only static remote surface/unstructured meshes without meshlet acceleration are supported";
+        return false;
+    }
+    // Match SyncGpuBuffers' conversion order, stopping before CreateDrawBuffer.
+    // Derived meshes can alias the input (simplification fallback), so visit once.
+    for (int pass = 0; pass < 3; ++pass) {
+        std::unordered_set<DataObject*> visited;
+        std::function<void(DrawObject*)> prepare = [&](DrawObject* draw) {
+            if (!draw || !visited.insert(draw).second) return;
+            if (draw->HasSubDataObject()) {
+                for (auto it = draw->SubDataObjectIteratorBegin(); it != draw->SubDataObjectIteratorEnd(); ++it)
+                    prepare(dynamic_cast<DrawObject*>(it->second.get()));
+                return;
+            }
+            if (draw->m_AutoUpdateDrawData) draw->ConvertToDrawableData();
+            prepare(draw->m_RenderableMesh.SurfaceMesh.get());
+            prepare(draw->m_RenderableMesh.SimplifiedMesh.get());
+        };
+        prepare(this);
+        const auto state = InspectCpuDisplayCache();
+        if (HasGpuResources()) {
+            reason = "CPU preparation unexpectedly allocated GPU resources";
+            return false;
+        }
+        if (state.ready) return true;
+        // Shared source arrays/color mappers may acquire a newer MTime while
+        // converting a derived mesh. Let the existing converter settle them;
+        // never mark unprepared buffers ready by overriding dirty flags.
+        reason = state.notReadyReason;
+    }
+    return false;
+}
+
 void DrawObject::ReleaseGpuResourcesKeepCpuData() {
     if (!m_RemoteRenderingEnabled) return;
     std::unordered_set<DataObject*> visited;
