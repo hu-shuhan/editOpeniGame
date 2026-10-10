@@ -718,6 +718,9 @@ void igQtMainWindow::initCustomTitleBar() {
     m_titleLabel = new QLabel(m_brandBox);
     m_titleLabel->setObjectName(QStringLiteral("CustomTitleLabel"));
     m_titleLabel->setText(this->windowTitle());
+    // 标题文本可让位：窗口偏窄时先压缩标题，避免把菜单栏挤成溢出按钮
+    m_titleLabel->setMinimumWidth(0);
+    m_titleLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     brandLayout->addWidget(m_titleLabel);
 
     topLayout->addWidget(m_brandBox, 0, Qt::AlignVCenter);
@@ -725,7 +728,8 @@ void igQtMainWindow::initCustomTitleBar() {
     m_topMenuLayout = topLayout;
     if (ui->menuBar) {
         ui->menuBar->setParent(topRow);
-        ui->menuBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        // 菜单栏不可被压缩：一旦被挤窄，Qt 会把全部菜单收进「»」溢出按钮（高 DPI、长标题、窄窗口时最易触发）
+        ui->menuBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         ui->menuBar->setFixedHeight(28);
         ui->menuBar->show();
         m_topMenuLayout->insertWidget(1, ui->menuBar, 0, Qt::AlignVCenter);
