@@ -4287,6 +4287,66 @@ void igQtMainWindow::onLeftToolTabCloseRequested(int index) {
             return;
         }
     }
+    QWidget* page = m_leftFieldTabs ? m_leftFieldTabs->widget(index) : nullptr;
+    for (auto it = m_leftToolWidgetPages.cbegin(); it != m_leftToolWidgetPages.cend(); ++it) {
+        if (it.value() == page) {
+            const QString key = it.key();
+            closeLeftToolWidget(key);
+            return;
+        }
+    }
+}
+
+void igQtMainWindow::openLeftToolWidget(const QString& key, QWidget* content, const QString& title) {
+    if (!m_leftFieldTabs || !m_leftFieldDock || !content) return;
+    auto it = m_leftToolWidgetPages.find(key);
+    if (it != m_leftToolWidgetPages.end()) {
+        const int existing = m_leftFieldTabs->indexOf(it.value());
+        if (existing >= 0) {
+            m_leftFieldTabs->setCurrentIndex(existing);
+            m_leftFieldDock->show();
+            m_leftFieldDock->raise();
+            return;
+        }
+        m_leftToolWidgetPages.erase(it);
+    }
+
+    const bool firstTabInStack = (m_leftFieldTabs->count() == 0);
+    QWidget* page = wrapContentInScrollArea(content, m_leftFieldTabs, false);
+    // 关闭时内容被挂回主窗口并隐藏，换父对象后需要重新显示
+    content->show();
+    const int idx = m_leftFieldTabs->addTab(page, title);
+    m_leftToolWidgetPages.insert(key, page);
+    m_leftFieldDock->show();
+    m_leftFieldDock->raise();
+    m_leftFieldTabs->setCurrentIndex(idx);
+    if (firstTabInStack) {
+        QTimer::singleShot(0, this, [this]() { applyLeftToolStackVerticalSplit(); });
+    }
+}
+
+void igQtMainWindow::closeLeftToolWidget(const QString& key) {
+    if (!m_leftFieldTabs) return;
+    auto it = m_leftToolWidgetPages.find(key);
+    if (it == m_leftToolWidgetPages.end()) return;
+    QWidget* page = it.value();
+    m_leftToolWidgetPages.erase(it);
+
+    const int idx = m_leftFieldTabs->indexOf(page);
+    if (idx < 0) return;
+    // 只拆掉外层滚动区域，面板本身挂回主窗口保留下来，下次打开时参数还在
+    if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
+        if (QWidget* inner = scroll->takeWidget()) {
+            inner->setParent(this);
+            inner->hide();
+        }
+        scroll->deleteLater();
+    }
+    m_leftFieldTabs->removeTab(idx);
+    for (int& t: m_leftToolTabByPanel) {
+        if (t > idx) --t;
+    }
+    if (m_leftFieldTabs->count() == 0 && m_leftFieldDock) m_leftFieldDock->hide();
 }
 
 void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
