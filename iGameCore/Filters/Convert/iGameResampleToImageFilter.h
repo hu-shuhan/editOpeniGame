@@ -85,11 +85,15 @@ public:
 
     //@{
     /// 与 VTK vtkProbeFilter 一致的「格点是否落在单元内」容差参数。
-    /// ComputeTolerance 为 true（默认，与 VTK 构造函数一致）时容差按
-    /// tol2 = 最大单元长度² × 1e-6（vtkProbeFilter::CELL_TOLERANCE_FACTOR_SQR）自动推算，
+    /// ComputeTolerance 为 true（默认，与 VTK 构造函数一致）时，容差按**逐单元**推算：
+    /// tol2 = vtkProbeFilter::CELL_TOLERANCE_FACTOR_SQR(1e-6) × 该单元自身包围盒对角线²，
     /// Tolerance 被忽略；为 false 时 tol2 = Tolerance²（VTK 中 Tolerance 默认 1.0）。
-    /// 判定语义也与 VTK 一致：先解出单元局部坐标，截断到单元参数域后重算权重，
-    /// 用「点到该最近点的距离」与 tol2 比较，而不是只看重心坐标是否非负。
+    /// 判定语义与 VTK 一致（vtkProbeFilter::ProbeImagePointsInCell）：
+    ///   - 先调用等价 vtkCell::EvaluatePosition 的定位，要求返回值 == 1（点在单元参数域内）；
+    ///   - 三维单元（四面体 / 六面体）VTK 传 closestPoint = nullptr，dist2 保持初值 0，
+    ///     因此 tol2 判定恒成立 —— 三维单元是否有效只取决于上面的「在单元内」判定；
+    ///   - 0/1/2 维单元才会用「点到最近点的距离平方」与 tol2 比较；
+    ///   - 格点一旦被判为有效就不再被其它单元覆盖（先到先得，与 VTK 的 mask==1 跳过一致）。
     void SetTolerance(double t) { m_Tolerance = t; }
     double GetTolerance() const { return m_Tolerance; }
     void SetComputeTolerance(bool b) { m_ComputeTolerance = b; }
