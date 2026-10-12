@@ -24,6 +24,9 @@
 #include "iGameShaderManager.h"
 #include "iGameTextOverlay2DActor.h"
 #include <chrono>
+#ifndef __EMSCRIPTEN__
+#include "iGameEnvironmentLight.h"
+#endif
 
 IGAME_NAMESPACE_BEGIN
 
@@ -184,7 +187,11 @@ public:
     SmartPointer<Camera> GetCamera();
 
     /**
-     * @brief 设置表面着色模式，当前仅Web端支持。
+     * @brief 设置表面着色模式。
+     *
+     * mode: 0 = Blinn-Phong（旧观感）、1 = 无光照（仅Web端生效）、
+     *       2 = PBR（仅桌面端生效，默认值）。超出 [0, 2] 时回退为 0。
+     *
      * @param mode 着色模式。
      */
     void SetSurfaceShadingMode(int mode);
@@ -192,6 +199,89 @@ public:
      * @brief 获取表面着色模式。
      */
     int GetSurfaceShadingMode() const;
+
+#ifndef __EMSCRIPTEN__
+    // Shared by desktop surface shaders; never drawn as the background.
+    void SetEnvironmentEnabled(bool enabled);
+    bool GetEnvironmentEnabled() const { return m_EnvironmentEnabled; }
+    void SetEnvironmentIntensity(float intensity);
+    float GetEnvironmentIntensity() const { return m_EnvironmentIntensity; }
+    void SetEnvironmentRotation(float degrees);
+    float GetEnvironmentRotation() const { return m_EnvironmentRotation; }
+    void ApplyEnvironmentUniforms(const SmartPointer<GLShaderProgram>& shader) const;
+#endif
+
+    /**
+     * @brief 表面材质预设，仅作用于桌面端使用 PBR 着色的不透明表面。
+     */
+    enum class MaterialPreset {
+        GlossyPlastic = 0, ///< 反光塑料（默认）
+        Matte,             ///< 哑光
+        PolishedMetal,     ///< 光滑金属
+        BrushedMetal,      ///< 拉丝金属（较粗糙）
+    };
+
+    /**
+     * @brief 设置表面材质预设。
+     * @param preset 材质预设。
+     */
+    void SetMaterialPreset(MaterialPreset preset);
+    /**
+     * @brief 获取表面材质预设。
+     */
+    MaterialPreset GetMaterialPreset() const;
+    /**
+     * @brief 获取当前材质预设对应的金属度与粗糙度。
+     * @param metallic 输出金属度。
+     * @param roughness 输出粗糙度。
+     */
+    void GetMaterialParameters(float& metallic, float& roughness) const;
+    /**
+     * @brief 直接设置 PBR 材质参数（金属度 / 粗糙度）。
+     *
+     * 与 SetMaterialPreset 共用同一份状态：预设等价于「把金属度与粗糙度一次
+     * 置为某组常用值」，因此界面上的两个滑块与预设可以互相覆盖。
+     * 参数是全局的（Scene 级），对所有使用 PBR 着色的不透明表面生效。
+     *
+     * @param metallic 金属度，取值 [0, 1]。
+     * @param roughness 粗糙度，取值 [0, 1]（着色器内部还会再夹到最小粗糙度）。
+     */
+    void SetMaterialParameters(float metallic, float roughness);
+
+    /**
+     * @brief 设置 PBR 环境遮蔽强度（简易半球近似）。
+     *
+     * 与金属度/粗糙度一样是全局（Scene 级）参数，只作用于桌面端使用 PBR 着色的
+     * 不透明表面。0 = 关闭（画面与未引入本项时一致），1 = 全强度。实现见
+     * PBR.frag 的 HemisphereAo()：按「法线与世界 +Y 的夹角」压暗间接光，
+     * 不是屏幕空间 AO，不反映真实遮挡；色带模型在着色器内强制关闭。
+     *
+     * @param strength 环境遮蔽强度，取值 [0, 1]。
+     */
+    void SetSurfaceAo(float strength);
+    /**
+     * @brief 获取 PBR 环境遮蔽强度。
+     * @return 环境遮蔽强度，取值 [0, 1]。
+     */
+    float GetSurfaceAo() const;
+
+
+    /**
+     * @brief 设置 Blinn-Phong 高光参数。
+     *
+     * 仅作用于桌面端使用 Blinn-Phong 着色的表面。高光强度默认为 0，
+     * 设置为 0 可关闭镜面高光及环境镜面反射。
+     *
+     * @param strength 高光强度，取值 [0, 1]。
+     * @param shininess 高光指数，取值 [1, 100]，越大高光越集中。
+     */
+    void SetBlinnPhongParameters(float strength, float shininess);
+    /**
+     * @brief 获取 Blinn-Phong 高光参数。
+     * @param strength 输出高光强度。
+     * @param shininess 输出高光指数。
+     */
+    void GetBlinnPhongParameters(float& strength, float& shininess) const;
 
     /**
      * @brief 更改相机类型。
@@ -270,6 +360,56 @@ public:
      * @param visible 是否显示中心坐标轴
      */
     void SetCenterAxesVisible(bool visible);
+
+    /**
+     * @brief 切换底板（地面网格）的显示状态
+     */
+    void ToggleGroundGrid();
+    /**
+     * @brief 设置底板（地面网格）的显示状态
+     * @param visible 是否显示底板
+     */
+    void SetGroundGridVisible(bool visible);
+    /**
+     * @brief 获取底板（地面网格）的显示状态
+     * @return 是否显示底板
+     */
+    bool GetGroundGridVisible() const;
+
+#ifndef __EMSCRIPTEN__
+    /**
+     * @brief 依据当前可见模型的包围盒更新底板参数。
+     *
+     * 底板是一层水平网格，位于内容包围盒底部（XZ 平面，y 为包围盒 ymin 略向
+     * 下沉）。参考格距按"最长边（含 Y）/ 10"自动选档（1/2/5 x 10^n），只在
+     * 内容变化时重算一次，同一批内容下参考格距固定；网格锚定世界原点，因此
+     * 调整格距档位或扩大可见范围时，已有线都不会移动。
+     *
+     * 桌面端底板由片元着色器逐像素解析生成（无限延伸、无边界、无几何），这里
+     * 只准备参数；不参与 Web 渲染流程。
+     *
+     * "内容"= 可见模型的联合包围盒；没有可见模型时优先沿用上一次加载过的
+     * 内容（删掉/再加载同量级模型不会跳），完全没加载过则退化为引擎默认的
+     * 单位包围球（中心原点、半径 1）——相机取景用的也是这个球，所以空场景
+     * 和"加载一个同等大小的模型"观感一致。模型集合变化后由 Scene 内部自动
+     * 更新，外部一般无需直接调用。
+     */
+    void UpdateGroundGrid();
+
+    /**
+     * @brief 更新底板的可见半径（模型空间）。
+     *
+     * 既保证能盖住模型本身，又跟随"相机到平面的高度"一起变大（拉远时网格
+     * 跟着铺开），桌面端用它作为距离渐隐半径并撑开相机远裁剪面；每帧相机变化
+     * 后调用，CameraClippingRange 更新前生效。
+     */
+    void UpdateGroundGridExtent();
+
+    /**
+     * @brief 绘制桌面端的解析式无限底板（仅桌面端，见 GroundGrid.frag）。
+     */
+    void DrawGroundGrid();
+#endif
 
     /**
      * @brief 切换XYZ坐标轴的显示状态
@@ -464,6 +604,14 @@ protected:
     GetShader(ShaderType type); //获取指定类型的着色器程序
     void
     UpdateModelsBoundingSphere(); //更新场景中所有可见模型的包围球(用于视锥剔除和相机定位)
+
+#ifndef __EMSCRIPTEN__
+    // 计算底板的"内容包围盒"= 可见模型的联合包围盒（跳过中心坐标轴等
+    // 辅助对象，也不包含底板自身）。没有可见模型时返回空包围盒。
+    // 取包围盒是廉价的（DataObject::ComputeBoundingBox 内部有 MTime 守卫），
+    // 因此可以每帧调用，用来判断底板是否需要重建。
+    BoundingBox ComputeGroundGridContentBox();
+#endif
     void InitOpenGL();
     void InitOIT();
     void InitAxes(); //初始化场景坐标轴
@@ -570,6 +718,23 @@ protected:
     SmartPointer<Painter2D> m_Painter2D;
     SmartPointer<Painter3D> m_Painter3D;
 
+#ifndef __EMSCRIPTEN__
+    // 桌面端解析式底板：不进模型池，不参与包围盒统计、相机取景与拾取。
+    bool m_GroundGridVisible {true};  // 底板显示开关
+    bool m_GroundGridDirty {true};    // 需要重建底板几何
+    bool m_GroundGridBuilt {false};   // 当前是否已有可用底板几何
+    // 上一次加载过的"内容包围盒"：空场景时沿用它，使删掉/再加载同量级模型
+    // 时底板不跳（完全没加载过则用默认单位包围球）。
+    BoundingBox m_GroundGridLastContentBox;
+    // 上一次用于建板的"内容"（可见模型联合包围盒，可能为空）。每帧与当前
+    // 内容比较，只要变了就重建底板，避免漏掉"包围盒晚一帧才就绪"的情况。
+    BoundingBox m_GroundGridContentBox;
+    igm::vec3 m_GroundGridCenter {0.0f, 0.0f, 0.0f}; // 底板中心（模型空间）
+    float m_GroundGridRadius {0.0f};  // 底板外接圆半径（模型空间）
+    float m_GroundGridCell {0.02f};   // 参考格距（模型空间，1/2/5 x 10^n）
+    float m_GroundGridContentScale {1.0f}; // 内容包围盒最长边（含 Y，模型空间）
+#endif
+
     bool m_FinishInit;            // 是否完成初始化
     bool m_EnableVolumeRendering; // 是否启用体绘制
 
@@ -594,8 +759,28 @@ protected:
     // 记录是否处于交互状态
     bool m_IsInteracting = false;
 
-    //表面着色模式
-    int m_SurfaceShadingMode = 0;
+    //表面着色模式（0: Blinn-Phong，1: 无光照，2: PBR）
+    int m_SurfaceShadingMode = 2;
+
+#ifndef __EMSCRIPTEN__
+    SmartPointer<EnvironmentLight> m_EnvironmentLight;
+    bool m_EnvironmentEnabled = true;
+    float m_EnvironmentIntensity = 1.0f;
+    float m_EnvironmentRotation = 0.0f;
+#endif
+
+    //表面材质预设（仅桌面端 PBR 着色使用，仅作为金属度/粗糙度的一键回填）
+    MaterialPreset m_MaterialPreset = MaterialPreset::GlossyPlastic;
+
+    //PBR 材质参数（全局，仅桌面端 PBR 着色使用）
+    float m_SurfaceMetallic = 0.0f;
+    float m_SurfaceRoughness = 0.35f;
+    //PBR 环境遮蔽强度（全局，半球近似；0 = 关闭，1 = 全强度）
+    float m_SurfaceAo = 1.0f;
+
+    //Blinn-Phong 高光参数（全局，仅桌面端 Blinn-Phong 着色使用）
+    float m_SurfaceSpecularStrength = 0.0f;
+    float m_SurfaceShininess = 32.0f;
 
     friend class RenderWindow;
     friend class Model;

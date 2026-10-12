@@ -45,7 +45,8 @@ enum class ShaderType {
     FXAA,                ///< 快速抗锯齿（FXAA）
     CULLINGPHASE1,       ///< 裁剪阶段1
     CULLINGPHASE2,       ///< 裁剪阶段2
-    REMOTE_SINGLEPASSWIREFRAME ///< C/S-only constant edge-mask shader
+    REMOTE_SINGLEPASSWIREFRAME, ///< C/S-only constant edge-mask shader
+    GROUNDGRID ///< 解析式无限底板（地面网格，仅桌面端）
 };
 
 

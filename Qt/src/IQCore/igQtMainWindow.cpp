@@ -48,6 +48,7 @@
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtElevationFilterPanel.h>
+#include <IQWidgets/igQtShadingWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
@@ -1128,6 +1129,12 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
     ColorManagerWidget->setGeometry(400, 500, 780, 1000);
+    // 着色与材质设置：常驻窗口（无边框、置顶），由菜单项控制显示/隐藏，
+    // 参数改动即时生效，因此这里不创建模态对话框。
+    this->shadingWidget = new igQtShadingWidget(this);
+    shadingWidget->hide();
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            shadingWidget, &igQtShadingWidget::syncNormalSource);
 
     // 初始化AI聊天DockWidget
     aiChatDockWidget = new QDockWidget(this);
@@ -1384,6 +1391,17 @@ void igQtMainWindow::initAllComponents() {
    });
     ui->action_ShowOrientationAxes->setCheckable(true);
     ui->action_ShowOrientationAxes->setChecked(true);
+
+    // 底板（地面网格）：不透明深灰台面 + 分级网格线，随可见模型自动适配尺寸
+    connect(ui->action_ShowGroundGrid, &QAction::toggled, this, [](bool checked) {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) { return; }
+        scene->SetGroundGridVisible(checked);
+        scene->Update();
+    });
+    ui->action_ShowGroundGrid->setCheckable(true);
+    ui->action_ShowGroundGrid->setChecked(true);
+
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
@@ -1396,6 +1414,24 @@ void igQtMainWindow::initAllComponents() {
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+    // 着色与材质设置：可勾选菜单项控制常驻窗口的显示/隐藏（与 ColorManager 一致）。
+    connect(ui->action_ShadingSettings, &QAction::triggered, this, [this](bool checked) {
+        if (checked) {
+            if (!shadingWidget->property("igPlaced").toBool()) {
+                const QPoint origin = mapToGlobal(QPoint(width(), 0));
+                shadingWidget->move(origin.x() - shadingWidget->width() - 24,
+                                    origin.y() + 80);
+                shadingWidget->setProperty("igPlaced", true);
+            }
+            // 打开前同步一次场景里的当前值（着色模型可能已被其它入口改过）。
+            shadingWidget->syncFromScene();
+            shadingWidget->show();
+            shadingWidget->raise();
+            shadingWidget->activateWindow();
+        } else {
+            shadingWidget->hide();
+        }
+    });
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);

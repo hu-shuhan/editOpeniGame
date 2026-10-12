@@ -4,6 +4,7 @@
 #include "iGameRenderingLogger.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 
 IGAME_NAMESPACE_BEGIN
@@ -63,6 +64,9 @@ Scene::Scene() {
     m_Interactor = Interactor::New();
     m_FontManager = FontManager::New();
     m_ShaderManager = ShaderManager::New();
+#ifndef __EMSCRIPTEN__
+    m_EnvironmentLight = EnvironmentLight::New();
+#endif
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
@@ -118,6 +122,10 @@ Scene::~Scene() {
 void Scene::Finalize() {
     std::cout << "[iGameDestroy] Scene::Finalize this=" << this << '\n';
     m_ModelPool = nullptr;
+#ifndef __EMSCRIPTEN__
+    if (m_EnvironmentLight) m_EnvironmentLight->Release();
+    m_EnvironmentLight = nullptr;
+#endif
     m_CurrentModelID = 0;
     m_Interactor = nullptr;
     m_Axes = nullptr;
@@ -199,6 +207,9 @@ bool Scene::Initialize() {
     }
 
     this->InitOpenGL();
+#ifndef __EMSCRIPTEN__
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+#endif
 #ifndef IGAME_OPENGL_VERSION_GLES2
     this->InitOIT();
 #endif
@@ -252,6 +263,9 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     }
     #endif
 
+#ifndef __EMSCRIPTEN__
+    m_GroundGridDirty = true; // 可见模型集合变化，底板需要重新适配尺寸
+#endif
     Update();
     return modelID;
 }
@@ -410,6 +424,9 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
     }
 
     UpdateCameraClippingRange();
+#ifndef __EMSCRIPTEN__
+    m_GroundGridDirty = true; // 可见模型集合变化，底板需要重新适配尺寸
+#endif
 }
 
 void Scene::SetBackGround(const Color& color) {
@@ -485,10 +502,109 @@ void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
 void Scene::SetSurfaceShadingMode(int mode) {
-    if (mode < 0 || mode > 1) { mode = 0; }
+    if (mode < 0 || mode > 2) { mode = 0; }
     m_SurfaceShadingMode = mode;
+    this->Modified();
 }
 int Scene::GetSurfaceShadingMode() const { return m_SurfaceShadingMode; }
+
+#ifndef __EMSCRIPTEN__
+void Scene::SetEnvironmentEnabled(bool enabled) {
+    m_EnvironmentEnabled = enabled;
+    Update();
+}
+void Scene::SetEnvironmentIntensity(float intensity) {
+    if (!std::isfinite(intensity)) return;
+    m_EnvironmentIntensity = std::clamp(intensity, 0.0f, 4.0f);
+    Update();
+}
+void Scene::SetEnvironmentRotation(float degrees) {
+    if (!std::isfinite(degrees)) return;
+    m_EnvironmentRotation = std::fmod(degrees, 360.0f);
+    if (m_EnvironmentRotation < 0.0f) m_EnvironmentRotation += 360.0f;
+    Update();
+}
+void Scene::ApplyEnvironmentUniforms(const SmartPointer<GLShaderProgram>& shader) const {
+    if (m_EnvironmentLight)
+        m_EnvironmentLight->Bind(shader, m_EnvironmentEnabled,
+                                m_EnvironmentIntensity, m_EnvironmentRotation);
+}
+#endif
+
+void Scene::SetMaterialPreset(MaterialPreset preset) {
+    m_MaterialPreset = preset;
+
+    float metallic = 0.0f;
+    float roughness = 0.35f;
+    switch (m_MaterialPreset) {
+        case MaterialPreset::Matte:
+            metallic = 0.0f;
+            roughness = 0.75f;
+            break;
+        case MaterialPreset::PolishedMetal:
+            metallic = 1.0f;
+            roughness = 0.25f;
+            break;
+        case MaterialPreset::BrushedMetal:
+            metallic = 1.0f;
+            roughness = 0.55f;
+            break;
+        case MaterialPreset::GlossyPlastic:
+        default:
+            metallic = 0.0f;
+            roughness = 0.35f;
+            break;
+    }
+    this->SetMaterialParameters(metallic, roughness);
+}
+
+Scene::MaterialPreset Scene::GetMaterialPreset() const {
+    return m_MaterialPreset;
+}
+
+void Scene::SetMaterialParameters(float metallic, float roughness) {
+    if (metallic < 0.0f) { metallic = 0.0f; }
+    if (metallic > 1.0f) { metallic = 1.0f; }
+    if (roughness < 0.0f) { roughness = 0.0f; }
+    if (roughness > 1.0f) { roughness = 1.0f; }
+
+    m_SurfaceMetallic = metallic;
+    m_SurfaceRoughness = roughness;
+    this->Modified();
+}
+
+void Scene::GetMaterialParameters(float& metallic, float& roughness) const {
+    metallic = m_SurfaceMetallic;
+    roughness = m_SurfaceRoughness;
+}
+
+void Scene::SetSurfaceAo(float strength) {
+    if (strength < 0.0f) { strength = 0.0f; }
+    if (strength > 1.0f) { strength = 1.0f; }
+
+    m_SurfaceAo = strength;
+    this->Modified();
+}
+
+float Scene::GetSurfaceAo() const {
+    return m_SurfaceAo;
+}
+
+void Scene::SetBlinnPhongParameters(float strength, float shininess) {
+    if (strength < 0.0f) { strength = 0.0f; }
+    if (strength > 1.0f) { strength = 1.0f; }
+    if (shininess < 1.0f) { shininess = 1.0f; }
+    if (shininess > 100.0f) { shininess = 100.0f; }
+
+    m_SurfaceSpecularStrength = strength;
+    m_SurfaceShininess = shininess;
+    this->Modified();
+}
+
+void Scene::GetBlinnPhongParameters(float& strength, float& shininess) const {
+    strength = m_SurfaceSpecularStrength;
+    shininess = m_SurfaceShininess;
+}
 
 void Scene::ChangeCameraType(Camera::Type type) {
     this->ResetCameraView();
@@ -1087,12 +1203,28 @@ void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
 
 void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
+#ifndef __EMSCRIPTEN__
+    if (m_EnvironmentEnabled && m_EnvironmentLight) {
+        m_EnvironmentLight->Initialize();
+    }
+#endif
 
     // Convert to drawable data
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         model->SyncGpuBuffers();
     }
+
+#ifndef __EMSCRIPTEN__
+    // 底板几何只在"内容"变化时重建。这里每帧比对一次内容包围盒而不是只用
+    // 一次性脏标记：模型刚加载时它的包围盒有可能晚一帧才就绪，只靠标志会
+    // 出现"消费掉脏标记后再也不更新"的情况。（取包围盒有 MTime 守卫，很便宜）
+    if (m_GroundGridDirty ||
+        ComputeGroundGridContentBox() != m_GroundGridContentBox) {
+        UpdateGroundGrid();
+    }
+
+#endif
 
     // Update camera data block in GPU
     UpdateCameraDataBlock();
@@ -1326,6 +1458,13 @@ void Scene::ForwardPass() {
     // Draw scene painter
     BindFramebuffer();
     m_Painter3D->Draw();
+
+#ifndef __EMSCRIPTEN__
+    // 桌面端解析式底板；Web 保持原有绘制流程。
+    if (m_GroundGridVisible && m_GroundGridBuilt) {
+        DrawGroundGrid();
+    }
+#endif
 
 #ifndef __EMSCRIPTEN__
     ResolveFrameBuffer();
@@ -1567,9 +1706,35 @@ void Scene::UpdateCameraClippingRange() {
     float nearPlane = dist - radius;
     float farPlane = dist + radius;
 
+#ifndef __EMSCRIPTEN__
+    // 底板范围远大于模型，它的远角会落在"按模型包围球算出的"裁剪范围之外，
+    // 表现为底板被裁掉一部分。这里把底板一并计入裁剪范围（只影响 near/far，
+    // 不影响取景使用的包围球）。桌面端网格要一直铺到渐隐半径之外才淡出，
+    // 所以远裁剪面必须先跟到这个半径。
+    UpdateGroundGridExtent();
+    if (m_GroundGridBuilt && m_GroundGridVisible && m_GroundGridRadius > 0.0f) {
+        const igm::vec3 groundCenterInWorld =
+                (m_ModelMatrix * igm::vec4{m_GroundGridCenter, 1.0f}).xyz();
+        const igm::vec3 vGround = groundCenterInWorld - cameraPos;
+        const float groundDist =
+                std::abs(front.dot(vGround) / front.length());
+        const float groundFar = groundDist + m_GroundGridRadius;
+        const float groundNear = groundDist - m_GroundGridRadius;
+        if (groundFar > farPlane) { farPlane = groundFar; }
+        if (groundNear < nearPlane) { nearPlane = groundNear; }
+    }
+
+#endif
+
     // https://3dgumshoe.com/maya-fixing-z-fighting/
     const float minGap = 0.0001f;
+#ifndef __EMSCRIPTEN__
+    // 桌面端底板使用更大的近裁剪下限；Web 保持原有计算。
+    const float minNear = std::max(minGap * farPlane, 0.01f * farPlane);
+    if (nearPlane < minNear) { nearPlane = minNear; }
+#else
     if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
+#endif
 
     // std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
     //           << std::endl;
@@ -1733,6 +1898,212 @@ void Scene::SetAxesVisible(bool visible) {
     this->Modified();
 }
 bool Scene::GetAxesVisible() const { return m_AxesVisible; }
+
+// ===================== 底板（地面网格） =====================
+
+#ifndef __EMSCRIPTEN__
+namespace
+{
+// ---- 底板（地面网格）参数 ----
+// 刻度按"内容包围盒最长边（含 Y）/ 模型跨几格"自动选档（取 1/2/5 x 10^n），
+// 只在内容变化时重算一次；同一批内容下刻度固定，也没有任何远处变宽的分级。
+constexpr float kGroundGridCellsPerModel = 10.0f;
+// 底板边长 = 内容包围盒最长边 x 该倍数（3 倍：模型占底板中间三分之一，
+// 四周各留半个模型边长；再小就会显得"贴着模型"、边缘很明显）
+constexpr float kGroundGridPlateScale = 3.0f;
+// 空场景（从未加载过模型）时，把内容当作一个"边长 1 的单位立方体"（中心在
+// 原点）。这样空场景的刻度和底板尺寸正好等于"加载一个跨度 1 的模型"的情况，
+// 导入这类模型时底板不会变化。
+constexpr float kGroundGridVirtualContentHalfExtent = 0.5f;
+// 底板相对模型高度的下沉比例，避免与模型底面共面闪烁
+constexpr float kGroundGridSinkRatio = 0.002f;
+// 桌面端底板的可见半径下限还会跟着相机高度放大：拉远时网格跟着铺开，
+// 近处不浪费、远处也不会看到边界。
+constexpr float kGroundGridCameraRadiusFactor = 6.0f;
+
+const igm::vec3 kGroundGridColor {0.30f, 0.32f, 0.35f};   // 细网格线
+const igm::vec3 kGroundMajorColor {0.46f, 0.49f, 0.53f};  // 每 10 格的中等线
+
+// 把刻度收敛到 1/2/5 x 10^n 里最接近的档，让网格刻度保持可读
+float NiceGridSpacing(float target) {
+    if (!(target > 0.0f)) { return 1.0f; }
+    const float exponent = std::floor(std::log10(target));
+    const float base = std::pow(10.0f, exponent);
+    const float mantissa = target / base; // [1, 10)
+    float mantissaNice = 1.0f;
+    if (mantissa > 1.5f) { mantissaNice = 2.0f; }
+    if (mantissa > 3.5f) { mantissaNice = 5.0f; }
+    if (mantissa > 7.5f) { mantissaNice = 10.0f; }
+    return mantissaNice * base;
+}
+} // namespace
+
+BoundingBox Scene::ComputeGroundGridContentBox() {
+    // 解析式底板不在模型池里，因此不会把自己的尺寸再算回来；
+    // 中心坐标轴属于辅助对象，一并排除。
+    BoundingBox box;
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (!model->GetVisibility()) { continue; }
+        auto dataObject = model->GetDataObject();
+        if (!dataObject) { continue; }
+        if (dataObject.get() == m_CenterAxesModel.get()) { continue; }
+        box.add(dataObject->GetBoundingBox());
+    }
+    return box;
+}
+
+void Scene::UpdateGroundGrid() {
+    m_GroundGridDirty = false;
+
+    BoundingBox box = ComputeGroundGridContentBox();
+    m_GroundGridContentBox = box; // 记录本次建板依据的内容，供每帧比对
+
+    // 没有可见模型时，把"内容"退化为：优先沿用上一次加载过的内容包围盒
+    // （这样删掉/再加载同量级模型时不会跳），完全没加载过就用引擎默认的
+    // 单位包围球（中心原点、半径 1）——相机取景用的也是这个球，于是空场景
+    // 和"加载一个同等大小的模型"走的是同一套数值关系。
+    if (!box.isNull()) {
+        m_GroundGridLastContentBox = box;
+    } else if (!m_GroundGridLastContentBox.isNull()) {
+        box = m_GroundGridLastContentBox;
+    } else {
+        const double r =
+                static_cast<double>(kGroundGridVirtualContentHalfExtent);
+        box = BoundingBox(Vector3d{-r, -r, -r}, Vector3d{r, r, r});
+    }
+
+    const double xmin = box.min[0], xmax = box.max[0];
+    const double ymin = box.min[1], ymax = box.max[1];
+    const double zmin = box.min[2], zmax = box.max[2];
+
+    // 刻度自动选档：按内容包围盒最长边（含 Y）定一个可读刻度。只有内容变化
+    // 时才会重算，同一批内容下刻度不会再变，也没有任何远处变宽的分级。
+    const float longestEdge = static_cast<float>(
+            std::max({xmax - xmin, ymax - ymin, zmax - zmin}));
+    const float cell = NiceGridSpacing(longestEdge / kGroundGridCellsPerModel);
+
+    const float contentHeight = static_cast<float>(std::max(ymax - ymin, 0.0));
+    // 中心和边界都对齐到格点：格点锚定世界原点，往外扩时已有线不会动
+    const float centerX =
+            std::round(static_cast<float>((xmin + xmax) * 0.5) / cell) * cell;
+    const float centerZ =
+            std::round(static_cast<float>((zmin + zmax) * 0.5) / cell) * cell;
+    const float planeY =
+            static_cast<float>(ymin) - contentHeight * kGroundGridSinkRatio;
+
+    // 底板中心与可见半径（模型空间），供相机裁剪范围与着色器使用
+    m_GroundGridCenter = igm::vec3{centerX, planeY, centerZ};
+    m_GroundGridCell = cell;
+    m_GroundGridContentScale = longestEdge;
+    m_GroundGridBuilt = true;
+    UpdateGroundGridExtent();
+}
+
+void Scene::UpdateGroundGridExtent() {
+    if (!m_GroundGridBuilt) { return; }
+
+    // 可见半径（模型空间）：下限保证盖住内容本身，再跟随相机到平面的高度
+    // 一起放大，于是拉近/拉远都不会把网格"看出边"。
+    const float contentScale = std::max(m_GroundGridContentScale, 1e-6f);
+    float radius = kGroundGridPlateScale * contentScale;
+
+    const igm::vec3 cameraInModel =
+            (m_ModelMatrix.invert() *
+             igm::vec4{m_Camera->GetPosition(), 1.0f})
+                    .xyz();
+    const float cameraHeight =
+            std::abs(cameraInModel.y - m_GroundGridCenter.y);
+    radius = std::max(radius, kGroundGridCameraRadiusFactor * cameraHeight);
+
+    m_GroundGridRadius = radius;
+}
+
+void Scene::DrawGroundGrid() {
+    if (!m_GroundGridBuilt || m_GroundGridCell <= 0.0f) { return; }
+
+    auto shader = this->GetShader(ShaderType::GROUNDGRID);
+    if (shader == nullptr) { return; }
+
+    // 网格在"模型空间"里解析生成，所以射线要反投影到模型空间；平面深度则
+    // 由交点正投影得到（本引擎是反向 Z，写窗口深度时才换算）。
+    const igm::mat4 model = m_ModelMatrix;
+    const igm::mat4 invModel = model.invert();
+    const igm::mat4 modelProjView =
+            m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix() * model;
+    const igm::vec3 cameraInModel =
+            (invModel * igm::vec4{m_Camera->GetPosition(), 1.0f}).xyz();
+
+    // 渐隐半径用"沿视线到平面中心的距离 + 可见半径"，它正是相机远裁剪面在该
+    // 方向上的深度，于是网格总在远平面切到它之前淡到 0，不会出现硬边；同时
+    // 它保证近处的模型区（也就是当前取景范围）永远不会被误淡。
+    const igm::vec3 frontInModel =
+            (invModel * igm::vec4{m_Camera->GetFront(), 0.0f}).xyz();
+    const float frontLength = frontInModel.length();
+    const float distanceAlongView =
+            frontLength > 0.0f
+                    ? std::abs(frontInModel.dot(m_GroundGridCenter -
+                                                cameraInModel)) /
+                              frontLength
+                    : 0.0f;
+    const float fadeRadius =
+            std::max(distanceAlongView + m_GroundGridRadius,
+                     m_GroundGridCell);
+
+    shader->Use();
+    shader->SetUniformMatrix4x4("uInvModelProjView", modelProjView.invert());
+    shader->SetUniformMatrix4x4("uModelProjView", modelProjView);
+    shader->SetUniform3f("uCameraPosModel", cameraInModel);
+    shader->SetUniformf("uPlaneY", m_GroundGridCenter.y);
+    shader->SetUniformf("uBaseCell", m_GroundGridCell);
+    shader->SetUniformf("uFadeRadius", fadeRadius);
+    shader->SetUniform3f("uLineColor", kGroundGridColor);
+    shader->SetUniform3f("uMajorColor", kGroundMajorColor);
+
+    // 网格是"叠加线"，不遮挡任何东西：参与深度测试（被模型正确挡住），但不写
+    // 深度，并按 alpha 混合叠加。这里显式设定状态，不依赖上游遗留的设置。
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLboolean depthWriteWasEnabled = GL_TRUE;
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);
+
+    glDepthRange(0.0, 1.0);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
+
+    glDepthMask(depthWriteWasEnabled);
+    if (!blendWasEnabled) { glDisable(GL_BLEND); }
+    glDepthFunc(GL_GREATER);
+    glDepthRange(0.0, 1.0);
+}
+#endif
+
+void Scene::ToggleGroundGrid() {
+#ifndef __EMSCRIPTEN__
+    SetGroundGridVisible(!m_GroundGridVisible);
+#endif
+}
+
+void Scene::SetGroundGridVisible(bool visible) {
+#ifndef __EMSCRIPTEN__
+    m_GroundGridVisible = visible;
+    this->Modified();
+#else
+    (void)visible;
+#endif
+}
+
+bool Scene::GetGroundGridVisible() const {
+#ifndef __EMSCRIPTEN__
+    return m_GroundGridVisible;
+#else
+    return false;
+#endif
+}
 
 void Scene::ToggleColorBar() { SetColorBarVisible(!m_ColorBarVisible); }
 
@@ -1904,6 +2275,9 @@ void Scene::UpdateModelsBoundingSphere() {
 
     if (box.isNull()) {
         m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
+#ifndef __EMSCRIPTEN__
+        m_GroundGridDirty = true;
+#endif
         return;
     }
 
@@ -1916,6 +2290,9 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
+#ifndef __EMSCRIPTEN__
+    m_GroundGridDirty = true; // 场景范围变化，底板需要重新适配尺寸
+#endif
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,

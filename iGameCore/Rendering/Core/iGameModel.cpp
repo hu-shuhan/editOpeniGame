@@ -180,6 +180,46 @@ ForEachDrawObject(DataObject::Pointer root,
         }
     }
 }
+
+// 表面着色用的 shader 选择：0/1 保持旧的 Blinn-Phong 行为，2 使用 PBR。
+// 注意：PBR.frag 依赖 ShaderManager::MapBufferBlock 中的 UBO 绑定。
+static ShaderType SurfaceShaderTypeFor(Scene* scene) {
+    return (scene != nullptr && scene->GetSurfaceShadingMode() == 2)
+                   ? ShaderType::PBR
+                   : ShaderType::BLINNPHONG;
+}
+
+// 写入 PBR 材质参数。只允许在当面着色器为 PBR 时调用：GLShaderProgram 在
+// uniform 不存在时会记录错误日志，对 Blinn-Phong 设置这些 uniform 会刷日志。
+static void ApplyPbrMaterialUniforms(
+        Scene* scene, const SmartPointer<GLShaderProgram>& shader) {
+    if (scene == nullptr || shader == nullptr) { return; }
+    float metallic = 0.0f;
+    float roughness = 0.35f;
+    scene->GetMaterialParameters(metallic, roughness);
+    shader->SetUniformf("uMetallic", metallic);
+    shader->SetUniformf("uRoughness", roughness);
+    // 环境遮蔽强度（简易半球近似）。0 = 关闭；色带模型在 PBR.frag 内强制关闭。
+    shader->SetUniformf("uAoStrength", scene->GetSurfaceAo());
+#ifndef __EMSCRIPTEN__
+    scene->ApplyEnvironmentUniforms(shader);
+#endif
+}
+
+// 写入 Blinn-Phong 高光参数。同样只允许在当面着色器为 BLINNPHONG 时调用，
+// 否则 GetUniformLocation 会因找不到 uniform 而记录错误并传入非法位置。
+static void ApplyBlinnPhongMaterialUniforms(
+        Scene* scene, const SmartPointer<GLShaderProgram>& shader) {
+    if (scene == nullptr || shader == nullptr) { return; }
+    float strength = 0.0f;
+    float shininess = 32.0f;
+    scene->GetBlinnPhongParameters(strength, shininess);
+    shader->SetUniformf("uSpecularStrength", strength);
+    shader->SetUniformf("uShininess", shininess);
+#ifndef __EMSCRIPTEN__
+    scene->ApplyEnvironmentUniforms(shader);
+#endif
+}
 } // namespace
 
 void Model::SetViewPointsSwitch(bool action) {
@@ -405,7 +445,9 @@ void Model::Draw() {
                     shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
                 }
 #else
-                auto shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
+                // 桌面端：0/1 保持 Blinn-Phong，2 使用 PBR
+                const auto surfaceShaderType = SurfaceShaderTypeFor(m_Scene);
+                auto shader = m_Scene->GetShader(surfaceShaderType);
 #endif
                 auto defaultColor = renderableObject->GetDefaultColor();
                 shader->Use();
@@ -415,6 +457,21 @@ void Model::Draw() {
                 if (!useColor && !colorWithCell) {
                     shader->SetUniform3f("inputColor", defaultColor);
                 }
+#ifndef __EMSCRIPTEN__
+                // Only the ordinary indexed VAO has a point-normal buffer.
+                // A disabled normal input must be zero even after another VAO draw.
+                glVertexAttrib3f(GL_LOCATION_IDX_2.Index(), 0.0f, 0.0f, 0.0f);
+                const bool hasNormal = !colorWithCell &&
+                        renderableObject->m_Normals->GetNumberOfValues() > 0 &&
+                        renderableObject->m_Normals->GetNumberOfElements() ==
+                                renderableObject->m_Positions->GetNumberOfElements();
+                shader->SetUniformi("uHasNormal", hasNormal ? 1 : 0);
+                if (surfaceShaderType == ShaderType::PBR) {
+                    ApplyPbrMaterialUniforms(m_Scene, shader);
+                } else {
+                    ApplyBlinnPhongMaterialUniforms(m_Scene, shader);
+                }
+#endif
 
                 if (colorWithCell) {
                     renderableObject->m_CellVAO->DrawArrays(
@@ -914,7 +971,22 @@ void Model::DrawPhase1() {
         }
 
         if (viewStyle & IG_SURFACE) {
-            m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
+            const auto surfaceShaderType = SurfaceShaderTypeFor(m_Scene);
+            auto surfaceShader = m_Scene->GetShader(surfaceShaderType);
+            surfaceShader->Use();
+            // Meshlet VAOs do not carry point normals yet. Reset the shared
+            // shader parameter and the disabled input's default for this draw.
+            surfaceShader->SetUniformi("uHasNormal", 0);
+            glVertexAttrib3f(GL_LOCATION_IDX_2.Index(), 0.0f, 0.0f, 0.0f);
+            if (surfaceShaderType == ShaderType::PBR) {
+                if (!useColor && !colorWithCell) {
+                    surfaceShader->SetUniform3f(
+                            "inputColor", surfaceObject->GetDefaultColor());
+                }
+                ApplyPbrMaterialUniforms(m_Scene, surfaceShader);
+            } else {
+                ApplyBlinnPhongMaterialUniforms(m_Scene, surfaceShader);
+            }
 
             unsigned int visibleMeshletCount = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
@@ -1245,7 +1317,22 @@ void Model::DrawPhase2() {
                 GLCheckError();
             }
 
-            m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
+            const auto surfaceShaderType = SurfaceShaderTypeFor(m_Scene);
+            auto surfaceShader = m_Scene->GetShader(surfaceShaderType);
+            surfaceShader->Use();
+            // Meshlet VAOs do not carry point normals yet. Reset the shared
+            // shader parameter and the disabled input's default for this draw.
+            surfaceShader->SetUniformi("uHasNormal", 0);
+            glVertexAttrib3f(GL_LOCATION_IDX_2.Index(), 0.0f, 0.0f, 0.0f);
+            if (surfaceShaderType == ShaderType::PBR) {
+                if (!useColor && !colorWithCell) {
+                    surfaceShader->SetUniform3f(
+                            "inputColor", surfaceObject->GetDefaultColor());
+                }
+                ApplyPbrMaterialUniforms(m_Scene, surfaceShader);
+            } else {
+                ApplyBlinnPhongMaterialUniforms(m_Scene, surfaceShader);
+            }
 
             unsigned int count = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(

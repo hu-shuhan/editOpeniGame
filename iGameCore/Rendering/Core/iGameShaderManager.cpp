@@ -180,6 +180,12 @@ void ShaderManager::MapBufferBlock() {
     shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
     shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
 
+    // map pbr shader block
+    shader = this->GetShader(ShaderType::PBR);
+    shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+    shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+    shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+
     // map no light shader block
     shader = this->GetShader(ShaderType::NOLIGHT);
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
@@ -533,6 +539,23 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->AddShaders(shader_task, shader_mesh, shader_frag);
 #endif
         } break;
+#ifndef __EMSCRIPTEN__
+        case ShaderType::GROUNDGRID: {
+            // 全屏三角形 + 逐像素解析网格：底板不再需要任何几何
+            SmartPointer<GLShader> fullScreenTriangle_vert =
+                    GLShader::CreateShader(
+                            std::string("./Resources/Shaders/"
+                                        "FullScreenTriangle.vert"),
+                            GL_VERTEX_SHADER);
+
+            SmartPointer<GLShader> groundGrid_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/GroundGrid.frag"),
+                    GL_FRAGMENT_SHADER);
+
+            sp->SetName("GROUNDGRID");
+            sp->AddShaders(fullScreenTriangle_vert, groundGrid_frag);
+        } break;
+#endif
         default:
             break;
     }
