@@ -1399,7 +1399,58 @@ void igQtMainWindow::initAllComponents() {
       }
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
-            [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+            [&](bool toggled) {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                if (scene == nullptr) { return; }
+
+                // 体绘制唯一入口：结构化网格走 compute 光线步进，
+                // 其它网格自动使用旧的片元链表实现（选型需要查询 GL 版本，
+                // 因此先确保上下文可用）。
+                scene->MakeCurrent();
+                std::string message;
+                const auto mode = scene->SetVolumeRendering(toggled, &message);
+                scene->DoneCurrent();
+
+                // 关闭时返回的也是 Off（表示"未开启"），这属于正常流程，不提示
+                if (!toggled) { return; }
+
+                if (mode != iGame::Scene::VolumeRenderingMode::Off) {
+                    // 成功开启：若发生了实现方式回退（例如非结构化网格），
+                    // 在状态栏给出提示即可，不弹窗打断
+                    if (!message.empty()) {
+                        statusBar()->showMessage(QString::fromStdString(message),
+                                                 5000);
+                    }
+                    return;
+                }
+
+                // 真正无法开启（没有可用网格/属性等）时才弹窗，
+                // 并复位勾选状态，避免菜单状态与实际不符
+                const QString text =
+                        message.empty()
+                                ? QStringLiteral("当前数据无法进行体绘制。")
+                                : QString::fromStdString(message);
+                QMessageBox::warning(this, QStringLiteral("体绘制"), text);
+                ui->action_VolumeRendering->setChecked(false);
+            });
+    // 运行期失败提示：光线步进体绘制构建失败（例如属性被移除、数据被移出场景）
+    // 时，渲染循环会关闭 compute 体绘制并留下消息，这里每帧检查一次并弹窗。
+    // 切换到非结构化网格属于正常选型切换（自动改用旧的片元链表实现）
+    if (rendererWidget != nullptr) {
+        connect(rendererWidget, &QOpenGLWidget::frameSwapped, this, [&]() {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (scene == nullptr) { return; }
+
+            std::string message;
+            if (!scene->ConsumeVolumeRaycastFailure(&message)) { return; }
+
+            QMessageBox::warning(this, QStringLiteral("体绘制"),
+                                 QString::fromStdString(message));
+            if (ui->action_VolumeRendering != nullptr) {
+                ui->action_VolumeRendering->setChecked(false);
+            }
+        });
+    }
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
@@ -3337,7 +3388,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QMenu* attrDiffMenu = view->addMenu(QStringLiteral("属性差值(AttrDiffPerFrame)"));
+    QMenu* attrDiffMenu = view->addMenu(QStringLiteral("AttrDiffPerFrame（逐帧属性差值）"));
     auto funcAttrDiff = [this](int mode) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();

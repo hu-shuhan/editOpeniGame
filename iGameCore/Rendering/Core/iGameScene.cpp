@@ -2,9 +2,13 @@
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
 #include "iGameRenderingLogger.h"
+#include "iGameStructuredMesh.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <iostream>
+#include <limits>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -94,6 +98,9 @@ Scene::Scene() {
     m_OITLinkedListBuffer = GLBuffer::New();
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
+    m_VolumeTexture3d = GLTexture3d::New();
+    m_VolumeTransferFunction = GLTexture2d::New();
+
     m_HzbWidth = 0;
     m_HzbHeight = 0;
     m_HzbLevels = 0;
@@ -148,6 +155,9 @@ void Scene::Finalize() {
     m_VolumeFramebuffer = nullptr;
     m_VolumeColorTexture = nullptr;
     m_VolumeDepthTexture = nullptr;
+    m_VolumeTexture3d = nullptr;
+    m_VolumeTransferFunction = nullptr;
+    m_VolumeSourceObject = nullptr;
     m_HzbTexture = nullptr;
     m_Camera = nullptr;
 }
@@ -242,6 +252,9 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     m_CurrentModelID = modelID;
     model->SetVisibility(false);
     ChangeModelVisibility(model, true);
+
+    // 场景数据变了，体数据需要重建（若已开启 compute 体绘制）
+    m_VolumeDataDirty = true;
 
     #if __EMSCRIPTEN__
     auto drawObject = DynamicCast<DrawObject>(obj);
@@ -1120,11 +1133,18 @@ void Scene::DrawFrame() {
         TransparentPass();
     #endif
 #else
-        if (!m_EnableVolumeRendering) {
+        // 两种体绘制实现互斥：Raycast = compute 光线步进（结构化网格），
+        // Fragment = 旧的片元链表实现；都未开启时走普通渲染
+        if (m_EnableVolumeRaycasting) {
+            // 目前体绘制结果直接覆盖视口（与旧的体绘制行为一致，暂不与几何做
+            // 深度合成），后续可改为先画不透明几何再做深度感知合成
+            VolumeRaycastPass();
+        } else if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
             TransparentPass();
         } else {
+            // 旧的“片元链表”体绘制通道
             VolumeRenderingPass();
         }
 #endif
@@ -1505,11 +1525,80 @@ void Scene::VolumeRenderingPass() {
     {
         // add the result of drawing opaque objects
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
-            auto model = it->second;
-            model->DrawWithVolume();
-        }
+           auto model = it->second;
+           model->DrawWithVolume();
+       }
     }
     glDepthMask(GL_TRUE);
+
+    // 一次性自检（旧实现）：统计参与绘制的对象、子对象以及实际插入的片元数。
+    // fragments == 0 说明几何没有被光栅化（可见性/样式/索引为空等问题）；
+    // fragments > 0 说明片元已生成，问题在排序/合成或 blit 环节。
+    if (m_VolumeLegacyDiagPending) {
+        m_VolumeLegacyDiagPending = false;
+
+        int modelCount = 0;
+        int visibleModelCount = 0;
+        int objectCount = 0;
+        int visibleObjectCount = 0;
+        int surfaceObjectCount = 0;
+        int emptyIndexObjectCount = 0;
+        int renderableWithTriangles = 0;
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+            ++modelCount;
+            auto model = it->second;
+            if (model == nullptr) { continue; }
+            if (model->GetVisibility()) { ++visibleModelCount; }
+
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+            if (drawObject == nullptr) { continue; }
+
+            auto accumulate = [&](const SmartPointer<DataObject>& object) {
+                auto candidate = DynamicCast<DrawObject>(object);
+                if (candidate == nullptr) { return; }
+                ++objectCount;
+                if (candidate->GetVisibility()) { ++visibleObjectCount; }
+                if (candidate->GetViewStyle() & IG_SURFACE) {
+                    ++surfaceObjectCount;
+                }
+                if (candidate->m_TriangleIndices == nullptr ||
+                    candidate->m_TriangleIndices->GetNumberOfValues() == 0) {
+                    ++emptyIndexObjectCount;
+                }
+                // 回退用的渲染对象是否有几何（体绘制现在会在原始体为空时回退）
+                auto renderable = candidate->GetRenderableObject(false);
+                if (renderable != nullptr &&
+                    renderable->m_TriangleIndices != nullptr &&
+                    renderable->m_TriangleIndices->GetNumberOfValues() > 0) {
+                    ++renderableWithTriangles;
+                }
+            };
+
+            if (!drawObject->HasSubDataObject()) {
+                accumulate(drawObject);
+                continue;
+            }
+            for (auto sit = drawObject->SubDataObjectIteratorBegin();
+                 sit != drawObject->SubDataObjectIteratorEnd(); ++sit) {
+                accumulate(sit->second);
+            }
+        }
+
+        GLuint fragmentCount = 0;
+        if (m_OITAtomicCounterBuffer != nullptr) {
+            m_OITAtomicCounterBuffer->GetSubData(0, sizeof(fragmentCount),
+                                                 &fragmentCount);
+        }
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRenderingPass][diag] models={} visibleModels={} "
+                "objects={} visibleObjects={} surfaceObjects={} "
+                "emptyIndexObjects={} renderableTriObjects={} fragments={} "
+                "viewport={}x{}.",
+                modelCount, visibleModelCount, objectCount, visibleObjectCount,
+                surfaceObjectCount, emptyIndexObjectCount, renderableWithTriangles,
+                fragmentCount, width, height);
+        GLCheckError();
+    }
 
     // 3.sorting and blending colors
     glDisable(GL_DEPTH_TEST);
@@ -1539,6 +1628,918 @@ void Scene::VolumeRenderingPass() {
 #endif
     glDisable(GL_DEPTH_TEST);
     GLCheckError();
+}
+
+void Scene::BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
+                                        float valueMin, float valueMax) {
+#ifdef IGAME_OPENGL_VERSION_460
+    if (m_VolumeTransferFunction == nullptr) { return; }
+
+    // 256x1 传输函数 LUT：
+    //  * 颜色：优先取数据对象的色标，使体绘制与表面绘制共用同一套颜色映射
+    //  * 不透明度：仅在勾选“不透明度映射”时取色标，否则用默认线性斜坡，
+    //    否则整块体数据会一步就变成完全不透明
+    constexpr int kLutSize = 256;
+    const float controlPos[3] = {0.0f, 0.5f, 1.0f};
+    // 默认使用的三段式颜色映射：蓝-灰-红，若后期修改默认色标，记得同步这块
+    const float controlColor[3][3] = {{0.20f, 0.25f, 0.75f},
+                                      {0.85f, 0.85f, 0.85f},
+                                      {0.90f, 0.15f, 0.10f}};
+
+    const bool useMapper = colorMapper != nullptr;
+    const bool useMapperOpacity =
+            useMapper && colorMapper->GetOpacityMappingEnabled();
+    float shift = 0.0f;
+    float scale = 1.0f;
+    if (useMapper) { colorMapper->ComputeShiftScale(shift, scale); }
+
+    const float valueRange = valueMax - valueMin;
+    std::vector<unsigned char> lut(kLutSize * 4, 0);
+    for (int i = 0; i < kLutSize; ++i) {
+        const float t =
+                static_cast<float>(i) / static_cast<float>(kLutSize - 1);
+
+        float rgb[3] = {0.0f, 0.0f, 0.0f};
+        if (useMapper) {
+            // 体纹理存的是归一化标量，这里还原到原始量纲再查色标
+            colorMapper->GetColor(valueMin + t * valueRange, rgb, shift, scale);
+        } else if (t <= controlPos[1]) {
+            const float s = t / controlPos[1];
+            for (int c = 0; c < 3; ++c) {
+                rgb[c] = controlColor[0][c] * (1.0f - s) +
+                         controlColor[1][c] * s;
+            }
+        } else {
+            const float s =
+                    (t - controlPos[1]) / (controlPos[2] - controlPos[1]);
+            for (int c = 0; c < 3; ++c) {
+                rgb[c] = controlColor[1][c] * (1.0f - s) +
+                         controlColor[2][c] * s;
+            }
+        }
+
+        const float alpha =
+                useMapperOpacity
+                        ? colorMapper->GetOpacity(valueMin + t * valueRange,
+                                                  shift, scale)
+                        : t;
+        for (int c = 0; c < 3; ++c) {
+            lut[i * 4 + c] = static_cast<unsigned char>(
+                    std::clamp(rgb[c], 0.0f, 1.0f) * 255.0f + 0.5f);
+        }
+        lut[i * 4 + 3] = static_cast<unsigned char>(
+                std::clamp(alpha, 0.0f, 1.0f) * 255.0f + 0.5f);
+    }
+
+    // 同上：immutable 纹理不能重复指定存储，需要重建纹理对象
+    m_VolumeTransferFunction->Destroy();
+    m_VolumeTransferFunction->Create();
+    m_VolumeTransferFunction->Storage(1, GL_RGBA8, kLutSize, 1);
+    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    m_VolumeTransferFunction->SubImage(0, 0, 0, kLutSize, 1, GL_RGBA,
+                                       GL_UNSIGNED_BYTE, lut.data());
+    m_VolumeTransferFunction->Release();
+#endif
+}
+
+bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
+                            int attributeIndex, int attributeDimension) {
+#ifdef IGAME_OPENGL_VERSION_460
+    if (dataObject == nullptr || m_VolumeTexture3d == nullptr) {
+        IGAME_RENDERING_WARN("[Scene::BuildVolumeData] invalid data object.");
+        return false;
+    }
+
+    // 只接受结构化网格：点按 (i, j, k) 规则存放（GetPointIndex 为
+    // i + j * nx + k * nx * ny），标量场可直接映射为 3D 纹理。
+    // 非结构化网格不走这里（由 SetVolumeRendering 分派到旧的片元链表实现）；
+    // 若想用光线步进渲染，请先用 ResampleToImageFilter 转成结构化网格。
+    auto structuredMesh = DynamicCast<StructuredMesh>(dataObject);
+    if (structuredMesh == nullptr) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] ray marching accepts structured mesh "
+                "only; unstructured mesh is handled by the legacy fragment "
+                "implementation (or should be resampled to a structured grid "
+                "first).");
+        return false;
+    }
+
+    igIndex* dimension = structuredMesh->GetDimensionSize();
+    const igIndex nx = dimension[0];
+    const igIndex ny = dimension[1];
+    const igIndex nz = dimension[2];
+    if (nx <= 1 || ny <= 1 || nz <= 1) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] invalid structured dimension: "
+                "{}x{}x{}.",
+                nx, ny, nz);
+        return false;
+    }
+
+    const IGsize pointCount = static_cast<IGsize>(nx) *
+                              static_cast<IGsize>(ny) *
+                              static_cast<IGsize>(nz);
+    if (structuredMesh->GetNumberOfPoints() != pointCount) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] point count ({}) does not match "
+                "dimension ({}x{}x{}).",
+                structuredMesh->GetNumberOfPoints(), nx, ny, nz);
+        return false;
+    }
+
+    auto attributeSet = structuredMesh->GetAttributeSet();
+    if (attributeSet == nullptr || attributeIndex < 0 ||
+        static_cast<size_t>(attributeIndex) >=
+                attributeSet->GetNumberOfAttributes()) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] invalid attribute index {}.",
+                attributeIndex);
+        return false;
+    }
+
+    auto& attribute =
+            attributeSet->GetAttribute(static_cast<IGsize>(attributeIndex));
+    if (attribute.pointer == nullptr) {
+        IGAME_RENDERING_WARN("[Scene::BuildVolumeData] attribute is empty.");
+        return false;
+    }
+
+    // 取出标量场并归一化到 [0, 1]，shader 中直接作为传输函数查表坐标。
+    // 注意：不能用 GetValue —— 那是按“扁平值索引”读取，多维属性会把
+    // x/y/z 分量当成不同点的值；这里统一按“第 i 个元素的第 k 个分量”取。
+    const int componentCount = attribute.pointer->GetDimension();
+    const IGsize elementCount = attribute.pointer->GetNumberOfElements();
+    const bool isPointData = attribute.attachmentType != IG_CELL;
+    const IGsize cellCount = static_cast<IGsize>(nx - 1) *
+                             static_cast<IGsize>(ny - 1) *
+                             static_cast<IGsize>(nz - 1);
+
+    // 越界保护：ghost 之类的单元数据只有 cellCount 个元素，
+    // 若按 pointCount 读取会越界（Release 下直接崩溃）
+    if (isPointData && elementCount != pointCount) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] attribute {} element count ({}) does "
+                "not match point count ({}).",
+                attributeIndex, elementCount, pointCount);
+        return false;
+    }
+    if (!isPointData && elementCount != cellCount) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] cell attribute {} element count ({}) "
+                "does not match cell count ({}).",
+                attributeIndex, elementCount, cellCount);
+        return false;
+    }
+
+    // 维度选择：优先用界面选中的分量；非法或多维未指定时用模长
+    int component = attributeDimension;
+    if (componentCount <= 1) {
+        component = 0;
+    } else if (component < -1 || component >= componentCount) {
+        component = -1;
+    }
+    const bool useMagnitude = component < 0;
+
+    std::vector<float> voxels(static_cast<size_t>(pointCount), 0.0f);
+    float minValue = std::numeric_limits<float>::max();
+    float maxValue = std::numeric_limits<float>::lowest();
+
+    if (isPointData) {
+        for (IGsize i = 0; i < pointCount; ++i) {
+            const float value = static_cast<float>(
+                    attribute.pointer->GetElementValue(i, component));
+            voxels[static_cast<size_t>(i)] = value;
+            minValue = std::min(minValue, value);
+            maxValue = std::max(maxValue, value);
+        }
+    } else {
+        // 单元数据（如 vtkGhostType）：把每个单元的值散射到它的 8 个角点后取平均
+        std::vector<unsigned int> counts(static_cast<size_t>(pointCount), 0u);
+        const IGsize cellsPerSlice =
+                static_cast<IGsize>(nx - 1) * static_cast<IGsize>(ny - 1);
+        for (igIndex k = 0; k + 1 < nz; ++k) {
+            for (igIndex j = 0; j + 1 < ny; ++j) {
+                for (igIndex i = 0; i + 1 < nx; ++i) {
+                    const IGsize cellIndex =
+                            static_cast<IGsize>(i) +
+                            static_cast<IGsize>(j) * (nx - 1) +
+                            static_cast<IGsize>(k) * cellsPerSlice;
+                    const float value = static_cast<float>(
+                            attribute.pointer->GetElementValue(cellIndex,
+                                                               component));
+                    for (int corner = 0; corner < 8; ++corner) {
+                        const IGsize pi = static_cast<IGsize>(i) + (corner & 1);
+                        const IGsize pj =
+                                static_cast<IGsize>(j) + ((corner >> 1) & 1);
+                        const IGsize pk =
+                                static_cast<IGsize>(k) + ((corner >> 2) & 1);
+                        const IGsize pointIndex =
+                                pi + pj * static_cast<IGsize>(nx) +
+                                pk * static_cast<IGsize>(nx) *
+                                        static_cast<IGsize>(ny);
+                        voxels[static_cast<size_t>(pointIndex)] += value;
+                        counts[static_cast<size_t>(pointIndex)] += 1u;
+                    }
+                    minValue = std::min(minValue, value);
+                    maxValue = std::max(maxValue, value);
+                }
+            }
+        }
+        for (size_t i = 0; i < voxels.size(); ++i) {
+            if (counts[i] > 0u) {
+                voxels[i] /= static_cast<float>(counts[i]);
+            }
+        }
+    }
+
+    const float valueRange = maxValue - minValue;
+    if (valueRange > 0.0f) {
+        for (auto& value : voxels) { value = (value - minValue) / valueRange; }
+    } else {
+        std::fill(voxels.begin(), voxels.end(), 0.0f);
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] degenerate scalar range ({}), "
+                "volume data will be uniform.",
+                minValue);
+    }
+
+    // 注意：glTextureStorage* 只能指定一次（纹理变为 immutable），
+    // 重建体数据时再次调用会得到 INVALID_OPERATION(0x502)，
+    // 因此必须先销毁再创建纹理对象。
+    m_VolumeTexture3d->Destroy();
+    m_VolumeTexture3d->Create();
+    m_VolumeTexture3d->Storage(1, GL_R16F, nx, ny, nz);
+    m_VolumeTexture3d->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    m_VolumeTexture3d->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_VolumeTexture3d->Parameteri(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    m_VolumeTexture3d->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    m_VolumeTexture3d->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    m_VolumeTexture3d->SubImage(0, 0, 0, 0, nx, ny, nz, GL_RED, GL_FLOAT,
+                                voxels.data());
+    m_VolumeTexture3d->Release();
+
+    // 曲线坐标网格检测：当前实现把“索引空间”当作纹理空间，只有当点坐标
+    // 可分离（p(i,j,k) = p(i,0,0) + p(0,j,0) + p(0,0,k) - 2 * p(0,0,0)，
+    // 即轴对齐的直线网格，允许沿轴非均匀间距）时才精确；曲线坐标网格会形变，
+    // 需要先重采样到规则体。这里给出告警，避免静默出错。
+    {
+        const BoundingBox& box = structuredMesh->GetBoundingBox();
+        const double dx = box.max[0] - box.min[0];
+        const double dy = box.max[1] - box.min[1];
+        const double dz = box.max[2] - box.min[2];
+        const double tolerance =
+                1e-3 * std::sqrt(dx * dx + dy * dy + dz * dz);
+
+        auto samplePoint = [&](igIndex i, igIndex j, igIndex k) {
+            const Point& p = structuredMesh->GetPoint(
+                    static_cast<IGsize>(i) + static_cast<IGsize>(j) * nx +
+                    static_cast<IGsize>(k) * nx * ny);
+            return std::array<double, 3>{static_cast<double>(p[0]),
+                                         static_cast<double>(p[1]),
+                                         static_cast<double>(p[2])};
+        };
+
+        bool separable = true;
+        const auto origin = samplePoint(0, 0, 0);
+        for (int a = 1; a < 3 && separable; ++a) {
+            for (int b = 1; b < 3 && separable; ++b) {
+                for (int c = 1; c < 3 && separable; ++c) {
+                    const igIndex i = static_cast<igIndex>(a) * nx / 3;
+                    const igIndex j = static_cast<igIndex>(b) * ny / 3;
+                    const igIndex k = static_cast<igIndex>(c) * nz / 3;
+
+                    const auto pi = samplePoint(i, 0, 0);
+                    const auto pj = samplePoint(0, j, 0);
+                    const auto pk = samplePoint(0, 0, k);
+                    const auto pijk = samplePoint(i, j, k);
+
+                    for (int d = 0; d < 3; ++d) {
+                        const double expected =
+                                pi[d] + pj[d] + pk[d] - 2.0 * origin[d];
+                        if (std::abs(pijk[d] - expected) > tolerance) {
+                            separable = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!separable) {
+            IGAME_RENDERING_WARN(
+                    "[Scene::BuildVolumeData] grid is not an axis-aligned "
+                    "rectilinear grid; the volume will look distorted. "
+                    "Resampling to a regular volume is required.");
+        }
+    }
+
+    // 体数据的局部包围盒：轴对齐直线网格可直接用“缩放 + 平移”映射到纹理空间。
+    // 世界空间的映射每帧用当前模型矩阵重建（见 VolumeRaycastPass），
+    // 这样交互旋转/平移时体数据才会跟随网格。注意模型矩阵的变化不会修改
+    // 数据对象的 MTime，因此不能只在构建时计算一次。
+    const BoundingBox& localBox = structuredMesh->GetBoundingBox();
+    const igm::vec3 localMin{static_cast<float>(localBox.min[0]),
+                             static_cast<float>(localBox.min[1]),
+                             static_cast<float>(localBox.min[2])};
+    const igm::vec3 localMax{static_cast<float>(localBox.max[0]),
+                             static_cast<float>(localBox.max[1]),
+                             static_cast<float>(localBox.max[2])};
+    const igm::vec3 localExtent = localMax - localMin;
+    if (localExtent.x <= 0.0f || localExtent.y <= 0.0f ||
+        localExtent.z <= 0.0f) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeData] invalid volume bounding box: "
+                "({}, {}, {}).",
+                localExtent.x, localExtent.y, localExtent.z);
+        return false;
+    }
+
+    // 局部索引空间 -> 体纹理空间([0,1]^3)：t = (p - localMin) / localExtent
+    m_VolumeLocalMin = localMin;
+    m_VolumeLocalExtent = localExtent;
+    m_VolumeLocalToTexture = igm::mat4{1.0f};
+    m_VolumeLocalToTexture[0][0] = 1.0f / localExtent.x;
+    m_VolumeLocalToTexture[1][1] = 1.0f / localExtent.y;
+    m_VolumeLocalToTexture[2][2] = 1.0f / localExtent.z;
+    m_VolumeLocalToTexture[3][0] = -localMin.x / localExtent.x;
+    m_VolumeLocalToTexture[3][1] = -localMin.y / localExtent.y;
+    m_VolumeLocalToTexture[3][2] = -localMin.z / localExtent.z;
+
+    m_VolumeDimension[0] = static_cast<int>(nx);
+    m_VolumeDimension[1] = static_cast<int>(ny);
+    m_VolumeDimension[2] = static_cast<int>(nz);
+    // 记录数据来源与属性，供渲染循环做失效判定：属性切换不会修改 DataObject
+    // 的 MTime，所以属性索引/分量要显式记住；色标变化则用 mapper 的 MTime 判断
+    m_VolumeSourceObject = dataObject;
+    m_VolumeSourceMTime = dataObject->GetMTime().GetMTime();
+    m_VolumeAttributeIndex = attributeIndex;
+    m_VolumeAttributeDimension = attributeDimension;
+    // 色标本身也会变（换色带/改范围），它的 MTime 需要参与失效判定
+    {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        auto colorMapper =
+                drawObject != nullptr ? drawObject->GetColorMapper() : nullptr;
+        m_VolumeMapperMTime =
+                colorMapper != nullptr ? colorMapper->GetMTime().GetMTime() : 0u;
+        this->BuildVolumeTransferFunction(colorMapper, minValue, maxValue);
+    }
+    m_VolumeRaycastDiagnosed = false;
+    m_VolumeRaycastReadbackDone = false;
+    m_VolumeRaycastGpuDiagDone = false;
+
+    IGAME_RENDERING_INFO(
+            "[Scene::BuildVolumeData] attribute {} (dimension {}), scalar range "
+            "[{}, {}], local box [{}, {}, {}] - [{}, {}, {}].",
+            attributeIndex, componentCount, minValue, maxValue, localMin.x,
+            localMin.y, localMin.z, localMax.x, localMax.y, localMax.z);
+
+    return true;
+#else
+    (void) dataObject;
+    (void) attributeIndex;
+    (void) attributeDimension;
+    IGAME_RENDERING_WARN(
+            "[Scene::BuildVolumeData] volume ray casting requires the "
+            "OpenGL 4.6 backend.");
+    return false;
+#endif
+}
+
+namespace {
+// 挑选适合作为体数据的标量场：优先使用绘制对象当前激活的属性，
+// 否则取第一个“挂在点上、维度为 1”的属性（跳过法线、矢量等）。
+int PickVolumeScalarAttribute(AttributeSet* attributeSet, int preferred) {
+    if (attributeSet == nullptr) { return -1; }
+
+    const size_t attributeCount = attributeSet->GetNumberOfAttributes();
+    if (preferred >= 0 && static_cast<size_t>(preferred) < attributeCount) {
+        auto& attribute = attributeSet->GetAttribute(static_cast<IGsize>(preferred));
+        if (attribute.pointer != nullptr) { return preferred; }
+    }
+
+    for (size_t i = 0; i < attributeCount; ++i) {
+        auto& attribute = attributeSet->GetAttribute(static_cast<IGsize>(i));
+        if (attribute.pointer == nullptr) { continue; }
+        if (attribute.attachmentType != IG_POINT) { continue; }
+        if (attribute.pointer->GetDimension() != 1) { continue; }
+        return static_cast<int>(i);
+    }
+    return -1;
+}
+
+// 与 VolumeRaymarch.comp 中一致的光线-盒求交（仅用于自检日志）。
+// 说明：dT 不归一化，因此返回的 t 是世界空间光线参数。
+bool RayBoxIntersectTexture(const igm::vec3& origin, const igm::vec3& dir,
+                            const igm::mat4& worldToTexture, float& tNear,
+                            float& tFar) {
+    const igm::vec3 oT = (worldToTexture * igm::vec4{origin, 1.0f}).xyz();
+    const igm::vec3 dT = (worldToTexture * igm::vec4{dir, 0.0f}).xyz();
+    const float o[3] = {oT.x, oT.y, oT.z};
+    const float d[3] = {dT.x, dT.y, dT.z};
+
+    tNear = 0.0f;
+    tFar = 1.0e30f;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (std::abs(d[axis]) < 1.0e-12f) {
+            if (o[axis] < 0.0f || o[axis] > 1.0f) { return false; }
+            continue;
+        }
+        float t0 = (0.0f - o[axis]) / d[axis];
+        float t1 = (1.0f - o[axis]) / d[axis];
+        if (t0 > t1) { std::swap(t0, t1); }
+        tNear = std::max(tNear, t0);
+        tFar = std::min(tFar, t1);
+    }
+    return tFar > tNear;
+}
+} // namespace
+
+bool Scene::HasMultiBlockData() {
+    if (m_ModelPool == nullptr) { return false; }
+
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (model == nullptr || !model->GetVisibility()) { continue; }
+
+        auto dataObject = model->GetDataObject();
+        if (dataObject == nullptr || !dataObject->IsDrawable()) { continue; }
+
+        // 带子数据对象 = 多块 / 动画（播放时子对象会被 Clear/Add 重建）
+        if (dataObject->HasSubDataObject()) { return true; }
+    }
+    return false;
+}
+
+SmartPointer<DrawObject> Scene::FindVolumeSource() {
+    if (m_ModelPool == nullptr) { return nullptr; }
+
+    SmartPointer<DrawObject> fallback;
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (model == nullptr || !model->GetVisibility()) { continue; }
+
+        auto dataObject = model->GetDataObject();
+        if (dataObject == nullptr || !dataObject->IsDrawable()) { continue; }
+
+        // 结构化网格优先（可用 compute 光线步进）
+        if (DynamicCast<StructuredMesh>(dataObject) != nullptr) {
+            return DynamicCast<DrawObject>(dataObject);
+        }
+        // 其它网格（非结构化/体网格）作为候选，走旧的片元链表实现
+        if (fallback == nullptr) {
+            auto pointSet = DynamicCast<PointSet>(dataObject);
+            if (pointSet != nullptr && pointSet->GetNumberOfPoints() > 0) {
+                fallback = DynamicCast<DrawObject>(dataObject);
+            }
+        }
+    }
+    return fallback;
+}
+
+bool Scene::BuildVolumeDataFromCurrentModel() {
+    auto drawObject = this->FindVolumeSource();
+    if (drawObject == nullptr) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeDataFromCurrentModel] no mesh found in "
+                "current scene.");
+        return false;
+    }
+
+    // 本函数只服务 compute 光线步进路径，因此只接受结构化网格；
+    // 非结构化网格由 SetVolumeRendering 分派到旧的片元链表实现
+    if (DynamicCast<StructuredMesh>(drawObject) == nullptr) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeDataFromCurrentModel] current mesh is not "
+                "a structured mesh; ray marching is unavailable.");
+        return false;
+    }
+
+    const int attributeIndex = PickVolumeScalarAttribute(
+            drawObject->GetAttributeSet(), drawObject->GetAttributeIndex());
+    if (attributeIndex < 0) {
+        IGAME_RENDERING_WARN(
+                "[Scene::BuildVolumeDataFromCurrentModel] no usable scalar "
+                "attribute found on the structured mesh.");
+        return false;
+    }
+
+    return this->BuildVolumeData(drawObject, attributeIndex,
+                                 drawObject->GetAttributeDimension());
+}
+
+bool Scene::IsVolumeRaycastingAvailable() {
+#ifdef IGAME_OPENGL_VERSION_460
+    if (m_VolumeRaycastingSupportChecked) { return m_VolumeRaycastingSupported; }
+    m_VolumeRaycastingSupportChecked = true;
+
+    // compute shader 需要 OpenGL 4.3+，这里运行时再确认一次（驱动/上下文级别）
+    GLint major = 0;
+    GLint minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+    m_VolumeRaycastingSupported =
+            (major > 4) || (major == 4 && minor >= 3);
+    return m_VolumeRaycastingSupported;
+#else
+    // 3.3 / GLES2 后端在编译期就没有 compute 相关实现
+    m_VolumeRaycastingSupportChecked = true;
+    m_VolumeRaycastingSupported = false;
+    return false;
+#endif
+}
+
+Scene::VolumeRaycastingStatus
+Scene::CheckVolumeRaycastingSupport(std::string* message) {
+    auto fail = [&](VolumeRaycastingStatus status, const char* text) {
+        if (message != nullptr) { *message = text; }
+        return status;
+    };
+
+    // 只有“后端支持 compute + 存在结构化网格 + 有可用标量属性”时才返回 Ok；
+    // 调用方据此决定是走光线步进、回退到旧的片元链表实现，还是提示用户
+    if (!this->IsVolumeRaycastingAvailable()) {
+        return fail(VolumeRaycastingStatus::UnsupportedBackend,
+                    "当前图形后端不支持体绘制：需要 OpenGL 4.6（compute shader）。");
+    }
+
+    // 多块/动画数据（含子数据对象）不支持 compute 光线步进
+    if (this->HasMultiBlockData()) {
+        return fail(VolumeRaycastingStatus::MultiBlockUnsupported,
+                    "当前数据是多块/动画网格（含子数据对象），暂不支持 compute "
+                    "光线步进体绘制；请使用旧的片元链表实现。");
+    }
+
+    auto drawObject = this->FindVolumeSource();
+    if (drawObject == nullptr) {
+        return fail(VolumeRaycastingStatus::NoStructuredMesh,
+                    "场景中没有可用于体绘制的网格数据。");
+    }
+
+    auto structuredMesh = DynamicCast<StructuredMesh>(drawObject);
+    if (structuredMesh == nullptr) {
+        return fail(VolumeRaycastingStatus::NoStructuredMesh,
+                    "当前数据不是结构化网格（STRUCTURED_GRID），"
+                    "无法使用 compute 光线步进；可改用旧的片元链表实现，"
+                    "或先用 ResampleToImageFilter 转换为结构化网格。");
+    }
+
+    igIndex* dimension = structuredMesh->GetDimensionSize();
+    const IGsize pointCount = static_cast<IGsize>(dimension[0]) *
+                              static_cast<IGsize>(dimension[1]) *
+                              static_cast<IGsize>(dimension[2]);
+    if (dimension[0] <= 1 || dimension[1] <= 1 || dimension[2] <= 1 ||
+        structuredMesh->GetNumberOfPoints() != pointCount) {
+        return fail(VolumeRaycastingStatus::InvalidAttribute,
+                    "体绘制需要三维结构化网格（各方向维度大于 1，且点数与维度一致）。");
+    }
+
+    const int attributeIndex = PickVolumeScalarAttribute(
+            drawObject->GetAttributeSet(), drawObject->GetAttributeIndex());
+    if (attributeIndex < 0) {
+        return fail(VolumeRaycastingStatus::NoScalarAttribute,
+                    "未找到可用的标量属性：请先选择一个标量场（或矢量场的模长/分量）。");
+    }
+
+    // 校验属性规模：单元数据（如 vtkGhostType）的元素数必须等于单元数，
+    // 点数据必须等于点数，否则会越界读取
+    auto& attribute = drawObject->GetAttributeSet()->GetAttribute(
+            static_cast<IGsize>(attributeIndex));
+    if (attribute.pointer == nullptr) {
+        return fail(VolumeRaycastingStatus::NoScalarAttribute,
+                    "所选属性为空，无法用于体绘制。");
+    }
+
+    const IGsize elementCount = attribute.pointer->GetNumberOfElements();
+    const IGsize cellCount = static_cast<IGsize>(dimension[0] - 1) *
+                             static_cast<IGsize>(dimension[1] - 1) *
+                             static_cast<IGsize>(dimension[2] - 1);
+    const bool isCellData = attribute.attachmentType == IG_CELL;
+    if ((!isCellData && elementCount != pointCount) ||
+        (isCellData && elementCount != cellCount)) {
+        return fail(VolumeRaycastingStatus::InvalidAttribute,
+                    "所选属性的数据规模与网格不匹配，无法用于体绘制。");
+    }
+
+    if (message != nullptr) { message->clear(); }
+    return VolumeRaycastingStatus::Ok;
+}
+
+Scene::VolumeRaycastingStatus
+Scene::SetVolumeRaycasting(bool toggled, std::string* message) {
+    if (!toggled) {
+        m_EnableVolumeRaycasting = false;
+        this->Update();
+        return VolumeRaycastingStatus::Ok;
+    }
+
+    // 本函数只负责 compute 实现：不满足条件时返回状态，
+    // 由调用方（SetVolumeRendering 的分派逻辑）决定回退到旧的“片元链表”
+    // 实现还是提示用户。
+    const auto status = this->CheckVolumeRaycastingSupport(message);
+    if (status != VolumeRaycastingStatus::Ok) {
+            m_EnableVolumeRaycasting = false;
+            IGAME_RENDERING_WARN(
+                    "[Scene::SetVolumeRaycasting] volume ray casting is not "
+                    "available (status={}); see UI message for details.",
+                    static_cast<int>(status));
+            return status;
+    }
+
+    m_EnableVolumeRendering = false;
+    m_EnableVolumeRaycasting = true;
+    m_VolumeDataDirty = true;
+    IGAME_RENDERING_INFO(
+            "[Scene::SetVolumeRaycasting] compute volume ray casting "
+            "requested, volume data will be built on next frame.");
+    this->Update();
+    return VolumeRaycastingStatus::Ok;
+}
+
+bool Scene::ConsumeVolumeRaycastFailure(std::string* message) {
+    if (m_VolumeRaycastFailureMessage.empty()) { return false; }
+    if (message != nullptr) { *message = m_VolumeRaycastFailureMessage; }
+    m_VolumeRaycastFailureMessage.clear();
+    return true;
+}
+
+void Scene::SetVolumeRaycastingQuality(int numSteps, float opacityScale) {
+    m_VolumeStepCount = std::max(numSteps, 1);
+    m_VolumeOpacityScale = std::max(opacityScale, 0.0f);
+    this->Update();
+}
+
+void Scene::VolumeRaycastPass() {
+#ifdef IGAME_OPENGL_VERSION_460
+    if (!m_EnableVolumeRaycasting) { return; }
+    if (m_VolumeTexture3d == nullptr || m_VolumeTransferFunction == nullptr ||
+        m_ColorTexture == nullptr) {
+        return;
+    }
+
+    // 逐调用检查 GL 错误，便于定位（只在出错时打印）
+    auto checkGL = [](const char* step) {
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            IGAME_RENDERING_ERROR(
+                    "[Scene::VolumeRaycastPass] OpenGL error 0x{:X} after {}.",
+                    error, step);
+        }
+    };
+    // 先清一次：把进入本 pass 之前遗留的错误与本次调用区分开
+    checkGL("previous pass (entry check)");
+
+    // 体数据来源发生变化时重建 3D 纹理，触发条件包括：
+    //   1. 首次开启 / 数据对象被修改（MTime 变化）
+    //   2. 切换属性或切换分量（不会修改 DataObject 的 MTime，需显式比较）
+    //   3. 色标变化（换色带、改范围、开不开不透明度映射）
+    // 构建需要 GL 上下文，放在这里执行（渲染循环内上下文必然有效）。
+    bool needRebuild =
+            m_VolumeDataDirty || m_VolumeSourceObject == nullptr ||
+            m_VolumeSourceObject->GetMTime().GetMTime() != m_VolumeSourceMTime;
+    if (!needRebuild) {
+        auto drawObject = this->FindVolumeSource();
+        if (drawObject == nullptr) {
+            needRebuild = true;
+        } else {
+            const int attributeIndex = PickVolumeScalarAttribute(
+                    drawObject->GetAttributeSet(),
+                    drawObject->GetAttributeIndex());
+            auto colorMapper = drawObject->GetColorMapper();
+            const unsigned int mapperMTime =
+                    colorMapper != nullptr
+                            ? colorMapper->GetMTime().GetMTime()
+                            : 0u;
+            needRebuild = attributeIndex != m_VolumeAttributeIndex ||
+                          drawObject->GetAttributeDimension() !=
+                                  m_VolumeAttributeDimension ||
+                          mapperMTime != m_VolumeMapperMTime;
+        }
+    }
+
+    if (needRebuild) {
+        if (!this->BuildVolumeDataFromCurrentModel()) {
+            std::string reason;
+            const auto status = this->CheckVolumeRaycastingSupport(&reason);
+            if (reason.empty()) {
+                reason = "体绘制数据构建失败（数据可能已被移除或修改）。";
+            }
+            m_EnableVolumeRaycasting = false;
+
+            // 数据已经不适合 compute 光线步进（例如开着体绘制切换到四面体网格，
+            // 或变成多块/动画数据）：按入口的选型规则改用旧的“片元链表”实现，
+            // 不弹窗打断。
+            auto source = this->FindVolumeSource();
+            const bool stillStructured =
+                    source != nullptr &&
+                    DynamicCast<StructuredMesh>(source) != nullptr &&
+                    !source->HasSubDataObject() && !this->HasMultiBlockData();
+            if (!stillStructured) {
+                IGAME_RENDERING_WARN(
+                        "[Scene::VolumeRaycastPass] source is no longer a "
+                        "single structured mesh, switch to legacy fragment "
+                        "volume rendering.");
+                m_EnableVolumeRendering = true;
+                this->Update();
+                return;
+            }
+
+            // 结构化网格但构建失败：属于异常，关闭体绘制并交由界面提示
+            // （日志保持 ASCII，中文原因只用于界面弹窗，避免日志乱码）
+            const char* statusText = "Unknown";
+            switch (status) {
+                case VolumeRaycastingStatus::Ok:
+                    statusText = "Ok";
+                    break;
+                case VolumeRaycastingStatus::UnsupportedBackend:
+                    statusText = "UnsupportedBackend";
+                    break;
+                case VolumeRaycastingStatus::NoStructuredMesh:
+                    statusText = "NoStructuredMesh";
+                    break;
+                case VolumeRaycastingStatus::NoScalarAttribute:
+                    statusText = "NoScalarAttribute";
+                    break;
+                case VolumeRaycastingStatus::InvalidAttribute:
+                    statusText = "InvalidAttribute";
+                    break;
+            }
+            IGAME_RENDERING_ERROR(
+                    "[Scene::VolumeRaycastPass] failed to build volume data, "
+                    "volume rendering disabled (status={}); see UI message.",
+                    statusText);
+            m_VolumeRaycastFailureMessage = reason;
+            this->Update();
+            return;
+        }
+        m_VolumeDataDirty = false;
+        m_VolumeRaycastFailureMessage.clear();
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRaycastPass] volume data ready: {}x{}x{}, "
+                "{} steps, opacity scale {}.",
+                m_VolumeDimension[0], m_VolumeDimension[1], m_VolumeDimension[2],
+                m_VolumeStepCount, m_VolumeOpacityScale);
+        checkGL("build volume data");
+    }
+
+    auto shader = this->GetShader(ShaderType::VOLUMERAYMARCH);
+    if (shader == nullptr) { return; }
+
+    // 直接在视口分辨率上做光线步进，结果写入主颜色纹理（显示路径读取的纹理），
+    // 因此不需要再 blit，也就避免了不同格式附件之间的 blit 兼容性问题。
+    const igm::uvec2 viewport = m_Camera->GetScaledViewPort();
+    if (viewport.x == 0u || viewport.y == 0u) { return; }
+    const GLuint groupCountX = (viewport.x + 7u) / 8u;
+    const GLuint groupCountY = (viewport.y + 7u) / 8u;
+
+    const igm::mat4 projView =
+            m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix();
+    const igm::mat4 invProjView = projView.invert();
+
+    // 世界空间 -> 体纹理空间：每帧用当前模型矩阵重建，
+    // 保证交互旋转/平移（只改 m_ModelMatrix）时体数据跟随网格
+    const igm::mat4 worldToTexture =
+            m_VolumeLocalToTexture * m_ModelMatrix.invert();
+
+    // 【临时诊断】一次性自检：用与 shader 相同的数学在 CPU 上验证“屏幕中心光线是否与
+    // 体盒相交”。hit=0 表示映射/相机有问题，而不是 shader 的问题。
+    if (!m_VolumeRaycastDiagnosed) {
+        m_VolumeRaycastDiagnosed = true;
+
+        const bool isOrtho =
+                m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
+        const igm::vec4 nearH =
+                invProjView * igm::vec4{0.0f, 0.0f, 1.0f, 1.0f};
+        const igm::vec4 farH =
+                invProjView * igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        const igm::vec3 nearP{nearH.x / nearH.w, nearH.y / nearH.w,
+                              nearH.z / nearH.w};
+        const igm::vec3 farP{farH.x / farH.w, farH.y / farH.w,
+                             farH.z / farH.w};
+        const igm::vec3 camPos = m_Camera->GetPosition();
+        // 与 shader 保持一致：统一用 near -> far 定方向，近远点重合时回退相机位置
+        igm::vec3 origin = nearP;
+        igm::vec3 ray = farP - nearP;
+        if (ray.length() < 1.0e-6f) {
+            origin = camPos;
+            ray = nearP - camPos;
+        }
+        ray = ray.normalized();
+
+        float tNear = 0.0f;
+        float tFar = 0.0f;
+        const bool hit = RayBoxIntersectTexture(origin, ray, worldToTexture,
+                                                tNear, tFar);
+        const igm::vec2 clip = m_Camera->GetClippingRange();
+
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRaycastPass][diag] viewport {}x{}, ortho={}, "
+                "camPos=({}, {}, {}), rayOrigin=({}, {}, {}), rayDir=({}, {}, "
+                "{}), clip=({}, {}), hit={}, tNear={}, tFar={}.",
+                viewport.x, viewport.y, isOrtho ? 1 : 0, camPos.x, camPos.y,
+                camPos.z, origin.x, origin.y, origin.z, ray.x, ray.y, ray.z,
+                clip.x, clip.y, hit ? 1 : 0, tNear, tFar);
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRaycastPass][diag] local box min=({}, {}, {}), "
+                "extent=({}, {}, {}), model translate=({}, {}, {}).",
+                m_VolumeLocalMin.x, m_VolumeLocalMin.y, m_VolumeLocalMin.z,
+                m_VolumeLocalExtent.x, m_VolumeLocalExtent.y,
+                m_VolumeLocalExtent.z, m_ModelMatrix[3][0], m_ModelMatrix[3][1],
+                m_ModelMatrix[3][2]);
+    }
+
+    // m_ColorTexture 是主帧缓冲的颜色附件，作为 image 写入时不能同时挂在
+    // “当前绑定的帧缓冲”上（否则构成读写反馈回路），这里改绑体绘制帧缓冲。
+    m_VolumeFramebuffer->Bind();
+
+    shader->Use();
+    checkGL("shader->Use");
+
+    shader->SetUniformMatrix4x4("invProjView", invProjView);
+    shader->SetUniformMatrix4x4("worldToTexture", worldToTexture);
+    shader->SetUniformi("numSteps", m_VolumeStepCount);
+    shader->SetUniformf("opacityScale", m_VolumeOpacityScale);
+    shader->SetUniformf("jitterSeed",
+                        static_cast<float>(m_VolumeFrameSeed % 1024u));
+    shader->SetUniform3f("backgroundColor", m_BackgroundColor);
+
+    m_VolumeTexture3d->Active(GL_TEXTURE1);
+    shader->SetUniformi("volumeTexture", 1);
+
+    m_VolumeTransferFunction->Active(GL_TEXTURE2);
+    shader->SetUniformi("transferFunction", 2);
+    checkGL("bind volume textures");
+
+    m_ColorTexture->BindImage(0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    checkGL("bind output image");
+
+    glDispatchCompute(groupCountX, groupCountY, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                    GL_TEXTURE_FETCH_BARRIER_BIT);
+    checkGL("glDispatchCompute");
+
+    // 【临时诊断】一次性回读结果像素：用于确认 compute 是否真的写出了内容，以及是不是
+    // 所有光线都走了“未命中”分支（写出的是纯背景色）。
+    if (!m_VolumeRaycastReadbackDone) {
+        m_VolumeRaycastReadbackDone = true;
+
+        const GLint sampleX = static_cast<GLint>(viewport.x / 2u);
+        const GLint sampleY = static_cast<GLint>(viewport.y / 2u);
+        unsigned char center[4] = {0, 0, 0, 0};
+        unsigned char corner[4] = {0, 0, 0, 0};
+        glGetTextureSubImage(m_ColorTexture->Handle(), 0, sampleX, sampleY, 0,
+                             1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, 4, center);
+        glGetTextureSubImage(m_ColorTexture->Handle(), 0, 4, 4, 0, 1, 1, 1,
+                             GL_RGBA, GL_UNSIGNED_BYTE, 4, corner);
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRaycastPass][diag] result pixel center=({}, {}, "
+                "{}, {}) at ({}, {}), corner=({}, {}, {}, {}) at (4, 4).",
+                center[0], center[1], center[2], center[3], sampleX, sampleY,
+                corner[0], corner[1], corner[2], corner[3]);
+        checkGL("read back result pixel");
+    }
+
+    // 【临时诊断】一次性 GPU 侧命中自检：以 debug 模式再派发一帧并回读。
+    // 这一步用于区分“GPU 认为光线没命中”（R=0）与“命中了但画面看不见”（R=255）。
+    if (!m_VolumeRaycastGpuDiagDone) {
+        m_VolumeRaycastGpuDiagDone = true;
+
+        const GLint sampleX = static_cast<GLint>(viewport.x / 2u);
+        const GLint sampleY = static_cast<GLint>(viewport.y / 2u);
+
+        shader->SetUniformi("debugMode", 1);
+        glDispatchCompute(groupCountX, groupCountY, 1);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                        GL_TEXTURE_FETCH_BARRIER_BIT);
+
+        unsigned char center[4] = {0, 0, 0, 0};
+        unsigned char corner[4] = {0, 0, 0, 0};
+        glGetTextureSubImage(m_ColorTexture->Handle(), 0, sampleX, sampleY, 0,
+                             1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, 4, center);
+        glGetTextureSubImage(m_ColorTexture->Handle(), 0, 4, 4, 0, 1, 1, 1,
+                             GL_RGBA, GL_UNSIGNED_BYTE, 4, corner);
+
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRaycastPass][diag] GPU hit test: center=(R={}, "
+                "G={}, B={}) corner=(R={}, G={}, B={}) "
+                "[R=255 means ray hit; G=tNear/100; B=tFar/100].",
+                center[0], center[1], center[2], corner[0], corner[1],
+                corner[2]);
+        checkGL("gpu debug dispatch");
+
+        // 恢复：用正常模式重新渲染一次，保证本帧画面正确
+        shader->SetUniformi("debugMode", 0);
+        glDispatchCompute(groupCountX, groupCountY, 1);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                        GL_TEXTURE_FETCH_BARRIER_BIT);
+    }
+
+    ++m_VolumeFrameSeed;
+
+    glDisable(GL_DEPTH_TEST);
+#endif
 }
 
 void Scene::UpdateCameraDataBlock() {
@@ -1748,6 +2749,7 @@ void Scene::ToggleOpacityMappingEnabled() { SetOpacityMappingEnabled(!m_OpacityM
 
 void Scene::SetOpacityMappingEnabled(bool enabled) {
     m_OpacityMappingEnabled = enabled;
+    m_VolumeDataDirty = true; // 体绘制需要重新构建数据
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); it++) {
         auto model = it->second;
         if (!model->GetDataObject()->IsDrawable()) { continue; }
@@ -1873,8 +2875,14 @@ igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
     return igm::vec3(m_Camera->GetPosition()) + rayDir * depth;
 }
 
-void Scene::SetVolumeRendering(bool toggled) {
+// 旧的“片元链表”体绘制实现。保留原有行为（关闭抽壳渲染、重置不透明度映射），
+// 作为非结构化网格以及 compute 不可用时的实现；常规入口请使用 SetVolumeRendering。
+void Scene::SetFragmentVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
+    if (toggled) {
+        m_EnableVolumeRaycasting = false;
+        m_VolumeLegacyDiagPending = true; // 下一帧输出一次旧实现自检
+    }
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
@@ -1885,6 +2893,79 @@ void Scene::SetVolumeRendering(bool toggled) {
     // 默认关闭不透明度映射
     SetOpacityMappingEnabled(false);
     Update();
+}
+
+Scene::VolumeRenderingMode Scene::GetVolumeRenderingMode() const {
+    if (m_EnableVolumeRaycasting) { return VolumeRenderingMode::Raycast; }
+    if (m_EnableVolumeRendering) { return VolumeRenderingMode::Fragment; }
+    return VolumeRenderingMode::Off;
+}
+
+Scene::VolumeRenderingMode Scene::SetVolumeRendering(bool toggled,
+                                                     std::string* message) {
+    if (!toggled) {
+        if (message != nullptr) { message->clear(); }
+        m_EnableVolumeRaycasting = false;
+        m_EnableVolumeRendering = false;
+        this->Update();
+        return VolumeRenderingMode::Off;
+    }
+
+    // 多块/动画数据优先判定：这类数据的子对象会被动画组件 Clear/Add 重建，
+    // compute 路径既无法用单个体纹理覆盖多块，也不能安全持有子对象指针，
+    // 统一交给旧的“片元链表”实现（它按子对象逐个绘制）。
+    if (this->HasMultiBlockData()) {
+        this->SetFragmentVolumeRendering(true);
+        IGAME_RENDERING_INFO(
+                "[Scene::SetVolumeRendering] multi-block/animation data, use "
+                "legacy fragment volume rendering.");
+        if (message != nullptr) {
+            *message =
+                    "当前数据是多块/动画网格，已使用旧的片元链表体绘制实现。";
+        }
+        return VolumeRenderingMode::Fragment;
+    }
+
+    auto source = this->FindVolumeSource();
+    if (source == nullptr) {
+        if (message != nullptr) {
+            *message = "未找到可用于体绘制的网格：请先加载网格数据。";
+        }
+        return VolumeRenderingMode::Off;
+    }
+
+    // 结构化网格优先走 compute 光线步进（性能与画质都更好）
+    if (DynamicCast<StructuredMesh>(source) != nullptr) {
+        std::string reason;
+        if (this->SetVolumeRaycasting(true, &reason) ==
+            VolumeRaycastingStatus::Ok) {
+            IGAME_RENDERING_INFO(
+                    "[Scene::SetVolumeRendering] structured mesh, use compute "
+                    "ray marching.");
+            if (message != nullptr) { message->clear(); }
+            return VolumeRenderingMode::Raycast;
+        }
+
+        // 结构化网格但当前后端不支持 compute（GL 版本不合适）→ 回退旧实现
+        this->SetFragmentVolumeRendering(true);
+        IGAME_RENDERING_INFO(
+                "[Scene::SetVolumeRendering] compute ray marching unavailable, "
+                "use legacy fragment volume rendering.");
+        if (message != nullptr) {
+            *message = reason + "\n已改用旧的片元链表体绘制实现。";
+        }
+        return VolumeRenderingMode::Fragment;
+    }
+
+    // 非结构化网格（四面体/六面体等）→ 旧的片元链表实现
+    this->SetFragmentVolumeRendering(true);
+    IGAME_RENDERING_INFO(
+            "[Scene::SetVolumeRendering] non-structured mesh, use legacy "
+            "fragment volume rendering.");
+    if (message != nullptr) {
+        *message = "当前数据不是结构化网格，使用旧的片元链表体绘制。通过ResampleToImage Filter可将网格重采样为结构化网格。";
+    }
+    return VolumeRenderingMode::Fragment;
 }
 
 void Scene::UpdateModelsBoundingSphere() {
