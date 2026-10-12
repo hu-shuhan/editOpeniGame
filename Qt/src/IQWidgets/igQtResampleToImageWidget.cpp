@@ -52,18 +52,7 @@ QDockWidget* igQtResampleToImageWidget::createDockWidget(QWidget* parent) {
     return dockWidget;
 }
 
-void igQtResampleToImageWidget::initUI() {
-    // 面板上只留简短标签，原来括号里的说明放进悬停提示
-    ui->checkBox_UseInputBounds->setToolTip(QStringLiteral("取消勾选后可手动指定采样范围"));
-    ui->label_DimTitle->setToolTip(QStringLiteral("各轴方向的格点数"));
-    ui->label_BoundsTitle->setToolTip(QStringLiteral("仅在不使用输入包围盒时生效"));
-    ui->checkBox_FailOnUnsupported->setToolTip(QStringLiteral("避免产出不完整的结果"));
-    ui->checkBox_DisableDiscreteInterp->setToolTip(
-            QStringLiteral("对 ID、整型等离散数组不做线性插值，改用最近顶点的值"));
-    ui->groupBox_Info->setToolTip(QStringLiteral("支持的单元类型：%1").arg(
-            QString::fromUtf8(iGame::ResampleToImageFilter::GetSupportedCellTypesText())));
-    refreshEstimate();
-}
+void igQtResampleToImageWidget::initUI() { refreshEstimate(); }
 
 void igQtResampleToImageWidget::initConnections() {
     connect(ui->pushButton_Run, &QPushButton::clicked, this, &igQtResampleToImageWidget::onRunClicked);
@@ -136,21 +125,33 @@ void igQtResampleToImageWidget::refreshEstimate() {
         ++cellTypeCounts[mesh->GetCellType(c)];
     }
 
+    QStringList supportedParts;
     QStringList unsupportedParts;
     IGsize unsupportedCount = 0;
     for (const auto& kv : cellTypeCounts) {
-        if (iGame::ResampleToImageFilter::IsCellTypeSupported(kv.first)) { continue; }
-        unsupportedParts << QStringLiteral("%1×%2").arg(CellTypeName(kv.first)).arg(
+        const QString piece = QStringLiteral("%1×%2").arg(CellTypeName(kv.first)).arg(
                 static_cast<qlonglong>(kv.second));
-        unsupportedCount += kv.second;
+        if (iGame::ResampleToImageFilter::IsCellTypeSupported(kv.first)) {
+            supportedParts << piece;
+        } else {
+            unsupportedParts << piece;
+            unsupportedCount += kv.second;
+        }
     }
 
     QStringList lines;
     lines << QStringLiteral("输入：%1 点 / %2 单元").arg(static_cast<qlonglong>(numPoints)).arg(
             static_cast<qlonglong>(numCells));
+    lines << QStringLiteral("受支持的单元：%1").arg(
+            supportedParts.isEmpty() ? QStringLiteral("（无）") : supportedParts.join(QStringLiteral("、")));
+    lines << QStringLiteral("支持的单元类型：%1").arg(
+            QString::fromUtf8(iGame::ResampleToImageFilter::GetSupportedCellTypesText()));
     if (unsupportedCount > 0) {
-        lines << QStringLiteral("⚠ 不支持的单元：%1，其覆盖的格点将无效")
-                         .arg(unsupportedParts.join(QStringLiteral("、")));
+        lines << QStringLiteral("⚠ 不受支持的单元：%1（共 %2 个）")
+                         .arg(unsupportedParts.join(QStringLiteral("、")))
+                         .arg(static_cast<qlonglong>(unsupportedCount));
+        lines << QStringLiteral("  → 这些单元覆盖的格点会被判为无效；勾选“遇到不支持的单元类型时终止执行”"
+                                "可改为直接报错，避免产出不完整结果。");
     }
 
     // ---- 预估输出规模 ----
@@ -164,17 +165,17 @@ void igQtResampleToImageWidget::refreshEstimate() {
     IGsize gridCells = 0;
     double memoryMB = 0.0;
     if (filter->EstimateOutputSize(gridPoints, gridCells, memoryMB)) {
-        lines << QStringLiteral("预估输出：%1 格点 / %2 单元，约 %3 MB")
+        lines << QStringLiteral("预估输出：%1 格点 / %2 单元，点数据内存量级约 %3 MB")
                          .arg(static_cast<qlonglong>(gridPoints))
                          .arg(static_cast<qlonglong>(gridCells))
                          .arg(memoryMB, 0, 'f', 1);
         if (gridPoints > kLargeGridPointsWarning || memoryMB > kLargeMemoryWarningMB) {
-            lines << QStringLiteral("⚠ 输出规模较大，执行前会再次确认");
+            lines << QStringLiteral("⚠ 输出规模较大，执行可能耗时并占用较多内存，执行前会再次确认。");
         }
     }
 
     if (!m_lastDiagnostic.isEmpty()) {
-        lines << QStringLiteral("上次执行：");
+        lines << QStringLiteral("---- 上次执行 ----");
         lines << m_lastDiagnostic;
     }
     ui->label_Info->setText(lines.join(QStringLiteral("\n")));
