@@ -111,6 +111,11 @@ public:
 		return item == itemMap.end() ? nullptr : item->second.widget;
 	}
 
+    /// Opt in to full-width controls with labels above inputs and inline checkbox labels.
+    /// Existing dialogs retain their two-column layout.
+    void setParameterLayoutVertical();
+    void setParameterVisible(int parameterId, bool visible);
+
     /// 在参数区末尾追加一行跨两列的自定义控件（如 X/Y/Z 按钮行）；不参与 getDouble 等取值
     int addRowWidget(QWidget* rowWidget);
 
@@ -137,10 +142,12 @@ private:
         std::vector<QString> value;
         WidgetType type;
         QWidget* widget;
+        QLabel* label = nullptr;
     };
 
     std::function<void()> applyFunctor;
     std::map<int, Item> itemMap;
     int index;
+    bool m_verticalParameterLayout = false;
 };
 

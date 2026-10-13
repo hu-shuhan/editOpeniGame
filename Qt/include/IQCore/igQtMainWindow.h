@@ -46,6 +46,8 @@ class igQtPartFocusWidget;
 class igQtAttributeSelectWidget;
 class igQtRemoteModelLibrary;
 
+class igQtLinearExtrusionWidget;
+
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -75,6 +77,8 @@ public:
     void initAllMySignalConnections();
     void initAllFilters();
     bool connectImportedFilterAction(QAction* action, const QString& filterId);
+    bool connectMigratedFilterAction(QAction* action, const QString& filterId);
+    void showAppendAttributesFilter();
     bool connectThirdBatchFilterAction(QAction* action, const QString& filterId);
     void initAllSources();
     void initAllInteractor();
@@ -154,6 +158,10 @@ private slots:
 
 
 private:
+    int m_outlineCount{0};
+    QDialog* m_linearExtrusionDialog = nullptr;
+    igQtLinearExtrusionWidget* m_linearExtrusionWidget = nullptr;
+
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
     // 自定义标题栏相关

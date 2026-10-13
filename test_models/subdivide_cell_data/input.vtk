@@ -1,0 +1,28 @@
+# vtk DataFile Version 3.0
+PR147 regression: preserve parent cell data; fix pending
+ASCII
+DATASET POLYDATA
+POINTS 4 float
+0 0 0
+1 0 0
+1 1 0
+0 1 0
+POLYGONS 2 8
+3 0 1 2
+3 0 2 3
+CELL_DATA 2
+SCALARS RegionId float 1
+LOOKUP_TABLE default
+11
+22
+SCALARS CellValue float 1
+LOOKUP_TABLE default
+100
+200
+POINT_DATA 4
+SCALARS PointValue float 1
+LOOKUP_TABLE default
+0
+1
+2
+1

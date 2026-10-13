@@ -270,8 +270,12 @@ bool iGame::AttributeSet::Attribute::DeepCopy(const iGame::AttributeSet::Attribu
     runningMax = other.runningMax;
     runningRangeValid = other.runningRangeValid;
 
-    dataRange = DoubleArray::New();
-    dataRange->DeepCopy(other.dataRange);
+    // Preserve lazy range calculation when the source has no cached range.
+    dataRange = nullptr;
+    if (other.dataRange) {
+        dataRange = DoubleArray::New();
+        dataRange->DeepCopy(other.dataRange);
+    }
     return true;
 }
 

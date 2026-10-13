@@ -1,0 +1,56 @@
+# vtk DataFile Version 3.0
+Expected PR147 linear subdivision: eight cells inherit parent cell data
+ASCII
+DATASET POLYDATA
+POINTS 9 float
+0 0 0
+1 0 0
+1 1 0
+0 1 0
+0.5 0.5 0
+0.5 0 0
+1 0.5 0
+0 0.5 0
+0.5 1 0
+POLYGONS 8 32
+3 0 5 4
+3 5 1 6
+3 6 2 4
+3 5 6 4
+3 0 4 7
+3 4 2 8
+3 8 3 7
+3 4 8 7
+CELL_DATA 8
+SCALARS RegionId float 1
+LOOKUP_TABLE default
+11
+11
+11
+11
+22
+22
+22
+22
+SCALARS CellValue float 1
+LOOKUP_TABLE default
+100
+100
+100
+100
+200
+200
+200
+200
+POINT_DATA 9
+SCALARS PointValue float 1
+LOOKUP_TABLE default
+0
+1
+2
+1
+1
+0.5
+1.5
+0.5
+1.5
