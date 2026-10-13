@@ -1349,6 +1349,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     connect(ElevationFilterPanel, &igQtElevationFilterPanel::applyFailed, this, [this](const QString& reason) {
         showDarkFramelessMessage(QStringLiteral("高程 (elevation)"), reason);
     });
+    // 轴拖拽/显隐变化只刷新渲染，着色在“应用”时重算。
+    connect(ElevationFilterPanel, &igQtElevationFilterPanel::axisDragUpdated, this,
+            [this]() { if (rendererWidget) rendererWidget->update(); });
 
 }
 void igQtMainWindow::initToolbarComponent() {
@@ -1844,8 +1847,10 @@ void igQtMainWindow::initAllFilters() {
     // 保持按 id 的字母顺序，既方便“按名称”浏览，也方便检查清单是否完整。
     static const StandardFilterEntry standardFilterEntries[] = {
         {"angular_periodic", "角度周期", StandardFilterCategory::Transform, false},
+        {"append_arc_length", "附加弧长", StandardFilterCategory::DataAttributes, false},
+        {"append_attributes", "附加属性", StandardFilterCategory::DataAttributes, false},
+        {"append_datasets", "附加数据集", StandardFilterCategory::Composite, false},
         {"append_location_attributes", "附加位置属性", StandardFilterCategory::DataAttributes, false},
-        {"append_reduce", "附加并归约", StandardFilterCategory::Composite, false},
         {"axis_aligned_reflection", "轴对齐反射", StandardFilterCategory::Transform, false},
         {"axis_aligned_transform", "轴对齐变换", StandardFilterCategory::Transform, false},
         {"boundary_mesh_quality", "边界网格质量", StandardFilterCategory::MeshQuality, false},
@@ -1855,33 +1860,49 @@ void igQtMainWindow::initAllFilters() {
         {"clean_cells_to_grid", "清理单元为网格", StandardFilterCategory::Geometry, false},
         {"clean_poly_data", "清理多边形数据", StandardFilterCategory::Geometry, false},
         {"clean_to_grid", "清理为网格", StandardFilterCategory::Geometry, true},
+        {"compute_connected_surface_properties", "计算连通表面属性", StandardFilterCategory::DataAttributes, false},
+        {"compute_quartiles", "计算四分位数", StandardFilterCategory::DataAttributes, false},
+        {"connectivity", "连通性", StandardFilterCategory::Extraction, false},
         {"convert_to_vertex", "转换为顶点", StandardFilterCategory::Geometry, false},
         {"coordinates", "坐标", StandardFilterCategory::DataAttributes, false},
         {"count_cell_faces", "单元面数统计", StandardFilterCategory::Geometry, false},
         {"count_cell_vertices", "单元顶点数统计", StandardFilterCategory::Geometry, false},
+        {"decimate_polyline", "折线简化", StandardFilterCategory::Geometry, false},
         {"deflect_normals", "偏转法向量", StandardFilterCategory::DataAttributes, false},
         {"elevation", "高程", StandardFilterCategory::DataAttributes, true},
+        {"extract_block", "提取数据块", StandardFilterCategory::Composite, false},
         {"extract_cells_by_region", "按区域提取单元", StandardFilterCategory::Extraction, false},
         {"extract_cells_by_type", "按类型提取单元", StandardFilterCategory::Extraction, false},
         {"extract_component", "提取分量", StandardFilterCategory::DataAttributes, false},
         {"extract_edges", "提取边", StandardFilterCategory::Geometry, true},
+        {"extract_enclosed_points", "提取包围点", StandardFilterCategory::Extraction, false},
         {"extract_location", "提取位置", StandardFilterCategory::Extraction, false},
+        {"extract_selection", "提取选择", StandardFilterCategory::Extraction, false},
         {"extract_subset", "提取子集", StandardFilterCategory::Extraction, true},
+        {"extract_time_steps", "提取时间步", StandardFilterCategory::Extraction, false},
         {"feature_edges", "特征边", StandardFilterCategory::Geometry, true},
         {"feature_edges_region_ids", "特征边区域标识符", StandardFilterCategory::DataAttributes, false},
         {"force_static_mesh", "强制静态网格", StandardFilterCategory::Geometry, false},
         {"generate_ids", "生成标识符", StandardFilterCategory::DataAttributes, false},
+        {"generate_surface_tangents", "生成表面切向量", StandardFilterCategory::DataAttributes, false},
         {"ghost_cells", "幽灵单元", StandardFilterCategory::DataAttributes, false},
         {"global_point_and_cell_ids", "全局点与单元标识符", StandardFilterCategory::DataAttributes, false},
+        {"group_datasets", "数据集分组", StandardFilterCategory::Composite, false},
+        {"histogram", "直方图", StandardFilterCategory::DataAttributes, false},
+        {"integrate_variables", "变量积分", StandardFilterCategory::DataAttributes, false},
         {"iso_volume", "等值体", StandardFilterCategory::Extraction, true},
+        {"linear_extrusion", "线性挤出", StandardFilterCategory::Geometry, false},
         {"mask", "掩码", StandardFilterCategory::Extraction, false},
         {"mask_points", "点掩码", StandardFilterCategory::Extraction, false},
+        {"median", "中位数", StandardFilterCategory::DataAttributes, false},
         {"merge_vector_components", "合并向量分量", StandardFilterCategory::DataAttributes, false},
         {"mesh_quality", "网格质量", StandardFilterCategory::MeshQuality, true},
         {"multiblock_surface_as_multiblock", "多块表面保留多块结构", StandardFilterCategory::Composite, false},
+        {"outline", "轮廓", StandardFilterCategory::Extraction, false},
         {"outline_corners", "轮廓角", StandardFilterCategory::Extraction, false},
         {"overlapping_cells_detector", "重叠单元检测", StandardFilterCategory::Geometry, false},
         {"pass_arrays", "传递数组", StandardFilterCategory::DataAttributes, true},
+        {"perlin_noise", "柏林噪声", StandardFilterCategory::DataAttributes, false},
         {"point_and_cell_ids", "点与单元标识符", StandardFilterCategory::DataAttributes, false},
         {"point_line_interpolator", "点线插值器", StandardFilterCategory::Sampling, false},
         {"point_plane_interpolator", "点平面插值器", StandardFilterCategory::Sampling, false},
@@ -1894,16 +1915,33 @@ void igQtMainWindow::initAllFilters() {
         {"random_vectors", "随机向量", StandardFilterCategory::DataAttributes, false},
         {"reflect", "反射", StandardFilterCategory::Transform, false},
         {"remove_ghost_information", "移除幽灵信息", StandardFilterCategory::DataAttributes, false},
+        {"rename_arrays", "重命名数组", StandardFilterCategory::DataAttributes, false},
         {"resample_to_image", "重采样到图像", StandardFilterCategory::Sampling, true},
         {"resample_to_line", "重采样到直线", StandardFilterCategory::Sampling, false},
+        {"resample_with_dataset", "使用数据集重采样", StandardFilterCategory::Sampling, false},
+        {"reverse_sense", "反转方向", StandardFilterCategory::Geometry, false},
+        {"ribbon", "带状面", StandardFilterCategory::Geometry, false},
         {"shrink", "收缩", StandardFilterCategory::Geometry, true},
         {"slice_with_plane", "平面切片", StandardFilterCategory::Extraction, true},
+        {"smooth", "平滑", StandardFilterCategory::Geometry, false},
+        {"subdivide", "细分", StandardFilterCategory::Geometry, false},
         {"surface_normals", "表面法向量", StandardFilterCategory::DataAttributes, true},
+        {"surface_vectors", "表面向量", StandardFilterCategory::DataAttributes, false},
+        {"temporal_shift_scale", "时间平移与缩放", StandardFilterCategory::Transform, false},
+        {"temporal_statistics", "时间统计", StandardFilterCategory::DataAttributes, false},
+        {"tensor_principal_invariants", "张量主不变量", StandardFilterCategory::DataAttributes, false},
+        {"texture_map_to_cylinder", "圆柱纹理映射", StandardFilterCategory::DataAttributes, false},
+        {"texture_map_to_plane", "平面纹理映射", StandardFilterCategory::DataAttributes, false},
+        {"texture_map_to_sphere", "球面纹理映射", StandardFilterCategory::DataAttributes, false},
         {"threshold", "阈值", StandardFilterCategory::Extraction, true},
         {"transform", "变换", StandardFilterCategory::Transform, true},
         {"triangle_strips", "三角形条带", StandardFilterCategory::Geometry, false},
+        {"tube", "管线", StandardFilterCategory::Geometry, false},
         {"validate_cells", "验证单元", StandardFilterCategory::Geometry, false},
         {"volume_of_revolution", "旋转体", StandardFilterCategory::Geometry, false},
+        {"warp_by_scalar", "按标量扭曲", StandardFilterCategory::Transform, false},
+        {"warp_by_vector", "按向量扭曲", StandardFilterCategory::Transform, false},
+        {"yield_criteria", "屈服准则", StandardFilterCategory::DataAttributes, false},
     };
 
     QMenu* standardFilters =
@@ -1983,6 +2021,7 @@ void igQtMainWindow::initAllFilters() {
     };
 
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
+        if (connectMigratedFilterAction(action, filterId)) return true;
         if (connectThirdBatchFilterAction(action, filterId)) return true;
         if (connectImportedFilterAction(action, filterId)) return true;
         if (filterId == QStringLiteral("coordinates")) {
