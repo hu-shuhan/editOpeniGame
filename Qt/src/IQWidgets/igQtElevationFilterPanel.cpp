@@ -210,3 +210,89 @@ void igQtElevationFilterPanel::onApply() {
 void igQtElevationFilterPanel::onAxisX() { fillRangeByAxis(0); onApply(); }
 void igQtElevationFilterPanel::onAxisY() { fillRangeByAxis(1); onApply(); }
 void igQtElevationFilterPanel::onAxisZ() { fillRangeByAxis(2); onApply(); }
+#include <QCheckBox>
+    // "显示轴"开关：勾选后在场景中显示低点-高点连线，可用中键拖拽调整（见 onShowAxisToggled）
+    m_ShowAxisCheck = new QCheckBox(QStringLiteral("显示轴"), this);
+    connect(m_ShowAxisCheck, &QCheckBox::toggled, this, &igQtElevationFilterPanel::onShowAxisToggled);
+
+    layout->addWidget(m_ShowAxisCheck);
+    registerAxisStyle(); // 注册特殊交互器并准备轴绘制
+    m_ShowAxisCheck->setChecked(false); // 新会话默认不显示轴
+    m_AxisVisible = false;
+    unregisterAxisStyle();
+    m_AxisVisible = false;
+
+
+
+
+    refreshAxisFromSpinboxes(); // 将轴端点同步为本次应用的参数
+
+// 从 x/y/z 输入框构造模型坐标端点
+iGame::Point igQtElevationFilterPanel::readAxisPoint(QDoubleSpinBox* s[3]) {
+    return iGame::Point{static_cast<float>(s[0]->value()),
+                        static_cast<float>(s[1]->value()),
+                        static_cast<float>(s[2]->value())};
+}
+
+// 注册特殊交互器：把轴样式叠加到当前场景交互器上（不替换基础旋转/平移/缩放）
+bool igQtElevationFilterPanel::registerAxisStyle() {
+    if (m_AxisStyle) return true;
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) return false;
+    auto interactor = scene->GetInteractor();
+    if (!interactor) return false;
+
+    m_AxisStyle = iGame::LowHighAxisStyle::New();
+    m_AxisStyle->Initialize(interactor);
+    // 拖拽更新回调：仅回填输入框并请求重绘，不重算着色（点"应用"才 Execute）
+    m_AxisStyle->SetUpdateCallBack(
+            [this](const iGame::Point& low, const iGame::Point& high) {
+                onAxisDragChanged(low, high);
+            });
+    interactor->_SetSpecialInteractor("ElevationAxis", m_AxisStyle);
+    refreshAxisFromSpinboxes();
+    m_AxisStyle->SetAxisVisible(m_AxisVisible);
+    return true;
+}
+
+// 移除特殊交互器并隐藏轴
+void igQtElevationFilterPanel::unregisterAxisStyle() {
+    if (!m_AxisStyle) return;
+    m_AxisStyle->SetAxisVisible(false);
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (scene && scene->GetInteractor()) {
+        scene->GetInteractor()->RemoveSepcialInteractor("ElevationAxis");
+    }
+    m_AxisStyle = nullptr;
+}
+
+// 用输入框当前值回填轴端点并重绘（不重算着色）
+void igQtElevationFilterPanel::refreshAxisFromSpinboxes() {
+    if (!m_AxisStyle) return;
+    const iGame::Point low = readAxisPoint(m_LowPointSpin);
+    const iGame::Point high = readAxisPoint(m_HighPointSpin);
+    m_AxisStyle->SetAxisPoints(low, high);
+}
+
+// "显示轴"勾选：显隐轴并请求重绘
+void igQtElevationFilterPanel::onShowAxisToggled(bool checked) {
+    if (!m_AxisStyle) return;
+    m_AxisVisible = checked;
+    if (checked) refreshAxisFromSpinboxes(); // 开启时从输入框同步端点
+    m_AxisStyle->SetAxisVisible(checked);
+    emit axisDragUpdated(); // 只刷新场景渲染
+}
+
+// 拖拽回调：实时回填输入框（拦截信号避免回环），不执行滤波器
+void igQtElevationFilterPanel::onAxisDragChanged(const iGame::Point& low,
+                                                 const iGame::Point& high) {
+    for (int i = 0; i < 3; ++i) {
+        m_LowPointSpin[i]->blockSignals(true);
+        m_LowPointSpin[i]->setValue(low[i]);
+        m_LowPointSpin[i]->blockSignals(false);
+        m_HighPointSpin[i]->blockSignals(true);
+        m_HighPointSpin[i]->setValue(high[i]);
+        m_HighPointSpin[i]->blockSignals(false);
+    }
+    emit axisDragUpdated(); // 仅刷新渲染，着色不变
+}
