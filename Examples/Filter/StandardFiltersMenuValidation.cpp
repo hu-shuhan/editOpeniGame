@@ -13,12 +13,14 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtCountCellVerticesWidget.h>
 #include <IQWidgets/igQtLinearExtrusionWidget.h>
+#include <IQWidgets/igQtElevationFilterPanel.h>
 #include <iGameSurfaceMesh.h>
 #include <iGameScene.h>
 #include <iGameInteractor.h>
 #include <iGameFileIO.h>
 #include <QApplication>
 #include <QDialog>
+#include <QCheckBox>
 #include <QDir>
 #include <QDockWidget>
 #include <QSettings>
@@ -80,6 +82,43 @@ void CheckWarpMenu(igQtMainWindow& window, DataObject::Pointer input) {
                   "warp selected attribute has an invalid range");
         }
     }
+}
+
+// 回归（待提交）：PR #22 把轴开关创建、注册/解绑和渲染信号接线追加到
+// 函数外，合并无文本冲突但无法编译。检查 UI 创建和实际会话注册、端点
+// 同步、重新绑定及解绑；否则仅移动语句就可能留下无法显示/清理的轴。
+void CheckElevationAxisSession(igQtMainWindow& window, DataObject::Pointer input) {
+    auto* scene = window.rendererWidget->GetScene();
+    auto interactor = scene->GetInteractor();
+    auto* panel = window.findChild<igQtElevationFilterPanel*>();
+    Check(panel && interactor, "missing elevation panel or interactor");
+    auto* checkbox = panel->findChild<QCheckBox*>();
+    Check(checkbox && !checkbox->isChecked(), "missing/default-enabled Show Axis control");
+    auto filter = ElevationFilter::New();
+    filter->SetInput(input);
+    filter->SetLowPoint(0, 0, 0);
+    filter->SetHighPoint(1, 0, 0);
+    Check(filter->Execute(), "elevation fixture execution failed");
+    window.modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+    panel->BindSession(input, filter);
+    auto style = DynamicCast<LowHighAxisStyle>(interactor->GetSpecialInteractor("ElevationAxis"));
+    Check(style && style->GetLowPoint() == Point(0, 0, 0) &&
+          style->GetHighPoint() == Point(1, 0, 0), "elevation axis did not register/sync");
+    checkbox->setChecked(true);
+    Check(checkbox->isChecked(), "Show Axis toggle failed");
+    Point low(0, 0, 0), high(0, 1, 0);
+    Check(QMetaObject::invokeMethod(panel, "onAxisDragChanged", Qt::DirectConnection,
+          Q_ARG(iGame::Point, low), Q_ARG(iGame::Point, high)), "axis drag callback missing");
+    Check(QMetaObject::invokeMethod(panel, "onApply", Qt::DirectConnection), "elevation Apply missing");
+    Check(style->GetHighPoint() == high, "Apply did not synchronize axis endpoints");
+    panel->BindSession(input, filter);
+    Check(!checkbox->isChecked(), "rebinding kept the old visible-axis state");
+    panel->UnbindSession();
+    Check(!interactor->GetSpecialInteractor("ElevationAxis"), "unbinding left the axis interactor registered");
+    checkbox->setChecked(true);
+    Check(!interactor->GetSpecialInteractor("ElevationAxis"), "unbound checkbox registered an axis");
+    checkbox->setChecked(false);
+    std::cerr << "PASS: elevation axis UI, binding, Apply and cleanup\n";
 }
 }
 int main(int argc,char** argv) {
@@ -144,6 +183,7 @@ int main(int argc,char** argv) {
             }
         });
         guard.start(50);
+        CheckElevationAxisSession(window, mesh);
         for(const auto& id:panelIds) {
             std::cerr << "Checking action " << id.toStdString() << "...\n";
             scene->SetCurrentModel(scene->GetModelById(modelId));

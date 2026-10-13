@@ -6,10 +6,13 @@
 #include <IQWidgets/igQtElevationFilterPanel.h>
 
 #include <QButtonGroup>
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QPointer>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 namespace {
@@ -52,6 +55,8 @@ igQtElevationFilterPanel::igQtElevationFilterPanel(QWidget* parent) : QDockWidge
     setFeatures(QDockWidget::DockWidgetClosable);
     buildUi();
 }
+
+igQtElevationFilterPanel::~igQtElevationFilterPanel() { unregisterAxisStyle(); }
 
 void igQtElevationFilterPanel::buildUi() {
     // 数值输入框统一构造：紧凑显示 + 6 位小数输入 + 悬浮显示完整值（见 CompactDoubleSpinBox）
@@ -109,6 +114,9 @@ void igQtElevationFilterPanel::buildUi() {
     layout->addLayout(makePointRow(QStringLiteral("低点"), m_LowPointSpin));
     layout->addLayout(makePointRow(QStringLiteral("高点"), m_HighPointSpin));
     layout->addLayout(rangeRow);
+    m_ShowAxisCheck = new QCheckBox(QStringLiteral("显示轴"), this);
+    connect(m_ShowAxisCheck, &QCheckBox::toggled, this, &igQtElevationFilterPanel::onShowAxisToggled);
+    layout->addWidget(m_ShowAxisCheck);
     layout->addWidget(m_ApplyButton);
     layout->addStretch();
 
@@ -120,14 +128,27 @@ void igQtElevationFilterPanel::buildUi() {
 void igQtElevationFilterPanel::BindSession(iGame::DataObject::Pointer input, iGame::ElevationFilter::Pointer filter) {
     // 防御：空指针直接拒绝绑定
     if (!input || !filter) return;
+    unregisterAxisStyle();
+    m_AxisVisible = false;
+    {
+        const QSignalBlocker blocker(m_ShowAxisCheck);
+        m_ShowAxisCheck->setChecked(false);
+    }
     m_Input = input;
     m_Filter = filter;
     syncFromFilter();
+    registerAxisStyle();
     show();
     raise();
 }
 
 void igQtElevationFilterPanel::UnbindSession() {
+    unregisterAxisStyle();
+    m_AxisVisible = false;
+    {
+        const QSignalBlocker blocker(m_ShowAxisCheck);
+        m_ShowAxisCheck->setChecked(false);
+    }
     m_Input = nullptr;
     m_Filter = nullptr;
     hide();
@@ -151,6 +172,7 @@ void igQtElevationFilterPanel::syncFromFilter() {
     }
     m_RangeLowSpin->setValue(m_Filter->GetScalarRangeLow());
     m_RangeHighSpin->setValue(m_Filter->GetScalarRangeHigh());
+    refreshAxisFromSpinboxes();
 }
 
 void igQtElevationFilterPanel::fillRangeByAxis(int axis) {
@@ -200,6 +222,7 @@ void igQtElevationFilterPanel::onApply() {
     m_Filter->SetLowPoint(lx, ly, lz);
     m_Filter->SetHighPoint(hx, hy, hz);
     m_Filter->SetScalarRange(rLow, rHigh);
+    refreshAxisFromSpinboxes();
     if (!m_Filter->Execute()) {
         emit applyFailed(QStringLiteral("高程计算失败，请检查参数。"));
         return;
@@ -210,23 +233,6 @@ void igQtElevationFilterPanel::onApply() {
 void igQtElevationFilterPanel::onAxisX() { fillRangeByAxis(0); onApply(); }
 void igQtElevationFilterPanel::onAxisY() { fillRangeByAxis(1); onApply(); }
 void igQtElevationFilterPanel::onAxisZ() { fillRangeByAxis(2); onApply(); }
-#include <QCheckBox>
-    // "显示轴"开关：勾选后在场景中显示低点-高点连线，可用中键拖拽调整（见 onShowAxisToggled）
-    m_ShowAxisCheck = new QCheckBox(QStringLiteral("显示轴"), this);
-    connect(m_ShowAxisCheck, &QCheckBox::toggled, this, &igQtElevationFilterPanel::onShowAxisToggled);
-
-    layout->addWidget(m_ShowAxisCheck);
-    registerAxisStyle(); // 注册特殊交互器并准备轴绘制
-    m_ShowAxisCheck->setChecked(false); // 新会话默认不显示轴
-    m_AxisVisible = false;
-    unregisterAxisStyle();
-    m_AxisVisible = false;
-
-
-
-
-    refreshAxisFromSpinboxes(); // 将轴端点同步为本次应用的参数
-
 // 从 x/y/z 输入框构造模型坐标端点
 iGame::Point igQtElevationFilterPanel::readAxisPoint(QDoubleSpinBox* s[3]) {
     return iGame::Point{static_cast<float>(s[0]->value()),
@@ -243,11 +249,13 @@ bool igQtElevationFilterPanel::registerAxisStyle() {
     if (!interactor) return false;
 
     m_AxisStyle = iGame::LowHighAxisStyle::New();
+    m_AxisInteractor = interactor;
     m_AxisStyle->Initialize(interactor);
     // 拖拽更新回调：仅回填输入框并请求重绘，不重算着色（点"应用"才 Execute）
+    const QPointer<igQtElevationFilterPanel> panel(this);
     m_AxisStyle->SetUpdateCallBack(
-            [this](const iGame::Point& low, const iGame::Point& high) {
-                onAxisDragChanged(low, high);
+            [panel](const iGame::Point& low, const iGame::Point& high) {
+                if (panel) panel->onAxisDragChanged(low, high);
             });
     interactor->_SetSpecialInteractor("ElevationAxis", m_AxisStyle);
     refreshAxisFromSpinboxes();
@@ -258,12 +266,13 @@ bool igQtElevationFilterPanel::registerAxisStyle() {
 // 移除特殊交互器并隐藏轴
 void igQtElevationFilterPanel::unregisterAxisStyle() {
     if (!m_AxisStyle) return;
+    m_AxisStyle->SetUpdateCallBack(nullptr);
     m_AxisStyle->SetAxisVisible(false);
-    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    if (scene && scene->GetInteractor()) {
-        scene->GetInteractor()->RemoveSepcialInteractor("ElevationAxis");
+    if (m_AxisInteractor) {
+        m_AxisInteractor->RemoveSepcialInteractor("ElevationAxis");
     }
     m_AxisStyle = nullptr;
+    m_AxisInteractor = nullptr;
 }
 
 // 用输入框当前值回填轴端点并重绘（不重算着色）
@@ -276,7 +285,8 @@ void igQtElevationFilterPanel::refreshAxisFromSpinboxes() {
 
 // "显示轴"勾选：显隐轴并请求重绘
 void igQtElevationFilterPanel::onShowAxisToggled(bool checked) {
-    if (!m_AxisStyle) return;
+    if (!checkSession()) return;
+    if (!m_AxisStyle && !registerAxisStyle()) return;
     m_AxisVisible = checked;
     if (checked) refreshAxisFromSpinboxes(); // 开启时从输入框同步端点
     m_AxisStyle->SetAxisVisible(checked);

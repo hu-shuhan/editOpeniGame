@@ -34,6 +34,7 @@ class igQtElevationFilterPanel : public QDockWidget {
 
 public:
     explicit igQtElevationFilterPanel(QWidget* parent = nullptr);
+    ~igQtElevationFilterPanel() override;
 
     /** 绑定会话：记录输入模型与滤波器，回填当前参数并显示面板 */
     void BindSession(iGame::DataObject::Pointer input, iGame::ElevationFilter::Pointer filter);
@@ -83,5 +84,6 @@ private:
     QButtonGroup* m_AxisGroup{nullptr};       // X/Y/Z 互斥选中组
     QCheckBox* m_ShowAxisCheck{nullptr};      // 显示轴开关
     iGame::LowHighAxisStyle::Pointer m_AxisStyle{}; // 轴样式（特殊交互器）
+    iGame::Interactor::Pointer m_AxisInteractor{}; // 注册轴样式的交互器
     bool m_AxisVisible{false};                // 轴当前是否可见
 };
