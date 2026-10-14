@@ -1,0 +1,186 @@
+#version 450
+
+//------------------------------------------------------------------------------
+// 体绘制（光线步进）—— compute shader 实现
+//
+// 与旧的“片元链表”体绘制（VolumeRenderingLink.frag / VolumeRenderingSort.frag）
+// 不同，这里不再依赖光栅化产生的片元：
+//   1. 每个 invocation 负责一个像素；
+//   2. 从相机出发构造光线，与体包围盒求交得到 [tNear, tFar]；
+//   3. 沿光线步进采样 3D 纹理（三线性插值）；
+//   4. 用传输函数（1D LUT）取得颜色与不透明度；
+//   5. 前后向积分（front-to-back）累积颜色，透射率低于阈值提前退出；
+//   6. 与背景色合成后写入 image2D。
+//
+// 说明：
+//   * 体数据在 CPU 侧已归一化到 [0, 1]，shader 中直接作为传输函数查表坐标；
+//   * 采样步长按体素步长做不透明度补偿，保证步数变化时浓淡基本一致；
+//   * 起始位置加入抖动，避免固定步长产生的层状伪影（后续可替换为时间累积）。
+//------------------------------------------------------------------------------
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform CameraDataBlock {
+    vec3 viewPos;
+    int isOrtho;
+    vec4 orthoBounds;
+    float zNear;
+    float zFar;
+    mat4 view;
+    mat4 proj;
+    mat4 proj_view;// proj * view
+} cameraData;
+
+// 世界空间 -> 体纹理空间（[0,1]^3）的仿射变换
+uniform mat4 worldToTexture;
+// 裁剪空间 -> 世界空间（用于反投影重建光线）
+uniform mat4 invProjView;
+
+uniform int numSteps;         // 每条光线的最大采样步数
+uniform float opacityScale;   // 整体不透明度缩放（调节浓淡）
+uniform float jitterSeed;     // 每帧变化，用于抖动采样起点
+uniform vec3 backgroundColor; // 体后方的背景色（体数据独立渲染时使用）
+uniform int debugMode;        // 0=正常渲染；1=输出命中诊断（一次性 GPU 自检用）
+
+uniform sampler3D volumeTexture;   // 体数据（R16F，三线性插值）
+uniform sampler2D transferFunction;// 传输函数 LUT（256x1 RGBA8）
+
+layout(binding = 0, rgba8) uniform writeonly image2D outImage;
+
+// 简单的散列函数，用于抖动采样起点
+float Hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imageSize = imageSize(outImage);
+    if (pixel.x >= imageSize.x || pixel.y >= imageSize.y) { return; }
+
+    // 1. 像素坐标 -> NDC -> 世界空间光线
+    //    注意：引擎使用反向 Z（igm::perspectiveRH_OZ / orthoRH_OZ，
+    //    深度范围 1.0(近) -> 0.0(远)），因此 ndc.z = +1 是近平面、
+    //    ndc.z = 0 是远平面。
+    //    注意不要用 ndc.z = -1：本引擎的透视投影是“有限远平面 + 反向 Z”，
+    //    默认视角（相机位于 center+3r，near=2r，far=4r）下投影矩阵中
+    //    zNear/(zFar-zNear) 恰好等于 1，此时 ndc.z=-1 反投影的齐次 w 为 0，
+    //    会得到 NaN/inf 的远点，使光线方向非法、体绘制整屏不可见。
+    vec2 ndc = (vec2(pixel) + vec2(0.5)) / vec2(imageSize) * 2.0 - 1.0;
+
+    vec4 nearPoint = invProjView * vec4(ndc, 1.0, 1.0);
+    vec4 farPoint = invProjView * vec4(ndc, 0.0, 1.0);
+    nearPoint /= nearPoint.w;
+    farPoint /= farPoint.w;
+
+    // 统一用反投影出的近/远平面点构造光线：两点都在该像素的光线上，
+    // 因此对透视与正交都成立，且不依赖 UBO 里的相机位置（避免其状态问题）。
+    // 起点取近平面点，等于顺便跳过相机到近平面之间的空段。
+    vec3 rayOrigin = vec3(0.0);
+    vec3 rayDir = vec3(0.0, 0.0, -1.0);
+    bool rayValid = false;
+
+    vec3 forwardVec = farPoint.xyz - nearPoint.xyz;
+    if (dot(forwardVec, forwardVec) > 1.0e-12) {
+        rayOrigin = nearPoint.xyz;
+        rayDir = normalize(forwardVec);
+        rayValid = true;
+    } else {
+        // 近/远点重合（例如无限远反向 Z 投影）：退回用相机位置构造
+        vec3 cameraPos = cameraData.viewPos;
+        vec3 toNear = nearPoint.xyz - cameraPos;
+        if (dot(toNear, toNear) > 1.0e-12) {
+            rayOrigin = cameraPos;
+            rayDir = normalize(toNear);
+            rayValid = true;
+        }
+    }
+
+    if (!rayValid) {
+        imageStore(outImage, pixel, vec4(backgroundColor, 1.0));
+        return;
+    }
+
+    // 2. 变换到体纹理空间：仿射变换保持参数 t 不变，
+    //    因此可以直接在纹理空间做 slab 求交，得到世界参数下的 [tNear, tFar]
+    vec3 oT = (worldToTexture * vec4(rayOrigin, 1.0)).xyz;
+    vec3 dT = (worldToTexture * vec4(rayDir, 0.0)).xyz;
+
+    // 稳健的 slab 求交：方向分量接近 0 时退化成“是否在板内”的判断，
+    // 否则 1/0 会得到 ±inf、0*inf 会得到 NaN，导致误判为不相交
+    float tNear = 0.0;
+    float tFar = 1.0e30;
+    bool hit = true;
+    for (int axis = 0; axis < 3; ++axis) {
+        float o = oT[axis];
+        float d = dT[axis];
+        if (abs(d) < 1.0e-8) {
+            if (o < 0.0 || o > 1.0) {
+                hit = false;
+                break;
+            }
+        } else {
+            float t0 = (0.0 - o) / d;
+            float t1 = (1.0 - o) / d;
+            tNear = max(tNear, min(t0, t1));
+            tFar = min(tFar, max(t0, t1));
+        }
+    }
+
+    if (debugMode == 1) {
+        // 一次性 GPU 自检输出：R = 是否命中，G = tNear/100，B = tFar/100
+        imageStore(outImage, pixel,
+                   vec4(hit ? 1.0 : 0.0, clamp(tNear / 100.0, 0.0, 1.0),
+                        clamp(tFar / 100.0, 0.0, 1.0), 1.0));
+        return;
+    }
+
+    if (!hit || tFar <= tNear) {
+        // 光线与体数据不相交
+        imageStore(outImage, pixel, vec4(backgroundColor, 1.0));
+        return;
+    }
+
+    // 3. 步长与不透明度补偿
+    vec3 volumeDim = vec3(textureSize(volumeTexture, 0));
+    float referenceStep = 1.0 / max(volumeDim.x, max(volumeDim.y, volumeDim.z));
+
+    int steps = max(numSteps, 1);
+    float dt = (tFar - tNear) / float(steps);
+    float textureStep = length(dT) * dt;      // 单步在纹理空间的长度
+    float opacityCorrection = textureStep / referenceStep;
+
+    float jitter = Hash12(vec2(pixel) + vec2(jitterSeed));
+    float t = tNear + dt * jitter;
+
+    // 4. 前后向积分：C += T * a * c; T *= (1 - a)
+    vec3 accumulated = vec3(0.0);
+    float transmittance = 1.0;
+
+    for (int i = 0; i < steps; ++i) {
+        vec3 texCoord = oT + dT * t;
+        if (any(lessThan(texCoord, vec3(0.0))) ||
+            any(greaterThan(texCoord, vec3(1.0)))) {
+            break;
+        }
+
+        float scalar = clamp(texture(volumeTexture, texCoord).r, 0.0, 1.0);
+        vec4 tf = texture(transferFunction, vec2(scalar, 0.5));
+
+        float alpha = clamp(tf.a * opacityScale, 0.0, 1.0);
+        if (alpha > 0.0) {
+            // 按实际步长补偿不透明度，使结果与步数基本无关
+            alpha = 1.0 - pow(1.0 - alpha, opacityCorrection);
+            accumulated += transmittance * alpha * tf.rgb;
+            transmittance *= (1.0 - alpha);
+            if (transmittance < 0.01) { break; } // 提前终止
+        }
+
+        t += dt;
+    }
+
+    // 5. 剩余透射率显示出背景色
+    vec3 color = accumulated + transmittance * backgroundColor;
+    imageStore(outImage, pixel, vec4(color, 1.0));
+}

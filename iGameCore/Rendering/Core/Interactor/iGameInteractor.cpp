@@ -77,6 +77,13 @@ void Interactor::RequestDragPointStyle(SmartPointer<Selection> s) {
     is_Base = false;
 }
 
+void Interactor::SetDragPointConstraintAxis(int axis) {
+    auto style = DynamicCast<SingleDragStyle>(m_Internal);
+    if (!style) return;
+    if (axis < 0 || axis > 3) axis = 0;
+    style->SetConstraintAxis(static_cast<SingleDragStyle::ConstraintAxis>(axis));
+}
+
 void Interactor::RequestPointSelectionStyle(SmartPointer<Selection> s) {
     if (!s) return;
     //InitModel();

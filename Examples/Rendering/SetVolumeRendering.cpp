@@ -31,9 +31,11 @@ static void SetVolumeRendering() {
         igError("The object is not drawable"); // Error if the object is not drawable
     }
 
-    // Change the scene rendering mode to volume rendering
-    // Note: Volume rendering is currently suitable only for small-scale data and small screens.
-    // Rendering larger datasets or using full-screen mode may cause rendering errors or performance issues.
+    // Change the scene rendering mode to volume rendering.
+    // The implementation is chosen automatically: a structured grid uses the
+    // compute shader ray marching path, any other mesh falls back to the legacy
+    // fragment linked-list path.
+    // Note: the legacy path is suitable only for small-scale data and small screens.
     scene->SetVolumeRendering(true); // Enable volume rendering for 3D visualization
 
     // Enable scalar->opacity mapping: opacity follows the physical quantity linearly,

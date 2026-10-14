@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">
+  <Collection>
+    <DataSet timestep="0" group="" part="0" file="animated_000.vtp" />
+    <DataSet timestep="1" group="" part="0" file="animated_001.vtp" />
+    <DataSet timestep="2" group="" part="0" file="animated_002.vtp" />
+    <DataSet timestep="3" group="" part="0" file="animated_003.vtp" />
+    <DataSet timestep="4" group="" part="0" file="animated_004.vtp" />
+  </Collection>
+</VTKFile>

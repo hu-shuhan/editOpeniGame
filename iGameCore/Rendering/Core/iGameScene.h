@@ -13,6 +13,7 @@
 #include "OpenGL/GLFrameBuffer.h"
 #include "OpenGL/GLIndirectCommand.h"
 #include "OpenGL/GLShader.h"
+#include "OpenGL/GLTexture3d.h"
 #include "OpenGL/GLTextureBuffer.h"
 #include "iGameAxes.h"
 #include "iGameCamera.h"
@@ -377,10 +378,142 @@ public:
     igm::vec3 ScreenToWorld(const igm::vec2& screenPos, float depth) const;
 
     /**
-     * @brief 启用或禁用体绘制。
-     * @param toggled 是否启用。
+     * @enum  VolumeRenderingMode
+     * @brief 体绘制的实现方式。
      */
-    void SetVolumeRendering(bool toggled);
+    enum class VolumeRenderingMode {
+        Off = 0,   ///< 未开启
+        Fragment,  ///< 旧的“片元链表”实现（非结构化网格 / 不支持 compute 时使用）
+        Raycast    ///< compute shader 光线步进实现（结构化网格）
+    };
+
+    /**
+     * @brief 启用或禁用体绘制（唯一对外入口，按数据类型自动选择实现）。
+     * @param toggled 是否启用。
+     * @param message 选型说明或失败原因（可为空）。
+     * @return 实际采用的实现方式；Off 表示开启失败。
+     *
+     * @details
+     *  结构化网格 → compute shader 光线步进（SetVolumeRaycasting）；
+     *  其它情况   → 旧的“片元链表”实现（SetFragmentVolumeRendering），包括：
+     *  非结构化网格、多块/动画数据（含子数据对象，播放时子对象会被重建，
+     *  无法安全持有）、以及当前后端不支持 compute 的情况。
+     *  这样既保留了老实现的能力，又让结构化网格走高效路径。
+     */
+    VolumeRenderingMode SetVolumeRendering(bool toggled,
+                                           std::string* message = nullptr);
+
+    /**
+     * @brief 获取当前体绘制采用的实现方式。
+     */
+    VolumeRenderingMode GetVolumeRenderingMode() const;
+
+    /**
+     * @brief 显式启用旧的“片元链表”体绘制实现。
+     * @note 仅供对照/回退调试；常规入口请使用 SetVolumeRendering。
+     */
+    void SetFragmentVolumeRendering(bool toggled);
+
+    /**
+     * @enum  VolumeRaycastingStatus
+     * @brief compute shader 光线步进体绘制的可用性检查结果。
+     */
+    enum class VolumeRaycastingStatus {
+        Ok = 0,             ///< 可用
+        UnsupportedBackend,  ///< 当前图形后端/驱动不支持（需要 OpenGL 4.3+ 的 compute）
+        NoStructuredMesh,    ///< 场景中没有可用于光线步进的结构化网格（非结构化网格请走 Fragment 实现）
+        NoScalarAttribute,   ///< 没有可用的标量属性
+        InvalidAttribute,    ///< 属性数据规模与网格不匹配（例如 ghost 之类的单元数据）
+        MultiBlockUnsupported ///< 多块/动画数据（含子数据对象），暂不支持 compute 光线步进
+    };
+
+    /**
+     * @brief 启用或禁用 compute shader 光线步进体绘制（仅结构化网格）。
+     * @param toggled 是否启用。
+     * @param message 失败原因（可为空）。
+     * @return 检查结果；只有 Ok 时才真正开启。
+     *
+     * @details
+     *  这是“只走 compute 实现”的显式接口，供 SetVolumeRendering 的分派逻辑
+     *  以及需要固定实现的调用方使用；普通业务请直接用 SetVolumeRendering，
+     *  它会按数据类型自动选择实现。开启前先做可用性检查：后端是否支持 compute、
+     *  场景中是否存在结构化网格、是否存在可用的标量属性；任何一项不满足都返回
+     *  对应状态，由调用方决定回退（Fragment）还是提示用户。
+     *  仅在 OpenGL 4.6 后端可用（Web / OpenGL 3.3 不支持 compute 与 3D 纹理）。
+     */
+    VolumeRaycastingStatus SetVolumeRaycasting(bool toggled,
+                                               std::string* message = nullptr);
+
+    /**
+     * @brief 检查 compute 体绘制当前是否可用。
+     * @param message 失败原因（可为空）。
+     * @note 只做 CPU 侧检查与运行时 GL 版本查询，不创建 GPU 资源；
+     *       调用时请确保有活动的 OpenGL 上下文（GL 版本查询需要）。
+     */
+    VolumeRaycastingStatus
+    CheckVolumeRaycastingSupport(std::string* message = nullptr);
+
+    /**
+     * @brief 运行时判断当前 OpenGL 上下文是否支持 compute 体绘制（GL 4.3+）。
+     * @warning 需要当前线程有活动的 OpenGL 上下文。
+     */
+    bool IsVolumeRaycastingAvailable();
+
+    /**
+     * @brief 当前场景是否存在多块/动画数据（带子数据对象的可绘制对象）。
+     *
+     * @details
+     *  动画型多块数据在播放时会 Clear/Add 子数据对象，compute 光线步进既无法用
+     *  单个体纹理覆盖多块，也不能安全持有子对象指针（随时可能被重建），
+     *  因此这类数据统一交给旧的“片元链表”实现。
+     */
+    bool HasMultiBlockData();
+
+    /**
+     * @brief 取出并清空“体绘制运行期失败”的待提示消息。
+     * @param message 失败原因（可为空）。
+     * @return 是否有待提示的消息。
+     *
+     * @details
+     *  用于渲染循环内发现“光线步进体绘制构建失败”时（例如结构化网格的属性
+     *  被移除、数据被移出场景），由界面层轮询后弹窗提示。
+     *  注意：切换到非结构化网格属于正常选型切换，会自动改用旧的片元链表
+     *  实现，不会走这里。
+     *  每次取出后即清空，避免重复弹窗。
+     */
+    bool ConsumeVolumeRaycastFailure(std::string* message = nullptr);
+
+    /**
+     * @brief 获取 compute 光线步进是否处于开启状态。
+     * @note 只反映 compute 实现的开关；要判断“当前用的是哪种实现”请用
+     *       GetVolumeRenderingMode()。
+     */
+    bool GetVolumeRaycasting() const { return m_EnableVolumeRaycasting; }
+
+    /**
+     * @brief 由数据对象构建体数据（结构化网格映射到 3D 纹理）。
+     * @param dataObject 数据对象，当前仅支持 StructuredMesh。
+     * @param attributeIndex 作为标量场的属性索引。
+     * @param attributeDimension 属性分量（-1 表示取模长；单分量属性忽略该参数）。
+     * @return 是否构建成功。
+     */
+    bool BuildVolumeData(SmartPointer<DataObject> dataObject,
+                         int attributeIndex = 0,
+                         int attributeDimension = -1);
+
+    /**
+     * @brief 使用当前场景中的第一个体网格构建体数据。
+     * @return 是否构建成功。
+     */
+    bool BuildVolumeDataFromCurrentModel();
+
+    /**
+     * @brief 设置 compute 体绘制的采样步数与不透明度缩放。
+     * @param numSteps 每条光线的最大采样步数（越大越精细、越慢）。
+     * @param opacityScale 不透明度缩放（越大越浓）。
+     */
+    void SetVolumeRaycastingQuality(int numSteps, float opacityScale);
+
 
     /**
      * @brief 捕获屏幕图像。
@@ -483,7 +616,15 @@ protected:
     void ShadowPass();
     void ForwardPass();
     void TransparentPass();
+    // 旧的“片元链表”体绘制通道（非结构化网格、或 compute 不可用时使用）
     void VolumeRenderingPass();
+    // compute shader 光线步进体绘制通道（结构化网格）
+    void VolumeRaycastPass();
+    // 构建默认传输函数 LUT（256x1 RGBA8）
+    void BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
+                                     float valueMin, float valueMax);
+    // 查找当前场景中的体数据来源（第一个可见的结构化网格）
+    SmartPointer<DrawObject> FindVolumeSource();
     void ClearSceneFramebuffer(float depth, int width, int height);
 
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
@@ -571,7 +712,40 @@ protected:
     SmartPointer<Painter3D> m_Painter3D;
 
     bool m_FinishInit;            // 是否完成初始化
-    bool m_EnableVolumeRendering; // 是否启用体绘制
+    // 是否启用旧的“片元链表”体绘制（VolumeRenderingMode::Fragment）
+    bool m_EnableVolumeRendering;
+
+    // compute shader 光线步进体绘制相关（VolumeRenderingMode::Raycast）
+    bool m_EnableVolumeRaycasting = false; // 是否启用光线步进体绘制
+    bool m_VolumeDataDirty = true;         // 需要（重新）构建体数据
+    SmartPointer<GLTexture3d> m_VolumeTexture3d; // 体数据 3D 纹理
+    SmartPointer<GLTexture2d> m_VolumeTransferFunction; // 传输函数 LUT
+    SmartPointer<DataObject> m_VolumeSourceObject; // 体数据来源对象
+    unsigned int m_VolumeSourceMTime = 0; // 来源对象的修改时间（用于失效检测）
+    // 属性切换不会修改 DataObject 的 MTime，需要显式缓存这三项用于失效判定
+    int m_VolumeAttributeIndex = -1;
+    int m_VolumeAttributeDimension = -1;
+    unsigned int m_VolumeMapperMTime = 0;
+    // 局部索引空间 -> 体纹理空间；每帧再左乘模型矩阵的逆得到世界空间的映射，
+    // 这样交互旋转/平移体数据才会跟随网格（模型矩阵变化不会触发 MTime）
+    igm::mat4 m_VolumeLocalToTexture{1.0f};
+    igm::vec3 m_VolumeLocalMin{0.0f, 0.0f, 0.0f};      // 局部包围盒最小角
+    igm::vec3 m_VolumeLocalExtent{1.0f, 1.0f, 1.0f};   // 局部包围盒尺寸
+    int m_VolumeDimension[3] = {0, 0, 0};   // 体数据维度
+    // 每条光线的采样步数：现在直接在视口分辨率下步进，
+    // 步数是主要性能开关（interactive 时可用 SetVolumeRaycastingQuality 调低）
+    int m_VolumeStepCount = 128;
+    float m_VolumeOpacityScale = 0.15f;     // 不透明度缩放
+    unsigned int m_VolumeFrameSeed = 0;     // 抖动种子（逐帧变化）
+    // 以下三项为一次性自检开关：用于定位体绘制“不可见/无效果”的问题，
+    // 稳定后可整体移除（对应 VolumeRaycastPass 中的诊断代码）
+    bool m_VolumeRaycastDiagnosed = false;  // 是否已输出过一次性自检日志
+    bool m_VolumeRaycastReadbackDone = false; // 是否已回读过结果像素
+    bool m_VolumeRaycastGpuDiagDone = false;  // 是否已做过 GPU 侧命中自检
+    bool m_VolumeRaycastingSupportChecked = false; // 是否已查询过运行时 compute 支持
+    bool m_VolumeRaycastingSupported = false;      // 运行时是否支持 compute 光线步进
+    std::string m_VolumeRaycastFailureMessage;     // 运行期失败待提示消息
+    bool m_VolumeLegacyDiagPending = false;        // 旧实现的一次性自检（下一帧输出）
 
     // 帧率/使用率节流控制
     bool m_FramePacingEnabled = false; // 全局开关

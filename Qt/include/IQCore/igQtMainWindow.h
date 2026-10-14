@@ -20,6 +20,7 @@
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QRect>
+#include <QMap>
 #include <QTimer>
 #include <array>
 #undef QT_NO_OPENGL
@@ -44,6 +45,8 @@ class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
 class igQtAttributeSelectWidget;
 class igQtRemoteModelLibrary;
+
+class igQtLinearExtrusionWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -75,6 +78,8 @@ public:
     void initAllMySignalConnections();
     void initAllFilters();
     bool connectImportedFilterAction(QAction* action, const QString& filterId);
+    bool connectMigratedFilterAction(QAction* action, const QString& filterId);
+    void showAppendAttributesFilter();
     bool connectThirdBatchFilterAction(QAction* action, const QString& filterId);
     void initAllSources();
     void initAllInteractor();
@@ -85,6 +90,11 @@ public:
     void openLeftToolPanel(LeftToolPanelId id);
     /** 从左侧 Tab 移除并还原到原 QDockWidget（供可勾选动作关闭等） */
     void closeLeftToolPanel(LeftToolPanelId id);
+
+    /** 把任意面板放进左侧工具面板的 Tab（key 唯一；已打开则切换到该 Tab） */
+    void openLeftToolWidget(const QString& key, QWidget* content, const QString& title);
+    /** 关闭 openLeftToolWidget 打开的 Tab；面板本身保留，下次打开时参数仍在 */
+    void closeLeftToolWidget(const QString& key);
 
 public:
     igQtModelDrawWidget* rendererWidget = nullptr;
@@ -149,6 +159,10 @@ private slots:
 
 
 private:
+    int m_outlineCount{0};
+    QDialog* m_linearExtrusionDialog = nullptr;
+    igQtLinearExtrusionWidget* m_linearExtrusionWidget = nullptr;
+
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
     // 自定义标题栏相关
@@ -176,6 +190,8 @@ private:
     QDockWidget* m_leftFieldDock = nullptr;
     QTabWidget* m_leftFieldTabs = nullptr;
     std::array<int, static_cast<size_t>(LeftToolPanelId::Count)> m_leftToolTabByPanel{{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};
+    // openLeftToolWidget 打开的 Tab：key -> Tab 页（外层滚动区域），按指针跟踪，不受其他 Tab 增删影响
+    QMap<QString, QWidget*> m_leftToolWidgetPages;
 
     void relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
                                   bool centerFlowField);
