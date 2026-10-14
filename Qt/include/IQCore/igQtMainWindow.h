@@ -64,6 +64,7 @@ public:
         VariableDensity,
         DataChange,
         VariableCorrelation,
+        VolumeRendering,
         Count
     };
 
@@ -95,6 +96,8 @@ public:
     void openLeftToolWidget(const QString& key, QWidget* content, const QString& title);
     /** 关闭 openLeftToolWidget 打开的 Tab；面板本身保留，下次打开时参数仍在 */
     void closeLeftToolWidget(const QString& key);
+    /** 打开「体绘制」设置面板（左侧工具面板的 Tab；面板复用，参数保留） */
+    void showVolumeRenderingPanel();
 
 public:
     igQtModelDrawWidget* rendererWidget = nullptr;
@@ -189,7 +192,7 @@ private:
     // 左侧工具 Tab（按需添加；下方 Properties 常驻）
     QDockWidget* m_leftFieldDock = nullptr;
     QTabWidget* m_leftFieldTabs = nullptr;
-    std::array<int, static_cast<size_t>(LeftToolPanelId::Count)> m_leftToolTabByPanel{{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};
+    std::array<int, static_cast<size_t>(LeftToolPanelId::Count)> m_leftToolTabByPanel{{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};
     // openLeftToolWidget 打开的 Tab：key -> Tab 页（外层滚动区域），按指针跟踪，不受其他 Tab 增删影响
     QMap<QString, QWidget*> m_leftToolWidgetPages;
 

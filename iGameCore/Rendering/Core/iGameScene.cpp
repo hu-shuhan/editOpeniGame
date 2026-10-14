@@ -99,6 +99,7 @@ Scene::Scene() {
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
     m_VolumeTexture3d = GLTexture3d::New();
+    m_VolumeMaskTexture3d = GLTexture3d::New();
     m_VolumeTransferFunction = GLTexture2d::New();
 
     m_HzbWidth = 0;
@@ -156,6 +157,7 @@ void Scene::Finalize() {
     m_VolumeColorTexture = nullptr;
     m_VolumeDepthTexture = nullptr;
     m_VolumeTexture3d = nullptr;
+    m_VolumeMaskTexture3d = nullptr;
     m_VolumeTransferFunction = nullptr;
     m_VolumeSourceObject = nullptr;
     m_HzbTexture = nullptr;
@@ -1544,6 +1546,7 @@ void Scene::VolumeRenderingPass() {
         int surfaceObjectCount = 0;
         int emptyIndexObjectCount = 0;
         int renderableWithTriangles = 0;
+        std::string detail;
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             ++modelCount;
             auto model = it->second;
@@ -1572,6 +1575,29 @@ void Scene::VolumeRenderingPass() {
                     renderable->m_TriangleIndices->GetNumberOfValues() > 0) {
                     ++renderableWithTriangles;
                 }
+
+                // 每个可见对象打一条明细，便于定位“没有几何/几何在别的对象上”
+                if (candidate->GetVisibility() && detail.size() < 900) {
+                    const IGsize ownTri =
+                            candidate->m_TriangleIndices != nullptr
+                                    ? candidate->m_TriangleIndices
+                                              ->GetNumberOfValues()
+                                    : 0;
+                    const IGsize renderTri =
+                            renderable != nullptr &&
+                                            renderable->m_TriangleIndices != nullptr
+                                    ? renderable->m_TriangleIndices
+                                              ->GetNumberOfValues()
+                                    : 0;
+                    detail += " [" + candidate->GetName() + " type=" +
+                              std::to_string(candidate->GetDataObjectType()) +
+                              " ownTri=" + std::to_string(ownTri) +
+                              " renderTri=" + std::to_string(renderTri) +
+                              " style=" + std::to_string(candidate->GetViewStyle()) +
+                              " shell=" +
+                              (candidate->GetShellRenderingOption() ? "1" : "0") +
+                              "]";
+                }
             };
 
             if (!drawObject->HasSubDataObject()) {
@@ -1597,6 +1623,11 @@ void Scene::VolumeRenderingPass() {
                 modelCount, visibleModelCount, objectCount, visibleObjectCount,
                 surfaceObjectCount, emptyIndexObjectCount, renderableWithTriangles,
                 fragmentCount, width, height);
+        if (!detail.empty()) {
+            IGAME_RENDERING_INFO(
+                    "[Scene::VolumeRenderingPass][diag] visible object detail:{}",
+                    detail);
+        }
         GLCheckError();
     }
 
@@ -1881,6 +1912,115 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
                                 voxels.data());
     m_VolumeTexture3d->Release();
 
+    // ---- 体数据掩膜（可选） ----
+    // 兼容重采样结果的两种来源：
+    //   * 点数组 "vtkValidPointMask"：1 = 落在原网格内（有效）
+    //   * 单元数组 "vtkGhostType"   ：0 = 有效，非 0 = ghost（车体内部 / 域外）
+    // 掩膜只做“有/无”二值（R8），shader 里 alpha *= mask：
+    // 无效体素不贡献颜色，于是车体内部会被挖成空腔，轮廓因此可辨。
+    {
+        std::vector<unsigned char> mask(static_cast<size_t>(pointCount), 0);
+        bool hasMask = false;
+
+        auto attributeSet = structuredMesh->GetAttributeSet();
+        auto allAttributes =
+                attributeSet != nullptr ? attributeSet->GetAllAttributes()
+                                        : nullptr;
+        if (allAttributes != nullptr) {
+            // 1) 优先用逐点的 vtkValidPointMask
+            for (IGsize i = 0; i < allAttributes->GetNumberOfElements(); ++i) {
+                auto& attribute = allAttributes->GetElement(i);
+                if (attribute.isDeleted || attribute.pointer == nullptr) {
+                    continue;
+                }
+                if (attribute.pointer->GetName() != "vtkValidPointMask") {
+                    continue;
+                }
+                if (attribute.attachmentType != IG_POINT) { continue; }
+                if (attribute.pointer->GetNumberOfElements() != pointCount) {
+                    continue;
+                }
+                for (IGsize p = 0; p < pointCount; ++p) {
+                    mask[static_cast<size_t>(p)] =
+                            attribute.pointer->GetElementValue(p, 0) != 0.0
+                                    ? 1u
+                                    : 0u;
+                }
+                hasMask = true;
+                break;
+            }
+
+            // 2) 否则用单元级 vtkGhostType 映射到点：
+            //    任一相邻单元有效 ⇒ 该点有效（避免把有效区侵蚀一圈）
+            if (!hasMask) {
+                const IGsize cellsPerSlice =
+                        static_cast<IGsize>(nx - 1) * static_cast<IGsize>(ny - 1);
+                for (IGsize i = 0;
+                     i < allAttributes->GetNumberOfElements() && !hasMask; ++i) {
+                    auto& attribute = allAttributes->GetElement(i);
+                    if (attribute.isDeleted || attribute.pointer == nullptr) {
+                        continue;
+                    }
+                    if (attribute.pointer->GetName() != "vtkGhostType") {
+                        continue;
+                    }
+                    if (attribute.attachmentType != IG_CELL) { continue; }
+                    if (attribute.pointer->GetNumberOfElements() != cellCount) {
+                        continue;
+                    }
+
+                    for (igIndex k = 0; k + 1 < nz; ++k) {
+                        for (igIndex j = 0; j + 1 < ny; ++j) {
+                            for (igIndex ii = 0; ii + 1 < nx; ++ii) {
+                                const IGsize cellIndex =
+                                        static_cast<IGsize>(ii) +
+                                        static_cast<IGsize>(j) *
+                                                static_cast<IGsize>(nx - 1) +
+                                        static_cast<IGsize>(k) * cellsPerSlice;
+                                if (attribute.pointer->GetElementValue(
+                                            cellIndex, 0) != 0.0) {
+                                    continue; // ghost 单元
+                                }
+                                for (int corner = 0; corner < 8; ++corner) {
+                                    const IGsize pi =
+                                            static_cast<IGsize>(ii) + (corner & 1);
+                                    const IGsize pj =
+                                            static_cast<IGsize>(j) +
+                                            ((corner >> 1) & 1);
+                                    const IGsize pk =
+                                            static_cast<IGsize>(k) +
+                                            ((corner >> 2) & 1);
+                                    mask[pi + pj * static_cast<IGsize>(nx) +
+                                         pk * static_cast<IGsize>(nx) *
+                                                 static_cast<IGsize>(ny)] = 1u;
+                                }
+                            }
+                        }
+                    }
+                    hasMask = true;
+                }
+            }
+        }
+
+        m_VolumeMaskEnabled = hasMask;
+        if (hasMask && m_VolumeMaskTexture3d != nullptr) {
+            m_VolumeMaskTexture3d->Destroy();
+            m_VolumeMaskTexture3d->Create();
+            m_VolumeMaskTexture3d->Storage(1, GL_R8, nx, ny, nz);
+            m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_WRAP_S,
+                                              GL_CLAMP_TO_EDGE);
+            m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_WRAP_T,
+                                              GL_CLAMP_TO_EDGE);
+            m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_WRAP_R,
+                                              GL_CLAMP_TO_EDGE);
+            m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            m_VolumeMaskTexture3d->SubImage(0, 0, 0, 0, nx, ny, nz, GL_RED,
+                                            GL_UNSIGNED_BYTE, mask.data());
+            m_VolumeMaskTexture3d->Release();
+        }
+    }
+
     // 曲线坐标网格检测：当前实现把“索引空间”当作纹理空间，只有当点坐标
     // 可分离（p(i,j,k) = p(i,0,0) + p(0,j,0) + p(0,0,k) - 2 * p(0,0,0)，
     // 即轴对齐的直线网格，允许沿轴非均匀间距）时才精确；曲线坐标网格会形变，
@@ -1990,11 +2130,12 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
     m_VolumeRaycastReadbackDone = false;
     m_VolumeRaycastGpuDiagDone = false;
 
-    IGAME_RENDERING_INFO(
+        IGAME_RENDERING_INFO(
             "[Scene::BuildVolumeData] attribute {} (dimension {}), scalar range "
-            "[{}, {}], local box [{}, {}, {}] - [{}, {}, {}].",
-            attributeIndex, componentCount, minValue, maxValue, localMin.x,
-            localMin.y, localMin.z, localMax.x, localMax.y, localMax.z);
+            "[{}, {}], mask {}, local box [{}, {}, {}] - [{}, {}, {}].",
+            attributeIndex, componentCount, minValue, maxValue,
+            m_VolumeMaskEnabled ? "yes" : "no", localMin.x, localMin.y,
+            localMin.z, localMax.x, localMax.y, localMax.z);
 
     return true;
 #else
@@ -2271,6 +2412,38 @@ void Scene::SetVolumeRaycastingQuality(int numSteps, float opacityScale) {
     this->Update();
 }
 
+Scene::VolumeRenderingInfo Scene::GetVolumeRenderingInfo() {
+    VolumeRenderingInfo info;
+    info.mode = this->GetVolumeRenderingMode();
+
+    if (m_Camera != nullptr) {
+        const igm::uvec2 viewport = m_Camera->GetViewPort();
+        const igm::uvec2 scaled = m_Camera->GetScaledViewPort();
+        info.viewportWidth = static_cast<int>(viewport.x);
+        info.viewportHeight = static_cast<int>(viewport.y);
+        info.renderWidth = static_cast<int>(scaled.x);
+        info.renderHeight = static_cast<int>(scaled.y);
+    }
+
+    // 体素间距 = 局部包围盒尺寸 / (维度 - 1)，与 STRUCTURED_POINTS 的 SPACING
+    // 语义一致；维度不足 2 时无法推断，记 0 由界面显示 “-”
+    const float extent[3] = {m_VolumeLocalExtent.x, m_VolumeLocalExtent.y,
+                             m_VolumeLocalExtent.z};
+    for (int axis = 0; axis < 3; ++axis) {
+        info.volumeDimension[axis] = m_VolumeDimension[axis];
+        info.voxelSpacing[axis] =
+                m_VolumeDimension[axis] > 1
+                        ? extent[axis] /
+                                  static_cast<float>(m_VolumeDimension[axis] - 1)
+                        : 0.0f;
+    }
+
+    info.stepCount = m_VolumeStepCount;
+    info.opacityScale = m_VolumeOpacityScale;
+    info.maskEnabled = m_VolumeMaskEnabled;
+    return info;
+}
+
 void Scene::VolumeRaycastPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     if (!m_EnableVolumeRaycasting) { return; }
@@ -2467,6 +2640,12 @@ void Scene::VolumeRaycastPass() {
 
     m_VolumeTexture3d->Active(GL_TEXTURE1);
     shader->SetUniformi("volumeTexture", 1);
+
+    // 掩膜纹理（可选）：未启用时该分支在 shader 中整体跳过，
+    // 这里仍绑定一个合法单元（未创建时绑定 0 也无害）
+    m_VolumeMaskTexture3d->Active(GL_TEXTURE3);
+    shader->SetUniformi("volumeMask", 3);
+    shader->SetUniformi("volumeMaskEnabled", m_VolumeMaskEnabled ? 1 : 0);
 
     m_VolumeTransferFunction->Active(GL_TEXTURE2);
     shader->SetUniformi("transferFunction", 2);

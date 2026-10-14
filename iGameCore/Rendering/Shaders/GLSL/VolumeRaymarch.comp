@@ -43,6 +43,8 @@ uniform vec3 backgroundColor; // 体后方的背景色（体数据独立渲染�
 uniform int debugMode;        // 0=正常渲染；1=输出命中诊断（一次性 GPU 自检用）
 
 uniform sampler3D volumeTexture;   // 体数据（R16F，三线性插值）
+uniform sampler3D volumeMask;      // 体数据掩膜（R8：1=有效，0=无效）
+uniform int volumeMaskEnabled;     // 掩膜是否可用（0 时完全跳过掩膜采样）
 uniform sampler2D transferFunction;// 传输函数 LUT（256x1 RGBA8）
 
 layout(binding = 0, rgba8) uniform writeonly image2D outImage;
@@ -168,7 +170,14 @@ void main() {
         float scalar = clamp(texture(volumeTexture, texCoord).r, 0.0, 1.0);
         vec4 tf = texture(transferFunction, vec2(scalar, 0.5));
 
-        float alpha = clamp(tf.a * opacityScale, 0.0, 1.0);
+        // 掩膜：重采样时落在原网格外（车体内部 / 域外）的体素直接不贡献，
+        // 于是车体的轮廓会从体绘制里“挖”出来
+        float mask = 1.0;
+        if (volumeMaskEnabled == 1) {
+            mask = texture(volumeMask, texCoord).r;
+        }
+
+        float alpha = clamp(tf.a * opacityScale, 0.0, 1.0) * mask;
         if (alpha > 0.0) {
             // 按实际步长补偿不透明度，使结果与步数基本无关
             alpha = 1.0 - pow(1.0 - alpha, opacityCorrection);

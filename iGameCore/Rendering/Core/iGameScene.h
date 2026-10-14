@@ -514,6 +514,29 @@ public:
      */
     void SetVolumeRaycastingQuality(int numSteps, float opacityScale);
 
+    /**
+     * @brief 体绘制的只读状态快照（供「体绘制」设置面板显示）。
+     *
+     * @details
+     *  视口大小是逻辑像素（窗口内渲染区），渲染分辨率是设备像素，也就是
+     *  compute shader 实际派发的分辨率（两者之比即 devicePixelRatio）。
+     *  体数据维度/体素间距来自已构建的体纹理，未构建时维度为 0。
+     */
+    struct VolumeRenderingInfo {
+        VolumeRenderingMode mode = VolumeRenderingMode::Off; ///< 当前实现方式
+        int viewportWidth = 0;       ///< 视口宽度（逻辑像素）
+        int viewportHeight = 0;      ///< 视口高度（逻辑像素）
+        int renderWidth = 0;         ///< 渲染分辨率宽度（设备像素）
+        int renderHeight = 0;        ///< 渲染分辨率高度（设备像素）
+        int volumeDimension[3] = {0, 0, 0};          ///< 体数据维度
+        float voxelSpacing[3] = {0.0f, 0.0f, 0.0f};  ///< 体素间距（局部单位）
+        int stepCount = 0;           ///< 每条光线最大采样步数
+        float opacityScale = 0.0f;   ///< 不透明度缩放
+        bool maskEnabled = false;    ///< 体数据是否带掩膜纹理
+    };
+
+    /// 取体绘制状态快照（设置面板显示用）。
+    VolumeRenderingInfo GetVolumeRenderingInfo();
 
     /**
      * @brief 捕获屏幕图像。
@@ -719,6 +742,8 @@ protected:
     bool m_EnableVolumeRaycasting = false; // 是否启用光线步进体绘制
     bool m_VolumeDataDirty = true;         // 需要（重新）构建体数据
     SmartPointer<GLTexture3d> m_VolumeTexture3d; // 体数据 3D 纹理
+    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R8，1=有效）
+    bool m_VolumeMaskEnabled = false;            // 当前体数据是否带掩膜
     SmartPointer<GLTexture2d> m_VolumeTransferFunction; // 传输函数 LUT
     SmartPointer<DataObject> m_VolumeSourceObject; // 体数据来源对象
     unsigned int m_VolumeSourceMTime = 0; // 来源对象的修改时间（用于失效检测）
@@ -735,7 +760,7 @@ protected:
     // 每条光线的采样步数：现在直接在视口分辨率下步进，
     // 步数是主要性能开关（interactive 时可用 SetVolumeRaycastingQuality 调低）
     int m_VolumeStepCount = 128;
-    float m_VolumeOpacityScale = 0.15f;     // 不透明度缩放
+    float m_VolumeOpacityScale = 0.1f;     // 不透明度缩放
     unsigned int m_VolumeFrameSeed = 0;     // 抖动种子（逐帧变化）
     // 以下三项为一次性自检开关：用于定位体绘制“不可见/无效果”的问题，
     // 稳定后可整体移除（对应 VolumeRaycastPass 中的诊断代码）

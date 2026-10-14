@@ -49,6 +49,7 @@
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtElevationFilterPanel.h>
 #include <IQWidgets/igQtModelClipWidget.h>
+#include <IQWidgets/igQtVolumeRenderingWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
@@ -1418,6 +1419,9 @@ void igQtMainWindow::initAllComponents() {
                 if (!toggled) { return; }
 
                 if (mode != iGame::Scene::VolumeRenderingMode::Off) {
+                    // 打开体绘制设置面板：显示视口大小/渲染分辨率/体数据规模，
+                    // 并允许调整采样步数与不透明度缩放
+                    this->showVolumeRenderingPanel();
                     // 成功开启：若发生了实现方式回退（例如非结构化网格），
                     // 在状态栏给出提示即可，不弹窗打断
                     if (!message.empty()) {
@@ -4341,6 +4345,20 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
                                  false);
         break;
+    case LeftToolPanelId::VolumeRendering: {
+        // 体绘制设置面板没有 dock 壳：懒创建一次并常驻主窗口，关闭后参数仍在
+        const QString key = QStringLiteral("volumeRenderingPanel");
+        auto* panel = this->findChild<igQtVolumeRenderingWidget*>(key);
+        if (panel == nullptr) {
+            panel = new igQtVolumeRenderingWidget(this);
+            panel->setObjectName(key);
+            connect(panel, &igQtVolumeRenderingWidget::closeRequested, this,
+                    [this]() { this->closeLeftToolPanel(LeftToolPanelId::VolumeRendering); });
+        }
+        panel->refresh();
+        relocateContentToLeftTab(nullptr, panel, QStringLiteral("体绘制"), id, false);
+        break;
+    }
     case LeftToolPanelId::Count:
         break;
     }
@@ -4416,6 +4434,11 @@ void igQtMainWindow::closeLeftToolWidget(const QString& key) {
     if (m_leftFieldTabs->count() == 0 && m_leftFieldDock) m_leftFieldDock->hide();
 }
 
+void igQtMainWindow::showVolumeRenderingPanel() {
+    // 面板内容由 openLeftToolPanel 的 VolumeRendering 分支懒创建并复用
+    this->openLeftToolPanel(LeftToolPanelId::VolumeRendering);
+}
+
 void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
     const int pid = static_cast<int>(id);
     if (!m_leftFieldTabs) return;
@@ -4435,6 +4458,11 @@ void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
         else
             addDockWidget(Qt::LeftDockWidgetArea, shell);
         shell->hide();
+    } else if (inner) {
+        // 无 dock 壳的面板（例如体绘制设置面板）：还原为隐藏的独立子控件，
+        // 面板实例保留在主窗口下，下次打开时参数仍在
+        inner->setParent(this);
+        inner->hide();
     }
 
     m_leftFieldTabs->removeTab(idx);
