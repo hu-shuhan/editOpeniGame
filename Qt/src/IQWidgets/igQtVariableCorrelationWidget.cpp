@@ -2,9 +2,7 @@
 #include "ui_igQtVariableCorrelationWidget.h"
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <QElapsedTimer>
-#include <QPalette>
 #include <QPoint>
-#include <QScrollArea>
 #include <algorithm>
 #include <cmath>
 #include <thread>
@@ -150,18 +148,6 @@ static double CalculateValueByPos(int pos, int minPos, int maxPos, double minVal
     return (pos - minPos) * (maxValue - minValue) / (maxPos - minPos) + minValue;
 }
 
-/** 说明性 QLabel：银灰色 + 字号（写在控件自身 stylesheet，避免被主窗口全局 QLabel 覆盖） */
-static void ApplyCaptionLabelStyle(QLabel* w, int r, int g, int b, double a, int fontSizePx) {
-    if (!w) return;
-    w->setStyleSheet(QStringLiteral(
-            "QLabel { color: rgba(%1, %2, %3, %4) !important; background-color: transparent; font-size: %5px; }")
-                             .arg(r)
-                             .arg(g)
-                             .arg(b)
-                             .arg(a, 0, 'f', 2)
-                             .arg(fontSizePx));
-}
-
 igQtVariableCorrelationWidget_VariableChooseButton::igQtVariableCorrelationWidget_VariableChooseButton(QWidget* parent)
     : QRadioButton(parent) {}
 
@@ -175,88 +161,13 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
     ui->setupUi(this);
 
-    igQtPanelTheme::attachDeep(this);
-
     // Qt 5 uic may misread Qt 6-style orientation enums from the .ui file.
     // Keep the correlation table's column separators vertical at runtime as well.
     for (QFrame* separator : {ui->line_3, ui->line_4, ui->line_6, ui->line_7}) {
         separator->setFrameShape(QFrame::VLine);
     }
 
-    // 与无边框弹窗配合：略透底；滚动区不铺不透明 Palette，避免挡住半透明合成
-    setAttribute(Qt::WA_TranslucentBackground, true);
-    setAutoFillBackground(false);
-    for (QScrollArea* area : {ui->scrollArea, ui->scrollArea_2}) {
-        if (!area) continue;
-        area->setAttribute(Qt::WA_TranslucentBackground, true);
-        area->setAutoFillBackground(false);
-        if (area->viewport()) {
-            area->viewport()->setAttribute(Qt::WA_TranslucentBackground, true);
-            area->viewport()->setAutoFillBackground(false);
-        }
-        if (area->widget()) {
-            area->widget()->setAttribute(Qt::WA_TranslucentBackground, true);
-            area->widget()->setAutoFillBackground(false);
-        }
-    }
-
-    /* QSplitter::handle / QFrame(HLine|VLine) 在仅依赖父级 .ui QSS 时，Windows 风格下常不生效；在控件上再设一层 */
-    if (ui->splitter) {
-        ui->splitter->setHandleWidth(4);
-        ui->splitter->setStyleSheet(QStringLiteral(
-                "QSplitter::handle:horizontal { background-color: rgba(192, 194, 202, 0.92); margin: 0 1px; }"
-                "QSplitter::handle:horizontal:hover { background-color: rgba(210, 212, 220, 0.98); }"));
-    }
-    for (QFrame* fr : findChildren<QFrame*>()) {
-        const QFrame::Shape sh = fr->frameShape();
-        if (sh == QFrame::HLine) {
-            fr->setStyleSheet(QStringLiteral(
-                    "QFrame { background-color: rgba(192, 194, 202, 0.9); border: none; min-height: 1px; max-height: "
-                    "2px; }"));
-        } else if (sh == QFrame::VLine) {
-            fr->setStyleSheet(QStringLiteral(
-                    "QFrame { background-color: rgba(192, 194, 202, 0.9); border: none; min-width: 1px; max-width: "
-                    "3px; }"));
-        }
-    }
-
-    ApplyCaptionLabelStyle(ui->label_10, 205, 207, 213, 0.96, 15);
-    for (QLabel* hdr : {ui->label, ui->label_2, ui->label_3, ui->label_4, ui->label_5}) {
-        ApplyCaptionLabelStyle(hdr, 212, 214, 220, 0.97, 16);
-    }
-    for (QLabel* row : {ui->label_6, ui->label_7, ui->label_8, ui->label_9}) {
-        ApplyCaptionLabelStyle(row, 198, 200, 208, 0.95, 15);
-    }
-    for (QLabel* meta :
-            {ui->mainVariableName, ui->subVariableName, ui->mainVariablePos, ui->subVariablePos}) {
-        ApplyCaptionLabelStyle(meta, 186, 188, 196, 0.94, 15);
-    }
-
-    auto forceSpinBoxDark = [](QAbstractSpinBox* sb) {
-        if (!sb) return;
-        QPalette p = sb->palette();
-        const QColor bg(37, 37, 38, 235);
-        p.setColor(QPalette::Base, bg);
-        p.setColor(QPalette::Window, bg);
-        p.setColor(QPalette::Button, QColor(45, 45, 48, 240));
-        const QColor fg(228, 230, 236, 252);
-        p.setColor(QPalette::Text, fg);
-        p.setColor(QPalette::WindowText, fg);
-        p.setColor(QPalette::ButtonText, fg);
-        sb->setAutoFillBackground(true);
-        sb->setPalette(p);
-        sb->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
-        sb->setStyleSheet(
-                "QAbstractSpinBox { background-color: rgba(37, 37, 38, 0.9); color: rgba(228, 230, 236, 0.96); "
-                "border: 1px solid rgba(100, 102, 110, 0.42); border-radius: 4px; }"
-                "QAbstractSpinBox QLineEdit { background-color: transparent; color: rgba(228, 230, 236, 0.96); border: none; }");
-    };
-    forceSpinBoxDark(ui->choosedAlphaSpinBox);
-    forceSpinBoxDark(ui->unChoosedAlphaSpinBox);
-    forceSpinBoxDark(ui->choosedLightSpinBox);
-    forceSpinBoxDark(ui->unChoosedLightSpinBox);
-
-    applyChromeTheme();
+    GenerateBackgroundColor();
 
     connect(ui->choosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtVariableCorrelationWidget::ChoosedAlphaSliderChanged);
@@ -378,13 +289,14 @@ void igQtVariableCorrelationWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
     update();
 }
 
-void igQtVariableCorrelationWidget::DrawRangeChooseRect() {
+void igQtVariableCorrelationWidget::DrawRangeChooseRect(QPainter& painter) {
     if (!m_RangeChooseOn) return;
     if (!m_RangeChoosing) return;
-    QPainter painter(this);
     painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
     painter.setBrush(Qt::NoBrush);
-    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
+    const QPoint a = ui->drawWidget->mapFrom(this, m_RangeChooseStartPoint);
+    const QPoint b = ui->drawWidget->mapFrom(this, m_RangeChooseEndPoint);
+    painter.drawRect(QRect(a, b).normalized());
 }
 
 void igQtVariableCorrelationWidget::RangeChooseButtonClicked(bool checked) {
@@ -428,9 +340,7 @@ void igQtVariableCorrelationWidget::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void igQtVariableCorrelationWidget::paintEvent(QPaintEvent* QPE) {
-    if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) return;
-    Draw();
-    DrawRangeChooseRect();
+    QWidget::paintEvent(QPE);
 }
 
 void igQtVariableCorrelationWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -439,6 +349,24 @@ void igQtVariableCorrelationWidget::mouseMoveEvent(QMouseEvent* event) {
 }
 
 bool igQtVariableCorrelationWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched != ui->drawWidget) return QWidget::eventFilter(watched, event);
+    if (event->type() == QEvent::Paint) {
+        // Paint on the canvas itself so child backgrounds cannot cover the plot.
+        QPainter painter(ui->drawWidget);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        Draw(painter);
+        DrawRangeChooseRect(painter);
+        return true;
+    }
+    if (event->type() == QEvent::MouseButtonPress) {
+        auto* mouseEvent = static_cast<QMouseEvent*>(event);
+        StartRangeChoose(ui->drawWidget->mapTo(this, mouseEvent->pos()));
+        return true;
+    }
+    if (event->type() == QEvent::MouseButtonRelease) {
+        EndRangeChoose();
+        return true;
+    }
     if (event->type() == QEvent::MouseMove) {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
 
@@ -606,25 +534,17 @@ void igQtVariableCorrelationWidget::GenerateCorImage() {
 void igQtVariableCorrelationWidget::GenerateChoosedCorImage() { m_ChoosedCorImage = _DrawChoosedCorImage(); }
 
 void igQtVariableCorrelationWidget::GenerateBackgroundColor() {
-    //########################### White ###########################
-    m_BackgroundColor = {242, 242, 242};
-    return;
-    //########################### White ###########################
-    if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) {
-        m_BackgroundColor = {255, 255, 255};
-        return;
-    }
-    auto colorMap = m_Mesh->GetColorMapper();
-    auto colorBar = colorMap->GetColorBar();
-    m_BackgroundColor = CalculateBackgroundColor(colorBar);
+    const QColor c = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::CardBg);
+    m_BackgroundColor = {c.red(), c.green(), c.blue()};
 }
 
-void igQtVariableCorrelationWidget::Draw() {
-    QRect bigDrawFrame, smallDrawFrame;
-    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
-    _DrawBackground(bigDrawFrame);
-    _DrawCoordinate(smallDrawFrame);
-    _DrawImages(bigDrawFrame);
+void igQtVariableCorrelationWidget::Draw(QPainter& painter) {
+    const QRect plotRect = ui->drawWidget->rect();
+    _DrawBackground(painter, plotRect);
+    if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) return;
+    _DrawCoordinate(painter, InsetRectByBoundaryRatio(plotRect, boundaryRatio));
+    // Cached scatter images already include the boundary inset.
+    _DrawImages(painter, plotRect);
 }
 
 void igQtVariableCorrelationWidget::SetVariableCorrelationDataColor(int variableIndex) {
@@ -837,27 +757,25 @@ void igQtVariableCorrelationWidget::_DrawChoosedCorImage(int mainVariableIndex, 
     }
 }
 
-void igQtVariableCorrelationWidget::_DrawCoordinate(const QRect& range) {
-    QPainter painter(this);
-    painter.setPen(QPen(QColorConstants::Black, 1));
+void igQtVariableCorrelationWidget::_DrawCoordinate(QPainter& painter, const QRect& range) {
+    painter.setPen(QPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(range);
     painter.drawLine(range.bottomLeft(), range.topRight());
 }
 
-void igQtVariableCorrelationWidget::_DrawBackground(const QRect& range) {
-    QPainter painter(this);
+void igQtVariableCorrelationWidget::_DrawBackground(QPainter& painter, const QRect& range) {
     QBrush brush;
     brush.setColor(QColor(get<0>(m_BackgroundColor), get<1>(m_BackgroundColor), get<2>(m_BackgroundColor)));
     brush.setStyle(Qt::SolidPattern);
     painter.setBrush(brush);
+    painter.setPen(Qt::NoPen);
     painter.drawRect(range);
 }
 
-void igQtVariableCorrelationWidget::_DrawImages(const QRect& range) {
-    QPainter painter(this);
+void igQtVariableCorrelationWidget::_DrawImages(QPainter& painter, const QRect& range) {
     if (m_ImageLoading) {
-        QPen pen;
+        QPen pen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text));
         pen.setWidth(10);
         QFont font;
         font.setPointSize(8);
@@ -1091,76 +1009,8 @@ void igQtVariableCorrelationWidget::CompleteImageLoading() {
 
 void igQtVariableCorrelationWidget::changeEvent(QEvent* e) {
     if (e && e->type() == QEvent::StyleChange) {
-        igQtPanelTheme::refreshDeep(this);
-        applyChromeTheme();
+        GenerateBackgroundColor();
+        update();
     }
     QWidget::changeEvent(e);
-}
-
-void igQtVariableCorrelationWidget::applyChromeTheme() {
-    using Role = igQtRenderWidget::UiRole;
-    const QColor line = igQtRenderWidget::uiRole(Role::BorderStrong);
-    const QColor text = igQtRenderWidget::uiRole(Role::Text);
-    const QColor dim = igQtRenderWidget::uiRole(Role::TextDim);
-    const QColor spinBg = igQtRenderWidget::uiRole(Role::PanelBg2);
-    const QColor spinBtn = igQtRenderWidget::uiRole(Role::CardBg);
-
-    if (ui->splitter) {
-        ui->splitter->setStyleSheet(QStringLiteral(
-                "QSplitter::handle:horizontal { background-color: rgba(%1,%2,%3,0.55); margin: 0 1px; }"
-                "QSplitter::handle:horizontal:hover { background-color: rgba(%1,%2,%3,0.85); }")
-                                            .arg(line.red())
-                                            .arg(line.green())
-                                            .arg(line.blue()));
-    }
-    for (QFrame* fr : findChildren<QFrame*>()) {
-        const QFrame::Shape sh = fr->frameShape();
-        if (sh == QFrame::HLine) {
-            fr->setStyleSheet(QStringLiteral("QFrame { background-color: rgba(%1,%2,%3,0.55); border: none;"
-                                             " min-height: 1px; max-height: 2px; }")
-                                      .arg(line.red())
-                                      .arg(line.green())
-                                      .arg(line.blue()));
-        } else if (sh == QFrame::VLine) {
-            fr->setStyleSheet(QStringLiteral("QFrame { background-color: rgba(%1,%2,%3,0.55); border: none;"
-                                             " min-width: 1px; max-width: 3px; }")
-                                      .arg(line.red())
-                                      .arg(line.green())
-                                      .arg(line.blue()));
-        }
-    }
-
-    ApplyCaptionLabelStyle(ui->label_10, text.red(), text.green(), text.blue(), 0.96, 15);
-    for (QLabel* hdr : {ui->label, ui->label_2, ui->label_3, ui->label_4, ui->label_5}) {
-        ApplyCaptionLabelStyle(hdr, text.red(), text.green(), text.blue(), 0.97, 16);
-    }
-    for (QLabel* row : {ui->label_6, ui->label_7, ui->label_8, ui->label_9}) {
-        ApplyCaptionLabelStyle(row, dim.red(), dim.green(), dim.blue(), 0.95, 15);
-    }
-    for (QLabel* meta : {ui->mainVariableName, ui->subVariableName, ui->mainVariablePos, ui->subVariablePos}) {
-        ApplyCaptionLabelStyle(meta, dim.red(), dim.green(), dim.blue(), 0.94, 15);
-    }
-
-    auto themedSpin = [&](QAbstractSpinBox* sb) {
-        if (!sb) return;
-        QPalette p = sb->palette();
-        p.setColor(QPalette::Base, spinBg);
-        p.setColor(QPalette::Window, spinBg);
-        p.setColor(QPalette::Button, spinBtn);
-        p.setColor(QPalette::Text, text);
-        p.setColor(QPalette::WindowText, text);
-        p.setColor(QPalette::ButtonText, text);
-        sb->setAutoFillBackground(true);
-        sb->setPalette(p);
-        sb->setStyleSheet(QStringLiteral(
-                "QAbstractSpinBox { background-color: %1; color: %2; border: 1px solid %3; border-radius: 4px; }"
-                "QAbstractSpinBox QLineEdit { background-color: transparent; color: %2; border: none; }")
-                                  .arg(igQtRenderWidget::uiRoleCss(Role::PanelBg2),
-                                       igQtRenderWidget::uiRoleCss(Role::Text),
-                                       igQtRenderWidget::uiRoleCss(Role::Border)));
-    };
-    themedSpin(ui->choosedAlphaSpinBox);
-    themedSpin(ui->unChoosedAlphaSpinBox);
-    themedSpin(ui->choosedLightSpinBox);
-    themedSpin(ui->unChoosedLightSpinBox);
 }

@@ -3767,36 +3767,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
 
-        // 使用动态属性存储对话框指针    // 匿名命名空间，只在当前cpp文件可见
-        static igQtChromeFramelessDialog* dialog = nullptr;
-        static igQtVariableCorrelationWidget* widget = nullptr;
-
-        if (!dialog) {
-            dialog = new igQtChromeFramelessDialog(this);
-            dialog->setDialogTitle(QStringLiteral("变量相关性分析"));
-
-            widget = new igQtVariableCorrelationWidget(dialog->contentHost());
-            widget->GetUi()->splitter->setSizes({200, 300, 400});
-            dialog->setContentWidget(widget);
-            dialog->resize(900, 500);
-            connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
-                // 使用sender()获取信号发送者
-                auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
-                if (!senderWidget) return;
-                auto model = rendererWidget->GetScene()->GetCurrentModel();
-                if (model == nullptr) return;
-                senderWidget->SetModel(model);
-            });
-        }
-
-        widget->SetModel(model);
-        dialog->show();
-        dialog->raise();
-        dialog->activateWindow();
-
-
-        //ui->dockWidget_VariableCorrelationField->show();
-        //ui->widget_VariableCorrelationField->SetModel(model);
+        openLeftToolPanel(LeftToolPanelId::VariableCorrelation);
+        ui->widget_VariableCorrelationField->SetModel(model);
     });
 
     connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
@@ -4168,6 +4140,7 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Slice: return SliceDockWidget;
     case LeftToolPanelId::Deformation: return DeformationDockWidget;
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
+    case LeftToolPanelId::VariableCorrelation: return ui->dockWidget_VariableCorrelationField;
     case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
     case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
     case LeftToolPanelId::Count: return nullptr;
@@ -4265,6 +4238,10 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         break;
     case LeftToolPanelId::Selection:
         relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"), id, false);
+        break;
+    case LeftToolPanelId::VariableCorrelation:
+        relocateContentToLeftTab(ui->dockWidget_VariableCorrelationField, ui->widget_VariableCorrelationField,
+                                 QStringLiteral("变量相关性分析"), id, false);
         break;
     case LeftToolPanelId::VariableDensity:
         relocateContentToLeftTab(ui->dockWidget_VariableDensityField, ui->widget_VariableDensityField,
