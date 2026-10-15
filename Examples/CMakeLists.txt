@@ -335,6 +335,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
             "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
@@ -364,6 +365,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
         "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
         set(_VALIDATION_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
         if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -472,6 +474,7 @@ igame_add_example(testSpectralReaderCPU ../iGameCore/IO/Spectral/tests/SpectralR
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
 igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
 igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
+igame_add_example(testPolylineWireframeValidation Rendering/PolylineWireframeValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
