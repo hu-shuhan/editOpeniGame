@@ -28,6 +28,7 @@ protected:
 	void mousePressEvent(QMouseEvent* aEvent) override;
 	void mouseMoveEvent(QMouseEvent* aEvent) override;
 	void mouseReleaseEvent(QMouseEvent* aEvent) override;
+	void leaveEvent(QEvent* aEvent) override;
 
 	QRectF getHandleRect(int handle)const;
 	QRectF getHandleRectWithFloatValue(float handle)const;
@@ -43,7 +44,8 @@ private:
 	double mDelta = 0.0;
 	float range[2] = { 0.0,1.0 };
 	bool isPressed = false;
-	int PressedHandle;
+	int PressedHandle = -1;
+	int m_HoverHandle = -1;
 	QColor rangeInColor;
 	QColor rangeOutColor;
 };
