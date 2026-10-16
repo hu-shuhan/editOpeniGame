@@ -1,4 +1,4 @@
-#include "StreamView/iGameStreamlineSimplifier.h"
+﻿#include "StreamView/iGameStreamlineSimplifier.h"
 #include "iGameSelection.h"
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <IQWidgets/igQtRenderWidget.h>

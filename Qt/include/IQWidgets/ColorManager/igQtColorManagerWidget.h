@@ -1,4 +1,4 @@
-#ifndef IGQTCOLORMANAGERWIDGET_H
+﻿#ifndef IGQTCOLORMANAGERWIDGET_H
 #define IGQTCOLORMANAGERWIDGET_H
 
 #include <IQCore/igQtExportModule.h>

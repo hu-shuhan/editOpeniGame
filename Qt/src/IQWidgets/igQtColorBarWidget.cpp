@@ -1,5 +1,4 @@
-#include <IQWidgets/igQtColorBarWidget.h>
-#include <IQWidgets/igQtRenderWidget.h>
+﻿#include <IQWidgets/igQtColorBarWidget.h>
 #include <QDebug>
 #include <iGameSceneManager.h>
 #include "iGameSmartPointer.h"
@@ -83,6 +82,26 @@ void igQtColorBarWidget::updateColorBarDrawInfo() {
 			}
 		}
 	}
+	// 范围退化（如按法向量的模长着色）会让六个刻度全相同，退回该属性的分量范围
+	if (!(max > min) && !m_AttributeName.empty()) {
+		auto sc = iGame::SceneManager::Instance()->GetCurrentScene();
+		if (sc && sc->GetCurrentModel() && sc->GetCurrentModel()->GetDataObject()) {
+			auto dataObject = sc->GetCurrentModel()->GetDataObject();
+			auto attrs = dataObject->GetAttributeSet();
+			if (attrs) {
+				auto& attr = attrs->GetAttribute(m_AttributeName);
+				auto dr = attr.GetDataRange();
+				if (dr) {
+					const int elems = dr->GetNumberOfElements();
+					for (int e = 1; e < elems; e++) {
+						float lo = (float)dr->GetValue(2 * e);
+						float hi = (float)dr->GetValue(2 * e + 1);
+						if (hi > lo) { min = lo; max = hi; break; }
+					}
+				}
+			}
+		}
+	}
 	this->strData.resize(6);
 	for (int i = 0; i < 6; i++) {
 		float x = min + i * (max - min) * 0.2;
@@ -144,7 +163,7 @@ void igQtColorBarWidget::initDrawStringStyle()
 void igQtColorBarWidget::mousePressEvent(QMouseEvent* _event)
 {
 	this->isPressed = true;
-	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
+	this->boundColor = Qt::white;
 	this->lastPos = _event->pos();
 }
 void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
@@ -161,7 +180,7 @@ void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
 void igQtColorBarWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
 	this->isPressed = false;
-	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
+	this->boundColor = Qt::white;
 	update();
 
 }
@@ -183,10 +202,10 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 {
 	updateColorBarDrawInfo();
 	QPainter painter(this);
-	painter.setPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text));
+	painter.setPen(Qt::white); // Set text color to white
 	
 	// Set boundColor to white for ParaView style
-	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
+	this->boundColor = Qt::white;
 	
 	QVector<QRect>data;
 	data.resize(6);
@@ -226,7 +245,7 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 		QRect textRect(colorBarWidth + 2, (int)y - (textHeight + 1) / 2, textWidth + restWidth, textHeight);
 		painter.drawText(textRect, strData[i]);
 		if (i == 0 || i == data.size() - 1)continue;
-		painter.fillRect(QRect(2, (int)y, colorBarWidth / 4, 2), this->boundColor);
+		painter.fillRect(QRect(0, (int)y, colorBarWidth / 4, 2), this->boundColor);
 		painter.fillRect(QRect(3 * colorBarWidth / 4, (int)y, colorBarWidth - 3 * colorBarWidth / 4, 2), this->boundColor);
 
 	}

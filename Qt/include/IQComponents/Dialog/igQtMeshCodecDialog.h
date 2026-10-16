@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @class   igMeshCodecDialog
  * @brief   网格编解码参数设置窗口
  */
