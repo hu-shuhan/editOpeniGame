@@ -558,6 +558,21 @@ QCheckBox::indicator:checked {
               <string>蓝绿黄红紫</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>Turbo</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Viridis</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>CoolWarm</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>

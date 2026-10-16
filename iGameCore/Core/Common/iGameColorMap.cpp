@@ -74,6 +74,62 @@ void ColorMap::InitColorBarWithBlueCyanGreenYellowRedMagentaType() {
     m_ColorRange->AddValue(0.8);
     m_ColorRange->AddValue(1.0);
 }
+void ColorMap::InitColorBarWithTurboType() {
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(11);
+    m_ColorBar->AddElement3(0.188, 0.071, 0.231);
+    m_ColorBar->AddElement3(0.255, 0.271, 0.671);
+    m_ColorBar->AddElement3(0.275, 0.459, 0.929);
+    m_ColorBar->AddElement3(0.224, 0.635, 0.988);
+    m_ColorBar->AddElement3(0.106, 0.812, 0.831);
+    m_ColorBar->AddElement3(0.141, 0.925, 0.651);
+    m_ColorBar->AddElement3(0.380, 0.988, 0.424);
+    m_ColorBar->AddElement3(0.635, 0.988, 0.235);
+    m_ColorBar->AddElement3(0.855, 0.839, 0.141);
+    m_ColorBar->AddElement3(0.957, 0.467, 0.129);
+    m_ColorBar->AddElement3(0.478, 0.016, 0.012);
+
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(11);
+    for (int i = 0; i < 11; ++i) { m_ColorRange->AddValue(i / 10.0); }
+}
+void ColorMap::InitColorBarWithViridisType() {
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(10);
+    m_ColorBar->AddElement3(0.267, 0.005, 0.329);
+    m_ColorBar->AddElement3(0.282, 0.157, 0.471);
+    m_ColorBar->AddElement3(0.243, 0.290, 0.537);
+    m_ColorBar->AddElement3(0.192, 0.408, 0.557);
+    m_ColorBar->AddElement3(0.149, 0.510, 0.557);
+    m_ColorBar->AddElement3(0.122, 0.620, 0.537);
+    m_ColorBar->AddElement3(0.208, 0.718, 0.475);
+    m_ColorBar->AddElement3(0.427, 0.804, 0.349);
+    m_ColorBar->AddElement3(0.706, 0.871, 0.173);
+    m_ColorBar->AddElement3(0.992, 0.906, 0.145);
+
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(10);
+    for (int i = 0; i < 10; ++i) { m_ColorRange->AddValue(i / 9.0); }
+}
+void ColorMap::InitColorBarWithCoolWarmType() {
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(8);
+    m_ColorBar->AddElement3(0.231, 0.298, 0.753);
+    m_ColorBar->AddElement3(0.404, 0.533, 0.933);
+    m_ColorBar->AddElement3(0.604, 0.733, 1.000);
+    m_ColorBar->AddElement3(0.788, 0.843, 0.941);
+    m_ColorBar->AddElement3(0.929, 0.820, 0.761);
+    m_ColorBar->AddElement3(0.969, 0.659, 0.537);
+    m_ColorBar->AddElement3(0.886, 0.412, 0.322);
+    m_ColorBar->AddElement3(0.706, 0.016, 0.149);
+
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(8);
+    for (int i = 0; i < 8; ++i) { m_ColorRange->AddValue(i / 7.0); }
+}
 void ColorMap::SetIndexColor(int index, float r, float g, float b) {
     float rgb[3]{r, g, b};
     m_ColorBar->SetElement(index, rgb);

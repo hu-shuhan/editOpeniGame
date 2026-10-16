@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <ui_igStreamTracer.h>
 //#include <iGameManager.h>
 #include <QHideEvent>

@@ -38,6 +38,9 @@ public:
     void InitColorBarWithBlueWhiteRedType();
     void InitColorBarWithBlueCyanGreenYellowRedType();
     void InitColorBarWithBlueCyanGreenYellowRedMagentaType();
+    void InitColorBarWithTurboType();
+    void InitColorBarWithViridisType();
+    void InitColorBarWithCoolWarmType();
 
     /*get colorbar*/
     FloatArray::Pointer GetColorBar() { return this->m_ColorBar; };

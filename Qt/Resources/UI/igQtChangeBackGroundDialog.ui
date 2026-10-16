@@ -30,13 +30,13 @@ QWidget#widget_TitleBar {
     background-color: #252526;
 }
 QWidget#widget_Content { background-color: #1F1F1F; }
-QLabel { color: #D4D4D4; font-size: 13px; }
-QLabel#label_WindowTitle { font-size: 13px; font-weight: 600; }
+QLabel { color: #D4D4D4;  }
+QLabel#label_WindowTitle {  font-weight: 600; }
 QPushButton#pushButton_Close {
     background-color: transparent;
     color: #D4D4D4;
     border: none;
-    font-size: 14px;
+    
     min-width: 28px;
     min-height: 24px;
 }
@@ -188,7 +188,7 @@ QPushButton:pressed { background-color: #1F1F1F; }</string>
          <string>提示：输入范围 0–255</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">QLabel#label_Range { color: #9DA0A2; font-size: 11px; }</string>
+         <string notr="true">QLabel#label_Range { color: #9DA0A2;  }</string>
         </property>
        </widget>
       </item>

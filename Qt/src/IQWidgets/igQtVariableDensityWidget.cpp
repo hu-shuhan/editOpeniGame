@@ -1,4 +1,4 @@
-#include <IQWidgets/igQtVariableDensityWidget.h>
+﻿#include <IQWidgets/igQtVariableDensityWidget.h>
 #include <IQWidgets/igQtRenderWidget.h>
 #include "ui_igQtVariableDensityWidget.h"
 #include <QElapsedTimer>
