@@ -2,6 +2,8 @@
 #include "qevent.h"
 #include "qdebug.h"
 
+#include <QApplication>
+
 igQtFramelessWidget::igQtFramelessWidget(QObject* parent) : QObject(parent)
 {
 	padding = 0;
@@ -94,6 +96,15 @@ bool igQtFramelessWidget::eventFilter(QObject* watched, QEvent* event)
 
 			//根据按下处的位置判断是否是移动控件还是拉伸控件
 			if (moveEnable) {
+				// 只有左键确实仍按住时才移动窗口。
+				// 原来只判断 pressed：它在“按下”时置位，却只在窗口自己收到
+				// MouseButtonRelease 时才清；而按下时没有 accept（无隐式鼠标抓取），
+				// release 一旦被滑块 / 微调框等子控件接收走，pressed 就永久为真，
+				// 之后鼠标在窗口上任何移动（包括只是从控件上悬停划过）都会拖着窗口走，
+				// 表现就是窗口被鼠标“粘住”。这里顺带做一次自愈清位。
+				if (!(QApplication::mouseButtons() & Qt::LeftButton)) {
+					pressed = false;
+				}
 				if (pressed) {
 					auto x = widget->x() + offsetX;
 					auto y = widget->y() + offsetY;

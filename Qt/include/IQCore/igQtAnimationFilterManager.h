@@ -40,6 +40,12 @@ public:
             const igQtAnimationFrameContext& context,
             const QVariantMap& parameterSnapshot) const;
 
+    bool describeOutput(const QString& id, const igQtAnimationDataInfo& input,
+                        const QVariantMap& parameters, igQtAnimationDataInfo& output,
+                        QString& error) const;
+    bool parameterSchema(const QString& id, const igQtAnimationDataInfo& input,
+                         igQtAnimationFilterParameterSchema& schema, QString& error) const;
+
 private:
     QMap<QString, igQtAnimationFilterDescriptor> m_Filters;
 };

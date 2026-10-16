@@ -34,6 +34,8 @@ public:
     int GetVolumeEdgeIds(const IGsize volumeId, igIndex* edgeIds);
     // Get volume's face index. Return FaceIds size
     int GetVolumeFaceIds(const IGsize volumeId, igIndex* faceIds);
+    // Read existing polyhedral face connectivity without fixed-size buffers.
+    CellArray* GetVolumeFaces() const { return m_VolumeFaces; }
 
     // Construct all the faces and add the face index to VolumeFaces
     void BuildFaces();

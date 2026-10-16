@@ -18,8 +18,6 @@ protected:
     MeshTriangulationFilter();
     ~MeshTriangulationFilter() override = default;
 
-    double GetArea(Vector3d a, Vector3d b, Vector3d c);
-
     SurfaceMesh::Pointer mesh{};
 };
 IGAME_NAMESPACE_END

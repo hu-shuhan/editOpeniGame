@@ -20,6 +20,7 @@
 #include <QShowEvent>
 #include <QTimer>
 #include <iostream>
+#include <algorithm>
 
 namespace
 {
@@ -297,14 +298,77 @@ int igQtFilterDialogDockWidget::addParameter(QLabel* label, QWidget* value) {
     label->setMinimumHeight(rowMinHeight);
     value->setMinimumHeight(rowMinHeight);
 
-    gridLayout->addWidget(label, index, 0);
-    gridLayout->addWidget(value, index, 1);
+    itemMap[index].label = label;
+    const int row = gridLayout->count() ? gridLayout->rowCount() : 0;
+    if (m_verticalParameterLayout) {
+        label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        label->setWordWrap(true);
+        if (auto* check = qobject_cast<QCheckBox*>(value)) {
+            check->setText(label->text());
+            label->hide();
+            gridLayout->addWidget(check, row, 0, 1, 2);
+        } else {
+            gridLayout->addWidget(label, row, 0, 1, 2);
+            gridLayout->addWidget(value, row + 1, 0, 1, 2);
+        }
+    } else {
+        gridLayout->addWidget(label, row, 0);
+        gridLayout->addWidget(value, row, 1);
+    }
 
     return index++;
 }
 
+void igQtFilterDialogDockWidget::setParameterLayoutVertical() {
+    if (m_verticalParameterLayout) return;
+    m_verticalParameterLayout = true;
+    gridLayout->setVerticalSpacing(10);
+    // Preserve custom rows and parameter IDs while moving each label above its input.
+    struct Row { int order; QWidget* widget; QLabel* label; };
+    std::vector<Row> rows;
+    for (const auto& entry : itemMap) {
+        auto& item = entry.second;
+        int row, column, rowSpan, columnSpan;
+        gridLayout->getItemPosition(gridLayout->indexOf(item.widget), &row, &column, &rowSpan, &columnSpan);
+        rows.push_back({row, item.widget, item.label});
+        gridLayout->removeWidget(item.widget);
+        gridLayout->removeWidget(item.label);
+    }
+    while (gridLayout->count()) {
+        int row, column, rowSpan, columnSpan;
+        gridLayout->getItemPosition(0, &row, &column, &rowSpan, &columnSpan);
+        auto* item = gridLayout->takeAt(0);
+        rows.push_back({row, item->widget(), nullptr});
+        delete item;
+    }
+    std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.order < b.order; });
+    int row = 0;
+    for (const auto& entry : rows) {
+        if (entry.label) {
+            entry.label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            entry.label->setWordWrap(true);
+            if (auto* check = qobject_cast<QCheckBox*>(entry.widget)) {
+                check->setText(entry.label->text());
+                entry.label->hide();
+            } else {
+                gridLayout->addWidget(entry.label, row++, 0, 1, 2);
+            }
+        }
+        gridLayout->addWidget(entry.widget, row++, 0, 1, 2);
+    }
+}
+
+void igQtFilterDialogDockWidget::setParameterVisible(int parameterId, bool visible) {
+    auto found = itemMap.find(parameterId);
+    if (found == itemMap.end()) return;
+    auto& item = found->second;
+    item.widget->setVisible(visible);
+    const bool inlineLabel = m_verticalParameterLayout && item.type == QT_CHECK_BOX;
+    item.label->setVisible(visible && !inlineLabel);
+}
+
 int igQtFilterDialogDockWidget::addRowWidget(QWidget* rowWidget) {
     // 跨两列追加一行（不登记 itemMap，纯界面扩展，不影响 getDouble 等取值接口）
-    gridLayout->addWidget(rowWidget, index, 0, 1, 2);
+    gridLayout->addWidget(rowWidget, gridLayout->count() ? gridLayout->rowCount() : 0, 0, 1, 2);
     return index++;
 }

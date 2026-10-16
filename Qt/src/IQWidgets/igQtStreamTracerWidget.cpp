@@ -727,6 +727,9 @@ void igQtStreamTracerWidget::generateStreamline() {
         newResult->SetAttributeSet(resObj->GetAttributeSet());
         newResult->SetShellRenderingOption(false);
         newResult->ViewCloudPicture(scene, 0);
+        // 流线结果只有线单元，而线单元只在 IG_WIREFRAME 下绘制；
+        // 不显式设置的话会沿用默认的 IG_SURFACE，导致什么都画不出来
+        newResult->SetViewStyle(IG_WIREFRAME);
         newResult->SetLineWidth(widthOfStreamLine);
     } else {
         newResult->SetPoints(iGame::Points::New());
@@ -734,6 +737,9 @@ void igQtStreamTracerWidget::generateStreamline() {
         newResult->SetAttributeSet(iGame::AttributeSet::New());
         newResult->SetShellRenderingOption(false);
         newResult->SetAttributeIndex(-1);
+        // 流线结果只有线单元，而线单元只在 IG_WIREFRAME 下绘制；
+        // 不显式设置的话会沿用默认的 IG_SURFACE，导致什么都画不出来
+        newResult->SetViewStyle(IG_WIREFRAME);
         newResult->SetLineWidth(widthOfStreamLine);
     }
 
@@ -845,6 +851,7 @@ void igQtStreamTracerWidget::Simplifier() {
     target->SetCells(out->GetCells(), out->GetCellTypes());
     target->SetAttributeSet(out->GetAttributeSet());
     target->SetShellRenderingOption(false);
+    target->SetViewStyle(IG_WIREFRAME);
     target->SetLineWidth(widthOfStreamLine);
 
     // 用 ClusterLabel 着色

@@ -180,6 +180,46 @@ ForEachDrawObject(DataObject::Pointer root,
         }
     }
 }
+
+// 表面着色用的 shader 选择：0/1 保持旧的 Blinn-Phong 行为，2 使用 PBR。
+// 注意：PBR.frag 依赖 ShaderManager::MapBufferBlock 中的 UBO 绑定。
+static ShaderType SurfaceShaderTypeFor(Scene* scene) {
+    return (scene != nullptr && scene->GetSurfaceShadingMode() == 2)
+                   ? ShaderType::PBR
+                   : ShaderType::BLINNPHONG;
+}
+
+// 写入 PBR 材质参数。只允许在当面着色器为 PBR 时调用：GLShaderProgram 在
+// uniform 不存在时会记录错误日志，对 Blinn-Phong 设置这些 uniform 会刷日志。
+static void ApplyPbrMaterialUniforms(
+        Scene* scene, const SmartPointer<GLShaderProgram>& shader) {
+    if (scene == nullptr || shader == nullptr) { return; }
+    float metallic = 0.0f;
+    float roughness = 0.35f;
+    scene->GetMaterialParameters(metallic, roughness);
+    shader->SetUniformf("uMetallic", metallic);
+    shader->SetUniformf("uRoughness", roughness);
+    // 环境遮蔽强度（简易半球近似）。0 = 关闭；普通模型与色带模型共用。
+    shader->SetUniformf("uAoStrength", scene->GetSurfaceAo());
+#ifndef __EMSCRIPTEN__
+    scene->ApplyEnvironmentUniforms(shader);
+#endif
+}
+
+// 写入 Blinn-Phong 高光参数。同样只允许在当面着色器为 BLINNPHONG 时调用，
+// 否则 GetUniformLocation 会因找不到 uniform 而记录错误并传入非法位置。
+static void ApplyBlinnPhongMaterialUniforms(
+        Scene* scene, const SmartPointer<GLShaderProgram>& shader) {
+    if (scene == nullptr || shader == nullptr) { return; }
+    float strength = 0.0f;
+    float shininess = 32.0f;
+    scene->GetBlinnPhongParameters(strength, shininess);
+    shader->SetUniformf("uSpecularStrength", strength);
+    shader->SetUniformf("uShininess", shininess);
+#ifndef __EMSCRIPTEN__
+    scene->ApplyEnvironmentUniforms(shader);
+#endif
+}
 } // namespace
 
 void Model::SetViewPointsSwitch(bool action) {
@@ -258,6 +298,14 @@ void Model::Draw() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
+        // 纯线对象（流线、等值线等，没有任何三角形）按单元数据着色时，
+        // m_Colors 已经由 SetAttributeWithCellData 摊到每个点上了，可以直接用顶点色。
+        // 面网格上的线框叠加仍走纯色，保持原来的观感。
+        const bool lineOnlyObject =
+                renderableObject->m_TriangleIndices == nullptr ||
+                renderableObject->m_TriangleIndices->GetNumberOfValues() == 0;
+        const bool lineUsesVertexColor = useColor && (!colorWithCell || lineOnlyObject);
+
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
@@ -275,8 +323,8 @@ void Model::Draw() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && renderableObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
 #ifdef __EMSCRIPTEN__
@@ -405,7 +453,9 @@ void Model::Draw() {
                     shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
                 }
 #else
-                auto shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
+                // 桌面端：0/1 保持 Blinn-Phong，2 使用 PBR
+                const auto surfaceShaderType = SurfaceShaderTypeFor(m_Scene);
+                auto shader = m_Scene->GetShader(surfaceShaderType);
 #endif
                 auto defaultColor = renderableObject->GetDefaultColor();
                 shader->Use();
@@ -415,6 +465,21 @@ void Model::Draw() {
                 if (!useColor && !colorWithCell) {
                     shader->SetUniform3f("inputColor", defaultColor);
                 }
+#ifndef __EMSCRIPTEN__
+                // Only the ordinary indexed VAO has a point-normal buffer.
+                // A disabled normal input must be zero even after another VAO draw.
+                glVertexAttrib3f(GL_LOCATION_IDX_2.Index(), 0.0f, 0.0f, 0.0f);
+                const bool hasNormal = !colorWithCell &&
+                        renderableObject->m_Normals->GetNumberOfValues() > 0 &&
+                        renderableObject->m_Normals->GetNumberOfElements() ==
+                                renderableObject->m_Positions->GetNumberOfElements();
+                shader->SetUniformi("uHasNormal", hasNormal ? 1 : 0);
+                if (surfaceShaderType == ShaderType::PBR) {
+                    ApplyPbrMaterialUniforms(m_Scene, shader);
+                } else {
+                    ApplyBlinnPhongMaterialUniforms(m_Scene, shader);
+                }
+#endif
 
                 if (colorWithCell) {
                     renderableObject->m_CellVAO->DrawArrays(
@@ -448,7 +513,7 @@ void Model::Draw() {
                     glDepthFunc(wireframeDepthFunc);
                 }
 #endif
-                if (useColor && !colorWithCell) {
+                if (lineUsesVertexColor) {
                     auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
                     shader->Use();
 #ifdef __EMSCRIPTEN__
@@ -534,6 +599,14 @@ void Model::DrawWithTransparency() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
+        // 纯线对象（流线、等值线等，没有任何三角形）按单元数据着色时，
+        // m_Colors 已经由 SetAttributeWithCellData 摊到每个点上了，可以直接用顶点色。
+        // 面网格上的线框叠加仍走纯色，保持原来的观感。
+        const bool lineOnlyObject =
+                renderableObject->m_TriangleIndices == nullptr ||
+                renderableObject->m_TriangleIndices->GetNumberOfValues() == 0;
+        const bool lineUsesVertexColor = useColor && (!colorWithCell || lineOnlyObject);
+
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
@@ -543,8 +616,8 @@ void Model::DrawWithTransparency() {
             shader->SetUniformi("uUseLighting", 0);
             shader->SetUniformi("colorMode", 1);
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && renderableObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 #ifdef __EMSCRIPTEN__
@@ -576,7 +649,7 @@ void Model::DrawWithTransparency() {
         const bool drawTransparentWireframe = viewStyle & IG_WIREFRAME;
 #endif
         if (drawTransparentWireframe) {
-            if (useColor && !colorWithCell) {
+            if (lineUsesVertexColor) {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
                 #ifdef __EMSCRIPTEN__
@@ -652,7 +725,18 @@ void Model::DrawWithVolume() {
         if (!drawObject->GetVisibility()) { return; }
 
         // Render
-        auto renderableObject = drawObject; //体绘制用原始体进行渲染
+        // 体绘制优先用“原始体”（含所有单元面，采样更密）；但当原始体没有可绘制
+        // 三角时（抽壳渲染模式下只构建了壳、或可绘制数据采用延迟转换），必须回退
+        // 到渲染用对象（壳/简化网格），否则体绘制会一个片元都画不出来。
+        auto renderableObject = drawObject;
+        const bool hasOwnTriangles =
+                drawObject->m_TriangleIndices != nullptr &&
+                drawObject->m_TriangleIndices->GetNumberOfValues() > 0;
+        if (!hasOwnTriangles) {
+            auto fallbackObject = drawObject->GetRenderableObject(false);
+            if (fallbackObject != nullptr) { renderableObject = fallbackObject; }
+        }
+
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);
 
@@ -668,11 +752,14 @@ void Model::DrawWithVolume() {
             if (colorWithCell) {
                 renderableObject->m_CellVAO->DrawArrays(
                         GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
-            } else {
+            } else if (renderableObject->m_TriangleIndices != nullptr &&
+                       renderableObject->m_Positions != nullptr &&
+                       renderableObject->m_TriangleIndices->GetNumberOfValues() >
+                               0) {
                 renderableObject->m_TriangleVAO->DrawRangeElements(
                         GL_TRIANGLES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        renderableObject->m_Positions->GetNumberOfElements() - 1,
+                        renderableObject->m_TriangleIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
             }
         }
@@ -730,8 +817,8 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -867,8 +954,8 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -914,7 +1001,22 @@ void Model::DrawPhase1() {
         }
 
         if (viewStyle & IG_SURFACE) {
-            m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
+            const auto surfaceShaderType = SurfaceShaderTypeFor(m_Scene);
+            auto surfaceShader = m_Scene->GetShader(surfaceShaderType);
+            surfaceShader->Use();
+            // Meshlet VAOs do not carry point normals yet. Reset the shared
+            // shader parameter and the disabled input's default for this draw.
+            surfaceShader->SetUniformi("uHasNormal", 0);
+            glVertexAttrib3f(GL_LOCATION_IDX_2.Index(), 0.0f, 0.0f, 0.0f);
+            if (surfaceShaderType == ShaderType::PBR) {
+                if (!useColor && !colorWithCell) {
+                    surfaceShader->SetUniform3f(
+                            "inputColor", surfaceObject->GetDefaultColor());
+                }
+                ApplyPbrMaterialUniforms(m_Scene, surfaceShader);
+            } else {
+                ApplyBlinnPhongMaterialUniforms(m_Scene, surfaceShader);
+            }
 
             unsigned int visibleMeshletCount = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
@@ -1018,8 +1120,8 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -1156,8 +1258,8 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            // 如果是cell标量，强制用白色绘制点
-            if (colorWithCell) {
+            // Use generated point colors for cell attributes, including extracted shells.
+            if (colorWithCell && !(useColor && surfaceObject->HasPointColorsForCellData())) {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
@@ -1245,7 +1347,22 @@ void Model::DrawPhase2() {
                 GLCheckError();
             }
 
-            m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
+            const auto surfaceShaderType = SurfaceShaderTypeFor(m_Scene);
+            auto surfaceShader = m_Scene->GetShader(surfaceShaderType);
+            surfaceShader->Use();
+            // Meshlet VAOs do not carry point normals yet. Reset the shared
+            // shader parameter and the disabled input's default for this draw.
+            surfaceShader->SetUniformi("uHasNormal", 0);
+            glVertexAttrib3f(GL_LOCATION_IDX_2.Index(), 0.0f, 0.0f, 0.0f);
+            if (surfaceShaderType == ShaderType::PBR) {
+                if (!useColor && !colorWithCell) {
+                    surfaceShader->SetUniform3f(
+                            "inputColor", surfaceObject->GetDefaultColor());
+                }
+                ApplyPbrMaterialUniforms(m_Scene, surfaceShader);
+            } else {
+                ApplyBlinnPhongMaterialUniforms(m_Scene, surfaceShader);
+            }
 
             unsigned int count = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(

@@ -21,6 +21,51 @@ static inline void Sort3i(int& a, int& b, int& c) {
     if (a > b) std::swap(a, b);
 }
 
+namespace
+{
+template<typename ArrayType, typename AttrInfoType>
+typename ArrayType::Pointer BuildPointAttribute(AttrInfoType info, AttributeSet::Pointer& outAttrs, int col,
+                         int N, int newN, std::vector<uint8_t>& m_VertAlive, std::vector<int> old2new, std::vector<double> m_Attrs,int D) {
+    typename ArrayType::Pointer arr = ArrayType::New();
+    arr->SetDimension(info.ncomp);
+    arr->Resize(newN);
+    arr->SetName(info.name);
+    for (int i = 0; i < N; ++i) {
+        if (!m_VertAlive[i]) continue;
+
+        int ni = old2new[i];
+
+        for (int d = 0; d < info.ncomp; ++d) { arr->SetValue(ni * info.ncomp + d, m_Attrs[i * D + col + d]); }
+    }
+    return arr;
+}
+
+template<typename ArrayType>
+typename ArrayType::Pointer BuildCellAttribute(const AttributeSet::Attribute& inAttr,
+                                               const std::vector<igIndex>& outCellSourceIds) {
+    typename ArrayType::Pointer arr = ArrayType::New();
+
+    const int dim = inAttr.pointer->GetDimension();
+
+    arr->SetName(inAttr.pointer->GetName());
+    arr->SetDimension(dim);
+    arr->Resize(outCellSourceIds.size());
+
+    std::vector<double> values(dim);
+
+    for (igIndex newCellId = 0; newCellId < outCellSourceIds.size(); ++newCellId) {
+        const igIndex oldCellId = outCellSourceIds[newCellId];
+
+        inAttr.pointer->GetElement(oldCellId, values.data());
+
+        for (int d = 0; d < dim; ++d) { arr->SetValue(newCellId * dim + d, values[d]); }
+    }
+
+    return arr;
+}
+
+}
+
 // ════════════════════════════════════════════════════════════════
 //  Execute
 // ════════════════════════════════════════════════════════════════
@@ -69,6 +114,8 @@ bool TetraSimplification::LoadMesh() {
     const IGsize nVol = m_InputMesh->GetNumberOfVolumes();
     m_TetVerts.clear();
     m_TetVerts.reserve(nVol * 4);
+    m_TetSourceIds.clear();
+    m_TetSourceIds.reserve(nVol);
     igIndex ids[IGAME_CELL_MAX_SIZE]{};
     m_NumTets = 0;
     for (IGsize ci = 0; ci < nVol; ++ci) {
@@ -78,6 +125,7 @@ bool TetraSimplification::LoadMesh() {
         m_TetVerts.push_back(static_cast<int>(ids[1]));
         m_TetVerts.push_back(static_cast<int>(ids[2]));
         m_TetVerts.push_back(static_cast<int>(ids[3]));
+        m_TetSourceIds.push_back(ci);
         m_NumTets++;
     }
 
@@ -90,14 +138,16 @@ bool TetraSimplification::LoadMesh() {
         auto all = attrs->GetAllAttributes();
         for (IGsize ai = 0; ai < all->GetNumberOfElements(); ++ai) {
             auto a = all->GetElement(ai);
-            if (a.isDeleted || !a.pointer) continue;
-            if (a.attachmentType != IG_POINT) continue;
+            if (a.isDeleted || !a.pointer || a.attachmentType != IG_POINT) continue;
             if (!m_UseAllPointAttributes) {
                 int curIdx = m_InputMesh->GetCurrentAttributeIndex();
                 if (static_cast<int>(ai) != curIdx) continue;
             }
             int dim = a.pointer->GetDimension();
-            m_AttrInfo.push_back({a.pointer->GetName(), dim});
+            auto arrayType = a.pointer->GetArrayType();
+            auto attributeType = a.type;
+            auto attachmentType = a.attachmentType;
+            m_AttrInfo.push_back({a.pointer->GetName(), dim, arrayType,attributeType,attachmentType});
             totalDim += dim;
         }
     }
@@ -389,7 +439,7 @@ double TetraSimplification::ADQCostOnly(int ti) const {
 
     // Skip if any boundary vertex
     for (int k = 0; k < 4; ++k) {
-        if (m_IsBoundary[v[k]]) return std::numeric_limits<double>::infinity();
+        if (m_PreserveBoundary&&m_IsBoundary[v[k]]) return std::numeric_limits<double>::infinity();
     }
 
     // Centroid position
@@ -430,7 +480,7 @@ TetraSimplification::CostResult TetraSimplification::ComputeCost(int ti) {
 
     // Skip if any boundary vertex
     for (int k = 0; k < 4; ++k) {
-        if (m_IsBoundary[t[k]]) return res;
+        if (m_PreserveBoundary&&m_IsBoundary[t[k]]) return res;
     }
 
     // Centroid position (user disabled QEM solve)
@@ -576,7 +626,8 @@ void TetraSimplification::InitHeap() {
 
     int count = 0;
     for (int ti = 0; ti < m_NumTets; ++ti) {
-        if (!m_TetAlive[ti] || m_IsBoundaryTet[ti]) continue;
+        if (!m_TetAlive[ti]) continue;
+        if (m_PreserveBoundary && m_IsBoundaryTet[ti]) continue;
         double c = ADQCostOnly(ti);
         if (c < std::numeric_limits<double>::infinity()) {
             m_Heap.push({c, ti, 0});
@@ -729,7 +780,7 @@ void TetraSimplification::Simplify() {
         int survivor = m_TetVerts[entry.tetIdx * 4];
         if (m_VertAlive[survivor]) {
             for (int ni : m_VertTets[survivor]) {
-                if (m_TetAlive[ni] && !m_IsBoundaryTet[ni]) {
+                if (m_TetAlive[ni] && !(m_PreserveBoundary&&m_IsBoundaryTet[ni])) {
                     double c = ADQCostOnly(ni);
                     if (c < std::numeric_limits<double>::infinity()) {
                         m_Heap.push({c, ni, m_TetVersion[ni]});
@@ -778,6 +829,7 @@ bool TetraSimplification::SaveMesh() {
 
     // Tets
     auto outCells = CellArray::New();
+    std::vector<igIndex> outCellSourceIds;
     for (int ti = 0; ti < m_NumTets; ++ti) {
         if (!m_TetAlive[ti]) continue;
         int base = ti * 4;
@@ -786,10 +838,12 @@ bool TetraSimplification::SaveMesh() {
         if (m0 < 0 || m1 < 0 || m2 < 0 || m3 < 0) continue;
         if (m0==m1 || m0==m2 || m0==m3 || m1==m2 || m1==m3 || m2==m3) continue;
         outCells->AddCellId4(m0, m1, m2, m3);
+        outCellSourceIds.push_back(m_TetSourceIds[ti]);
     }
     outMesh->SetVolumes(outCells);
 
     // Attributes (denormalized)
+    auto outAttrs = AttributeSet::New();
     if (D > 0) {
         for (const auto& p : m_AttrNormParams) {
             if (p.isScalar) {
@@ -806,26 +860,126 @@ bool TetraSimplification::SaveMesh() {
             }
         }
 
-        auto outAttrs = AttributeSet::New();
         int col = 0;
         for (const auto& info : m_AttrInfo) {
-            auto arr = FloatArray::New();
-            arr->SetDimension(info.ncomp);
-            arr->Resize(newN);
-            arr->SetName(info.name);
-            for (int i = 0; i < N; ++i) {
-                if (!m_VertAlive[i]) continue;
-                int ni = old2new[i];
-                for (int d = 0; d < info.ncomp; ++d) {
-                    arr->SetValue(ni * info.ncomp + d,
-                                  static_cast<float>(m_Attrs[i*D + col + d]));
-                }
-            }
-            outAttrs->AddAttribute(info.ncomp == 1 ? IG_SCALAR : IG_VECTOR, IG_POINT, arr);
+            ArrayObject::Pointer arr = nullptr;
+            const int attrCol = col;
             col += info.ncomp;
+            switch (info.arrayType) {
+                case IG_FloatArray:
+                    arr = BuildPointAttribute<FloatArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_DoubleArray:
+                    arr = BuildPointAttribute<DoubleArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_IntArray:
+                    arr = BuildPointAttribute<IntArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedIntArray:
+                    arr = BuildPointAttribute<UnsignedIntArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_CharArray:
+                    arr = BuildPointAttribute<CharArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedCharArray:
+                    arr = BuildPointAttribute<UnsignedCharArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_ShortArray:
+                    arr = BuildPointAttribute<ShortArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedShortArray:
+                    arr = BuildPointAttribute<UnsignedShortArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_LongLongArray:
+                    arr = BuildPointAttribute<LongLongArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs,D);
+                    break;
+
+                case IG_UnsignedLongLongArray:
+                    arr = BuildPointAttribute<UnsignedLongLongArray, TetraSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                default:
+                    break;
+            }
+            if (arr) { outAttrs->AddAttribute(info.attributeType, IG_POINT, arr); }
+
         }
-        outMesh->SetAttributeSet(outAttrs);
     }
+
+    auto inputAttrs = m_InputMesh->GetAttributeSet();
+    if (inputAttrs) {
+        auto all = inputAttrs->GetAllAttributes();
+        for (IGsize ai = 0; ai < all->GetNumberOfElements(); ++ai) {
+            auto attr = all->GetElement(ai);
+            if (attr.isDeleted || !attr.pointer) continue;
+            if (attr.attachmentType != IG_CELL) continue;
+            ArrayObject::Pointer arr = nullptr;
+            switch (attr.pointer->GetArrayType()) {
+                case IG_FloatArray:
+                    arr = BuildCellAttribute<FloatArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_DoubleArray:
+                    arr = BuildCellAttribute<DoubleArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_IntArray:
+                    arr = BuildCellAttribute<IntArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedIntArray:
+                    arr = BuildCellAttribute<UnsignedIntArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_CharArray:
+                    arr = BuildCellAttribute<CharArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedCharArray:
+                    arr = BuildCellAttribute<UnsignedCharArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_ShortArray:
+                    arr = BuildCellAttribute<ShortArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedShortArray:
+                    arr = BuildCellAttribute<UnsignedShortArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_LongLongArray:
+                    arr = BuildCellAttribute<LongLongArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedLongLongArray:
+                    arr = BuildCellAttribute<UnsignedLongLongArray>(attr, outCellSourceIds);
+                    break;
+
+                default:
+                    break;
+            }
+            if (arr) { outAttrs->AddAttribute(attr.type, IG_CELL, arr); }
+        }
+    }
+    outMesh->SetAttributeSet(outAttrs);
 
     SetOutput(outMesh);
     std::cout << "[TetraSimplification] Output: " << newN << " verts, "
@@ -882,6 +1036,8 @@ bool TetraEdgeSimplification::LoadMesh() {
     const IGsize nVol = m_InputMesh->GetNumberOfVolumes();
     m_TetVerts.clear();
     m_TetVerts.reserve(nVol * 4);
+    m_TetSourceIds.clear();
+    m_TetSourceIds.reserve(nVol);
     igIndex ids[IGAME_CELL_MAX_SIZE]{};
     m_NumTets = 0;
     for (IGsize ci = 0; ci < nVol; ++ci) {
@@ -889,6 +1045,7 @@ bool TetraEdgeSimplification::LoadMesh() {
         if (n != 4) continue;
         for (int j = 0; j < 4; ++j) m_TetVerts.push_back(static_cast<int>(ids[j]));
         m_NumTets++;
+        m_TetSourceIds.push_back(ci);
     }
 
     auto attrs = m_InputMesh->GetAttributeSet();
@@ -903,7 +1060,10 @@ bool TetraEdgeSimplification::LoadMesh() {
                 if (static_cast<int>(ai) != m_InputMesh->GetCurrentAttributeIndex()) continue;
             }
             int dim = a.pointer->GetDimension();
-            m_AttrInfo.push_back({a.pointer->GetName(), dim});
+            auto arrayType = a.pointer->GetArrayType();
+            auto attributeType = a.type;
+            auto attachmentType = a.attachmentType;
+            m_AttrInfo.push_back({a.pointer->GetName(), dim, arrayType, attributeType, attachmentType});
             totalDim += dim;
         }
     }
@@ -967,6 +1127,92 @@ void TetraEdgeSimplification::Normalize() {
     }
 }
 
+TetraEdgeSimplification::FaceKey
+TetraEdgeSimplification::MakeFaceKey(int a, int b, int c) {
+    // 同一个面可能写成 (a,b,c)、(b,c,a) 等不同顺序。排序后所有排列都会得到
+    // 同一个规范化键，从而共用同一个计数器。
+    if (a > b) std::swap(a, b);
+    if (b > c) std::swap(b, c);
+    if (a > b) std::swap(a, b);
+    return {a, b, c};
+}
+
+uint64_t TetraEdgeSimplification::MakeEdgeKey(int a, int b) {
+    // 顶点编号是 32 位整数。将排好序的一对编号压入一个 uint64_t，
+    // 可以避免在高频查询路径中额外分配边对象。
+    if (a > b) std::swap(a, b);
+    return (uint64_t(uint32_t(a)) << 32) | uint64_t(uint32_t(b));
+}
+
+void TetraEdgeSimplification::AddBoundaryFace(const FaceKey& face) {
+    if (!m_BoundaryFaces.insert(face).second) return;
+
+    // 只要一个顶点仍被至少一个当前边界面使用，它就是边界点。这里必须保存计数，
+    // 因为删除一个边界面时，不能把仍被其他边界面使用的顶点误标为内部点。
+    const int vertices[3] = {face.a, face.b, face.c};
+    for (int v : vertices) {
+        ++m_BoundaryFaceCountPerVertex[v];
+        m_IsBoundary[v] = 1;
+        m_VertBoundaryFaces[v].insert(face);
+    }
+
+    // 每个边界三角形的三条边都是当前边界边。相邻边界三角形通常会共享一条边，
+    // 因而同一个边键会被加入两次，所以这里保存的是邻接次数而不是简单布尔值。
+    ++m_BoundaryEdgeFaceCounts[MakeEdgeKey(face.a, face.b)];
+    ++m_BoundaryEdgeFaceCounts[MakeEdgeKey(face.a, face.c)];
+    ++m_BoundaryEdgeFaceCounts[MakeEdgeKey(face.b, face.c)];
+}
+
+void TetraEdgeSimplification::RemoveBoundaryFace(const FaceKey& face) {
+    if (m_BoundaryFaces.erase(face) == 0) return;
+
+    const int vertices[3] = {face.a, face.b, face.c};
+    for (int v : vertices) {
+        if (m_BoundaryFaceCountPerVertex[v] > 0)
+            --m_BoundaryFaceCountPerVertex[v];
+        m_IsBoundary[v] = m_BoundaryFaceCountPerVertex[v] > 0;
+        m_VertBoundaryFaces[v].erase(face);
+    }
+
+    const uint64_t edges[3] = {
+        MakeEdgeKey(face.a, face.b),
+        MakeEdgeKey(face.a, face.c),
+        MakeEdgeKey(face.b, face.c)
+    };
+    for (uint64_t edge : edges) {
+        auto it = m_BoundaryEdgeFaceCounts.find(edge);
+        if (it == m_BoundaryEdgeFaceCounts.end()) continue;
+        if (--it->second == 0) m_BoundaryEdgeFaceCounts.erase(it);
+    }
+}
+
+void TetraEdgeSimplification::ChangeFaceCount(const FaceKey& face, int delta) {
+    auto it = m_FaceCounts.find(face);
+    const int oldCount = it == m_FaceCounts.end() ? 0 : it->second;
+
+    // 面的邻接次数跨过 1 时，边界状态会发生变化：
+    // 0 -> 1：出现一个边界面
+    // 1 -> 2：该面变成内部面
+    // 2 -> 1：该面暴露并变成边界面
+    // 1 -> 0：该面消失
+    if (oldCount == 1) RemoveBoundaryFace(face);
+
+    const int newCount = oldCount + delta;
+    assert(newCount >= 0);
+    if (newCount == 0) {
+        if (it != m_FaceCounts.end()) m_FaceCounts.erase(it);
+    } else {
+        m_FaceCounts[face] = newCount;
+    }
+
+    if (newCount == 1) AddBoundaryFace(face);
+}
+
+bool TetraEdgeSimplification::IsBoundaryEdge(int a, int b) const {
+    return m_BoundaryEdgeFaceCounts.find(MakeEdgeKey(a, b)) !=
+           m_BoundaryEdgeFaceCounts.end();
+}
+
 // ═══════════ BuildTopology ═══════════
 void TetraEdgeSimplification::BuildTopology() {
     const int N = m_NumVerts, M = m_NumTets;
@@ -988,21 +1234,63 @@ void TetraEdgeSimplification::BuildTopology() {
     m_VertAlive.assign(N, 1);
     m_VertVersion.assign(N, 0);
 
-    // Boundary
-    struct FK3{int a,b,c; bool operator==(const FK3& o)const{return a==o.a&&b==o.b&&c==o.c;}};
-    struct FK3H{size_t operator()(const FK3& k)const noexcept{
-        uint64_t h=uint64_t(uint32_t(k.a))*0x9E3779B185EBCA87ull;
-        h^=uint64_t(uint32_t(k.b))+0x9E3779B185EBCA87ull+(h<<6)+(h>>2);
-        h^=uint64_t(uint32_t(k.c))+0x9E3779B185EBCA87ull+(h<<6)+(h>>2);
-        return size_t(h);}};
-    std::unordered_map<FK3,int,FK3H> fc; fc.reserve(M*4);
+    // 统计当前每个面的邻接次数。只被一个四面体使用的面位于外表面；
+    // 正常的内部面应当被两个四面体共同使用。
+    m_FaceCounts.clear();
+    m_FaceCounts.reserve(M * 4);
+    m_BoundaryFaces.clear();
+    m_BoundaryFaces.reserve(M * 2);
+    m_BoundaryEdgeFaceCounts.clear();
+    m_BoundaryEdgeFaceCounts.reserve(M * 2);
+    m_BoundaryFaceCountPerVertex.assign(N, 0);
+    m_IsBoundary.assign(N, 0);
+    m_VertBoundaryFaces.assign(N, {});
+
     static const int fi[4][3]={{0,1,2},{0,1,3},{0,2,3},{1,2,3}};
-    for (int ti=0;ti<M;++ti){int b=ti*4;
-        for(int f=0;f<4;++f){int a=tv[b+fi[f][0]],bb=tv[b+fi[f][1]],c=tv[b+fi[f][2]];
-            if(a>bb)std::swap(a,bb);if(bb>c)std::swap(bb,c);if(a>bb)std::swap(a,bb);
-            fc[{a,bb,c}]++;}}
-    m_IsBoundary.assign(N,0);
-    for(auto& kv:fc) if(kv.second==1){m_IsBoundary[kv.first.a]=1;m_IsBoundary[kv.first.b]=1;m_IsBoundary[kv.first.c]=1;}
+    for (int ti = 0; ti < M; ++ti) {
+        const int b = ti * 4;
+        for (int f = 0; f < 4; ++f) {
+            ChangeFaceCount(MakeFaceKey(tv[b + fi[f][0]],
+                                       tv[b + fi[f][1]],
+                                       tv[b + fi[f][2]]), 1);
+        }
+    }
+
+    // 为每个边界顶点建立齐次平面二次误差矩阵。这些矩阵描述的是原始外表面；
+    // 顶点坍缩时只合并矩阵而不重新生成，因此连续多次坍缩也不能随意偏离输入边界。
+    m_BoundaryQ.assign(N * 16, 0.0);
+    m_BoundaryPlaneCount.assign(N, 0.0);
+    const double* pts = m_Pts.data();
+    for (const FaceKey& face : m_BoundaryFaces) {
+        const double* p0 = &pts[face.a * 3];
+        const double* p1 = &pts[face.b * 3];
+        const double* p2 = &pts[face.c * 3];
+        const double ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2];
+        const double vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2];
+        double plane[4] = {
+            uy * vz - uz * vy,
+            uz * vx - ux * vz,
+            ux * vy - uy * vx,
+            0.0
+        };
+        const double length = std::sqrt(plane[0] * plane[0] +
+                                        plane[1] * plane[1] +
+                                        plane[2] * plane[2]);
+        if (length < 1e-30) continue;
+        plane[0] /= length;
+        plane[1] /= length;
+        plane[2] /= length;
+        plane[3] = -(plane[0] * p0[0] + plane[1] * p0[1] + plane[2] * p0[2]);
+
+        const int vertices[3] = {face.a, face.b, face.c};
+        for (int v : vertices) {
+            ++m_BoundaryPlaneCount[v];
+            double* q = &m_BoundaryQ[v * 16];
+            for (int r = 0; r < 4; ++r)
+                for (int c = 0; c < 4; ++c)
+                    q[r * 4 + c] += plane[r] * plane[c];
+        }
+    }
     m_IsBoundaryTet.assign(M,0);
     for(int ti=0;ti<M;++ti){int b=ti*4;
         if(m_IsBoundary[tv[b]]|m_IsBoundary[tv[b+1]]|m_IsBoundary[tv[b+2]]|m_IsBoundary[tv[b+3]])
@@ -1054,22 +1342,283 @@ void TetraEdgeSimplification::BuildADQ() {
     std::cout << "[TetraEdgeSimp] ADQ built for " << N << " vertices\n";
 }
 
+bool TetraEdgeSimplification::IsTopologicallyCollapsible(int va, int vb) const {
+    // 对合法的单纯复形坍缩，va 与 vb 的 link 交集必须恰好等于边 (va,vb) 的 link。
+    // 直白地说：允许把围绕这条边的一圈单元缩掉，但不能把其他仅仅同时接触
+    // 两个端点的区域强行粘在一起。
+    using VertexSet = std::unordered_set<int>;
+    using EdgeSet = std::unordered_set<uint64_t>;
+    using FaceSet = std::unordered_set<FaceKey, FaceKeyHash>;
+    struct LinkData {
+        VertexSet vertices;
+        EdgeSet edges;
+        FaceSet faces;
+    };
+
+    const int* tv = m_TetVerts.data();
+    auto buildVertexLink = [&](int vertex) {
+        LinkData link;
+        for (int ti : m_VertTets[vertex]) {
+            if (!m_TetAlive[ti]) continue;
+            const int base = ti * 4;
+            int other[3], count = 0;
+            for (int j = 0; j < 4; ++j) {
+                const int v = tv[base + j];
+                if (v != vertex && count < 3) other[count++] = v;
+            }
+            if (count != 3) continue;
+
+            for (int v : other) link.vertices.insert(v);
+            link.edges.insert(MakeEdgeKey(other[0], other[1]));
+            link.edges.insert(MakeEdgeKey(other[0], other[2]));
+            link.edges.insert(MakeEdgeKey(other[1], other[2]));
+            link.faces.insert(MakeFaceKey(other[0], other[1], other[2]));
+        }
+        return link;
+    };
+
+    const LinkData linkA = buildVertexLink(va);
+    const LinkData linkB = buildVertexLink(vb);
+    LinkData edgeLink;
+
+    // 每个邻接四面体 [va,vb,x,y] 都贡献一条对边 [x,y]。这些对边在内部边周围
+    // 必须组成一个环，在边界边周围必须组成一条路径；出现分叉或不连通分量
+    // 表示局部非流形或存在裂缝，因此拒绝坍缩。
+    std::unordered_map<int, std::vector<int>> oppositeGraph;
+    int incidentTetCount = 0;
+    for (int ti : m_VertTets[va]) {
+        if (!m_TetAlive[ti]) continue;
+        const int base = ti * 4;
+        bool hasB = false;
+        for (int j = 0; j < 4; ++j) hasB |= tv[base + j] == vb;
+        if (!hasB) continue;
+
+        int opposite[2], count = 0;
+        for (int j = 0; j < 4; ++j) {
+            const int v = tv[base + j];
+            if (v != va && v != vb && count < 2) opposite[count++] = v;
+        }
+        if (count != 2) return false;
+        ++incidentTetCount;
+        edgeLink.vertices.insert(opposite[0]);
+        edgeLink.vertices.insert(opposite[1]);
+        if (!edgeLink.edges.insert(MakeEdgeKey(opposite[0], opposite[1])).second)
+            return false; // 对边重复意味着局部存在重复四面体
+        oppositeGraph[opposite[0]].push_back(opposite[1]);
+        oppositeGraph[opposite[1]].push_back(opposite[0]);
+    }
+    if (incidentTetCount == 0 || oppositeGraph.empty()) return false;
+
+    for (int v : linkA.vertices)
+        if (linkB.vertices.count(v) && !edgeLink.vertices.count(v)) return false;
+    for (int v : edgeLink.vertices)
+        if (!linkA.vertices.count(v) || !linkB.vertices.count(v)) return false;
+
+    for (uint64_t edge : linkA.edges)
+        if (linkB.edges.count(edge) && !edgeLink.edges.count(edge)) return false;
+    for (uint64_t edge : edgeLink.edges)
+        if (!linkA.edges.count(edge) || !linkB.edges.count(edge)) return false;
+
+    // 边的 link 中不应包含三角形。如果两个端点的 link 还共享某个三角形，
+    // 说明待坍缩边之外存在额外的公共邻域。
+    for (const FaceKey& face : linkA.faces)
+        if (linkB.faces.count(face)) return false;
+
+    int degreeOneCount = 0;
+    for (const auto& item : oppositeGraph) {
+        const size_t degree = item.second.size();
+        if (degree == 1) ++degreeOneCount;
+        else if (degree != 2) return false;
+    }
+    if (IsBoundaryEdge(va, vb)) {
+        if (degreeOneCount != 2) return false; // 边界边的 link 必须是一条路径
+    } else if (degreeOneCount != 0) {
+        return false; // 内部边的 link 必须首尾闭合成环
+    }
+
+    // 只检查度数无法排除两条互不相连的路径或两个独立环，因此还要显式遍历连通性。
+    VertexSet visited;
+    std::vector<int> stack{oppositeGraph.begin()->first};
+    while (!stack.empty()) {
+        const int v = stack.back();
+        stack.pop_back();
+        if (!visited.insert(v).second) continue;
+        for (int neighbor : oppositeGraph.at(v)) stack.push_back(neighbor);
+    }
+    if (visited.size() != oppositeGraph.size()) return false;
+
+    // 在完整局部星形邻域中模拟连接关系，并拒绝重复四面体。将 vb 替换成 va 后
+    // 新产生的重复四面体一定包含 va，因此检查两个端点星形邻域的并集即可。
+    struct TetKey {
+        std::array<int, 4> v;
+        bool operator==(const TetKey& o) const { return v == o.v; }
+    };
+    struct TetKeyHash {
+        size_t operator()(const TetKey& tet) const noexcept {
+            size_t h = 0;
+            for (int v : tet.v)
+                h ^= std::hash<int>{}(v) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            return h;
+        }
+    };
+
+    std::unordered_set<int> localTetIds;
+    for (int ti : m_VertTets[va]) if (m_TetAlive[ti]) localTetIds.insert(ti);
+    for (int ti : m_VertTets[vb]) if (m_TetAlive[ti]) localTetIds.insert(ti);
+    std::unordered_set<TetKey, TetKeyHash> simulatedTets;
+    for (int ti : localTetIds) {
+        const int base = ti * 4;
+        bool hasA = false, hasB = false;
+        TetKey key{{tv[base], tv[base + 1], tv[base + 2], tv[base + 3]}};
+        for (int& v : key.v) {
+            hasA |= v == va;
+            hasB |= v == vb;
+            if (v == vb) v = va;
+        }
+        if (hasA && hasB) continue; // 该四面体会按预期退化并被删除
+        std::sort(key.v.begin(), key.v.end());
+        if (std::adjacent_find(key.v.begin(), key.v.end()) != key.v.end()) return false;
+        if (!simulatedTets.insert(key).second) return false;
+    }
+    return true;
+}
+
+bool TetraEdgeSimplification::IsTetGeometryValid(
+        int va, int vb, const double pos[3]) const {
+    const int* tv = m_TetVerts.data();
+    const double* pts = m_Pts.data();
+    std::unordered_set<int> incident;
+    for (int ti : m_VertTets[va]) if (m_TetAlive[ti]) incident.insert(ti);
+    for (int ti : m_VertTets[vb]) if (m_TetAlive[ti]) incident.insert(ti);
+
+    auto signedVolume6 = [](const double p[4][3]) {
+        const double ax=p[1][0]-p[0][0], ay=p[1][1]-p[0][1], az=p[1][2]-p[0][2];
+        const double bx=p[2][0]-p[0][0], by=p[2][1]-p[0][1], bz=p[2][2]-p[0][2];
+        const double cx=p[3][0]-p[0][0], cy=p[3][1]-p[0][1], cz=p[3][2]-p[0][2];
+        return ax*(by*cz-bz*cy) - ay*(bx*cz-bz*cx) + az*(bx*cy-by*cx);
+    };
+
+    for (int ti : incident) {
+        const int base = ti * 4;
+        bool hasA = false, hasB = false;
+        double before[4][3], after[4][3];
+        for (int j = 0; j < 4; ++j) {
+            const int v = tv[base + j];
+            hasA |= v == va;
+            hasB |= v == vb;
+            for (int d = 0; d < 3; ++d) before[j][d] = after[j][d] = pts[v * 3 + d];
+            if (v == va || v == vb)
+                for (int d = 0; d < 3; ++d) after[j][d] = pos[d];
+        }
+        if (hasA && hasB) continue; // these tets collapse away by design
+
+        const double oldVolume = signedVolume6(before);
+        const double newVolume = signedVolume6(after);
+        // 体积同号可防止翻转；绝对值下限可防止四面体被压成数值上的零体积单元。
+        if (!std::isfinite(oldVolume) || !std::isfinite(newVolume) ||
+            oldVolume * newVolume <= 0.0 || std::abs(newVolume) < 1e-15)
+            return false;
+    }
+    return true;
+}
+
+bool TetraEdgeSimplification::IsBoundaryGeometryValid(
+        int va, int vb, const double pos[3]) const {
+    // 纯内部边坍缩没有需要额外保护的表面三角形。
+    if (!m_IsBoundary[va] && !m_IsBoundary[vb]) return true;
+
+    std::unordered_set<FaceKey, FaceKeyHash> incidentFaces;
+    for (const FaceKey& face : m_VertBoundaryFaces[va]) incidentFaces.insert(face);
+    for (const FaceKey& face : m_VertBoundaryFaces[vb]) incidentFaces.insert(face);
+
+    std::unordered_set<FaceKey, FaceKeyHash> simulatedFaces;
+    const double* pts = m_Pts.data();
+    for (const FaceKey& face : incidentFaces) {
+        const bool hasA = face.a == va || face.b == va || face.c == va;
+        const bool hasB = face.a == vb || face.b == vb || face.c == vb;
+        if (hasA && hasB) continue; // 与流形边界边相邻的两个三角形应当随坍缩消失
+
+        int ids[3] = {face.a, face.b, face.c};
+        double before[3][3], after[3][3];
+        for (int j = 0; j < 3; ++j) {
+            const int v = ids[j];
+            for (int d = 0; d < 3; ++d) before[j][d] = after[j][d] = pts[v * 3 + d];
+            if (v == va || v == vb) {
+                ids[j] = va;
+                for (int d = 0; d < 3; ++d) after[j][d] = pos[d];
+            }
+        }
+
+        const FaceKey newFace = MakeFaceKey(ids[0], ids[1], ids[2]);
+        if (newFace.a == newFace.b || newFace.b == newFace.c) return false;
+        if (!simulatedFaces.insert(newFace).second) return false;
+
+        auto normal = [](const double p[3][3], double n[3]) {
+            const double ux=p[1][0]-p[0][0], uy=p[1][1]-p[0][1], uz=p[1][2]-p[0][2];
+            const double vx=p[2][0]-p[0][0], vy=p[2][1]-p[0][1], vz=p[2][2]-p[0][2];
+            n[0]=uy*vz-uz*vy; n[1]=uz*vx-ux*vz; n[2]=ux*vy-uy*vx;
+        };
+        double oldNormal[3], newNormal[3];
+        normal(before, oldNormal);
+        normal(after, newNormal);
+        const double oldLength = std::sqrt(oldNormal[0]*oldNormal[0] + oldNormal[1]*oldNormal[1] + oldNormal[2]*oldNormal[2]);
+        const double newLength = std::sqrt(newNormal[0]*newNormal[0] + newNormal[1]*newNormal[1] + newNormal[2]*newNormal[2]);
+        if (oldLength < 1e-30 || newLength < 1e-15) return false;
+        const double normalDot = (oldNormal[0]*newNormal[0] + oldNormal[1]*newNormal[1] + oldNormal[2]*newNormal[2]) /
+                                 (oldLength * newLength);
+        if (!std::isfinite(normalDot) || normalDot < m_MinBoundaryNormalDot) return false;
+    }
+    return true;
+}
+
+double TetraEdgeSimplification::BoundaryQuadricCost(
+        int va, int vb, const double pos[3]) const {
+    const double x[4] = {pos[0], pos[1], pos[2], 1.0};
+    double cost = 0.0;
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+            const double q = m_BoundaryQ[va * 16 + r * 4 + c] +
+                             m_BoundaryQ[vb * 16 + r * 4 + c];
+            cost += x[r] * q * x[c];
+        }
+    }
+    return std::max(0.0, cost); // 消除浮点舍入造成的微小负数
+}
+
 // ═══════════ EdgeCostFast ═══════════
 double TetraEdgeSimplification::EdgeCostFast(int va, int vb) const {
-    if (m_IsBoundary[va] || m_IsBoundary[vb])
-        return std::numeric_limits<double>::infinity();
+    if (m_PreserveBoundary) {
+        const bool boundaryA = m_IsBoundary[va] != 0;
+        const bool boundaryB = m_IsBoundary[vb] != 0;
 
+        // 边界保护模式明确区分三种情况：
+        // 1）内部点—内部点：正常坍缩；
+        // 2）真实边界边上的边界点—边界点：受约束坍缩；
+        // 3）边界点—内部点，或两个边界点之间的内部弦边：拒绝，
+        //    因为它们可能把外壳拉向内部，或把两个外壳区域错误粘合。
+        if (boundaryA != boundaryB || (boundaryA && !IsBoundaryEdge(va, vb)))
+            return std::numeric_limits<double>::infinity();
+    }
+
+    // Lower bound: minimize over the same positions used by full validation.
+    // Geometry/topology can reject positions later, but cannot lower this cost.
     const double* pts = m_Pts.data();
-    // midpoint
-    double mx = (pts[va*3]+pts[vb*3])*0.5;
-    double my = (pts[va*3+1]+pts[vb*3+1])*0.5;
-    double mz = (pts[va*3+2]+pts[vb*3+2])*0.5;
-
-    double da[3]={mx-pts[va*3], my-pts[va*3+1], mz-pts[va*3+2]};
-    double db[3]={mx-pts[vb*3], my-pts[vb*3+1], mz-pts[vb*3+2]};
-    double cost = Sym3_vAv(&m_ADQ[va*9], da[0],da[1],da[2])
-                + Sym3_vAv(&m_ADQ[vb*9], db[0],db[1],db[2]);
-    return cost + std::max(m_ErrAccum[va], m_ErrAccum[vb]);
+    double best = std::numeric_limits<double>::infinity();
+    const bool boundary=m_PreserveBoundary && m_IsBoundary[va] && m_IsBoundary[vb];
+    for(int candidate=boundary?0:2;candidate<3;++candidate) {
+        const double t=candidate==0?0.0:candidate==1?1.0:0.5;
+        double pos[3],da[3],db[3];
+        for(int d=0;d<3;++d) {
+            pos[d]=(1-t)*pts[va*3+d]+t*pts[vb*3+d];
+            da[d]=pos[d]-pts[va*3+d];db[d]=pos[d]-pts[vb*3+d];
+        }
+        double cost=Sym3_vAv(&m_ADQ[va*9],da[0],da[1],da[2])
+                   +Sym3_vAv(&m_ADQ[vb*9],db[0],db[1],db[2])
+                   +std::max(m_ErrAccum[va],m_ErrAccum[vb]);
+        if(boundary)cost+=m_BoundaryPenalty*BoundaryQuadricCost(va,vb,pos);
+        if(std::isfinite(cost))best=std::min(best,cost);
+    }
+    return best;
 }
 
 // ═══════════ ComputeEdgeCost — with flip detection ═══════════
@@ -1079,91 +1628,67 @@ TetraEdgeSimplification::ComputeEdgeCost(int va, int vb) {
     res.valid = false;
     res.cost = std::numeric_limits<double>::infinity();
 
-    if (m_IsBoundary[va] || m_IsBoundary[vb]) return res;
+    const bool boundaryA = m_IsBoundary[va] != 0;
+    const bool boundaryB = m_IsBoundary[vb] != 0;
+    if (m_PreserveBoundary) {
+        if (boundaryA != boundaryB) return res;
+        if (boundaryA && !IsBoundaryEdge(va, vb)) return res;
+    }
+    if (!IsTopologicallyCollapsible(va, vb)) return res;
 
     const double* pts = m_Pts.data();
     const int D = m_AttrDim;
 
-    // Optimal position: midpoint
-    res.optPos[0] = (pts[va*3]+pts[vb*3])*0.5;
-    res.optPos[1] = (pts[va*3+1]+pts[vb*3+1])*0.5;
-    res.optPos[2] = (pts[va*3+2]+pts[vb*3+2])*0.5;
-
-    // Optimal attributes: weighted average by inverse ADQ trace
-    if (D > 0) {
-        double wa = 1.0/std::max(Sym3_trace(&m_ADQ[va*9]), 1e-30);
-        double wb = 1.0/std::max(Sym3_trace(&m_ADQ[vb*9]), 1e-30);
-        double invW = 1.0/(wa+wb);
-        wa *= invW; wb *= invW;
-        res.optAttr.resize(D);
-        const double* aa = &m_Attrs[va*D];
-        const double* ab = &m_Attrs[vb*D];
-        for (int d = 0; d < D; ++d) res.optAttr[d] = wa*aa[d] + wb*ab[d];
-    }
-
-    // ADQ cost
-    double da[3] = {res.optPos[0]-pts[va*3], res.optPos[1]-pts[va*3+1], res.optPos[2]-pts[va*3+2]};
-    double db[3] = {res.optPos[0]-pts[vb*3], res.optPos[1]-pts[vb*3+1], res.optPos[2]-pts[vb*3+2]};
-    double totalCost = Sym3_vAv(&m_ADQ[va*9], da[0],da[1],da[2])
-                     + Sym3_vAv(&m_ADQ[vb*9], db[0],db[1],db[2])
-                     + std::max(m_ErrAccum[va], m_ErrAccum[vb]);
-
-    // Flip detection: check all tets touching va or vb
-    double ox=res.optPos[0], oy=res.optPos[1], oz=res.optPos[2];
-    int* tv = m_TetVerts.data();
-
-    // Check tets around va
-    auto checkFlip = [&](int vertex) -> bool {
-        for (int ti : m_VertTets[vertex]) {
-            if (!m_TetAlive[ti]) continue;
-            int nb = ti*4;
-            int nt[4] = {tv[nb],tv[nb+1],tv[nb+2],tv[nb+3]};
-
-            // Does this tet contain both va AND vb? It will be killed, skip.
-            bool hasA = false, hasB = false;
-            for (int j=0;j<4;++j) {
-                if (nt[j]==va) hasA=true;
-                if (nt[j]==vb) hasB=true;
-            }
-            if (hasA && hasB) continue;
-
-            // This tet touches one of {va,vb} — check flip
-            double p[4][3];
-            for (int j=0;j<4;++j) {
-                p[j][0]=pts[nt[j]*3]; p[j][1]=pts[nt[j]*3+1]; p[j][2]=pts[nt[j]*3+2];
-            }
-
-            // Before volume
-            double e1[3]={p[1][0]-p[0][0],p[1][1]-p[0][1],p[1][2]-p[0][2]};
-            double e2[3]={p[2][0]-p[0][0],p[2][1]-p[0][1],p[2][2]-p[0][2]};
-            double e3[3]={p[3][0]-p[0][0],p[3][1]-p[0][1],p[3][2]-p[0][2]};
-            double volB = e1[0]*(e2[1]*e3[2]-e2[2]*e3[1])
-                        - e1[1]*(e2[0]*e3[2]-e2[2]*e3[0])
-                        + e1[2]*(e2[0]*e3[1]-e2[1]*e3[0]);
-
-            // Replace the vertex that's va or vb with optPos
-            for (int j=0;j<4;++j) {
-                if (nt[j]==va || nt[j]==vb) {
-                    p[j][0]=ox; p[j][1]=oy; p[j][2]=oz;
-                }
-            }
-
-            double ea2[3]={p[1][0]-p[0][0],p[1][1]-p[0][1],p[1][2]-p[0][2]};
-            double eb2[3]={p[2][0]-p[0][0],p[2][1]-p[0][1],p[2][2]-p[0][2]};
-            double ec2[3]={p[3][0]-p[0][0],p[3][1]-p[0][1],p[3][2]-p[0][2]};
-            double volA = ea2[0]*(eb2[1]*ec2[2]-eb2[2]*ec2[1])
-                        - ea2[1]*(eb2[0]*ec2[2]-eb2[2]*ec2[0])
-                        + ea2[2]*(eb2[0]*ec2[1]-eb2[1]*ec2[0]);
-
-            if (volB * volA < 0 || std::abs(volA) < 1e-30) return false;
-        }
-        return true;
+    // 受保护边界边不能使用任意三维最优位置。这里测试两个端点和边中点，
+    // 三者都位于当前分片线性边界边上；再由边界二次误差选择最符合原始边界
+    // 平面的位置。内部边继续保持原有的中点策略。
+    const double candidates[3][3] = {
+        {pts[va*3], pts[va*3+1], pts[va*3+2]},
+        {pts[vb*3], pts[vb*3+1], pts[vb*3+2]},
+        {(pts[va*3]+pts[vb*3])*0.5,
+         (pts[va*3+1]+pts[vb*3+1])*0.5,
+         (pts[va*3+2]+pts[vb*3+2])*0.5}
     };
+    const bool constrainedBoundary = m_PreserveBoundary && boundaryA && boundaryB;
+    const int firstCandidate = constrainedBoundary ? 0 : 2;
+    double selectedT=0.5;
+    for (int candidate = firstCandidate; candidate < 3; ++candidate) {
+        const double* pos = candidates[candidate];
+        if (!IsTetGeometryValid(va, vb, pos)) continue;
+        if (constrainedBoundary && !IsBoundaryGeometryValid(va, vb, pos)) continue;
+        if (constrainedBoundary) {
+            const double count=m_BoundaryPlaneCount[va]+m_BoundaryPlaneCount[vb];
+            const double error=BoundaryQuadricCost(va,vb,pos);
+            // Hard budget, independent of heap ranking and target point count.
+            if(!std::isfinite(error) || count<=0 ||
+               error > count*m_MaxBoundaryRmsError*m_MaxBoundaryRmsError + 1e-14)continue;
+        }
 
-    if (!checkFlip(va) || !checkFlip(vb)) return res;
+        const double da[3] = {pos[0]-pts[va*3], pos[1]-pts[va*3+1], pos[2]-pts[va*3+2]};
+        const double db[3] = {pos[0]-pts[vb*3], pos[1]-pts[vb*3+1], pos[2]-pts[vb*3+2]};
+        double cost = Sym3_vAv(&m_ADQ[va*9], da[0], da[1], da[2])
+                    + Sym3_vAv(&m_ADQ[vb*9], db[0], db[1], db[2])
+                    + std::max(m_ErrAccum[va], m_ErrAccum[vb]);
+        if (constrainedBoundary)
+            cost += m_BoundaryPenalty * BoundaryQuadricCost(va, vb, pos);
 
-    res.cost = totalCost;
-    res.valid = true;
+        if (cost < res.cost) {
+            selectedT=candidate==0?0.0:candidate==1?1.0:0.5;
+            res.cost = cost;
+            res.optPos[0] = pos[0];
+            res.optPos[1] = pos[1];
+            res.optPos[2] = pos[2];
+            res.valid = true;
+        }
+    }
+    if (!res.valid) return res;
+
+    // Interpolate at the selected geometric position, preserving affine fields.
+    if (D > 0) {
+        res.optAttr.resize(D);
+        const double* aa=&m_Attrs[va*D];const double* ab=&m_Attrs[vb*D];
+        for(int d=0;d<D;++d)res.optAttr[d]=(1-selectedT)*aa[d]+selectedT*ab[d];
+    }
     return res;
 }
 
@@ -1190,7 +1715,8 @@ void TetraEdgeSimplification::BuildEdgesAndHeap() {
                 int a = v[i], bb = v[j];
                 if (a > bb) std::swap(a, bb);
                 if (!seen.insert({a,bb}).second) continue;
-                if (m_IsBoundary[a] || m_IsBoundary[bb]) continue;
+                // EdgeCostFast 负责边界分类。保护模式下，真实边界边仍保留为候选，
+                // 边界点—内部点的混合边和两个边界点之间的内部弦边会被拒绝。
                 double c = EdgeCostFast(a, bb);
                 if (c < std::numeric_limits<double>::infinity()) {
                     m_Heap.push({c, a, bb, m_VertVersion[a], m_VertVersion[bb]});
@@ -1203,26 +1729,57 @@ void TetraEdgeSimplification::BuildEdgesAndHeap() {
 }
 
 // ═══════════ DoEdgeCollapse ═══════════
-void TetraEdgeSimplification::DoEdgeCollapse(int va, int vb,
-                                              const double optPos[3],
-                                              const std::vector<double>& optAttr) {
+std::vector<int> TetraEdgeSimplification::DoEdgeCollapse(
+        int va, int vb, const double optPos[3],
+        const std::vector<double>& optAttr) {
     const int survivor = va;
     const int removed = vb;
     const int D = m_AttrDim;
     const double* pts = m_Pts.data();
     int* tv = m_TetVerts.data();
 
-    // Merge ADQ: Q_s = Q_a + Q_b
-    double* qs = &m_ADQ[survivor*9];
-    const double* qr = &m_ADQ[removed*9];
-    for (int i = 0; i < 9; ++i) qs[i] += qr[i];
+    // 只有与任一端点相邻的四面体会发生变化。修改连接关系之前，先从邻接表中
+    // 删除这些四面体的旧面；修改完成后，再用新面键插回仍然存活的四面体。
+    // 这样无需重新扫描整个网格，也能让边界面、边界边和边界点保持最新。
+    std::unordered_set<int> affectedTets;
+    std::unordered_set<int> affectedVertices;
+    for (int ti : m_VertTets[survivor]) if (m_TetAlive[ti]) affectedTets.insert(ti);
+    for (int ti : m_VertTets[removed]) if (m_TetAlive[ti]) affectedTets.insert(ti);
+    for (int ti : affectedTets) {
+        const int base = ti * 4;
+        for (int j = 0; j < 4; ++j) affectedVertices.insert(tv[base + j]);
+    }
 
-    // Accumulate error
+    static const int faceIndices[4][3] = {{0,1,2},{0,1,3},{0,2,3},{1,2,3}};
+    for (int ti : affectedTets) {
+        const int base = ti * 4;
+        for (const auto& face : faceIndices) {
+            ChangeFaceCount(MakeFaceKey(tv[base + face[0]],
+                                       tv[base + face[1]],
+                                       tv[base + face[2]]), -1);
+        }
+    }
+
+    // 必须在合并 va、vb 的 ADQ 之前计算累计误差；如果合并后再算，
+    // errA 会把 vb 的矩阵重复计算一次。
     double da[3] = {optPos[0]-pts[va*3], optPos[1]-pts[va*3+1], optPos[2]-pts[va*3+2]};
     double db[3] = {optPos[0]-pts[vb*3], optPos[1]-pts[vb*3+1], optPos[2]-pts[vb*3+2]};
     double errA = m_ErrAccum[va] + Sym3_vAv(&m_ADQ[va*9], da[0],da[1],da[2]);
     double errB = m_ErrAccum[vb] + Sym3_vAv(&m_ADQ[vb*9], db[0],db[1],db[2]);
+
+    // 合并 ADQ：Q_s = Q_a + Q_b
+    double* qs = &m_ADQ[survivor*9];
+    const double* qr = &m_ADQ[removed*9];
+    for (int i = 0; i < 9; ++i) qs[i] += qr[i];
+
     m_ErrAccum[survivor] = std::max(errA, errB);
+
+    // 边界二次误差矩阵也需要累加，原因与普通 QEM 相同：保留点必须继续代表
+    // 原先由两个端点共同代表的全部原始边界平面。
+    double* boundaryQs = &m_BoundaryQ[survivor * 16];
+    const double* boundaryQr = &m_BoundaryQ[removed * 16];
+    for (int i = 0; i < 16; ++i) boundaryQs[i] += boundaryQr[i];
+    m_BoundaryPlaneCount[survivor] += m_BoundaryPlaneCount[removed];
 
     // Update position & attributes
     m_Pts[survivor*3]   = optPos[0];
@@ -1262,18 +1819,38 @@ void TetraEdgeSimplification::DoEdgeCollapse(int va, int vb,
     m_VertAlive[removed] = 0;
     m_VertTets[removed].clear();
 
-    // Bump versions for lazy heap invalidation
-    m_VertVersion[survivor]++;
-    m_VertVersion[removed]++;
+    // 使用新的连接关系重新插入存活的局部四面体。面计数的变化会自动暴露
+    // 新边界面，或把重新被两个四面体共享的面隐藏为内部面。
+    for (int ti : affectedTets) {
+        if (!m_TetAlive[ti]) continue;
+        const int base = ti * 4;
+        for (const auto& face : faceIndices) {
+            ChangeFaceCount(MakeFaceKey(tv[base + face[0]],
+                                       tv[base + face[1]],
+                                       tv[base + face[2]]), 1);
+        }
+        for (int j = 0; j < 4; ++j) affectedVertices.insert(tv[base + j]);
+    }
 
-    // Update boundary flags for survivor's tets
-    for (int ti : m_VertTets[survivor]) {
+    // 与该局部区域相接的堆条目，其拓扑、边界分类或代价都可能已经过期。
+    // 增加版本号可惰性作废旧条目，随后 Simplify() 会立即插入重新计算的局部边。
+    affectedVertices.insert(survivor);
+    affectedVertices.insert(removed);
+    for (int v : affectedVertices) ++m_VertVersion[v];
+
+    // m_IsBoundaryTet 虽然只是缓存，仍需保持正确，以便诊断和后续代码使用。
+    for (int ti : affectedTets) {
         if (!m_TetAlive[ti]) continue;
         int nb = ti*4;
-        if (m_IsBoundary[tv[nb]]|m_IsBoundary[tv[nb+1]]|
-            m_IsBoundary[tv[nb+2]]|m_IsBoundary[tv[nb+3]])
-            m_IsBoundaryTet[ti] = 1;
+        m_IsBoundaryTet[ti] = m_IsBoundary[tv[nb]]|m_IsBoundary[tv[nb+1]]|
+                              m_IsBoundary[tv[nb+2]]|m_IsBoundary[tv[nb+3]];
     }
+
+    std::vector<int> aliveAffected;
+    aliveAffected.reserve(affectedVertices.size());
+    for (int v : affectedVertices)
+        if (m_VertAlive[v]) aliveAffected.push_back(v);
+    return aliveAffected;
 }
 
 // ═══════════ Simplify ═══════════
@@ -1293,6 +1870,7 @@ void TetraEdgeSimplification::Simplify() {
     BuildEdgesAndHeap();
 
     int collapsed = 0;
+    int boundaryCollapsed = 0;
     int vertCount = N0;
 
     while (!m_Heap.empty() && vertCount > target) {
@@ -1304,12 +1882,22 @@ void TetraEdgeSimplification::Simplify() {
         if (m_VertVersion[entry.va] != entry.versionA ||
             m_VertVersion[entry.vb] != entry.versionB) continue;
 
-        // Full cost with flip detection
+        // 完整代价检查包括 link condition、四面体朝向、边界三角形合法性，
+        // 以及受保护边界的位置约束和误差检查。
         EdgeCostResult cr = ComputeEdgeCost(entry.va, entry.vb);
         if (!cr.valid) continue;
+        // Refine a lower-bound entry and let cheaper entries be validated first.
+        if(!m_Heap.empty() && cr.cost > m_Heap.top().cost) {
+            m_Heap.push({cr.cost,entry.va,entry.vb,entry.versionA,entry.versionB});
+            continue;
+        }
 
-        DoEdgeCollapse(entry.va, entry.vb, cr.optPos, cr.optAttr);
+        const bool isProtectedBoundaryCollapse =
+            m_PreserveBoundary && m_IsBoundary[entry.va] && m_IsBoundary[entry.vb];
+        const std::vector<int> affectedVertices =
+            DoEdgeCollapse(entry.va, entry.vb, cr.optPos, cr.optAttr);
         collapsed++;
+        if (isProtectedBoundaryCollapse) ++boundaryCollapsed;
         vertCount -= 1;  // edge collapse: 2 verts → 1
 
         if (collapsed % 2000 == 0) {
@@ -1320,32 +1908,29 @@ void TetraEdgeSimplification::Simplify() {
                       << nt << " tets, cost=" << cr.cost << "\n";
         }
 
-        // Re-enqueue edges from survivor to its neighbors
-        int survivor = entry.va;
-        if (!m_VertAlive[survivor]) continue;
-
-        // Collect unique neighbor vertices
+        // 边界状态的变化不只发生在保留点的邻边上，例如删除四面体可能暴露其对面。
+        // 因此要重新插入变化局部区域中的所有存活边，而不能只处理保留点的邻边。
         const int* tv = m_TetVerts.data();
-        // Use a simple scan — small per-vertex neighborhoods
-        std::vector<int> neighbors;
-        neighbors.reserve(64);
-        for (int ti : m_VertTets[survivor]) {
-            if (!m_TetAlive[ti]) continue;
-            int nb = ti*4;
-            for (int j = 0; j < 4; ++j) {
-                int nv = tv[nb+j];
-                if (nv != survivor && m_VertAlive[nv] && !m_IsBoundary[nv]) {
-                    neighbors.push_back(nv);
+        std::unordered_set<uint64_t> localEdges;
+        std::unordered_set<int> changed(affectedVertices.begin(),affectedVertices.end());
+        for (int vertex : affectedVertices) {
+            for (int ti : m_VertTets[vertex]) {
+                if (!m_TetAlive[ti]) continue;
+                const int base = ti * 4;
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = i + 1; j < 4; ++j) {
+                        const int a = tv[base + i];
+                        const int b = tv[base + j];
+                        if (m_VertAlive[a] && m_VertAlive[b] && (changed.count(a) || changed.count(b)))
+                            localEdges.insert(MakeEdgeKey(a, b));
+                    }
                 }
             }
         }
-        // Deduplicate
-        std::sort(neighbors.begin(), neighbors.end());
-        neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
 
-        for (int nb : neighbors) {
-            int a = survivor < nb ? survivor : nb;
-            int b = survivor < nb ? nb : survivor;
+        for (uint64_t edge : localEdges) {
+            const int a = int(uint32_t(edge >> 32));
+            const int b = int(uint32_t(edge));
             double c = EdgeCostFast(a, b);
             if (c < std::numeric_limits<double>::infinity()) {
                 m_Heap.push({c, a, b, m_VertVersion[a], m_VertVersion[b]});
@@ -1357,6 +1942,7 @@ void TetraEdgeSimplification::Simplify() {
     for(int i=0;i<m_NumVerts;++i) nv+=m_VertAlive[i];
     for(int i=0;i<m_NumTets;++i) nt+=m_TetAlive[i];
     std::cout << "[TetraEdgeSimp] Done: " << collapsed << " collapses, "
+              << boundaryCollapsed << " protected boundary collapses, "
               << nv << " verts, " << nt << " tets\n";
 }
 
@@ -1382,7 +1968,7 @@ bool TetraEdgeSimplification::SaveMesh() {
             m_Pts[i*3+2]*m_PtsScale+m_PtsMin[2]));
     }
     outMesh->SetPoints(outPoints);
-
+    std::vector<igIndex> outCellSourceIds;
     auto outCells = CellArray::New();
     for (int ti = 0; ti < m_NumTets; ++ti) {
         if (!m_TetAlive[ti]) continue;
@@ -1391,9 +1977,11 @@ bool TetraEdgeSimplification::SaveMesh() {
         if(m0<0||m1<0||m2<0||m3<0) continue;
         if(m0==m1||m0==m2||m0==m3||m1==m2||m1==m3||m2==m3) continue;
         outCells->AddCellId4(m0,m1,m2,m3);
+        outCellSourceIds.push_back(m_TetSourceIds[ti]);
     }
     outMesh->SetVolumes(outCells);
 
+    auto outAttrs = AttributeSet::New();
     if (D > 0) {
         for (const auto& p : m_AttrNormParams) {
             if (p.isScalar) {
@@ -1402,24 +1990,125 @@ bool TetraEdgeSimplification::SaveMesh() {
                 for(int i=0;i<N;++i){if(!m_VertAlive[i])continue; for(int d=0;d<p.ncomp;++d)m_Attrs[i*D+p.col+d]*=p.maxMag;}
             }
         }
-        auto outAttrs = AttributeSet::New();
         int col = 0;
-        for (const auto& info : m_AttrInfo) {
-            auto arr = FloatArray::New();
-            arr->SetDimension(info.ncomp);
-            arr->Resize(newN);
-            arr->SetName(info.name);
-            for (int i = 0; i < N; ++i) {
-                if (!m_VertAlive[i]) continue;
-                int ni = old2new[i];
-                for (int d = 0; d < info.ncomp; ++d)
-                    arr->SetValue(ni*info.ncomp+d, static_cast<float>(m_Attrs[i*D+col+d]));
-            }
-            outAttrs->AddAttribute(info.ncomp==1 ? IG_SCALAR : IG_VECTOR, IG_POINT, arr);
+        for (const auto& info: m_AttrInfo) {
+            ArrayObject::Pointer arr = nullptr;
+            const int attrCol = col;
             col += info.ncomp;
+            switch (info.arrayType) {
+                case IG_FloatArray:
+                    arr = BuildPointAttribute<FloatArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_DoubleArray:
+                    arr = BuildPointAttribute<DoubleArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_IntArray:
+                    arr = BuildPointAttribute<IntArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedIntArray:
+                    arr = BuildPointAttribute<UnsignedIntArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_CharArray:
+                    arr = BuildPointAttribute<CharArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedCharArray:
+                    arr = BuildPointAttribute<UnsignedCharArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_ShortArray:
+                    arr = BuildPointAttribute<ShortArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedShortArray:
+                    arr = BuildPointAttribute<UnsignedShortArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_LongLongArray:
+                    arr = BuildPointAttribute<LongLongArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                case IG_UnsignedLongLongArray:
+                    arr = BuildPointAttribute<UnsignedLongLongArray, TetraEdgeSimplification::AttrInfo>(
+                            info, outAttrs, attrCol, N, newN, m_VertAlive, old2new, m_Attrs, D);
+                    break;
+
+                default:
+                    break;
+            }
+            if (arr) { outAttrs->AddAttribute(info.attributeType, IG_POINT, arr); }
         }
-        outMesh->SetAttributeSet(outAttrs);
     }
+
+    auto inputAttrs = m_InputMesh->GetAttributeSet();
+    if (inputAttrs) {
+        auto all = inputAttrs->GetAllAttributes();
+        for (IGsize ai = 0; ai < all->GetNumberOfElements(); ++ai) {
+            auto attr = all->GetElement(ai);
+            if (attr.isDeleted || !attr.pointer) continue;
+            if (attr.attachmentType != IG_CELL) continue;
+            ArrayObject::Pointer arr = nullptr;
+            switch (attr.pointer->GetArrayType()) {
+                case IG_FloatArray:
+                    arr = BuildCellAttribute<FloatArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_DoubleArray:
+                    arr = BuildCellAttribute<DoubleArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_IntArray:
+                    arr = BuildCellAttribute<IntArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedIntArray:
+                    arr = BuildCellAttribute<UnsignedIntArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_CharArray:
+                    arr = BuildCellAttribute<CharArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedCharArray:
+                    arr = BuildCellAttribute<UnsignedCharArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_ShortArray:
+                    arr = BuildCellAttribute<ShortArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedShortArray:
+                    arr = BuildCellAttribute<UnsignedShortArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_LongLongArray:
+                    arr = BuildCellAttribute<LongLongArray>(attr, outCellSourceIds);
+                    break;
+
+                case IG_UnsignedLongLongArray:
+                    arr = BuildCellAttribute<UnsignedLongLongArray>(attr, outCellSourceIds);
+                    break;
+
+                default:
+                    break;
+            }
+            if (arr) { outAttrs->AddAttribute(attr.type, IG_CELL, arr); }
+        }
+    }
+    outMesh->SetAttributeSet(outAttrs);
 
     SetOutput(outMesh);
     std::cout << "[TetraEdgeSimp] Output: " << newN << " verts, "

@@ -48,3 +48,17 @@
 
 #include "Animation/iGameAttrDiff.h"
 #include "AttributeManipulation/iGameRandomVectorsFilter.h"
+
+#include "Attribute/iGameExtractComponentFilter.h"
+#include "AxisAlignedReflection/iGameAxisAlignedReflectionFilter.h"
+#include "CellSize/iGameCellSizeFilter.h"
+#include "Convert/iGameResampleToImageFilter.h"
+#include "CountCellVertices/iGameCountCellVerticesFilter.h"
+#include "ExportEdges/iGameExportEdgesFilter.h"
+#include "ExtractEdges/iGameExtractEdgesFilter.h"
+#include "GlobalIds/iGameGenerateGlobalIdsFilter.h"
+#include "MergeVectorComponents/iGameMergeVectorComponentsFilter.h"
+#include "PointAndCellIds/iGamePointAndCellIdsFilter.h"
+#include "ProcessGet/iGameGenerateProcessIdsFilter.h"
+#include "ResampleToLine/iGameResampleToLine.h"
+#include "TriangleStrip/iGameTriangleStripFilter.h"

@@ -191,6 +191,19 @@ int main(int argc, char** argv) {
         Require(glCheckNamedFramebufferStatus(fbo,GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE,"test-framebuffer-ready");
         std::array<unsigned char,32*32*4> reference{};
         for(int round=0;round<4;++round) {
+            // BUG: preload previously cached raw data; compare a fresh CPU-only
+            // preparation against round 0's ordinary draw, then exercise repeated
+            // GPU release/upload without changing CPU geometry.
+            // Fix subject: fix: prepare CPU display data during remote preload
+            // Find fix: git log --oneline --fixed-strings --grep="fix: prepare CPU display data during remote preload" -- Examples/IO/PreparedCpuGpuValidation.cpp
+            // Test origin: git log --diff-filter=A --format="%h %s" -- Examples/IO/PreparedCpuGpuValidation.cpp
+            if (round == 1) {
+                mesh->ReleaseDrawableResources();
+                std::string reason;
+                Require(mesh->PrepareRemoteCpuDisplayData(reason), reason.c_str());
+                Require(!mesh->HasGpuResources(), "fresh-CPU-preparation-allocates-no-GPU");
+            }
+            const auto preparedSignature = mesh->InspectCpuDisplayCache().signature;
             if(round==0) mesh->SyncGpuBuffers();
             else if (compareLegacy) mesh->SyncGpuBuffers();
             else Require(mesh->UploadPreparedCpuData(),"prepared-upload-only-succeeded");
@@ -211,7 +224,11 @@ int main(int argc, char** argv) {
             if(round==0)reference=pixels;
             else Require(pixels==reference,"rendered-colors-and-geometry-identical-after-reopen");
             Require(glGetError()==GL_NO_ERROR,"real-GL-cycle-no-errors");
-            Require(mesh->InspectCpuDisplayCache().signature==before.signature,"no-CPU-geometry-or-scalar-rebuild");
+            // The deliberate raw -> prepared rebuild above creates new arrays;
+            // each subsequent upload/draw must preserve that prepared snapshot.
+            const auto cycleState = mesh->InspectCpuDisplayCache();
+            Require(cycleState.ready,"CPU-state-stays-prepared-after-draw");
+            Require(cycleState.signature == preparedSignature, "no-CPU-geometry-or-scalar-rebuild");
             glBindVertexArray(0); mesh->ReleaseGpuResourcesKeepCpuData();
             Require(!mesh->HasGpuResources(),"all-model-GPU-handles-released");
         }

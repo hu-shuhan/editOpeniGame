@@ -771,14 +771,17 @@ void UnstructuredMesh::ConvertToDrawableData() {
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {
     /* 当pointMapper 外部更新（调整颜色映射的 Range）， 则不用调整ColorMap的范围*/
-    if (!m_ColorMapper->GetStable()) {
-        // Configure color mapper range using provided attrRange if available; otherwise initialize from data
-        double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
-        double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
-        if (attrRange && minimal_val < maximal_val) {
-            m_ColorMapper->SetRange(minimal_val, maximal_val);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    // 派生网格（抽壳/简化）只读范围，不写范围（原因见 iGameSurfaceMesh.cpp 同名注释）
+    if (m_IsMainRenderableObject && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        if (!m_ColorMapper->GetStable()) {
+            // Configure color mapper range using provided attrRange if available; otherwise initialize from data
+            double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
+            double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
+            if (attrRange && minimal_val < maximal_val) {
+                m_ColorMapper->SetRange(minimal_val, maximal_val);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension, 4);
@@ -791,6 +794,8 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
     newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
+    CellToPointColorBuilder pointColors;
+    pointColors.Initialize(this->GetNumberOfPoints());
     float color[4]{};
     igIndex ids[IGAME_CELL_MAX_SIZE]{};
 
@@ -798,6 +803,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
     for (IGsize cid = 0; cid < nCells; ++cid) {
         const int size = this->GetCellPointIds(cid, ids);
         colors->GetElement(cid, color);
+        pointColors.AddCell(ids, size, color);
 
         const IGenum type = this->GetCellType(cid);
         switch (type) {
@@ -969,6 +975,9 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                 break;
         }
     }
+
+    m_Colors = pointColors.Build(this->GetDefaultColor());
+    m_Colors->Modified();
 
     m_CellPositionSize = newPositions->GetNumberOfElements();
 

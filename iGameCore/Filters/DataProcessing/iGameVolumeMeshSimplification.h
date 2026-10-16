@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "iGameFilter.h"
 #include "Simplification/iGameMeshSimplificationUtil.h"
@@ -25,7 +27,8 @@ public:
 
     // ─── Setters (called from UI) ───
     void SetTargetReduction(float r) { m_TargetReduction = r; }
-    void SetTargetTetraCount(int n) { m_TargetTetraCount = n; }
+    void SetTargetPointCount(int n) { m_TargetTetraCount = n; }
+    void SetTargetTetraCount(int n) { SetTargetPointCount(n); } // compatibility: legacy name counts points
     void SetBoundaryPenalty(double p) { m_BoundaryPenalty = p; }
     void SetLambda(double l) { m_Lambda = l; }
     void SetPreserveBoundary(bool b) { m_PreserveBoundary = b; }
@@ -106,8 +109,15 @@ private:
     std::vector<int>    m_TetVerts; // [M*4] flat: 4 vert indices per tet
 
     // Attribute metadata
-    struct AttrInfo { std::string name; int ncomp; };
+    struct AttrInfo {
+        std::string name;
+        int ncomp;
+        IGenum arrayType;
+        IGenum attributeType;
+        IGenum attachmentType;
+    };
     std::vector<AttrInfo> m_AttrInfo;
+    std::vector<igIndex> m_TetSourceIds{};
 
     // ─── Normalization ───
     double m_PtsMin[3] = {0,0,0};
@@ -156,7 +166,8 @@ public:
 
     // ─── Setters ───
     void SetTargetReduction(float r) { m_TargetReduction = r; }
-    void SetTargetTetraCount(int n) { m_TargetTetraCount = n; }
+    void SetTargetPointCount(int n) { m_TargetTetraCount = n; }
+    void SetTargetTetraCount(int n) { SetTargetPointCount(n); } // compatibility: legacy name counts points
     void SetBoundaryPenalty(double p) { m_BoundaryPenalty = p; }
     void SetLambda(double l) { m_Lambda = l; }
     void SetPreserveBoundary(bool b) { m_PreserveBoundary = b; }
@@ -164,6 +175,11 @@ public:
     void SetAttributeWeights(const std::vector<float>& w) { m_AttributeWeights = w; }
     void SetStretchFactor(double s) { m_StretchFactor = s; }
     void SetMaxAspectRatio(double a) { m_MaxAspectRatio = a; }
+    // 旧边界法向与新边界法向点积的下限。
+    // 设为 0 会禁止法向旋转 90 度及以上，同时仍允许光滑边界在简化中适度变化。
+    // RMS distance to represented original boundary planes, relative to bbox longest side.
+    void SetMaxBoundaryRmsError(double e) { m_MaxBoundaryRmsError = std::max(0.0, e); }
+    void SetMinBoundaryNormalDot(double d) { m_MinBoundaryNormalDot = d; }
 
 private:
     TetraEdgeSimplification() {
@@ -181,6 +197,44 @@ private:
     void Simplify();
     bool SaveMesh();
 
+    // 面键按升序保存三个顶点编号。这里有意忽略面的朝向，因为提取边界时
+    // 只需统计同一个几何三角面被多少个存活四面体使用。
+    struct FaceKey {
+        int a, b, c;
+        bool operator==(const FaceKey& o) const {
+            return a == o.a && b == o.b && c == o.c;
+        }
+    };
+    struct FaceKeyHash {
+        size_t operator()(const FaceKey& face) const noexcept {
+            size_t h = std::hash<int>{}(face.a);
+            h ^= std::hash<int>{}(face.b) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            h ^= std::hash<int>{}(face.c) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            return h;
+        }
+    };
+
+    static FaceKey MakeFaceKey(int a, int b, int c);
+    static uint64_t MakeEdgeKey(int a, int b);
+
+    // 使当前边界信息始终与存活的四面体网格同步。
+    // 仅被使用一次的面是边界面，被使用两次的面是内部面；边界点和边界边
+    // 都由这些边界面推导得到。
+    void AddBoundaryFace(const FaceKey& face);
+    void RemoveBoundaryFace(const FaceKey& face);
+    void ChangeFaceCount(const FaceKey& face, int delta);
+    bool IsBoundaryEdge(int a, int b) const;
+
+    // 硬性合法性检查。误差再小也不能接受非法坍缩：link condition 用于保持
+    // 局部拓扑，四面体检查用于阻止翻转，边界面检查用于保护可见外表面。
+    bool IsTopologicallyCollapsible(int va, int vb) const;
+    bool IsTetGeometryValid(int va, int vb, const double pos[3]) const;
+    bool IsBoundaryGeometryValid(int va, int vb, const double pos[3]) const;
+
+    // 边界二次误差用于度量候选点偏离原始边界平面的程度。当坍缩会改变外形时，
+    // 它会使受保护边界边的代价高于尺寸相近的内部边。
+    double BoundaryQuadricCost(int va, int vb, const double pos[3]) const;
+
     // ─── Edge cost ───
     struct EdgeCostResult {
         double cost;
@@ -192,8 +246,8 @@ private:
     EdgeCostResult ComputeEdgeCost(int va, int vb);
 
     // ─── Edge collapse ───
-    void DoEdgeCollapse(int va, int vb, const double optPos[3],
-                        const std::vector<double>& optAttr);
+    std::vector<int> DoEdgeCollapse(int va, int vb, const double optPos[3],
+                                    const std::vector<double>& optAttr);
 
     // ─── Inline 3×3 helpers ───
     static inline double Sym3_vAv(const double A[9], double dx, double dy, double dz) {
@@ -222,6 +276,8 @@ private:
     std::vector<float> m_AttributeWeights;
     double m_StretchFactor = 10.0;
     double m_MaxAspectRatio = 30.0;
+    double m_MinBoundaryNormalDot = 0.5;
+    double m_MaxBoundaryRmsError = 0.001;
 
     // ─── Mesh data ───
     int m_NumVerts = 0;
@@ -232,8 +288,15 @@ private:
     std::vector<double> m_Attrs;    // [N*D]
     std::vector<int>    m_TetVerts; // [M*4]
 
-    struct AttrInfo { std::string name; int ncomp; };
+    struct AttrInfo {
+        std::string name;
+        int ncomp;
+        IGenum arrayType;
+        IGenum attributeType;
+        IGenum attachmentType;
+    };
     std::vector<AttrInfo> m_AttrInfo;
+    std::vector<igIndex> m_TetSourceIds{};
 
     // ─── Normalization ───
     double m_PtsMin[3] = {0,0,0};
@@ -252,9 +315,18 @@ private:
     std::vector<uint8_t> m_IsBoundary;
     std::vector<uint8_t> m_IsBoundaryTet;
 
+    // 当前（已部分简化）网格的动态面邻接计数。
+    std::unordered_map<FaceKey, int, FaceKeyHash> m_FaceCounts;
+    std::unordered_set<FaceKey, FaceKeyHash> m_BoundaryFaces;
+    std::unordered_map<uint64_t, int> m_BoundaryEdgeFaceCounts;
+    std::vector<int> m_BoundaryFaceCountPerVertex;
+    std::vector<std::unordered_set<FaceKey, FaceKeyHash>> m_VertBoundaryFaces;
+
     // ─── ADQ ───
     std::vector<double> m_ADQ;       // [N*9]
     std::vector<double> m_ErrAccum;  // [N]
+    std::vector<double> m_BoundaryPlaneCount;
+    std::vector<double> m_BoundaryQ; // [N*16]，齐次平面二次误差矩阵
 
     // ─── Edge heap ───
     std::priority_queue<EdgeHeapEntry, std::vector<EdgeHeapEntry>,

@@ -2,16 +2,20 @@
 #include <IQCore/igQtAnimationFilterManager.h>
 
 #include <Contour/iGameContourFilter.h>
+#include <Convert/iGameConvertToPointDataFilter.h>
 #include <IsoVolume/iGameIsoVolumeFilter.h>
+#include <iGameDrawObject.h>
 #include <iGameType.h>
 #include <iGameUnstructuredMesh.h>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace {
 
 constexpr auto ContourFilterId = "contour";
+constexpr auto ConvertToPointDataFilterId = "convertToPointData";
 constexpr auto IsoVolumeFilterId = "isoVolume";
 constexpr auto ScalarNameKey = "scalarName";
 constexpr auto ScalarDimensionKey = "scalarDimension";
@@ -40,6 +44,7 @@ iGame::DataObject::Pointer parameterSource(iGame::DataObject::Pointer input) {
         auto attributes = input->GetAttributeSet()->GetAllPointAttributes();
         if (attributes && attributes->GetNumberOfElements() > 0) return input;
     }
+    if (!input->HasSubDataObject()) return nullptr;
     for (auto it = input->SubDataObjectIteratorBegin();
          it != input->SubDataObjectIteratorEnd(); ++it) {
         auto object = iGame::DynamicCast<iGame::DataObject>(it->second);
@@ -49,6 +54,94 @@ iGame::DataObject::Pointer parameterSource(iGame::DataObject::Pointer input) {
         if (attributes && attributes->GetNumberOfElements() > 0) return object;
     }
     return nullptr;
+}
+
+bool scanAttributeRange(iGame::ArrayObject::Pointer array, double& minimum,
+                        double& maximum) {
+    if (!array || array->GetNumberOfValues() == 0) return false;
+    minimum = std::numeric_limits<double>::max();
+    maximum = -std::numeric_limits<double>::max();
+    for (size_t i = 0; i < array->GetNumberOfValues(); ++i) {
+        const double value = array->GetValue(i);
+        if (!std::isfinite(value)) continue;
+        minimum = std::min(minimum, value);
+        maximum = std::max(maximum, value);
+    }
+    return minimum <= maximum;
+}
+
+bool hasMeshGeometry(iGame::DataObject::Pointer input) {
+    if (!input) return false;
+    if (input->GetPoints() && input->GetCellArray()) return true;
+    if (!input->HasSubDataObject()) return false;
+    for (auto it = input->SubDataObjectIteratorBegin();
+         it != input->SubDataObjectIteratorEnd(); ++it) {
+        if (hasMeshGeometry(
+                    iGame::DynamicCast<iGame::DataObject>(it->second))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool convertToPointData(iGame::DataObject::Pointer input, QString& error,
+                        int& convertedCount) {
+    if (!input) return true;
+
+    if (input->GetPoints() && input->GetCellArray()) {
+        auto filter = iGame::ConvertToPointDataFilter::New();
+        filter->SetInput(input);
+        if (!filter->Execute()) {
+            error = QStringLiteral("点数据转换执行失败。");
+            return false;
+        }
+        if (auto drawObject = iGame::DynamicCast<iGame::DrawObject>(input)) {
+            drawObject->ForceReConvertToDrawableData();
+        }
+        ++convertedCount;
+    }
+
+    if (!input->HasSubDataObject()) return true;
+    for (auto it = input->SubDataObjectIteratorBegin();
+         it != input->SubDataObjectIteratorEnd(); ++it) {
+        if (!convertToPointData(
+                    iGame::DynamicCast<iGame::DataObject>(it->second), error,
+                    convertedCount)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void syncConvertedAttributes(iGame::DataObject::Pointer input) {
+    if (!input || !input->HasSubDataObject()) return;
+
+    if (auto parentAttrs = input->GetAttributeSet()) {
+        for (int i = 0; i < parentAttrs->GetNumberOfAttributes(); ++i) {
+            auto& parentAttr = parentAttrs->GetAttribute(i);
+            if (parentAttr.isDeleted || !parentAttr.pointer) continue;
+            const std::string name = parentAttr.pointer->GetName();
+            for (auto it = input->SubDataObjectIteratorBegin();
+                 it != input->SubDataObjectIteratorEnd(); ++it) {
+                auto sub =
+                        iGame::DynamicCast<iGame::DataObject>(it->second);
+                if (!sub) continue;
+                auto subAttrs = sub->GetAttributeSet();
+                if (!subAttrs) continue;
+                const int subIndex = subAttrs->GetAttributeIndex(name);
+                if (subIndex < 0) continue;
+                parentAttr.attachmentType =
+                        subAttrs->GetAttribute(subIndex).attachmentType;
+                break;
+            }
+        }
+    }
+
+    input->ReCollectSubDataObjectDataRange();
+    input->UpdateSubDataObjectDataRange();
+    if (auto drawObject = iGame::DynamicCast<iGame::DrawObject>(input)) {
+        drawObject->ForceReConvertToDrawableData();
+    }
 }
 
 bool readContourParameters(const QVariantMap& parameters,
@@ -233,14 +326,34 @@ void appendPointAttributeParameters(
         if (attributes->GetNumberOfElements() > 0) {
             auto& attribute = attributes->GetElement(0);
             auto range = attribute.GetDataRange();
+            double minimum = 0.0;
+            double maximum = 1.0;
+            bool haveRange = false;
             if (range) {
-                if (range->GetNumberOfElements() >= 4) {
-                    defaultLower = range->GetValue(2);
-                    defaultUpper = range->GetValue(3);
-                } else if (range->GetNumberOfElements() >= 2) {
-                    defaultLower = range->GetValue(0);
-                    defaultUpper = range->GetValue(1);
+                if (range->GetNumberOfValues() >= 4) {
+                    minimum = range->GetValue(2);
+                    maximum = range->GetValue(3);
+                    haveRange = true;
+                } else if (range->GetNumberOfValues() >= 2) {
+                    minimum = range->GetValue(0);
+                    maximum = range->GetValue(1);
+                    haveRange = true;
                 }
+            }
+            if (!haveRange || !std::isfinite(minimum) || !std::isfinite(maximum) ||
+                maximum < minimum) {
+                haveRange = scanAttributeRange(attribute.pointer, minimum,
+                                               maximum);
+            }
+            if (haveRange) {
+                if (maximum == minimum) {
+                    const double pad =
+                            std::max(1.0, std::abs(maximum) * 0.1);
+                    minimum -= pad;
+                    maximum += pad;
+                }
+                defaultLower = minimum;
+                defaultUpper = maximum;
             }
         }
     }
@@ -260,6 +373,116 @@ void appendPointAttributeParameters(
                       QStringLiteral("0"), {}, {}, dimensions});
 }
 
+// Metadata inference never reads values or executes an algorithm.
+bool convertInfo(const igQtAnimationDataInfo& input, igQtAnimationDataInfo& output, QString& error) {
+    output = input;
+    if (!input.blocks.empty()) {
+        output.fields.clear(); // Container aggregates are not algorithm inputs.
+        for (size_t i = 0; i < input.blocks.size(); ++i) {
+            if (!convertInfo(input.blocks[i], output.blocks[i], error)) {
+                error = QStringLiteral("数据块 %1：%2").arg(i + 1).arg(error); return false;
+            }
+        }
+        return true;
+    }
+    if (!input.hasGeometry) { error = QStringLiteral("输入没有可转换的网格几何。"); return false; }
+    QStringList pointNames;
+    for (auto& field : output.fields) {
+        if (field.association == IG_CELL) field.association = IG_POINT;
+        if (field.association != IG_POINT) continue;
+        if (pointNames.contains(field.name)) {
+            error = QStringLiteral("转换后出现同名点字段“%1”，请先消除字段名称冲突。").arg(field.name);
+            return false;
+        }
+        pointNames.push_back(field.name);
+    }
+    return true;
+}
+
+bool extractionFields(const igQtAnimationDataInfo& input,
+                      std::vector<igQtAnimationFieldInfo>& common, QString& error) {
+    if (!input.blocks.empty()) {
+        for (size_t i = 0; i < input.blocks.size(); ++i) {
+            if (!input.blocks[i].blocks.empty()) {
+                error = QStringLiteral("当前等值提取适配器不支持嵌套数据块。"); return false;
+            }
+            std::vector<igQtAnimationFieldInfo> local;
+            if (!extractionFields(input.blocks[i], local, error)) {
+                error = QStringLiteral("数据块 %1：%2").arg(i + 1).arg(error); return false;
+            }
+            if (i == 0) common = local;
+            else common.erase(std::remove_if(common.begin(), common.end(), [&](const auto& field) {
+                return std::none_of(local.begin(), local.end(), [&](const auto& other) {
+                    return field.name == other.name && field.components == other.components && field.type == other.type;
+                });
+            }), common.end());
+        }
+    } else {
+        const auto type = input.meshType;
+        if (type != IG_UNSTRUCTURED_MESH && type != IG_VOLUME_MESH &&
+            type != IG_SURFACE_MESH && type != IG_STRUCTURED_MESH) {
+            error = QStringLiteral("该网格类型不支持等值提取。"); return false;
+        }
+        QStringList names;
+        for (const auto& field : input.fields) {
+            if (field.association != IG_POINT) continue;
+            if (names.contains(field.name)) {
+                error = QStringLiteral("存在同名点字段“%1”，无法确定选择。").arg(field.name); return false;
+            }
+            names.push_back(field.name); common.push_back(field);
+        }
+    }
+    if (common.empty()) {
+        error = QStringLiteral("上游输出没有各数据块共有的点字段，请先添加“单元数据转点数据”。");
+        return false;
+    }
+    return true;
+}
+
+void configureExtractionInfo(igQtAnimationFilterDescriptor& descriptor, bool isoVolume) {
+    descriptor.parameterSchemaFromInfo = [isoVolume](const igQtAnimationDataInfo& input,
+            igQtAnimationFilterParameterSchema& schema, QString& error) {
+        std::vector<igQtAnimationFieldInfo> fields;
+        if (!extractionFields(input, fields, error)) return false;
+        QStringList names, dimensions; int maxComponents = 0;
+        for (const auto& field : fields) { names.push_back(field.name); maxComponents = std::max(maxComponents, field.components); }
+        for (int i = 0; i < maxComponents; ++i) dimensions.push_back(QString::number(i));
+        schema.push_back({QString::fromLatin1(ScalarNameKey), QStringLiteral("点字段"),
+                         igQtAnimationFilterParameterType::Choice, names.value(0), {}, {}, names});
+        schema.push_back({QString::fromLatin1(ScalarDimensionKey), QStringLiteral("分量"),
+                         igQtAnimationFilterParameterType::Choice, QStringLiteral("0"), {}, {}, dimensions});
+        // Exact ranges cannot be inferred from field metadata (e.g. cell averages).
+        // Leave thresholds unset rather than presenting source ranges as output ranges.
+        if (isoVolume) {
+            schema.push_back({QString::fromLatin1(LowerValueKey), QStringLiteral("下限"), igQtAnimationFilterParameterType::Double, {}, {}, {}, {}});
+            schema.push_back({QString::fromLatin1(UpperValueKey), QStringLiteral("上限"), igQtAnimationFilterParameterType::Double, {}, {}, {}, {}});
+        } else schema.push_back({QString::fromLatin1(IsoValueKey), QStringLiteral("等值"), igQtAnimationFilterParameterType::Double, {}, {}, {}, {}});
+        return true;
+    };
+    descriptor.describeOutput = [isoVolume](const igQtAnimationDataInfo& input, const QVariantMap& parameters,
+                                             igQtAnimationDataInfo& output, QString& error) {
+        QString name; int component = 0; double lower = 0, upper = 0;
+        if (isoVolume ? !readIsoVolumeParameters(parameters, name, component, lower, upper, error)
+                      : !readContourParameters(parameters, name, component, lower, error)) return false;
+        std::vector<igQtAnimationFieldInfo> fields;
+        if (!extractionFields(input, fields, error)) return false;
+        auto found = std::find_if(fields.begin(), fields.end(), [&](const auto& f) { return f.name == name; });
+        if (found == fields.end() || component >= found->components) {
+            error = QStringLiteral("上游输出中不存在点字段“%1”或其分量 %2，请重新配置。").arg(name).arg(component); return false;
+        }
+        output = input;
+        auto describeLeaf = [](igQtAnimationDataInfo& leaf) {
+            leaf.meshType = IG_UNSTRUCTURED_MESH; leaf.hasGeometry = true;
+            leaf.fields.erase(std::remove_if(leaf.fields.begin(), leaf.fields.end(), [](const auto& field) {
+                return field.association != IG_POINT && field.association != IG_CELL;
+            }), leaf.fields.end());
+        };
+        if (output.blocks.empty()) describeLeaf(output);
+        else { output.fields.clear(); for (auto& block : output.blocks) describeLeaf(block); }
+        return true;
+    };
+}
+
 QString framePrefix(const igQtAnimationFrameContext& context) {
     return context.outputFrameIndex >= 0
                    ? QStringLiteral("第 %1 帧").arg(context.outputFrameIndex + 1)
@@ -267,6 +490,54 @@ QString framePrefix(const igQtAnimationFrameContext& context) {
 }
 
 } // namespace
+
+igQtAnimationFilterDescriptor
+igQtCreateConvertToPointDataAnimationFilterDescriptor() {
+    igQtAnimationFilterDescriptor descriptor;
+    descriptor.id = QString::fromLatin1(ConvertToPointDataFilterId);
+    descriptor.displayName =
+            QStringLiteral("单元数据转点数据（ConvertToPointData）");
+    descriptor.outputPolicy = igQtAnimationFilterOutputPolicy::ModifyInput;
+
+    descriptor.supports = [](iGame::DataObject::Pointer input, QString& error) {
+        if (!hasMeshGeometry(input)) {
+            error = QStringLiteral("当前动画帧没有可转换的网格几何。");
+            return false;
+        }
+        return true;
+    };
+
+    descriptor.execute = [](const igQtAnimationFrameContext& context,
+                            const QVariantMap&) {
+        igQtAnimationFilterResult result;
+        int convertedCount = 0;
+        if (!convertToPointData(context.input, result.error, convertedCount)) {
+            result.error = framePrefix(context) + QStringLiteral("：") +
+                           result.error;
+            return result;
+        }
+        if (convertedCount == 0) {
+            result.error = framePrefix(context) +
+                           QStringLiteral("：没有找到可转换的网格对象。");
+            return result;
+        }
+        syncConvertedAttributes(context.input);
+        result.output = context.input;
+        result.success = true;
+        return result;
+    };
+
+    descriptor.describeOutput = [](const igQtAnimationDataInfo& input, const QVariantMap&,
+                                     igQtAnimationDataInfo& output, QString& error) {
+        return convertInfo(input, output, error);
+    };
+    descriptor.parameterSchemaFromInfo = [](const igQtAnimationDataInfo& input,
+            igQtAnimationFilterParameterSchema&, QString& error) {
+        igQtAnimationDataInfo output;
+        return convertInfo(input, output, error);
+    };
+    return descriptor;
+}
 
 igQtAnimationFilterDescriptor igQtCreateContourAnimationFilterDescriptor() {
     igQtAnimationFilterDescriptor descriptor;
@@ -339,6 +610,8 @@ igQtAnimationFilterDescriptor igQtCreateContourAnimationFilterDescriptor() {
             contour->SetViewStyle(IG_SURFACE);
             result.output = contour;
             result.success = true;
+            result.displayAttribute = scalarName;
+            result.displayDimension = dimension;
             return result;
         }
 
@@ -379,9 +652,12 @@ igQtAnimationFilterDescriptor igQtCreateContourAnimationFilterDescriptor() {
 
         result.output = container;
         result.success = true;
+        result.displayAttribute = scalarName;
+        result.displayDimension = dimension;
         return result;
     };
 
+    configureExtractionInfo(descriptor, false);
     return descriptor;
 }
 
@@ -470,6 +746,8 @@ igQtCreateIsoVolumeAnimationFilterDescriptor() {
             output->SetViewStyle(IG_SURFACE);
             result.output = output;
             result.success = true;
+            result.displayAttribute = scalarName;
+            result.displayDimension = dimension;
             return result;
         }
 
@@ -511,9 +789,12 @@ igQtCreateIsoVolumeAnimationFilterDescriptor() {
 
         result.output = container;
         result.success = true;
+        result.displayAttribute = scalarName;
+        result.displayDimension = dimension;
         return result;
     };
 
+    configureExtractionInfo(descriptor, true);
     return descriptor;
 }
 
@@ -521,6 +802,11 @@ bool igQtRegisterBuiltinAnimationFilters(
         igQtAnimationFilterManager& manager, QString* error) {
     if (!manager.registerFilter(
                 igQtCreateContourAnimationFilterDescriptor(), error)) {
+        return false;
+    }
+    if (!manager.registerFilter(
+                igQtCreateConvertToPointDataAnimationFilterDescriptor(),
+                error)) {
         return false;
     }
     return manager.registerFilter(

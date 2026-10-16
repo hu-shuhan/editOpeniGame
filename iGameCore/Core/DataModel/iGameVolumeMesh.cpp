@@ -1465,13 +1465,16 @@ void VolumeMesh::ConvertToDrawableData() {
 
 void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                           igIndex dimension) {
-    if (!m_ColorMapper->GetStable()) {
-        double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
-        double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
-        if (minimal_val < maximal_val) {
-            m_ColorMapper->SetRange(minimal_val, maximal_val);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    // 派生网格（抽壳/简化）只读范围，不写范围（原因见 iGameSurfaceMesh.cpp 同名注释）
+    if (m_IsMainRenderableObject && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        if (!m_ColorMapper->GetStable()) {
+            double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+            double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+            if (minimal_val < maximal_val) {
+                m_ColorMapper->SetRange(minimal_val, maximal_val);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
 
@@ -1485,11 +1488,14 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
     newColors->SetDimension(4);
     newEdgeMasks->SetDimension(3);
 
+    CellToPointColorBuilder pointColors;
+    pointColors.Initialize(this->GetNumberOfPoints());
     float color[4]{};
     for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
         Volume* volume = this->GetVolume(i);
         const igIndex* face;
         colors->GetElement(i, color);
+        pointColors.AddCell(volume->m_PointIds->RawPointer(), volume->GetNumberOfPoints(), color);
         for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
             int size = volume->GetFacePointIds(j, face);
             for (int k = 1; k < size - 1; k++) {
@@ -1509,6 +1515,9 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
             }
         }
     }
+
+    m_Colors = pointColors.Build(this->GetDefaultColor());
+    m_Colors->Modified();
 
     m_CellPositionSize = newPositions->GetNumberOfElements();
 

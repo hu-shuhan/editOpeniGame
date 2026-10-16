@@ -41,11 +41,13 @@ enum class ShaderType {
     ATTACHMENTRESOLVE,   ///< 解析多样本缓冲Shader
     DEPTHREDUCE,         ///< HZB生成Shader
     MESHLETCULL,         ///< Meshlet剔除Shader
+    VOLUMERAYMARCH,      ///< 体绘制光线步进Shader（compute）
     SCREEN,              ///< 屏幕渲染Shader
     FXAA,                ///< 快速抗锯齿（FXAA）
     CULLINGPHASE1,       ///< 裁剪阶段1
     CULLINGPHASE2,       ///< 裁剪阶段2
-    REMOTE_SINGLEPASSWIREFRAME ///< C/S-only constant edge-mask shader
+    REMOTE_SINGLEPASSWIREFRAME, ///< C/S-only constant edge-mask shader
+    GROUNDGRID ///< 解析式无限底板（地面网格，仅桌面端）
 };
 
 

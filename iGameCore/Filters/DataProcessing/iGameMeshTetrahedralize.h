@@ -1,4 +1,4 @@
-#pragma once;
+#pragma once
 
 #include "iGameFilter.h"
 #include "iGameUnstructuredMesh.h"
@@ -10,6 +10,7 @@ public:
     static Pointer New() { return new MeshTetrahedralize; }
 
     bool Execute() override;
+    std::string m_failReason = "";
 
 protected:
     MeshTetrahedralize();

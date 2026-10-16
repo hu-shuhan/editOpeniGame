@@ -1,4 +1,5 @@
 #include "iGameFileIO.h"
+#include "Spectral/iGameSpectralReaderCPU.h"
 #include "iGameDrawObject.h"
 
 #include "Abaqus/iGameODBReader.h"
@@ -28,6 +29,7 @@
 #include "VTK XML/iGameVTMReader.h"
 #include "VTK XML/iGameVTPReader.h"
 #include "VTK XML/iGameVTSReader.h"
+#include "VTK XML/iGameVTRReader.h"
 #include "VTK XML/iGameVTUReader.h"
 #include "VTK/iGameVTKReader.h"
 #include "VTK/iGameVTKWriter.h"
@@ -48,7 +50,12 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
     for (char& c: FileSuffix) {
         if (c >= 'A' && c <= 'Z') { c = static_cast<char>(c - 'A' + 'a'); }
     }
-    if (FileSuffix == "vtk") {
+    if (FileSuffix == "dat") {
+        return SPECTRAL_DAT;
+    } else if (FileSuffix == "fld" ||
+               (FileSuffix == "xml" && SpectralReaderCPU::IsNektarFile(file_name))) {
+        return SPECTRAL_NEKTAR;
+    } else if (FileSuffix == "vtk") {
         return VTK;
     } else if (FileSuffix == "igc") {
         return IGC;
@@ -72,6 +79,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return PVD;
     } else if (FileSuffix == "vts") {
         return VTS;
+    } else if (FileSuffix == "vtr") {
+        return VTR;
     } else if (FileSuffix == "vtu") {
         return VTU;
     } else if (FileSuffix == "vtp") {
@@ -149,6 +158,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "PVD";
         case VTS:
             return "VTS";
+        case VTR:
+            return "VTR";
         case VTM:
             return "VTM";
         case VTU:
@@ -173,6 +184,10 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "RTH";
         case D3PLOT:
             return "D3PLOT";
+        case SPECTRAL_DAT:
+            return "Jacobi DAT";
+        case SPECTRAL_NEKTAR:
+            return "Nektar++ XML/FLD";
         default:
             return "NONE";
     }
@@ -332,6 +347,10 @@ DataObject::Pointer FileIO::ReadRemoteFile(const std::string& file_name) {
 }
 
 DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_name, bool remoteRendering) {
+    // 读取阶段不再执行“转可绘制数据”。这里只读盘/解析/挂载，转换推迟到第一次渲染
+    // （Scene::DrawFrame → SyncGpuBuffers）或第一次 GetRenderableObject() 时执行，
+    // 使“打开文件”耗时与 ParaView 的 reader-only 口径对等。
+    DataObject::DeferDrawableConversionScope deferDrawableConversion;
     try {
     IGenum fileType = GetFileType(file_name);
     std::string out;
@@ -342,6 +361,12 @@ DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_
 
     start = clock();
     switch (fileType) {
+        case SPECTRAL_DAT:
+        case SPECTRAL_NEKTAR: {
+            auto reader = SpectralReaderCPU::New();
+            resObj = reader->ReadFile(file_name);
+            break;
+        }
         case NONE: {
             break;
         }
@@ -425,6 +450,13 @@ DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_
 
         case iGame::FileIO::VTS: {
             iGameVTSReader::Pointer reader = iGameVTSReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
+        case iGame::FileIO::VTR: {
+            iGameVTRReader::Pointer reader = iGameVTRReader::New();
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();

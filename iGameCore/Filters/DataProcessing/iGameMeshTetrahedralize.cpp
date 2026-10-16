@@ -1,326 +1,382 @@
-﻿#include "iGameMeshTetrahedralize.h"
-#include "iGameFaceTable.h"
+#include "iGameMeshTetrahedralize.h"
 #include "iGameFlatArray.h"
-#include <Eigen/Core>
-
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <iostream>
-#include <unordered_set>
-#include <vector>
+#include "iGameStarTetrahedralizer.h"
+#include <limits>
+#include <set>
 
 IGAME_NAMESPACE_BEGIN
-
 namespace {
+struct NewPointSource {
+    igIndex outPointId{-1};
+    std::vector<igIndex> srcPointIds;
+    std::vector<double> weights;
+};
 
-inline Vector3d ToVector3d(const Point& p) {
-    return Vector3d(static_cast<double>(p[0]), static_cast<double>(p[1]), static_cast<double>(p[2]));
-}
+struct FaceKeyHash {
+    size_t operator()(const std::vector<igIndex>& ids) const {
+        size_t hash=ids.size();
+        for(auto id:ids)hash^=std::hash<igIndex>{}(id)+size_t{0x9e3779b9}+(hash<<6)+(hash>>2);
+        return hash;
+    }
+};
 
-inline bool FaceHasNearCollinearVertex(UnstructuredMesh* mesh, const std::vector<igIndex>& faceVerts) {
-    if (mesh == nullptr) return false;
-    const igIndex n = static_cast<igIndex>(faceVerts.size());
-    if (n < 3) return false;
-
-    static constexpr double kPi = 3.1415926535897932384626433832795;
-    static constexpr double kAngleThresholdDeg = 175.0;
-    double kCosThreshold = std::cos(kAngleThresholdDeg * (kPi / 180.0));
-    static constexpr double kEps = 1e-20;
-
-    for (igIndex i = 0; i < n; ++i) {
-        const igIndex iPrev = (i + n - 1) % n;
-        const igIndex iNext = (i + 1) % n;
-
-        const Point& pPrev = mesh->GetPoint(faceVerts[iPrev]);
-        const Point& pCur = mesh->GetPoint(faceVerts[i]);
-        const Point& pNext = mesh->GetPoint(faceVerts[iNext]);
-
-        const Vector3d u = ToVector3d(pPrev) - ToVector3d(pCur);
-        const Vector3d v = ToVector3d(pNext) - ToVector3d(pCur);
-
-        const double nu = u.squaredNorm();
-        const double nv = v.squaredNorm();
-        if (nu <= kEps || nv <= kEps) continue;
-
-        double c = u.dot(v) / std::sqrt(nu * nv);
-        c = std::clamp(c, -1.0, 1.0);
-        if (c <= kCosThreshold) {
-            return true;
+// If the kernel search moved the center, interpolate affine point fields using
+// a containing tetrahedron of original vertices rather than averaging values
+// at a location that is no longer the vertex centroid.
+bool CenterAttributeWeights(const std::vector<igIndex>& ids, Points* points,
+                            const detail::PolygonPoint& center, NewPointSource& source) {
+    const auto get=[&](igIndex id) {
+        const auto p=points->GetPoint(id);
+        return detail::PolygonPoint{p[0],p[1],p[2]};
+    };
+    detail::PolygonPoint mean{};
+    for(auto id:ids) {const auto p=get(id);for(int d=0;d<3;++d)mean[d]+=p[d]/ids.size();}
+    bool unchanged=true;
+    for(int d=0;d<3;++d) unchanged &= static_cast<float>(mean[d])==static_cast<float>(center[d]);
+    if(unchanged) {source.srcPointIds=ids;return true;}
+    const auto a=get(ids[0]);
+    for(size_t i=1;i<ids.size();++i)for(size_t j=i+1;j<ids.size();++j)for(size_t k=j+1;k<ids.size();++k) {
+        const auto b=get(ids[i]),c=get(ids[j]),d=get(ids[k]);
+        const double det=detail::TetraDeterminant(a,b,c,d);
+        if(!std::isfinite(det) || det==0)continue;
+        std::vector<double> w{
+            detail::TetraDeterminant(center,b,c,d)/det,
+            detail::TetraDeterminant(a,center,c,d)/det,
+            detail::TetraDeterminant(a,b,center,d)/det,
+            detail::TetraDeterminant(a,b,c,center)/det};
+        if(std::all_of(w.begin(),w.end(),[](double x){return std::isfinite(x) && x>=-1e-8 && x<=1+1e-8;})) {
+            double sum=0;for(double& x:w){x=std::max(0.0,x);sum+=x;}for(double& x:w)x/=sum;
+            source.srcPointIds={ids[0],ids[i],ids[j],ids[k]};source.weights=std::move(w);return true;
         }
     }
     return false;
 }
 
-inline Vector3d ComputeFaceCentroid(UnstructuredMesh* mesh, const std::vector<igIndex>& faceVerts) {
-    Vector3d c(0.0, 0.0, 0.0);
-    if (mesh == nullptr || faceVerts.empty()) return c;
+template<typename ArrayType>
+ArrayObject::Pointer CopyAttribute(AttributeSet::Attribute& attr, const ArrayObject::Pointer& inArray,
+                                   AttributeSet::Pointer outData, igIndex inPointNum, igIndex outPointNum,
+                                   igIndex outCellNum, const std::vector<NewPointSource>& newPointSources,
+                                   const std::vector<igIndex>& originCells, double values[], double tmp[]) {
+    auto outArray = ArrayType::New();
+    outArray->SetName(inArray->GetName());
+    outArray->SetDimension(inArray->GetDimension());
+    const int dim = inArray->GetDimension();
 
-    for (igIndex vid : faceVerts) {
-        c += ToVector3d(mesh->GetPoint(vid));
+    if (attr.attachmentType == IG_POINT) {
+        outArray->Resize(outPointNum);
+
+        const igIndex copyPointNum =
+                std::min<igIndex>(inPointNum, static_cast<igIndex>(inArray->GetNumberOfElements()));
+        for (igIndex pid = 0; pid < copyPointNum; ++pid) {
+            inArray->GetElement(pid, values);
+            outArray->SetElement(pid, values);
+        }
+
+        for (const auto& np: newPointSources) {
+            if (np.outPointId < 0 || np.outPointId >= outPointNum) continue;
+            const igIndex cnt = static_cast<igIndex>(np.srcPointIds.size());
+            if (cnt <= 0) continue;
+
+            for (int k = 0; k < dim; ++k) { values[k] = 0.0; }
+            igIndex usedCount = 0;
+            for (igIndex s = 0; s < cnt; ++s) {
+                const igIndex srcId = np.srcPointIds[static_cast<size_t>(s)];
+                if (srcId < 0 || srcId >= copyPointNum) continue;
+                inArray->GetElement(srcId, tmp);
+                const double weight = np.weights.empty() ? 1.0 : np.weights[static_cast<size_t>(s)];
+                for (int k = 0; k < dim; ++k) { values[k] += weight * tmp[k]; }
+                ++usedCount;
+            }
+            if (usedCount <= 0) continue;
+            const double inv = np.weights.empty() ? 1.0 / static_cast<double>(usedCount) : 1.0;
+            for (int k = 0; k < dim; ++k) { values[k] *= inv; }
+            outArray->SetElement(np.outPointId, values);
+        }
+
+        outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
+    } else if (attr.attachmentType == IG_CELL) {
+        outArray->Resize(outCellNum);
+        const igIndex copyCellNum = std::min<igIndex>(outCellNum, static_cast<igIndex>(originCells.size()));
+        for (igIndex cid = 0; cid < copyCellNum; ++cid) {
+            const igIndex srcCell = originCells[static_cast<size_t>(cid)];
+            inArray->GetElement(srcCell, values);
+            outArray->SetElement(cid, values);
+        }
+        outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
+    } else {
+        outData->AddAttribute(attr.type, attr.attachmentType, inArray, attr.GetDataRange());
     }
-    c /= static_cast<double>(faceVerts.size());
-    return c;
+    return outArray;
 }
-
-inline bool AddTetra(CellArray::Pointer outCells, UnsignedIntArray::Pointer outTypes, igIndex a, igIndex b,
-                    igIndex c, igIndex d) {
-    if (outCells == nullptr || outTypes == nullptr) return false;
-    if (a == b || a == c || a == d || b == c || b == d || c == d) return false;
-
-    igIndex t[4]{a, b, c, d};
-    outCells->AddCellIds(t, 4);
-    outTypes->AddValue(IG_TETRA);
-    return true;
-}
-
-struct NewPointSource {
-    igIndex outPointId{-1};
-    std::vector<igIndex> srcPointIds;
-};
 
 } // namespace
 
-bool MeshTetrahedralize::Execute() 
-{ 
-    auto obj = GetInput(0);
-    if (!obj) return false;
-
+bool MeshTetrahedralize::Execute() {
+    m_failReason.clear();
+    SetOutput(nullptr);
+    const auto fail=[&](const std::string& reason) {m_failReason=reason;return false;};
+    const auto cellFail=[&](IGsize id,const std::string& reason) {
+        return fail("单元 " + std::to_string(id) + "（0 起始）：" + reason);
+    };
+    auto object=GetInput(0);
+    if(!object) return fail("没有输入体网格。");
     UnstructuredMesh::Pointer input;
-    if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) { 
-        input = DynamicCast<UnstructuredMesh>(obj);
-    }
-    if (!input) return false;
+    VolumeMesh::Pointer volume;
+    if(object->GetDataObjectType()==IG_UNSTRUCTURED_MESH)input=DynamicCast<UnstructuredMesh>(object);
+    else if(object->GetDataObjectType()==IG_VOLUME_MESH)volume=DynamicCast<VolumeMesh>(object);
+    else return fail("四面体化只接受体网格或包含体单元的非结构化网格。");
 
-    const IGsize nCells = input->GetNumberOfCells();
-    igIndex ids[IGAME_CELL_MAX_SIZE]{}, faceIds[IGAME_CELL_MAX_SIZE]{};
-    auto faceTable = FaceTable::New();
-    auto volumeFaces = CellArray::New();
-    std::vector<igIndex> polyCellIds;
-    polyCellIds.reserve(static_cast<size_t>(nCells));
-
-    std::cout << 111111 << std::endl;
-
-    for (IGsize ci = 0; ci < nCells; ++ci) { 
-        if (input->GetCellType(ci) != IG_POLYHEDRON) {
-            continue;
+    // Reuse explicit CGNS NGON/NFACE connectivity: converting a large
+    // polyhedral mesh to an intermediate mesh duplicates its connectivity.
+    CellArray::Pointer faces,cellFaces;
+    Points::Pointer points;
+    AttributeSet::Pointer attributes;
+    if(volume && volume->GetIsPolyhedronType()) {
+        faces=volume->GetFaces();cellFaces=volume->GetVolumeFaces();
+        points=volume->GetPoints();attributes=volume->GetAttributeSet();
+    } else {
+        if(volume) {
+            input=UnstructuredMesh::New();input->GenerateFromVolumeMesh(volume);
         }
-
-        const int size = input->GetCellPointIds(ci, ids);
-        igIndex cursor = 0, num = 0;
-        igIndex numFaces = ids[cursor++];
-        while (numFaces--) {
-            int id_num = ids[cursor++];
-            igIndex id = faceTable->IsFace(ids + cursor, id_num);
-            if (id == -1) { 
-                id = faceTable->GetNumberOfFaces();
-                faceTable->InsertFace(ids + cursor, id_num);
-            } 
-            faceIds[num++] = id;
-            cursor += id_num;
+        if(!input) return fail("无法读取输入网格。");
+        points=input->GetPoints();attributes=input->GetAttributeSet();
+        if(!points)return fail("输入网格缺少点坐标。");
+        faces=CellArray::New();cellFaces=CellArray::New();
+        std::unordered_map<std::vector<igIndex>,igIndex,FaceKeyHash> faceLookup;
+        for(IGsize ci=0;ci<input->GetNumberOfCells();++ci) {
+            const igIndex* ids=nullptr;
+            const int count=input->GetCellPointIds(ci,ids);
+            const auto type=input->GetCellType(ci);
+            std::vector<igIndex> fids;
+            std::string faceReason;
+            const auto addFace=[&](const igIndex* vertices,int size) {
+                std::vector<igIndex> key(vertices,vertices+size);std::sort(key.begin(),key.end());
+                if(key.front()<0 || key.back()>=points->GetNumberOfPoints() ||
+                   std::adjacent_find(key.begin(),key.end())!=key.end()) {
+                    faceReason="面顶点索引越界或重复。";return false;
+                }
+                const igIndex next=static_cast<igIndex>(faces->GetNumberOfCells());
+                auto [iter,inserted]=faceLookup.emplace(key,next);
+                if(inserted)faces->AddCellIds(vertices,size);
+                else {
+                    const igIndex* previous=nullptr;faces->GetCellIds(iter->second,previous);
+                    int start=0;while(previous[start]!=vertices[0])++start;
+                    bool forward=true,backward=true;
+                    for(int j=0;j<size;++j) {
+                        forward &= previous[(start+j)%size]==vertices[j];
+                        backward &= previous[(start+size-j)%size]==vertices[j];
+                    }
+                    if(!forward && !backward){faceReason="共享面的顶点绕序不兼容。";return false;}
+                }
+                fids.push_back(iter->second);return true;
+            };
+            if(type==IG_POLYHEDRON) {
+                if(count<1 || ids[0]<4)return cellFail(ci,"多面体连接数据不完整。");
+                int offset=1;
+                for(int f=0;f<ids[0];++f) {
+                    if(offset>=count)return cellFail(ci,"多面体面连接越界。");
+                    const int size=ids[offset++];
+                    if(size<3 || size>count-offset)return cellFail(ci,"多面体面顶点数无效。");
+                    if(!addFace(ids+offset,size))return cellFail(ci,faceReason);
+                    offset+=size;
+                }
+                if(offset!=count)return cellFail(ci,"多面体连接包含多余数据。");
+            } else {
+                const auto addRegularFaces=[&](const auto& localFaces,int maxFaceSize,int expected) {
+                    if(count!=expected)return false;
+                    for(const auto& face:localFaces) {
+                        igIndex vertices[4];const int size=face[maxFaceSize];
+                        for(int j=0;j<size;++j)vertices[j]=ids[face[j]];
+                        if(!addFace(vertices,size))return false;
+                    }
+                    return true;
+                };
+                bool valid=false;
+                switch(type) {
+                    case IG_TETRA:valid=addRegularFaces(Tetra::faces,Tetra::MaxFaceSize,4);break;
+                    case IG_HEXAHEDRON:valid=addRegularFaces(Hexahedron::faces,Hexahedron::MaxFaceSize,8);break;
+                    case IG_PRISM:valid=addRegularFaces(Prism::faces,Prism::MaxFaceSize,6);break;
+                    case IG_PYRAMID:valid=addRegularFaces(Pyramid::faces,Pyramid::MaxFaceSize,5);break;
+                    default:return cellFail(ci,"不支持的单元类型 " + std::to_string(type));
+                }
+                if(!valid)return cellFail(ci,faceReason.empty()?"单元顶点数与类型不一致。":faceReason);
+            }
+            cellFaces->AddCellIds(fids.data(),static_cast<int>(fids.size()));
         }
-        volumeFaces->AddCellIds(faceIds, num);
-        polyCellIds.push_back(static_cast<igIndex>(ci));
     }
-    auto faces = faceTable->GetOutput();
-    auto mesh = VolumeMesh::New();
-    mesh->SetPoints(input->GetPoints());
-    mesh->InitVolumesWithPolyhedron(faces, volumeFaces);
-    mesh->InitPolyhedronVertices();
+    if(!points || !faces || !cellFaces || cellFaces->GetNumberOfCells()==0)
+        return fail("输入网格没有完整体单元。");
+    const IGsize nCells=cellFaces->GetNumberOfCells(),nFaces=faces->GetNumberOfCells();
+    std::vector<uint8_t> faceUsers(nFaces,0);
+    for(IGsize ci=0;ci<nCells;++ci) {
+        const igIndex* ids=nullptr;const int n=cellFaces->GetCellIds(ci,ids);
+        if(n<4)return cellFail(ci,"单元面数不足四个。");
+        std::set<igIndex> unique;
+        for(int j=0;j<n;++j) {
+            if(ids[j]<0 || ids[j]>=nFaces || !unique.insert(ids[j]).second)
+                return cellFail(ci,"面引用越界或重复。");
+            if(++faceUsers[ids[j]]>2)return cellFail(ci,"共享面被超过两个体单元使用。");
+        }
+    }
 
-    
-
-    auto out = VolumeMesh::New();
-    out->SetName(input->GetName());
-
-    auto outPoints = Points::New();
-    outPoints->DeepCopy(input->GetPoints());
-    out->SetPoints(outPoints);
-
-    auto outCells = CellArray::New();
-
-    auto triFaces = CellArray::New();
-    std::vector<int> triFaceNums;
-    triFaceNums.reserve(faces->GetNumberOfCells());
-
+    detail::PolygonEdges occupied;
+    std::unordered_multimap<size_t,IGsize> faceDefinitions;
+    for(IGsize fi=0;fi<nFaces;++fi) {
+        if(!faceUsers[fi])continue;
+        const igIndex* ids=nullptr;const int n=faces->GetCellIds(fi,ids);
+        if(n<3)return fail("面 " + std::to_string(fi) + " 顶点不足三个。");
+        if(volume && volume->GetIsPolyhedronType()) {
+            // Explicit face IDs must identify the same shared interface once.
+            // Otherwise two cells could use separate IDs for an identical face
+            // and evade both shared-side and matching-triangulation checks.
+            std::vector<igIndex> key(ids,ids+n);std::sort(key.begin(),key.end());
+            const size_t hash=FaceKeyHash{}(key);const auto range=faceDefinitions.equal_range(hash);
+            for(auto iter=range.first;iter!=range.second;++iter) {
+                const igIndex* old=nullptr;const int count=faces->GetCellIds(iter->second,old);
+                if(count!=n)continue;
+                std::vector<igIndex> other(old,old+count);std::sort(other.begin(),other.end());
+                if(other==key)return fail("面 " + std::to_string(fi) + " 与面 " + std::to_string(iter->second) + " 重复定义，无法保证共享接口。");
+            }
+            faceDefinitions.emplace(hash,fi);
+        }
+        for(int j=0;j<n;++j) {
+            if(ids[j]<0 || ids[j]>=points->GetNumberOfPoints())return fail("面 " + std::to_string(fi) + " 顶点索引越界。");
+            occupied.emplace(ids[j],ids[(j+1)%n]);
+        }
+    }
+    faceDefinitions.clear();faceDefinitions.rehash(0);
+    auto outPoints=Points::New();outPoints->DeepCopy(points);
+    const auto get=[&](detail::PolygonId id) {
+        const auto p=outPoints->GetPoint(static_cast<igIndex>(id));
+        return detail::PolygonPoint{p[0],p[1],p[2]};
+    };
+    auto triFaces=CellArray::New();std::vector<IGsize> offsets(nFaces+1,0);
     std::vector<NewPointSource> newPointSources;
-    std::vector<igIndex> originCells;
-
-    int nFaces = faces->GetNumberOfCells();
-    for (IGsize fi = 0; fi < nFaces; ++fi) {
-        igIndex faceVerts[IGAME_CELL_MAX_SIZE]{};
-        const int nFaceVerts = faces->GetCellIds(fi, faceVerts);
-        if (nFaceVerts < 3) {
-            triFaceNums.push_back(0);
-            continue;
+    for(IGsize fi=0;fi<nFaces;++fi) {
+        offsets[fi]=triFaces->GetNumberOfCells();
+        if(!faceUsers[fi]){offsets[fi+1]=offsets[fi];continue;}
+        const igIndex* raw=nullptr;const int n=faces->GetCellIds(fi,raw);
+        std::vector<detail::PolygonId> ids(raw,raw+n);
+        std::vector<detail::PolygonPoint> p;for(auto id:ids)p.push_back(get(id));
+        std::vector<detail::PolygonTriangle> tris;
+        // A warped face has no unique planar diagonal. A shared face center
+        // gives both cells the same symmetric piecewise-linear boundary and
+        // avoids a locally good diagonal that destroys a neighboring kernel.
+        detail::PolygonPoint center{},normal{},lo=p[0],hi=p[0];
+        for(const auto& x:p)for(int d=0;d<3;++d) {
+            center[d]+=x[d]/n;lo[d]=std::min(lo[d],x[d]);hi[d]=std::max(hi[d],x[d]);
         }
-
-        // 补全这里的逻辑，遍历每一个face，检查是否存在近似共线的顶点，
-        // 如果存在则为face添加一个重心再三角化，否则直接进行三角化。
-        // 把三角化的face添加到triFaces中，并记录每个face对应的三角形数量到triFaceNums中
-
-        std::vector<igIndex> fv;
-        fv.reserve(static_cast<size_t>(nFaceVerts));
-        for (int i = 0; i < nFaceVerts; ++i) {
-            fv.push_back(faceVerts[i]);
+        for(int j=1;j+1<n;++j) {
+            const auto c=detail::PolygonCross(detail::PolygonSubtract(p[j],p[0]),detail::PolygonSubtract(p[j+1],p[0]));
+            for(int d=0;d<3;++d)normal[d]+=c[d];
         }
+        const double normalLength=std::sqrt(detail::PolygonDot(normal,normal));
+        const double diagonal=std::sqrt(detail::PolygonDot(detail::PolygonSubtract(hi,lo),detail::PolygonSubtract(hi,lo)));
+        double warp=0;
+        if(normalLength>0)for(const auto& x:p)
+            warp=std::max(warp,std::abs(detail::PolygonDot(normal,detail::PolygonSubtract(x,center)))/normalLength);
+        const bool warped=n>3 && warp>1e-5*diagonal;
+        for(double& x:center)x=static_cast<float>(x);
+        bool fanValid=normalLength>0 && std::isfinite(normalLength);
+        for(int j=0;j<n && fanValid;++j) {
+            const auto c=detail::PolygonCross(detail::PolygonSubtract(p[j],center),detail::PolygonSubtract(p[(j+1)%n],center));
+            fanValid=detail::PolygonDot(c,normal)>0;
+        }
+        const bool faceCenter=(warped && fanValid) || !detail::TriangulatePolygon(ids,p,occupied,tris);
+        if(faceCenter) {
+            // Validate before adding a center: a concave face whose centroid
+            // lies outside must not be filled by an overlapping fan.
+            std::set<igIndex> unique(raw,raw+n);
+            if(unique.size()!=static_cast<size_t>(n))return fail("面 " + std::to_string(fi) + " 包含重复顶点。");
+            if(!fanValid)return fail("面 " + std::to_string(fi) + " 无法完整三角化，面可能退化或自交。");
+            if(outPoints->GetNumberOfPoints()>=std::numeric_limits<igIndex>::max())return fail("新增点超出索引范围。");
+            const igIndex centerId=outPoints->AddPoint(center[0],center[1],center[2]);
+            newPointSources.push_back({centerId,std::vector<igIndex>(raw,raw+n),{}});
+            tris.clear();for(int j=0;j<n;++j)tris.push_back({centerId,ids[j],ids[(j+1)%n]});
+        }
+        for(const auto& t:tris)triFaces->AddCellId3(t[0],t[1],t[2]);
+        offsets[fi+1]=triFaces->GetNumberOfCells();
+        if(fi%20000==0)UpdateProgress(0.1+0.35*double(fi)/std::max<IGsize>(nFaces,1));
+    }
+    occupied.clear();occupied.rehash(0);
 
-        const bool needFaceCenter = FaceHasNearCollinearVertex(input.get(), fv);
-        if (needFaceCenter) {
-            const Vector3d fc = ComputeFaceCentroid(input.get(), fv);
-            const igIndex fcId = static_cast<igIndex>(outPoints->AddPoint(static_cast<float>(fc[0]),
-                                                                          static_cast<float>(fc[1]),
-                                                                          static_cast<float>(fc[2])));
-            newPointSources.push_back(NewPointSource{fcId, fv});
-            for (int i = 0; i < nFaceVerts; ++i) {
-                const igIndex a = fcId;
-                const igIndex b = faceVerts[i];
-                const igIndex c = faceVerts[(i + 1) % nFaceVerts];
-                triFaces->AddCellId3(a, b, c);
+    auto outCells=CellArray::New();std::vector<igIndex> originCells;
+    std::vector<int8_t> faceSide(nFaces,0);
+    for(IGsize ci=0;ci<nCells;++ci) {
+        const igIndex* fids=nullptr;const int n=cellFaces->GetCellIds(ci,fids);
+        std::vector<detail::PolygonTriangle> boundary;
+        std::vector<size_t> faceStarts;
+        std::set<igIndex> vertexIds;
+        for(int f=0;f<n;++f) {
+            faceStarts.push_back(boundary.size());
+            for(IGsize t=offsets[fids[f]];t<offsets[fids[f]+1];++t) {
+                const igIndex* ids=nullptr;triFaces->GetCellIds(t,ids);
+                boundary.push_back({ids[0],ids[1],ids[2]});
             }
-            triFaceNums.push_back(nFaceVerts);
+            const igIndex* ids=nullptr;const int count=faces->GetCellIds(fids[f],ids);
+            vertexIds.insert(ids,ids+count);
+        }
+        detail::StarCell star;std::string reason;
+        const bool passthrough=vertexIds.size()==4 && boundary.size()==4;
+        if(!detail::PrepareStarCell(boundary,get,star,reason,!passthrough))return cellFail(ci,reason);
+        for(int f=0;f<n;++f) {
+            const int side=boundary[faceStarts[f]][1]==star.boundary[faceStarts[f]][1]?1:-1;
+            const size_t end=f+1<n?faceStarts[f+1]:boundary.size();
+            for(size_t t=faceStarts[f];t<end;++t)
+                if((boundary[t][1]==star.boundary[t][1]?1:-1)!=side)
+                    return cellFail(ci,"同一多边形面三角形的方向不一致。");
+            if(faceSide[fids[f]]==side)return cellFail(ci,"共享面的两个体单元位于同侧或互相重叠，面 " + std::to_string(fids[f]));
+            faceSide[fids[f]]=static_cast<int8_t>(side);
+        }
+        if(passthrough) {
+            std::vector<igIndex> tet(vertexIds.begin(),vertexIds.end());
+            if(detail::TetraDeterminant(get(tet[0]),get(tet[1]),get(tet[2]),get(tet[3]))<0)std::swap(tet[1],tet[2]);
+            outCells->AddCellIds(tet.data(),4);originCells.push_back(ci);
         } else {
-            const igIndex v0 = faceVerts[0];
-            for (int i = 1; i < nFaceVerts - 1; ++i) {
-                triFaces->AddCellId3(v0, faceVerts[i], faceVerts[i + 1]);
-            }
-            triFaceNums.push_back(std::max(0, nFaceVerts - 2));
-        }
-    }
-
-    std::vector<IGsize> triFaceOffsets(static_cast<size_t>(nFaces) + 1, 0);
-    for (int f = 0; f < nFaces; ++f) {
-        triFaceOffsets[static_cast<size_t>(f) + 1] =
-            triFaceOffsets[static_cast<size_t>(f)] + static_cast<IGsize>(triFaceNums[static_cast<size_t>(f)]);
-    }
-
-    const IGsize nPolyCells = static_cast<IGsize>(polyCellIds.size());
-    for (IGsize vi = 0; vi < nPolyCells; ++vi) {
-        const igIndex srcCellId = polyCellIds[static_cast<size_t>(vi)];
-        igIndex cellVerts[IGAME_CELL_MAX_SIZE]{};
-        const int nCellVerts = mesh->GetVolumePointIds(vi, cellVerts);
-        if (nCellVerts < 4) {
-            continue;
-        }
-
-        Vector3d cc(0.0, 0.0, 0.0);
-        for (int i = 0; i < nCellVerts; ++i) {
-            cc += ToVector3d(input->GetPoint(cellVerts[i]));
-        }
-        cc /= static_cast<double>(nCellVerts);
-        const igIndex centerId = static_cast<igIndex>(outPoints->AddPoint(static_cast<float>(cc[0]),
-                                                                          static_cast<float>(cc[1]),
-                                                                          static_cast<float>(cc[2])));
-        {
-            std::vector<igIndex> src;
-            src.reserve(static_cast<size_t>(nCellVerts));
-            for (int i = 0; i < nCellVerts; ++i) {
-                src.push_back(cellVerts[i]);
-            }
-            newPointSources.push_back(NewPointSource{centerId, std::move(src)});
-        }
-
-        igIndex cellFaceIds[IGAME_CELL_MAX_SIZE]{};
-        const int nCellFaces = mesh->GetVolumeFaceIds(vi, cellFaceIds);
-        igIndex tri[3]{};
-        for (int f = 0; f < nCellFaces; ++f) {
-            const igIndex faceId = cellFaceIds[f];
-            if (faceId < 0 || faceId >= nFaces) continue;
-            const IGsize begin = triFaceOffsets[static_cast<size_t>(faceId)];
-            const IGsize cnt = static_cast<IGsize>(triFaceNums[static_cast<size_t>(faceId)]);
-            for (IGsize t = 0; t < cnt; ++t) {
-                triFaces->GetCellIds(begin + t, tri);
-                if (tri[0] == tri[1] || tri[0] == tri[2] || tri[0] == centerId || tri[1] == tri[2] ||
-                    tri[1] == centerId || tri[2] == centerId) {
-                    continue;
-                }
-                outCells->AddCellId4(tri[0], tri[1], tri[2], centerId);
-                originCells.push_back(srcCellId);
+            if(outPoints->GetNumberOfPoints()>=std::numeric_limits<igIndex>::max())return cellFail(ci,"新增点超出索引范围。");
+            NewPointSource source;
+            if(!CenterAttributeWeights(std::vector<igIndex>(vertexIds.begin(),vertexIds.end()),outPoints.get(),star.center,source))
+                return cellFail(ci,"无法为内部中心构造点属性插值权重。");
+            const igIndex centerId=outPoints->AddPoint(star.center[0],star.center[1],star.center[2]);
+            source.outPointId=centerId;newPointSources.push_back(std::move(source));
+            for(const auto& t:star.boundary) {
+                // Positive determinant, with consistent orientation across the
+                // cone's internal interfaces and the cached shared boundary.
+                outCells->AddCellId4(centerId,t[0],t[1],t[2]);originCells.push_back(ci);
             }
         }
+        if(ci%20000==0)UpdateProgress(0.45+0.45*double(ci)/nCells);
     }
-
-    {
-        AttributeSet::Pointer inData = input->GetAttributeSet();
-        AttributeSet::Pointer outData = AttributeSet::New();
-        out->SetAttributeSet(outData);
-
-        if (inData) {
-            auto inAllAttr = inData->GetAllAttributes();
-            const igIndex inPointNum = static_cast<igIndex>(input->GetNumberOfPoints());
-            const igIndex outPointNum = static_cast<igIndex>(outPoints->GetNumberOfPoints());
-            const igIndex outCellNum = static_cast<igIndex>(outCells->GetNumberOfCells());
-
-            double values[IGAME_CELL_MAX_SIZE]{};
-            double tmp[IGAME_CELL_MAX_SIZE]{};
-
-            for (IGsize ai = 0; ai < inAllAttr->GetNumberOfElements(); ++ai) {
-                auto attr = inAllAttr->GetElement(ai);
-                auto inArray = attr.pointer;
-                if (!inArray) continue;
-
-                auto outArray = FloatArray::New();
-                outArray->SetName(inArray->GetName());
-                outArray->SetDimension(inArray->GetDimension());
-                const int dim = inArray->GetDimension();
-
-                if (attr.attachmentType == IG_POINT) {
-                    outArray->Resize(outPointNum);
-
-                    const igIndex copyPointNum =
-                        std::min<igIndex>(inPointNum, static_cast<igIndex>(inArray->GetNumberOfElements()));
-                    for (igIndex pid = 0; pid < copyPointNum; ++pid) {
-                        inArray->GetElement(pid, values);
-                        outArray->SetElement(pid, values);
-                    }
-
-                    for (const auto& np : newPointSources) {
-                        if (np.outPointId < 0 || np.outPointId >= outPointNum) continue;
-                        const igIndex cnt = static_cast<igIndex>(np.srcPointIds.size());
-                        if (cnt <= 0) continue;
-
-                        for (int k = 0; k < dim; ++k) {
-                            values[k] = 0.0;
-                        }
-                        igIndex usedCount = 0;
-                        for (igIndex s = 0; s < cnt; ++s) {
-                            const igIndex srcId = np.srcPointIds[static_cast<size_t>(s)];
-                            if (srcId < 0 || srcId >= copyPointNum) continue;
-                            inArray->GetElement(srcId, tmp);
-                            for (int k = 0; k < dim; ++k) {
-                                values[k] += tmp[k];
-                            }
-                            ++usedCount;
-                        }
-                        if (usedCount <= 0) continue;
-                        const double inv = 1.0 / static_cast<double>(usedCount);
-                        for (int k = 0; k < dim; ++k) {
-                            values[k] *= inv;
-                        }
-                        outArray->SetElement(np.outPointId, values);
-                    }
-
-                    outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
-                } else if (attr.attachmentType == IG_CELL) {
-                    outArray->Resize(outCellNum);
-                    const igIndex copyCellNum =
-                        std::min<igIndex>(outCellNum, static_cast<igIndex>(originCells.size()));
-                    for (igIndex cid = 0; cid < copyCellNum; ++cid) {
-                        const igIndex srcCell = originCells[static_cast<size_t>(cid)];
-                        inArray->GetElement(srcCell, values);
-                        outArray->SetElement(cid, values);
-                    }
-                    outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
-                } else {
-                    outData->AddAttribute(attr.type, attr.attachmentType, inArray, attr.GetDataRange());
-                }
+    auto out=VolumeMesh::New();out->SetName(object->GetName());
+    out->SetPoints(outPoints);out->SetVolumes(outCells);
+    auto outAttributes=AttributeSet::New();out->SetAttributeSet(outAttributes);
+    if(attributes) {
+        auto all=attributes->GetAllAttributes();
+        for(IGsize ai=0;ai<all->GetNumberOfElements();++ai) {
+            auto& attr=all->GetElement(ai);auto array=attr.pointer;
+            if(attr.isDeleted || !array)continue;
+            if(array->GetDimension()<=0)return fail("属性分量数无效。");
+            if((attr.attachmentType==IG_POINT && array->GetNumberOfElements()<points->GetNumberOfPoints()) ||
+               (attr.attachmentType==IG_CELL && array->GetNumberOfElements()<nCells))return fail("属性数组长度与输入网格不匹配。");
+            std::vector<double> values(array->GetDimension()),tmp(array->GetDimension());
+#define COPY_ATTRIBUTE(ArrayType) CopyAttribute<ArrayType>(attr,array,outAttributes,points->GetNumberOfPoints(),outPoints->GetNumberOfPoints(),outCells->GetNumberOfCells(),newPointSources,originCells,values.data(),tmp.data())
+            switch(array->GetArrayType()) {
+                case IG_FloatArray:COPY_ATTRIBUTE(FloatArray);break;
+                case IG_DoubleArray:COPY_ATTRIBUTE(DoubleArray);break;
+                case IG_IntArray:COPY_ATTRIBUTE(IntArray);break;
+                case IG_UnsignedIntArray:COPY_ATTRIBUTE(UnsignedIntArray);break;
+                case IG_CharArray:COPY_ATTRIBUTE(CharArray);break;
+                case IG_UnsignedCharArray:COPY_ATTRIBUTE(UnsignedCharArray);break;
+                case IG_ShortArray:COPY_ATTRIBUTE(ShortArray);break;
+                case IG_UnsignedShortArray:COPY_ATTRIBUTE(UnsignedShortArray);break;
+                case IG_LongLongArray:COPY_ATTRIBUTE(LongLongArray);break;
+                case IG_UnsignedLongLongArray:COPY_ATTRIBUTE(UnsignedLongLongArray);break;
+                default:return fail("不支持的属性数组类型。");
             }
+#undef COPY_ATTRIBUTE
         }
     }
-
-    out->SetVolumes(outCells);
-    SetOutput(out);
-    return outCells->GetNumberOfCells() > 0;
+    SetOutput(out);UpdateProgress(1.0);return true;
 }
 
 MeshTetrahedralize::MeshTetrahedralize() {
@@ -328,5 +384,4 @@ MeshTetrahedralize::MeshTetrahedralize() {
     SetNumberOfOutputs(1);
 }
 IGAME_NAMESPACE_END
-
 

@@ -58,6 +58,9 @@ public:
     void SetVolumeMetric(VolumeMetric mode) { this->m_Metric = mode; }
     VolumeMetric GetVolumeMetric() { return this->m_Metric; }
 
+    // MeshQuality evaluates mixed cell types while sharing the input points.
+    double ComputeCellMetric(igIndex count, igIndex* ids) { return ComputeMetric(count, ids); }
+    void SetPoints(Points::Pointer points) { m_Points = points; }
     bool Execute() override;
 
 protected:

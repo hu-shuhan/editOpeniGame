@@ -1118,8 +1118,10 @@ bool VTKAbstractReader::ReadStructuredGrid() {
     return true;
 }
 CellArray::Pointer VTKAbstractReader::CreateCellArray(ArrayObject::Pointer CellsID, ArrayObject::Pointer CellsConnect) {
-    if (m_CellArray == nullptr) { m_CellArray = CellArray::New(); }
-    m_CellArray->Reset();
+    // Each POLYGONS/LINES section owns its connectivity. Reset removes the
+    // initial zero offset (breaking mixed polygons), and also overwrites any
+    // preceding section that already holds this same CellArray.
+    m_CellArray = CellArray::New();
 
     if (CellsID == nullptr || CellsConnect == nullptr || CellsID->GetNumberOfElements() < 2) {
         igError("Invalid cell arrays while creating CellArray.");

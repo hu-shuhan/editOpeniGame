@@ -599,15 +599,18 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
 
 void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                          igIndex dimension) {
-    if (!m_ColorMapper->GetStable()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if (magnitude_min < magnitude_max) {
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    // 派生网格（抽壳/简化）只读范围，不写范围（原因见 iGameSurfaceMesh.cpp 同名注释）
+    if (m_IsMainRenderableObject && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        if (!m_ColorMapper->GetStable()) {
+            double magnitude_min = attrRange->GetValue(0);
+            double magnitude_max = attrRange->GetValue(1);
+            if (magnitude_min < magnitude_max) {
+                m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
 
@@ -708,15 +711,18 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
 
 void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                         igIndex dimension) {
-    if (!m_ColorMapper->GetStable()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if (magnitude_min < magnitude_max) {
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    // 派生网格（抽壳/简化）只读范围，不写范围（原因见 iGameSurfaceMesh.cpp 同名注释）
+    if (m_IsMainRenderableObject && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        if (!m_ColorMapper->GetStable()) {
+            double magnitude_min = attrRange->GetValue(0);
+            double magnitude_max = attrRange->GetValue(1);
+            if (magnitude_min < magnitude_max) {
+                m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
 

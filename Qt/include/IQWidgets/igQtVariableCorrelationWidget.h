@@ -62,7 +62,7 @@ private:
     void EndRangeChoose();
     void StartRangeChoose(const QPoint& pos);
     void MoveRangeChooseEndPoint(const QPoint& pos);
-    void DrawRangeChooseRect();
+    void DrawRangeChooseRect(QPainter& painter);
     bool m_RangeChooseOn{};
     QPoint m_RangeChooseStartPoint;
     QPoint m_RangeChooseEndPoint;
@@ -73,7 +73,6 @@ private slots:
 
 protected:
     void changeEvent(QEvent* e) override;
-    void applyChromeTheme();
     void mousePressEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event);
     void paintEvent(QPaintEvent* QPE);
@@ -94,7 +93,7 @@ private:
     void GenerateCorImage();
     void GenerateChoosedCorImage();
     void GenerateBackgroundColor();
-    void Draw();
+    void Draw(QPainter& painter);
     void SetVariableCorrelationDataColor(int variableIndex);
     void SetChoosedVariableCorrelationDataColor(int variableIndex);
     void SetMainSubNameLabel();
@@ -116,9 +115,9 @@ private:
                        std::shared_ptr<QPainter> painter);
     void _DrawChoosedCorImage(int mainVariableIndex, int subVariableIndex, const QRect& drawFrame,
                               std::shared_ptr<QPainter> painter);
-    void _DrawCoordinate(const QRect& range);
-    void _DrawBackground(const QRect& range);
-    void _DrawImages(const QRect& range);
+    void _DrawCoordinate(QPainter& painter, const QRect& range);
+    void _DrawBackground(QPainter& painter, const QRect& range);
+    void _DrawImages(QPainter& painter, const QRect& range);
     void _DrawPoint(double mainVariableData, double subVariableData, double mainVariableMaxData,
                     double mainVariableMinData, double subVariableMaxData, double subVariableMinData,
                     const std::tuple<int, int, int>& color, int alpha, const QRect& drawFrame,

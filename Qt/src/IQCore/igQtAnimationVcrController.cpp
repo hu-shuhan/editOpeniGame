@@ -111,11 +111,21 @@ void igQtAnimationVcrController::onNextFrame() {
 }
 
 void igQtAnimationVcrController::updateCurrentKeyframe(int idx) {
-    if(idx < 0) return ;
+    if(idx < 0 || idx >= keyframe_sum) return ;
     current_keyframe_index = idx;
     Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
     if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);
     else Q_EMIT this->timeStepChanged_snap(current_keyframe_index);
+}
+
+bool igQtAnimationVcrController::frameRequest(int index, igQtAnimationFrameRequest& request) const {
+    if (index < 0 || index >= keyframe_sum) return false;
+    request = {index, false, 0, index};
+    if (isInterpolateMode) {
+        if (index >= static_cast<int>(interpolate_sequence.size())) return false;
+        request = {interpolate_sequence[index].first, true, interpolate_sequence[index].second, index};
+    }
+    return true;
 }
 
 void igQtAnimationVcrController::setStripe(int step) {

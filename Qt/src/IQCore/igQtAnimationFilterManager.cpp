@@ -1,5 +1,29 @@
 #include <IQCore/igQtAnimationFilterManager.h>
 
+bool igQtAnimationFilterManager::describeOutput(
+        const QString& id, const igQtAnimationDataInfo& input, const QVariantMap& parameters,
+        igQtAnimationDataInfo& output, QString& error) const {
+    error.clear(); output = {};
+    const auto* filter = descriptor(id);
+    if (!filter || !filter->describeOutput) {
+        error = QStringLiteral("Filter %1 尚未提供输出字段描述，无法配置其后续步骤。").arg(id);
+        return false;
+    }
+    return filter->describeOutput(input, parameters, output, error);
+}
+
+bool igQtAnimationFilterManager::parameterSchema(
+        const QString& id, const igQtAnimationDataInfo& input,
+        igQtAnimationFilterParameterSchema& schema, QString& error) const {
+    error.clear(); schema.clear();
+    const auto* filter = descriptor(id);
+    if (!filter || !filter->parameterSchemaFromInfo) {
+        error = QStringLiteral("Filter %1 尚未提供基于字段描述的参数配置。").arg(id);
+        return false;
+    }
+    return filter->parameterSchemaFromInfo(input, schema, error);
+}
+
 #include <utility>
 
 bool igQtAnimationFilterManager::registerFilter(

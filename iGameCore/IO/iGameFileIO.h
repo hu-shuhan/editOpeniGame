@@ -27,6 +27,7 @@ public:
         VTP,
         VTM,
         VTS,
+        VTR,
         EX2,
         CGNS,
         INP,
@@ -38,6 +39,8 @@ public:
         BDF,
         IGCM,
         D3PLOT,
+        SPECTRAL_DAT,
+        SPECTRAL_NEKTAR,
         FILETYPE_COUNT
     };
 

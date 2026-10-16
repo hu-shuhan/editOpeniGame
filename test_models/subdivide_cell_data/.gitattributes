@@ -1,0 +1,2 @@
+# Small ASCII regression fixtures: store as normal text, not LFS pointers.
+*.vtk -filter -diff -merge text

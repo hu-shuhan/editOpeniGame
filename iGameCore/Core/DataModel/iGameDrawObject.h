@@ -1,5 +1,6 @@
-﻿#ifndef iGameDrawObject_h
+#ifndef iGameDrawObject_h
 #define iGameDrawObject_h
+#include <array>
 
 #include "iGameClipper.h"
 #include "iGameDataObject.h"
@@ -32,6 +33,18 @@ public:
     bool IsDrawable() override { return true; }       // 标识可以被渲染
     virtual void ConvertToDrawableData();             //转化为可渲染模式（当前对象及其所有子对象）
     void ForceReConvertToDrawableData();              // 强制触发重新映射
+
+    /**
+     * @brief 惰性转换（读取路径优化）。
+     *
+     * 读取文件时 AddSubDataObject 不再立刻执行 ConvertToDrawableData()（体积网格的
+     * 表面抽取 + 建渲染壳，百万单元量级约 100 ms），而是标记为"待转换"；等到第一次
+     * 真正需要渲染（Scene::DrawFrame → SyncGpuBuffers）或第一次取渲染壳
+     * （GetRenderableObject）时再执行。这样"打开文件/读取"的耗时只包含读盘+解析+挂载，
+     */
+    void MarkDrawableConversionDeferred();
+    void EnsureDrawableData();                        // 有待转换则立即执行
+    bool IsDrawableConversionDeferred() const { return m_DrawableConversionDeferred; }
     virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
@@ -44,6 +57,10 @@ public:
     // Upload a validated, GPU-detached prepared graph without CPU conversion.
     // Requires a current owning GL context; does not enable empty attributes.
     bool UploadPreparedCpuData();
+    // C/S-only preparation without a Scene attachment or any GL allocation.
+    // Uses the same converters (including shell/LOD) as normal rendering.
+    // Caller configures scalar/view state first and owns failure cleanup.
+    bool PrepareRemoteCpuDisplayData(std::string& reason);
 
     struct CpuDisplayCacheState {
         std::vector<std::uint64_t> signature;
@@ -70,8 +87,21 @@ public:
     void SetRemoteRenderingEnabled(bool enabled);
     bool GetRemoteRenderingEnabled() const { return m_RemoteRenderingEnabled; }
 
+    // Cell attributes may also supply a complete point RGBA buffer.
+    bool HasPointColorsForCellData() const {
+        return m_Colors && m_Positions &&
+               m_Colors->GetDimension() == 4 && m_Colors->GetNumberOfElements() > 0 &&
+               m_Colors->GetNumberOfElements() == m_Positions->GetNumberOfElements();
+    }
     bool IsUseColor();        //是否使用颜色
     bool IsUseNormalSmooth(); //是否使用法线平滑
+
+    // Display-only source selection. Empty name means none. These APIs never
+    // enable normal smoothing; import detection is explicitly called once.
+    std::vector<std::string> GetNormalSourceCandidates();
+    std::string GetNormalSource();
+    bool SetNormalSource(const std::string& name);
+    void InitializeNormalSourceOnImport();
 
     void SetVisibility(bool f); //设置可见性
     bool GetVisibility();       //获取可见性
@@ -151,8 +181,34 @@ public:
 
 protected:
     // OpenGL资源管理
+    struct CellToPointColorBuilder {
+        std::vector<std::array<double, 4>> sums;
+        std::vector<IGsize> counts;
+        void Initialize(IGsize n) { sums.resize(n); counts.resize(n, 0); }
+        void AddCell(const igIndex* ids, int n, const float rgba[4]) {
+            for (int i = 0; i < n; ++i) {
+                const igIndex id = ids[i];
+                if (id < 0 || static_cast<IGsize>(id) >= counts.size()) continue;
+                for (int c = 0; c < 4; ++c) sums[id][c] += rgba[c];
+                ++counts[id];
+            }
+        }
+        FloatArray::Pointer Build(const igm::vec3& fallback) const {
+            auto colors = FloatArray::New();
+            colors->SetDimension(4);
+            for (size_t i = 0; i < counts.size(); ++i) {
+                if (counts[i]) {
+                    const double n = static_cast<double>(counts[i]);
+                    colors->AddElement4(sums[i][0] / n, sums[i][1] / n, sums[i][2] / n, sums[i][3] / n);
+                } else colors->AddElement4(fallback.x, fallback.y, fallback.z, 1.0f);
+            }
+            return colors;
+        }
+    };
+
     void CreateDrawBuffer();
     void SyncGpuBuffers();
+    void SyncNormalSource(); // CPU-only; resolves the selected attribute, never guesses
     // VAO配置辅助方法
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
@@ -165,6 +221,7 @@ protected:
     bool m_ForceGpuBufferUpload = false;
     bool m_RestoreMeshletColoring = false;
     bool m_ReConvertToDrawableData; // 是否需要重新转换数据
+    bool m_DrawableConversionDeferred = false; // 读取路径延迟的“转可绘制数据”
 
     bool m_AutoUpdateDrawData;    // 是否自动更新GPU数据
     bool m_ShellRendering = true; // 是否启用抽壳渲染
@@ -189,6 +246,10 @@ protected:
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;
     FloatArray::Pointer m_Normals;
+    std::string m_NormalSource;
+    bool m_NormalSourceInitialized = false;
+    ArrayObject* m_NormalSourceArray = nullptr; // identity only; never dereferenced
+    unsigned int m_NormalSourceStamp = 0;
     FloatArray::Pointer m_Textures;
     //点线三角形索引
     UnsignedIntArray::Pointer m_PointIndices;

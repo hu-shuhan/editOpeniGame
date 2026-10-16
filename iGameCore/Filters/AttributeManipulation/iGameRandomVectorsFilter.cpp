@@ -48,6 +48,7 @@ iGame::DataObject::Pointer CloneMesh(iGame::DataObject::Pointer input) {
             dst->SetPoints(copyPoints(src));
             if (src->GetFaces()) {
                 auto faces = CellArray::New();
+                faces->Reset(); // DeepCopy appends offsets; remove the seeded zero.
                 faces->DeepCopy(src->GetFaces());
                 dst->SetFaces(faces);
             }
@@ -60,6 +61,7 @@ iGame::DataObject::Pointer CloneMesh(iGame::DataObject::Pointer input) {
             auto dst = UnstructuredMesh::New();
             dst->SetPoints(copyPoints(src));
             auto cells = CellArray::New();
+            cells->Reset();
             cells->DeepCopy(src->GetCells());
             auto types = UnsignedIntArray::New();
             types->DeepCopy(src->GetCellTypes());
@@ -73,6 +75,7 @@ iGame::DataObject::Pointer CloneMesh(iGame::DataObject::Pointer input) {
             auto dst = VolumeMesh::New();
             dst->SetPoints(copyPoints(src));
             auto vols = CellArray::New();
+            vols->Reset();
             vols->DeepCopy(src->GetVolumes());
             dst->SetVolumes(vols);
             dst->SetAttributeSet(copyAttrs(src));

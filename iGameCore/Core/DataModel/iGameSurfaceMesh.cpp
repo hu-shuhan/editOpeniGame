@@ -866,22 +866,31 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
     const bool needLineIndices = NeedsExplicitWireframeGeometry(m_ViewStyle);
     if (needLineIndices && this->GetEdges() == nullptr) { this->BuildEdges(); }
 
+    if (needLineIndices) {
+        const auto edges = this->GetEdges();
+        lineIndices->Reserve(edges->GetNumberOfCellIds());
+        for (IGsize edgeId = 0; edgeId < edges->GetNumberOfCells(); ++edgeId) {
+            // VTK POLYDATA LINES can contain an entire polyline, not just
+            // two endpoints. Use the stored span to also support long lines.
+            const igIndex* ids = nullptr;
+            const auto count = edges->GetCellIds(edgeId, ids);
+            for (IGsize j = 1; j < count; ++j) {
+                if (ids[j - 1] < 0 || ids[j] < 0 ||
+                    static_cast<IGsize>(ids[j - 1]) >= this->GetNumberOfPoints() ||
+                    static_cast<IGsize>(ids[j]) >= this->GetNumberOfPoints()) {
+                    igError("The index of the edge is out of range.");
+                    continue;
+                }
+                lineIndices->AddElement2(static_cast<iguIndex>(ids[j - 1]),
+                                         static_cast<iguIndex>(ids[j]));
+            }
+        }
+    }
+
     if (m_Clipper->IsAllDisable()) {
         // set triangle indices
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
-
-        if (needLineIndices) {
-            lineIndices->Reserve(this->GetNumberOfEdges());
-            for (i = 0; i < this->GetNumberOfEdges(); i++) {
-                ncell = this->GetEdgePointIds(i, cell);
-                if (cell[0] < 0 || cell[1] < 0) {
-                    igError("The index of the edge is negative.");
-                } else {
-                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
-                }
-            }
-        }
 
         IGsize fcnt = this->GetNumberOfFaces();
         IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
@@ -966,17 +975,6 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
 
-        if (needLineIndices) {
-            for (i = 0; i < this->GetNumberOfEdges(); i++) {
-                ncell = this->GetEdgePointIds(i, cell);
-                if (cell[0] < 0 || cell[1] < 0) {
-                    igError("The index of the edge is negative.");
-                } else {
-                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
-                }
-            }
-        }
-
         for (i = 0; i < this->GetNumberOfFaces(); i++) {
             ncell = this->GetFacePointIds(i, cell);
             bool visible = true;
@@ -1013,15 +1011,20 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                            igIndex dimension) {
-    if (!m_ColorMapper->GetStable()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if (magnitude_min < magnitude_max) {
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    // 抽壳/简化网格（m_IsMainRenderableObject == false）只读范围、不写范围：
+    // 它们的数据是派生/子集（简化网格还会把 cell 属性平均到点上），
+    // 一旦允许它们写共享 mapper，就会把整帧范围改小 → 高值钳到色标上端（全红）。
+    if (m_IsMainRenderableObject && m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        if (!m_ColorMapper->GetStable()) {
+            double magnitude_min = attrRange->GetValue(0);
+            double magnitude_max = attrRange->GetValue(1);
+            if (magnitude_min < magnitude_max) {
+                m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
     // DO NOT write ColorMapper range back to attrRange - this corrupts Magnitude range!
@@ -1041,10 +1044,13 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
     IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
     newPositions->Reserve(faceIdNum - fcnt * 2);
     newColors->Reserve(faceIdNum - fcnt * 2);
+    CellToPointColorBuilder pointColors;
+    pointColors.Initialize(this->GetNumberOfPoints());
     float color[4]{};
     for (int i = 0; i < this->GetNumberOfFaces(); i++) {
         Face* face = this->GetFace(i);
         colors->GetElement(i, color);
+        pointColors.AddCell(face->m_PointIds->RawPointer(), face->GetCellSize(), color);
         for (int j = 1; j < face->GetCellSize() - 1; j++) {
             auto& p0 = face->m_Points->GetPoint(0);
             newPositions->AddElement3(p0[0], p0[1], p0[2]);
@@ -1061,6 +1067,9 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
             newEdgeMasks->AddValue(mask);
         }
     }
+    m_Colors = pointColors.Build(this->GetDefaultColor());
+    m_Colors->Modified();
+
     m_CellPositionSize = newPositions->GetNumberOfElements();
 
     m_CellPositions = newPositions;

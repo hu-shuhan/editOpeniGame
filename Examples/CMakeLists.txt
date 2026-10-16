@@ -166,8 +166,139 @@ function(igame_link_standard_example EXAMPLE_TARGET)
     target_link_libraries(${EXAMPLE_TARGET} PUBLIC ${_IGAME_EXAMPLE_CORE_LIBS} HDF5::HDF5)
 endfunction()
 
+set(IGAME_BATCH3_EXAMPLES
+    testThirdBatchMenu
+    testThirdBatchData
+    testAngularPeriodic
+    testAngularPeriodicSelfCheck
+    testAppendLocationAttributeFilter
+    testBoundaryMeshQuality
+    testCleanToGridFilter
+    testCountCellFaces
+    testCountCellFacesOutput
+    testFeatureEdgeRegion
+    testThresholdAndGenerateIds
+    testMeshQuality
+    testPointLineInterpolator
+    testPointSetToOctree
+    testResampleOctreeChecks
+    testPointVolumeInterpolator
+    testPointVolumeInterpolatorSelfCheck
+    testShrink
+    testShrinkModel
+    testSurfaceNormalsFilter
+    testVolumeMeshSimplification
+    testMeshTetrahedralize
+)
+
+set(IGAME_BATCH2_EXAMPLES
+    testCellSizeExtraction
+    testCountCellVertices
+    testExtractEdges
+    testGenerateGlobalIds
+    testPointAndCellIds
+    testGenerateProcessIds
+    testAxisAlignedReflection
+    testExtractComponent
+    testMergeVectorComponents
+    testResampleToImage
+    testResampleToLine
+    testTriangleStrip
+    testResampleImageChecks
+    testTriangleStripWidget
+    testBatch2GeometryValidation
+    testStandardFiltersMenu
+)
+set(IGAME_BATCH2_VISUAL_EXAMPLES
+    testCountCellVertices
+    testExtractEdges
+    testAxisAlignedReflection
+    testResampleToImage
+    testResampleToLine
+)
+
+# Examples for the filters integrated in e7ec6571.
+set(IGAME_BATCH1_EXAMPLES
+    testPointCoordinates testCellCenterFilter testRandomVectors
+    testRemoveGhostInformation testElevation testMaskPoints
+    testFeatureEdges testFeatureEdgesVisualization testExtractSubset
+    testOutlineCorners testProbe testConvertToVertex
+)
+
 function(igame_register_example_test EXAMPLE_TARGET)
     if (NOT TARGET ${EXAMPLE_TARGET})
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH1_EXAMPLES)
+        set(_BATCH1_ARGS)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testRandomVectors")
+            list(APPEND _BATCH1_ARGS Models/CellCenter_hexa_grid.vtk)
+        elseif ("${EXAMPLE_TARGET}" STREQUAL "testFeatureEdges" OR
+                "${EXAMPLE_TARGET}" STREQUAL "testFeatureEdgesVisualization")
+            list(APPEND _BATCH1_ARGS Models/mazewheel.obj)
+        endif ()
+        if ("${EXAMPLE_TARGET}" STREQUAL "testCellCenterFilter" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testFeatureEdgesVisualization" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testExtractSubset" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testConvertToVertex")
+            list(APPEND _BATCH1_ARGS --no-render)
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>" ${_BATCH1_ARGS}
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
+        if ("${EXAMPLE_TARGET}" STREQUAL "testRandomVectors")
+            add_test(NAME testRandomVectorsMixedCells
+                COMMAND "$<TARGET_FILE:testRandomVectors>" Models/CellCenter_surface_mixed.vtk
+                WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+            set_tests_properties(testRandomVectorsMixedCells PROPERTIES TIMEOUT 180 LABELS "batch1-filters")
+        endif ()
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH3_EXAMPLES)
+        set(_BATCH3_ENV "IGAME_EXAMPLE_NO_RENDER=1")
+        if ("${EXAMPLE_TARGET}" STREQUAL "testThirdBatchMenu")
+            get_target_property(_BATCH3_QMAKE Qt5::qmake IMPORTED_LOCATION)
+            get_filename_component(_BATCH3_QT_BIN "${_BATCH3_QMAKE}" DIRECTORY)
+            list(APPEND _BATCH3_ENV "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=${_BATCH3_QT_BIN}/../plugins/platforms")
+            if (WIN32)
+                string(REPLACE ";" "\;" _BATCH3_PATH "${CMAKE_BINARY_DIR};${_BATCH3_QT_BIN};$ENV{PATH}")
+                list(APPEND _BATCH3_ENV "PATH=${_BATCH3_PATH}")
+            endif ()
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "${CMAKE_COMMAND}" -E env ${_BATCH3_ENV}
+                "$<TARGET_FILE:${EXAMPLE_TARGET}>"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch3-filters")
+        return()
+    endif ()
+
+    if (EXAMPLE_TARGET IN_LIST IGAME_BATCH2_EXAMPLES)
+        set(_BATCH2_ARGS)
+        set(_BATCH2_ENV)
+        if (EXAMPLE_TARGET IN_LIST IGAME_BATCH2_VISUAL_EXAMPLES)
+            list(APPEND _BATCH2_ARGS --no-render)
+        endif ()
+        if ("${EXAMPLE_TARGET}" STREQUAL "testTriangleStripWidget" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testStandardFiltersMenu")
+            get_target_property(_BATCH2_QMAKE Qt5::qmake IMPORTED_LOCATION)
+            get_filename_component(_BATCH2_QT_BIN "${_BATCH2_QMAKE}" DIRECTORY)
+            list(APPEND _BATCH2_ENV "QT_QPA_PLATFORM=offscreen"
+                "QT_QPA_PLATFORM_PLUGIN_PATH=${_BATCH2_QT_BIN}/../plugins/platforms")
+            if (WIN32)
+                string(REPLACE ";" "\;" _BATCH2_PATH "${CMAKE_BINARY_DIR};${_BATCH2_QT_BIN};$ENV{PATH}")
+                list(APPEND _BATCH2_ENV "PATH=${_BATCH2_PATH}")
+            endif ()
+        endif ()
+        add_test(NAME ${EXAMPLE_TARGET}
+            COMMAND "${CMAKE_COMMAND}" -E env ${_BATCH2_ENV}
+                "$<TARGET_FILE:${EXAMPLE_TARGET}>" ${_BATCH2_ARGS}
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+        set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180 LABELS "batch2-filters")
         return()
     endif ()
 
@@ -201,8 +332,10 @@ function(igame_register_example_test EXAMPLE_TARGET)
 
         if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
@@ -229,8 +362,10 @@ function(igame_register_example_test EXAMPLE_TARGET)
 
     if ("${EXAMPLE_TARGET}" STREQUAL "testModelGeometryParallelValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVTKXMLDataArrayDecoderValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
         set(_VALIDATION_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
         if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -335,9 +470,11 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
+igame_add_example(testSpectralReaderCPU ../iGameCore/IO/Spectral/tests/SpectralReaderValidation.cxx)
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
 igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
 igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
+igame_add_example(testPolylineWireframeValidation Rendering/PolylineWireframeValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
@@ -370,6 +507,15 @@ igame_add_example(testAnimation Animation/TestAnimation.cpp)
 
 if (TARGET Qt_module AND TARGET iGameVis)
     find_package(Qt5 REQUIRED COMPONENTS Core Widgets OpenGL Charts Svg)
+    igame_add_example(testAnimationPipelineValidation
+        Animation/AnimationPipelineValidation.cpp)
+    target_link_libraries(testAnimationPipelineValidation PRIVATE Qt_module)
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testAnimationPipelineValidation PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+    set_target_properties(testAnimationPipelineValidation PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
     igame_add_example(testModelTreeViewStyleValidation Rendering/ModelTreeViewStyleValidation.cpp)
     target_link_libraries(testModelTreeViewStyleValidation PRIVATE Qt_module)
     if (NOT IGAME_BUILD_SHARED)
@@ -433,6 +579,99 @@ if (ENABLE_LIBTORCH_MODULE)
     endif ()
 endif ()
 
+
+# Batch 2 filters: algorithms, regression checks, and visual examples.
+igame_add_example(testBatch2GeometryValidation Filter/Batch2GeometryValidation.cpp)
+igame_add_example(testCellSizeExtraction Filter/FeatureExtraction/CellSizeExtraction.cpp)
+igame_add_example(testCountCellVertices Filter/TestCountCellVertices.cpp)
+igame_add_example(testExtractEdges Filter/TestExtractEdges.cpp)
+igame_add_example(testGenerateGlobalIds Filter/GlobalIds/TestGenerateGlobalIds.cpp)
+igame_add_example(testPointAndCellIds Filter/PointAndCellIds/TestPointAndCellIds.cpp)
+igame_add_example(testGenerateProcessIds Filter/TestGenerateProcessIds.cpp)
+igame_add_example(testAxisAlignedReflection Filter/AxisAlignedReflection/TestAxisAlignedReflection.cpp)
+igame_add_example(testExtractComponent Filter/TestExtractComponent.cpp)
+igame_add_example(testMergeVectorComponents Filter/TestMergeVectorComponents.cpp)
+igame_add_example(testResampleToImage Filter/Convert/TestResampleToImage.cpp)
+igame_add_example(testResampleToLine Filter/TestResampleToLine.cpp)
+igame_add_example(testTriangleStrip Filter/TriangleStrip/TestTriangleStrip.cpp)
+igame_add_example(testResampleImageChecks Filter/Convert/TestResampleImageChecks.cpp)
+if (ENABLE_QT_MODULE)
+    igame_add_example(testThirdBatchMenu Filter/ThirdBatchMenuValidation.cpp)
+    target_link_libraries(testThirdBatchMenu PRIVATE Qt_module)
+    target_include_directories(testThirdBatchMenu PRIVATE "${CMAKE_SOURCE_DIR}/Qt")
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testThirdBatchMenu PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+    igame_add_example(testTriangleStripWidget Filter/TriangleStrip/TestTriangleStripWidget.cpp)
+    target_link_libraries(testTriangleStripWidget PRIVATE Qt_module)
+    igame_add_example(testStandardFiltersMenu Filter/StandardFiltersMenuValidation.cpp)
+    target_link_libraries(testStandardFiltersMenu PRIVATE Qt_module)
+    target_include_directories(testStandardFiltersMenu PRIVATE "${CMAKE_SOURCE_DIR}/Qt")
+    if (NOT IGAME_BUILD_SHARED)
+        target_compile_definitions(testTriangleStripWidget PRIVATE IG_QT_COMPILE_EXPORT)
+        target_compile_definitions(testStandardFiltersMenu PRIVATE IG_QT_COMPILE_EXPORT)
+    endif ()
+endif ()
+
+# Third-batch filter examples and numerical acceptance checks.
+igame_add_example(testThirdBatchData Filter/ThirdBatchDataValidation.cpp)
+igame_add_example(testAngularPeriodic Filter/Periodic/TestAngularPeriodic.cpp)
+igame_add_example(testAngularPeriodicSelfCheck Filter/Periodic/TestAngularPeriodicSelfCheck.cpp)
+igame_add_example(testAppendLocationAttributeFilter Filter/TestAppendLocationAttribute.cpp)
+igame_add_example(testBoundaryMeshQuality Filter/TestBoundaryMeshQuality.cpp)
+igame_add_example(testCleanToGridFilter Filter/TestCleanToGridFilter.cpp)
+igame_add_example(testCountCellFaces Filter/FeatureExtraction/CountCellFaces.cpp)
+igame_add_example(testCountCellFacesOutput Filter/FeatureExtraction/CountCellFacesOutput.cpp)
+igame_add_example(testFeatureEdgeRegion Filter/FeatureExtraction/FeatureEdgeRegion.cpp)
+igame_add_example(testThresholdAndGenerateIds Filter/TestThresholdAndGenerateIds.cpp)
+igame_add_example(testMeshQuality Filter/MeshQuality/TestMeshQuality.cpp)
+igame_add_example(testPointLineInterpolator Filter/PointLineInterpolator/TestPointLineInterpolator.cpp)
+igame_add_example(testPointSetToOctree Filter/Convert/TestPointSetToOctree.cpp)
+igame_add_example(testResampleOctreeChecks Filter/Convert/TestResampleOctreeChecks.cpp)
+igame_add_example(testPointVolumeInterpolator Filter/Interpolation/TestPointVolumeInterpolator.cpp)
+igame_add_example(testPointVolumeInterpolatorSelfCheck Filter/Interpolation/TestPointVolumeInterpolatorSelfCheck.cpp)
+igame_add_example(testShrink Filter/Shrink/TestShrink.cpp)
+igame_add_example(testShrinkModel Filter/Shrink/TestShrinkModel.cpp)
+igame_add_example(testSurfaceNormalsFilter Filter/SurfaceNormals/TestSurfaceNormalsFilter.cpp)
+igame_add_example(testVolumeMeshSimplification Filter/TestVolumeMeshSimplification.cpp)
+igame_add_example(testMeshTetrahedralize Filter/TestMeshTetrahedralize.cpp)
+
+# First-batch standard filter examples (Elevation is registered above).
+igame_add_example(testPointCoordinates Filter/PointCoordinates/TestPointCoordinates.cpp)
+igame_add_example(testCellCenterFilter Filter/CellCenter/TestCellCenterFilter.cpp)
+igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
+igame_add_example(testRemoveGhostInformation Filter/RemoveGhostInformation/TestRemoveGhostInformation.cpp)
+igame_add_example(testMaskPoints Filter/MaskPoints/TestMaskPoints.cpp)
+igame_add_example(testFeatureEdges Filter/FeatureExtraction/FeatureEdges.cpp)
+igame_add_example(testFeatureEdgesVisualization Filter/FeatureExtraction/FeatureEdgesVisualization.cpp)
+igame_add_example(testOutlineCorners Filter/FeatureExtraction/OutlineCorners.cpp)
+igame_add_example(testProbe Filter/Probe/TestProbe.cpp)
+igame_add_example(testConvertToVertex Filter/Convert/TestConvertToVertex.cpp)
+igame_add_example(testExtractSubset Filter/TestExtractSubset.cpp)
+
+
+# Standard filters migrated from the local igamevis repository.
+igame_add_example(TestValidateCellsFilter Filter/ValidateCells/TestValidateCellsFilter.cpp)
+igame_add_example(testExtractCellsByType Filter/ExtractCellsByType/TestExtractCellsByType.cpp)
+igame_add_example(testExtractLocation Filter/DataProcessing/ExtractLocation/TestExtractLocation.cpp)
+igame_add_example(testExtractLocationDrag Filter/DataProcessing/ExtractLocation/TestExtractLocationDrag.cpp)
+igame_add_example(testOutline Filter/Outline/TestOutline.cpp)
+igame_add_example(testReverseSense Filter/ReverseSense/TestReverseSense.cpp)
+igame_add_example(testReverseSenseSelfCheck Filter/ReverseSense/TestReverseSenseSelfCheck.cpp)
+igame_add_example(testWarpByScalar Filter/WarpByScalar/TestWarpByScalar.cpp)
+igame_add_example(testAppendAttributes Filter/AppendAttributes/TestAppendAttributes.cpp)
+igame_add_example(TestTubeFilter Filter/Tube/TestTubeFilter.cpp)
+igame_add_example(TestSubdivideFilter Filter/Subdivide/TestSubdivideFilter.cpp)
+igame_add_example(testLinearExtrusion Filter/TestLinearExtrusion.cpp)
+igame_add_example(testMigratedStandardFilters Filter/TestMigratedStandardFilters.cpp)
+igame_add_example(testWarpScalarAttributeRanges Filter/WarpByScalar/TestWarpScalarAttributeRanges.cpp)
+
+add_custom_target(iGameCopyMigratedFilterAssets
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../test_models/subdivide_cell_data"
+        "${CMAKE_CURRENT_BINARY_DIR}/SubdivideModels")
+add_dependencies(testMigratedStandardFilters iGameCopyMigratedFilterAssets)
+
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
     set(IGAME_EXAMPLE_TARGETS "")
@@ -445,6 +684,21 @@ foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
 endforeach()
 
 enable_testing()
+add_test(NAME testWarpScalarLazyRanges COMMAND testWarpScalarAttributeRanges)
+set_tests_properties(testWarpScalarLazyRanges PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 60)
+add_test(NAME testMigratedAlgorithms COMMAND testMigratedStandardFilters)
+add_test(NAME testMigratedOutline COMMAND testOutline --check)
+add_test(NAME testMigratedExtractCellsByType COMMAND testExtractCellsByType --no-render)
+add_test(NAME testMigratedExtractLocation COMMAND testExtractLocation)
+add_test(NAME testMigratedExtractLocationDrag COMMAND testExtractLocationDrag)
+add_test(NAME testMigratedReverseSense COMMAND testReverseSenseSelfCheck)
+add_test(NAME testMigratedLinearExtrusion COMMAND testLinearExtrusion)
+set_tests_properties(testMigratedAlgorithms testMigratedOutline
+    testMigratedExtractCellsByType testMigratedExtractLocation
+    testMigratedExtractLocationDrag testMigratedReverseSense
+    testMigratedLinearExtrusion PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 60 LABELS "migrated-standard-filters")
 add_executable(testDrawObjectResourcesValidation IO/DrawObjectResourcesValidation.cpp)
 igame_link_standard_example(testDrawObjectResourcesValidation)
 add_test(NAME testDrawObjectResourcesValidation COMMAND testDrawObjectResourcesValidation)
@@ -474,3 +728,8 @@ foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
     igame_register_example_test(${EXAMPLE_TARGET})
 endforeach()
 
+add_test(NAME testSpectralReaderCPUSamples
+    COMMAND "$<TARGET_FILE:testSpectralReaderCPU>" --samples
+        "${CMAKE_CURRENT_SOURCE_DIR}/../test/Spectral Test"
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:testSpectralReaderCPU>")
+set_tests_properties(testSpectralReaderCPUSamples PROPERTIES TIMEOUT 180)

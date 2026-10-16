@@ -45,6 +45,11 @@ public:
     // Generate the connectivity information for structured cells.
     void GenStructuredCellConnectivities();
 
+    // Structured cells can be quads (2D) or hexahedra (3D). Populate both cell
+    // and point RGBA buffers so octree attributes also color point rendering.
+    void SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
+                                  igIndex dimension = -1) override;
+
     // Get the index of a point given its i, j, k coordinates.
     igIndex GetPointIndex(igIndex i, igIndex j, igIndex k);
 
