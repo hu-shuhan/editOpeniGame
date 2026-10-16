@@ -62,7 +62,7 @@
             <string>颜色映射</string>
            </property>
            <property name="styleSheet">
-            <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+            <string notr="true">QGroupBox { color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_ColorMapping">
@@ -192,7 +192,7 @@ QPushButton:pressed { background-color: #4A4A4A; }</string>
                 <string>不透明度映射</string>
                 </property>
                 <property name="styleSheet">
-                <string notr="true">QCheckBox { font-size: 14px; color: #CCCCCC; }</string>
+                <string notr="true">QCheckBox { color: #CCCCCC; }</string>
                 </property>
              </widget>
             </item>
@@ -206,7 +206,7 @@ QPushButton:pressed { background-color: #4A4A4A; }</string>
                   <string>映射范围模式</string>
                  </property>
                  <property name="styleSheet">
-                  <string notr="true">QLabel { font-size: 14px; color: #CCCCCC; }</string>
+                  <string notr="true">QLabel { color: #CCCCCC; }</string>
                  </property>
                 </widget>
                </item>
@@ -244,7 +244,7 @@ QPushButton:pressed { background-color: #4A4A4A; }</string>
             <string>云图类型</string>
            </property>
            <property name="styleSheet">
-            <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+            <string notr="true">QGroupBox { color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
            </property>
            <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -269,7 +269,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
                <bool>true</bool>
               </property>
               <property name="styleSheet">
-               <string notr="true">QRadioButton { font-size: 14px; color: #CCCCCC; }</string>
+               <string notr="true">QRadioButton { color: #CCCCCC; }</string>
               </property>
              </widget>
             </item>
@@ -279,7 +279,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
                <string>区间云图</string>
               </property>
               <property name="styleSheet">
-               <string notr="true">QRadioButton { font-size: 14px; color: #CCCCCC; }</string>
+               <string notr="true">QRadioButton { color: #CCCCCC; }</string>
               </property>
              </widget>
             </item>
@@ -294,7 +294,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
             <string>标量信息</string>
            </property>
            <property name="styleSheet">
-            <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+            <string notr="true">QGroupBox { color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_ScalarInfo">
@@ -319,7 +319,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
               </property>
               <property name="styleSheet">
-               <string notr="true">QLabel { font-size: 14px; color: #FFFFFF; }</string>
+               <string notr="true">QLabel { color: #FFFFFF; }</string>
               </property>
              </widget>
             </item>

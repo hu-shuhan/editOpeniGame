@@ -5384,7 +5384,9 @@ QString igQtMainWindow::LoadExternalFonts() {
     qDebug() << "Loaded font family:" << family;
 
     QFont     appFont(family);
-    appFont.setPointSize(12);
+    // 与 QSS 全局 font-size: 13px 对齐，避免未被样式覆盖的控件字号偏大
+    // 13px @96dpi = 9.75pt；用 pt 才能与 QSS 一样随系统 DPI 缩放
+    appFont.setPointSizeF(9.75);
 
     QApplication::setFont(appFont);
 

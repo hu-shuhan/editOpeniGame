@@ -33,7 +33,7 @@
 		</property>
 		<property name="styleSheet">
 			<string notr="true">QWidget { background-color: #1F1F1F; color: #D0D0D0; }
-QLabel { color: #C8C8C8; font-size: 13px; }
+QLabel { color: #C8C8C8;  }
 QLineEdit, QComboBox, QSpinBox {
   min-height: 30px;
   background-color: #252526;
@@ -432,11 +432,6 @@ QPushButton:pressed { background-color: #45454A; }</string>
 									<width>96</width>
 									<height>0</height>
 								</size>
-							</property>
-							<property name="font">
-								<font>
-									<pointsize>8</pointsize>
-								</font>
 							</property>
 							<property name="text">
 								<string>均匀分布点数</string>
