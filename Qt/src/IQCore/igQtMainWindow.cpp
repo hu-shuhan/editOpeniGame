@@ -50,6 +50,7 @@
 #include <IQWidgets/igQtElevationFilterPanel.h>
 #include <IQWidgets/igQtShadingWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
+#include <IQWidgets/igQtVolumeRenderingWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
@@ -720,6 +721,9 @@ void igQtMainWindow::initCustomTitleBar() {
     m_titleLabel = new QLabel(m_brandBox);
     m_titleLabel->setObjectName(QStringLiteral("CustomTitleLabel"));
     m_titleLabel->setText(this->windowTitle());
+    // 标题文本可让位：窗口偏窄时先压缩标题，避免把菜单栏挤成溢出按钮
+    m_titleLabel->setMinimumWidth(0);
+    m_titleLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     brandLayout->addWidget(m_titleLabel);
 
     topLayout->addWidget(m_brandBox, 0, Qt::AlignVCenter);
@@ -727,7 +731,8 @@ void igQtMainWindow::initCustomTitleBar() {
     m_topMenuLayout = topLayout;
     if (ui->menuBar) {
         ui->menuBar->setParent(topRow);
-        ui->menuBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        // 菜单栏不可被压缩：一旦被挤窄，Qt 会把全部菜单收进「»」溢出按钮（高 DPI、长标题、窄窗口时最易触发）
+        ui->menuBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         ui->menuBar->setFixedHeight(28);
         ui->menuBar->show();
         m_topMenuLayout->insertWidget(1, ui->menuBar, 0, Qt::AlignVCenter);
@@ -1352,6 +1357,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     connect(ElevationFilterPanel, &igQtElevationFilterPanel::applyFailed, this, [this](const QString& reason) {
         showDarkFramelessMessage(QStringLiteral("高程 (elevation)"), reason);
     });
+    // 轴拖拽/显隐变化只刷新渲染，着色在“应用”时重算。
+    connect(ElevationFilterPanel, &igQtElevationFilterPanel::axisDragUpdated, this,
+            [this]() { if (rendererWidget) rendererWidget->update(); });
 
 }
 void igQtMainWindow::initToolbarComponent() {
@@ -1413,7 +1421,62 @@ void igQtMainWindow::initAllComponents() {
       }
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
-            [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+            [&](bool toggled) {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                if (scene == nullptr) { return; }
+
+                // 体绘制唯一入口：结构化网格走 compute 光线步进，
+                // 其它网格自动使用旧的片元链表实现（选型需要查询 GL 版本，
+                // 因此先确保上下文可用）。
+                scene->MakeCurrent();
+                std::string message;
+                const auto mode = scene->SetVolumeRendering(toggled, &message);
+                scene->DoneCurrent();
+
+                // 关闭时返回的也是 Off（表示"未开启"），这属于正常流程，不提示
+                if (!toggled) { return; }
+
+                if (mode != iGame::Scene::VolumeRenderingMode::Off) {
+                    // 打开体绘制设置面板：显示视口大小/渲染分辨率/体数据规模，
+                    // 并允许调整采样步数与不透明度缩放
+                    this->showVolumeRenderingPanel();
+                    // 成功开启：若发生了实现方式回退（例如非结构化网格），
+                    // 在状态栏给出提示即可，不弹窗打断
+                    if (!message.empty()) {
+                        statusBar()->showMessage(QString::fromStdString(message),
+                                                 5000);
+                    }
+                    return;
+                }
+
+                // 真正无法开启（没有可用网格/属性等）时才弹窗，
+                // 并复位勾选状态，避免菜单状态与实际不符
+                const QString text =
+                        message.empty()
+                                ? QStringLiteral("当前数据无法进行体绘制。")
+                                : QString::fromStdString(message);
+                QMessageBox::warning(this, QStringLiteral("体绘制"), text);
+                ui->action_VolumeRendering->setChecked(false);
+            });
+    // 运行期失败提示：光线步进体绘制构建失败（例如属性被移除、数据被移出场景）
+    // 时，渲染循环会关闭 compute 体绘制并留下消息，这里每帧检查一次并弹窗。
+    // 切换到非结构化网格属于正常选型切换（自动改用旧的片元链表实现）
+    if (rendererWidget != nullptr) {
+        connect(rendererWidget, &QOpenGLWidget::frameSwapped, this, [&]() {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (scene == nullptr) { return; }
+
+            std::string message;
+            if (!scene->ConsumeVolumeRaycastFailure(&message)) { return; }
+
+            QMessageBox::warning(this, QStringLiteral("体绘制"),
+                                 QString::fromStdString(message));
+            if (ui->action_VolumeRendering != nullptr) {
+                ui->action_VolumeRendering->setChecked(false);
+            }
+        });
+    }
+  
     // 着色与材质设置：可勾选菜单项控制常驻窗口的显示/隐藏（与 ColorManager 一致）。
     connect(ui->action_ShadingSettings, &QAction::triggered, this, [this](bool checked) {
         if (checked) {
@@ -1432,6 +1495,7 @@ void igQtMainWindow::initAllComponents() {
             shadingWidget->hide();
         }
     });
+
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
@@ -1825,8 +1889,10 @@ void igQtMainWindow::initAllFilters() {
     // 保持按 id 的字母顺序，既方便“按名称”浏览，也方便检查清单是否完整。
     static const StandardFilterEntry standardFilterEntries[] = {
         {"angular_periodic", "角度周期", StandardFilterCategory::Transform, false},
+        {"append_arc_length", "附加弧长", StandardFilterCategory::DataAttributes, false},
+        {"append_attributes", "附加属性", StandardFilterCategory::DataAttributes, false},
+        {"append_datasets", "附加数据集", StandardFilterCategory::Composite, false},
         {"append_location_attributes", "附加位置属性", StandardFilterCategory::DataAttributes, false},
-        {"append_reduce", "附加并归约", StandardFilterCategory::Composite, false},
         {"axis_aligned_reflection", "轴对齐反射", StandardFilterCategory::Transform, false},
         {"axis_aligned_transform", "轴对齐变换", StandardFilterCategory::Transform, false},
         {"boundary_mesh_quality", "边界网格质量", StandardFilterCategory::MeshQuality, false},
@@ -1836,33 +1902,49 @@ void igQtMainWindow::initAllFilters() {
         {"clean_cells_to_grid", "清理单元为网格", StandardFilterCategory::Geometry, false},
         {"clean_poly_data", "清理多边形数据", StandardFilterCategory::Geometry, false},
         {"clean_to_grid", "清理为网格", StandardFilterCategory::Geometry, true},
+        {"compute_connected_surface_properties", "计算连通表面属性", StandardFilterCategory::DataAttributes, false},
+        {"compute_quartiles", "计算四分位数", StandardFilterCategory::DataAttributes, false},
+        {"connectivity", "连通性", StandardFilterCategory::Extraction, false},
         {"convert_to_vertex", "转换为顶点", StandardFilterCategory::Geometry, false},
         {"coordinates", "坐标", StandardFilterCategory::DataAttributes, false},
         {"count_cell_faces", "单元面数统计", StandardFilterCategory::Geometry, false},
         {"count_cell_vertices", "单元顶点数统计", StandardFilterCategory::Geometry, false},
+        {"decimate_polyline", "折线简化", StandardFilterCategory::Geometry, false},
         {"deflect_normals", "偏转法向量", StandardFilterCategory::DataAttributes, false},
         {"elevation", "高程", StandardFilterCategory::DataAttributes, true},
+        {"extract_block", "提取数据块", StandardFilterCategory::Composite, false},
         {"extract_cells_by_region", "按区域提取单元", StandardFilterCategory::Extraction, false},
         {"extract_cells_by_type", "按类型提取单元", StandardFilterCategory::Extraction, false},
         {"extract_component", "提取分量", StandardFilterCategory::DataAttributes, false},
         {"extract_edges", "提取边", StandardFilterCategory::Geometry, true},
+        {"extract_enclosed_points", "提取包围点", StandardFilterCategory::Extraction, false},
         {"extract_location", "提取位置", StandardFilterCategory::Extraction, false},
+        {"extract_selection", "提取选择", StandardFilterCategory::Extraction, false},
         {"extract_subset", "提取子集", StandardFilterCategory::Extraction, true},
+        {"extract_time_steps", "提取时间步", StandardFilterCategory::Extraction, false},
         {"feature_edges", "特征边", StandardFilterCategory::Geometry, true},
         {"feature_edges_region_ids", "特征边区域标识符", StandardFilterCategory::DataAttributes, false},
         {"force_static_mesh", "强制静态网格", StandardFilterCategory::Geometry, false},
         {"generate_ids", "生成标识符", StandardFilterCategory::DataAttributes, false},
+        {"generate_surface_tangents", "生成表面切向量", StandardFilterCategory::DataAttributes, false},
         {"ghost_cells", "幽灵单元", StandardFilterCategory::DataAttributes, false},
         {"global_point_and_cell_ids", "全局点与单元标识符", StandardFilterCategory::DataAttributes, false},
+        {"group_datasets", "数据集分组", StandardFilterCategory::Composite, false},
+        {"histogram", "直方图", StandardFilterCategory::DataAttributes, false},
+        {"integrate_variables", "变量积分", StandardFilterCategory::DataAttributes, false},
         {"iso_volume", "等值体", StandardFilterCategory::Extraction, true},
+        {"linear_extrusion", "线性挤出", StandardFilterCategory::Geometry, false},
         {"mask", "掩码", StandardFilterCategory::Extraction, false},
         {"mask_points", "点掩码", StandardFilterCategory::Extraction, false},
+        {"median", "中位数", StandardFilterCategory::DataAttributes, false},
         {"merge_vector_components", "合并向量分量", StandardFilterCategory::DataAttributes, false},
         {"mesh_quality", "网格质量", StandardFilterCategory::MeshQuality, true},
         {"multiblock_surface_as_multiblock", "多块表面保留多块结构", StandardFilterCategory::Composite, false},
+        {"outline", "轮廓", StandardFilterCategory::Extraction, false},
         {"outline_corners", "轮廓角", StandardFilterCategory::Extraction, false},
         {"overlapping_cells_detector", "重叠单元检测", StandardFilterCategory::Geometry, false},
         {"pass_arrays", "传递数组", StandardFilterCategory::DataAttributes, true},
+        {"perlin_noise", "柏林噪声", StandardFilterCategory::DataAttributes, false},
         {"point_and_cell_ids", "点与单元标识符", StandardFilterCategory::DataAttributes, false},
         {"point_line_interpolator", "点线插值器", StandardFilterCategory::Sampling, false},
         {"point_plane_interpolator", "点平面插值器", StandardFilterCategory::Sampling, false},
@@ -1875,16 +1957,33 @@ void igQtMainWindow::initAllFilters() {
         {"random_vectors", "随机向量", StandardFilterCategory::DataAttributes, false},
         {"reflect", "反射", StandardFilterCategory::Transform, false},
         {"remove_ghost_information", "移除幽灵信息", StandardFilterCategory::DataAttributes, false},
+        {"rename_arrays", "重命名数组", StandardFilterCategory::DataAttributes, false},
         {"resample_to_image", "重采样到图像", StandardFilterCategory::Sampling, true},
         {"resample_to_line", "重采样到直线", StandardFilterCategory::Sampling, false},
+        {"resample_with_dataset", "使用数据集重采样", StandardFilterCategory::Sampling, false},
+        {"reverse_sense", "反转方向", StandardFilterCategory::Geometry, false},
+        {"ribbon", "带状面", StandardFilterCategory::Geometry, false},
         {"shrink", "收缩", StandardFilterCategory::Geometry, true},
         {"slice_with_plane", "平面切片", StandardFilterCategory::Extraction, true},
+        {"smooth", "平滑", StandardFilterCategory::Geometry, false},
+        {"subdivide", "细分", StandardFilterCategory::Geometry, false},
         {"surface_normals", "表面法向量", StandardFilterCategory::DataAttributes, true},
+        {"surface_vectors", "表面向量", StandardFilterCategory::DataAttributes, false},
+        {"temporal_shift_scale", "时间平移与缩放", StandardFilterCategory::Transform, false},
+        {"temporal_statistics", "时间统计", StandardFilterCategory::DataAttributes, false},
+        {"tensor_principal_invariants", "张量主不变量", StandardFilterCategory::DataAttributes, false},
+        {"texture_map_to_cylinder", "圆柱纹理映射", StandardFilterCategory::DataAttributes, false},
+        {"texture_map_to_plane", "平面纹理映射", StandardFilterCategory::DataAttributes, false},
+        {"texture_map_to_sphere", "球面纹理映射", StandardFilterCategory::DataAttributes, false},
         {"threshold", "阈值", StandardFilterCategory::Extraction, true},
         {"transform", "变换", StandardFilterCategory::Transform, true},
         {"triangle_strips", "三角形条带", StandardFilterCategory::Geometry, false},
+        {"tube", "管线", StandardFilterCategory::Geometry, false},
         {"validate_cells", "验证单元", StandardFilterCategory::Geometry, false},
         {"volume_of_revolution", "旋转体", StandardFilterCategory::Geometry, false},
+        {"warp_by_scalar", "按标量扭曲", StandardFilterCategory::Transform, false},
+        {"warp_by_vector", "按向量扭曲", StandardFilterCategory::Transform, false},
+        {"yield_criteria", "屈服准则", StandardFilterCategory::DataAttributes, false},
     };
 
     QMenu* standardFilters =
@@ -1964,6 +2063,7 @@ void igQtMainWindow::initAllFilters() {
     };
 
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
+        if (connectMigratedFilterAction(action, filterId)) return true;
         if (connectThirdBatchFilterAction(action, filterId)) return true;
         if (connectImportedFilterAction(action, filterId)) return true;
         if (filterId == QStringLiteral("coordinates")) {
@@ -3369,7 +3469,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QMenu* attrDiffMenu = view->addMenu(QStringLiteral("属性差值(AttrDiffPerFrame)"));
+    QMenu* attrDiffMenu = view->addMenu(QStringLiteral("AttrDiffPerFrame（逐帧属性差值）"));
     auto funcAttrDiff = [this](int mode) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -3799,36 +3899,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
 
-        // 使用动态属性存储对话框指针    // 匿名命名空间，只在当前cpp文件可见
-        static igQtChromeFramelessDialog* dialog = nullptr;
-        static igQtVariableCorrelationWidget* widget = nullptr;
-
-        if (!dialog) {
-            dialog = new igQtChromeFramelessDialog(this);
-            dialog->setDialogTitle(QStringLiteral("变量相关性分析"));
-
-            widget = new igQtVariableCorrelationWidget(dialog->contentHost());
-            widget->GetUi()->splitter->setSizes({200, 300, 400});
-            dialog->setContentWidget(widget);
-            dialog->resize(900, 500);
-            connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
-                // 使用sender()获取信号发送者
-                auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
-                if (!senderWidget) return;
-                auto model = rendererWidget->GetScene()->GetCurrentModel();
-                if (model == nullptr) return;
-                senderWidget->SetModel(model);
-            });
-        }
-
-        widget->SetModel(model);
-        dialog->show();
-        dialog->raise();
-        dialog->activateWindow();
-
-
-        //ui->dockWidget_VariableCorrelationField->show();
-        //ui->widget_VariableCorrelationField->SetModel(model);
+        openLeftToolPanel(LeftToolPanelId::VariableCorrelation);
+        ui->widget_VariableCorrelationField->SetModel(model);
     });
 
     connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
@@ -4200,6 +4272,7 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Slice: return SliceDockWidget;
     case LeftToolPanelId::Deformation: return DeformationDockWidget;
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
+    case LeftToolPanelId::VariableCorrelation: return ui->dockWidget_VariableCorrelationField;
     case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
     case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
     case LeftToolPanelId::Count: return nullptr;
@@ -4298,6 +4371,10 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
     case LeftToolPanelId::Selection:
         relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"), id, false);
         break;
+    case LeftToolPanelId::VariableCorrelation:
+        relocateContentToLeftTab(ui->dockWidget_VariableCorrelationField, ui->widget_VariableCorrelationField,
+                                 QStringLiteral("变量相关性分析"), id, false);
+        break;
     case LeftToolPanelId::VariableDensity:
         relocateContentToLeftTab(ui->dockWidget_VariableDensityField, ui->widget_VariableDensityField,
                                  QStringLiteral("变量数据密度"), id, false);
@@ -4306,6 +4383,20 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
                                  false);
         break;
+    case LeftToolPanelId::VolumeRendering: {
+        // 体绘制设置面板没有 dock 壳：懒创建一次并常驻主窗口，关闭后参数仍在
+        const QString key = QStringLiteral("volumeRenderingPanel");
+        auto* panel = this->findChild<igQtVolumeRenderingWidget*>(key);
+        if (panel == nullptr) {
+            panel = new igQtVolumeRenderingWidget(this);
+            panel->setObjectName(key);
+            connect(panel, &igQtVolumeRenderingWidget::closeRequested, this,
+                    [this]() { this->closeLeftToolPanel(LeftToolPanelId::VolumeRendering); });
+        }
+        panel->refresh();
+        relocateContentToLeftTab(nullptr, panel, QStringLiteral("体绘制"), id, false);
+        break;
+    }
     case LeftToolPanelId::Count:
         break;
     }
@@ -4319,6 +4410,71 @@ void igQtMainWindow::onLeftToolTabCloseRequested(int index) {
             return;
         }
     }
+    QWidget* page = m_leftFieldTabs ? m_leftFieldTabs->widget(index) : nullptr;
+    for (auto it = m_leftToolWidgetPages.cbegin(); it != m_leftToolWidgetPages.cend(); ++it) {
+        if (it.value() == page) {
+            const QString key = it.key();
+            closeLeftToolWidget(key);
+            return;
+        }
+    }
+}
+
+void igQtMainWindow::openLeftToolWidget(const QString& key, QWidget* content, const QString& title) {
+    if (!m_leftFieldTabs || !m_leftFieldDock || !content) return;
+    auto it = m_leftToolWidgetPages.find(key);
+    if (it != m_leftToolWidgetPages.end()) {
+        const int existing = m_leftFieldTabs->indexOf(it.value());
+        if (existing >= 0) {
+            m_leftFieldTabs->setCurrentIndex(existing);
+            m_leftFieldDock->show();
+            m_leftFieldDock->raise();
+            return;
+        }
+        m_leftToolWidgetPages.erase(it);
+    }
+
+    const bool firstTabInStack = (m_leftFieldTabs->count() == 0);
+    QWidget* page = wrapContentInScrollArea(content, m_leftFieldTabs, false);
+    // 关闭时内容被挂回主窗口并隐藏，换父对象后需要重新显示
+    content->show();
+    const int idx = m_leftFieldTabs->addTab(page, title);
+    m_leftToolWidgetPages.insert(key, page);
+    m_leftFieldDock->show();
+    m_leftFieldDock->raise();
+    m_leftFieldTabs->setCurrentIndex(idx);
+    if (firstTabInStack) {
+        QTimer::singleShot(0, this, [this]() { applyLeftToolStackVerticalSplit(); });
+    }
+}
+
+void igQtMainWindow::closeLeftToolWidget(const QString& key) {
+    if (!m_leftFieldTabs) return;
+    auto it = m_leftToolWidgetPages.find(key);
+    if (it == m_leftToolWidgetPages.end()) return;
+    QWidget* page = it.value();
+    m_leftToolWidgetPages.erase(it);
+
+    const int idx = m_leftFieldTabs->indexOf(page);
+    if (idx < 0) return;
+    // 只拆掉外层滚动区域，面板本身挂回主窗口保留下来，下次打开时参数还在
+    if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
+        if (QWidget* inner = scroll->takeWidget()) {
+            inner->setParent(this);
+            inner->hide();
+        }
+        scroll->deleteLater();
+    }
+    m_leftFieldTabs->removeTab(idx);
+    for (int& t: m_leftToolTabByPanel) {
+        if (t > idx) --t;
+    }
+    if (m_leftFieldTabs->count() == 0 && m_leftFieldDock) m_leftFieldDock->hide();
+}
+
+void igQtMainWindow::showVolumeRenderingPanel() {
+    // 面板内容由 openLeftToolPanel 的 VolumeRendering 分支懒创建并复用
+    this->openLeftToolPanel(LeftToolPanelId::VolumeRendering);
 }
 
 void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
@@ -4340,6 +4496,11 @@ void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
         else
             addDockWidget(Qt::LeftDockWidgetArea, shell);
         shell->hide();
+    } else if (inner) {
+        // 无 dock 壳的面板（例如体绘制设置面板）：还原为隐藏的独立子控件，
+        // 面板实例保留在主窗口下，下次打开时参数仍在
+        inner->setParent(this);
+        inner->hide();
     }
 
     m_leftFieldTabs->removeTab(idx);

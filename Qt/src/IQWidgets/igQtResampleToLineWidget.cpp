@@ -354,7 +354,8 @@ void igQtResampleToLine::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
         m_OriginObserverTag = 0;
         this->m_OriginDataObject = nullptr;
         this->m_ResultMesh = nullptr;
-        if (this->parentWidget() != nullptr) { this->parentWidget()->hide(); }
+        // 面板的关闭交给 ResetInteractor 的接收方（关闭左侧工具面板里的 Tab）。
+        // 不能直接 hide 父窗口：面板关闭后挂在主窗口下，这里的父窗口就是主窗口本身。
         emit ResetInteractor();
     });
 
@@ -367,7 +368,8 @@ void igQtResampleToLine::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
         m_ResultObserverTag = 0;
         this->m_OriginDataObject = nullptr;
         this->m_ResultMesh = nullptr;
-        if (this->parentWidget() != nullptr) { this->parentWidget()->hide(); }
+        // 面板的关闭交给 ResetInteractor 的接收方（关闭左侧工具面板里的 Tab）。
+        // 不能直接 hide 父窗口：面板关闭后挂在主窗口下，这里的父窗口就是主窗口本身。
         emit ResetInteractor();
     });
 

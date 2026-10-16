@@ -163,7 +163,7 @@ void igQtFileLoader::LoadOnlineS() {
 }
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
-    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtr *.vtu "
                            "*.vtm *.cgns *.odb *.igc *.igcm *.cas *.ccm *.rst *.rth)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
@@ -207,7 +207,7 @@ void igQtFileLoader::LoadFile() {
         igDebug("ABAQUS SDK is not enabled.");
     #endif
     QStringList filters = {
-        "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+        "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtr *.vtu "
         "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.rst *.rth *.xml *.dat *.fld"
 #if defined(AbqSDK_ENABLE)
         " *.odb"

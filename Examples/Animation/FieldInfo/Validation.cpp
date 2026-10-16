@@ -8,6 +8,7 @@
 #include <IQCore/igQtAnimationFilterAdapters.h>
 #include <IQCore/igQtAnimationFilterManager.h>
 #include <IQCore/igQtAnimationPipeline.h>
+#include <IQCore/igQtAnimationFrameSource.h>
 #include <IQCore/igQtAnimationVcrController.h>
 #include <IQWidgets/igQtAnimationWidget.h>
 #include <IQCore/igQtMainWindow.h>
@@ -136,8 +137,75 @@ void DialogTest() {
     scene->EnableFramePacing(false); scene->SetMakeCurrentFunctor([&] { glfwMakeContextCurrent(window); });
     auto source=FileIO::ReadFile((dir/"data.pvd").generic_string()); Check(source!=nullptr,"read PVD");
     auto id=scene->AddModel(source); scene->ResetCameraView(source->GetBoundingBox());
+    // Fix commit subject: fix(animation): isolate output frame reads from legacy cache
+    // Locate: git log --format="%h %s" --grep="isolate output frame reads from legacy cache" -- Examples/Animation/FieldInfo/Validation.cpp
+    // Regression (2026-10-07): bypassing legacy caching must not
+    // borrow cached arrays or touch its LRU order, even on interpolation/failure.
+    // A private metadata copy must also preserve the original frame indices.
+    {
+        DataObject::DeferDrawableConversionScope cpu;
+        auto probe=DrawObject::New(); auto frames=StreamingData::New();
+        for (int i=0;i<3;++i) {
+            auto files=StringArray::New();
+            files->AddElement((dir/("frame"+std::to_string(i%2)+".vtu")).generic_string());
+            frames->AddTimeStep(float(i),files,StreamingType::MultiSubFiles);
+        }
+        frames->AddTimeStep(3.f,StringArray::New(),StreamingType::NONE);
+        probe->SetTimeFrames(frames); frames->EnableCache(2);
+        auto first=frames->GetTargetTimeFrameData(0);
+        auto second=frames->GetTargetTimeFrameData(1);
+        auto oldValues=DynamicCast<DataObject>(first.front())->GetAttributeSet()->GetAttribute("density").pointer;
+        oldValues->SetValue(1,102.);
+        igQtAnimationFrameContext context; QString error;
+        Check(igQtLoadAnimationFrame(probe,{0},context,error),"isolated frame read");
+        auto output=context.input;
+        auto values=output->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute("density").pointer;
+        Check(values!=oldValues && values->GetValue(1)==2.,"animation borrowed legacy cached data");
+        values->SetValue(1,999.);
+        Check(oldValues->GetValue(1)==102.,"animation wrote into legacy arrays");
+        auto privateFrames=output->PeekTimeFrames();
+        Check(privateFrames!=frames && privateFrames->GetTimeNum()==4 && privateFrames->GetCurrentCacheCount()==0,
+              "animation shared legacy time series or cached intermediate frames");
+        Check(privateFrames->GetTargetTimeFrame(0).GetMetaData()!=frames->GetTargetTimeFrame(0).GetMetaData(),
+              "animation shared mutable frame metadata");
+        Check(igQtLoadAnimationFrame(probe,{0,true,.5f,1},context,error),"isolated interpolation");
+        Check(context.input->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute("density").pointer->GetValue(1)==3.,
+              "interpolation used cached source values");
+        Check(!igQtLoadAnimationFrame(probe,{3},context,error),"empty frame should fail");
+        Check(frames->GetMaxCacheSize()==2 && frames->GetCurrentCacheCount()==2 &&
+              frames->GetTargetTimeFrame(0).GetCachedData()==first &&
+              frames->GetTargetTimeFrame(1).GetCachedData()==second,"isolated reads altered legacy entries");
+        frames->GetTargetTimeFrameData(2);
+        Check(!frames->GetTargetTimeFrame(0).GetISCached() && frames->GetTargetTimeFrame(1).GetISCached(),
+              "animation touched legacy LRU order");
+        Check(frames->GetTargetTimeFrameData(1)==second,"legacy cache hit no longer works");
+        // Conversely, clearing the legacy cache must leave animation data intact.
+        frames->DisableCache();
+        Check(values->GetValue(1)==999.,"clearing legacy cache changed animation data");
+    }
+    // Regression (2026-10-07, same fix commit as above): animation initialization, reads and
+    // capacity changes disabled/cleared the shared legacy cache. Keep its two
+    // entries and their modified data intact across playback, interpolation,
+    // export, pipeline edits, model switches and widget destruction. Distinct
+    // sentinel values prove animation reads disk rather than legacy objects.
+    auto legacyFrames=source->PeekTimeFrames();
+    legacyFrames->EnableCache(2);
+    auto legacyFirst=legacyFrames->GetTargetTimeFrameData(0);
+    auto legacySecond=legacyFrames->GetTargetTimeFrameData(1);
+    auto legacyField=DynamicCast<DataObject>(legacyFirst.front())->GetAttributeSet()->GetAttribute("density").pointer;
+    legacyField->SetValue(1,102.);
+    auto checkLegacy=[&] {
+        Check(legacyFrames->GetMaxCacheSize()==2 && legacyFrames->GetCurrentCacheCount()==2,
+              "animation changed legacy cache capacity or entries");
+        Check(legacyFrames->GetTargetTimeFrame(0).GetCachedData()==legacyFirst &&
+              legacyFrames->GetTargetTimeFrame(1).GetCachedData()==legacySecond,
+              "animation replaced legacy cache objects");
+        Check(legacyField->GetValue(1)==102.,"animation mutated legacy cached values");
+    };
     {
         igQtAnimationWidget widget; widget.initAnimationComponents();
+        checkLegacy();
+        QObject::connect(&widget,&igQtAnimationWidget::AnimationFrameChanged,&widget,checkLegacy);
         // Regression (2026-09-28, fix: 待提交): real main-window callbacks
         // rebuilt the attribute tree by selecting -1 after every frame, disabling
         // scalar coloring. Include both UI callbacks, not just the frame producer.
@@ -150,6 +218,8 @@ void DialogTest() {
         treeControl->addTopLevelItem(modelRow);
         igQtScalarViewWidget scalar;
         QObject::connect(&widget,&igQtAnimationWidget::AnimationDataChanged,&tree,[&] {
+            Check(scene->GetCurrentModel()->GetDataObject()->PeekTimeFrames()!=legacyFrames,
+                  "final output reattached legacy cache");
             tree.refreshAnimationAttributes(scene->GetCurrentModel()->GetDataObject());
         });
         QObject::connect(&widget,&igQtAnimationWidget::AnimationFrameChanged,
@@ -265,8 +335,9 @@ void DialogTest() {
         controller->updateCurrentKeyframe(0);
         Check(scene->GetCurrentModel()->GetDataObject()==cachedFirst,"final output cache missed");
         unchanged();
-        Check(source->PeekTimeFrames()->GetCurrentCacheCount()==0,"source frames were also cached");
+        checkLegacy();
         Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(0);
+        checkLegacy();
         controller->updateCurrentKeyframe(0);
         Check(scene->GetCurrentModel()->GetDataObject()!=cachedFirst,"zero capacity retained final output");
         Control<QComboBox>(widget,"comboBox_AnimationCacheNum")->setCurrentIndex(2);
@@ -389,6 +460,10 @@ void DialogTest() {
         Check(scene->GetCurrentModel()->GetDataObject()!=empty,"returning source retained stale cache");
         scene->RemoveModel(secondId);
     }
+    checkLegacy();
+    Check(legacyFrames->GetTargetTimeFrameData(0)==legacyFirst,"legacy cache no longer hits after animation");
+    legacyFirst.clear(); legacySecond.clear(); legacyField=nullptr;
+    legacyFrames=nullptr;
     scene->RemoveModel(id); source=nullptr; scene->Finalize(); glfwDestroyWindow(window); glfwTerminate();
 }
 // Real-data acceptance (2026-09-28, commit: see file header): compressed VTU animation

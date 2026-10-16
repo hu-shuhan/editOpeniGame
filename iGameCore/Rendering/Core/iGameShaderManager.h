@@ -41,6 +41,7 @@ enum class ShaderType {
     ATTACHMENTRESOLVE,   ///< 解析多样本缓冲Shader
     DEPTHREDUCE,         ///< HZB生成Shader
     MESHLETCULL,         ///< Meshlet剔除Shader
+    VOLUMERAYMARCH,      ///< 体绘制光线步进Shader（compute）
     SCREEN,              ///< 屏幕渲染Shader
     FXAA,                ///< 快速抗锯齿（FXAA）
     CULLINGPHASE1,       ///< 裁剪阶段1

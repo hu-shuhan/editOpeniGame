@@ -323,7 +323,6 @@ bool igQtAnimationWidget::bindAnimationSource() {
     if (!object || !object->PeekTimeFrames() || object->PeekTimeFrames()->GetArrays().empty()) return false;
     m_AnimationFilterSourceModel = model;
     m_AnimationFilterSourceObject = object;
-    object->PeekTimeFrames()->DisableCache();
     return true;
 }
 
@@ -346,7 +345,6 @@ bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest&
     auto previous = DynamicCast<DrawObject>(model->GetDataObject());
     auto source = m_AnimationFilterSourceObject;
     scene->MakeCurrent();
-    source->PeekTimeFrames()->DisableCache();
     const auto result = m_AnimationOutputCache.resolve(request, [&] {
         igQtAnimationFilterResult output;
         DataObject::DeferDrawableConversionScope cpu;
@@ -369,6 +367,8 @@ bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest&
         if (output.success && !DynamicCast<DrawObject>(output.output)) {
             output.success = false; output.error = QStringLiteral("Pipeline 输出不可显示。");
         }
+        if (output.success && output.output)
+            output.output->SetTimeFrames(context.input->PeekTimeFrames());
         return output;
     });
     if (!result.success || !result.output) {
@@ -379,8 +379,8 @@ bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest&
         return false;
     }
     auto display = DynamicCast<DrawObject>(result.output);
-    // Time metadata is shared; source/intermediate numerical arrays are not.
-    display->SetTimeFrames(source->PeekTimeFrames());
+    // Retain the private read context stored with this final output. Never
+    // reconnect it to the source's legacy frame cache, including on cache hits.
     display->SetColorMapper(previous ? previous->GetColorMapper() : source->GetColorMapper());
     source->SetColorMapper(display->GetColorMapper());
     if (previous) {
@@ -900,8 +900,6 @@ void igQtAnimationWidget::onCacheNumChanged(int count) {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     if (scene) scene->MakeCurrent();
     m_AnimationOutputCache.setCapacity(count);
-    auto source = animationFilterInput();
-    if (source && source->PeekTimeFrames()) source->PeekTimeFrames()->DisableCache();
     if (scene) scene->DoneCurrent();
 }
 

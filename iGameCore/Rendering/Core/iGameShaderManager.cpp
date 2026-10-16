@@ -220,6 +220,12 @@ void ShaderManager::MapBufferBlock() {
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
 #endif
 
+    // map volume ray marching compute shader block
+#ifdef IGAME_OPENGL_VERSION_460
+    shader = this->GetShader(ShaderType::VOLUMERAYMARCH);
+    shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+#endif
+
 // map meshlet culling shader block
 #if defined(IGAME_OPENGL_VERSION_460) && defined(GL_SUPPORTS_MESH_SHADER)
     shader = this->GetShader(ShaderType::CULLINGPHASE1);
@@ -471,6 +477,18 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
 
             sp->SetName("MESHLETCULL");
             sp->AddShaders(meshletCull_comp);
+#endif
+        } break;
+        case ShaderType::VOLUMERAYMARCH: {
+#ifdef IGAME_OPENGL_VERSION_460
+            SmartPointer<GLShader> volumeRaymarch_comp =
+                    GLShader::CreateShader(
+                            std::string("./Resources/Shaders/"
+                                        "VolumeRaymarch.comp"),
+                            GL_COMPUTE_SHADER);
+
+            sp->SetName("VOLUMERAYMARCH");
+            sp->AddShaders(volumeRaymarch_comp);
 #endif
         } break;
         case ShaderType::SCREEN: {

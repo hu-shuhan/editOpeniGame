@@ -298,6 +298,14 @@ void Model::Draw() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
+        // 纯线对象（流线、等值线等，没有任何三角形）按单元数据着色时，
+        // m_Colors 已经由 SetAttributeWithCellData 摊到每个点上了，可以直接用顶点色。
+        // 面网格上的线框叠加仍走纯色，保持原来的观感。
+        const bool lineOnlyObject =
+                renderableObject->m_TriangleIndices == nullptr ||
+                renderableObject->m_TriangleIndices->GetNumberOfValues() == 0;
+        const bool lineUsesVertexColor = useColor && (!colorWithCell || lineOnlyObject);
+
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
@@ -505,7 +513,7 @@ void Model::Draw() {
                     glDepthFunc(wireframeDepthFunc);
                 }
 #endif
-                if (useColor && !colorWithCell) {
+                if (lineUsesVertexColor) {
                     auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
                     shader->Use();
 #ifdef __EMSCRIPTEN__
@@ -591,6 +599,14 @@ void Model::DrawWithTransparency() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
+        // 纯线对象（流线、等值线等，没有任何三角形）按单元数据着色时，
+        // m_Colors 已经由 SetAttributeWithCellData 摊到每个点上了，可以直接用顶点色。
+        // 面网格上的线框叠加仍走纯色，保持原来的观感。
+        const bool lineOnlyObject =
+                renderableObject->m_TriangleIndices == nullptr ||
+                renderableObject->m_TriangleIndices->GetNumberOfValues() == 0;
+        const bool lineUsesVertexColor = useColor && (!colorWithCell || lineOnlyObject);
+
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
@@ -633,7 +649,7 @@ void Model::DrawWithTransparency() {
         const bool drawTransparentWireframe = viewStyle & IG_WIREFRAME;
 #endif
         if (drawTransparentWireframe) {
-            if (useColor && !colorWithCell) {
+            if (lineUsesVertexColor) {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
                 #ifdef __EMSCRIPTEN__
@@ -709,7 +725,18 @@ void Model::DrawWithVolume() {
         if (!drawObject->GetVisibility()) { return; }
 
         // Render
-        auto renderableObject = drawObject; //体绘制用原始体进行渲染
+        // 体绘制优先用“原始体”（含所有单元面，采样更密）；但当原始体没有可绘制
+        // 三角时（抽壳渲染模式下只构建了壳、或可绘制数据采用延迟转换），必须回退
+        // 到渲染用对象（壳/简化网格），否则体绘制会一个片元都画不出来。
+        auto renderableObject = drawObject;
+        const bool hasOwnTriangles =
+                drawObject->m_TriangleIndices != nullptr &&
+                drawObject->m_TriangleIndices->GetNumberOfValues() > 0;
+        if (!hasOwnTriangles) {
+            auto fallbackObject = drawObject->GetRenderableObject(false);
+            if (fallbackObject != nullptr) { renderableObject = fallbackObject; }
+        }
+
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);
 
@@ -725,11 +752,14 @@ void Model::DrawWithVolume() {
             if (colorWithCell) {
                 renderableObject->m_CellVAO->DrawArrays(
                         GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
-            } else {
+            } else if (renderableObject->m_TriangleIndices != nullptr &&
+                       renderableObject->m_Positions != nullptr &&
+                       renderableObject->m_TriangleIndices->GetNumberOfValues() >
+                               0) {
                 renderableObject->m_TriangleVAO->DrawRangeElements(
                         GL_TRIANGLES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        renderableObject->m_Positions->GetNumberOfElements() - 1,
+                        renderableObject->m_TriangleIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
             }
         }

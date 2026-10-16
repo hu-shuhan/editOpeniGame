@@ -13,7 +13,6 @@ add_subdirectory(cnpy)
 if (NOT EMSCRIPTEN)
     add_subdirectory(Python)
 endif ()
-add_subdirectory(nanoflann)
 add_subdirectory(zstd/build/cmake)
 
 if (ENABLE_CGNS_MODULE)
@@ -54,3 +53,10 @@ if (ENABLE_CGNS_MODULE)
 
     message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()
+
+# CGNS creates uninstall unconditionally. Load it first, then let nanoflann
+# attach its namespaced uninstall target to the existing target. If CGNS is
+# disabled, nanoflann creates uninstall itself.
+set(MASTER_PROJECT_HAS_TARGET_UNINSTALL ON CACHE BOOL
+    "Share the uninstall target with the parent project" FORCE)
+add_subdirectory(nanoflann)

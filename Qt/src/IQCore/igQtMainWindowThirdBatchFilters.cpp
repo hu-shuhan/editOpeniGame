@@ -534,15 +534,39 @@ bool igQtMainWindow::connectThirdBatchFilterAction(QAction* action, const QStrin
                 return f->GetOutput();
             };
         } else if (id == "volume_mesh_simplification") {
-            auto* reduction = panel->number("reduction", QStringLiteral("目标简化比例"), 0.5, 0, 0.9999);
-            auto* count = panel->integer("targetCount", QStringLiteral("目标四面体数（0 使用比例）"), 0, 0, 100000000);
+            auto* method = panel->choice("collapseMethod", QStringLiteral("坍缩方式"),
+                                        {QStringLiteral("边坍缩"), QStringLiteral("四面体坍缩")});
+            auto* reduction = panel->number("reduction", QStringLiteral("目标点数保留比例"), 0.5, 0, 0.9999);
+            auto* count = panel->integer("targetCount", QStringLiteral("目标点数（0 使用比例）"), 0, 0, 100000000);
             auto* boundary = panel->check("preserveBoundary", QStringLiteral("保留边界"), true);
+            auto* error = panel->number("boundaryRmsError", QStringLiteral("边界平面 RMS 误差上限（%）"), 0.1, 0, 100);
+            error->setToolTip(QStringLiteral("相对于包围盒最长边；约束原始边界平面的均方根距离，不代表最大表面距离。"));
             auto* attrs = panel->check("allAttributes", QStringLiteral("使用全部点属性"), true);
+            const auto updateBoundaryOptions = [=]() {
+                const bool tetraCollapse = method->currentIndex() == 1;
+                error->setEnabled(!tetraCollapse && boundary->isChecked());
+                boundary->setToolTip(tetraCollapse
+                    ? QStringLiteral("锁定边界点，跳过所有包含边界点的四面体。")
+                    : QStringLiteral("允许边界边受约束坍缩，通过边界平面误差限制形状变化。"));
+            };
+            connect(method, QOverload<int>::of(&QComboBox::currentIndexChanged), panel,
+                    [=](int) { updateBoundaryOptions(); });
+            connect(boundary, &QCheckBox::toggled, panel, [=](bool) { updateBoundaryOptions(); });
+            updateBoundaryOptions();
             run = [=]() {
                 auto tetra = MeshTetrahedralize::New(); tetra->SetInput(input);
                 if (!tetra->Execute()) throw std::runtime_error(tetra->m_failReason);
+                if (method->currentIndex() == 1) {
+                    auto f = TetraSimplification::New(); f->SetInput(tetra->GetOutput());
+                    f->SetTargetReduction(reduction->value()); f->SetTargetPointCount(count->value());
+                    f->SetPreserveBoundary(boundary->isChecked());
+                    f->SetUseAllPointAttributes(attrs->isChecked());
+                    if (!f->Execute()) throw std::runtime_error("四面体坍缩简化失败。");
+                    return f->GetOutput();
+                }
                 auto f = TetraEdgeSimplification::New(); f->SetInput(tetra->GetOutput());
-                f->SetTargetReduction(reduction->value()); f->SetTargetTetraCount(count->value());
+                f->SetTargetReduction(reduction->value()); f->SetTargetPointCount(count->value());
+                f->SetMaxBoundaryRmsError(error->value() / 100.0);
                 f->SetPreserveBoundary(boundary->isChecked()); f->SetUseAllPointAttributes(attrs->isChecked());
                 if (!f->Execute()) throw std::runtime_error("体网格简化失败。");
                 return f->GetOutput();

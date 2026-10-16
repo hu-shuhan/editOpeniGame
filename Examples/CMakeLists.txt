@@ -335,6 +335,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
             "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
@@ -364,6 +365,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
         "${EXAMPLE_TARGET}" STREQUAL "testSpectralReaderCPU" OR
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
         set(_VALIDATION_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
         if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -472,6 +474,7 @@ igame_add_example(testSpectralReaderCPU ../iGameCore/IO/Spectral/tests/SpectralR
 igame_add_example(testVTKXMLDataArrayDecoderValidation IO/VTKXMLDataArrayDecoderValidation.cpp)
 igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
 igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
+igame_add_example(testPolylineWireframeValidation Rendering/PolylineWireframeValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
 if (ENABLE_CGNS_MODULE)
@@ -646,6 +649,29 @@ igame_add_example(testProbe Filter/Probe/TestProbe.cpp)
 igame_add_example(testConvertToVertex Filter/Convert/TestConvertToVertex.cpp)
 igame_add_example(testExtractSubset Filter/TestExtractSubset.cpp)
 
+
+# Standard filters migrated from the local igamevis repository.
+igame_add_example(TestValidateCellsFilter Filter/ValidateCells/TestValidateCellsFilter.cpp)
+igame_add_example(testExtractCellsByType Filter/ExtractCellsByType/TestExtractCellsByType.cpp)
+igame_add_example(testExtractLocation Filter/DataProcessing/ExtractLocation/TestExtractLocation.cpp)
+igame_add_example(testExtractLocationDrag Filter/DataProcessing/ExtractLocation/TestExtractLocationDrag.cpp)
+igame_add_example(testOutline Filter/Outline/TestOutline.cpp)
+igame_add_example(testReverseSense Filter/ReverseSense/TestReverseSense.cpp)
+igame_add_example(testReverseSenseSelfCheck Filter/ReverseSense/TestReverseSenseSelfCheck.cpp)
+igame_add_example(testWarpByScalar Filter/WarpByScalar/TestWarpByScalar.cpp)
+igame_add_example(testAppendAttributes Filter/AppendAttributes/TestAppendAttributes.cpp)
+igame_add_example(TestTubeFilter Filter/Tube/TestTubeFilter.cpp)
+igame_add_example(TestSubdivideFilter Filter/Subdivide/TestSubdivideFilter.cpp)
+igame_add_example(testLinearExtrusion Filter/TestLinearExtrusion.cpp)
+igame_add_example(testMigratedStandardFilters Filter/TestMigratedStandardFilters.cpp)
+igame_add_example(testWarpScalarAttributeRanges Filter/WarpByScalar/TestWarpScalarAttributeRanges.cpp)
+
+add_custom_target(iGameCopyMigratedFilterAssets
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/../test_models/subdivide_cell_data"
+        "${CMAKE_CURRENT_BINARY_DIR}/SubdivideModels")
+add_dependencies(testMigratedStandardFilters iGameCopyMigratedFilterAssets)
+
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
     set(IGAME_EXAMPLE_TARGETS "")
@@ -658,6 +684,21 @@ foreach(EXAMPLE_TARGET IN LISTS IGAME_EXAMPLE_TARGETS)
 endforeach()
 
 enable_testing()
+add_test(NAME testWarpScalarLazyRanges COMMAND testWarpScalarAttributeRanges)
+set_tests_properties(testWarpScalarLazyRanges PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 60)
+add_test(NAME testMigratedAlgorithms COMMAND testMigratedStandardFilters)
+add_test(NAME testMigratedOutline COMMAND testOutline --check)
+add_test(NAME testMigratedExtractCellsByType COMMAND testExtractCellsByType --no-render)
+add_test(NAME testMigratedExtractLocation COMMAND testExtractLocation)
+add_test(NAME testMigratedExtractLocationDrag COMMAND testExtractLocationDrag)
+add_test(NAME testMigratedReverseSense COMMAND testReverseSenseSelfCheck)
+add_test(NAME testMigratedLinearExtrusion COMMAND testLinearExtrusion)
+set_tests_properties(testMigratedAlgorithms testMigratedOutline
+    testMigratedExtractCellsByType testMigratedExtractLocation
+    testMigratedExtractLocationDrag testMigratedReverseSense
+    testMigratedLinearExtrusion PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 60 LABELS "migrated-standard-filters")
 add_executable(testDrawObjectResourcesValidation IO/DrawObjectResourcesValidation.cpp)
 igame_link_standard_example(testDrawObjectResourcesValidation)
 add_test(NAME testDrawObjectResourcesValidation COMMAND testDrawObjectResourcesValidation)

@@ -57,6 +57,10 @@ public:
     // Upload a validated, GPU-detached prepared graph without CPU conversion.
     // Requires a current owning GL context; does not enable empty attributes.
     bool UploadPreparedCpuData();
+    // C/S-only preparation without a Scene attachment or any GL allocation.
+    // Uses the same converters (including shell/LOD) as normal rendering.
+    // Caller configures scalar/view state first and owns failure cleanup.
+    bool PrepareRemoteCpuDisplayData(std::string& reason);
 
     struct CpuDisplayCacheState {
         std::vector<std::uint64_t> signature;

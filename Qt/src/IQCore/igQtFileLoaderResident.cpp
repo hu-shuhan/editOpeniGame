@@ -450,7 +450,12 @@ void igQtFileLoader::ContinueResidentRemoteRequest()
         if (s.preloadOnly) {
             if (model || HasRemoteGpu(data.get())) {
                 FailResidentRemoteRequest(QStringLiteral("This model is already displayed; remove it from the model tree before CPU-only preloading"));
-            } else { FinishResidentRemotePreload(); }
+            } else if (s.cache.HasPreparedCpuData() ||
+                       PrepareResidentRemoteCpuData(data, s.datasetPath)) {
+                FinishResidentRemotePreload();
+            } else {
+                FailResidentRemoteRequest(QStringLiteral("Cached raw data could not be prepared for CPU-only display caching"));
+            }
             return;
         }
         const bool reattached = !model;
@@ -522,8 +527,6 @@ bool igQtFileLoader::ReadResidentRemotePreload(const QString& datasetPath)
 {
     auto& s = *m_ResidentRemote;
     if (!ResidentRemotePreloadOnly()) return false;
-    iGame::Scene::Pointer scene = m_SceneManager->GetCurrentScene();
-    const auto userModelsBefore = RemoteUserModelCount(scene.get());
     emit RemotePackageStatusChanged(QStringLiteral("Reading and parsing mesh into CPU memory; not adding a scene model"));
     // Existing readers/progress observers are GUI-thread-only. Deliberately
     // serialize with normal file reading; no unsafe worker-thread GUI callbacks.
@@ -534,10 +537,17 @@ bool igQtFileLoader::ReadResidentRemotePreload(const QString& datasetPath)
         return false;
     }
     if (!data) return false;
+    return PrepareResidentRemoteCpuData(data, datasetPath);
+}
+
+bool igQtFileLoader::PrepareResidentRemoteCpuData(DataObject::Pointer data, const QString& datasetPath)
+{
+    auto& s = *m_ResidentRemote;
+    iGame::Scene::Pointer scene = m_SceneManager->GetCurrentScene();
+    const auto userModelsBefore = RemoteUserModelCount(scene.get());
+    if (!data || MountedRemoteData(scene.get(), data.get())) return false;
     auto* draw = dynamic_cast<iGame::DrawObject*>(data.get());
     if (!draw) return false;
-    // VTM assembly eagerly prepares some derived CPU draw arrays. Drop those,
-    // along with any self-owning renderable helpers; keep the original mesh.
     if (HasRemoteGpu(data.get())) {
         RemoteCacheGLScope gl(s.renderer);
         if (!s.renderer || !s.renderer->context() ||
@@ -551,7 +561,13 @@ bool igQtFileLoader::ReadResidentRemotePreload(const QString& datasetPath)
         draw->ReleaseDrawableResources();
         return false; // A preloader unexpectedly touching GPU is not acceptable.
     }
-    draw->ReleaseDrawableResources();
+    // Keep existing CPU arrays. On failure/eviction, break derived ownership
+    // cycles just like the ordinary remote-cache cleanup path.
+    struct Cleanup {
+        iGame::DrawObject* draw;
+        bool retained{false};
+        ~Cleanup() { if (!retained) draw->ReleaseDrawableResources(); }
+    } cleanup{draw};
     QString cpuGuardReason;
     if (!igQtResidentModelCache::ValidateCpuSurface(data.get(), cpuGuardReason)) {
         igError("[RemoteCpuCache] CPU preload guard rejected data: {}", cpuGuardReason.toStdString());
@@ -565,12 +581,39 @@ bool igQtFileLoader::ReadResidentRemotePreload(const QString& datasetPath)
         igError("[RemoteCpuCache] Admission refused: CPU array estimate={} limit={}; disk cache is preserved", bytes, s.limitBytes);
         return false;
     }
+    emit RemotePackageStatusChanged(QStringLiteral("Preparing CPU surface, interaction LOD and drawing arrays; no model display or GPU upload"));
+    QElapsedTimer prepareTimer;
+    prepareTimer.start();
+    try {
+        draw->SetRemoteRenderingEnabled(true);
+        // Match FinishReading's initial attribute selection, without adding a
+        // Model/tree item. Existing mappers/ranges and LOD policy are reused.
+        if (auto* attributes = data->GetAttributeSet(); attributes && attributes->GetNumberOfAttributes())
+            draw->ViewCloudPicture(scene.get(), 0, -1);
+        std::string reason;
+        if (!draw->PrepareRemoteCpuDisplayData(reason)) {
+            igError("[RemoteCpuCache] CPU display preparation failed: {}", reason);
+            return false;
+        }
+    } catch (const std::exception& e) {
+        igError("[RemoteCpuCache] CPU display preparation exception: {}", e.what());
+        return false;
+    }
+    const auto prepared = draw->InspectCpuDisplayCache();
+    if (!prepared.ready || draw->HasGpuResources() || prepared.estimatedBytes > s.limitBytes) {
+        igError("[RemoteCpuCache] Prepared admission refused: ready={} estimated_cpu_bytes={} limit_bytes={}",
+                prepared.ready, prepared.estimatedBytes, s.limitBytes);
+        return false;
+    }
     if (s.cancelled || !s.active || s.startEditEpoch != s.editEpoch ||
         RemoteUserModelCount(scene.get()) != userModelsBefore) return false;
-    s.cache.CaptureCpu(scene, data, s.identity, datasetPath);
+    s.cache.CapturePreparedCpu(scene, data, s.identity, datasetPath);
     s.cacheContext.clear();
     s.datasetPath = datasetPath;
-    return s.cache.HasEntry();
+    cleanup.retained = s.cache.HasPreparedCpuData();
+    igDebug("[RemoteCpuCache] CPU preparation complete elapsed_ms={} prepared_cpu={} estimated_cpu_bytes={} gpu_resources={}",
+            prepareTimer.elapsed(), cleanup.retained, s.cache.MemoryBytes(), draw->HasGpuResources() ? 1 : 0);
+    return cleanup.retained;
 }
 
 void igQtFileLoader::FinishResidentRemotePreload()
@@ -579,7 +622,7 @@ void igQtFileLoader::FinishResidentRemotePreload()
     if (!s.active || !s.preloadOnly || s.cancelled) return;
     auto data = s.cache.PeekData();
     iGame::Scene::Pointer scene = m_SceneManager->GetCurrentScene();
-    if (!data || HasRemoteGpu(data.get()) || MountedRemoteData(scene.get(), data.get())) {
+    if (!data || !s.cache.HasPreparedCpuData() || HasRemoteGpu(data.get()) || MountedRemoteData(scene.get(), data.get())) {
         FailResidentRemoteRequest(QStringLiteral("CPU preload did not produce detached, GPU-free mesh data"));
         return;
     }
@@ -588,7 +631,7 @@ void igQtFileLoader::FinishResidentRemotePreload()
     const auto requestId = s.requestId;
     const auto memoryHit = s.memoryHit;
     const auto datasetPath = s.datasetPath;
-    const QString detail = QStringLiteral("CPU preload ready; gpu_resources=0; model_in_scene=0; scene_user_models=%1; cpu_array_bytes=%2; no rendering performed")
+    const QString detail = QStringLiteral("CPU preload ready; prepared_cpu=true; gpu_resources=0; model_in_scene=0; scene_user_models=%1; cpu_array_bytes=%2; surface/LOD/draw arrays retained; no rendering performed")
             .arg(RemoteUserModelCount(scene.get())).arg(bytes);
     s.active = false;
     igDebug("[RemoteCpuCache] PRELOADED request={} elapsed_ms={} memory_hit={} {}",

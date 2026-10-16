@@ -866,22 +866,31 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
     const bool needLineIndices = NeedsExplicitWireframeGeometry(m_ViewStyle);
     if (needLineIndices && this->GetEdges() == nullptr) { this->BuildEdges(); }
 
+    if (needLineIndices) {
+        const auto edges = this->GetEdges();
+        lineIndices->Reserve(edges->GetNumberOfCellIds());
+        for (IGsize edgeId = 0; edgeId < edges->GetNumberOfCells(); ++edgeId) {
+            // VTK POLYDATA LINES can contain an entire polyline, not just
+            // two endpoints. Use the stored span to also support long lines.
+            const igIndex* ids = nullptr;
+            const auto count = edges->GetCellIds(edgeId, ids);
+            for (IGsize j = 1; j < count; ++j) {
+                if (ids[j - 1] < 0 || ids[j] < 0 ||
+                    static_cast<IGsize>(ids[j - 1]) >= this->GetNumberOfPoints() ||
+                    static_cast<IGsize>(ids[j]) >= this->GetNumberOfPoints()) {
+                    igError("The index of the edge is out of range.");
+                    continue;
+                }
+                lineIndices->AddElement2(static_cast<iguIndex>(ids[j - 1]),
+                                         static_cast<iguIndex>(ids[j]));
+            }
+        }
+    }
+
     if (m_Clipper->IsAllDisable()) {
         // set triangle indices
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
-
-        if (needLineIndices) {
-            lineIndices->Reserve(this->GetNumberOfEdges());
-            for (i = 0; i < this->GetNumberOfEdges(); i++) {
-                ncell = this->GetEdgePointIds(i, cell);
-                if (cell[0] < 0 || cell[1] < 0) {
-                    igError("The index of the edge is negative.");
-                } else {
-                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
-                }
-            }
-        }
 
         IGsize fcnt = this->GetNumberOfFaces();
         IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
@@ -965,17 +974,6 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         // set triangle indices
         int i, ncell;
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
-
-        if (needLineIndices) {
-            for (i = 0; i < this->GetNumberOfEdges(); i++) {
-                ncell = this->GetEdgePointIds(i, cell);
-                if (cell[0] < 0 || cell[1] < 0) {
-                    igError("The index of the edge is negative.");
-                } else {
-                    lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
-                }
-            }
-        }
 
         for (i = 0; i < this->GetNumberOfFaces(); i++) {
             ncell = this->GetFacePointIds(i, cell);
