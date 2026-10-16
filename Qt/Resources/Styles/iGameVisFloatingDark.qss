@@ -1016,12 +1016,19 @@ QtPropertyEditorView::item {
     padding: 4px 6px;
     min-height: 28px;
 }
+
+/* 「模型信息」「模型属性」两个页签：文字整体略大一号，与左侧其它面板观感对齐 */
+QWidget#ModelInformationWidget, QWidget#propertyWidget {
+    font-size: 14px;
+}
 /* 属性浏览器内的编辑器：行高由 QtPropertyEditorDelegate 决定（不看 QSS，只多给 4px），
    这里收紧纵向内边距，避免数字被上下裁掉 */
 QtTreePropertyBrowser QSpinBox, QtTreePropertyBrowser QDoubleSpinBox,
 QtTreePropertyBrowser QLineEdit, QtTreePropertyBrowser QComboBox,
+QtTreePropertyBrowser QPushButton,
 QtPropertyEditorView QSpinBox, QtPropertyEditorView QDoubleSpinBox,
-QtPropertyEditorView QLineEdit, QtPropertyEditorView QComboBox {
+QtPropertyEditorView QLineEdit, QtPropertyEditorView QComboBox,
+QtPropertyEditorView QPushButton {
     padding: 0px 6px;
 }
 
