@@ -7,6 +7,8 @@
 // model-tree nodes cannot pass just because the backend examples compile.
 // 回归（待提交）：当前分支把参数面板放在左侧 Tab，面板本身是 QWidget；
 // 验证 QWidget 的复用，不能按旧版独立 QDockWidget 查找导致错误失败。
+// 诊断（待提交）：离屏运行出现 0xC0000374，原日志无法区分初始化、菜单执行与销毁阶段。
+// 在关键调用前后立即刷新日志；只增加定位信息，保留原断言和执行顺序。
 #include <IQCore/igQtMainWindow.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtFilterDialogDockWidget.h>
@@ -30,16 +32,28 @@
 
 using namespace iGame;
 namespace {
+void Trace(const char* message) {
+    std::cerr << "[MenuTest] " << message << std::endl;
+}
+struct TraceExit {
+    const char* message;
+    ~TraceExit() { Trace(message); }
+};
 void Check(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
 // Menu wiring only needs CPU scene/model state. The production renderer
 // initializes that state in initializeGL, which offscreen Qt does not call.
 class MenuTestRenderer : public igQtModelDrawWidget {
 public:
     explicit MenuTestRenderer(QWidget* parent) : igQtModelDrawWidget(parent) {
+        Trace("renderer base constructor completed; BEGIN NewScene");
         m_Scene=SceneManager::Instance()->NewScene();
+        Trace("END NewScene; BEGIN Interactor::New");
         m_Interactor=Interactor::New();
+        Trace("END Interactor::New; BEGIN interactor Initialize");
         m_Interactor->Initialize(m_Scene);
+        Trace("END interactor Initialize; BEGIN SetInteractor");
         m_Scene->SetInteractor(m_Interactor);
+        Trace("END SetInteractor");
     }
 };
 
@@ -122,15 +136,25 @@ void CheckElevationAxisSession(igQtMainWindow& window, DataObject::Pointer input
 }
 }
 int main(int argc,char** argv) {
+    Trace("entered main; BEGIN resource initialization");
     Q_INIT_RESOURCE(iGameQtMainWindow);
+    Trace("END resource initialization; BEGIN QApplication");
+    TraceExit applicationExit{"QApplication destroyed; leaving main"};
     QApplication app(argc,argv);
+    Trace("END QApplication");
+    std::cerr << "[MenuTest] Qt=" << qVersion()
+              << " platform=" << QGuiApplication::platformName().toStdString() << std::endl;
     QCoreApplication::setOrganizationName("iGameTests");
     QCoreApplication::setApplicationName("StandardFiltersMenuValidation");
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,QDir::currentPath()+"/menu-test-settings");
     try {
+        TraceExit windowExit{"test scope left; window and fixtures destroyed"};
+        Trace("BEGIN main window construction");
         igQtMainWindow window;
+        Trace("END main window construction; BEGIN test renderer construction");
         window.rendererWidget=new MenuTestRenderer(&window);
+        Trace("END test renderer construction; BEGIN fixture creation");
         auto* scene=window.rendererWidget->GetScene();
         Check(scene,"main window did not create a scene");
         auto mesh=SurfaceMesh::New(); mesh->SetName("MenuFixture");
@@ -138,7 +162,9 @@ int main(int argc,char** argv) {
         points->AddPoint(Point(0,0,0)); points->AddPoint(Point(1,0,0)); points->AddPoint(Point(0,1,0));
         mesh->SetPoints(points);
         igIndex ids[]={0,1,2}; auto faces=CellArray::New(); faces->AddCellIds(ids,3); mesh->SetFaces(faces);
+        Trace("END fixture creation; BEGIN addDataObjectToModelTree");
         const auto modelId=window.modelTreeWidget->addDataObjectToModelTree(mesh,Algorithm);
+        Trace("END addDataObjectToModelTree; BEGIN menu entry checks");
         // 回归（待提交）：新增标准入口和 append_datasets 更名必须保留真实 QAction。
         // 防止只迁移开发菜单而遗漏标准菜单；已有输入下 outline 与挤出必须产生结果。
         const QStringList migratedIds = {
@@ -183,16 +209,21 @@ int main(int argc,char** argv) {
             }
         });
         guard.start(50);
+        Trace("END menu entry checks; BEGIN Elevation axis session");
         CheckElevationAxisSession(window, mesh);
+        Trace("END Elevation axis session; BEGIN parameter panel checks");
         for(const auto& id:panelIds) {
             std::cerr << "Checking action " << id.toStdString() << "...\n";
             scene->SetCurrentModel(scene->GetModelById(modelId));
             auto* action=window.findChild<QAction*>("action_filter_"+id);
             Check(action,"missing standard filter action");
+            Trace("BEGIN panel action trigger");
             action->trigger();
+            Trace("END panel action trigger; BEGIN reopen");
             auto* dock=window.findChild<QWidget*>("standardFilterPanel_"+id);
             Check(dock,"standard action did not open its parameter panel");
             action->trigger();
+            Trace("END panel reopen");
             Check(window.findChildren<QWidget*>("standardFilterPanel_"+id).size()==1,
                   "reopening an action duplicated its panel");
             dock->hide();
@@ -247,6 +278,7 @@ int main(int argc,char** argv) {
             warpFixture->GetAttributeSet()->AddAttribute(a == 4 ? IG_TENSOR : IG_SCALAR, IG_POINT, values);
         }
         CheckWarpMenu(window, warpFixture);
+        Trace("END synthetic Warp menu check");
         if (argc > 1) {
             auto userModel = FileIO::ReadFile(argv[1]);
             Check(userModel != nullptr, "cannot load the user warp model");
@@ -254,6 +286,7 @@ int main(int argc,char** argv) {
         }
         Check(!unexpectedDialog,"menu action produced an unexpected error dialog");
         std::cout<<"PASS: standard menu actions, reflection alias, result insertion and repeated Apply.\n";
+        Trace("all assertions passed; BEGIN test scope cleanup");
         return 0;
     } catch(const std::exception& error) {
         std::cerr<<"FAIL: "<<error.what()<<'\n'; return 1;

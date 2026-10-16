@@ -957,7 +957,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
     for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
         auto& attr = attrSet->GetElement(i);
-        if (attr.isDeleted) continue;
+        if (attr.isDeleted || !attr.pointer) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         const QString attrName = QString::fromStdString(attr.pointer->GetName());
         child->setText(0, attrName);

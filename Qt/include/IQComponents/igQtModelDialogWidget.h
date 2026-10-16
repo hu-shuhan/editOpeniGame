@@ -23,6 +23,13 @@ class QDockWidget;
 class IG_QT_MODULE_EXPORT igQtModelDialogWidget : public QObject {
     Q_OBJECT
 public:
+    std::vector<iGame::DataObject::Pointer> GetSelectedDataObjects() const {
+        return modelTreeWidget ? modelTreeWidget->getSelectedDataObjects() : std::vector<iGame::DataObject::Pointer>{};
+    }
+    void RefreshModelTreeVisibilityIcons() {
+        if (modelTreeWidget) modelTreeWidget->syncVisibilityIcons();
+    }
+
     igQtModelDialogWidget(QWidget* parent);
     ~igQtModelDialogWidget() override = default;
 
