@@ -188,7 +188,7 @@ void igQtShadingWidget::buildUi() {
     m_EnvironmentRotation->setWrapping(true);
     environmentGrid->addWidget(new QLabel(QStringLiteral("旋转"), environmentBox), 2, 0);
     environmentGrid->addWidget(m_EnvironmentRotation, 2, 1);
-    auto* environmentHint = new QLabel(QStringLiteral("仅影响普通模型的照明与反射；云图沿用原有光照。"), environmentBox);
+    auto* environmentHint = new QLabel(QStringLiteral("影响模型的照明与反射；PBR 模式下同样作用于云图。"), environmentBox);
     environmentHint->setWordWrap(true);
     environmentHint->setObjectName(QStringLiteral("shadingHintLabel"));
     environmentGrid->addWidget(environmentHint, 3, 0, 1, 2);
@@ -258,7 +258,7 @@ void igQtShadingWidget::buildUi() {
     pbrGrid->addWidget(m_RoughnessSlider, 1, 1);
     pbrGrid->addWidget(m_RoughnessSpin, 1, 2);
 
-    // 环境遮蔽（简易半球近似）：只压暗间接光，直接光不受影响；色带模型强制关闭。
+    // 环境遮蔽（简易半球近似）：只压暗间接光，直接光不受影响。
     m_AoSlider = new QSlider(Qt::Horizontal, pbrBox);
     m_AoSlider->setRange(0, kSliderSteps);
     m_AoSpin = new QDoubleSpinBox(pbrBox);
@@ -268,7 +268,7 @@ void igQtShadingWidget::buildUi() {
     m_AoSpin->setValue(kDefaultAo);
     m_AoSpin->setToolTip(QStringLiteral(
             "按法线朝向压暗间接光（半球近似，不是屏幕空间遮蔽）。\n"
-            "0 = 关闭；色带模型始终不参与。"));
+            "0 = 关闭；普通模型与色带模型均参与。"));
     pbrGrid->addWidget(new QLabel(QStringLiteral("环境遮蔽强度"), pbrBox), 2, 0);
     pbrGrid->addWidget(m_AoSlider, 2, 1);
     pbrGrid->addWidget(m_AoSpin, 2, 2);

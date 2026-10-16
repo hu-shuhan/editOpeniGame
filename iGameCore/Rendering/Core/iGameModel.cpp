@@ -199,7 +199,7 @@ static void ApplyPbrMaterialUniforms(
     scene->GetMaterialParameters(metallic, roughness);
     shader->SetUniformf("uMetallic", metallic);
     shader->SetUniformf("uRoughness", roughness);
-    // 环境遮蔽强度（简易半球近似）。0 = 关闭；色带模型在 PBR.frag 内强制关闭。
+    // 环境遮蔽强度（简易半球近似）。0 = 关闭；普通模型与色带模型共用。
     shader->SetUniformf("uAoStrength", scene->GetSurfaceAo());
 #ifndef __EMSCRIPTEN__
     scene->ApplyEnvironmentUniforms(shader);

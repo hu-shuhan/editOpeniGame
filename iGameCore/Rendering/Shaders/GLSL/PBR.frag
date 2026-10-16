@@ -14,7 +14,7 @@
  *     统一在【视空间】做光照：main 里先用 mat3(cameraData.view) 把灯方向与 +Y 轴
  *     旋进视空间，视线方向也改成视空间写法，保证参与点乘的向量同处一个坐标系。
  *   - HDR 环境按世界方向采样，不需要网格 UV 或切线。普通表面使用预计算漫反射
- *     和 GGX 预滤波环境，BRDF 使用 EnvBRDFApprox；云图、关闭或加载失败时
+ *     和 GGX 预滤波环境，BRDF 使用 EnvBRDFApprox；关闭或加载失败时
  *     保留「天空/地面梯度 + 太阳斑」的原有解析路径。
  *   - 世界 +Y 是默认视角的上方（ResetCameraView 把相机放在包围球中心 + (0, 0, 3r)），
  *     天空梯度沿世界 +Y、主光来自世界右上前方；两者都在 main 里被旋进视空间，所以
@@ -30,7 +30,7 @@
  *   - 它以世界 +Y 为参考，按「法线朝上/朝下」压暗间接光，不反映真实遮挡——
  *     同一个凹槽换个角度不会变暗，也不会因为周围有别的部件而变暗；
  *   - 强度由 uAoStrength 线性缩放，0 = 关闭（画面与未引入本项时逐像素一致）；
- *   - 色带（云图）模型在 main 里强制关闭，避免影响颜色判读基准。
+ *   - 普通模型与色带（云图）模型共用材质、环境照明和显示转换。
  */
 
 layout(std140, binding = 0) uniform CameraDataBlock {
@@ -81,7 +81,7 @@ uniform float uAoStrength = 1.0;
 // 因此高光会随模型移动）。main 里统一乘 mat3(cameraData.view) 旋进视空间后才参与
 // 计算，这里的数值本身仍然按世界空间写。
 // 强度默认值取「压暗版」与「原始版」的中间值：亮面与 Blinn-Phong 基本同亮度，
-// 又不会像原始默认那样在直出（uTonemap == 0）时大面积顶到 1.0 被截断。
+// 又不会像原始默认那样出现过强的高光。
 // 地面色比原先略亮（0.16 → 0.22）是为了把背光面从约 0.07 抬到约 0.15，
 // 缩小与 Blinn-Phong 那层常量环境光（0.35）的差距。
 uniform float uEnvIntensity = 0.8;
@@ -98,9 +98,6 @@ uniform vec3 uRimDir = vec3(-0.20, -0.72, -0.52);
 uniform vec3 uRimColor = vec3(0.34, 0.38, 0.46);
 uniform float uRimIntensity = 0.38;
 uniform float uExposure = 0.92;
-// Legacy/cloud output selection; ordinary surfaces always share the display transform.
-uniform int uTonemap = 0;        // 0=直出，1=Reinhard + gamma
-uniform int uLegacyColorMap = 0; // 1=色带模型退回旧的 Blinn-Phong 观感
 
 uniform bool uEnvironmentEnabled = false;
 uniform samplerCube uEnvironmentDiffuse;
@@ -219,20 +216,6 @@ vec3 DirectLight(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 diffuseColor,
 }
 
 // ---------------------------------------------------------------------------
-// 旧光照路径：色带模型需要与历史渲染完全一致时可切换过来
-// ---------------------------------------------------------------------------
-
-// 注意：这条路径【故意】不复用上面的视空间约定——它拿世界空间的光方向去点乘视空间
-// 法线，正是老版本"明暗跟着相机转"的观感来源。它的定位就是复刻历史画面，改了就不再
-// 是"与历史渲染完全一致"，所以本次统一视空间的改动不涉及这里。
-vec3 LegacyBlinnPhong(vec3 n, vec3 albedo) {
-    const vec3 ambient = vec3(0.4);
-    const vec3 lightDir = vec3(0.0, 0.0, 1.0); // 旧 shader 里 light.direction = (0,0,-1)
-    float diff = max(dot(lightDir, n), 0.0);
-    return albedo * (ambient + diff * 0.5);
-}
-
-// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -264,30 +247,12 @@ vec3 ResolveNormal() {
 void main() {
     vec3 n = ResolveNormal();
 
-    bool colorMapped = (ubo.useColor == 1);
-    vec3 albedo = colorMapped ? in_Color.rgb : inputColor;
-    bool useHdr = uEnvironmentEnabled && !colorMapped;
-
-    if (colorMapped && uLegacyColorMap == 1) {
-        out_ScreenColor = vec4(LegacyBlinnPhong(n, albedo), 1.0);
-        return;
-    }
+    vec3 albedo = (ubo.useColor == 1) ? in_Color.rgb : inputColor;
 
     float metallic = clamp(uMetallic, 0.0, 1.0);
     float roughness = clamp(uRoughness, 0.0, 1.0);
-    float envIntensity = uEnvIntensity;
-    if (!colorMapped) {
-        // HDR is a light source, not a switch for the material's color space.
-        albedo = pow(max(albedo, vec3(0.0)), vec3(2.2));
-    }
-
-    if (colorMapped) {
-        // 云图颜色代表数据本身：强制哑光，并把强度配到与旧 Blinn-Phong
-        // （环境 0.4 + 漫反射 0.5）大致等亮，避免颜色判读基准漂移。
-        metallic = 0.0;
-        roughness = max(roughness, 0.62);
-        envIntensity = uEnvIntensity * 0.95;
-    }
+    // Both material and mapped colors enter the same linear-light PBR path.
+    albedo = pow(max(albedo, vec3(0.0)), vec3(2.2));
 
     vec3 f0 = mix(vec3(DIELECTRIC_F0), albedo, metallic);
     vec3 diffuseColor = albedo * (1.0 - metallic);
@@ -326,16 +291,14 @@ void main() {
                          f0, a2);
 
     // 间接光：AO 只作用于这里。
-    // 色带（云图）模型强制关闭：颜色代表数据本身，任何明暗调制都会影响判读基准
-    // （与上面「强制哑光」是同一个理由）。
-    float aoStrength = colorMapped ? 0.0 : clamp(uAoStrength, 0.0, 1.0);
+    float aoStrength = clamp(uAoStrength, 0.0, 1.0);
     float ao = HemisphereAo(n, upView, aoStrength);
     vec3 r = reflect(-v, n);
     vec3 irradiance = SkyIrradiance(n, upView) * diffuseColor;
     vec3 radiance = EnvRadiance(r, roughness, keyDir, upView) *
                     EnvBRDFApprox(f0, roughness, NoV) *
                     EnvSpecularAo(ao, NoV, roughness);
-    if (useHdr) {
+    if (uEnvironmentEnabled) {
         // The analytic fit can undershoot zero for very dark, rough metals.
         // Radiance must remain nonnegative before display gamma is applied.
         vec3 envBrdf = max(EnvBRDFApprox(f0, roughness, NoV), vec3(0.0));
@@ -350,27 +313,20 @@ void main() {
                    * EnvSpecularAo(ao, NoV, roughness);
         color += (irradiance * ao + radiance) * uEnvironmentIntensity;
     } else {
-        if (!colorMapped) {
-            float diffuseLuminance = dot(SkyIrradiance(n, upView), vec3(0.2126, 0.7152, 0.0722));
-            irradiance = vec3(diffuseLuminance) * diffuseColor * (vec3(1.0) - F_Schlick(f0, NoV));
-            radiance = max(radiance, vec3(0.0));
-        }
-        color += (irradiance * ao + radiance) * envIntensity;
+        float diffuseLuminance = dot(SkyIrradiance(n, upView), vec3(0.2126, 0.7152, 0.0722));
+        irradiance = vec3(diffuseLuminance) * diffuseColor * (vec3(1.0) - F_Schlick(f0, NoV));
+        radiance = max(radiance, vec3(0.0));
+        color += (irradiance * ao + radiance) * uEnvIntensity;
     }
 
     color *= uExposure;
-    if (!colorMapped) {
-        // Same display transform on either environment path. Luminance mapping
-        // scales RGB together, preserving hue as illumination strength changes.
-        color = max(color, vec3(0.0));
-        float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
-        color /= 1.0 + luminance;
-        color /= max(1.0, max(color.r, max(color.g, color.b)));
-        color = pow(color, vec3(1.0 / 2.2));
-    } else if (uTonemap == 1) {
-        color = color / (color + vec3(1.0));
-        color = pow(color, vec3(1.0 / 2.2));
-    }
+    // Same display transform for all base-color sources and environment paths.
+    // Luminance mapping scales RGB together, preserving hue as lighting changes.
+    color = max(color, vec3(0.0));
+    float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    color /= 1.0 + luminance;
+    color /= max(1.0, max(color.r, max(color.g, color.b)));
+    color = pow(color, vec3(1.0 / 2.2));
 
     out_ScreenColor = vec4(color, 1.0);
 }
