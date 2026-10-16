@@ -2027,6 +2027,7 @@ void igQtMainWindow::initAllFilters() {
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
         if (connectMigratedFilterAction(action, filterId)) return true;
         if (connectThirdBatchFilterAction(action, filterId)) return true;
+        if (connectAdditionalFilterAction(action, filterId)) return true;
         if (connectImportedFilterAction(action, filterId)) return true;
         if (filterId == QStringLiteral("coordinates")) {
             connect(action, &QAction::triggered, this, [=, this](bool) {

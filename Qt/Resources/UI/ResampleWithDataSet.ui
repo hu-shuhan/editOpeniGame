@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ResampleWithDataSetWidget</class>
+ <widget class="QWidget" name="ResampleWithDataSetWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>539</width>
+    <height>430</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_Main">
+   <item>
+    <widget class="QGroupBox" name="groupBox_Input">
+     <property name="title">
+      <string>输入</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_Input">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_Source">
+        <property name="text">
+         <string>被采样网格</string>
+        </property>
+        <property name="toolTip">
+         <string>提供数据的网格（对应 VTK 的 Source）：只有它的点数据会被插值到采样点上；它的单元数据不进入输出（单元只用于定位采样点）。</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboBox_Source"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_Probe">
+        <property name="text">
+         <string>采样点网格</string>
+        </property>
+        <property name="toolTip">
+         <string>探针几何（对应 VTK 的 Input）：它的所有点作为采样位置，输出是它的同类型深拷贝。</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="comboBox_Probe"/>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QPushButton" name="pushButton_Refresh">
+        <property name="text">
+         <string>刷新模型列表</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_Params">
+     <property name="title">
+      <string>参数</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_Params">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_Tolerance">
+        <property name="text">
+         <string>指定容差</string>
+        </property>
+        <property name="toolTip">
+         <string>相对被采样网格包围盒对角线长度；留空或填 0 表示自动容差（包围盒对角线 × 1e-6）。</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="lineEdit_Tolerance"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="pushButton_Execute">
+     <property name="text">
+      <string>执行</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_Message">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>10</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -79,6 +79,7 @@ public:
     void initAllMySignalConnections();
     void initAllFilters();
     bool connectImportedFilterAction(QAction* action, const QString& filterId);
+    bool connectAdditionalFilterAction(QAction* action, const QString& filterId);
     bool connectMigratedFilterAction(QAction* action, const QString& filterId);
     void showAppendAttributesFilter();
     bool connectThirdBatchFilterAction(QAction* action, const QString& filterId);

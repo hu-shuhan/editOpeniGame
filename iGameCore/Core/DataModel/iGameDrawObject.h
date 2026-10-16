@@ -136,6 +136,13 @@ public:
     // 设置和获取显示对象
     void SetRenderableObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
+    // GroupDatasets clones need an independent mapper on both the object and
+    // its already-created renderable meshes after attachment to a container.
+    void SetColorMapperForRenderables(ScalarsToColors::Pointer mapper) {
+        SetColorMapper(mapper);
+        if (m_RenderableMesh.SurfaceMesh) m_RenderableMesh.SurfaceMesh->SetColorMapper(mapper);
+        if (m_RenderableMesh.SimplifiedMesh) m_RenderableMesh.SimplifiedMesh->SetColorMapper(mapper);
+    }
     void SetAutoBuildInteractionLod(bool enabled);
     bool GetAutoBuildInteractionLod() const;
 

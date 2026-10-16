@@ -246,20 +246,38 @@ bool iGame::AttributeSet::Attribute::IsDeleted() { return isDeleted; }
 void iGame::AttributeSet::Attribute::Delete() { isDeleted = true; }
 
 bool iGame::AttributeSet::Attribute::DeepCopy(const iGame::AttributeSet::Attribute& other) {
-    if (other.isDeleted) return true;
-    if (DynamicCast<FloatArray>(other.pointer)) {
-        auto p = FloatArray::New();
-        p->DeepCopy(DynamicCast<FloatArray>(other.pointer));
-        p->SetName(other.pointer->GetName());
-        pointer = p;
-    } else if (DynamicCast<DoubleArray>(other.pointer)) {
-        auto p = DoubleArray::New();
-        p->DeepCopy(DynamicCast<DoubleArray>(other.pointer));
-        p->SetName(other.pointer->GetName());
-        pointer = p;
-    } else {
+    if (other.isDeleted || !other.pointer) {
+        *this = Attribute::None();
+        isDeleted = true;
+        return true;
+    }
+    ArrayObject::Pointer copied;
+    // Preserve the concrete storage type, including integer IDs and labels.
+    // Copying through double would lose precision for 64-bit integers.
+#define IG_COPY_ATTRIBUTE_ARRAY(ArrayType)                                      \
+    if (auto source = DynamicCast<ArrayType>(other.pointer)) {                  \
+        auto array = ArrayType::New();                                         \
+        array->DeepCopy(source);                                               \
+        copied = array;                                                       \
+    }
+    IG_COPY_ATTRIBUTE_ARRAY(FloatArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(DoubleArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(IntArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(UnsignedIntArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(CharArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(UnsignedCharArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(ShortArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(UnsignedShortArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(LongLongArray)
+    else IG_COPY_ATTRIBUTE_ARRAY(UnsignedLongLongArray)
+#undef IG_COPY_ATTRIBUTE_ARRAY
+    if (!copied) {
+        *this = Attribute::None();
+        isDeleted = true;
         return false;
     }
+    copied->SetName(other.pointer->GetName());
+    pointer = copied;
     type = other.type;
     attachmentType = other.attachmentType;
     isDeleted = other.isDeleted;
@@ -293,10 +311,11 @@ bool iGame::AttributeSet::Attribute::IsNone() const {
 }
 
 iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
-    if (dataRange == nullptr) {
-        if (!this->pointer) { return dataRange; }
+    if (!this->pointer) { return nullptr; }
+    const int dim = this->pointer->GetDimension();
+    if (dataRange == nullptr || dataRange->GetDimension() != 2 ||
+        dataRange->GetNumberOfElements() != dim + 1) {
         dataRange = DoubleArray::New();
-        int dim = this->pointer->GetDimension();
         dataRange->SetDimension(2);
         dataRange->Resize(dim + 1);
         for (int i = 0; i < dim + 1; i++) {
@@ -309,7 +328,9 @@ iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
 }
 
 bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
-    if (dataRange == nullptr) {
+    if (!this->pointer) { return false; }
+    if (dataRange == nullptr || dataRange->GetDimension() != 2 ||
+        dataRange->GetNumberOfElements() != this->pointer->GetDimension() + 1) {
         GetDataRange();
         return true;
     }

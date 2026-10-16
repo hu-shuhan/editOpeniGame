@@ -41,6 +41,7 @@ public:
         D3PLOT,
         SPECTRAL_DAT,
         SPECTRAL_NEKTAR,
+        VTI, // ImageData support required by the Median example model
         FILETYPE_COUNT
     };
 

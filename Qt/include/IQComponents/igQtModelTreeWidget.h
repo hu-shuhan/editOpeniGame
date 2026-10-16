@@ -52,6 +52,8 @@ public:
 
     void setName(const QString& name);
 
+    void refreshVisibilityIcon();
+
     void changeVisibility();
 
     void changeVisibility(bool);
@@ -276,6 +278,8 @@ class IG_QT_MODULE_EXPORT igQtModelTreeWidget : public QTreeWidget {
 
 public:
     igQtModelTreeWidget(QWidget* parent = nullptr);
+    std::vector<iGame::DataObject::Pointer> getSelectedDataObjects() const;
+    void syncVisibilityIcons();
 
     ModelTreeWidgetItem* getItem(const QPoint& p) const;
     QTreeWidgetItem* getChild(const QPoint& p) const;

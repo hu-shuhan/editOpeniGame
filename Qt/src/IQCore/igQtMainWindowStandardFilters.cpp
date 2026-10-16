@@ -1,3 +1,7 @@
+#include <IQWidgets/igQtMedianFilterWidget.h>
+#include <IQWidgets/igQtTextureMapToCylinderWidget.h>
+#include <IQWidgets/igQtResampleWithDataSetWidget.h>
+#include <IQWidgets/igQtRenameArraysWidget.h>
 #include "IQCore/igQtMainWindow.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
@@ -64,7 +68,8 @@ bool igQtMainWindow::connectImportedFilterAction(QAction* action, const QString&
         "cell_size", "count_cell_vertices", "extract_edges",
         "global_point_and_cell_ids", "point_and_cell_ids", "process_ids", "reflect",
         "axis_aligned_reflection", "extract_component", "merge_vector_components",
-        "resample_to_image", "resample_to_line", "triangle_strips"};
+        "resample_to_image", "resample_to_line", "triangle_strips",
+        "resample_with_dataset", "rename_arrays", "texture_map_to_cylinder", "median"};
     if (!ids.contains(filterId)) return false;
 
     auto displayResult = [this](DataObject::Pointer output) {
@@ -92,6 +97,35 @@ bool igQtMainWindow::connectImportedFilterAction(QAction* action, const QString&
         const QString id = filterId == "reflect" ? QStringLiteral("axis_aligned_reflection") : filterId;
         auto failed = [this, title](const QString& reason) { showDarkFramelessMessage(title, reason); };
 
+        if (id == "median") {
+            auto* panel = filterPanel<igQtMedianFilterWidget>(this, id, [&](auto* p, auto) {
+                connect(p, &igQtMedianFilterWidget::DrawMedianModel, this, displayResult);
+                connect(p, &igQtMedianFilterWidget::UpdateMedianModel, this, displayResult);
+            });
+            panel->SetOriginDataObject(input);
+            showFilterPanel(this, id, title);
+            return;
+        }
+        if (id == "resample_with_dataset" || id == "rename_arrays") {
+            if (id == "resample_with_dataset") {
+                auto* panel = filterPanel<igQtResampleWithDataSet>(this, id, [](auto*, auto) {}, modelTreeWidget);
+                panel->BindCurrentModel();
+            } else {
+                auto* panel = filterPanel<igQtRenameArrays>(this, id, [](auto*, auto) {}, modelTreeWidget);
+                panel->BindCurrentModel();
+            }
+            showFilterPanel(this, id, title);
+            return;
+        }
+        if (id == "texture_map_to_cylinder") {
+            auto* panel = filterPanel<igQtTextureMapToCylinderWidget>(this, id, [&](auto* p, auto) {
+                connect(p, &igQtTextureMapToCylinderWidget::DrawResultModel, this, displayResult);
+                connect(p, &igQtTextureMapToCylinderWidget::UpdateResultModel, this, displayResult);
+            });
+            panel->SetOriginDataObject(input);
+            showFilterPanel(this, id, title);
+            return;
+        }
         if (id == "cell_size") {
             auto filter = CellSizeFilter::New();
             filter->SetInput(input);
