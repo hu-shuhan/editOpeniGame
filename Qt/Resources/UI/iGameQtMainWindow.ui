@@ -1004,6 +1004,8 @@ QLabel#CustomTitleLabel {
     <addaction name="action_SearchInfo"/>
     <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="separator"/>
+    <addaction name="action_ShadingSettings"/>
+    <addaction name="action_ShowGroundGrid"/>
    </widget>
    <widget class="QMenu" name="menu_filters">
     <property name="title">
@@ -1759,6 +1761,17 @@ QLabel#CustomTitleLabel {
     <string>show Orientation Axes</string>
    </property>
   </action>
+  <action name="action_ShowGroundGrid">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>显示底板</string>
+   </property>
+   <property name="toolTip">
+    <string>Show Ground Grid</string>
+   </property>
+  </action>
   <action name="action_SaveScreenShot">
    <property name="icon">
     <iconset>
@@ -1977,6 +1990,17 @@ QLabel#CustomTitleLabel {
    </property>
    <property name="toolTip">
     <string>背景重置</string>
+   </property>
+  </action>
+  <action name="action_ShadingSettings">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>着色与材质设置</string>
+   </property>
+   <property name="toolTip">
+    <string>选择表面着色模型（PBR / Blinn-Phong）并调整材质参数</string>
    </property>
   </action>
   <action name="action_StreamLine">

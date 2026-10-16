@@ -21,6 +21,26 @@ file(MAKE_DIRECTORY ${RENDERING_RESOURCES_OUTPUT_DIR})
 file(COPY ${RENDERING_ASSESTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Assests)
 file(COPY ${RENDERING_SHADERS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders)
 
+# Keep the new desktop environment and its consumers current without relying on
+# configure-time file(COPY). The existing background and Web resources are untouched.
+if (NOT EMSCRIPTEN)
+    add_custom_target(iGameEnvironmentResources
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "${RENDERING_RESOURCES_OUTPUT_DIR}/Assests/Environments"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${RENDERING_ASSESTS_SOURCE_DIR}/Environments/studio_small_08_2k.hdr"
+                "${RENDERING_RESOURCES_OUTPUT_DIR}/Assests/Environments"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${RENDERING_SHADERS_SOURCE_DIR}/EnvironmentCapture.vert"
+                "${RENDERING_SHADERS_SOURCE_DIR}/EnvironmentCapture.frag"
+                "${RENDERING_SHADERS_SOURCE_DIR}/PBR.frag"
+                "${RENDERING_SHADERS_SOURCE_DIR}/BlinnPhong.frag"
+                "${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders"
+            COMMENT "Synchronizing desktop HDR environment resources"
+            VERBATIM)
+    add_dependencies(${MODULE_NAME} iGameEnvironmentResources)
+endif ()
+
 # add definition
 if (IGAME_RENDER_BACKEND STREQUAL "GLES2")
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_GLES2)

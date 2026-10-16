@@ -937,6 +937,9 @@ QString igQtModelDialogWidget::renameModelRow(iGame::DataObject::Pointer obj, co
 }
 
 int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source) {
+    if (source == ItemSource::File) {
+        if (auto draw = DynamicCast<iGame::DrawObject>(obj)) draw->InitializeNormalSourceOnImport();
+    }
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     //modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();

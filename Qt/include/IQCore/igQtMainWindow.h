@@ -31,6 +31,7 @@ class QHBoxLayout;
 class igQtModelDrawWidget;
 class igQtFileLoader;
 class igQtColorManagerWidget;
+class igQtShadingWidget;
 class igQtFilterDialogDockWidget;
 class igQtSliceWidget;
 class igQtProgressBarWidget;
@@ -105,6 +106,8 @@ public:
     igQtModelDialogWidget* modelTreeWidget = nullptr;
 
     igQtColorManagerWidget* ColorManagerWidget = nullptr;
+    // 着色与材质设置（常驻窗口，着色模型 + 材质参数）
+    igQtShadingWidget* shadingWidget = nullptr;
     igQtFilterDialogDockWidget* filterDialogDockWidget = nullptr;
     QDockWidget* SliceDockWidget = nullptr;
     QDockWidget* ContourDockWidget = nullptr;
