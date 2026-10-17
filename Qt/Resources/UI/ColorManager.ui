@@ -573,6 +573,16 @@ QCheckBox::indicator:checked {
               <string>CoolWarm</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>Fast</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Turbo（柔和）</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>

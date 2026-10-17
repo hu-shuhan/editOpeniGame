@@ -41,6 +41,9 @@ public:
     void InitColorBarWithTurboType();
     void InitColorBarWithViridisType();
     void InitColorBarWithCoolWarmType();
+    void InitColorBarWithFastType();
+    /*Turbo colormap with desaturated middle (green/yellow) colors*/
+    void InitColorBarWithTurboSoftType();
 
     /*get colorbar*/
     FloatArray::Pointer GetColorBar() { return this->m_ColorBar; };
@@ -60,6 +63,9 @@ public:
                 break;
             case 5:
                 InitColorBarWithBlueCyanGreenYellowRedMagentaType();
+                break;
+            case 6:
+                InitColorBarWithTurboType();
                 break;
             default:
                 break;

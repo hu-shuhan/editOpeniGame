@@ -130,6 +130,72 @@ void ColorMap::InitColorBarWithCoolWarmType() {
     m_ColorRange->Reserve(8);
     for (int i = 0; i < 8; ++i) { m_ColorRange->AddValue(i / 7.0); }
 }
+void ColorMap::InitColorBarWithFastType() {
+    static const float positions[9] = {0.0000f, 0.1716f, 0.2985f, 0.4321f, 0.5000f,
+                                       0.5882f, 0.7061f, 0.8476f, 1.0000f};
+    static const float colors[9][3] = {{0.0564f, 0.0564f, 0.4700f},
+                                       {0.2430f, 0.4604f, 0.8100f},
+                                       {0.3568f, 0.7450f, 0.9544f},
+                                       {0.6882f, 0.9300f, 0.9179f},
+                                       {0.8995f, 0.9446f, 0.7687f},
+                                       {0.9571f, 0.8338f, 0.5089f},
+                                       {0.9275f, 0.6214f, 0.3154f},
+                                       {0.8000f, 0.3520f, 0.1600f},
+                                       {0.5900f, 0.0767f, 0.1195f}};
+
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(9);
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(9);
+    for (int i = 0; i < 9; ++i) {
+        m_ColorBar->AddElement3(colors[i][0], colors[i][1], colors[i][2]);
+        m_ColorRange->AddValue(positions[i]);
+    }
+}
+
+void ColorMap::InitColorBarWithTurboSoftType() {
+    // Turbo colormap (based on turbo.json), sampled to 17 control points.
+    // The green/yellow middle section is desaturated (up to 40%) so it looks
+    // softer and less vivid, while the blue/red ends keep their saturation.
+    // Control-point positions remapped from the uniform Turbo spacing:
+    // the cyan and orange bands are widened, while the blue/violet and red
+    // ends are compressed, matching the reference color bar proportions.
+    static const float positions[17] = {
+            0.0000f, 0.0400f, 0.0900f, 0.1500f, 0.2200f, 0.3100f,
+            0.4000f, 0.4700f, 0.5400f, 0.6100f, 0.6800f, 0.7600f,
+            0.8400f, 0.9100f, 0.9500f, 0.9800f, 1.0000f};
+    static const float colors[17][3] = {
+            {0.1900f, 0.0718f, 0.2322f}, // violet blue
+            {0.2511f, 0.2524f, 0.6337f}, // blue
+            {0.2763f, 0.4212f, 0.8912f}, // blue
+            {0.2586f, 0.5796f, 0.9988f}, // sky blue
+            {0.1854f, 0.7421f, 0.9231f}, // cyan
+            {0.2731f, 0.8655f, 0.7864f}, // soft cyan green
+            {0.4223f, 0.9490f, 0.7010f}, // soft green
+            {0.6260f, 0.9942f, 0.5987f}, // soft yellow green
+            {0.7822f, 0.9900f, 0.5361f}, // soft yellow
+            {0.8425f, 0.9303f, 0.4581f}, // soft yellow orange
+            {0.9267f, 0.8522f, 0.4360f}, // soft orange
+            {0.9916f, 0.7194f, 0.2971f}, // orange
+            {0.9859f, 0.5091f, 0.1414f}, // orange red
+            {0.9262f, 0.3247f, 0.0584f}, // red
+            {0.8240f, 0.1918f, 0.0197f}, // dark red
+            {0.6754f, 0.0898f, 0.0045f}, // dark red
+            {0.4796f, 0.0158f, 0.0106f}  // darkest red
+    };
+
+    m_ColorBar->Reset();
+    m_ColorBar->SetDimension(3);
+    m_ColorBar->Reserve(17);
+    m_ColorRange->Reset();
+    m_ColorRange->Reserve(17);
+    for (int i = 0; i < 17; ++i) {
+        m_ColorBar->AddElement3(colors[i][0], colors[i][1], colors[i][2]);
+        m_ColorRange->AddValue(positions[i]);
+    }
+}
+
 void ColorMap::SetIndexColor(int index, float r, float g, float b) {
     float rgb[3]{r, g, b};
     m_ColorBar->SetElement(index, rgb);

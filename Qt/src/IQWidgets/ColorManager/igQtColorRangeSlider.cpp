@@ -309,6 +309,12 @@ void igQtColorRangeSlider::changeColorBarWithDefaultMode(int mode)
     case 7:
         this->m_TmpColorMapper->InitColorBarWithCoolWarmType();
         break;
+    case 8:
+        this->m_TmpColorMapper->InitColorBarWithFastType();//Fast
+        break;
+    case 9:
+        this->m_TmpColorMapper->InitColorBarWithTurboSoftType();//Turbo（中段降饱和）
+        break;
     default:
         break;
     }
