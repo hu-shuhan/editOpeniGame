@@ -29,10 +29,13 @@ if (NOT EMSCRIPTEN)
                 "${RENDERING_RESOURCES_OUTPUT_DIR}/Assests/Environments"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${RENDERING_ASSESTS_SOURCE_DIR}/Environments/studio_small_08_2k.hdr"
+                "${RENDERING_ASSESTS_SOURCE_DIR}/Environments/qwantani_noon_puresky_2k.hdr"
                 "${RENDERING_RESOURCES_OUTPUT_DIR}/Assests/Environments"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${RENDERING_SHADERS_SOURCE_DIR}/EnvironmentCapture.vert"
                 "${RENDERING_SHADERS_SOURCE_DIR}/EnvironmentCapture.frag"
+                "${RENDERING_SHADERS_SOURCE_DIR}/EnvironmentBackground.frag"
+                "${RENDERING_SHADERS_SOURCE_DIR}/FullScreenTriangle.vert"
                 "${RENDERING_SHADERS_SOURCE_DIR}/PBR.frag"
                 "${RENDERING_SHADERS_SOURCE_DIR}/BlinnPhong.frag"
                 "${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders"

@@ -71,6 +71,8 @@
 #include <QSaveFile>
 #include <limits>
 #include <QButtonGroup>
+#include <QActionGroup>
+#include <QSignalBlocker>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -1471,7 +1473,7 @@ void igQtMainWindow::initAllComponents() {
     ui->action_ShowOrientationAxes->setCheckable(true);
     ui->action_ShowOrientationAxes->setChecked(true);
 
-    // 底板（地面网格）：不透明深灰台面 + 分级网格线，随可见模型自动适配尺寸
+    // 底板（地面网格）：不透明暖灰底色与统一细线，随可见模型自动适配。
     connect(ui->action_ShowGroundGrid, &QAction::toggled, this, [](bool checked) {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) { return; }
@@ -1480,6 +1482,48 @@ void igQtMainWindow::initAllComponents() {
     });
     ui->action_ShowGroundGrid->setCheckable(true);
     ui->action_ShowGroundGrid->setChecked(true);
+
+#ifndef __EMSCRIPTEN__
+    using GroundPlane = iGame::Scene::GroundGridPlane;
+    auto groundPlaneGroup = new QActionGroup(this);
+    groundPlaneGroup->setExclusive(true);
+    const auto addGroundPlane = [this, groundPlaneGroup](QAction* action,
+                                                       GroundPlane plane) {
+        groundPlaneGroup->addAction(action);
+        action->setData(static_cast<int>(plane));
+        connect(action, &QAction::triggered, this, [plane]() {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (!scene) { return; }
+            scene->SetGroundGridPlane(plane);
+            scene->Update();
+        });
+    };
+    addGroundPlane(ui->action_GroundPlaneXY, GroundPlane::XY);
+    addGroundPlane(ui->action_GroundPlaneXZ, GroundPlane::XZ);
+    addGroundPlane(ui->action_GroundPlaneYZ, GroundPlane::YZ);
+    connect(ui->action_ReverseGroundGrid, &QAction::toggled, this,
+            [](bool reversed) {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) { return; }
+        scene->SetGroundGridReversed(reversed);
+        scene->Update();
+    });
+    connect(ui->menu_GroundSettings, &QMenu::aboutToShow, this,
+            [this, groundPlaneGroup]() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) { return; }
+        const QSignalBlocker blocker(ui->action_ShowGroundGrid);
+        const QSignalBlocker reverseBlocker(ui->action_ReverseGroundGrid);
+        ui->action_ShowGroundGrid->setChecked(scene->GetGroundGridVisible());
+        ui->action_ReverseGroundGrid->setChecked(scene->GetGroundGridReversed());
+        const int plane = static_cast<int>(scene->GetGroundGridPlane());
+        for (auto action : groundPlaneGroup->actions()) {
+            action->setChecked(action->data().toInt() == plane);
+        }
+    });
+#else
+    ui->menu_GroundSettings->menuAction()->setVisible(false);
+#endif
 
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);

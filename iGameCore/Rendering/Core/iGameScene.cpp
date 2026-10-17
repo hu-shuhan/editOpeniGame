@@ -532,6 +532,11 @@ void Scene::SetEnvironmentEnabled(bool enabled) {
     m_EnvironmentEnabled = enabled;
     Update();
 }
+
+void Scene::SetEnvironmentBackgroundVisible(bool visible) {
+    m_EnvironmentBackgroundVisible = visible;
+    Update();
+}
 void Scene::SetEnvironmentIntensity(float intensity) {
     if (!std::isfinite(intensity)) return;
     m_EnvironmentIntensity = std::clamp(intensity, 0.0f, 4.0f);
@@ -1181,6 +1186,28 @@ void Scene::Resize(int width, int height, int pixelRatio) {
 void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
     glClearDepth(depth); // reversed-z: near=1.0, far=0.0
 
+    auto drawEnvironmentBackground = [&]() {
+#ifndef __EMSCRIPTEN__
+        if (m_EnvironmentBackgroundVisible && m_EnvironmentLight) {
+            // The panorama's +Y axis is the sky. Align it with the chosen ground
+            // normal, then apply the same scene rotation as the ground itself.
+            igm::mat4 skyOrientation{1.0f};
+            const float quarterTurn = static_cast<float>(igm::radians(90.0f));
+            if (m_GroundGridPlane == GroundGridPlane::XY) {
+                skyOrientation = igm::rotate(skyOrientation, quarterTurn, igm::vec3{1, 0, 0});
+            } else if (m_GroundGridPlane == GroundGridPlane::YZ) {
+                skyOrientation = igm::rotate(skyOrientation, -quarterTurn, igm::vec3{0, 0, 1});
+            }
+            if (m_GroundGridReversed) {
+                skyOrientation = igm::rotate(skyOrientation, 2.0f * quarterTurn, igm::vec3{1, 0, 0});
+            }
+            const auto skyView = m_Camera->GetViewMatrix() * m_ModelRotate * skyOrientation;
+            m_EnvironmentLight->DrawBackground(skyView, m_Camera->GetProjectionMatrix(),
+                                               m_EnvironmentRotation, width, height);
+        }
+#endif
+    };
+
     GLboolean wasScissorEnabled = glIsEnabled(GL_SCISSOR_TEST);
     GLint previousScissor[4] = {0, 0, 0, 0};
     glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
@@ -1192,6 +1219,7 @@ void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
                      m_BackgroundColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
                 GL_STENCIL_BUFFER_BIT);
+        drawEnvironmentBackground();
         if (wasScissorEnabled) {
             glEnable(GL_SCISSOR_TEST);
             glScissor(previousScissor[0], previousScissor[1],
@@ -1235,6 +1263,8 @@ void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
         glClear(GL_COLOR_BUFFER_BIT);
     }
 
+    drawEnvironmentBackground();
+
     if (wasScissorEnabled) {
         glScissor(previousScissor[0], previousScissor[1], previousScissor[2],
                   previousScissor[3]);
@@ -1246,7 +1276,7 @@ void Scene::ClearSceneFramebuffer(float depth, int width, int height) {
 void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 #ifndef __EMSCRIPTEN__
-    if (m_EnvironmentEnabled && m_EnvironmentLight) {
+    if ((m_EnvironmentEnabled || m_EnvironmentBackgroundVisible) && m_EnvironmentLight) {
         m_EnvironmentLight->Initialize();
     }
 #endif
@@ -1277,7 +1307,9 @@ void Scene::DrawFrame() {
 
 #ifndef __EMSCRIPTEN__
         m_VolumeFramebuffer->Bind();
-        ClearSceneFramebuffer(0.0f, viewport.x, viewport.y);
+        ClearSceneFramebuffer(0.0f, VOLUME_RENDERING_FRAMEBUFFER_WIDTH,
+                              static_cast<int>(VOLUME_RENDERING_FRAMEBUFFER_WIDTH /
+                                               m_Camera->aspect<float>()));
 
     #ifdef GL_SUPPORT_MSAA
         m_FramebufferMultisampled->Bind();
@@ -1436,6 +1468,8 @@ void Scene::ForwardPass() {
         }
     }
 
+    // Web 保持原有绘制顺序；桌面端在实体底板之后重绘置顶对象。
+#ifdef __EMSCRIPTEN__
     // 第二次遍历：专门渲染AlwaysOnTop模型（最后绘制）
     glDisable(GL_DEPTH_TEST);
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
@@ -1448,6 +1482,7 @@ void Scene::ForwardPass() {
         }
     }
     glEnable(GL_DEPTH_TEST);
+#endif
 
     // meshleter mesh
     #ifdef GL_SUPPORTS_MESH_SHADER
@@ -1513,10 +1548,31 @@ void Scene::ForwardPass() {
     if (m_GroundGridVisible && m_GroundGridBuilt) {
         DrawGroundGrid();
     }
+
+#ifdef IGAME_OPENGL_VERSION_460
+    glDisable(GL_DEPTH_TEST);
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        if (drawObject && drawObject->IsAlwaysOnTop()) { model->Draw(); }
+    }
+    glEnable(GL_DEPTH_TEST);
+#endif
 #endif
 
 #ifndef __EMSCRIPTEN__
     ResolveFrameBuffer();
+#ifdef GL_SUPPORT_MSAA
+    // Resolve 只写 R32F 颜色附件，透明绘制使用的单采样深度还需要底板。
+    if (m_GroundGridVisible && m_GroundGridBuilt) {
+        GLboolean colorMask[4];
+        glGetBooleanv(GL_COLOR_WRITEMASK, colorMask);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        m_Framebuffer->Bind();
+        DrawGroundGrid();
+        glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+    }
+#endif
 #endif
     GLCheckError();
 }
@@ -3523,22 +3579,32 @@ namespace
 // ---- 底板（地面网格）参数 ----
 // 刻度按"内容包围盒最长边（含 Y）/ 模型跨几格"自动选档（取 1/2/5 x 10^n），
 // 只在内容变化时重算一次；同一批内容下刻度固定，也没有任何远处变宽的分级。
-constexpr float kGroundGridCellsPerModel = 10.0f;
+constexpr float kGroundGridCellsPerModel = 5.0f;
 // 底板边长 = 内容包围盒最长边 x 该倍数（3 倍：模型占底板中间三分之一，
 // 四周各留半个模型边长；再小就会显得"贴着模型"、边缘很明显）
 constexpr float kGroundGridPlateScale = 3.0f;
 // 空场景（从未加载过模型）时，把内容当作一个"边长 1 的单位立方体"（中心在
-// 原点）。这样空场景的刻度和底板尺寸正好等于"加载一个跨度 1 的模型"的情况，
-// 导入这类模型时底板不会变化。
+// 原点），底板尺寸沿用这个虚拟内容范围；初始格距单独设置。
 constexpr float kGroundGridVirtualContentHalfExtent = 0.5f;
+constexpr float kGroundGridDefaultCell = 0.4f; // 首次导入模型前的默认格距
 // 底板相对模型高度的下沉比例，避免与模型底面共面闪烁
 constexpr float kGroundGridSinkRatio = 0.002f;
 // 桌面端底板的可见半径下限还会跟着相机高度放大：拉远时网格跟着铺开，
 // 近处不浪费、远处也不会看到边界。
 constexpr float kGroundGridCameraRadiusFactor = 6.0f;
 
-const igm::vec3 kGroundGridColor {0.30f, 0.32f, 0.35f};   // 细网格线
-const igm::vec3 kGroundMajorColor {0.46f, 0.49f, 0.53f};  // 每 10 格的中等线
+const igm::vec3 kGroundGridColor {176.0f / 255.0f, 171.0f / 255.0f,
+                                 167.0f / 255.0f}; // 网格线 #B0ABA7
+const igm::vec3 kGroundSurfaceColor {106.0f / 255.0f, 99.0f / 255.0f,
+                                    97.0f / 255.0f}; // 参考图暖灰底色
+
+int GroundGridNormalAxis(Scene::GroundGridPlane plane) {
+    switch (plane) {
+    case Scene::GroundGridPlane::XY: return 2;
+    case Scene::GroundGridPlane::YZ: return 0;
+    default: return 1;
+    }
+}
 
 // 把刻度收敛到 1/2/5 x 10^n 里最接近的档，让网格刻度保持可读
 float NiceGridSpacing(float target) {
@@ -3574,11 +3640,11 @@ void Scene::UpdateGroundGrid() {
 
     BoundingBox box = ComputeGroundGridContentBox();
     m_GroundGridContentBox = box; // 记录本次建板依据的内容，供每帧比对
+    const bool useDefaultGrid = box.isNull() && m_GroundGridLastContentBox.isNull();
 
     // 没有可见模型时，把"内容"退化为：优先沿用上一次加载过的内容包围盒
-    // （这样删掉/再加载同量级模型时不会跳），完全没加载过就用引擎默认的
-    // 单位包围球（中心原点、半径 1）——相机取景用的也是这个球，于是空场景
-    // 和"加载一个同等大小的模型"走的是同一套数值关系。
+    // （这样删掉/再加载同量级模型时不会跳），完全没加载过则使用默认的
+    // 单位立方体确定底板位置和范围，刻度采用独立的默认格距。
     if (!box.isNull()) {
         m_GroundGridLastContentBox = box;
     } else if (!m_GroundGridLastContentBox.isNull()) {
@@ -3597,19 +3663,23 @@ void Scene::UpdateGroundGrid() {
     // 时才会重算，同一批内容下刻度不会再变，也没有任何远处变宽的分级。
     const float longestEdge = static_cast<float>(
             std::max({xmax - xmin, ymax - ymin, zmax - zmin}));
-    const float cell = NiceGridSpacing(longestEdge / kGroundGridCellsPerModel);
+    const float cell = useDefaultGrid ? kGroundGridDefaultCell
+            : NiceGridSpacing(longestEdge / kGroundGridCellsPerModel);
 
-    const float contentHeight = static_cast<float>(std::max(ymax - ymin, 0.0));
-    // 中心和边界都对齐到格点：格点锚定世界原点，往外扩时已有线不会动
-    const float centerX =
-            std::round(static_cast<float>((xmin + xmax) * 0.5) / cell) * cell;
-    const float centerZ =
-            std::round(static_cast<float>((zmin + zmax) * 0.5) / cell) * cell;
-    const float planeY =
-            static_cast<float>(ymin) - contentHeight * kGroundGridSinkRatio;
+    const int normalAxis = GroundGridNormalAxis(m_GroundGridPlane);
+    igm::vec3 center;
+    for (int axis = 0; axis < 3; ++axis) {
+        const float minimum = static_cast<float>(box.min[axis]);
+        const float maximum = static_cast<float>(box.max[axis]);
+        // 正向放在最小边界外侧，反转放在最大边界外侧；退化模型也保留间隙。
+        const float gap = std::max(longestEdge, 1e-6f) * kGroundGridSinkRatio;
+        center[axis] = axis == normalAxis
+                ? (m_GroundGridReversed ? maximum + gap : minimum - gap)
+                : std::round((minimum + maximum) * 0.5f / cell) * cell;
+    }
 
     // 底板中心与可见半径（模型空间），供相机裁剪范围与着色器使用
-    m_GroundGridCenter = igm::vec3{centerX, planeY, centerZ};
+    m_GroundGridCenter = center;
     m_GroundGridCell = cell;
     m_GroundGridContentScale = longestEdge;
     m_GroundGridBuilt = true;
@@ -3628,8 +3698,9 @@ void Scene::UpdateGroundGridExtent() {
             (m_ModelMatrix.invert() *
              igm::vec4{m_Camera->GetPosition(), 1.0f})
                     .xyz();
+    const int normalAxis = GroundGridNormalAxis(m_GroundGridPlane);
     const float cameraHeight =
-            std::abs(cameraInModel.y - m_GroundGridCenter.y);
+            std::abs(cameraInModel[normalAxis] - m_GroundGridCenter[normalAxis]);
     radius = std::max(radius, kGroundGridCameraRadiusFactor * cameraHeight);
 
     m_GroundGridRadius = radius;
@@ -3670,14 +3741,17 @@ void Scene::DrawGroundGrid() {
     shader->SetUniformMatrix4x4("uInvModelProjView", modelProjView.invert());
     shader->SetUniformMatrix4x4("uModelProjView", modelProjView);
     shader->SetUniform3f("uCameraPosModel", cameraInModel);
-    shader->SetUniformf("uPlaneY", m_GroundGridCenter.y);
+    igm::vec3 planeNormal {0.0f, 0.0f, 0.0f};
+    planeNormal[GroundGridNormalAxis(m_GroundGridPlane)] =
+            m_GroundGridReversed ? -1.0f : 1.0f;
+    shader->SetUniform3f("uPlaneCenter", m_GroundGridCenter);
+    shader->SetUniform3f("uPlaneNormal", planeNormal);
     shader->SetUniformf("uBaseCell", m_GroundGridCell);
     shader->SetUniformf("uFadeRadius", fadeRadius);
     shader->SetUniform3f("uLineColor", kGroundGridColor);
-    shader->SetUniform3f("uMajorColor", kGroundMajorColor);
+    shader->SetUniform3f("uSurfaceColor", kGroundSurfaceColor);
 
-    // 网格是"叠加线"，不遮挡任何东西：参与深度测试（被模型正确挡住），但不写
-    // 深度，并按 alpha 混合叠加。这里显式设定状态，不依赖上游遗留的设置。
+    // 实体底板参与深度测试并写深度，供后续透明物体正确遮挡；不做 alpha 混合。
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
     GLboolean depthWriteWasEnabled = GL_TRUE;
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);
@@ -3685,16 +3759,31 @@ void Scene::DrawGroundGrid() {
     glDepthRange(0.0, 1.0);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 
     m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 
     glDepthMask(depthWriteWasEnabled);
-    if (!blendWasEnabled) { glDisable(GL_BLEND); }
+    if (blendWasEnabled) { glEnable(GL_BLEND); }
     glDepthFunc(GL_GREATER);
     glDepthRange(0.0, 1.0);
+}
+
+void Scene::SetGroundGridPlane(GroundGridPlane plane) {
+    if (plane != GroundGridPlane::XY && plane != GroundGridPlane::XZ &&
+        plane != GroundGridPlane::YZ) { return; }
+    if (m_GroundGridPlane == plane) { return; }
+    m_GroundGridPlane = plane;
+    m_GroundGridDirty = true;
+    this->Modified();
+}
+
+void Scene::SetGroundGridReversed(bool reversed) {
+    if (m_GroundGridReversed == reversed) { return; }
+    m_GroundGridReversed = reversed;
+    m_GroundGridDirty = true;
+    this->Modified();
 }
 #endif
 

@@ -167,10 +167,13 @@ void igQtShadingWidget::buildUi() {
     environmentGrid->setContentsMargins(12, 4, 12, 6);
     environmentGrid->setHorizontalSpacing(10);
     environmentGrid->setVerticalSpacing(8);
-    m_EnvironmentEnabled = new QCheckBox(QStringLiteral("启用 Studio Small 08"), environmentBox);
+    m_EnvironmentEnabled = new QCheckBox(QStringLiteral("启用 Qwantani Noon"), environmentBox);
     m_EnvironmentEnabled->setObjectName(QStringLiteral("environmentEnabled"));
     m_EnvironmentEnabled->setChecked(true);
     environmentGrid->addWidget(m_EnvironmentEnabled, 0, 0, 1, 2);
+    m_EnvironmentBackgroundVisible = new QCheckBox(QStringLiteral("显示环境贴图背景"), environmentBox);
+    m_EnvironmentBackgroundVisible->setObjectName(QStringLiteral("environmentBackgroundVisible"));
+    m_EnvironmentBackgroundVisible->setToolTip(QStringLiteral("仅控制背景显示，与环境照明独立；共用旋转角度。"));
     m_EnvironmentIntensity = new QDoubleSpinBox(environmentBox);
     m_EnvironmentIntensity->setObjectName(QStringLiteral("environmentIntensity"));
     m_EnvironmentIntensity->setRange(0.0, 4.0);
@@ -191,11 +194,16 @@ void igQtShadingWidget::buildUi() {
     auto* environmentHint = new QLabel(QStringLiteral("影响模型的照明与反射；PBR 模式下同样作用于云图。"), environmentBox);
     environmentHint->setWordWrap(true);
     environmentHint->setObjectName(QStringLiteral("shadingHintLabel"));
-    environmentGrid->addWidget(environmentHint, 3, 0, 1, 2);
+    environmentGrid->addWidget(m_EnvironmentBackgroundVisible, 3, 0, 1, 2);
+    environmentGrid->addWidget(environmentHint, 4, 0, 1, 2);
     root->addWidget(environmentBox);
     connect(m_EnvironmentEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
         m_EnvironmentIntensity->setEnabled(enabled);
-        m_EnvironmentRotation->setEnabled(enabled);
+        m_EnvironmentRotation->setEnabled(enabled || m_EnvironmentBackgroundVisible->isChecked());
+        if (!m_Syncing) applyToScene();
+    });
+    connect(m_EnvironmentBackgroundVisible, &QCheckBox::toggled, this, [this](bool visible) {
+        m_EnvironmentRotation->setEnabled(visible || m_EnvironmentEnabled->isChecked());
         if (!m_Syncing) applyToScene();
     });
     connect(m_EnvironmentIntensity, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
@@ -448,6 +456,7 @@ void igQtShadingWidget::applyToScene() {
                                    m_ShininessSpin->value());
 #ifndef __EMSCRIPTEN__
     scene->SetEnvironmentEnabled(m_EnvironmentEnabled->isChecked());
+    scene->SetEnvironmentBackgroundVisible(m_EnvironmentBackgroundVisible->isChecked());
     scene->SetEnvironmentIntensity(static_cast<float>(m_EnvironmentIntensity->value()));
     scene->SetEnvironmentRotation(static_cast<float>(m_EnvironmentRotation->value()));
 #endif
@@ -497,10 +506,12 @@ void igQtShadingWidget::syncFromScene() {
 #ifndef __EMSCRIPTEN__
     const bool environmentEnabled = scene ? scene->GetEnvironmentEnabled() : true;
     m_EnvironmentEnabled->setChecked(environmentEnabled);
+    const bool backgroundVisible = scene ? scene->GetEnvironmentBackgroundVisible() : true;
+    m_EnvironmentBackgroundVisible->setChecked(backgroundVisible);
     m_EnvironmentIntensity->setValue(scene ? scene->GetEnvironmentIntensity() : 1.0);
     m_EnvironmentRotation->setValue(scene ? scene->GetEnvironmentRotation() : 0.0);
     m_EnvironmentIntensity->setEnabled(environmentEnabled);
-    m_EnvironmentRotation->setEnabled(environmentEnabled);
+    m_EnvironmentRotation->setEnabled(environmentEnabled || backgroundVisible);
 #endif
 
     m_Syncing = false;
@@ -551,6 +562,7 @@ void igQtShadingWidget::resetToDefaults() {
     m_ShininessSlider->setValue(kDefaultShininess);
 #ifndef __EMSCRIPTEN__
     m_EnvironmentEnabled->setChecked(true);
+    m_EnvironmentBackgroundVisible->setChecked(true);
     m_EnvironmentIntensity->setValue(1.0);
     m_EnvironmentRotation->setValue(0.0);
 #endif

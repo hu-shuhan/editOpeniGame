@@ -202,9 +202,11 @@ public:
     int GetSurfaceShadingMode() const;
 
 #ifndef __EMSCRIPTEN__
-    // Shared by desktop surface shaders; never drawn as the background.
+    // Desktop environment lighting and independently controlled background.
     void SetEnvironmentEnabled(bool enabled);
     bool GetEnvironmentEnabled() const { return m_EnvironmentEnabled; }
+    void SetEnvironmentBackgroundVisible(bool visible);
+    bool GetEnvironmentBackgroundVisible() const { return m_EnvironmentBackgroundVisible; }
     void SetEnvironmentIntensity(float intensity);
     float GetEnvironmentIntensity() const { return m_EnvironmentIntensity; }
     void SetEnvironmentRotation(float degrees);
@@ -378,11 +380,18 @@ public:
     bool GetGroundGridVisible() const;
 
 #ifndef __EMSCRIPTEN__
+    enum class GroundGridPlane { XY, XZ, YZ };
+    void SetGroundGridPlane(GroundGridPlane plane);
+    GroundGridPlane GetGroundGridPlane() const { return m_GroundGridPlane; }
+    void SetGroundGridReversed(bool reversed);
+    bool GetGroundGridReversed() const { return m_GroundGridReversed; }
+
     /**
      * @brief 依据当前可见模型的包围盒更新底板参数。
      *
-     * 底板是一层水平网格，位于内容包围盒底部（XZ 平面，y 为包围盒 ymin 略向
-     * 下沉）。参考格距按"最长边（含 Y）/ 10"自动选档（1/2/5 x 10^n），只在
+     * 底板位于所选平面的法向轴最小边界之外，反转后改为最大边界之外。
+     * 默认 XZ 平面（Y 最小侧），反转状态在切换平面时保留。
+     * 参考格距按"最长边 / 5"自动选档（1/2/5 x 10^n），只在
      * 内容变化时重算一次，同一批内容下参考格距固定；网格锚定世界原点，因此
      * 调整格距档位或扩大可见范围时，已有线都不会移动。
      *
@@ -930,6 +939,8 @@ protected:
 #ifndef __EMSCRIPTEN__
     // 桌面端解析式底板：不进模型池，不参与包围盒统计、相机取景与拾取。
     bool m_GroundGridVisible {true};  // 底板显示开关
+    GroundGridPlane m_GroundGridPlane {GroundGridPlane::XZ};
+    bool m_GroundGridReversed {false};
     bool m_GroundGridDirty {true};    // 需要重建底板几何
     bool m_GroundGridBuilt {false};   // 当前是否已有可用底板几何
     // 上一次加载过的"内容包围盒"：空场景时沿用它，使删掉/再加载同量级模型
@@ -1045,6 +1056,7 @@ protected:
 #ifndef __EMSCRIPTEN__
     SmartPointer<EnvironmentLight> m_EnvironmentLight;
     bool m_EnvironmentEnabled = true;
+    bool m_EnvironmentBackgroundVisible = true;
     float m_EnvironmentIntensity = 1.0f;
     float m_EnvironmentRotation = 0.0f;
 #endif
