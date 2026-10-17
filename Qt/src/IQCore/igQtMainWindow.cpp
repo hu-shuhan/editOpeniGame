@@ -682,6 +682,73 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     ThreadPool::Instance();
 }
 
+// 目标宽度：左栏右边缘与「文件与输出」分组工具栏的右边缘对齐
+int igQtMainWindow::leftDockAlignedWidth()
+{
+    if (QWidget* group = this->findChild<QWidget*>(QStringLiteral("toolbarContainer_toolBar_meshfile"))) {
+        if (group->isVisible() && group->width() > 0) {
+            const int rightX = group->mapTo(this, QPoint(group->width(), 0)).x();
+            if (rightX > 160) return qBound(280, rightX, 680);
+        }
+    }
+    return leftDockContentWidth();
+}
+
+void igQtMainWindow::applyLeftDockAlignment()
+{
+    if (!m_leftFieldDock || m_applyingLeftDockWidth) return;
+    QWidget* group = this->findChild<QWidget*>(QStringLiteral("toolbarContainer_toolBar_meshfile"));
+    if (!group || !group->isVisible() || group->width() <= 0) return;
+    const int aligned = leftDockAlignedWidth();
+    QDockWidget* props = modelTreeWidget ? modelTreeWidget->getPropertiesDock() : nullptr;
+    QDockWidget* visibleDock = m_leftFieldDock->isVisible() ? m_leftFieldDock : props;
+    if (visibleDock && visibleDock->width() == aligned) return;
+    m_applyingLeftDockWidth = true;
+    this->resizeDocks({m_leftFieldDock}, {aligned}, Qt::Horizontal);
+    if (props) this->resizeDocks({props}, {aligned}, Qt::Horizontal);
+    m_applyingLeftDockWidth = false;
+}
+
+void igQtMainWindow::startLeftDockAlignmentWatch()
+{
+    if (m_leftAlignTicks > 0) return;
+    m_leftAlignTicks = 20;
+    auto* timer = new QTimer(this);
+    timer->setInterval(120);
+    connect(timer, &QTimer::timeout, this, [this, timer]() {
+        applyLeftDockAlignment();
+        if (--m_leftAlignTicks <= 0) timer->stop();
+    });
+    timer->start();
+}
+
+int igQtMainWindow::leftDockContentWidth() const
+{
+    int w = 0;
+    const QList<QDockWidget*> panels = {
+        ui->dockWidget_ScalarField, ui->dockWidget_VectorField, ui->dockWidget_FlowField,
+        ui->dockWidget_TensorField, ui->dockWidget_ParallelCoordinatesField,
+        ui->dockWidget_VariableCorrelationField, ui->dockWidget_VariableDensityField,
+        ui->dockWidget_DataChangeField, ui->dockWidget_SelectionField,
+        ui->dockWidget_ContextPreservingShowField, ui->dockWidget_QualityDetection,
+        ui->dockWidget_EditMode, ui->dockWidget_ModelList, ui->dockWidget_ContourExtract
+    };
+    for (QDockWidget* dock : panels) {
+        if (!dock) continue;
+        w = qMax(w, qMax(dock->sizeHint().width(), dock->minimumSizeHint().width()));
+    }
+    if (m_leftFieldDock) {
+        w = qMax(w, qMax(m_leftFieldDock->sizeHint().width(), m_leftFieldDock->minimumSizeHint().width()));
+    }
+    if (modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
+        QDockWidget* props = modelTreeWidget->getPropertiesDock();
+        w = qMax(w, qMax(props->sizeHint().width(), props->minimumSizeHint().width()));
+    }
+    w += 24;
+    // 按左侧面板内容自适应：下限 360，上限 520
+    return qBound(360, w, 520);
+}
+
 void igQtMainWindow::initCustomTitleBar() {
     if (m_titleBar) return;
 
@@ -1298,9 +1365,11 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
-            const int curW = m_leftFieldDock->width();
-            const int targetW = qMax(curW + 40, 320);
+            const int targetW = leftDockContentWidth();
             this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
+            if (modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
+                this->resizeDocks({modelTreeWidget->getPropertiesDock()}, {targetW}, Qt::Horizontal);
+            }
         }
     });
 
@@ -6879,6 +6948,10 @@ void igQtMainWindow::hookResponsiveEvents() {
 void igQtMainWindow::applyResponsiveToolbarLayout() {
     // 重建式拟合：由 relayoutToolbarWrappers 统一决定图标尺寸（缩小/放大/换行）
     relayoutToolbarWrappers();
+
+    applyLeftDockAlignment();
+    QTimer::singleShot(0, this, [this]() { applyLeftDockAlignment(); });
+    startLeftDockAlignmentWatch();
 }
 
 void igQtMainWindow::showEvent(QShowEvent* event) {
