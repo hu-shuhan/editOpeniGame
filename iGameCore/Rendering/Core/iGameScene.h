@@ -682,6 +682,9 @@ public:
     /// 数据里是否存在可用的空白数组（上一次构建体数据时的探测结果）。
     bool GetVolumeRaycastMaskAvailable() const { return m_VolumeMaskAvailable; }
 
+    /// 当前是否有第二个体层（两个可见结构化模型一起体绘制）。
+    bool GetVolumeLayer2Enabled() const { return m_VolumeLayer2Enabled; }
+
     /**
      * @brief 体绘制的只读状态快照（供「体绘制」设置面板显示）。
      *
@@ -705,6 +708,7 @@ public:
         bool maskEnabled = false;      ///< 掩膜是否实际生效（模式 != 0 && 可用）
         float maskInvalidRatio = 0.0f; ///< 无效体素占比 0..1（诊断用）
         float shellOpacity = 0.9f;     ///< 实体模式的外壳不透明度
+        int layerCount = 1;            ///< 参与体绘制的层数（1 或 2）
         bool active = false;         ///< 最近 1.5 秒内是否发生过重绘（否则为空闲）
         double fps = 0.0;            ///< 实测帧率（1 秒滑动窗口）
         double gpuFrameTimeMs = 0.0; ///< GPU 帧时间（平滑值，整帧）
@@ -829,8 +833,14 @@ protected:
     // 构建默认传输函数 LUT（256x1 RGBA8）
     void BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
                                      float valueMin, float valueMax);
+    // 把传输函数 LUT 构建到指定纹理（第二体层复用同一套逻辑）
+    void BuildVolumeTransferFunctionInto(SmartPointer<GLTexture2d> target,
+                                         ScalarsToColors::Pointer colorMapper,
+                                         float valueMin, float valueMax);
     // 查找当前场景中的体数据来源（第一个可见的结构化网格）
     SmartPointer<DrawObject> FindVolumeSource();
+    // 查找第二个可见的结构化网格（与第一层不同的数据对象）作为第二体层
+    SmartPointer<DrawObject> FindVolumeSource2();
     void ClearSceneFramebuffer(float depth, int width, int height);
 
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
@@ -941,6 +951,9 @@ protected:
     // compute shader 光线步进体绘制相关（VolumeRenderingMode::Raycast）
     bool m_EnableVolumeRaycasting = false; // 是否启用光线步进体绘制
     bool m_VolumeDataDirty = true;         // 需要（重新）构建体数据
+    // 构建第二体层（第二个可见的结构化网格）；体素构建逻辑与 BuildVolumeData 相同
+    bool BuildVolumeLayer2(SmartPointer<DataObject> dataObject, int attributeIndex,
+                           int attributeDimension);
     SmartPointer<GLTexture3d> m_VolumeTexture3d; // 体数据 3D 纹理
     SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R8，1=有效）
     VolumeMaskMode m_VolumeMaskMode = VolumeMaskMode::Off; // 掩膜模式（默认关闭）
@@ -968,7 +981,25 @@ protected:
     // 每条光线的采样步数：现在直接在视口分辨率下步进，
     // 步数是主要性能开关（interactive 时可用 SetVolumeRaycastingQuality 调低）
     int m_VolumeStepCount = 128;
-    float m_VolumeOpacityScale = 0.1f;     // 不透明度缩放
+    // 不透明度缩放：alpha = LUT 不透明度 × 该值。
+    // 默认 LUT 不透明度为常数 1，此时它等价于“每个体素的 alpha 贡献”；
+    // 可用范围约 0.0001~0.005（再大很快饱和），默认取 0.001。
+    float m_VolumeOpacityScale = 0.001f;
+
+    // ---- 第二体层（两个可见结构化模型一起体绘制）----
+    // 只做“标量层”：第二层不参与掩膜/车壳，与第一层共用 opacityScale。
+    SmartPointer<GLTexture3d> m_VolumeTexture3d2;
+    SmartPointer<GLTexture2d> m_VolumeTransferFunction2;
+    SmartPointer<DataObject> m_VolumeSourceObject2;
+    unsigned int m_VolumeSourceMTime2 = 0;
+    int m_VolumeAttributeIndex2 = -1;
+    int m_VolumeAttributeDimension2 = -1;
+    unsigned int m_VolumeMapperMTime2 = 0;
+    igm::mat4 m_VolumeLocalToTexture2{1.0f};
+    igm::vec3 m_VolumeLocalMin2{0.0f, 0.0f, 0.0f};
+    igm::vec3 m_VolumeLocalExtent2{1.0f, 1.0f, 1.0f};
+    int m_VolumeDimension2[3] = {0, 0, 0};
+    bool m_VolumeLayer2Enabled = false;
     unsigned int m_VolumeFrameSeed = 0;     // 抖动种子（逐帧变化）
     // 以下三项为一次性自检开关：用于定位体绘制“不可见/无效果”的问题，
     // 稳定后可整体移除（对应 VolumeRaycastPass 中的诊断代码）

@@ -269,7 +269,8 @@ void igQtVolumeRenderingWidget::updateReadout(
     switch (info.mode) {
         case iGame::Scene::VolumeRenderingMode::Raycast:
             status = QStringLiteral(
-                    "当前：compute 光线步进（结构化网格），参数立即生效。");
+                    "当前：compute 光线步进（结构化网格），体层 %1，参数立即生效。")
+                             .arg(info.layerCount);
             if (info.maskAvailable) {
                 const int invalidPercent =
                         static_cast<int>(info.maskInvalidRatio * 100.0f + 0.5f);
@@ -404,16 +405,16 @@ void igQtVolumeRenderingWidget::onPresetChanged(int index) {
     switch (index) {
         case 1: // 快速预览
             steps = 128;
-            opacity = 0.05;
+            opacity = 0.0005;
             break;
         case 2: // 标准
             steps = 512;
-            opacity = 0.10;
+            opacity = 0.0010;
             break;
         case 3: { // 精细：按体数据推荐步数
             const int recommended = recommendedSteps();
             steps = recommended > 0 ? recommended : 1024;
-            opacity = 0.15;
+            opacity = 0.0015;
             break;
         }
         default:
@@ -452,7 +453,7 @@ void igQtVolumeRenderingWidget::onApplyClicked() { applyQuality(); }
 void igQtVolumeRenderingWidget::onResetClicked() {
     m_updating = true;
     ui->spinBox_Steps->setValue(128);
-    ui->doubleSpinBox_Opacity->setValue(0.1);
+    ui->doubleSpinBox_Opacity->setValue(0.001);
     ui->comboBox_Preset->setCurrentIndex(0);
     m_updating = false;
 

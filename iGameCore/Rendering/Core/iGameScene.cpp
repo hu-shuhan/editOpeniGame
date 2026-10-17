@@ -105,6 +105,8 @@ Scene::Scene() {
     m_VolumeTexture3d = GLTexture3d::New();
     m_VolumeMaskTexture3d = GLTexture3d::New();
     m_VolumeTransferFunction = GLTexture2d::New();
+    m_VolumeTexture3d2 = GLTexture3d::New();
+    m_VolumeTransferFunction2 = GLTexture2d::New();
 
     m_HzbWidth = 0;
     m_HzbHeight = 0;
@@ -167,6 +169,8 @@ void Scene::Finalize() {
     m_VolumeTexture3d = nullptr;
     m_VolumeMaskTexture3d = nullptr;
     m_VolumeTransferFunction = nullptr;
+    m_VolumeTexture3d2 = nullptr;
+    m_VolumeTransferFunction2 = nullptr;
     m_VolumeSourceObject = nullptr;
     m_HzbTexture = nullptr;
     m_Camera = nullptr;
@@ -1823,15 +1827,16 @@ void Scene::VolumeRenderingPass() {
     GLCheckError();
 }
 
-void Scene::BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
-                                        float valueMin, float valueMax) {
+void Scene::BuildVolumeTransferFunctionInto(SmartPointer<GLTexture2d> target,
+                                            ScalarsToColors::Pointer colorMapper,
+                                            float valueMin, float valueMax) {
 #ifdef IGAME_OPENGL_VERSION_460
-    if (m_VolumeTransferFunction == nullptr) { return; }
+    if (target == nullptr) { return; }
 
     // 256x1 传输函数 LUT：
     //  * 颜色：优先取数据对象的色标，使体绘制与表面绘制共用同一套颜色映射
-    //  * 不透明度：仅在勾选“不透明度映射”时取色标，否则用默认线性斜坡，
-    //    否则整块体数据会一步就变成完全不透明
+    //  * 不透明度：默认每个体素贡献相同（常数 1.0，由 opacityScale 整体调节）；
+    //    仅在勾选“不透明度映射”时才取色标的不透明度通道
     constexpr int kLutSize = 256;
     const float controlPos[3] = {0.0f, 0.5f, 1.0f};
     // 默认使用的三段式颜色映射：蓝-灰-红，若后期修改默认色标，记得同步这块
@@ -1871,11 +1876,13 @@ void Scene::BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
             }
         }
 
+        // 不透明度：默认每个体素贡献相同（常数 1.0，再由 opacityScale 整体调节）；
+        // 只有标量面板勾选“不透明度映射”时才改由色标的不透明度通道决定。
         const float alpha =
                 useMapperOpacity
                         ? colorMapper->GetOpacity(valueMin + t * valueRange,
                                                   shift, scale)
-                        : t;
+                        : 1.0f;
         for (int c = 0; c < 3; ++c) {
             lut[i * 4 + c] = static_cast<unsigned char>(
                     std::clamp(rgb[c], 0.0f, 1.0f) * 255.0f + 0.5f);
@@ -1885,17 +1892,23 @@ void Scene::BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
     }
 
     // 同上：immutable 纹理不能重复指定存储，需要重建纹理对象
-    m_VolumeTransferFunction->Destroy();
-    m_VolumeTransferFunction->Create();
-    m_VolumeTransferFunction->Storage(1, GL_RGBA8, kLutSize, 1);
-    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    m_VolumeTransferFunction->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    m_VolumeTransferFunction->SubImage(0, 0, 0, kLutSize, 1, GL_RGBA,
-                                       GL_UNSIGNED_BYTE, lut.data());
-    m_VolumeTransferFunction->Release();
+    target->Destroy();
+    target->Create();
+    target->Storage(1, GL_RGBA8, kLutSize, 1);
+    target->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    target->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    target->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    target->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    target->SubImage(0, 0, 0, kLutSize, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                     lut.data());
+    target->Release();
 #endif
+}
+
+void Scene::BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
+                                        float valueMin, float valueMax) {
+    this->BuildVolumeTransferFunctionInto(m_VolumeTransferFunction, colorMapper,
+                                          valueMin, valueMax);
 }
 
 bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
@@ -2407,6 +2420,183 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
 #endif
 }
 
+bool Scene::BuildVolumeLayer2(SmartPointer<DataObject> dataObject,
+                              int attributeIndex, int attributeDimension) {
+#ifdef IGAME_OPENGL_VERSION_460
+    m_VolumeLayer2Enabled = false;
+    if (dataObject == nullptr || m_VolumeTexture3d2 == nullptr ||
+        m_VolumeTransferFunction2 == nullptr) {
+        return false;
+    }
+
+    // 体素构建逻辑与 BuildVolumeData 相同（结构化网格 + 点/单元标量 →
+    // 归一化到 [0,1] 的 R16F 体纹理）。这里单独立一份，避免改动已稳定的单层路径。
+    auto structuredMesh = DynamicCast<StructuredMesh>(dataObject);
+    if (structuredMesh == nullptr) { return false; }
+
+    igIndex* dimension = structuredMesh->GetDimensionSize();
+    const igIndex nx = dimension[0], ny = dimension[1], nz = dimension[2];
+    if (nx <= 1 || ny <= 1 || nz <= 1) { return false; }
+
+    const IGsize pointCount = static_cast<IGsize>(nx) *
+                              static_cast<IGsize>(ny) *
+                              static_cast<IGsize>(nz);
+    if (structuredMesh->GetNumberOfPoints() != pointCount) { return false; }
+
+    auto attributeSet = structuredMesh->GetAttributeSet();
+    if (attributeSet == nullptr || attributeIndex < 0 ||
+        static_cast<size_t>(attributeIndex) >=
+                attributeSet->GetNumberOfAttributes()) {
+        return false;
+    }
+    auto& attribute =
+            attributeSet->GetAttribute(static_cast<IGsize>(attributeIndex));
+    if (attribute.pointer == nullptr) { return false; }
+
+    const int componentCount = attribute.pointer->GetDimension();
+    const IGsize elementCount = attribute.pointer->GetNumberOfElements();
+    const bool isPointData = attribute.attachmentType != IG_CELL;
+    const IGsize cellCount = static_cast<IGsize>(nx - 1) *
+                             static_cast<IGsize>(ny - 1) *
+                             static_cast<IGsize>(nz - 1);
+    if ((isPointData && elementCount != pointCount) ||
+        (!isPointData && elementCount != cellCount)) {
+        return false;
+    }
+
+    int component = attributeDimension;
+    if (componentCount <= 1) {
+        component = 0;
+    } else if (component < -1 || component >= componentCount) {
+        component = -1;
+    }
+
+    std::vector<float> voxels(static_cast<size_t>(pointCount), 0.0f);
+    float minValue = std::numeric_limits<float>::max();
+    float maxValue = std::numeric_limits<float>::lowest();
+    if (isPointData) {
+        for (IGsize i = 0; i < pointCount; ++i) {
+            const float value = static_cast<float>(
+                    attribute.pointer->GetElementValue(i, component));
+            voxels[static_cast<size_t>(i)] = value;
+            minValue = std::min(minValue, value);
+            maxValue = std::max(maxValue, value);
+        }
+    } else {
+        std::vector<unsigned int> counts(static_cast<size_t>(pointCount), 0u);
+        const IGsize cellsPerSlice =
+                static_cast<IGsize>(nx - 1) * static_cast<IGsize>(ny - 1);
+        for (igIndex k = 0; k + 1 < nz; ++k) {
+            for (igIndex j = 0; j + 1 < ny; ++j) {
+                for (igIndex ii = 0; ii + 1 < nx; ++ii) {
+                    const IGsize cellIndex =
+                            static_cast<IGsize>(ii) +
+                            static_cast<IGsize>(j) *
+                                    static_cast<IGsize>(nx - 1) +
+                            static_cast<IGsize>(k) * cellsPerSlice;
+                    const float value = static_cast<float>(
+                            attribute.pointer->GetElementValue(cellIndex,
+                                                               component));
+                    for (int corner = 0; corner < 8; ++corner) {
+                        const IGsize pi =
+                                static_cast<IGsize>(ii) + (corner & 1);
+                        const IGsize pj =
+                                static_cast<IGsize>(j) +
+                                ((corner >> 1) & 1);
+                        const IGsize pk =
+                                static_cast<IGsize>(k) +
+                                ((corner >> 2) & 1);
+                        const IGsize pointIndex =
+                                pi + pj * static_cast<IGsize>(nx) +
+                                pk * static_cast<IGsize>(nx) *
+                                        static_cast<IGsize>(ny);
+                        voxels[static_cast<size_t>(pointIndex)] += value;
+                        counts[static_cast<size_t>(pointIndex)] += 1u;
+                    }
+                    minValue = std::min(minValue, value);
+                    maxValue = std::max(maxValue, value);
+                }
+            }
+        }
+        for (size_t i = 0; i < voxels.size(); ++i) {
+            if (counts[i] > 0u) {
+                voxels[i] /= static_cast<float>(counts[i]);
+            }
+        }
+    }
+
+    const float valueRange = maxValue - minValue;
+    if (!(valueRange > 0.0f)) { return false; }
+    for (auto& value : voxels) { value = (value - minValue) / valueRange; }
+
+    const BoundingBox& localBox = structuredMesh->GetBoundingBox();
+    const igm::vec3 localMin{static_cast<float>(localBox.min[0]),
+                             static_cast<float>(localBox.min[1]),
+                             static_cast<float>(localBox.min[2])};
+    const igm::vec3 localMax{static_cast<float>(localBox.max[0]),
+                             static_cast<float>(localBox.max[1]),
+                             static_cast<float>(localBox.max[2])};
+    const igm::vec3 localExtent = localMax - localMin;
+    if (localExtent.x <= 0.0f || localExtent.y <= 0.0f ||
+        localExtent.z <= 0.0f) {
+        return false;
+    }
+
+    m_VolumeTexture3d2->Destroy();
+    m_VolumeTexture3d2->Create();
+    m_VolumeTexture3d2->Storage(1, GL_R16F, nx, ny, nz);
+    m_VolumeTexture3d2->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    m_VolumeTexture3d2->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_VolumeTexture3d2->Parameteri(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    m_VolumeTexture3d2->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    m_VolumeTexture3d2->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    m_VolumeTexture3d2->SubImage(0, 0, 0, 0, nx, ny, nz, GL_RED, GL_FLOAT,
+                                 voxels.data());
+    m_VolumeTexture3d2->Release();
+
+    m_VolumeLocalMin2 = localMin;
+    m_VolumeLocalExtent2 = localExtent;
+    m_VolumeLocalToTexture2 = igm::mat4{1.0f};
+    m_VolumeLocalToTexture2[0][0] = 1.0f / localExtent.x;
+    m_VolumeLocalToTexture2[1][1] = 1.0f / localExtent.y;
+    m_VolumeLocalToTexture2[2][2] = 1.0f / localExtent.z;
+    m_VolumeLocalToTexture2[3][0] = -localMin.x / localExtent.x;
+    m_VolumeLocalToTexture2[3][1] = -localMin.y / localExtent.y;
+    m_VolumeLocalToTexture2[3][2] = -localMin.z / localExtent.z;
+    m_VolumeDimension2[0] = static_cast<int>(nx);
+    m_VolumeDimension2[1] = static_cast<int>(ny);
+    m_VolumeDimension2[2] = static_cast<int>(nz);
+
+    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    auto colorMapper =
+            drawObject != nullptr ? drawObject->GetColorMapper() : nullptr;
+    this->BuildVolumeTransferFunctionInto(m_VolumeTransferFunction2,
+                                          colorMapper, minValue, maxValue);
+
+    m_VolumeSourceObject2 = dataObject;
+    m_VolumeSourceMTime2 = dataObject->GetMTime().GetMTime();
+    m_VolumeAttributeIndex2 = attributeIndex;
+    m_VolumeAttributeDimension2 = attributeDimension;
+    m_VolumeMapperMTime2 =
+            colorMapper != nullptr ? colorMapper->GetMTime().GetMTime() : 0u;
+    m_VolumeLayer2Enabled = true;
+
+    IGAME_RENDERING_INFO(
+            "[Scene::BuildVolumeData2] layer2: attribute {} (dimension {}), "
+            "scalar range [{}, {}], dims {}x{}x{}, local box [{}, {}, {}] - "
+            "[{}, {}, {}].",
+            attributeIndex, componentCount, minValue, maxValue, nx, ny, nz,
+            localMin.x, localMin.y, localMin.z, localMax.x, localMax.y,
+            localMax.z);
+    return true;
+#else
+    (void) dataObject;
+    (void) attributeIndex;
+    (void) attributeDimension;
+    return false;
+#endif
+}
+
 namespace {
 // 挑选适合作为体数据的标量场：优先使用绘制对象当前激活的属性，
 // 否则取第一个“挂在点上、维度为 1”的属性（跳过法线、矢量等）。
@@ -2496,6 +2686,23 @@ SmartPointer<DrawObject> Scene::FindVolumeSource() {
         }
     }
     return fallback;
+}
+
+SmartPointer<DrawObject> Scene::FindVolumeSource2() {
+    if (m_ModelPool == nullptr) { return nullptr; }
+
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (model == nullptr || !model->GetVisibility()) { continue; }
+
+        auto dataObject = model->GetDataObject();
+        if (dataObject == nullptr || !dataObject->IsDrawable()) { continue; }
+        if (DynamicCast<StructuredMesh>(dataObject) == nullptr) { continue; }
+        // 跳过第一层的数据对象
+        if (dataObject == m_VolumeSourceObject) { continue; }
+        return DynamicCast<DrawObject>(dataObject);
+    }
+    return nullptr;
 }
 
 bool Scene::BuildVolumeDataFromCurrentModel() {
@@ -2730,6 +2937,7 @@ Scene::VolumeRenderingInfo Scene::GetVolumeRenderingInfo() {
     info.maskInvalidRatio =
             m_VolumeMaskAvailable ? (1.0f - m_VolumeMaskValidRatio) : 0.0f;
     info.shellOpacity = m_VolumeShellOpacity;
+    info.layerCount = m_VolumeLayer2Enabled ? 2 : 1;
 
     // 帧率与 GPU 帧时间：帧时间来自 Draw() 里的 GL_TIME_ELAPSED 双缓冲查询，
     // 已经是平滑值；“active”用于区分“空闲不重绘”和“真的卡住”
@@ -2790,6 +2998,29 @@ void Scene::VolumeRaycastPass() {
                           drawObject->GetAttributeDimension() !=
                                   m_VolumeAttributeDimension ||
                           mapperMTime != m_VolumeMapperMTime;
+        }
+    }
+    // 第二体层的失效判定：可见结构化模型数量 / 属性 / 色标变化都要重建
+    if (!needRebuild) {
+        auto drawObject2 = this->FindVolumeSource2();
+        const bool hasSecond = drawObject2 != nullptr;
+        if (hasSecond != m_VolumeLayer2Enabled) {
+            needRebuild = true;
+        } else if (hasSecond) {
+            const int attributeIndex2 = PickVolumeScalarAttribute(
+                    drawObject2->GetAttributeSet(),
+                    drawObject2->GetAttributeIndex());
+            auto colorMapper2 = drawObject2->GetColorMapper();
+            const unsigned int mapperMTime2 =
+                    colorMapper2 != nullptr
+                            ? colorMapper2->GetMTime().GetMTime()
+                            : 0u;
+            needRebuild = attributeIndex2 != m_VolumeAttributeIndex2 ||
+                          drawObject2->GetAttributeDimension() !=
+                                  m_VolumeAttributeDimension2 ||
+                          mapperMTime2 != m_VolumeMapperMTime2 ||
+                          drawObject2->GetMTime().GetMTime() !=
+                                  m_VolumeSourceMTime2;
         }
     }
 
@@ -2855,6 +3086,28 @@ void Scene::VolumeRaycastPass() {
                 "{} steps, opacity scale {}.",
                 m_VolumeDimension[0], m_VolumeDimension[1], m_VolumeDimension[2],
                 m_VolumeStepCount, m_VolumeOpacityScale);
+        // 第二体层：第二个可见结构化网格（与第一层不同的数据对象）
+        auto drawObject2 = this->FindVolumeSource2();
+        if (drawObject2 != nullptr && m_VolumeTexture3d2 != nullptr) {
+            const int attributeIndex2 = PickVolumeScalarAttribute(
+                    drawObject2->GetAttributeSet(),
+                    drawObject2->GetAttributeIndex());
+            const int attributeDimension2 =
+                    drawObject2->GetAttributeDimension();
+            if (!this->BuildVolumeLayer2(drawObject2, attributeIndex2,
+                                         attributeDimension2)) {
+                m_VolumeLayer2Enabled = false;
+                IGAME_RENDERING_WARN(
+                        "[Scene::VolumeRaycastPass] second volume layer could "
+                        "not be built; draw single layer only.");
+            }
+        } else {
+            m_VolumeLayer2Enabled = false;
+            m_VolumeSourceObject2 = nullptr;
+        }
+        IGAME_RENDERING_INFO(
+                "[Scene::VolumeRaycastPass] volume layers active: {}.",
+                m_VolumeLayer2Enabled ? 2 : 1);
         checkGL("build volume data");
     }
 
@@ -2956,6 +3209,21 @@ void Scene::VolumeRaycastPass() {
 
     m_VolumeTransferFunction->Active(GL_TEXTURE2);
     shader->SetUniformi("transferFunction", 2);
+
+    // 第二体层（可选）：两个可见结构化模型一起体绘制
+    const bool twoLayers = m_VolumeLayer2Enabled &&
+                           m_VolumeTexture3d2 != nullptr &&
+                           m_VolumeTransferFunction2 != nullptr;
+    shader->SetUniformi("layerCount", twoLayers ? 2 : 1);
+    if (twoLayers) {
+        const igm::mat4 worldToTexture2 =
+                m_VolumeLocalToTexture2 * m_ModelMatrix.invert();
+        shader->SetUniformMatrix4x4("worldToTexture2", worldToTexture2);
+        m_VolumeTexture3d2->Active(GL_TEXTURE4);
+        shader->SetUniformi("volumeTexture2", 4);
+        m_VolumeTransferFunction2->Active(GL_TEXTURE5);
+        shader->SetUniformi("transferFunction2", 5);
+    }
     checkGL("bind volume textures");
 
     m_ColorTexture->BindImage(0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
