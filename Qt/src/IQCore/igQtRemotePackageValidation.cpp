@@ -27,6 +27,10 @@ bool IsRemoteReaderExtension(const QString& suffix)
 {
     static const QSet<QString> extensions = {
         QStringLiteral("vtk"), QStringLiteral("igc"), QStringLiteral("igcm"),
+        // IGV 与 igc/igcm 一样是无外部依赖的单文件容器，远程包内可直接放行。
+        // 这里**不**跟 IGV_ENABLE 门控：白名单回答的是"这个后缀属于哪种格式"，
+        // 与本地是否编译了该 reader 无关（模块关闭时 FileIO 会给出明确日志）。
+        QStringLiteral("igv"),
         QStringLiteral("obj"), QStringLiteral("off"), QStringLiteral("mesh"),
         QStringLiteral("stl"), QStringLiteral("ply"), QStringLiteral("xml"),
         QStringLiteral("pvd"),

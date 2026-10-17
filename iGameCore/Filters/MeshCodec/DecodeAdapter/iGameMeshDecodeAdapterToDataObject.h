@@ -288,8 +288,51 @@ private:
 
     void SetUnstructuredCellArray(CellArray::Pointer cells, UnsignedIntArray::Pointer types)
     {
-        UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(this->m_DataObj);
-        mesh->SetCells(cells, types);
+        // ⚠ 这里曾经是**无条件** `DynamicCast<UnstructuredMesh>(m_DataObj)` 然后直接
+        // `mesh->SetCells(...)`。当 `m_MeshType == IG_VOLUME_MESH` 时
+        // `m_DataObj` 是 VolumeMesh，**不是** UnstructuredMesh 的子类
+        // （VolumeMesh : SurfaceMesh : PointSet；UnstructuredMesh 是另一条分支），
+        // 于是 DynamicCast 返回 nullptr，紧接着的空指针解引用就是
+        // **0xC0000005 访问违例**。
+        //
+        // 触发路径（IGV P1 的 V1.9 首次覆盖到）：
+        //   .igv 里 IGVDataType=VolumeMesh → RebuildFromParsed() 走 else 分支
+        //   → 文件含 Types → AddUnstructuredFixedCells() → 本函数 → 崩溃。
+        // 也就是说：**读回任何 VolumeMesh 的 .igv 都会崩**，而不是报错。
+        // 之所以 P1 一直没发现，是因为当时没有任何夹具能产出 IG_VOLUME_MESH
+        // （VTK legacy 读入路径根本不建它，见 kia/测试模型列表.md §5.1）。
+        //
+        // 修法按 mesh 类型分派：UnstructuredMesh 用 SetCells（带 Types），
+        // VolumeMesh 用 SetVolumes（体数组即一级索引；它没有 SetCells，
+        // 其 Types 由 GetCellTypes() 从各体点数推导 —— 与 IGV 写侧的
+        // "无 Types 时由点数推类型" 对称）。
+        switch (this->m_MeshType)
+        {
+        case IG_UNSTRUCTURED_MESH:
+        {
+            UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(this->m_DataObj);
+            if (!mesh) { return; }
+            mesh->SetCells(cells, types);
+            break;
+        }
+        case IG_VOLUME_MESH:
+        {
+            VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(this->m_DataObj);
+            if (!mesh) { return; }
+            mesh->SetVolumes(cells);
+            break;
+        }
+        case IG_SURFACE_MESH:
+        {
+            SurfaceMesh::Pointer mesh = DynamicCast<SurfaceMesh>(this->m_DataObj);
+            if (!mesh) { return; }
+            mesh->SetFaces(cells);
+            break;
+        }
+        default:
+            // 其余类型（PointSet / StructuredMesh）不应走到这里。
+            break;
+        }
     }
 
     void SetCellArray(CellArray::Pointer cells)

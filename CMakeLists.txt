@@ -18,6 +18,9 @@ endif ()
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
 option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
+# IGV（iGameVis 通用格式，纯 HDF5 容器）。见 kia/igv分阶段实现方案.md §4.3 / A6。
+# 桌面默认 ON；EMSCRIPTEN 下强制 OFF（HDF5 未进 WASM 工具链，见 kia/未来任务.md）。
+option(ENABLE_IGV_MODULE "Enable IGV (HDF5-based iGameVis universal format) Module" ON)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 set(ENABLE_LIBTORCH_MODULE "CPU" CACHE STRING "Libtorch ThirdParty Module: OFF / GPU / CPU")
 set_property(CACHE ENABLE_LIBTORCH_MODULE PROPERTY STRINGS OFF GPU CPU)
@@ -33,6 +36,10 @@ set_property(CACHE IGAME_RENDER_BACKEND PROPERTY STRINGS DesktopGL GLES2)
 
 if (EMSCRIPTEN)
     set(ENABLE_QT_MODULE OFF CACHE BOOL "Build GUI/Qt Module." FORCE)
+    # A6：IGV 依赖 HDF5，WASM 工具链暂无 HDF5 目标，强制关闭（见 kia/未来任务.md）。
+    set(ENABLE_IGV_MODULE OFF CACHE BOOL "Enable IGV (HDF5-based iGameVis universal format) Module" FORCE)
+    message(STATUS "EMSCRIPTEN detected: ENABLE_IGV_MODULE forced OFF "
+                   "(IGV needs HDF5; see kia/igv分阶段实现方案.md A6)")
     if (NOT IGAME_RENDER_BACKEND STREQUAL "GLES2")
         message(STATUS "EMSCRIPTEN detected: switch IGAME_RENDER_BACKEND to GLES2")
         set(IGAME_RENDER_BACKEND "GLES2" CACHE STRING "Rendering backend: DesktopGL or GLES2" FORCE)

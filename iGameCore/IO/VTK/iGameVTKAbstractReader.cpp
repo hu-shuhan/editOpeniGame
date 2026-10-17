@@ -1,4 +1,4 @@
-﻿#include "iGameVTKAbstractReader.h"
+#include "iGameVTKAbstractReader.h"
 #include "iGameByteSwap.h"
 #include <vector>
 IGAME_NAMESPACE_BEGIN
@@ -1356,25 +1356,34 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             case iGame::VTKAbstractReader::QUADRATIC_PYRAMID:
                 mesh->AddCell(vhs.data(), size, IG_QUADRATIC_PYRAMID);
                 break;
+            // ---- 未支持的二次型 / 高阶单元：**显式拒绝，且不静默 ----
+            //
+            // 为什么把这十种从 `default: break` 里单独拎出来：IGV 的白名单
+            // （iGameCore/IO/IGV/iGameIGVCellType.h）把它们列为**可写**单元，
+            // 但本读取器**建不出**对应单元（见 kia/测试模型列表.md §4.1）。
+            // 若与 default 合并，文件会被读成"0 个单元"的空网格，而调用方
+            // 拿到的是一个看似合法的对象 —— 这是典型的"静默丢数据"。
+            //
+            // 现在改为显式报警，让 IGV 的 V1.8（高阶单元往返）能逐条给出
+            // "哪一种单元读不出来"，而不是只报一个 elementCount 不符。
+            //
+            // 补齐这十种需要 iGame 侧先有对应单元类与 `AddCell(type)` 支持；
+            // 在那之前，IGV 侧的正确行为是"文件能读的部分照读，读不出的部分报警"。
             case iGame::VTKAbstractReader::BIQUADRATIC_QUAD:
-                break;
             case iGame::VTKAbstractReader::TRIQUADRATIC_HEXAHEDRON:
-                break;
             case iGame::VTKAbstractReader::QUADRATIC_LINEAR_QUAD:
-                break;
             case iGame::VTKAbstractReader::QUADRATIC_LINEAR_WEDGE:
-                break;
             case iGame::VTKAbstractReader::BIQUADRATIC_QUADRATIC_WEDGE:
-                break;
             case iGame::VTKAbstractReader::BIQUADRATIC_QUADRATIC_HEXAHEDRON:
-                break;
             case iGame::VTKAbstractReader::BIQUADRATIC_TRIANGLE:
-                break;
             case iGame::VTKAbstractReader::CUBIC_LINE:
-                break;
             case iGame::VTKAbstractReader::QUADRATIC_POLYGON:
-                break;
             case iGame::VTKAbstractReader::TRIQUADRATIC_PYRAMID:
+            case iGame::VTKAbstractReader::LAGRANGE_CURVE:
+                igError("VTK cell type {} is in the IGV writable whitelist but this reader has no "
+                        "iGame cell for it; the cell is DROPPED. See the gap list in "
+                        "kia/ (test model list, section 4.1).", static_cast<int>(type));
+                ++skippedCells;
                 break;
             case iGame::VTKAbstractReader::POLYHEDRON: //42
             {

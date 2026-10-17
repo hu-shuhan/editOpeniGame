@@ -164,13 +164,14 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtr *.vtu "
-                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas *.ccm *.rst *.rth)",
+                           "*.vtm *.cgns *.odb *.igc *.igcm *.igv *.cas *.ccm *.rst *.rth)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
                            "Compression file(*.igc)",
                            "Compression Manifest file(*.igcm)",
+                           "IGV file(*.igv)",
                            "Fluent file(*.cas)",
                            "STAR-CCM+ file(*.ccm)",
                            "Ansys file(*.rst *.rth)"};
@@ -208,7 +209,7 @@ void igQtFileLoader::LoadFile() {
     #endif
     QStringList filters = {
         "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtr *.vtu "
-        "*.vtm *.cgns *.igc *.igcm *.cas *.ccm *.rst *.rth *.xml *.dat *.fld"
+        "*.vtm *.cgns *.igc *.igcm *.igv *.cas *.ccm *.rst *.rth *.xml *.dat *.fld"
 #if defined(AbqSDK_ENABLE)
         " *.odb"
 #endif
@@ -228,6 +229,7 @@ void igQtFileLoader::LoadFile() {
 #endif
         "Compression file(*.igc)",
         "Compression Manifest file(*.igcm)",
+        "IGV file(*.igv)",
         "Fluent file(*.cas)",
         "STAR-CCM+ file(*.ccm)",
         "Ansys file(*.rst *.rth)",
@@ -794,7 +796,7 @@ void igQtFileLoader::SaveFileAs() {
     if (!obj) return;
     std::string filePath = QFileDialog::getSaveFileName(nullptr, "Save file as ", "",
                                                         "Surface Mesh(*.obj *.off *.stl *.vtk);;Volume Mesh(*.mesh "
-                                                        "*.vtk *.ex2 *.e *.pvd *.vts *.vtm)")
+                                                        "*.vtk *.ex2 *.e *.pvd *.vts *.vtm);;IGV file(*.igv)")
                                    .toStdString();
     if (filePath.empty()) {
         igDebug("Could not save file with error file path\n");

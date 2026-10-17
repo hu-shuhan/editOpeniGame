@@ -519,6 +519,9 @@ bool testStandaloneDatasetEntryPoints()
     ok &= check("vtu", {"model.vtu"}, {vtu}, "model.vtu");
     QStringList genericExtensions = {
         QStringLiteral("vtk"), QStringLiteral("igc"), QStringLiteral("igcm"),
+        // IGV: see igQtRemotePackageValidation.cpp (kept in sync by
+        // kia/tools/CheckIGVQtIntegration.py).
+        QStringLiteral("igv"),
         QStringLiteral("obj"), QStringLiteral("off"), QStringLiteral("mesh"),
         QStringLiteral("stl"), QStringLiteral("ply"), QStringLiteral("xml"),
         QStringLiteral("inp"), QStringLiteral("cas"), QStringLiteral("bdf"),

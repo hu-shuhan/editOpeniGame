@@ -20,6 +20,10 @@ else ()
     set(_IGAME_EXAMPLE_CORE_LIBS ${IGAMEVIS_CORE_LIB_TARGETS})
 endif ()
 
+# HDF5：与 iGameCore 的 IGV 分支用**同一套跨平台查找**（config 模式优先，
+# Module 模式回退），不额外设任何选型变量 —— 让 CMake/HDF5 的包文件自行决定。
+# 若在此处强设变体（如 HDF5_USE_STATIC_LIBRARIES），可能选出与 iGameCore 不同的
+# 静态/共享组合，造成混链。
 find_package(HDF5 REQUIRED)
 find_package(FFMPEG QUIET)
 find_package(AbqSDK QUIET)
@@ -35,14 +39,39 @@ if (WIN32)
                 ${ABQ_LIB_LIST})
     endif ()
 
+    # HDF5 运行库（Windows 需要把 DLL 放到 exe 旁；其它平台为空即可）。
+    #
+    # 用 `$<TARGET_FILE:...>` 而不是拼路径 —— 这样不假定任何安装布局，
+    # 换 Linux/macOS 或换 HDF5 发行版都不用改这里。
+    # 目标名按"不同来源暴露的名字不同"逐个探测；静态库**不需要**部署（因此跳过）。
+    #
+    # 关于 TYPE：config 模式下目标名是 `hdf5::hdf5-shared`（SHARED_LIBRARY）；
+    # Module 模式下是 `HDF5::HDF5`，其 TYPE 为 UNKNOWN_LIBRARY（导入库无法判定
+    # 静态/动态）。两者都接受 —— 真正的判据是"这个目标有没有可拷贝的
+    # runtime 文件"，由 DeployExampleRuntime.cmake 用 EXISTS 兜住，比这里
+    # 猜目标类型更可靠。
     set(_IGAME_EXAMPLE_HDF5_RUNTIME "")
-    if (TARGET hdf5::hdf5-shared)
-        set(_IGAME_EXAMPLE_HDF5_RUNTIME "$<TARGET_FILE:hdf5::hdf5-shared>")
-    endif ()
+    set(_IGAME_HDF5_CANDIDATES hdf5::hdf5-shared HDF5::HDF5)
+    foreach (_cand IN LISTS _IGAME_HDF5_CANDIDATES)
+        if (TARGET ${_cand})
+            get_target_property(_candType ${_cand} TYPE)
+            if (_candType MATCHES "SHARED_LIBRARY|UNKNOWN_LIBRARY")
+                set(_IGAME_EXAMPLE_HDF5_RUNTIME "$<TARGET_FILE:${_cand}>")
+                break()
+            endif ()
+        endif ()
+    endforeach ()
+    unset(_cand)
+    unset(_candType)
 
+    # IGAME_CONFIG 用 $<CONFIG> 传入：多配置生成器（VS/Xcode）下 exe 在
+    # <binary>/Examples/<Config>/，DLL 必须落到同一个目录，否则 exe 启动即
+    # 0xC0000135（P1 实测过，见 DeployExampleRuntime.cmake 的说明）。
     add_custom_target(iGameDeployExampleRuntime
         COMMAND "${CMAKE_COMMAND}"
             "-DIGAME_RUNTIME_DESTINATION=${CMAKE_CURRENT_BINARY_DIR}"
+            "-DIGAME_CONFIG=$<CONFIG>"
+            "-DIGAME_RESOURCES_SOURCE=${CMAKE_CURRENT_BINARY_DIR}/Resources"
             "-DIGAME_TORCH_RUNTIME_DIR=${LIBTORCH_DIR}/lib"
             "-DIGAME_TORCH_BIN_DIR=${LIBTORCH_DIR}/bin"
             "-DIGAME_FFMPEG_RUNTIME_DIR=${FFMPEG_DLL_DIR}"
@@ -336,6 +365,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
+            "${EXAMPLE_TARGET}" STREQUAL "probeIGVTopologyLayers" OR
             "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
@@ -366,6 +396,7 @@ function(igame_register_example_test EXAMPLE_TARGET)
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
+        "${EXAMPLE_TARGET}" STREQUAL "probeIGVTopologyLayers" OR
         "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
         set(_VALIDATION_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
         if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -476,6 +507,52 @@ igame_add_example(testVertexReaderValidation IO/VertexReaderValidation.cpp)
 igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudValidation.cpp)
 igame_add_example(testPolylineWireframeValidation Rendering/PolylineWireframeValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
+
+# IGV 实现阶段 P1 的前置问题探针（回答 kia/P0实施记录.md §5.2 的 Q1/Q2/Q3）。
+# 它自带断言并返回非 0，因此按 validation 类目标注册（在可执行文件目录下运行，
+# 以便用 "Models/..." 相对路径找到夹具）。
+igame_add_example(probeIGVTopologyLayers IO/ProbeIGVTopologyLayers.cpp)
+
+# ---------------------------------------------------------------------------
+# IGV P1 的验收程序（设计文档 §9 P1 / kia/P1实施记录.md）
+#
+# 为什么包在 ENABLE_IGV_MODULE 里：IGV 的读写实现依赖 HDF5（IGV_ENABLE），
+# 模块关闭时 iGameCore 里根本不会编译 iGameIGVWriter.cpp / iGameIGVReader.cpp，
+# 注册这个目标会直接链接失败。这与 ENABLE_CGNS_MODULE 的写法同构。
+#
+# 需要显式链接 HDF5：本程序直接用 HDF5 C API 做结构断言
+# （dcpl 的 DEFLATE filter、dataspace 固定性、chunk 不切断记录），
+# 不把验收挂在外部 h5dump 可执行文件是否可启动上。
+# ---------------------------------------------------------------------------
+if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
+    igame_add_example(testIGVRoundTrip IO/TestIGVRoundTrip.cpp)
+    target_link_libraries(testIGVRoundTrip PUBLIC HDF5::HDF5)
+    target_compile_definitions(testIGVRoundTrip PUBLIC IGV_ENABLE)
+    # 把源码目录注入进去：测试程序用它定位 Models/ 与 kia/testdata/igv 的
+    # golden 样例，从而不依赖"当前工作目录"（跨平台 + 跨 IDE/CTest 都稳）。
+    target_compile_definitions(testIGVRoundTrip PRIVATE
+        IGAME_IGV_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+endif ()
+
+# ---------------------------------------------------------------------------
+# IGV P2 的验收程序（设计文档 §9 P2 / kia/P2实施记录.md）
+#
+# 与 testIGVRoundTrip 不同，本程序**不**链接 HDF5、只经 FileIO 分派，因此刻意
+# 注册在 ENABLE_IGV_MODULE 门控**之外**（只排除 Emscripten）：
+#   * 模块 ON ：验证 P2-3/4/5（主路径写/读、内存读）与 P2-8（既有格式零回归）；
+#   * 模块 OFF：同一份源码编译出的程序转而验证 P2-7（后缀仍被识别，I/O 明确失败）。
+# 若包在门控里，P2-7 就永远没有可运行的载体 —— 设计文档把它列为验收项，
+# 而 OFF 构建里连程序都不存在的话，这一项只能靠读代码"声称通过"。
+#
+# 不链接 HDF5 的直接好处：该 TU 不引入 IGV/HDF5 头，增量编译显著快于
+# testIGVRoundTrip（后者经 iGameIGVWriter.h 间接拉入 MeshEncoderFilter）。
+# ---------------------------------------------------------------------------
+if (NOT EMSCRIPTEN)
+    igame_add_example(testIGVFileIO IO/TestIGVFileIO.cpp)
+    # 与 testIGVRoundTrip 同一套资源定位：注入源码目录，供 P2-8 找 Examples/Models。
+    target_compile_definitions(testIGVFileIO PRIVATE
+        IGAME_IGV_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+endif ()
 
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)

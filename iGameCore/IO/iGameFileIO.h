@@ -41,6 +41,10 @@ public:
         D3PLOT,
         SPECTRAL_DAT,
         SPECTRAL_NEKTAR,
+        // IGV（iGameVis 通用格式，HDF5 容器）。按 kia/igv分阶段实现方案.md §9 P2
+        // 要求插入到 **FILETYPE_COUNT 之前**：既有取值一个都不变（已有格式的
+        // switch 分支因此零回归），只把计数加一。
+        IGV,
         FILETYPE_COUNT
     };
 
@@ -51,6 +55,10 @@ public:
     static DataObject::Pointer ReadVTUFromMemory(const void* data, size_t size);
     static DataObject::Pointer ReadVTPFromMemory(const void* data, size_t size);
     static DataObject::Pointer ReadIGCFromMemory(const void* data, size_t size);
+    // IGV（HDF5 容器）内存路径读入。与 ReadIGCFromMemory 同构。
+    // 返回 nullptr 表示失败（含 ENABLE_IGV_MODULE=OFF 的构建 —— 此时签名仍在，
+    // 只是不产生对象，UI 不会因为"少一个符号"而在链接期/运行期崩溃）。
+    static DataObject::Pointer ReadIGVFromMemory(const void* data, size_t size);
     static bool WriteFile(const std::string& file_name, DataObject::Pointer);
     static IGenum GetFileType(const std::string& file_name);
     static std::string GetFileTypeAsString(IGenum type);
