@@ -161,12 +161,13 @@ void ColorMap::InitColorBarWithTurboSoftType() {
     // Control-point positions remapped from the uniform Turbo spacing:
     // the cyan and orange bands are widened, while the blue/violet and red
     // ends are compressed, matching the reference color bar proportions.
-    static const float positions[17] = {
-            0.0000f, 0.0400f, 0.0900f, 0.1500f, 0.2200f, 0.3100f,
-            0.4000f, 0.4700f, 0.5400f, 0.6100f, 0.6800f, 0.7600f,
-            0.8400f, 0.9100f, 0.9500f, 0.9800f, 1.0000f};
-    static const float colors[17][3] = {
-            {0.1900f, 0.0718f, 0.2322f}, // violet blue
+    // Endpoints use the former second colors (the darkest violet / red ends
+    // are dropped); positions are renormalized to keep the non-uniform spread.
+    static const float positions[15] = {
+            0.0000f, 0.0532f, 0.1170f, 0.1915f, 0.2872f, 0.3830f,
+            0.4574f, 0.5319f, 0.6064f, 0.6809f, 0.7660f, 0.8511f,
+            0.9255f, 0.9681f, 1.0000f};
+    static const float colors[15][3] = {
             {0.2511f, 0.2524f, 0.6337f}, // blue
             {0.2763f, 0.4212f, 0.8912f}, // blue
             {0.2586f, 0.5796f, 0.9988f}, // sky blue
@@ -181,16 +182,15 @@ void ColorMap::InitColorBarWithTurboSoftType() {
             {0.9859f, 0.5091f, 0.1414f}, // orange red
             {0.9262f, 0.3247f, 0.0584f}, // red
             {0.8240f, 0.1918f, 0.0197f}, // dark red
-            {0.6754f, 0.0898f, 0.0045f}, // dark red
-            {0.4796f, 0.0158f, 0.0106f}  // darkest red
+            {0.6754f, 0.0898f, 0.0045f}  // dark red
     };
 
     m_ColorBar->Reset();
     m_ColorBar->SetDimension(3);
-    m_ColorBar->Reserve(17);
+    m_ColorBar->Reserve(15);
     m_ColorRange->Reset();
-    m_ColorRange->Reserve(17);
-    for (int i = 0; i < 17; ++i) {
+    m_ColorRange->Reserve(15);
+    for (int i = 0; i < 15; ++i) {
         m_ColorBar->AddElement3(colors[i][0], colors[i][1], colors[i][2]);
         m_ColorRange->AddValue(positions[i]);
     }
