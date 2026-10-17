@@ -179,6 +179,19 @@ bool EnvironmentLight::Initialize(const std::string& hdrPath,
     if (!render(diffuse, 32, 1, 1) || !render(specular, 128, 8, 2)) return false;
     m_Diffuse = diffuse;
     m_Specular = specular;
+    m_Environment = environment;
+    m_BackgroundProgram = GLShaderProgram::New();
+    m_BackgroundProgram->AddShaders(
+        GLShader::CreateShader(shaderDirectory + "/FullScreenTriangle.vert", GL_VERTEX_SHADER),
+        GLShader::CreateShader(shaderDirectory + "/EnvironmentBackground.frag", GL_FRAGMENT_SHADER));
+    glGetProgramiv(m_BackgroundProgram->ProgramID(), GL_LINK_STATUS, &linked);
+    if (linked == GL_TRUE) {
+        m_BackgroundVAO = GLVertexArray::New();
+        m_BackgroundVAO->Create();
+    } else {
+        m_BackgroundProgram = nullptr;
+        IGAME_RENDERING_WARN("Environment background shader unavailable. Using existing background.");
+    }
     m_Ready = true;
     IGAME_RENDERING_INFO("HDR environment ready: {} ({} x {})", hdrPath, width, height);
     return true;
@@ -187,8 +200,27 @@ bool EnvironmentLight::Initialize(const std::string& hdrPath,
 void EnvironmentLight::Release() {
     m_Diffuse = nullptr;
     m_Specular = nullptr;
+    m_Environment = nullptr;
+    m_BackgroundProgram = nullptr;
+    m_BackgroundVAO = nullptr;
     m_Attempted = false;
     m_Ready = false;
+}
+
+void EnvironmentLight::DrawBackground(const igm::mat4& view, const igm::mat4& projection,
+                                      float rotationDegrees,
+                                      int width, int height) const {
+    if (!m_Ready || !m_BackgroundProgram || width <= 0 || height <= 0) return;
+    CaptureState state;
+    // No depth test or depth writes: geometry, OIT and HZB see the original clear depth.
+    glViewport(0, 0, width, height);
+    m_BackgroundProgram->Use();
+    m_BackgroundProgram->SetUniformi("uEnvironment", 0);
+    m_BackgroundProgram->SetUniformMatrix4x4("uView", view);
+    m_BackgroundProgram->SetUniformMatrix4x4("uInverseProjection", projection.invert());
+    m_BackgroundProgram->SetUniformf("uRotation", rotationDegrees * (Pi / 180.0f));
+    m_Environment->Bind(0);
+    m_BackgroundVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
 void EnvironmentLight::Bind(const SmartPointer<GLShaderProgram>& shader,

@@ -86,6 +86,7 @@ private:
 
 #ifndef __EMSCRIPTEN__
     QCheckBox* m_EnvironmentEnabled{nullptr};
+    QCheckBox* m_EnvironmentBackgroundVisible{nullptr};
     QDoubleSpinBox* m_EnvironmentIntensity{nullptr};
     QDoubleSpinBox* m_EnvironmentRotation{nullptr};
 #endif

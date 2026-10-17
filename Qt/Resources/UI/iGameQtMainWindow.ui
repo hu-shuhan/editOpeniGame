@@ -1005,7 +1005,19 @@ QLabel#CustomTitleLabel {
     <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="separator"/>
     <addaction name="action_ShadingSettings"/>
-    <addaction name="action_ShowGroundGrid"/>
+    <widget class="QMenu" name="menu_GroundSettings">
+     <property name="title">
+      <string>底板设置</string>
+     </property>
+     <addaction name="action_ShowGroundGrid"/>
+     <addaction name="separator"/>
+     <addaction name="action_GroundPlaneXY"/>
+     <addaction name="action_GroundPlaneXZ"/>
+     <addaction name="action_GroundPlaneYZ"/>
+     <addaction name="separator"/>
+     <addaction name="action_ReverseGroundGrid"/>
+    </widget>
+    <addaction name="menu_GroundSettings"/>
    </widget>
    <widget class="QMenu" name="menu_filters">
     <property name="title">
@@ -1760,6 +1772,24 @@ QLabel#CustomTitleLabel {
    <property name="toolTip">
     <string>show Orientation Axes</string>
    </property>
+  </action>
+  <action name="action_GroundPlaneXY">
+   <property name="checkable"><bool>true</bool></property>
+   <property name="text"><string>X-Y 平面</string></property>
+  </action>
+  <action name="action_GroundPlaneXZ">
+   <property name="checkable"><bool>true</bool></property>
+   <property name="checked"><bool>true</bool></property>
+   <property name="text"><string>X-Z 平面</string></property>
+  </action>
+  <action name="action_GroundPlaneYZ">
+   <property name="checkable"><bool>true</bool></property>
+   <property name="text"><string>Y-Z 平面</string></property>
+  </action>
+  <action name="action_ReverseGroundGrid">
+   <property name="checkable"><bool>true</bool></property>
+   <property name="text"><string>反转底板</string></property>
+   <property name="toolTip"><string>切换底板所在侧，以负轴方向作为上方</string></property>
   </action>
   <action name="action_ShowGroundGrid">
    <property name="checkable">
