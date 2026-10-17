@@ -227,6 +227,12 @@ private:
     void addToolbarTitle(QToolBar* toolbar, const QString& title, int iconSizePx);
     void relayoutToolbarWrappers();
     void initCustomTitleBar();
+    int leftDockContentWidth() const;
+    int leftDockAlignedWidth();
+    void applyLeftDockAlignment();
+    void startLeftDockAlignmentWatch();
+    int m_leftAlignTicks{0};
+    bool m_applyingLeftDockWidth{false};
 
     void applyStyleMode(int mode);
     QString styleSheetForMode(int mode) const;
