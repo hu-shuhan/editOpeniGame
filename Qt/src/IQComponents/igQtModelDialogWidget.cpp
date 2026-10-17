@@ -976,6 +976,10 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 
     updateCurrentModelProperty(model);
     updateCurrentModelInfo();
+#ifndef __EMSCRIPTEN__
+    // 仅文件导入请求适配；算法生成的临时结果不改变底板基准。
+    if (source == ItemSource::File) { scene->RequestGroundGridFit(); }
+#endif
     //QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     //std::cout << "add current model: " << currentItem << std::endl;
     return id;
