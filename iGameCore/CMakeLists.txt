@@ -71,6 +71,10 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Rendering/OpenGL>
 
 )
+# Header-only libigl subset for closest-surface attribute reconstruction.
+set_property(SOURCE Filters/DataProcessing/Simplification/iGameMeshAttributeTransfer.cpp
+        APPEND PROPERTY INCLUDE_DIRECTORIES ${IGAMEVIS_ROOT_DIR}/ThirdParty/libigl/include)
+
 set(ThirdParty_lib_dependency)
 list(APPEND ThirdParty_lib_dependency
         freetype

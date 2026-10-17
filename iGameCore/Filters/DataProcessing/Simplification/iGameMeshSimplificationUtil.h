@@ -185,9 +185,10 @@ public:
     }
 
     // Error(v) = |r| / w = |平面方程|^2
-    double Error(const FVector& v) {
+    double Error(const FVector& v, bool divideByArea = true) {
         // 按w加权的均方距离
         double r = Evaluate(v);
+        if (!divideByArea) { return std::abs(r); }
         double s = w == 0. ? 0. : 1. / w;
 
         return std::abs(r) * s;

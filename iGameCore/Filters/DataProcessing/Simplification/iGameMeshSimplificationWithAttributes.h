@@ -10,6 +10,11 @@
 
 class MeshSimplifierWithAttributes {
 public:
+    enum class AttributePenaltyMethod {
+        EndpointPrediction,
+        LegacyFaceResidual
+    };
+
     std::vector<FVector>& Vertices;
     std::vector<int>& Indices;
     std::vector<std::vector<float>>& Attributes;
@@ -33,11 +38,13 @@ public:
     // 顶点的邻接面关系
     FVertexAdjacency VertexAdjacency;
 
-    float Lambda = 0.5f; // 属性误差权重
+    double Lambda = 0.1; // 属性误差权重 beta
 
     bool UseVertexImportance = true;
     bool UseDynamicAttributePenalty = true;
-    double VertexImportanceScale = 10.0;
+    AttributePenaltyMethod PenaltyMethod = AttributePenaltyMethod::EndpointPrediction;
+    double VertexImportanceScale = 5.0;
+    bool DivideGeometricErrorByArea = true;
 
     int VertexCount = 0;
     int IndexCount = 0;
@@ -66,7 +73,12 @@ public:
 
     void SetUseDynamicAttributePenalty(bool enabled) { UseDynamicAttributePenalty = enabled; }
 
+    void SetAttributePenaltyMethod(AttributePenaltyMethod method) { PenaltyMethod = method; }
+
+    void SetAttributePenaltyWeight(double beta) { Lambda = beta; }
+
     void SetVertexImportanceScale(double scale) { VertexImportanceScale = scale; }
+    void SetDivideGeometricErrorByArea(bool enabled) { DivideGeometricErrorByArea = enabled; }
 
     static void ComputeLPCA(std::vector<FVector>& V, std::vector<int>& F, std::vector<std::vector<float>>& A,
                             std::vector<double>& VertexImportance);
@@ -76,6 +88,14 @@ public:
 
     // 入口函数
     bool Execute();
+
+    // Set an exact triangle budget without converting it through a ratio.
+    // Legal-collapse constraints may leave more triangles than requested.
+    bool SetTargetFaceCount(int faces) {
+        if (faces < 1 || faces > IndexCount / 3) return false;
+        TargetCount = faces * 3;
+        return true;
+    }
 
 private:
     void ComputeVertexImportanceUsingLPCA();
@@ -88,6 +108,10 @@ private:
 
     void InitializeQuadrics();
 
+    double PredictCollapsedAttribute(int i0, int i1, int k, const FVector& position,
+                                     double areaWeight) const;
+    double ComputeAttributePenalty(int i0, int i1, const FVector& position) const;
+    double ComputeLegacyAttributePenalty(int i0, int i1, const FVector& position) const;
     FCollapseNode ComputeEdgeCost(int i0, int i1);
 
     size_t BuildEdgeCollapses();
