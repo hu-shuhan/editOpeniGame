@@ -427,7 +427,11 @@ bool iGameCompositePass::CompositeBinarySwap() {
     // rank 0：叠背景色输出不透明 RGBA8 + 非空 ROI（与其它合成路径口径一致）。
     m_ResultRGBA.assign(static_cast<size_t>(N) * 4, 0);
     FlattenToBackground(fullFrame, m_Background, width * height, m_ResultRGBA);
-    ComputeResultROIFromFullFrame();
+    if (m_TransparentROI) {
+        ComputeResultROIFromPremultiplied(fullFrame);
+    } else {
+        ComputeResultROIFromFullFrame();
+    }
     ctx->Barrier();
     return true;
 }
@@ -514,7 +518,7 @@ bool iGameCompositePass::CompositeDenseGather() {
         m_ResultWidth = width;
         m_ResultHeight = height;
         CompositeOnRoot(size, allRGBA);
-        ComputeResultROIFromFullFrame();
+        if (!m_TransparentROI) { ComputeResultROIFromFullFrame(); }
     } else {
         m_ResultWidth = width;
         m_ResultHeight = height;
@@ -566,6 +570,50 @@ void iGameCompositePass::ComputeResultROIFromFullFrame() {
         std::memcpy(m_ResultROIRGBA.data() +
                             static_cast<size_t>(y) * m_ResultROIW * 4,
                     src, static_cast<size_t>(m_ResultROIW) * 4);
+    }
+}
+
+// 从「预乘 alpha 全帧」里扫出 alpha!=0 的外接矩形，并切出预乘 RGBA 子矩形
+// （alpha 保留，供客户端叠自己的背景；仅 rank 0 调用）。
+void iGameCompositePass::ComputeResultROIFromPremultiplied(
+        const std::vector<unsigned char>& src) {
+    const int w = m_ResultWidth;
+    const int h = m_ResultHeight;
+    m_ResultROIX = 0;
+    m_ResultROIY = 0;
+    m_ResultROIW = 0;
+    m_ResultROIH = 0;
+    m_ResultROIRGBA.clear();
+    if (w <= 0 || h <= 0 ||
+        src.size() < static_cast<size_t>(w) * h * 4) {
+        return;
+    }
+
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (int y = 0; y < h; ++y) {
+        const unsigned char* row = src.data() + static_cast<size_t>(y) * w * 4;
+        for (int x = 0; x < w; ++x) {
+            if (row[x * 4 + 3] != 0) {
+                if (x < x0) { x0 = x; }
+                if (x > x1) { x1 = x; }
+                if (y < y0) { y0 = y; }
+                if (y > y1) { y1 = y; }
+            }
+        }
+    }
+    if (x1 < x0 || y1 < y0) { return; }
+
+    m_ResultROIX = x0;
+    m_ResultROIY = y0;
+    m_ResultROIW = x1 - x0 + 1;
+    m_ResultROIH = y1 - y0 + 1;
+    m_ResultROIRGBA.resize(static_cast<size_t>(m_ResultROIW) * m_ResultROIH * 4);
+    for (int y = 0; y < m_ResultROIH; ++y) {
+        const unsigned char* row =
+                src.data() + (static_cast<size_t>(y0 + y) * w + x0) * 4;
+        std::memcpy(m_ResultROIRGBA.data() +
+                            static_cast<size_t>(y) * m_ResultROIW * 4,
+                    row, static_cast<size_t>(m_ResultROIW) * 4);
     }
 }
 
@@ -792,16 +840,22 @@ bool iGameCompositePass::CompositeSparse() {
             for (int x = 0; x < uw; ++x) {
                 const float* ap = arow + static_cast<size_t>(x) * 4;
                 const float inv = 1.0f - ap[3];
-                const unsigned char rr =
-                        toUChar(ap[0] + m_Background[0] * inv);
-                const unsigned char gg =
-                        toUChar(ap[1] + m_Background[1] * inv);
-                const unsigned char bb =
-                        toUChar(ap[2] + m_Background[2] * inv);
-                drow[x * 4 + 0] = rr;
-                drow[x * 4 + 1] = gg;
-                drow[x * 4 + 2] = bb;
-                drow[x * 4 + 3] = 255;
+                if (m_TransparentROI) {
+                    // 预乘 alpha 输出：背景（alpha=0）交给客户端叠它自己的背景。
+                    drow[x * 4 + 0] = toUChar(ap[0]);
+                    drow[x * 4 + 1] = toUChar(ap[1]);
+                    drow[x * 4 + 2] = toUChar(ap[2]);
+                    drow[x * 4 + 3] = toUChar(ap[3]);
+                } else {
+                    drow[x * 4 + 0] = toUChar(ap[0] + m_Background[0] * inv);
+                    drow[x * 4 + 1] = toUChar(ap[1] + m_Background[1] * inv);
+                    drow[x * 4 + 2] = toUChar(ap[2] + m_Background[2] * inv);
+                    drow[x * 4 + 3] = 255;
+                }
+                // 全帧结果始终是不透明背景（批渲染 / 交互窗口口径不变）。
+                const unsigned char rr = toUChar(ap[0] + m_Background[0] * inv);
+                const unsigned char gg = toUChar(ap[1] + m_Background[1] * inv);
+                const unsigned char bb = toUChar(ap[2] + m_Background[2] * inv);
                 frow[x * 4 + 0] = rr;
                 frow[x * 4 + 1] = gg;
                 frow[x * 4 + 2] = bb;
@@ -818,6 +872,8 @@ void iGameCompositePass::CompositeOnRoot(
         int size, const std::vector<unsigned char>& allRGBA) {
     const int n = m_Width * m_Height;
     m_ResultRGBA.assign(static_cast<size_t>(n) * 4, 0);
+    std::vector<unsigned char> premul;
+    if (m_TransparentROI) { premul.assign(static_cast<size_t>(n) * 4, 0); }
 
     auto toUChar = [](float v) {
         const float c = std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f;
@@ -850,6 +906,16 @@ void iGameCompositePass::CompositeOnRoot(
         m_ResultRGBA[out + 1] = toUChar(c1 + m_Background[1] * inv);
         m_ResultRGBA[out + 2] = toUChar(c2 + m_Background[2] * inv);
         m_ResultRGBA[out + 3] = 255;
+        if (m_TransparentROI) {
+            premul[out + 0] = toUChar(c0);
+            premul[out + 1] = toUChar(c1);
+            premul[out + 2] = toUChar(c2);
+            premul[out + 3] = toUChar(a);
+        }
+    }
+
+    if (m_TransparentROI) {
+        ComputeResultROIFromPremultiplied(premul);
     }
 }
 

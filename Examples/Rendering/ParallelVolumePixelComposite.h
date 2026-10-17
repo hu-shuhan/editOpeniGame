@@ -262,10 +262,12 @@ inline void MergePiecesByDepth(const std::vector<unsigned char>& aRGBA,
 
 // 逐像素合成 + 稀疏 ROI 汇聚的 rank0 端核心（纯函数，方便离线对拍）：
 //   入参 pieces 是各 rank 的本地片（只有 rank0 调用时才有内容）；
-//   输出 outFull（w*h*4，叠背景、不透明）、outROI（4 个 int）与 outROIRGBA。
+//   输出 outFull（w*h*4，叠背景、不透明）、outROI（4 个 int）与 outROIRGBA；
+//   transparentROI=true 时 outROIRGBA 是预乘 alpha（alpha=0 为背景），供客户端叠背景。
 //   平均/最大候选数通过 maxCand / sumCand 回传，便于观察 rank0 的计算量。
 inline void CompositePiecesDepthSorted(const std::vector<Piece>& pieces, int width,
                                        int height, const float bg[3], int tileSize,
+                                       bool transparentROI,
                                        std::vector<unsigned char>& outFull, int outROI[4],
                                        std::vector<unsigned char>& outROIRGBA,
                                        int& maxCand, double& sumCand) {
@@ -277,6 +279,18 @@ inline void CompositePiecesDepthSorted(const std::vector<Piece>& pieces, int wid
     }
     outROI[0] = outROI[1] = outROI[2] = outROI[3] = 0;
     outROIRGBA.clear();
+
+    // 防御：若某个 rank 的 ROI 超出本帧范围，说明各 rank 的渲染分辨率不一致（例如 LOD
+    // 开关没有广播）。此时继续写会越界，直接放弃本帧并让调用方看到空 ROI。
+    for (const Piece& pc : pieces) {
+        if (pc.Empty()) { continue; }
+        if (pc.x0 < 0 || pc.y0 < 0 || pc.x0 + pc.w > width ||
+            pc.y0 + pc.h > height) {
+            std::cerr << "[pixelwise] piece ROI out of frame bounds "
+                         "(image size mismatch across ranks).\n";
+            return;
+        }
+    }
 
     // 1) 并集 ROI（与块级稀疏路径一致：各 rank ROI 的并集，而不是重新扫描结果图）
     int ux0 = width, uy0 = height, ux1 = -1, uy1 = -1;
@@ -352,15 +366,23 @@ inline void CompositePiecesDepthSorted(const std::vector<Piece>& pieces, int wid
                 for (const Cand& c : cand) { OverPremul(acc, c.px); }
             }
             const float inv = 1.0f - acc[3];
+            const std::size_t ro =
+                    (static_cast<std::size_t>(y - uy0) * uw + (x - ux0)) * 4;
+            if (transparentROI) {
+                // 预乘 alpha 输出：alpha=0 处交给客户端叠它自己的背景（如渐变背景）。
+                outROIRGBA[ro + 0] = ToUChar(acc[0]);
+                outROIRGBA[ro + 1] = ToUChar(acc[1]);
+                outROIRGBA[ro + 2] = ToUChar(acc[2]);
+                outROIRGBA[ro + 3] = ToUChar(acc[3]);
+            } else {
+                outROIRGBA[ro + 0] = ToUChar(acc[0] + bg[0] * inv);
+                outROIRGBA[ro + 1] = ToUChar(acc[1] + bg[1] * inv);
+                outROIRGBA[ro + 2] = ToUChar(acc[2] + bg[2] * inv);
+                outROIRGBA[ro + 3] = 255;
+            }
             const unsigned char rr = ToUChar(acc[0] + bg[0] * inv);
             const unsigned char gg = ToUChar(acc[1] + bg[1] * inv);
             const unsigned char bb = ToUChar(acc[2] + bg[2] * inv);
-            const std::size_t ro =
-                    (static_cast<std::size_t>(y - uy0) * uw + (x - ux0)) * 4;
-            outROIRGBA[ro + 0] = rr;
-            outROIRGBA[ro + 1] = gg;
-            outROIRGBA[ro + 2] = bb;
-            outROIRGBA[ro + 3] = 255;
             const std::size_t fo = (static_cast<std::size_t>(y) * width + x) * 4;
             outFull[fo + 0] = rr;
             outFull[fo + 1] = gg;
@@ -401,6 +423,38 @@ inline void ComputeROIFromFullFrame(const std::vector<unsigned char>& full, int 
         const unsigned char* row = full.data() + static_cast<std::size_t>(y) * w * 4;
         for (int x = 0; x < w; ++x) {
             if (row[x * 4 + 0] || row[x * 4 + 1] || row[x * 4 + 2]) {
+                if (x < x0) { x0 = x; }
+                if (x > x1) { x1 = x; }
+                if (y < y0) { y0 = y; }
+                if (y > y1) { y1 = y; }
+            }
+        }
+    }
+    if (x1 < x0 || y1 < y0) { return; }
+    roi[0] = x0;
+    roi[1] = y0;
+    roi[2] = x1 - x0 + 1;
+    roi[3] = y1 - y0 + 1;
+    outROIRGBA.resize(static_cast<std::size_t>(roi[2]) * roi[3] * 4);
+    for (int y = 0; y < roi[3]; ++y) {
+        const unsigned char* src =
+                full.data() + (static_cast<std::size_t>(y0 + y) * w + x0) * 4;
+        std::memcpy(outROIRGBA.data() + static_cast<std::size_t>(y) * roi[2] * 4, src,
+                    static_cast<std::size_t>(roi[2]) * 4);
+    }
+}
+
+// 从「预乘 alpha 全帧」里扫 alpha!=0 的外接矩形并切出预乘 ROI（alpha 保留，供客户端叠背景）。
+inline void ExtractPremultipliedROI(const std::vector<unsigned char>& full, int w, int h,
+                                    int roi[4], std::vector<unsigned char>& outROIRGBA) {
+    roi[0] = roi[1] = roi[2] = roi[3] = 0;
+    outROIRGBA.clear();
+    if (w <= 0 || h <= 0 || full.size() < static_cast<std::size_t>(w) * h * 4) { return; }
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (int y = 0; y < h; ++y) {
+        const unsigned char* row = full.data() + static_cast<std::size_t>(y) * w * 4;
+        for (int x = 0; x < w; ++x) {
+            if (row[x * 4 + 3]) {
                 if (x < x0) { x0 = x; }
                 if (x > x1) { x1 = x; }
                 if (y < y0) { y0 = y; }
@@ -488,6 +542,13 @@ public:
         m_Background[2] = b;
     }
 
+    /**
+     * ROI 是否保留预乘 alpha + 透明背景（默认 false = 叠背景色输出不透明 ROI）。
+     * true 时客户端把 ROI 叠到自己的背景上：dst = src + dst * (1 - src.a)。
+     */
+    void SetTransparentROI(bool use) { m_TransparentROI = use; }
+    bool GetTransparentROI() const { return m_TransparentROI; }
+
     /** true = 走 binary-swap 交换（对标 --binary-swap）；false = 走稀疏 ROI 汇聚（--direct）。 */
     void SetUseBinarySwapComposite(bool use) { m_UseBinarySwap = use; }
     bool GetUseBinarySwapComposite() const { return m_UseBinarySwap; }
@@ -513,7 +574,7 @@ public:
     int GetResultROIW() const { return m_ResultROIW; }
     int GetResultROIH() const { return m_ResultROIH; }
 
-    /** 合成结果中 ROI 子矩形的不透明 RGBA8（roiW*roiH*4），仅 rank 0 有效。 */
+    /** 合成结果中 ROI 子矩形（roiW*roiH*4，默认不透明；SetTransparentROI(true) 时预乘 alpha）。 */
     const std::vector<unsigned char>& GetResultROIRGBA() const { return m_ResultROIRGBA; }
 
     /** 上一帧的诊断量（仅 rank 0）：逐像素候选的最大值/平均值，配合性能分析用。 */
@@ -642,8 +703,9 @@ private:
         }
         int roi[4] = {0, 0, 0, 0};
         detail::CompositePiecesDepthSorted(pieces, w, h, m_Background, m_TileSize,
-                                           m_ResultRGBA, roi, m_ResultROIRGBA,
-                                           m_LastMaxCand, m_LastAvgCand);
+                                           m_TransparentROI, m_ResultRGBA, roi,
+                                           m_ResultROIRGBA, m_LastMaxCand,
+                                           m_LastAvgCand);
         m_ResultROIX = roi[0];
         m_ResultROIY = roi[1];
         m_ResultROIW = roi[2];
@@ -816,8 +878,14 @@ private:
         // 4) rank0：叠背景 + 扫非背景外接矩形（与块级全图路径口径一致）
         detail::FlattenToBackground(fullFrame, m_Background, N, m_ResultRGBA);
         int roi[4] = {0, 0, 0, 0};
-        detail::ComputeROIFromFullFrame(m_ResultRGBA, m_Width, m_Height, roi,
-                                        m_ResultROIRGBA);
+        if (m_TransparentROI) {
+            // 预乘 alpha ROI：全帧结果仍是不透明背景，ROI 保留 alpha 交给客户端叠背景。
+            detail::ExtractPremultipliedROI(fullFrame, m_Width, m_Height, roi,
+                                            m_ResultROIRGBA);
+        } else {
+            detail::ComputeROIFromFullFrame(m_ResultRGBA, m_Width, m_Height, roi,
+                                            m_ResultROIRGBA);
+        }
         m_ResultROIX = roi[0];
         m_ResultROIY = roi[1];
         m_ResultROIW = roi[2];
@@ -832,6 +900,7 @@ private:
     std::vector<float> m_LocalDepth;
     double m_BlockDepth{0.0};
     float m_Background[3]{0.0f, 0.0f, 0.0f};
+    bool m_TransparentROI{false};
     bool m_UseBinarySwap{false};
     int m_TileSize{32};
 

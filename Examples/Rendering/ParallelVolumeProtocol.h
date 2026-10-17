@@ -20,6 +20,14 @@
 //          缩放因子（0.9=拉近，1.1=拉远），interactiveFlag 0=松手/高清，1=拖动/低清。
 //        NEXT\n / PREV\n
 //          多帧播放切帧（N 键下一帧 / P 键上一帧，越界自动回绕）；服务端切帧后渲染一帧回传。
+//        ORBIT <0|1>\n
+//          O 键自动轨道相机（Toggle Orbit Camera）：1=开启。开启时服务端把镜头对准被渲染
+//          模型（按当前帧包围盒重新取景、FOV 与距离固定，禁止缩放），随后以模型中心为轴
+//          做双轴转台运动（方位角连续旋转，俯仰角三角波上下扫掠）；0=关闭，相机停在当前朝向。
+//        AUTOPLAY <0|1>\n
+//          A 键自动播放（Toggle Auto Play）：1=开启。服务端按固定时间间隔（--autoplay-interval，
+//          默认 2s/帧）自动切帧，方向取「最近一次 N/P 的方向」，从未按过 N/P 时默认向后
+//          （+1，即 NEXT）；播放过程中收到 N/P 会自动关闭自动播放。0=关闭。单帧数据下该命令被忽略。
 //        EXIT\n
 //   3) 帧（server -> client，二进制，每次合成后一帧）：
 //        uint32 magic    = 0x50564631 ("PVF1")
@@ -28,7 +36,12 @@
 //        int32  codec    = 0（raw RGBA8）/ 1（zlib 压缩 RGBA8）
 //        uint32 seq      = 触发本帧的 INTERACT 命令 seq（初始帧/无命令 = 0）
 //        int32  payloadSize = width*height*4
-//        uint8  payload[payloadSize]   // 不透明 RGBA8（合成结果，已叠背景色）
+//        uint8  payload[payloadSize]   // ROI 子矩形的「预乘 alpha」RGBA8（alpha=0 为背景）
+//
+// 说明：服务端合成时开启「透明背景 ROI」——alpha 是体数据的累计不透明度、RGB 是预乘颜色，
+// 客户端把它叠到自己的背景上（本前端是「顶部 #2A2D34 / 底部 #121316」的竖直渐变）：
+//     out = src + dst * (1 - src.a)
+// 这样 ROI 之外与 ROI 之内 alpha=0 的像素都显示客户端背景，不必为背景额外传整屏。
 //
 // 说明：codec=0 走 raw RGBA8（实现最小）；codec=1 走 zlib(compress2) 压缩的 RGBA8，服务端
 // 压缩后更小才用 codec=1，否则退回 codec=0；客户端按 codec 用 uncompress 解压。帧头布局
@@ -264,6 +277,23 @@ inline bool DrainNonBlock(PVSocket s, std::string& buf) {
     }
 }
 
+// 等待 socket 可读（用于服务端动画期间「有命令就处理、到点就出下一帧」的定时循环）。
+// timeoutMs < 0 表示无限阻塞；返回 1=可读，0=超时（含被信号打断），-1=出错/断开。
+inline int WaitReadable(PVSocket s, int timeoutMs) {
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(s, &rfds);
+    timeval tv;
+    tv.tv_sec = timeoutMs / 1000;
+    tv.tv_usec = (timeoutMs % 1000) * 1000;
+    const int ready = select(static_cast<int>(s) + 1, &rfds, nullptr, nullptr,
+                             timeoutMs < 0 ? nullptr : &tv);
+    if (ready < 0) {
+        return (LastError() == PV_EINTR) ? 0 : -1;
+    }
+    return ready > 0 ? 1 : 0;
+}
+
 // 从 buf 中弹出首行（含 '\n' 之前的内容）；无完整行返回 false。
 inline bool PopLine(std::string& buf, std::string& line) {
     const std::size_t pos = buf.find('\n');
@@ -472,6 +502,16 @@ inline bool ParseInteractCommand(const std::string& line, std::uint32_t& seq,
 // 拼接一条切帧命令（client -> server）：step = +1 下一帧（NEXT）、-1 上一帧（PREV）。
 inline std::string MakeFrameStepCommand(int step) {
     return (step > 0) ? std::string("NEXT\n") : std::string("PREV\n");
+}
+
+// 拼接自动轨道相机开关命令（O 键，client -> server）。
+inline std::string MakeOrbitCommand(bool on) {
+    return on ? std::string("ORBIT 1\n") : std::string("ORBIT 0\n");
+}
+
+// 拼接自动播放开关命令（A 键，client -> server）。
+inline std::string MakeAutoPlayCommand(bool on) {
+    return on ? std::string("AUTOPLAY 1\n") : std::string("AUTOPLAY 0\n");
 }
 
 } // namespace iGamePVNet

@@ -49,6 +49,18 @@ public:
     void SetBackgroundColor(float r, float g, float b);
 
     /**
+     * ROI 输出是否保留「预乘 alpha + 透明背景」（默认 false：叠背景色输出不透明 ROI）。
+     *
+     * @details
+     *  置 true 时 GetResultROIRGBA() 里的 alpha 是体数据累计不透明度（背景处 alpha=0），
+     *  RGB 为预乘颜色，供 C/S 前端把 ROI 叠到自己的背景（例如垂直渐变背景）上：
+     *      dst = src + dst * (1 - src.a)
+     *  全帧结果 GetResultRGBA() 仍然是不透明背景（批渲染/交互窗口口径不变）。
+     */
+    void SetTransparentROI(bool use) { m_TransparentROI = use; }
+    bool GetTransparentROI() const { return m_TransparentROI; }
+
+    /**
      * 执行分布式合成。所有 rank 必须同时调用。
      * @return 所有 rank 一致返回；false 表示各 rank 图像尺寸不一致（无法合成）。
      */
@@ -113,7 +125,11 @@ public:
     int GetResultROIY() const { return m_ResultROIY; }
     int GetResultROIW() const { return m_ResultROIW; }
     int GetResultROIH() const { return m_ResultROIH; }
-    /** 合成结果中 ROI 子矩形的不透明 RGBA8（roiW*roiH*4），仅 rank 0 有效。 */
+    /**
+     * 合成结果中 ROI 子矩形（roiW*roiH*4），仅 rank 0 有效。
+     * 默认叠背景色后输出不透明 RGBA8；SetTransparentROI(true) 时是「预乘 alpha + 透明
+     * 背景」（alpha=0 为背景），供客户端叠自己的背景。
+     */
     const std::vector<unsigned char>& GetResultROIRGBA() const {
         return m_ResultROIRGBA;
     }
@@ -143,6 +159,8 @@ private:
     bool CompositeBinarySwap();
     // 从已合成的全帧结果里扫出非背景像素外接矩形，填充 m_ResultROI*（仅 rank 0）。
     void ComputeResultROIFromFullFrame();
+    // 从「预乘 alpha 全帧」里扫出 alpha!=0 的外接矩形并切出预乘 ROI（仅 rank 0）。
+    void ComputeResultROIFromPremultiplied(const std::vector<unsigned char>& src);
 
     int m_Width{0};
     int m_Height{0};
@@ -150,6 +168,7 @@ private:
     std::vector<float> m_LocalDepth;
     double m_BlockDepth{0.0};
     float m_Background[3]{0.0f, 0.0f, 0.0f};
+    bool m_TransparentROI{false}; // ROI 是否保留预乘 alpha（供客户端叠自己的背景）
 
     std::vector<int> m_SortOrder;      // 全局排序（近 -> 远），所有 rank 一致
     bool m_UseSparseComposite{true};   // 稀疏 ROI 合成开关（默认开）

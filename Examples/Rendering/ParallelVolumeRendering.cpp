@@ -3,8 +3,8 @@
 //
 // CLI（命名参数，默认 CPU 后端）：
 //   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu]
-//             [--interactive] [--server [--port <n>]] [-f <field>]
-//             [--direct|--binary-swap] [--blockwise|--pixelwise]
+//             [--interactive] [--server [--port <n>] [--autoplay-interval <ms>]]
+//             [-f <field>] [--direct|--binary-swap] [--blockwise|--pixelwise]
 //     -i, --input <file>   输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
 //     -f, --field <name>   直接指定渲染字段（srun 批处理无 stdin 时必需）
 //     -t, --timestep <n>   PVD 时间步（默认 0；非 PVD 忽略）
@@ -19,6 +19,8 @@
 //                          图像合成策略：稀疏 ROI 汇聚（默认）/ binary-swap 交换
 //         --blockwise / --pixelwise
 //                          合成的深度口径：块级超块中心深度（默认）/ 逐像素首命中深度
+//         --autoplay-interval <ms>
+//                          A 键自动播放的换帧间隔（默认 2000 = 2 秒一帧，仅 --server）
 // 未指定 --field 时，启动后 rank0 列出该数据可渲染的字段（点/单元标量、向量），提示按
 // 名称或编号选择，随后把所选字段广播给所有 rank。
 //
@@ -254,6 +256,8 @@ struct CliOptions {
     double hqStepScale{1.5}; // 松手（高清）每步跨越多少个体素
     double lqStepScale{4.0}; // 拖动（低清）每步跨越多少个体素
     int lqDivisor{2};   // 拖动时的分辨率除数（2 => 512x512）
+    // A 键自动播放的换帧间隔（毫秒，仅 --server）：默认 2000 = 2 秒一帧。
+    int autoPlayIntervalMs{2000};
     bool showHelp{false};
     bool valid{false};
 };
@@ -322,6 +326,9 @@ void PrintUsage(const char* prog) {
             << "                           setting (default 4.0).\n"
             << "      --lq-div <n>         Resolution divisor while dragging (default 2,\n"
             << "                           i.e. 1024 -> 512).\n"
+            << "      --autoplay-interval <ms>\n"
+            << "                           A-key autoplay frame interval in milliseconds\n"
+            << "                           (default 2000 = 2 s per frame; --server only).\n"
             << "  -h, --help               Show this help.\n"
             << "\n"
             << "Examples:\n"
@@ -443,6 +450,14 @@ CliOptions ParseCli(int argc, char** argv) {
             opts.lqDivisor = std::atoi(argv[++i]);
             continue;
         }
+        if (a == "--autoplay-interval") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.autoPlayIntervalMs = std::atoi(argv[++i]);
+            continue;
+        }
 
         std::cerr << "Error: unknown option '" << a << "'. Use -h for help.\n";
         return opts; // valid = false
@@ -452,6 +467,9 @@ CliOptions ParseCli(int argc, char** argv) {
     if (!(opts.hqStepScale > 0.0)) { opts.hqStepScale = 1.5; }
     if (!(opts.lqStepScale > 0.0)) { opts.lqStepScale = 4.0; }
     if (opts.lqDivisor < 1) { opts.lqDivisor = 1; }
+    // 自动播放间隔：非正值回落默认 2s；下限 10ms，避免误配成忙等。
+    if (opts.autoPlayIntervalMs <= 0) { opts.autoPlayIntervalMs = 2000; }
+    if (opts.autoPlayIntervalMs < 10) { opts.autoPlayIntervalMs = 10; }
     if (!opts.input.empty()) { opts.valid = true; }
     return opts;
 }
@@ -916,13 +934,77 @@ int main(int argc, char** argv) {
         // 流式回传（对标 MiniPVServer）。仅 CPU 后端；其余 rank 全程无头参与集合通信。
         if (cli.server) {
             const double radius = globalBounds.diag() / 2.0;
+
+            // 每帧的全局包围盒：O 键轨道相机要求「按当前帧的模型包围盒取景」，多帧数据
+            // 各帧的几何范围可能不同。各 rank 只上报自己这一帧的局部包围盒，经
+            // AllReduce(MIN/MAX) 后所有 rank 得到同一份结果（每帧 2 次小消息集合操作，
+            // 只在 --server 分支启动时做一次）。
+            std::vector<double> frameCentersXYZ(
+                    static_cast<std::size_t>(numFrames) * 3, 0.0);
+            std::vector<double> frameRadii(static_cast<std::size_t>(numFrames),
+                                           radius);
+            for (int f = 0; f < numFrames; ++f) {
+                double localMin[3] = {
+                        std::numeric_limits<double>::infinity(),
+                        std::numeric_limits<double>::infinity(),
+                        std::numeric_limits<double>::infinity()};
+                double localMax[3] = {
+                        -std::numeric_limits<double>::infinity(),
+                        -std::numeric_limits<double>::infinity(),
+                        -std::numeric_limits<double>::infinity()};
+                const auto& vol = volumes[static_cast<std::size_t>(f)];
+                if (vol) {
+                    const BoundingBox& vb = vol->GetBoundingBox();
+                    for (int a = 0; a < 3; ++a) {
+                        localMin[a] = vb.min[a];
+                        localMax[a] = vb.max[a];
+                    }
+                }
+                double gmin[3], gmax[3];
+                ctx->AllReduce(localMin, gmin, 3, ParallelContext::ReduceOp::Min);
+                ctx->AllReduce(localMax, gmax, 3, ParallelContext::ReduceOp::Max);
+
+                bool ok = true;
+                for (int a = 0; a < 3; ++a) {
+                    if (!std::isfinite(gmin[a]) || !std::isfinite(gmax[a]) ||
+                        gmax[a] < gmin[a]) {
+                        ok = false;
+                    }
+                }
+                const std::size_t base = static_cast<std::size_t>(f) * 3;
+                if (!ok) {
+                    // 该帧在全局都没有有效体：退回全局包围盒（不改变旧行为）。
+                    const Vector3d c = globalBounds.center();
+                    for (int a = 0; a < 3; ++a) { frameCentersXYZ[base + a] = c[a]; }
+                    frameRadii[static_cast<std::size_t>(f)] = radius;
+                    continue;
+                }
+                double ext[3];
+                for (int a = 0; a < 3; ++a) {
+                    frameCentersXYZ[base + a] = (gmin[a] + gmax[a]) * 0.5;
+                    ext[a] = gmax[a] - gmin[a];
+                }
+                const double r =
+                        0.5 * std::sqrt(ext[0] * ext[0] + ext[1] * ext[1] +
+                                        ext[2] * ext[2]);
+                frameRadii[static_cast<std::size_t>(f)] = (r > 0.0) ? r : radius;
+            }
+            if (rank == 0 && !frameRadii.empty()) {
+                std::cerr << "[server] per-frame bounds: " << numFrames
+                          << " frame(s), radius[0]=" << frameRadii.front()
+                          << ", radius[last]=" << frameRadii.back()
+                          << "; autoplay interval = " << cli.autoPlayIntervalMs
+                          << " ms\n";
+            }
+
             const int rc = iGamePVServer::RunServer(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
                     cli.port, cli.useBinarySwap, volumes, masks,
                     numFrames, startFrame, selectedField, voxelSize,
                     cli.hqStepScale, cli.lqStepScale, cli.lqDivisor,
-                    cli.usePixelwise);
+                    cli.usePixelwise, frameCentersXYZ, frameRadii,
+                    cli.autoPlayIntervalMs);
             ParallelContext::Finalize();
             return rc;
         }

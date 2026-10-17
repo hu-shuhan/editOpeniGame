@@ -11,6 +11,15 @@
 // 与 RunInteractive（阶段 5）的区别仅在于「rank 0 的显示端」被替换成「socket 发送」，
 // 相机轨道 / LOD / 渲染 / 合成逻辑完全一致，便于逐像素对照。
 //
+// 动画交互（服务端定时驱动，客户端只发一条开关命令）：
+//   - ORBIT 1/0（O 键 Toggle Orbit Camera）：把镜头对准被渲染模型（按当前帧包围盒重新
+//     取景，FOV 固定在 45°、取景距离一次算好且轨道中不缩放），随后以模型中心为轴做
+//     「双轴转台」运动：方位角连续旋转，俯仰角在 ±30° 之间用三角波缓慢扫掠（端点短缓动）；
+//   - AUTOPLAY 1/0（A 键 Toggle Auto Play）：按 --autoplay-interval（默认 2s/帧）自动
+//     切帧，方向取最近一次 N/P 的方向（从未按过则默认向后）；播放中收到 N/P 会自动关闭。
+// 这两条路径都不依赖客户端继续发命令，因此动画速度不会被客户端显示循环（X11 转发下
+// 可能只有 2~3Hz）拖慢；服务端等命令时用 select 超时，动画开启就不会阻塞在 recv 上。
+//
 // 持久服务：一个客户端断开 / EXIT / 发送失败后，服务端回到 accept 等下一个客户端，
 // 不会退出整个 MPI 作业；只有被外部终止（scancel / Ctrl+C）才会停止。
 //
@@ -80,6 +89,27 @@ namespace iGamePVServer {
 // 对标 UnifiedVersion/MiniPVServer.cpp:266 的 kMaxSendQueueBytes = 512KB。
 inline constexpr int kMaxSendQueueBytes = 512 * 1024;
 
+// ---------------------------------------------------------------------------
+// O 键自动轨道相机（Toggle Orbit Camera）与 A 键自动播放（Toggle Auto Play）
+// ---------------------------------------------------------------------------
+// 两者都由服务端定时推进（而不是靠客户端按显示循环发命令）：
+//   - 客户端只发一条 ORBIT 1/0 或 AUTOPLAY 1/0，之后即使不再发任何命令，
+//     服务端也会持续出帧；这样动画速度与客户端显示循环（X11 转发下可能只有 2~3Hz）解耦。
+//   - 服务端等待命令时用 select 超时，动画开启就不会阻塞在 recv 上。
+inline constexpr int kOrbitIntervalMs = 40;       // 轨道相机最高出帧间隔（25fps 上限）
+inline constexpr int kDefaultAutoPlayIntervalMs = 2000; // A 键自动播放默认换帧间隔（2s）
+inline constexpr float kOrbitFixedFovDeg = 45.0f; // 固定垂直 FOV（不随交互变化）
+inline constexpr double kOrbitFitMargin = 1.06;    // 取景余量（模型外接球外留一点边）
+// O 键轨道相机 = 双轴转台（Two-axis Turntable / Azimuth-Elevation Camera）：
+//   - 方位角连续旋转（一圈约 18s）；
+//   - 俯仰角在 ±30° 之间缓慢上下扫掠，用「三角波 + 端点短缓动」而不是正弦：
+//     中段匀速、到端点用很短的加减速折返，避免正弦在端点自然减速后长时间「停在」极限角。
+// 周期/摆幅/缓动时长固定在代码里（不开放参数）。
+inline constexpr double kOrbitAzimDegPerSec = 20.0;       // 方位角连续旋转速度（度/秒）
+inline constexpr double kOrbitElevMaxDeg = 30.0;          // 俯仰扫掠的极限角（±度）
+inline constexpr double kOrbitElevHalfPeriodSec = 8.0;    // 俯仰从 -A 到 +A 的时间（秒）
+inline constexpr double kOrbitElevRampSec = 0.7;          // 俯仰折返处的短缓动时长（秒）
+
 // 从传输函数颜色映射器构建 256 像素 RGBA8 colorbar ramp（仅颜色，alpha 恒 255）。
 // 与服务端握手时发给客户端，供其重建左下角 colorbar 渐变纹理。
 inline void BuildColorbarRamp(iGame::iGameVolumeTransferFunction* tf,
@@ -127,15 +157,63 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      const std::string& fieldName,
                      double voxelSize = 0.0, double hqStepScale = 1.5,
                      double lqStepScale = 4.0, int lqDivisor = 2,
-                     bool usePixelwise = false) {
+                     bool usePixelwise = false,
+                     const std::vector<double>& frameCentersXYZ = {},
+                     const std::vector<double>& frameRadii = {},
+                     int autoPlayIntervalMs = kDefaultAutoPlayIntervalMs) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
+
+    // 多帧播放：当前帧序号（0..numFrames-1）。所有 rank 保持一致（由 frameStep 广播驱动）。
+    int curFrame = startFrame;
+
+    // 每帧的全局包围盒（由 ParallelVolumeRendering.cpp 的 --server 分支用 AllReduce 汇总
+    // 后传入）。O 键自动轨道相机按「当前帧」的模型包围盒取景；数组为空时退回全局包围盒，
+    // 因此其它调用方/单帧数据的行为与旧版一致。
+    auto frameCenter = [&](int f) -> const double* {
+        const std::size_t base = static_cast<std::size_t>(f) * 3;
+        if (f >= 0 && base + 3 <= frameCentersXYZ.size() &&
+            static_cast<std::size_t>(f) < frameRadii.size()) {
+            return &frameCentersXYZ[base];
+        }
+        return gcenter;
+    };
+    auto frameRadius = [&](int f) -> double {
+        if (f >= 0 && static_cast<std::size_t>(f) < frameRadii.size() &&
+            frameRadii[static_cast<std::size_t>(f)] > 0.0) {
+            return frameRadii[static_cast<std::size_t>(f)];
+        }
+        return radius;
+    };
+    // 采样步数护栏取所有帧里最大的包围球半径（切帧不改变步长上限）。
+    double maxFrameRadius = radius;
+    for (double r : frameRadii) {
+        if (r > maxFrameRadius) { maxFrameRadius = r; }
+    }
 
     // 相机轨道状态（仅 rank 0 维护；其余 rank 只接收广播后的绝对相机参数）。
     double azimuth = 0.0;      // 方位角（弧度）
     double elevation = 0.0;    // 仰角（弧度）
-    const double diag = radius * 2.0;
-    double distance = radius * 3.0;
+    double distance = frameRadius(startFrame) * 3.0;
+
+    // O 键 / A 键动画状态（仅 rank 0 读写；每 accept 一个新客户端时重置）。
+    bool orbitActive = false;    // 自动轨道相机开
+    bool autoPlayActive = false; // 自动播放开
+    int autoPlayDir = 1;         // 最近一次 N/P 的方向（+1=NEXT，-1=PREV）；未按过默认 +1
+    // 双轴转台状态：方位角连续累加；俯仰角用「半周期时间 + 方向」描述的三角波
+    // （orbitElevation 是滤波/缓动后的当前仰角）。*Offset 是轨道期间用户拖动叠加的偏移
+    // （允许用户边看动画边手动微调朝向，不破坏「模型中心 + 固定距离」的约束）。
+    double orbitAzimuth = 0.0;
+    double orbitElevTime = kOrbitElevHalfPeriodSec * 0.5; // 从 0° 开始向上扫掠
+    int orbitElevDir = 1;     // +1 = 向上，-1 = 向下
+    double orbitElevation = 0.0;
+    double orbitAzimOffset = 0.0;
+    double orbitElevOffset = 0.0;
+    std::chrono::steady_clock::time_point orbitLastTick;
+    std::chrono::steady_clock::time_point orbitNextTick;
+    std::chrono::steady_clock::time_point autoNextTick;
+    // A 键换帧间隔（毫秒）：由 --autoplay-interval 传入，默认 kDefaultAutoPlayIntervalMs。
+    const int autoPlayMs = std::max(10, autoPlayIntervalMs);
 
     // 持久相机参数（每帧由 rank 0 计算并广播）。
     double camPos[3] = {0.0, 0.0, 0.0};
@@ -144,9 +222,6 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
     // 触发本帧的 INTERACT 命令序号（rank 0 维护，随帧回传给客户端测 RTT）。
     std::uint32_t frameSeq = 0;
-
-    // 多帧播放：当前帧序号（0..numFrames-1）。所有 rank 保持一致（由 frameStep 广播驱动）。
-    int curFrame = startFrame;
 
     // ---------- socket 监听 / 接受（仅 rank 0） ----------
     // 注意：任何 rank 0 侧的 socket 失败都必须通过 Broadcast 通知所有 rank 一起退出，
@@ -207,9 +282,18 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     // 每个新客户端从默认 +Z 视角、全新交互状态开始（不继承上一个客户端的轨道/帧序号）。
     azimuth = 0.0;
     elevation = 0.0;
-    distance = radius * 3.0;
+    distance = frameRadius(startFrame) * 3.0;
     frameSeq = 0;
     curFrame = startFrame;
+    orbitActive = false;    // O 键状态每个会话重新开始
+    autoPlayActive = false; // A 键状态每个会话重新开始
+    autoPlayDir = 1;        // 本会话还没按过 N/P → 默认向后播放
+    orbitAzimuth = 0.0;   // 方位角从正面开始连续旋转
+    orbitElevTime = kOrbitElevHalfPeriodSec * 0.5; // 仰角从 0° 开始向上扫掠
+    orbitElevDir = 1;
+    orbitElevation = 0.0;
+    orbitAzimOffset = 0.0;
+    orbitElevOffset = 0.0;
     // 新客户端回到起始帧：把光线步进器输入切回起始帧（上一客户端可能切到过别的帧）。
     if (numFrames > 1) {
         rayCaster->SetInput(volumes[static_cast<size_t>(startFrame)]);
@@ -295,11 +379,60 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     // （步长固定后，薄超块只跑几十步就出块）。上限取全局对角线/步长 + 余量。
     auto sampleCap = [&](float step) -> int {
         if (!(step > 0.0f)) { return 512; }
-        const double n = std::ceil(2.0 * radius / static_cast<double>(step)) + 16.0;
+        const double n =
+                std::ceil(2.0 * maxFrameRadius / static_cast<double>(step)) + 16.0;
         return static_cast<int>(std::clamp(n, 8.0, 8192.0));
     };
     const int hqMaxSamples = hasGlobalStep ? sampleCap(hqStep) : 512;
     const int lqMaxSamples = hasGlobalStep ? sampleCap(lqStep) : 128;
+
+    // O 键轨道相机的固定取景距离：把「当前帧模型包围球」完整放进视锥所需的最小距离
+    // （d = R / sin(半视场角)），再留 kOrbitFitMargin 的边。
+    // 关键点：
+    //   - FOV 固定在 kOrbitFixedFovDeg（垂直 45°），水平半角由宽高比推出，取二者更紧的一个
+    //     —— 任意方位角下模型都不会出画；
+    //   - 距离在一次开启时算好并保持，轨道过程中不缩放（滚轮被忽略）。
+    auto FitOrbitDistance = [&](int f) -> double {
+        const double fr = frameRadius(f);
+        const double aspect = static_cast<double>(std::max(1, hqW)) /
+                              static_cast<double>(std::max(1, hqH));
+        const double halfV = 0.5 * static_cast<double>(kOrbitFixedFovDeg) *
+                             (3.14159265358979323846 / 180.0);
+        const double halfH = std::atan(std::tan(halfV) * aspect);
+        const double half = std::min(halfV, halfH);
+        const double s = std::sin(std::max(half, 1e-6));
+        const double d = fr / s * kOrbitFitMargin;
+        return std::max(d, fr * 1.001); // 保证近裁剪面落在模型之前
+    };
+
+    // 俯仰角推进：三角波 + 端点短缓动。
+    // 每个半周期 H 内从 -A 扫到 +A（或反向），速度曲线是「加速 R → 匀速 → 减速 R」的梯形：
+    // 中段匀速，折返处只有 R 秒的短缓动；不会像正弦那样在极限角附近自然减速、长时间停住。
+    auto AdvanceOrbitElevation = [&](double dt) {
+        const double kPi = 3.14159265358979323846;
+        const double A = kOrbitElevMaxDeg * (kPi / 180.0);
+        const double H = std::max(kOrbitElevHalfPeriodSec, 1e-3);
+        const double R = std::clamp(kOrbitElevRampSec, 1e-3, H * 0.25);
+        const double v = 2.0 * A / (H - R); // 匀速段角速度
+        const double a = v / R;             // 缓动段角加速度
+        orbitElevTime += dt;
+        while (orbitElevTime >= H) {
+            orbitElevTime -= H;
+            orbitElevDir = -orbitElevDir;
+        }
+        const double t = orbitElevTime;
+        double swept = 0.0; // 本半周期已扫过的角度（0..2A）
+        if (t < R) {
+            swept = 0.5 * a * t * t;
+        } else if (t < H - R) {
+            swept = 0.5 * v * R + v * (t - R);
+        } else {
+            const double remain = H - t;
+            swept = 2.0 * A - 0.5 * a * remain * remain;
+        }
+        const double e = (orbitElevDir > 0) ? (-A + swept) : (A - swept);
+        orbitElevation = std::clamp(e, -1.5, 1.5);
+    };
 
     auto renderFrame = [&](int interactive) -> bool {
         // 交互档真的降分辨率（对标 MiniPVServer kW_LQ=256 / kW_HQ=800）：只做像素步进
@@ -307,6 +440,12 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         const int fw = interactive ? lqW : hqW;
         const int fh = interactive ? lqH : hqH;
         camera->SetViewPort(fw, fh);
+        // 固定 FOV（所有 rank 一致；O 键取景距离就是按这个 FOV 算的）。
+        camera->SetFov(kOrbitFixedFovDeg);
+
+        // 当前帧的模型包围盒：相机焦点/裁剪范围都以它为准（多帧数据各帧可能不同）。
+        const double* fc = frameCenter(curFrame);
+        const double fr = frameRadius(curFrame);
 
         // 所有 rank 用同一相机（位置/焦点/上方向 + 全局裁剪范围）。
         camera->SetPosition(static_cast<float>(camPos[0]),
@@ -329,13 +468,12 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             front[1] /= frontLen;
             front[2] /= frontLen;
         }
-        const double toCenter[3] = {gcenter[0] - camPos[0],
-                                    gcenter[1] - camPos[1],
-                                    gcenter[2] - camPos[2]};
+        const double toCenter[3] = {fc[0] - camPos[0], fc[1] - camPos[1],
+                                    fc[2] - camPos[2]};
         const double dist = toCenter[0] * front[0] + toCenter[1] * front[1] +
                             toCenter[2] * front[2];
-        double nearPlane = dist - radius;
-        double farPlane = dist + radius;
+        double nearPlane = dist - fr;
+        double farPlane = dist + fr;
         const double minGap = 0.0001;
         if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
         camera->SetClippingRange(static_cast<float>(nearPlane),
@@ -381,6 +519,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             pixelComposite.SetBlockDepth(blockDepth);
             pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
             pixelComposite.SetUseBinarySwapComposite(useBinarySwap);
+            // C/S 帧只发「预乘 alpha + 透明背景」的 ROI，客户端叠到自己的渐变背景上。
+            pixelComposite.SetTransparentROI(true);
             compositeOk = pixelComposite.Composite();
             resROIX = pixelComposite.GetResultROIX();
             resROIY = pixelComposite.GetResultROIY();
@@ -392,6 +532,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             composite->SetBlockDepth(blockDepth);
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
             composite->SetUseBinarySwapComposite(useBinarySwap);
+            // C/S 帧只发「预乘 alpha + 透明背景」的 ROI，客户端叠到自己的渐变背景上。
+            composite->SetTransparentROI(true);
             compositeOk = composite->Composite();
             resROIX = composite->GetResultROIX();
             resROIY = composite->GetResultROIY();
@@ -423,7 +565,9 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             //    ioctl(TIOCOUTQ) 丢帧策略；仅 Linux 可用，其它平台跳过。）
             bool queueBacklogged = false;
 #if defined(__linux__)
-            if (interactive) {
+            // 拖动档与 O/A 动画都可能是「服务端出帧快于客户端消费」，同样要丢帧背压：
+            // 动画期间即使不是低清档，只要发送队列积压就丢弃本帧，避免 RTT 无界增长。
+            if (interactive || orbitActive || autoPlayActive) {
                 int outq = 0;
                 if (ioctl(clientSock, TIOCOUTQ, &outq) == 0 &&
                     outq > kMaxSendQueueBytes) {
@@ -486,15 +630,23 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
     // ---------- 初始帧：默认 +Z 视角，保证客户端一连上就能看到体数据 ----------
     if (rank == 0) {
+        const double* fc0 = frameCenter(curFrame);
         for (int d = 0; d < 3; ++d) {
-            camFp[d] = gcenter[d];
-            camPos[d] = gcenter[d] + (d == 2 ? distance : 0.0);
+            camFp[d] = fc0[d];
+            camPos[d] = fc0[d] + (d == 2 ? distance : 0.0);
             camUp[d] = (d == 1 ? 1.0 : 0.0);
         }
     }
     ctx->Broadcast(camPos, 3, 0);
     ctx->Broadcast(camFp, 3, 0);
     ctx->Broadcast(camUp, 3, 0);
+    // 诊断：相机/轨道的中点与取景半径（应与数据的全局包围盒中心/半径一致）。
+    if (rank == 0) {
+        const double* pc = frameCenter(curFrame);
+        std::cerr << "[server] camera pivot (frame " << curFrame << ") = ("
+                  << pc[0] << ", " << pc[1] << ", " << pc[2]
+                  << "), radius=" << frameRadius(curFrame) << '\n';
+    }
     // clientAlive 仅在 rank 0 更新；其余 rank 通过主循环顶部的 Broadcast(runningFlag)
     // 保持一致，避免某条 send 失败后 rank 0 提前退循环造成其它 rank 集合通信死锁。
     bool clientAlive = renderFrame(0);
@@ -510,18 +662,53 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         bool cameraChanged = false;
         double accAzim = 0.0, accElev = 0.0, accZoom = 1.0;
         int interactiveMode = 0;
-        int frameStep = 0; // 本批 NEXT/PREV 累积的帧步进（+1/-1）
+        int frameStep = 0;      // 本批 NEXT/PREV 累积的帧步进（+1/-1）
 
         if (rank == 0) {
-            // 1) 阻塞读到至少一行命令。
-            while (netbuf.find('\n') == std::string::npos) {
-                std::string line;
-                if (!iGamePVNet::RecvLine(clientSock, line)) {
+            // 0) 动画期间用 select 超时等命令：到点就由服务端自己出下一帧，
+            //    不再阻塞在 recv 上（O/A 的动画节奏因此与客户端显示循环无关）。
+            //    轨道限速到 25fps（渲染比这更快时不必多出帧）；自动播放等到下一节拍。
+            int waitMs = -1; // -1 = 无限阻塞
+            if (orbitActive || autoPlayActive) {
+                const auto now = std::chrono::steady_clock::now();
+                const auto toMs = [](std::chrono::steady_clock::duration d) {
+                    return std::chrono::duration_cast<std::chrono::milliseconds>(d)
+                            .count();
+                };
+                long long remainMs = 60000;
+                if (orbitActive) {
+                    remainMs = std::min<long long>(remainMs,
+                                                   toMs(orbitNextTick - now));
+                }
+                if (autoPlayActive) {
+                    remainMs = std::min<long long>(remainMs,
+                                                   toMs(autoNextTick - now));
+                }
+                waitMs = static_cast<int>(
+                        std::clamp<long long>(remainMs, 0, 60000));
+            }
+            bool timedOut = false;
+            if (clientAlive && netbuf.find('\n') == std::string::npos &&
+                waitMs >= 0) {
+                const int ready = iGamePVNet::WaitReadable(clientSock, waitMs);
+                if (ready < 0) {
                     std::cerr << "[server] client disconnected\n";
                     clientAlive = false;
-                    break;
+                } else if (ready == 0) {
+                    timedOut = true; // 到点：本轮没有新命令，交给动画推进
                 }
-                netbuf += line;
+            }
+            // 1) 阻塞读到至少一行命令。
+            if (clientAlive && !timedOut) {
+                while (netbuf.find('\n') == std::string::npos) {
+                    std::string line;
+                    if (!iGamePVNet::RecvLine(clientSock, line)) {
+                        std::cerr << "[server] client disconnected\n";
+                        clientAlive = false;
+                        break;
+                    }
+                    netbuf += line;
+                }
             }
             // 2) 非阻塞排空，尽量合并更多命令。
             if (clientAlive) {
@@ -558,19 +745,113 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                         }
                         continue;
                     }
+                    // O 键：自动轨道相机（Toggle Orbit Camera）。
+                    if (op == "ORBIT") {
+                        int on = 0;
+                        if (!(iss >> on)) { continue; }
+                        const bool want = (on != 0);
+                        if (want != orbitActive) {
+                            orbitActive = want;
+                            if (orbitActive) {
+                                // 「自动将镜头对准被渲染模型」：复位到正面视角，焦点=当前帧
+                                // 包围盒中心，距离=按固定 FOV 算好的取景距离（此后不再缩放）；
+                                // 转台从「正面、仰角 0°、向上扫掠」开始。
+                                azimuth = 0.0;
+                                elevation = 0.0;
+                                orbitAzimuth = 0.0;
+                                orbitElevTime = kOrbitElevHalfPeriodSec * 0.5;
+                                orbitElevDir = 1;
+                                orbitElevation = 0.0;
+                                orbitAzimOffset = 0.0;
+                                orbitElevOffset = 0.0;
+                                distance = FitOrbitDistance(curFrame);
+                                orbitLastTick = std::chrono::steady_clock::now();
+                                orbitNextTick = orbitLastTick +
+                                                std::chrono::milliseconds(
+                                                        kOrbitIntervalMs);
+                                cameraChanged = true;
+                                const double* oc = frameCenter(curFrame);
+                                std::cerr << "[server] orbit camera on (two-axis turntable, azimuth "
+                                          << kOrbitAzimDegPerSec << " deg/s, elevation +/-"
+                                          << kOrbitElevMaxDeg << " deg triangle, fixed fov "
+                                          << kOrbitFixedFovDeg << " deg, pivot=(" << oc[0]
+                                          << ", " << oc[1] << ", " << oc[2]
+                                          << "), radius=" << frameRadius(curFrame)
+                                          << ", distance=" << distance << ")\n";
+                            } else {
+                                std::cerr << "[server] orbit camera off\n";
+                            }
+                            needRender = true;
+                        }
+                        continue;
+                    }
+                    // A 键：自动播放（Toggle Auto Play）。方向取最近一次 N/P，默认向后。
+                    if (op == "AUTOPLAY") {
+                        int on = 0;
+                        if (!(iss >> on)) { continue; }
+                        const bool want = (on != 0) && (numFrames > 1);
+                        if (want != autoPlayActive) {
+                            autoPlayActive = want;
+                            if (autoPlayActive) {
+                                autoNextTick = std::chrono::steady_clock::now() +
+                                               std::chrono::milliseconds(autoPlayMs);
+                                std::cerr << "[server] auto play on (direction="
+                                          << (autoPlayDir > 0 ? "next" : "prev")
+                                          << ", interval=" << autoPlayMs
+                                          << "ms)\n";
+                            } else {
+                                std::cerr << "[server] auto play off\n";
+                            }
+                        }
+                        continue;
+                    }
                     if (op == "NEXT") {
                         frameStep += 1;
+                        autoPlayDir = 1;
+                        autoPlayActive = false; // 播放中按 N/P：自动 toggle off
                         needRender = true;
                         continue;
                     }
                     if (op == "PREV") {
                         frameStep -= 1;
+                        autoPlayDir = -1;
+                        autoPlayActive = false;
                         needRender = true;
                         continue;
                     }
                     std::cerr << "[server] unknown cmd: " << line << '\n';
                 }
             }
+
+            // 4) 动画推进：转台按「距上一轮的真实时间」推进（与帧率无关）——方位角连续
+            //    旋转、俯仰角按三角波扫掠；自动播放到点推进一帧（不追补多帧）。
+            const auto now = std::chrono::steady_clock::now();
+            if (orbitActive && now >= orbitNextTick) {
+                const double dt = std::chrono::duration<double>(now - orbitLastTick)
+                                          .count();
+                orbitLastTick = now;
+                orbitNextTick = now + std::chrono::milliseconds(kOrbitIntervalMs);
+                const double dts = std::clamp(dt, 0.0, 0.5);
+                const double kTwoPi = 6.28318530717958647692;
+                orbitAzimuth =
+                        std::fmod(orbitAzimuth +
+                                          kOrbitAzimDegPerSec * (kTwoPi / 360.0) * dts,
+                                  kTwoPi);
+                AdvanceOrbitElevation(dts);
+                cameraChanged = true;
+                needRender = true;
+            }
+            if (autoPlayActive && now >= autoNextTick) {
+                frameStep += autoPlayDir;
+                autoNextTick = now + std::chrono::milliseconds(autoPlayMs);
+                needRender = true;
+            }
+
+            // O 键轨道动画统一按「拖动档」渲染。**必须**在广播 interactiveMode 之前设置：
+            // 所有 rank 的渲染分辨率必须一致（interactiveMode 是唯一广播的 LOD 开关）；
+            // 若只在 rank 0 用 orbitActive 本地改 interactive，rank 0 会渲染 512²、其余
+            // rank 仍渲染 1024²，合成时尺寸不一致（--pixelwise 路径甚至会越界写 → 崩溃）。
+            if (orbitActive) { interactiveMode = 1; }
         }
 
         // 广播合并后的命令标志（注意：Broadcast 只接受非 const 指针，这里用非 const int）。
@@ -583,6 +864,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
         if (!needRenderFlag) { continue; }
 
+        // LOD 档位：完全由广播后的 interactiveMode 决定（拖动 / O 轨道动画 → 低清档），
+        // 保证所有 rank 用同一分辨率（否则合成尺寸不一致）。
         const int interactive = (interactiveMode != 0) ? 1 : 0;
 
         // 多帧播放切帧：NEXT/PREV 越界回绕。所有 rank 用同一 frameStep + 同一
@@ -597,21 +880,40 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
         // rank 0 累积轨道增量并计算绝对相机参数。
         if (rank == 0 && cameraChangedFlag) {
-            azimuth += accAzim;
-            elevation += accElev;
-            elevation = std::clamp(elevation, -1.55, 1.55);
-            distance *= accZoom;
-            distance = std::clamp(distance, diag * 0.05, diag * 20.0);
+            if (orbitActive) {
+                // 转台动画期间：拖动只作为整体偏移，不直接改方位/仰角。
+                orbitAzimOffset += accAzim;
+                orbitElevOffset =
+                        std::clamp(orbitElevOffset + accElev, -0.8, 0.8);
+            } else {
+                azimuth += accAzim;
+                elevation += accElev;
+                elevation = std::clamp(elevation, -1.55, 1.55);
+                // 普通模式：滚轮缩放照旧。轨道相机期间锁定取景距离（禁止缩放）。
+                const double diag = frameRadius(curFrame) * 2.0;
+                distance *= accZoom;
+                distance = std::clamp(distance, diag * 0.05, diag * 20.0);
+            }
         }
         if (rank == 0) {
+            if (orbitActive) {
+                // 双轴转台：方位角连续旋转、俯仰角三角波扫掠（均已按时间推进）。
+                // 距离每次按「当前帧」包围盒重算，保证切帧/任意角度下模型全貌都在视锥内。
+                const double kTwoPi = 6.28318530717958647692;
+                azimuth =
+                        std::fmod(orbitAzimuth + orbitAzimOffset, kTwoPi);
+                elevation = std::clamp(orbitElevation + orbitElevOffset, -1.5, 1.5);
+                distance = FitOrbitDistance(curFrame);
+            }
+            const double* fc = frameCenter(curFrame);
             const double dir[3] = {
                     std::cos(elevation) * std::sin(azimuth),
                     std::sin(elevation),
                     std::cos(elevation) * std::cos(azimuth),
             };
             for (int d = 0; d < 3; ++d) {
-                camFp[d] = gcenter[d];
-                camPos[d] = gcenter[d] + dir[d] * distance;
+                camFp[d] = fc[d];
+                camPos[d] = fc[d] + dir[d] * distance;
                 camUp[d] = (d == 1 ? 1.0 : 0.0);
             }
         }

@@ -31,6 +31,14 @@
 //   - 客户端只做「显示 + 输入」，不做任何渲染/合成，也不依赖 MPI；
 //   - 左下角 colorbar（含全局标量范围）由服务端握手时下发的 ramp 重建；
 //   - 拖动旋转期间显示 fps（本地接收帧率）与 RTT（命令 seq 往返）；
+//   - O 键 = 自动轨道相机（Toggle Orbit Camera）：服务端把镜头对准当前帧的模型包围盒，
+//     以固定 FOV/固定取景距离做双轴转台运动（方位角连续旋转、俯仰角三角波扫掠），
+//     客户端只发一次开关命令；
+//   - A 键 = 自动播放（Toggle Auto Play，多帧数据）：服务端按 --autoplay-interval
+//     （默认 2s/帧）自动切帧，方向取最近一次 N/P（没按过则向后播放）；播放中按 N/P 会自动关闭；
+//   - 两行操作提示常驻屏幕（英文，O/A 开启时黄色高亮）；
+//   - 窗口背景是竖直渐变（顶部 #2A2D34 / 底部 #121316）：服务端发预乘 alpha 的 ROI，
+//     客户端把它叠到渐变背景上（ROI 内外背景一致）。
 //   - 复用阶段 5（ParallelVolumeInteractive.h）的 OpenGL 显示辅助代码（纹理四边形、
 //     colorbar、5x7 位图字体），保证前后端观感一致。
 // 注意：协议头必须先包含（其内部先于 windows.h 引入 winsock2），再包含 glad/windows.h。
@@ -63,6 +71,28 @@ using namespace iGameVolInteractive; // 复用阶段 5 的显示辅助（InitDis
 
 namespace {
 
+// 渲染窗口背景：竖直渐变（顶部 #2A2D34、底部 #121316）。
+inline constexpr unsigned char kBackgroundTop[3] = {0x2A, 0x2D, 0x34};
+inline constexpr unsigned char kBackgroundBottom[3] = {0x12, 0x13, 0x16};
+
+// 铺满窗口的竖直渐变四边形（颜色着色器的逐顶点 vColor 会线性插值）。
+void DrawVerticalGradient(float x0, float y0, float x1, float y1,
+                          const unsigned char top[3],
+                          const unsigned char bottom[3], float viewW,
+                          float viewH) {
+    auto c = [](unsigned char v) {
+        return static_cast<float>(v) / 255.0f;
+    };
+    const float tr = c(top[0]), tg = c(top[1]), tb = c(top[2]);
+    const float br = c(bottom[0]), bg = c(bottom[1]), bb = c(bottom[2]);
+    const std::vector<float> verts = {
+            x0, y0, br, bg, bb, 1.0f, x1, y0, br, bg, bb, 1.0f,
+            x0, y1, tr, tg, tb, 1.0f, x1, y0, br, bg, bb, 1.0f,
+            x1, y1, tr, tg, tb, 1.0f, x0, y1, tr, tg, tb, 1.0f,
+    };
+    DrawColoredQuads(verts, viewW, viewH);
+}
+
 // ---------------------------------------------------------------------------
 // 交互状态
 // ---------------------------------------------------------------------------
@@ -79,6 +109,13 @@ double g_cliPendingElev = 0.0; // 待发送的仰角增量（弧度）
 double g_cliPendingZoom = 1.0; // 待发送的距离缩放因子（累积）
 bool g_cliModeDirty = false;   // 交互状态变化需立刻发送一帧
 int g_cliPendingFrameStep = 0; // 待发送的切帧步进（N=+1 / P=-1，累积）
+// 待发送的一次性控制命令（O/A 开关等）：按顺序原样发出，不合并。
+std::vector<std::string> g_cliPendingCmds;
+
+// 多帧/动画状态（仅主线程访问：键盘回调 + 显示循环）。
+int g_cliNumFrames = 1;            // 握手元数据里的总帧数
+bool g_cliOrbitOn = false;         // O 键：自动轨道相机
+bool g_cliAutoPlayOn = false;      // A 键：自动播放帧
 
 // RTT 测量：seq -> 发送时刻（服务端在回帧里原样带回 seq）。由 g_ioMutex 保护。
 std::uint32_t g_cliSeq = 0;
@@ -159,12 +196,31 @@ void ClientScrollCallback(GLFWwindow*, double, double yoffset) {
     g_cliPendingZoom *= (yoffset > 0.0) ? 0.9 : 1.1;
 }
 
-// 键盘回调：N = 下一帧，P = 上一帧（多帧播放，越界由服务端回绕）。
+// 键盘回调：N = 下一帧，P = 上一帧（多帧播放，越界由服务端回绕）；
+// O = 自动轨道相机开关；A = 自动播放开关（播放中按 N/P 会自动关闭自动播放）。
 void ClientKeyCallback(GLFWwindow*, int key, int, int action, int) {
     if (action != GLFW_PRESS) { return; }
     std::lock_guard<std::mutex> lk(g_ioMutex);
-    if (key == GLFW_KEY_N) { g_cliPendingFrameStep += 1; }
-    else if (key == GLFW_KEY_P) { g_cliPendingFrameStep -= 1; }
+    if (key == GLFW_KEY_N) {
+        if (g_cliAutoPlayOn) { // 播放中按 N/P：自动 toggle off（与服务端约定一致）
+            g_cliAutoPlayOn = false;
+            g_cliPendingCmds.push_back(iGamePVNet::MakeAutoPlayCommand(false));
+        }
+        g_cliPendingFrameStep += 1;
+    } else if (key == GLFW_KEY_P) {
+        if (g_cliAutoPlayOn) {
+            g_cliAutoPlayOn = false;
+            g_cliPendingCmds.push_back(iGamePVNet::MakeAutoPlayCommand(false));
+        }
+        g_cliPendingFrameStep -= 1;
+    } else if (key == GLFW_KEY_O) {
+        g_cliOrbitOn = !g_cliOrbitOn;
+        g_cliPendingCmds.push_back(iGamePVNet::MakeOrbitCommand(g_cliOrbitOn));
+    } else if (key == GLFW_KEY_A && g_cliNumFrames > 1) {
+        g_cliAutoPlayOn = !g_cliAutoPlayOn;
+        g_cliPendingCmds.push_back(
+                iGamePVNet::MakeAutoPlayCommand(g_cliAutoPlayOn));
+    }
 }
 
 // 发送当前累积的 INTERACT 命令（带单调递增 seq 用于 RTT 测量），成功后清零 pending。
@@ -184,7 +240,8 @@ bool SendInteractLocked(PVSocket s) {
     return true;
 }
 
-// 把一篇 payload 还原成整帧 RGBA（ROI 之外保持黑背景）。返回 false 表示解码失败。
+// 把一篇 payload 还原成整帧 RGBA（服务端发来的是「预乘 alpha + 透明背景」的 ROI，
+// 这里把它叠到客户端自己的竖直渐变背景上）。返回 false 表示解码失败。
 bool DecodeFrameRGBA(iGamePVNet::Frame& f) {
     std::vector<unsigned char> sub;
     if (f.roiW > 0 && f.roiH > 0) {
@@ -195,16 +252,57 @@ bool DecodeFrameRGBA(iGamePVNet::Frame& f) {
                                       static_cast<uLong>(f.payload.size()));
             if (zr != Z_OK || destLen != sub.size()) { return false; }
         } else {
-            sub = std::move(f.payload); // raw RGBA8（roiW*roiH*4）
+            sub = std::move(f.payload); // raw 预乘 alpha RGBA8（roiW*roiH*4）
         }
     }
     f.rgba.assign(static_cast<std::size_t>(f.width) * f.height * 4, 0);
-    for (int y = 0; y < f.roiH; ++y) {
-        const std::size_t dstBase =
-                (static_cast<std::size_t>(f.roiY + y) * f.width + f.roiX) * 4;
-        const std::size_t srcBase = static_cast<std::size_t>(y) * f.roiW * 4;
-        std::memcpy(f.rgba.data() + dstBase, sub.data() + srcBase,
-                    static_cast<std::size_t>(f.roiW) * 4);
+
+    // 竖直渐变背景：顶部 #2A2D34、底部 #121316。
+    // 帧第 0 行是画面底部（服务端 NDC 的 y=-1），所以 t=0 对应底部色。
+    for (int y = 0; y < f.height; ++y) {
+        const double t = (f.height > 1)
+                                 ? static_cast<double>(y) /
+                                           static_cast<double>(f.height - 1)
+                                 : 0.0;
+        auto mix = [&](int bottom, int top) {
+            return static_cast<unsigned char>(
+                    std::lround(static_cast<double>(bottom) +
+                                (static_cast<double>(top) - bottom) * t));
+        };
+        const unsigned char rr = mix(kBackgroundBottom[0], kBackgroundTop[0]);
+        const unsigned char gg = mix(kBackgroundBottom[1], kBackgroundTop[1]);
+        const unsigned char bb = mix(kBackgroundBottom[2], kBackgroundTop[2]);
+        unsigned char* row =
+                f.rgba.data() + static_cast<std::size_t>(y) * f.width * 4;
+        for (int x = 0; x < f.width; ++x) {
+            row[x * 4 + 0] = rr;
+            row[x * 4 + 1] = gg;
+            row[x * 4 + 2] = bb;
+            row[x * 4 + 3] = 255;
+        }
+    }
+
+    // ROI：预乘 alpha over 渐变背景（out = src + dst * (1 - a)）。
+    if (!sub.empty() && f.roiW > 0 && f.roiH > 0) {
+        for (int y = 0; y < f.roiH; ++y) {
+            const unsigned char* srow =
+                    sub.data() + static_cast<std::size_t>(y) * f.roiW * 4;
+            unsigned char* drow =
+                    f.rgba.data() +
+                    (static_cast<std::size_t>(f.roiY + y) * f.width + f.roiX) * 4;
+            for (int x = 0; x < f.roiW; ++x) {
+                const unsigned char* s = srow + x * 4;
+                unsigned char* d = drow + x * 4;
+                const float inv = 1.0f - static_cast<float>(s[3]) / 255.0f;
+                for (int c = 0; c < 3; ++c) {
+                    const float v = static_cast<float>(s[c]) +
+                                    static_cast<float>(d[c]) * inv;
+                    d[c] = static_cast<unsigned char>(
+                            std::clamp(v + 0.5f, 0.0f, 255.0f));
+                }
+                d[3] = 255;
+            }
+        }
     }
     return true;
 }
@@ -223,7 +321,26 @@ void IoThreadMain(PVSocket sock) {
     rxBuf.reserve(1 << 20);
 
     while (!g_ioStop.load()) {
-        // ---- 1) 发送积压的交互命令（合并成一条）----
+        // ---- 1) 发送待发的一次性控制命令（O/A 开关等，按队列顺序）----
+        {
+            std::lock_guard<std::mutex> lk(g_ioMutex);
+            if (!g_cliPendingCmds.empty()) {
+                bool failed = false;
+                for (const std::string& cmd : g_cliPendingCmds) {
+                    if (!iGamePVNet::SendAll(sock, cmd.data(), cmd.size())) {
+                        failed = true;
+                        break;
+                    }
+                }
+                g_cliPendingCmds.clear();
+                if (failed) {
+                    g_serverGone.store(true);
+                    break;
+                }
+            }
+        }
+
+        // ---- 1a) 发送积压的交互命令（合并成一条）----
         {
             std::lock_guard<std::mutex> lk(g_ioMutex);
             const bool hasPending =
@@ -395,7 +512,8 @@ int main(int argc, char** argv) {
     }
     std::cout << "[client] connected: " << meta.width << 'x' << meta.height
               << ", scalar range [" << meta.scalarMin << ", " << meta.scalarMax
-              << "]\n";
+              << "], frames=" << meta.numFrames << '\n';
+    g_cliNumFrames = meta.numFrames;
 
     // 交互窗口（复用阶段 5 的显示端）。
     auto window = iGame::RenderWindow::New();
@@ -448,7 +566,8 @@ int main(int argc, char** argv) {
     // 启动网络 I/O 线程（独占 socket 收发），主线程只做显示。
     std::thread ioThread(IoThreadMain, sock);
 
-    std::cout << "[client] left-drag = rotate, wheel = zoom; fps/RTT shown while "
+    std::cout << "[client] left-drag = rotate, wheel = zoom; O = toggle orbit "
+                 "camera, A = toggle auto play (multi-frame); fps/RTT shown while "
                  "dragging.\n";
     std::cout.flush();
 
@@ -497,8 +616,15 @@ int main(int argc, char** argv) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, fbW, fbH);
         glDisable(GL_DEPTH_TEST);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(static_cast<float>(kBackgroundBottom[0]) / 255.0f,
+                     static_cast<float>(kBackgroundBottom[1]) / 255.0f,
+                     static_cast<float>(kBackgroundBottom[2]) / 255.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        // 渐变背景（第一帧到达前也能看到；到帧后由「帧纹理里的渐变」覆盖，两端颜色一致）。
+        DrawVerticalGradient(0.0f, 0.0f, static_cast<float>(fbW),
+                             static_cast<float>(fbH), kBackgroundTop,
+                             kBackgroundBottom, static_cast<float>(fbW),
+                             static_cast<float>(fbH));
 
         // 只在新帧到达时上传纹理（4MB 上传是客户端循环的最大开销）。
         const auto tUpload0 = std::chrono::steady_clock::now();
@@ -525,6 +651,7 @@ int main(int argc, char** argv) {
                      static_cast<float>(fbH));
 
         const float white[3] = {1.0f, 1.0f, 1.0f};
+        const float yellow[3] = {1.0f, 1.0f, 0.0f};
 
         // 字段名（放在 colorbar 附近，其刻度下方）。
         if (meta.fieldName[0] != '\0') {
@@ -538,28 +665,42 @@ int main(int argc, char** argv) {
             char frameBuf[64];
             std::snprintf(frameBuf, sizeof(frameBuf), "Frame %d/%d",
                           displayFrame.frameIndex + 1, meta.numFrames);
-            DrawText(frameBuf, 24.0f, static_cast<float>(fbH) - 112.0f, 2.0f,
+            DrawText(frameBuf, 24.0f, static_cast<float>(fbH) - 160.0f, 2.0f,
                      white, static_cast<float>(fbW),
                      static_cast<float>(fbH));
             DrawText("N-Next Frame, P-Previous Frame", 24.0f,
-                     static_cast<float>(fbH) - 88.0f, 2.0f, white,
+                     static_cast<float>(fbH) - 136.0f, 2.0f, white,
                      static_cast<float>(fbW), static_cast<float>(fbH));
+            // A 键提示：开启时用黄色高亮（5x7 位图字体没有括号/中文字形，用颜色表示状态）。
+            DrawText("A-Toggle Auto Play", 24.0f,
+                     static_cast<float>(fbH) - 112.0f, 2.0f,
+                     g_cliAutoPlayOn ? yellow : white, static_cast<float>(fbW),
+                     static_cast<float>(fbH));
         }
+        // O 键提示：自动轨道相机（单帧数据也可用），开启时黄色高亮。
+        DrawText("O-Toggle Orbit Camera", 24.0f,
+                 static_cast<float>(fbH) - 88.0f, 2.0f,
+                 g_cliOrbitOn ? yellow : white, static_cast<float>(fbW),
+                 static_cast<float>(fbH));
 
-        if (g_cliInteracting.load()) {
+        // RTT 只对「拖动」有意义（动画帧回带的 seq 是最后一条 INTERACT，可能是旧值）。
+        const bool dragging = g_cliInteracting.load();
+        const bool animating = g_cliOrbitOn || g_cliAutoPlayOn;
+        if (dragging) {
             // RTT 显示在 FPS 上方（黄色，毫秒）。
             const double rtt = g_rttMs.load();
             if (rtt >= 0.0) {
                 char rttBuf[64];
                 std::snprintf(rttBuf, sizeof(rttBuf), "RTT: %.0f ms", rtt);
-                const float yellow[3] = {1.0f, 1.0f, 0.0f};
                 DrawText(rttBuf, 24.0f, static_cast<float>(fbH) - 64.0f, 2.0f,
                          yellow, static_cast<float>(fbW),
                          static_cast<float>(fbH));
             }
+        }
+        // FPS：拖动旋转、O 键轨道相机、A 键自动播放期间都显示（都是「画面在动」的状态）。
+        if (dragging || animating) {
             char fpsBuf[64];
             std::snprintf(fpsBuf, sizeof(fpsBuf), "FPS: %.1f", smoothedFps);
-            const float white[3] = {1.0f, 1.0f, 1.0f};
             DrawText(fpsBuf, 24.0f, static_cast<float>(fbH) - 40.0f, 2.0f, white,
                      static_cast<float>(fbW), static_cast<float>(fbH));
         }
