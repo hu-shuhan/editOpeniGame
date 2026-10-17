@@ -45,6 +45,9 @@ uniform int debugMode;        // 0=正常渲染；1=输出命中诊断（一次�
 uniform sampler3D volumeTexture;   // 体数据（R16F，三线性插值）
 uniform sampler3D volumeMask;      // 体数据掩膜（R8：1=有效，0=无效）
 uniform int volumeMaskEnabled;     // 掩膜是否可用（0 时完全跳过掩膜采样）
+uniform int maskMode;              // 1=挖空无效体素；2=把无效体素画成实体车壳
+uniform float shellOpacity;        // 车壳实体模式的外壳不透明度
+uniform vec3 shellColor;           // 车壳实体颜色
 uniform sampler2D transferFunction;// 传输函数 LUT（256x1 RGBA8）
 
 layout(binding = 0, rgba8) uniform writeonly image2D outImage;
@@ -170,18 +173,32 @@ void main() {
         float scalar = clamp(texture(volumeTexture, texCoord).r, 0.0, 1.0);
         vec4 tf = texture(transferFunction, vec2(scalar, 0.5));
 
-        // 掩膜：重采样时落在原网格外（车体内部 / 域外）的体素直接不贡献，
-        // 于是车体的轮廓会从体绘制里“挖”出来
-        float mask = 1.0;
+        // 掩膜（R8）：1 = 有效（流体），0 = 无效（车体内部 / 域外）。
+        // 同一份掩膜两种用法，都是“两个属性层在同一采样点做同坐标合成”：
+        //   maskMode == 1 挖空   ：无效体素完全不贡献颜色（车体变空腔）
+        //   maskMode == 2 车壳实体：无效体素用固定颜色 + 固定不透明度画成实体，
+        //                          与标量层按 alpha 加权合成（前后关系正确）
+        vec3 rgb = tf.rgb;
+        float alpha = clamp(tf.a * opacityScale, 0.0, 1.0);
         if (volumeMaskEnabled == 1) {
-            mask = texture(volumeMask, texCoord).r;
+            float mask = texture(volumeMask, texCoord).r;
+            if (maskMode == 1) {
+                alpha *= mask;
+            } else if (maskMode == 2) {
+                float shellAlpha =
+                        clamp(shellOpacity, 0.0, 1.0) * (1.0 - mask);
+                float alphaSum = alpha + shellAlpha;
+                if (alphaSum > 0.0) {
+                    rgb = (alpha * rgb + shellAlpha * shellColor) / alphaSum;
+                    alpha = 1.0 - (1.0 - alpha) * (1.0 - shellAlpha);
+                }
+            }
         }
 
-        float alpha = clamp(tf.a * opacityScale, 0.0, 1.0) * mask;
         if (alpha > 0.0) {
             // 按实际步长补偿不透明度，使结果与步数基本无关
             alpha = 1.0 - pow(1.0 - alpha, opacityCorrection);
-            accumulated += transmittance * alpha * tf.rgb;
+            accumulated += transmittance * alpha * rgb;
             transmittance *= (1.0 - alpha);
             if (transmittance < 0.01) { break; } // 提前终止
         }

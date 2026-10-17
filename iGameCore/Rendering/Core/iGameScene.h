@@ -655,6 +655,34 @@ public:
     void SetVolumeRaycastingQuality(int numSteps, float opacityScale);
 
     /**
+     * @brief 体绘制掩膜（blanking ）的工作模式。
+     *
+     * @details
+     *  数据里带 vtkValidPointMask（点，1 = 有效）或 vtkGhostType（单元，0 = 有效）
+     *  时可用（ParaView 的 ResampleToImage 勾 "Mark Blank Points and Cells" 就会写）。
+     *  掩膜纹理是 R8：1 = 有效（流体），0 = 无效（车体内部 / 域外）。同一个步进
+     *  循环里对掩膜层与标量层做同坐标合成，所以两层空间关系是正确的。
+     */
+    enum class VolumeMaskMode {
+        Off = 0,   ///< 不使用掩膜（默认）
+        Carve = 1, ///< 挖空：无效体素完全不贡献颜色（车体变成空腔）
+        Shell = 2  ///< 车壳实体：无效体素用固定颜色 + 固定不透明度画成实体
+    };
+
+    /// 设置掩膜模式（Off/Carve/Shell）。数据里没有可用数组时模式不生效（只记日志）。
+    void SetVolumeRaycastMaskMode(VolumeMaskMode mode);
+    VolumeMaskMode GetVolumeRaycastMaskMode() const { return m_VolumeMaskMode; }
+    /// 兼容写法：等价于 SetVolumeRaycastMaskMode(enabled ? Carve : Off)。
+    void SetVolumeRaycastMaskEnabled(bool enabled);
+    /// 车壳实体模式下的外壳不透明度（0~1，默认 0.9）。
+    void SetVolumeRaycastShellOpacity(float opacity);
+    float GetVolumeRaycastShellOpacity() const { return m_VolumeShellOpacity; }
+    /// 掩膜是否实际生效（模式 != Off && 数据里确实有可用的空白数组）。
+    bool GetVolumeRaycastMaskEnabled() const { return m_VolumeMaskEnabled; }
+    /// 数据里是否存在可用的空白数组（上一次构建体数据时的探测结果）。
+    bool GetVolumeRaycastMaskAvailable() const { return m_VolumeMaskAvailable; }
+
+    /**
      * @brief 体绘制的只读状态快照（供「体绘制」设置面板显示）。
      *
      * @details
@@ -672,7 +700,14 @@ public:
         float voxelSpacing[3] = {0.0f, 0.0f, 0.0f};  ///< 体素间距（局部单位）
         int stepCount = 0;           ///< 每条光线最大采样步数
         float opacityScale = 0.0f;   ///< 不透明度缩放
-        bool maskEnabled = false;    ///< 体数据是否带掩膜纹理
+        int maskMode = 0;              ///< 掩膜模式：0=关闭 1=挖空 2=车壳实体
+        bool maskAvailable = false;    ///< 数据里是否有可用的空白/ghost 数组
+        bool maskEnabled = false;      ///< 掩膜是否实际生效（模式 != 0 && 可用）
+        float maskInvalidRatio = 0.0f; ///< 无效体素占比 0..1（诊断用）
+        float shellOpacity = 0.9f;     ///< 实体模式的外壳不透明度
+        bool active = false;         ///< 最近 1.5 秒内是否发生过重绘（否则为空闲）
+        double fps = 0.0;            ///< 实测帧率（1 秒滑动窗口）
+        double gpuFrameTimeMs = 0.0; ///< GPU 帧时间（平滑值，整帧）
     };
 
     /// 取体绘制状态快照（设置面板显示用）。
@@ -908,7 +943,15 @@ protected:
     bool m_VolumeDataDirty = true;         // 需要（重新）构建体数据
     SmartPointer<GLTexture3d> m_VolumeTexture3d; // 体数据 3D 纹理
     SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R8，1=有效）
-    bool m_VolumeMaskEnabled = false;            // 当前体数据是否带掩膜
+    VolumeMaskMode m_VolumeMaskMode = VolumeMaskMode::Off; // 掩膜模式（默认关闭）
+    bool m_VolumeMaskAvailable = false; // 数据里是否有可用的空白/ghost 数组
+    bool m_VolumeMaskEnabled = false;   // 掩膜是否实际生效（模式 != Off && 可用）
+    std::string m_VolumeMaskSource;      // 掩膜来源数组名（日志用）
+    float m_VolumeMaskValidRatio = 0.0f; // 有效体素占比 0..1（日志用）
+    bool m_VolumeMaskReadbackDone = false; // 掩膜纹理一次性回读自检
+    // 车壳实体模式（VolumeMaskMode::Shell）的参数：固定颜色 + 不透明度
+    float m_VolumeShellOpacity = 0.9f;
+    igm::vec3 m_VolumeShellColor{0.85f, 0.86f, 0.88f};
     SmartPointer<GLTexture2d> m_VolumeTransferFunction; // 传输函数 LUT
     SmartPointer<DataObject> m_VolumeSourceObject; // 体数据来源对象
     unsigned int m_VolumeSourceMTime = 0; // 来源对象的修改时间（用于失效检测）
@@ -950,6 +993,13 @@ protected:
     // 平滑后的 GPU 帧时（毫秒）
     double m_LastGpuTimeMs = 0.0;
     double m_SmoothedGpuTimeMs = 0.0;
+
+    // 实测帧率：以 1 秒滑动窗口统计实际重绘次数（渲染是事件驱动的，
+    // 空闲不重绘时窗口不推进，界面上按“空闲”显示而不是 0 FPS）
+    double m_Fps = 0.0;
+    unsigned int m_FpsFrameCount = 0;
+    std::chrono::steady_clock::time_point m_FpsWindowStart;
+    bool m_FpsWindowStartValid = false;
 
     // 上一帧结束的时间点（用于“提前返回”判定）
     std::chrono::steady_clock::time_point m_LastRenderEnd;

@@ -5,6 +5,7 @@
 #include <iGameSceneManager.h>
 
 #include <QComboBox>
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QPushButton>
@@ -56,9 +57,10 @@ void igQtVolumeRenderingWidget::initUI() {
     ui->label_StepsHint->setStyleSheet(QStringLiteral("color: #9a9a9a;"));
     ui->label_Status->setStyleSheet(QStringLiteral("color: #9a9a9a;"));
 
-    // 面板打开期间定时刷新：视口大小/DPR 会随窗口缩放、跨屏拖动变化
+    // 面板打开期间定时刷新：视口大小/DPR 会随窗口缩放、跨屏拖动变化，
+    // 帧率也要跟着动（400ms 足够跟手，又不会太吵）
     m_refreshTimer = new QTimer(this);
-    m_refreshTimer->setInterval(700);
+    m_refreshTimer->setInterval(400);
     connect(m_refreshTimer, &QTimer::timeout, this,
             &igQtVolumeRenderingWidget::refresh);
     m_refreshTimer->start();
@@ -80,6 +82,26 @@ void igQtVolumeRenderingWidget::initConnections() {
             &igQtVolumeRenderingWidget::onResetClicked);
     connect(ui->pushButton_Close, &QPushButton::clicked, this,
             [this]() { emit closeRequested(); });
+    // 掩膜 / 车壳层：0=关闭 1=挖空无效体素 2=无效体素画成实体车壳
+    connect(ui->comboBox_MaskMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int mode) {
+                if (m_updating) { return; }
+                auto scene = this->currentScene();
+                if (scene == nullptr) { return; }
+                scene->SetVolumeRaycastMaskMode(
+                        static_cast<iGame::Scene::VolumeMaskMode>(mode));
+                // 结果由定时刷新回填（重建时会往日志里写掩膜来源与占比）
+            });
+    // 车壳实体模式的外壳不透明度（只改 uniform，不重建体数据）
+    connect(ui->doubleSpinBox_ShellOpacity,
+            QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            [this](double opacity) {
+                if (m_updating) { return; }
+                auto scene = this->currentScene();
+                if (scene == nullptr) { return; }
+                scene->SetVolumeRaycastShellOpacity(
+                        static_cast<float>(opacity));
+            });
 }
 
 iGame::Scene::Pointer igQtVolumeRenderingWidget::currentScene() const {
@@ -133,13 +155,30 @@ void igQtVolumeRenderingWidget::updateReadout(
                  ui->checkBox_LiveUpdate, ui->pushButton_Apply}) {
         widget->setEnabled(raycast);
     }
+    // 掩膜模式 + 车壳不透明度：反映当前状态；数据里没有可用空白数组时整体置灰
+    {
+        const QSignalBlocker blocker(ui->comboBox_MaskMode);
+        ui->comboBox_MaskMode->setCurrentIndex(
+                std::clamp(info.maskMode, 0, ui->comboBox_MaskMode->count() - 1));
+    }
+    ui->comboBox_MaskMode->setEnabled(raycast && info.maskAvailable);
+    {
+        const QSignalBlocker blocker(ui->doubleSpinBox_ShellOpacity);
+        ui->doubleSpinBox_ShellOpacity->setValue(
+                std::clamp(static_cast<double>(info.shellOpacity),
+                           ui->doubleSpinBox_ShellOpacity->minimum(),
+                           ui->doubleSpinBox_ShellOpacity->maximum()));
+    }
+    ui->doubleSpinBox_ShellOpacity->setEnabled(raycast && info.maskAvailable &&
+                                               info.maskMode == 2);
 
     if (!hasScene) {
         for (QLabel* label : std::initializer_list<QLabel*>{
                      ui->label_ViewportValue, ui->label_ResolutionValue,
                      ui->label_DispatchValue, ui->label_DimensionValue,
                      ui->label_MemoryValue, ui->label_DensityValue,
-                     ui->label_SampleValue}) {
+                     ui->label_SampleValue, ui->label_FpsValue,
+                     ui->label_FrameTimeValue}) {
             SetLabelText(label, QStringLiteral("-"));
         }
         SetLabelText(ui->label_Status, QStringLiteral("当前没有可用场景。"));
@@ -209,14 +248,47 @@ void igQtVolumeRenderingWidget::updateReadout(
         SetLabelText(ui->label_SampleValue, QStringLiteral("-"));
     }
 
+    // ---- 帧率与 GPU 帧时间 ----
+    // 渲染是事件驱动的：空闲不重绘时按“空闲”显示，而不是误导性的 0 FPS
+    if (!info.active) {
+        SetLabelText(ui->label_FpsValue, QStringLiteral("空闲（无重绘）"));
+    } else if (info.fps > 0.0) {
+        SetLabelText(ui->label_FpsValue,
+                     QStringLiteral("%1 FPS").arg(info.fps, 0, 'f', 1));
+    } else {
+        SetLabelText(ui->label_FpsValue, QStringLiteral("统计中…"));
+    }
+    SetLabelText(ui->label_FrameTimeValue,
+                 info.gpuFrameTimeMs > 0.0
+                         ? QStringLiteral("%1 ms（GPU，整帧）")
+                                   .arg(info.gpuFrameTimeMs, 0, 'f', 1)
+                         : QStringLiteral("-"));
+
     // ---- 状态行 ----
     QString status;
     switch (info.mode) {
         case iGame::Scene::VolumeRenderingMode::Raycast:
             status = QStringLiteral(
                     "当前：compute 光线步进（结构化网格），参数立即生效。");
-            if (info.maskEnabled) {
-                status += QStringLiteral(" 已启用体数据掩膜。");
+            if (info.maskAvailable) {
+                const int invalidPercent =
+                        static_cast<int>(info.maskInvalidRatio * 100.0f + 0.5f);
+                QString modeText;
+                if (info.maskMode == 1) {
+                    modeText = QStringLiteral("已挖空");
+                } else if (info.maskMode == 2) {
+                    modeText = QStringLiteral("实体（不透明度 %1）")
+                                       .arg(info.shellOpacity, 0, 'f', 2);
+                } else {
+                    modeText = QStringLiteral("未启用");
+                }
+                status += QStringLiteral(" 掩膜可用：无效体素 %1%，当前%2。")
+                                  .arg(invalidPercent)
+                                  .arg(modeText);
+            } else {
+                status += QStringLiteral(
+                        " 数据里没有 vtkValidPointMask/vtkGhostType，"
+                        "掩膜不可用。");
             }
             break;
         case iGame::Scene::VolumeRenderingMode::Fragment:

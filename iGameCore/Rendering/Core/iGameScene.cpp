@@ -5,6 +5,7 @@
 #include "iGameStructuredMesh.h"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -1060,6 +1061,29 @@ void Scene::Draw() {
     m_LastRenderEnd = std::chrono::steady_clock::now();
     m_LastRenderEndValid = true;
 
+    // 实测帧率：1 秒滑动窗口统计“真正重绘”的次数。渲染是事件驱动的，
+    // 空闲时不重绘，此时不推进窗口（界面按“空闲”显示），长时间空闲后的
+    // 第一个窗口样本直接作废，避免出现 0.03 FPS 这种误导读数。
+    if (!m_FpsWindowStartValid) {
+        m_FpsWindowStart = m_LastRenderEnd;
+        m_FpsWindowStartValid = true;
+        m_FpsFrameCount = 0;
+    } else {
+        ++m_FpsFrameCount;
+        const double windowMs =
+                std::chrono::duration<double, std::milli>(m_LastRenderEnd -
+                                                         m_FpsWindowStart)
+                        .count();
+        if (windowMs >= 1000.0) {
+            m_Fps = windowMs <= 2000.0
+                            ? static_cast<double>(m_FpsFrameCount) * 1000.0 /
+                                      windowMs
+                            : 0.0;
+            m_FpsFrameCount = 0;
+            m_FpsWindowStart = m_LastRenderEnd;
+        }
+    }
+
     GLCheckError();
 }
 
@@ -2059,6 +2083,20 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
     {
         std::vector<unsigned char> mask(static_cast<size_t>(pointCount), 0);
         bool hasMask = false;
+        std::string source;
+
+        // 数组名大小写不敏感比较：读取器会把 FIELD 数组名整体小写化
+        // （"vtkvalidpointmask" / "vtkghosttype"），精确比较必然漏掉
+        auto nameIs = [](const std::string& name, const char* expected) {
+            size_t i = 0;
+            for (; i < name.size() && expected[i] != '\0'; ++i) {
+                if (std::tolower(static_cast<unsigned char>(name[i])) !=
+                    std::tolower(static_cast<unsigned char>(expected[i]))) {
+                    return false;
+                }
+            }
+            return i == name.size() && expected[i] == '\0';
+        };
 
         auto attributeSet = structuredMesh->GetAttributeSet();
         auto allAttributes =
@@ -2071,7 +2109,7 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
                 if (attribute.isDeleted || attribute.pointer == nullptr) {
                     continue;
                 }
-                if (attribute.pointer->GetName() != "vtkValidPointMask") {
+                if (!nameIs(attribute.pointer->GetName(), "vtkValidPointMask")) {
                     continue;
                 }
                 if (attribute.attachmentType != IG_POINT) { continue; }
@@ -2085,6 +2123,7 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
                                     : 0u;
                 }
                 hasMask = true;
+                source = attribute.pointer->GetName() + " (point, 1=valid)";
                 break;
             }
 
@@ -2099,7 +2138,7 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
                     if (attribute.isDeleted || attribute.pointer == nullptr) {
                         continue;
                     }
-                    if (attribute.pointer->GetName() != "vtkGhostType") {
+                    if (!nameIs(attribute.pointer->GetName(), "vtkGhostType")) {
                         continue;
                     }
                     if (attribute.attachmentType != IG_CELL) { continue; }
@@ -2136,15 +2175,52 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
                         }
                     }
                     hasMask = true;
+                    source = attribute.pointer->GetName() + " (cell, 0=valid)";
                 }
             }
         }
 
-        m_VolumeMaskEnabled = hasMask;
-        if (hasMask && m_VolumeMaskTexture3d != nullptr) {
+        m_VolumeMaskSource = hasMask ? source : std::string{};
+        m_VolumeMaskAvailable = hasMask;
+        m_VolumeMaskEnabled =
+                hasMask && m_VolumeMaskMode != VolumeMaskMode::Off;
+
+        // 无效体素占比：便于确认掩膜语义（个位数或 >99% 通常说明语义反了）
+        if (hasMask) {
+            IGsize validCount = 0;
+            for (IGsize p = 0; p < pointCount; ++p) {
+                if (mask[static_cast<size_t>(p)] != 0) { ++validCount; }
+            }
+            m_VolumeMaskValidRatio =
+                    pointCount > 0 ? static_cast<float>(validCount) /
+                                             static_cast<float>(pointCount)
+                                   : 0.0f;
+            const IGsize invalidCount = pointCount - validCount;
+            const int invalidPercent = static_cast<int>(
+                    (1.0f - m_VolumeMaskValidRatio) * 100.0f + 0.5f);
+            IGAME_RENDERING_INFO(
+                    "[Scene::BuildVolumeData] blanking mask: source={}, "
+                    "invalid={} of {} voxels (invalid_pct={}), mode={} "
+                    "(0=off,1=carve,2=shell), applied={}.",
+                    m_VolumeMaskSource.c_str(), invalidCount, pointCount,
+                    invalidPercent, static_cast<int>(m_VolumeMaskMode),
+                    m_VolumeMaskEnabled ? "yes" : "no");
+        } else {
+            m_VolumeMaskValidRatio = 0.0f;
+        }
+
+        if (m_VolumeMaskEnabled && m_VolumeMaskTexture3d != nullptr) {
+            // 掩膜纹理用 R32F（而不是 R8）：1 字节/纹素时每行宽度不是 4 的倍数，
+            // 默认 GL_UNPACK_ALIGNMENT(=4) 会按行错位；4 字节/纹素与体数据纹理
+            // 一致，天然 4 字节对齐，行为可控。
+            std::vector<float> maskFloats(static_cast<size_t>(pointCount), 0.0f);
+            for (IGsize p = 0; p < pointCount; ++p) {
+                maskFloats[static_cast<size_t>(p)] =
+                        mask[static_cast<size_t>(p)] != 0 ? 1.0f : 0.0f;
+            }
             m_VolumeMaskTexture3d->Destroy();
             m_VolumeMaskTexture3d->Create();
-            m_VolumeMaskTexture3d->Storage(1, GL_R8, nx, ny, nz);
+            m_VolumeMaskTexture3d->Storage(1, GL_R32F, nx, ny, nz);
             m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_WRAP_S,
                                               GL_CLAMP_TO_EDGE);
             m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_WRAP_T,
@@ -2154,8 +2230,51 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
             m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             m_VolumeMaskTexture3d->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             m_VolumeMaskTexture3d->SubImage(0, 0, 0, 0, nx, ny, nz, GL_RED,
-                                            GL_UNSIGNED_BYTE, mask.data());
+                                            GL_FLOAT, maskFloats.data());
             m_VolumeMaskTexture3d->Release();
+
+            // 一次性自检：分别挑一个 CPU 侧“有效/无效”的体素，回读掩膜纹理对应
+            // 纹素并与 CPU 值比对。若 gpu 全为 0（或与 cpu 不符），说明纹理上传/采样
+            // 链路有问题 —— 这正是“整场白雾 / 整场被挖空”的典型来源。
+            if (!m_VolumeMaskReadbackDone) {
+                m_VolumeMaskReadbackDone = true;
+                GLsizei validIndex = -1;
+                GLsizei invalidIndex = -1;
+                for (IGsize p = 0; p < pointCount; ++p) {
+                    if (mask[static_cast<size_t>(p)] != 0) {
+                        if (validIndex < 0) {
+                            validIndex = static_cast<GLsizei>(p);
+                        }
+                    } else if (invalidIndex < 0) {
+                        invalidIndex = static_cast<GLsizei>(p);
+                    }
+                    // 两类各找到一个就可以停了（避免整段扫描拖慢构建）
+                    if (validIndex >= 0 && invalidIndex >= 0) { break; }
+                }
+                const auto readTexel = [&](GLsizei index) -> float {
+                    if (index < 0) { return -1.0f; }
+                    const GLsizei x = index % nx;
+                    const GLsizei y = (index / nx) % ny;
+                    const GLsizei z = index / (nx * ny);
+                    float value = -2.0f;
+                    glGetTextureSubImage(m_VolumeMaskTexture3d->Handle(), 0, x, y,
+                                         z, 1, 1, 1, GL_RED, GL_FLOAT, 4, &value);
+                    return value;
+                };
+                const auto cpuAt = [&](GLsizei index) -> float {
+                    return index < 0
+                                   ? -1.0f
+                                   : static_cast<float>(
+                                             mask[static_cast<size_t>(index)] != 0
+                                                     ? 1.0f
+                                                     : 0.0f);
+                };
+                IGAME_RENDERING_INFO(
+                        "[Scene::BuildVolumeData] mask readback: "
+                        "validVoxel cpu={} gpu={} , invalidVoxel cpu={} gpu={} ",
+                        cpuAt(validIndex), readTexel(validIndex),
+                        cpuAt(invalidIndex), readTexel(invalidIndex));
+            }
         }
     }
 
@@ -2267,6 +2386,7 @@ bool Scene::BuildVolumeData(SmartPointer<DataObject> dataObject,
     m_VolumeRaycastDiagnosed = false;
     m_VolumeRaycastReadbackDone = false;
     m_VolumeRaycastGpuDiagDone = false;
+    m_VolumeMaskReadbackDone = false;
 
         IGAME_RENDERING_INFO(
             "[Scene::BuildVolumeData] attribute {} (dimension {}), scalar range "
@@ -2550,6 +2670,32 @@ void Scene::SetVolumeRaycastingQuality(int numSteps, float opacityScale) {
     this->Update();
 }
 
+void Scene::SetVolumeRaycastMaskEnabled(bool enabled) {
+    this->SetVolumeRaycastMaskMode(enabled ? VolumeMaskMode::Carve
+                                           : VolumeMaskMode::Off);
+}
+
+void Scene::SetVolumeRaycastMaskMode(VolumeMaskMode mode) {
+    if (m_VolumeMaskMode == mode) { return; }
+
+    const bool needRebuild = (m_VolumeMaskMode == VolumeMaskMode::Off) !=
+                             (mode == VolumeMaskMode::Off);
+    m_VolumeMaskMode = mode;
+    // 开/关掩膜需要在构建体数据时生成掩膜纹理，因此标脏重建；只在
+    // Carve/Shell 之间切换时只影响 shader 的合成方式，不需要重建。
+    if (needRebuild) { m_VolumeDataDirty = true; }
+    // 重建时会打印掩膜来源与无效体素占比，便于确认模式是否真的起作用。
+    this->Update();
+}
+
+void Scene::SetVolumeRaycastShellOpacity(float opacity) {
+    const float clamped = std::clamp(opacity, 0.0f, 1.0f);
+    if (m_VolumeShellOpacity == clamped) { return; }
+    m_VolumeShellOpacity = clamped;
+    // 只改 shader uniform，不需要重建体数据
+    this->Update();
+}
+
 Scene::VolumeRenderingInfo Scene::GetVolumeRenderingInfo() {
     VolumeRenderingInfo info;
     info.mode = this->GetVolumeRenderingMode();
@@ -2578,7 +2724,24 @@ Scene::VolumeRenderingInfo Scene::GetVolumeRenderingInfo() {
 
     info.stepCount = m_VolumeStepCount;
     info.opacityScale = m_VolumeOpacityScale;
+    info.maskMode = static_cast<int>(m_VolumeMaskMode);
+    info.maskAvailable = m_VolumeMaskAvailable;
     info.maskEnabled = m_VolumeMaskEnabled;
+    info.maskInvalidRatio =
+            m_VolumeMaskAvailable ? (1.0f - m_VolumeMaskValidRatio) : 0.0f;
+    info.shellOpacity = m_VolumeShellOpacity;
+
+    // 帧率与 GPU 帧时间：帧时间来自 Draw() 里的 GL_TIME_ELAPSED 双缓冲查询，
+    // 已经是平滑值；“active”用于区分“空闲不重绘”和“真的卡住”
+    info.fps = m_Fps;
+    info.gpuFrameTimeMs = m_SmoothedGpuTimeMs;
+    if (m_LastRenderEndValid) {
+        const double sinceLastFrameMs =
+                std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - m_LastRenderEnd)
+                        .count();
+        info.active = sinceLastFrameMs < 1500.0;
+    }
     return info;
 }
 
@@ -2784,6 +2947,12 @@ void Scene::VolumeRaycastPass() {
     m_VolumeMaskTexture3d->Active(GL_TEXTURE3);
     shader->SetUniformi("volumeMask", 3);
     shader->SetUniformi("volumeMaskEnabled", m_VolumeMaskEnabled ? 1 : 0);
+    // 掩膜合成方式：1=挖空无效体素；2=把无效体素画成实体车壳
+    shader->SetUniformi("maskMode",
+                        m_VolumeMaskEnabled ? static_cast<int>(m_VolumeMaskMode)
+                                            : 0);
+    shader->SetUniformf("shellOpacity", m_VolumeShellOpacity);
+    shader->SetUniform3f("shellColor", m_VolumeShellColor);
 
     m_VolumeTransferFunction->Active(GL_TEXTURE2);
     shader->SetUniformi("transferFunction", 2);
