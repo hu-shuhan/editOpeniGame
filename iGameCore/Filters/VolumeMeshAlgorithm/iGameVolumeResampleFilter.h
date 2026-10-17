@@ -70,6 +70,28 @@ public:
         return std::min(m, m_OutputSpacing[2]);
     }
 
+    /** 输出规则网格的世界坐标原点（= 输入包围盒最小值，Execute 后有效）。 */
+    const double* GetOutputOrigin() const { return m_OutputOrigin; }
+
+    /**
+     * 可见体素包围盒：在重采样产物里圈出「可能出颜色」的体素范围（世界坐标）。
+     *
+     * @details
+     *  判据与渲染器的空体素剔除同口径：`mask != 0 && scalar >= scalarThreshold`
+     *  （scalarThreshold 取 iGameVolumeRayCastCPU::GetOpacityThreshold()，即"首个会
+     *  产生不为 0 的不透明度的标量值"）。因此它圈出来的正是屏幕上**看得见**的那一块，
+     *  而不是几何包围盒（几何包围盒会把"标量恒等于最小值"的平台也算进去，导致相机
+     *  焦点落在看得见的内容之外 —— 表现为模型偏到一边）。
+     *
+     *  @param scalarThreshold 可见标量的下界（含）；<=-FLT_MAX 表示全可见。
+     *  @param stride 每轴隔点采样的步长（2 = 只查 1/8 的体素）。结果会向外扩 stride
+     *                个体素，保证是略大的安全包围盒（误差对取景不可见）。
+     *  @param outMin/outMax 世界坐标的包围盒（上升/失败时不修改）。
+     *  @return 找到可见体素返回 true；没有（数据全透明 / 字段无效）返回 false。
+     */
+    bool ComputeVisibleBounds(float scalarThreshold, int stride, double outMin[3],
+                              double outMax[3]) const;
+
     bool Execute() override;
 
 protected:
@@ -84,8 +106,10 @@ private:
     std::string m_FieldName;
     StructuredMesh::Pointer m_OutputMesh{nullptr};
     UnsignedCharArray::Pointer m_ValidMask{nullptr};
+    FloatArray::Pointer m_OutputScalar{nullptr}; // 输出的点标量（ComputeVisibleBounds 用）
     double m_SourceMinSpacing{0.0};          // 输入分块最细点间距（诊断用）
     double m_OutputSpacing[3]{1.0, 1.0, 1.0}; // 输出规则网格间距（诊断用）
+    double m_OutputOrigin[3]{0.0, 0.0, 0.0};  // 输出规则网格原点（诊断 / 可见包围盒用）
     StructuredMesh::Pointer m_GeometryTemplate{nullptr}; // 共享几何模板（多帧播放）
 };
 

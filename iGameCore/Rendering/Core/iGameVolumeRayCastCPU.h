@@ -118,6 +118,31 @@ public:
     float GetDataMin() const { return m_DataMin; }
     float GetDataMax() const { return m_DataMax; }
 
+    /**
+     * 空体素跳过的标量阈值：`scalar >= 该值`的体素才可能产生不为 0 的不透明度
+     * （由 SetTransferFunction 按 LUT 算出来）。
+     *
+     * @details
+     *  用途：并行体绘制的相机取景要圈「屏幕上看得见的那块」，用这个阈值当作
+     *  iGameVolumeResampleFilter::ComputeVisibleBounds 的可见判据，就与渲染器的
+     *  剔除口径完全一致（不会把"标量恒等于最小值"的透明平台算进取景包围盒）。
+     *  返回值：-FLT_MAX = 全可见（不透明度处处 >0）；+FLT_MAX = 全透明。
+     */
+    float GetOpacityThreshold() const { return m_OpacityThreshold; }
+
+    /**
+     * TF 在标量最小值处的不透明度（"底色雾" floor，来自
+     * iGameVolumeTransferFunction::GetMinOpacity，默认 0）。
+     *
+     * @details
+     *  只有 >0 且启用了 Beer-Lambert（SetScalarOpacityUnitDistance > 0）时才生效：
+     *  被"空体素跳过"整段跳过的砖块（标量全在最小值平台内）不再算作完全透明，
+     *  而是按 1 - exp(-floor·len/unitDistance) 一次性累加一段均匀的底色雾
+     *  （见 RayCastPixel 的跳过分支）。这样最小值区域是"淡淡的底色"而不是"看不见"，
+     *  代价只有每段一次 exp，不增加采样次数。
+     */
+    float GetMinOpacity() const { return m_MinOpacity; }
+
 protected:
     iGameVolumeRayCastCPU();
     ~iGameVolumeRayCastCPU() override;
@@ -157,11 +182,16 @@ private:
 
     // ---------- 传输函数 / LUT ----------
     iGameVolumeTransferFunction::Pointer m_TransferFunction{nullptr};
-    std::vector<unsigned char> m_LUT; // RGBA8，resolution*4
+    std::vector<unsigned char> m_LUT; // RGBA8，resolution*4（颜色 + 8bit alpha）
+    // 全精度 alpha 斜坡：最小值处的"底色雾"典型值 1e-5~1e-4，8bit alpha 会被量化成 0，
+    // 所以 alpha 单独用 float 斜坡查表（颜色仍用 m_LUT）。
+    std::vector<float> m_LUTAlpha;
     int m_LUTResolution{0};
     double m_ScalarMin{0.0};
     double m_ScalarMax{1.0};
     float m_OpacityThreshold{-std::numeric_limits<float>::max()}; // 首个不透明标量值
+    float m_MinOpacity{0.0f};      // TF 最小值处的不透明度（底色雾 floor）
+    float m_HazeColor[3]{0.0f, 0.0f, 0.0f}; // 底色雾颜色（= LUT 第 0 项颜色）
 
     // ---------- 有效点 mask ----------
     UnsignedCharArray::Pointer m_ValidMask{nullptr};

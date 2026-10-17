@@ -258,6 +258,13 @@ struct CliOptions {
     int lqDivisor{2};   // 拖动时的分辨率除数（2 => 512x512）
     // A 键自动播放的换帧间隔（毫秒，仅 --server）：默认 2000 = 2 秒一帧。
     int autoPlayIntervalMs{2000};
+    // 传输函数「标量最小值处」的不透明度（底色雾 floor，单位为「每单位距离」= 每体素）。
+    //  0（默认）  ：最小值区域完全透明（历史行为）。取景居中由「可见包围盒」（见下）解决，
+    //              不需要靠抬高最小值不透明度让整块数据可见 —— 那会多出一层蓝底、并把
+    //              ROI 撑到整屏。
+    //  <0        ：自动 —— 按「整个包围盒对角线上的累计雾 = 10%」反推（想看整个域时用）；
+    //  >0        ：直接用这个值（每体素不透明度，注意它会沿光线累积，见 SetMinOpacity 注释）。
+    double minOpacity{0.0};
     bool showHelp{false};
     bool valid{false};
 };
@@ -329,6 +336,16 @@ void PrintUsage(const char* prog) {
             << "      --autoplay-interval <ms>\n"
             << "                           A-key autoplay frame interval in milliseconds\n"
             << "                           (default 2000 = 2 s per frame; --server only).\n"
+            << "      --min-opacity <f>    Opacity of the transfer function at the scalar\n"
+            << "                           MINIMUM, per unit distance (one resampled voxel).\n"
+            << "                           Default 0 = the minimum region is fully transparent\n"
+            << "                           (historical behavior); frame centering is handled by\n"
+            << "                           the *visible* bbox, not by this knob). -1 = auto:\n"
+            << "                           derive it so the accumulated haze over the volume\n"
+            << "                           diagonal is ~10% (use this if you want to SEE the\n"
+            << "                           whole bounding box). NOTE: opacity accumulates along\n"
+            << "                           the ray (1-exp(-f*L)), so a \"small looking\" 0.01\n"
+            << "                           over a 3000-voxel data set is already opaque.\n"
             << "  -h, --help               Show this help.\n"
             << "\n"
             << "Examples:\n"
@@ -458,6 +475,14 @@ CliOptions ParseCli(int argc, char** argv) {
             opts.autoPlayIntervalMs = std::atoi(argv[++i]);
             continue;
         }
+        if (a == "--min-opacity") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: option '" << a << "' requires a value.\n";
+                return opts;
+            }
+            opts.minOpacity = std::atof(argv[++i]);
+            continue;
+        }
 
         std::cerr << "Error: unknown option '" << a << "'. Use -h for help.\n";
         return opts; // valid = false
@@ -470,6 +495,9 @@ CliOptions ParseCli(int argc, char** argv) {
     // 自动播放间隔：非正值回落默认 2s；下限 10ms，避免误配成忙等。
     if (opts.autoPlayIntervalMs <= 0) { opts.autoPlayIntervalMs = 2000; }
     if (opts.autoPlayIntervalMs < 10) { opts.autoPlayIntervalMs = 10; }
+    // 最小值不透明度：<0 = 自动（按包围盒对角线上的目标雾浓度反推）；上限 0.5，
+    // 免得误填一个大值把整个包围盒变成实心块。
+    if (opts.minOpacity > 0.5) { opts.minOpacity = 0.5; }
     if (!opts.input.empty()) { opts.valid = true; }
     return opts;
 }
@@ -650,6 +678,10 @@ int main(int argc, char** argv) {
     // 否则（多块，或单块但不是结构化网格）一律重采样。
     std::vector<StructuredMesh::Pointer> volumes(static_cast<size_t>(numFrames));
     std::vector<UnsignedCharArray::Pointer> masks(static_cast<size_t>(numFrames));
+    // 每帧的重采样器（保留引用：后面用它的 ComputeVisibleBounds 圈「看得见」的体素范围；
+    // 它只多持有指向输出网格的指针，不额外占内存）。
+    std::vector<iGameVolumeResampleFilter::Pointer> resamplers(
+            static_cast<size_t>(numFrames));
 
     // 重采样目标分辨率（只算一次：各帧空间位置一致，网格完全相同）。
     const auto blk = distributor->GetLocalBlock();
@@ -722,6 +754,7 @@ int main(int argc, char** argv) {
             }
             volumes[static_cast<size_t>(f)] = resampler->GetStructuredMesh();
             masks[static_cast<size_t>(f)] = resampler->GetValidMask();
+            resamplers[static_cast<size_t>(f)] = resampler;
             if (f == startFrame) {
                 // 诊断只打一次（起始帧），避免多帧刷屏。
                 sourceMinSpacing = resampler->GetSourceMinSpacing();
@@ -847,6 +880,65 @@ int main(int argc, char** argv) {
                   << ", LQ step = " << voxelSize * cli.lqStepScale << '\n';
     }
 
+    // 8.6 传输函数在「标量最小值」处的不透明度（底色雾 floor，默认 0 = 关闭）。
+    //
+    // 不透明度在这里是**每单位距离**的量（Beer-Lambert，unitDistance = 全局体素尺寸），
+    // 沿光线会累积成
+    //     A = 1 - exp(-floor · L),  L = 路径上有多少个重采样体素
+    // 所以：
+    //   · floor = 0（默认）⇒ 整个"最小值平台"（本数据集的 101325 环境压力区）完全不可见。
+    //     想让「看不见的包围盒」变成看得见，本该改相机而不该改渲染 —— 已由「可见包围盒」
+    //     取景解决（见 --server 分支的 [bounds] 日志），画面上不会多出一层蓝底，
+    //     ROI / 下行载荷也不会被撑大。
+    //   · 凭直觉给 0.01 ⇒ 本数据集对角线约 3000+ 个体素，1-exp(-0.01×3000) ≈ 100%，
+    //     整个包围盒变成实心块。
+    //   · 真想看一眼整个域时用 --min-opacity -1（自动）：按「对角线累计雾 ≈10%」反推
+    //         floor = -ln(1 - 0.10) / L_diag
+    //     这个值随数据尺度/--resample 自动变化，不会因为体素变细而糊掉。
+    //
+    // 参考：VTK 的 vtkVolumeProperty::SetScalarOpacityUnitDistance 就是把"不透明度"
+    // 定义在单位距离上、并由 mapper 做 opacity correction（Max 1995 / Roettger 2003）；
+    // 参考实现 UnifiedVersion/src/VolumeRenderingCommon.h 用的是 (gMin, 0.0) 起步，
+    // 即本参数的默认值 0。
+    constexpr double kMinOpacityHazeTarget = 0.10;
+    // 可见体素包围盒（相机取景用）的隔点采样步长：2 = 每轴隔 1 个取 1，只查 1/8 的体素。
+    // 可见区是连片的大块，隔点采样的包围盒误差 ≤ 1 个体素（代码里再向外扩 stride 个格子，
+    // 保证是"略大"的安全包围盒），对 1500~3000 体素量级的取景完全看不出来。
+    constexpr int kVisibleBoundsStride = 2;
+    auto ResolveMinOpacity = [&]() -> double {
+        if (cli.minOpacity >= 0.0) { return cli.minOpacity; }
+        const double diag = globalBounds.diag();
+        if (!(diag > 0.0) || !(voxelSize > 0.0)) { return 0.0; }
+        const double diagVox = diag / voxelSize; // 对角线有多少个重采样体素
+        if (!(diagVox > 1.0)) { return 0.0; }
+        return -std::log(1.0 - kMinOpacityHazeTarget) / diagVox;
+    };
+    const double minOpacityValue = ResolveMinOpacity();
+    if (rank == 0) {
+        const double diag = globalBounds.diag();
+        // 三个主轴方向的路径长度（体素数），用于说明"不同视角看到的雾浓淡不同"。
+        double axisVox[3] = {0.0, 0.0, 0.0};
+        for (int a = 0; a < 3; ++a) {
+            axisVox[a] = (globalBounds.max[a] - globalBounds.min[a]) / voxelSize;
+        }
+        const double diagVox = (voxelSize > 0.0) ? diag / voxelSize : 0.0;
+        auto hazeAt = [&](double lVox) {
+            return (minOpacityValue > 0.0)
+                           ? 100.0 * (1.0 - std::exp(-minOpacityValue * lVox))
+                           : 0.0;
+        };
+        std::cerr << "[tf] min opacity = " << minOpacityValue
+                  << " per voxel ("
+                  << (cli.minOpacity >= 0.0 ? "disabled/default" : "auto")
+                  << "); accumulated haze over the bbox diagonal ("
+                  << static_cast<long long>(diagVox) << " vox) = "
+                  << hazeAt(diagVox) << "%, over the shortest axis ("
+                  << static_cast<long long>(std::max(0.0, std::min({axisVox[0], axisVox[1], axisVox[2]})))
+                  << " vox) = "
+                  << hazeAt(std::min({axisVox[0], axisVox[1], axisVox[2]}))
+                  << "%. 0 disables it (--min-opacity 0).\n";
+    }
+
     // -------------------------------------------------------------------------
     // CPU 后端（阶段 4）：纯 CPU 光线步进体渲染，无头、不依赖 OpenGL/GLFW。
     // 每个 rank 用自己的超块体素场渲染到 CPU 图像缓冲（RGBA + float 深度），
@@ -896,6 +988,8 @@ int main(int argc, char** argv) {
         // GetOpacityMappingEnabled() 恒为 false，会把 TF 的透明度映射意外关掉，
         // MapOpacity 恒返回 1.0 → 体渲染退化为表面渲染（本问题根因）。
         tf->SetOpacityMappingEnabled(true);
+        // 最小值处的底色雾（见 8.6 的推导与日志）：0 = 最小值区域完全透明（历史行为）。
+        tf->SetMinOpacity(static_cast<float>(minOpacityValue));
 
         auto cpuRayCaster = iGameVolumeRayCastCPU::New();
         if (!cpuRayCaster->SetInput(volumes[static_cast<size_t>(startFrame)])) {
@@ -997,6 +1091,95 @@ int main(int argc, char** argv) {
                           << " ms\n";
             }
 
+            // ---- 每帧的「可见体素包围盒」：相机取景 / O 轨道 pivot 用它 ----
+            //
+            // 几何包围盒是分块 bbox 的并集，里面包含"标量恒等于最小值"的平台；默认传输
+            // 函数在最小值处不透明度为 0，那块在屏幕上**完全不可见**。拿几何中心当焦点
+            // 就等于把镜头对准了一团看不见的包围盒 —— 表现为模型整体偏到一边。
+            //
+            // 这里改用渲染器的空体素剔除阈值当可见判据（`scalar >= threshold` 且 mask!=0），
+            // 圈出"屏幕上真正会出颜色"的体素范围。开销：
+            //   · 计算：每 rank 扫一遍自己的体素，每轴隔 kVisibleBoundsStride 个取 1
+            //     （stride=2 ⇒ 只查 1/8），启动时每帧一次，量级 1~2 ms；
+            //   · 通信：每帧 2 次 AllReduce（各 3 个 double = 24 B/rank），只在启动时做。
+            // 渲染 / 合成 / ROI / 下行载荷全都不受影响（裁剪面仍用几何包围盒）。
+            const float visibleThreshold = cpuRayCaster->GetOpacityThreshold();
+            std::vector<double> frameFocusCentersXYZ(frameCentersXYZ); // 兜底 = 几何值
+            std::vector<double> frameFocusRadii(frameRadii);
+            int visibleFrames = 0;
+            for (int f = 0; f < numFrames; ++f) {
+                double localMin[3] = {
+                        std::numeric_limits<double>::infinity(),
+                        std::numeric_limits<double>::infinity(),
+                        std::numeric_limits<double>::infinity()};
+                double localMax[3] = {
+                        -std::numeric_limits<double>::infinity(),
+                        -std::numeric_limits<double>::infinity(),
+                        -std::numeric_limits<double>::infinity()};
+                const auto& rs = resamplers[static_cast<std::size_t>(f)];
+                const bool hasLocal =
+                        rs && rs->ComputeVisibleBounds(visibleThreshold,
+                                                       kVisibleBoundsStride,
+                                                       localMin, localMax);
+                if (!hasLocal) {
+                    // 本 rank 没有可见体素（或该帧没走重采样）：提交空贡献。
+                    for (int a = 0; a < 3; ++a) {
+                        localMin[a] = std::numeric_limits<double>::infinity();
+                        localMax[a] = -std::numeric_limits<double>::infinity();
+                    }
+                }
+                double gmin[3], gmax[3];
+                ctx->AllReduce(localMin, gmin, 3, ParallelContext::ReduceOp::Min);
+                ctx->AllReduce(localMax, gmax, 3, ParallelContext::ReduceOp::Max);
+                // 注意：这两个 AllReduce 必须**无条件**执行（不能按 hasLocal 跳过），
+                // 否则各 rank 的集合通信次数不一致 → 死锁（不变量 §4.3）。
+                bool ok = true;
+                for (int a = 0; a < 3; ++a) {
+                    if (!std::isfinite(gmin[a]) || !std::isfinite(gmax[a]) ||
+                        gmax[a] < gmin[a]) {
+                        ok = false;
+                    }
+                }
+                if (!ok) { continue; } // 全透明/无可见体素：保留几何兜底值
+                const std::size_t base = static_cast<std::size_t>(f) * 3;
+                double ext[3];
+                for (int a = 0; a < 3; ++a) {
+                    frameFocusCentersXYZ[base + a] = (gmin[a] + gmax[a]) * 0.5;
+                    ext[a] = gmax[a] - gmin[a];
+                }
+                const double r =
+                        0.5 * std::sqrt(ext[0] * ext[0] + ext[1] * ext[1] +
+                                        ext[2] * ext[2]);
+                // 退化保护：可见区缩成一个点时（r 远小于几何半径）不拿它当取景依据，
+                // 否则相机距离会小到钻进数据里。保留几何兜底值。
+                if (r > radius * 1e-4) {
+                    frameFocusRadii[static_cast<std::size_t>(f)] = r;
+                    ++visibleFrames;
+                } else {
+                    for (int a = 0; a < 3; ++a) {
+                        frameFocusCentersXYZ[base + a] =
+                                frameCentersXYZ[base + a];
+                    }
+                }
+            }
+            if (rank == 0 && numFrames > 0) {
+                const std::size_t b0 = static_cast<std::size_t>(startFrame) * 3;
+                const double* gc0 = &frameCentersXYZ[b0];
+                const double* fc0 = &frameFocusCentersXYZ[b0];
+                std::cerr << "[bounds] visible bbox (threshold=" << visibleThreshold
+                          << ", stride=" << kVisibleBoundsStride << "): frames with "
+                             "visible voxels = "
+                          << visibleFrames << '/' << numFrames << '\n';
+                std::cerr << "[bounds] frame " << startFrame << " focus center = ("
+                          << fc0[0] << ", " << fc0[1] << ", " << fc0[2]
+                          << "), r=" << frameFocusRadii[static_cast<std::size_t>(startFrame)]
+                          << "  vs geometry center = (" << gc0[0] << ", " << gc0[1]
+                          << ", " << gc0[2] << "), r="
+                          << frameRadii[static_cast<std::size_t>(startFrame)]
+                          << "  (delta = " << (fc0[0] - gc0[0]) << ", "
+                          << (fc0[1] - gc0[1]) << ", " << (fc0[2] - gc0[2]) << ")\n";
+            }
+
             const int rc = iGamePVServer::RunServer(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
@@ -1004,6 +1187,7 @@ int main(int argc, char** argv) {
                     numFrames, startFrame, selectedField, voxelSize,
                     cli.hqStepScale, cli.lqStepScale, cli.lqDivisor,
                     cli.usePixelwise, frameCentersXYZ, frameRadii,
+                    frameFocusCentersXYZ, frameFocusRadii,
                     cli.autoPlayIntervalMs);
             ParallelContext::Finalize();
             return rc;

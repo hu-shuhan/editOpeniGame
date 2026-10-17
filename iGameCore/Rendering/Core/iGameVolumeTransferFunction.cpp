@@ -44,11 +44,34 @@ void iGameVolumeTransferFunction::AddOpacityPoint(float value, float opacity) {
 
 void iGameVolumeTransferFunction::SetDefaultOpacityPoints() {
     m_OpacityPoints.clear();
-    // 对标 VolumeRenderingCommon.h：低值 0 -> 中值 0.2 -> 高值 1.0。
+    // 对标 VolumeRenderingCommon.h：低值 minOpacity -> 中值 0.2 -> 高值 1.0。
     // 中间控制点在 PVR_REF 里是 gMin + 0.6*(gMax-gMin)（归一化 0.6），这里保持一致。
-    m_OpacityPoints.push_back(OpacityPoint{0.0f, 0.0f});
+    // 最小值处的不透明度默认 0（参考实现也是 0）；调用 SetMinOpacity 可抬高成"底色雾"。
+    m_OpacityPoints.push_back(OpacityPoint{0.0f, m_MinOpacity});
     m_OpacityPoints.push_back(OpacityPoint{0.6f, 0.2f});
     m_OpacityPoints.push_back(OpacityPoint{1.0f, 1.0f});
+}
+
+void iGameVolumeTransferFunction::SetMinOpacity(float opacity) {
+    m_MinOpacity = std::clamp(opacity, 0.0f, 1.0f);
+    if (m_OpacityPoints.empty()) {
+        SetDefaultOpacityPoints();
+        return;
+    }
+    if (m_OpacityPoints.front().value <= 1e-6f) {
+        // 已有「归一化 0」的控制点：只改它的不透明度，中/高值段形状不变。
+        m_OpacityPoints.front().opacity = m_MinOpacity;
+        return;
+    }
+    m_OpacityPoints.insert(m_OpacityPoints.begin(),
+                           OpacityPoint{0.0f, m_MinOpacity});
+}
+
+float iGameVolumeTransferFunction::GetMinOpacity() const {
+    if (!m_OpacityPoints.empty() && m_OpacityPoints.front().value <= 1e-6f) {
+        return m_OpacityPoints.front().opacity;
+    }
+    return 0.0f;
 }
 
 float iGameVolumeTransferFunction::MapOpacity(float value) const {
@@ -108,6 +131,16 @@ std::vector<unsigned char> iGameVolumeTransferFunction::BakeLUT() const {
         lut[base + 3] = toUChar(alpha);
     }
     return lut;
+}
+
+std::vector<float> iGameVolumeTransferFunction::BakeAlphaRamp() const {
+    const int res = std::max(2, m_LUTResolution);
+    std::vector<float> ramp(static_cast<size_t>(res), 0.0f);
+    for (int i = 0; i < res; ++i) {
+        const float t = static_cast<float>(i) / static_cast<float>(res - 1);
+        ramp[static_cast<size_t>(i)] = MapOpacity(t);
+    }
+    return ramp;
 }
 
 IGAME_NAMESPACE_END

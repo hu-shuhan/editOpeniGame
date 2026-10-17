@@ -218,11 +218,19 @@ static inline float SampleMaskTrilinear(const unsigned char* mask,
 
 // 计算首个 alpha > 0 的归一化位置对应的标量值。opacity 恒>0 时返回 -FLT_MAX，
 // 全透明时返回 +FLT_MAX。
+//
+// minOpacity = TF 在最小值处的不透明度（"底色雾"floor）。floor > 0 时「第 0 项 alpha 就
+// 已经 >0」，若直接按 alpha>0 判据会把阈值推到 -FLT_MAX（空体素跳过彻底失效）。所以这里
+// 在 **8bit 量化域**里与 floor 比较：只有明显高于 floor 的项才算"真不透明"。
+// floor 小于 1/255 时 floorA8 == 0，判据退化成历史的 alpha>0，跳过行为逐位不变。
 float ComputeOpacityThreshold(const std::vector<unsigned char>& lut, int res,
-                              double scalarMin, double scalarMax) {
+                              double scalarMin, double scalarMax,
+                              float minOpacity = 0.0f) {
     if (res < 1 || lut.empty()) { return -FLT_MAX; }
+    const float floorClamped = std::clamp(minOpacity, 0.0f, 1.0f);
+    const int floorA8 = static_cast<int>(floorClamped * 255.0f + 0.5f);
     for (int i = 0; i < res; ++i) {
-        if (lut[static_cast<size_t>(i) * 4 + 3] > 0) {
+        if (static_cast<int>(lut[static_cast<size_t>(i) * 4 + 3]) > floorA8) {
             if (i == 0) { return -FLT_MAX; }
             const double t = static_cast<double>(i) /
                              static_cast<double>(res - 1);
@@ -435,9 +443,19 @@ void iGameVolumeRayCastCPU::SetTransferFunction(
 
     m_LUT = tf->BakeLUT();
     m_LUTResolution = tf->GetLUTResolution();
+    // alpha 用全精度斜坡：8bit 的量化步长是 1/255 ≈ 0.0039，会把"底色雾"这类
+    // 1e-5~1e-4 量级的不透明度直接量化成 0。
+    m_LUTAlpha = tf->BakeAlphaRamp();
+    m_MinOpacity = tf->GetMinOpacity();
+    for (int c = 0; c < 3; ++c) {
+        m_HazeColor[c] = m_LUT.empty()
+                                 ? 0.0f
+                                 : static_cast<float>(m_LUT[static_cast<size_t>(c)]) /
+                                           255.0f;
+    }
     m_OpacityThreshold =
             ComputeOpacityThreshold(m_LUT, m_LUTResolution, m_ScalarMin,
-                                    m_ScalarMax);
+                                    m_ScalarMax, m_MinOpacity);
     m_BricksDirty = true;
 }
 
@@ -447,7 +465,7 @@ void iGameVolumeRayCastCPU::SetScalarRange(double scalarMin, double scalarMax) {
     m_ScalarMax = scalarMax;
     m_OpacityThreshold =
             ComputeOpacityThreshold(m_LUT, m_LUTResolution, m_ScalarMin,
-                                    m_ScalarMax);
+                                    m_ScalarMax, m_MinOpacity);
     m_BricksDirty = true;
 }
 
@@ -549,6 +567,13 @@ void iGameVolumeRayCastCPU::SampleLUT(float scalar, float outColor[3],
                        frac * (static_cast<float>(p1[c]) -
                                static_cast<float>(p0[c]))) /
                       255.0f;
+    }
+    // alpha 走全精度斜坡（见 m_LUTAlpha 的说明）；缺斜坡时退回 8bit LUT 的历史口径。
+    if (m_LUTAlpha.size() == static_cast<size_t>(res)) {
+        const float a0 = m_LUTAlpha[static_cast<size_t>(i0)];
+        const float a1 = m_LUTAlpha[static_cast<size_t>(i1)];
+        outAlpha = a0 + frac * (a1 - a0);
+        return;
     }
     outAlpha = (static_cast<float>(p0[3]) +
                 frac * (static_cast<float>(p1[3]) - static_cast<float>(p0[3]))) /
@@ -666,6 +691,12 @@ void iGameVolumeRayCastCPU::RayCastPixel(
     const float* brickMax = m_BrickMax.data();
     const unsigned char* brickActive = m_BrickActive.data();
     const float opacityThreshold = m_OpacityThreshold;
+    // 底色雾：TF 最小值处的不透明度 >0 且启用 Beer-Lambert 时，被整段跳过的砖块
+    // （标量全在最小值平台内）仍然贡献一段均匀的雾，按 1-exp(-floor·len/unitDistance)
+    // 一次算完 —— 不增加采样次数，也不破坏空体素跳过。
+    const bool hazeEnabled = (m_MinOpacity > 0.0f) && (m_UnitDistance > 0.0);
+    const float hazeDensity =
+            hazeEnabled ? m_MinOpacity / static_cast<float>(m_UnitDistance) : 0.0f;
 
     float aAccum = 0.0f;
     float rAccum = 0.0f;
@@ -727,6 +758,27 @@ void iGameVolumeRayCastCPU::RayCastPixel(
                 if (dExit < 0.0f) { dExit = 0.0f; }
 
                 const float advance = dExit + step * 0.5f; // 略越过砖块边界
+                // 底色雾：本砖块含有效点（brickActive!=0）却整段被跳过 ⇒ 这一段全是
+                // 「标量 < 阈值」的低值区，按最小值处的均匀不透明度解析累加。
+                // brickActive==0 表示这里根本没有数据（mask=0），不加雾。
+                if (hazeEnabled && brickActive[brickIdx] != 0 && advance > 0.0f) {
+                    const float aStep =
+                            1.0f - std::exp(-hazeDensity * advance);
+                    if (aStep > 1e-7f) {
+                        const float inv = 1.0f - aAccum;
+                        if (inv > 0.0f) {
+                            rAccum += inv * m_HazeColor[0] * aStep;
+                            gAccum += inv * m_HazeColor[1] * aStep;
+                            bAccum += inv * m_HazeColor[2] * aStep;
+                            aAccum += inv * aStep;
+                            if (firstHitT < 0.0f) { firstHitT = t; }
+                        }
+                        if (aAccum > 0.995f) {
+                            aAccum = 1.0f;
+                            break;
+                        }
+                    }
+                }
                 t += advance;
                 gx += dirGx * advance;
                 gy += dirGy * advance;

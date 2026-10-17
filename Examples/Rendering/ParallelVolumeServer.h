@@ -160,6 +160,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      bool usePixelwise = false,
                      const std::vector<double>& frameCentersXYZ = {},
                      const std::vector<double>& frameRadii = {},
+                     const std::vector<double>& frameFocusCentersXYZ = {},
+                     const std::vector<double>& frameFocusRadii = {},
                      int autoPlayIntervalMs = kDefaultAutoPlayIntervalMs) {
     auto ctx = iGame::ParallelContext::Instance();
     const int rank = ctx->Rank();
@@ -168,8 +170,14 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     int curFrame = startFrame;
 
     // 每帧的全局包围盒（由 ParallelVolumeRendering.cpp 的 --server 分支用 AllReduce 汇总
-    // 后传入）。O 键自动轨道相机按「当前帧」的模型包围盒取景；数组为空时退回全局包围盒，
-    // 因此其它调用方/单帧数据的行为与旧版一致。
+    // 后传入）。数组为空时退回全局包围盒，因此其它调用方/单帧数据的行为与旧版一致。
+    //
+    // 两套数组：
+    //   frameCentersXYZ/frameRadii       —— **几何**包围盒（分块 bbox 并集）
+    //   frameFocusCentersXYZ/frameRadii  —— **可见**包围盒（`scalar >= 空体素剔除阈值`
+    //                                        的体素范围，即屏幕上真正看得见的那块）
+    // 取景（相机焦点、轨道 pivot、取景/缩放距离）用可见包围盒；近远裁剪面与采样步数
+    // 护栏用几何包围盒。原因见下面 focusCenter/focusRadius 的注释。
     auto frameCenter = [&](int f) -> const double* {
         const std::size_t base = static_cast<std::size_t>(f) * 3;
         if (f >= 0 && base + 3 <= frameCentersXYZ.size() &&
@@ -185,6 +193,29 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         }
         return radius;
     };
+    // ---- 取景用的「可见包围盒」（与上面几何包围盒并列，二者用途不同）----
+    //   · frameCenter/frameRadius（几何）：整块数据的范围。用于近远裁剪面与采样步数护栏
+    //     —— 必须覆盖所有 rank 的超块，否则会裁掉数据或把 maxSamples 算小。
+    //   · focusCenter/focusRadius（可见）：`scalar >= 空体素剔除阈值` 的体素范围，也就是
+    //     屏幕上真正看得见的那一块。用于相机焦点、O 轨道 pivot 与取景距离。
+    //     几何包围盒会把"标量恒等于最小值"的透明平台算进去，拿它当焦点就会出现
+    //     「模型偏到一边」——这正是本组参数的由来。
+    //   数组为空时回退几何值（旧行为），因此其它调用方/单帧数据的表现不变。
+    auto focusCenter = [&](int f) -> const double* {
+        const std::size_t base = static_cast<std::size_t>(f) * 3;
+        if (f >= 0 && base + 3 <= frameFocusCentersXYZ.size() &&
+            static_cast<std::size_t>(f) < frameFocusRadii.size()) {
+            return &frameFocusCentersXYZ[base];
+        }
+        return frameCenter(f);
+    };
+    auto focusRadius = [&](int f) -> double {
+        if (f >= 0 && static_cast<std::size_t>(f) < frameFocusRadii.size() &&
+            frameFocusRadii[static_cast<std::size_t>(f)] > 0.0) {
+            return frameFocusRadii[static_cast<std::size_t>(f)];
+        }
+        return frameRadius(f);
+    };
     // 采样步数护栏取所有帧里最大的包围球半径（切帧不改变步长上限）。
     double maxFrameRadius = radius;
     for (double r : frameRadii) {
@@ -194,7 +225,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     // 相机轨道状态（仅 rank 0 维护；其余 rank 只接收广播后的绝对相机参数）。
     double azimuth = 0.0;      // 方位角（弧度）
     double elevation = 0.0;    // 仰角（弧度）
-    double distance = frameRadius(startFrame) * 3.0;
+    // 取景距离按「可见包围盒」的半径（看得见的内容填满画面，而不是整块几何）。
+    double distance = focusRadius(startFrame) * 3.0;
 
     // O 键 / A 键动画状态（仅 rank 0 读写；每 accept 一个新客户端时重置）。
     bool orbitActive = false;    // 自动轨道相机开
@@ -282,7 +314,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     // 每个新客户端从默认 +Z 视角、全新交互状态开始（不继承上一个客户端的轨道/帧序号）。
     azimuth = 0.0;
     elevation = 0.0;
-    distance = frameRadius(startFrame) * 3.0;
+    distance = focusRadius(startFrame) * 3.0;
     frameSeq = 0;
     curFrame = startFrame;
     orbitActive = false;    // O 键状态每个会话重新开始
@@ -391,9 +423,11 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     // 关键点：
     //   - FOV 固定在 kOrbitFixedFovDeg（垂直 45°），水平半角由宽高比推出，取二者更紧的一个
     //     —— 任意方位角下模型都不会出画；
-    //   - 距离在一次开启时算好并保持，轨道过程中不缩放（滚轮被忽略）。
+    //   - 距离在一次开启时算好并保持，轨道过程中不缩放（滚轮被忽略）；
+    //   - 半径用「可见包围盒」（focusRadius）：看得见的内容填满画面。用几何半径的话，
+    //     透明平台会把半径撑大，模型在画面里显得又小又偏。
     auto FitOrbitDistance = [&](int f) -> double {
-        const double fr = frameRadius(f);
+        const double fr = focusRadius(f);
         const double aspect = static_cast<double>(std::max(1, hqW)) /
                               static_cast<double>(std::max(1, hqH));
         const double halfV = 0.5 * static_cast<double>(kOrbitFixedFovDeg) *
@@ -443,7 +477,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         // 固定 FOV（所有 rank 一致；O 键取景距离就是按这个 FOV 算的）。
         camera->SetFov(kOrbitFixedFovDeg);
 
-        // 当前帧的模型包围盒：相机焦点/裁剪范围都以它为准（多帧数据各帧可能不同）。
+        // 当前帧的**几何**包围盒：只用于近远裁剪面（必须覆盖所有 rank 的超块，
+        // 否则会裁掉数据）。相机焦点不在这里 —— 它由上面按「可见包围盒」广播的 camFp 决定。
         const double* fc = frameCenter(curFrame);
         const double fr = frameRadius(curFrame);
 
@@ -629,8 +664,10 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     };
 
     // ---------- 初始帧：默认 +Z 视角，保证客户端一连上就能看到体数据 ----------
+    // 焦点用「可见包围盒」中心（看得见的内容才在画面正中）；几何中心会把不可见的
+    // 标量最小值平台算进去，也正是"模型偏到一边"的成因。
     if (rank == 0) {
-        const double* fc0 = frameCenter(curFrame);
+        const double* fc0 = focusCenter(curFrame);
         for (int d = 0; d < 3; ++d) {
             camFp[d] = fc0[d];
             camPos[d] = fc0[d] + (d == 2 ? distance : 0.0);
@@ -640,12 +677,16 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     ctx->Broadcast(camPos, 3, 0);
     ctx->Broadcast(camFp, 3, 0);
     ctx->Broadcast(camUp, 3, 0);
-    // 诊断：相机/轨道的中点与取景半径（应与数据的全局包围盒中心/半径一致）。
+    // 诊断：两套包围盒都打出来 —— 两者的中心差就是"几何中心 ≠ 看得见的中心"的那段偏移。
     if (rank == 0) {
         const double* pc = frameCenter(curFrame);
+        const double* fp = focusCenter(curFrame);
         std::cerr << "[server] camera pivot (frame " << curFrame << ") = ("
-                  << pc[0] << ", " << pc[1] << ", " << pc[2]
-                  << "), radius=" << frameRadius(curFrame) << '\n';
+                  << fp[0] << ", " << fp[1] << ", " << fp[2]
+                  << "), radius=" << focusRadius(curFrame) << "  [visible]\n";
+        std::cerr << "[server] geometry center = (" << pc[0] << ", " << pc[1]
+                  << ", " << pc[2] << "), radius=" << frameRadius(curFrame)
+                  << "  [clipping only]\n";
     }
     // clientAlive 仅在 rank 0 更新；其余 rank 通过主循环顶部的 Broadcast(runningFlag)
     // 保持一致，避免某条 send 失败后 rank 0 提前退循环造成其它 rank 集合通信死锁。
@@ -770,13 +811,13 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                                                 std::chrono::milliseconds(
                                                         kOrbitIntervalMs);
                                 cameraChanged = true;
-                                const double* oc = frameCenter(curFrame);
+                                const double* oc = focusCenter(curFrame);
                                 std::cerr << "[server] orbit camera on (two-axis turntable, azimuth "
                                           << kOrbitAzimDegPerSec << " deg/s, elevation +/-"
                                           << kOrbitElevMaxDeg << " deg triangle, fixed fov "
                                           << kOrbitFixedFovDeg << " deg, pivot=(" << oc[0]
                                           << ", " << oc[1] << ", " << oc[2]
-                                          << "), radius=" << frameRadius(curFrame)
+                                          << "), radius=" << focusRadius(curFrame)
                                           << ", distance=" << distance << ")\n";
                             } else {
                                 std::cerr << "[server] orbit camera off\n";
@@ -890,7 +931,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                 elevation += accElev;
                 elevation = std::clamp(elevation, -1.55, 1.55);
                 // 普通模式：滚轮缩放照旧。轨道相机期间锁定取景距离（禁止缩放）。
-                const double diag = frameRadius(curFrame) * 2.0;
+                // 缩放范围同样按「可见包围盒」半径算，才与初始取景距离同一量纲。
+                const double diag = focusRadius(curFrame) * 2.0;
                 distance *= accZoom;
                 distance = std::clamp(distance, diag * 0.05, diag * 20.0);
             }
@@ -898,14 +940,15 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         if (rank == 0) {
             if (orbitActive) {
                 // 双轴转台：方位角连续旋转、俯仰角三角波扫掠（均已按时间推进）。
-                // 距离每次按「当前帧」包围盒重算，保证切帧/任意角度下模型全貌都在视锥内。
+                // 距离每次按「当前帧」的可见包围盒重算，保证切帧/任意角度下看得见的内容都在视锥内。
                 const double kTwoPi = 6.28318530717958647692;
                 azimuth =
                         std::fmod(orbitAzimuth + orbitAzimOffset, kTwoPi);
                 elevation = std::clamp(orbitElevation + orbitElevOffset, -1.5, 1.5);
                 distance = FitOrbitDistance(curFrame);
             }
-            const double* fc = frameCenter(curFrame);
+            // 焦点 = 可见包围盒中心（所有视角/轨道都绕它转）。
+            const double* fc = focusCenter(curFrame);
             const double dir[3] = {
                     std::cos(elevation) * std::sin(azimuth),
                     std::sin(elevation),

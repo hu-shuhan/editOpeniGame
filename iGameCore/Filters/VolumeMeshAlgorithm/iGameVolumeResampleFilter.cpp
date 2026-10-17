@@ -356,8 +356,10 @@ bool SampleCell(const CellRec& c, const std::vector<PointSet*>& pointSets,
 bool iGameVolumeResampleFilter::Execute() {
     m_OutputMesh = nullptr;
     m_ValidMask = nullptr;
+    m_OutputScalar = nullptr;
     m_SourceMinSpacing = 0.0;
     m_OutputSpacing[0] = m_OutputSpacing[1] = m_OutputSpacing[2] = 1.0;
+    m_OutputOrigin[0] = m_OutputOrigin[1] = m_OutputOrigin[2] = 0.0;
 
     DataObject::Pointer root = GetInput(0);
     if (!root) { return false; }
@@ -500,6 +502,9 @@ bool iGameVolumeResampleFilter::Execute() {
     m_OutputSpacing[0] = spacing[0];
     m_OutputSpacing[1] = spacing[1];
     m_OutputSpacing[2] = spacing[2];
+    m_OutputOrigin[0] = origin[0];
+    m_OutputOrigin[1] = origin[1];
+    m_OutputOrigin[2] = origin[2];
 
     // 3) 输出 StructuredMesh。
     igIndex s[3] = {ni, nj, nk};
@@ -529,6 +534,7 @@ bool iGameVolumeResampleFilter::Execute() {
     m_ValidMask = UnsignedCharArray::New();
     m_ValidMask->SetDimension(1);
     m_ValidMask->Resize(total);
+    m_OutputScalar = scalarArr; // 供 ComputeVisibleBounds 复查（不增加内存，只多一个引用）
 
     // 4) 并行逐体素采样（读共享只读结构，写各自不重叠的输出区间）。
     //    共享几何时不写点坐标（ptBuf 为空），避免覆盖模板的共享缓冲。
@@ -582,6 +588,66 @@ bool iGameVolumeResampleFilter::Execute() {
 
     m_OutputMesh->GenStructuredCellConnectivities();
     SetOutput(0, m_OutputMesh);
+    return true;
+}
+
+// 可见体素包围盒（世界坐标）：圈出「标量 >= threshold 且 mask!=0」的体素范围。
+// 用途：并行体绘制的相机取景 / 轨道 pivot —— 几何包围盒里"标量恒等于最小值"的那片平台
+// 在屏幕上完全不可见（默认不透明度曲线在归一化 0 处为 0），拿它当焦点会让模型偏到一边。
+// 开销：每轴隔 stride 个取 1（stride=2 ⇒ 只查 1/8 体素），启动时每帧一次，量级 1~2 ms；
+// 结果向外扩 stride 个体素 ⇒ 是"略大一点"的安全包围盒（误差对取景不可见）。
+bool iGameVolumeResampleFilter::ComputeVisibleBounds(float scalarThreshold, int stride,
+                                                     double outMin[3],
+                                                     double outMax[3]) const {
+    if (!m_OutputMesh || !m_OutputScalar) { return false; }
+    igIndex* dims = m_OutputMesh->GetDimensionSize();
+    const int ni = static_cast<int>(dims[0]);
+    const int nj = static_cast<int>(dims[1]);
+    const int nk = static_cast<int>(dims[2]);
+    if (ni < 1 || nj < 1 || nk < 1) { return false; }
+
+    const float* scalar = m_OutputScalar->RawPointer();
+    if (!scalar) { return false; }
+    const unsigned char* mask =
+            m_ValidMask ? m_ValidMask->RawPointer() : nullptr;
+    const IGsize maskCount =
+            m_ValidMask ? m_ValidMask->GetNumberOfElements() : 0;
+
+    // 全部可见（threshold <= -FLT_MAX，例如"所有不透明度都 >0"的传输函数）时只看 mask。
+    const bool allVisible = !(scalarThreshold > -3.0e38f);
+    const int st = std::max(1, stride);
+
+    int imin = ni, jmin = nj, kmin = nk;
+    int imax = -1, jmax = -1, kmax = -1;
+    for (int k = 0; k < nk; k += st) {
+        for (int j = 0; j < nj; j += st) {
+            const IGsize rowBase =
+                    (static_cast<IGsize>(k) * nj + j) * ni;
+            for (int i = 0; i < ni; i += st) {
+                const IGsize idx = rowBase + i;
+                if (mask && (idx >= maskCount || mask[idx] == 0)) { continue; }
+                if (!allVisible && !(scalar[idx] >= scalarThreshold)) { continue; }
+                if (i < imin) { imin = i; }
+                if (i > imax) { imax = i; }
+                if (j < jmin) { jmin = j; }
+                if (j > jmax) { jmax = j; }
+                if (k < kmin) { kmin = k; }
+                if (k > kmax) { kmax = k; }
+            }
+        }
+    }
+    if (imax < imin || jmax < jmin || kmax < kmin) { return false; }
+
+    // 隔点采样的误差 ≤ st 个体素：向外扩一圈，保证是"略大"的安全包围盒。
+    const int lo[3] = {std::max(0, imin - st), std::max(0, jmin - st),
+                       std::max(0, kmin - st)};
+    const int hi[3] = {std::min(ni - 1, imax + st), std::min(nj - 1, jmax + st),
+                       std::min(nk - 1, kmax + st)};
+    for (int a = 0; a < 3; ++a) {
+        const double sp = m_OutputSpacing[a];
+        outMin[a] = m_OutputOrigin[a] + static_cast<double>(lo[a]) * sp;
+        outMax[a] = m_OutputOrigin[a] + static_cast<double>(hi[a]) * sp;
+    }
     return true;
 }
 

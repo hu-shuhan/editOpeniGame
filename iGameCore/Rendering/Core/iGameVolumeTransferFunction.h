@@ -44,11 +44,26 @@ public:
     void ClearOpacityPoints();
     /** 添加一个不透明度控制点（value 为归一化 [0,1]）。 */
     void AddOpacityPoint(float value, float opacity);
-    /** 使用默认三段不透明度（低值 0 -> 中值 0.2 -> 高值 1.0）。 */
+    /** 使用默认三段不透明度（最小值 minOpacity -> 中值 0.2 -> 高值 1.0）。 */
     void SetDefaultOpacityPoints();
 
     /** 分段线性求值归一化 value 的不透明度。 */
     float MapOpacity(float value) const;
+
+    /**
+     * 设置「标量最小值处」的不透明度（底色雾 floor），默认 0（最小值区域完全透明）。
+     *
+     * @details
+     *  语义与其它不透明度控制点相同：它是**单位距离**上的不透明度（配合
+     *  iGameVolumeRayCastCPU::SetScalarOpacityUnitDistance 使用，即 Beer-Lambert 的
+     *  α/单位长度）。因此在厚数据上它会沿光线累积：累计不透明度 = 1 - exp(-floor·L)，
+     *  L 是以 unitDistance 为单位的路径长度。取值应据此反推，而不是凭直觉给 0.01。
+     *
+     *  设置它只改「归一化 0」那个控制点，不影响中/高值段的形状。
+     */
+    void SetMinOpacity(float opacity);
+    /** 取当前最小值处的不透明度（没有归一化 0 的控制点时返回 0）。 */
+    float GetMinOpacity() const;
 
     /** 设置 LUT 分辨率（默认 1024）。 */
     void SetLUTResolution(int resolution);
@@ -60,6 +75,16 @@ public:
      */
     std::vector<unsigned char> BakeLUT() const;
 
+    /**
+     * 烘焙**全精度** alpha 斜坡（resolution 个 float）。
+     *
+     * @details
+     *  BakeLUT 的 alpha 只有 1/255 ≈ 0.0039 的量化步长，而「底色雾」这类小不透明度
+     *  （典型 1e-5 ~ 1e-4）在这种步长下会被量化成 0，等于没设置。CPU 光线步进因此
+     *  额外取这份 float 斜坡来查 alpha，颜色仍然用 BakeLUT 的 RGBA8。
+     */
+    std::vector<float> BakeAlphaRamp() const;
+
 protected:
     iGameVolumeTransferFunction();
     ~iGameVolumeTransferFunction() override = default;
@@ -70,6 +95,7 @@ private:
     ScalarsToColors::Pointer m_ColorMapper{nullptr};
     bool m_OpacityMappingEnabled{true};
     std::vector<OpacityPoint> m_OpacityPoints;
+    float m_MinOpacity{0.0f};
     int m_LUTResolution{1024};
 };
 
