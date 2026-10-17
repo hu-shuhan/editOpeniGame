@@ -669,7 +669,7 @@ public:
      * @details
      *  数据里带 vtkValidPointMask（点，1 = 有效）或 vtkGhostType（单元，0 = 有效）
      *  时可用（ParaView 的 ResampleToImage 勾 "Mark Blank Points and Cells" 就会写）。
-     *  掩膜纹理是 R8：1 = 有效（流体），0 = 无效（车体内部 / 域外）。同一个步进
+     *  掩膜纹理是 R32F：1 = 有效（流体），0 = 无效（车体内部 / 域外）。同一个步进
      *  循环里对掩膜层与标量层做同坐标合成，所以两层空间关系是正确的。
      */
     enum class VolumeMaskMode {
@@ -693,6 +693,17 @@ public:
 
     /// 当前是否有第二个体层（两个可见结构化模型一起体绘制）。
     bool GetVolumeLayer2Enabled() const { return m_VolumeLayer2Enabled; }
+
+    /// 每个体层自己的可调参数（layer: 0 = 第一层，1 = 第二层）。
+    void SetVolumeLayerEnabled(int layer, bool enabled);
+    bool GetVolumeLayerEnabled(int layer) const;
+    void SetVolumeLayerOpacityScale(int layer, float scale);
+    float GetVolumeLayerOpacityScale(int layer) const;
+    /// 每个体层自己的掩膜模式 / 车壳不透明度（layer: 0 = 第一层，1 = 第二层）。
+    void SetVolumeLayerMaskMode(int layer, VolumeMaskMode mode);
+    VolumeMaskMode GetVolumeLayerMaskMode(int layer) const;
+    void SetVolumeLayerShellOpacity(int layer, float opacity);
+    float GetVolumeLayerShellOpacity(int layer) const;
 
     /**
      * @brief 体绘制的只读状态快照（供「体绘制」设置面板显示）。
@@ -718,6 +729,19 @@ public:
         float maskInvalidRatio = 0.0f; ///< 无效体素占比 0..1（诊断用）
         float shellOpacity = 0.9f;     ///< 实体模式的外壳不透明度
         int layerCount = 1;            ///< 参与体绘制的层数（1 或 2）
+        bool layer0Enabled = true;     ///< 第一层是否启用
+        bool layer1Enabled = true;     ///< 第二层是否启用
+        float layer0Opacity = 0.001f;  ///< 第一层不透明度缩放
+        float layer1Opacity = 0.001f;  ///< 第二层不透明度缩放
+        std::string layer0Name;        ///< 第一层模型名（面板显示）
+        std::string layer1Name;        ///< 第二层模型名（面板显示）
+        int currentLayer = -1;         ///< 当前选中模型对应的体层（-1 = 不是体层）
+        int layer0MaskMode = 0;        ///< 第一层掩膜模式
+        int layer1MaskMode = 0;        ///< 第二层掩膜模式
+        float layer0ShellOpacity = 0.9f;
+        float layer1ShellOpacity = 0.9f;
+        bool layer0MaskAvailable = false;
+        bool layer1MaskAvailable = false;
         bool active = false;         ///< 最近 1.5 秒内是否发生过重绘（否则为空闲）
         double fps = 0.0;            ///< 实测帧率（1 秒滑动窗口）
         double gpuFrameTimeMs = 0.0; ///< GPU 帧时间（平滑值，整帧）
@@ -965,14 +989,24 @@ protected:
     // 构建第二体层（第二个可见的结构化网格）；体素构建逻辑与 BuildVolumeData 相同
     bool BuildVolumeLayer2(SmartPointer<DataObject> dataObject, int attributeIndex,
                            int attributeDimension);
+    // 读取数据里的空白/ghost 数组，生成 0/1 掩膜值（R32F 上传用）。
+    // 供第二体层使用；第一体层保留原内联实现（避免改动已稳定的单层路径）。
+    bool BuildVolumeMaskValues(SmartPointer<DataObject> mesh, igIndex nx,
+                               igIndex ny, igIndex nz,
+                               std::vector<float>& maskValues,
+                               std::string& source, float& validRatio);
+    // 当前体层槽位对应的数据对象；未构建或不存在时返回空。
+    SmartPointer<DataObject> GetVolumeLayerDataObject(int layer) const;
     SmartPointer<GLTexture3d> m_VolumeTexture3d; // 体数据 3D 纹理
-    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R8，1=有效）
+    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R32F，1=有效）
     VolumeMaskMode m_VolumeMaskMode = VolumeMaskMode::Off; // 掩膜模式（默认关闭）
     bool m_VolumeMaskAvailable = false; // 数据里是否有可用的空白/ghost 数组
     bool m_VolumeMaskEnabled = false;   // 掩膜是否实际生效（模式 != Off && 可用）
     std::string m_VolumeMaskSource;      // 掩膜来源数组名（日志用）
     float m_VolumeMaskValidRatio = 0.0f; // 有效体素占比 0..1（日志用）
     bool m_VolumeMaskReadbackDone = false; // 掩膜纹理一次性回读自检
+    VolumeMaskMode m_VolumeMaskMode2 = VolumeMaskMode::Off; // 第二层掩膜模式
+    float m_VolumeShellOpacity2 = 0.9f;    // 第二层车壳不透明度
     // 车壳实体模式（VolumeMaskMode::Shell）的参数：固定颜色 + 不透明度
     float m_VolumeShellOpacity = 0.9f;
     igm::vec3 m_VolumeShellColor{0.85f, 0.86f, 0.88f};
@@ -998,8 +1032,14 @@ protected:
     float m_VolumeOpacityScale = 0.001f;
 
     // ---- 第二体层（两个可见结构化模型一起体绘制）----
-    // 只做“标量层”：第二层不参与掩膜/车壳，与第一层共用 opacityScale。
+    // 每层参数保存在各自 DataObject::VolumeRenderingSettings 中，
+    // 这里只是当前构建结果的 uniform 缓存。
     SmartPointer<GLTexture3d> m_VolumeTexture3d2;
+    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d2; // 第二层掩膜（R32F）
+    bool m_VolumeMaskAvailable2 = false;
+    bool m_VolumeMaskEnabled2 = false;
+    std::string m_VolumeMaskSource2;
+    float m_VolumeMaskValidRatio2 = 0.0f;
     SmartPointer<GLTexture2d> m_VolumeTransferFunction2;
     SmartPointer<DataObject> m_VolumeSourceObject2;
     unsigned int m_VolumeSourceMTime2 = 0;
@@ -1011,6 +1051,9 @@ protected:
     igm::vec3 m_VolumeLocalExtent2{1.0f, 1.0f, 1.0f};
     int m_VolumeDimension2[3] = {0, 0, 0};
     bool m_VolumeLayer2Enabled = false;
+    bool m_VolumeLayer0UserEnabled = true;  // 第一层用户开关（默认参与）
+    bool m_VolumeLayer2UserEnabled = true;  // 第二层用户开关（默认参与）
+    float m_VolumeOpacityScale2 = 0.001f;   // 第二层自己的不透明度缩放
     unsigned int m_VolumeFrameSeed = 0;     // 抖动种子（逐帧变化）
     // 以下三项为一次性自检开关：用于定位体绘制“不可见/无效果”的问题，
     // 稳定后可整体移除（对应 VolumeRaycastPass 中的诊断代码）

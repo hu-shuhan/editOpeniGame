@@ -165,6 +165,19 @@
     </widget>
    </item>
    <item>
+    <widget class="QLabel" name="label_CurrentVolumeLayer">
+     <property name="toolTip">
+      <string>下面这些参数属于“当前体层”：在模型树里选中一个体层模型即可编辑它自己的参数（与 ColorMapper 的用法一致）</string>
+     </property>
+     <property name="text">
+      <string>当前体层：-</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="groupBox_Params">
      <property name="title">
       <string>渲染参数</string>
@@ -209,7 +222,7 @@
       <item row="1" column="0">
         <widget class="QLabel" name="label_OpacityTitle">
          <property name="text">
-          <string>不透明度缩放</string>
+         <string>当前层不透明度</string>
          </property>
        </widget>
       </item>
@@ -282,7 +295,7 @@
          <string>空白/ghost体素处理方式,需要vtkValidPointMask或vtkGhostType</string>
         </property>
         <property name="text">
-         <string>掩膜</string>
+         <string>当前层掩膜</string>
         </property>
        </widget>
       </item>
@@ -311,7 +324,7 @@
       <item row="5" column="0">
        <widget class="QLabel" name="label_ShellOpacityTitle">
         <property name="text">
-         <string>掩膜不透明度</string>
+         <string>当前层掩膜不透明度</string>
         </property>
        </widget>
       </item>
@@ -335,6 +348,19 @@
        </widget>
       </item>
       <item row="6" column="0" colspan="3">
+       <widget class="QCheckBox" name="checkBox_CurrentLayerEnabled">
+        <property name="toolTip">
+         <string>启用/停用当前选中的体层（每个模型独立）</string>
+        </property>
+        <property name="text">
+         <string>启用当前体层</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0" colspan="3">
        <widget class="QLabel" name="label_StepsHint">
         <property name="text">
          <string>-</string>
