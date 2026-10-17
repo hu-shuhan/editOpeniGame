@@ -386,13 +386,16 @@ public:
     void SetGroundGridReversed(bool reversed);
     bool GetGroundGridReversed() const { return m_GroundGridReversed; }
 
+    /** @brief 请求在下一绘制帧按当前可见模型重新适配底板。 */
+    void RequestGroundGridFit();
+
     /**
      * @brief 依据当前可见模型的包围盒更新底板参数。
      *
      * 底板位于所选平面的法向轴最小边界之外，反转后改为最大边界之外。
      * 默认 XZ 平面（Y 最小侧），反转状态在切换平面时保留。
      * 参考格距按"最长边 / 5"自动选档（1/2/5 x 10^n），只在
-     * 内容变化时重算一次，同一批内容下参考格距固定；网格锚定世界原点，因此
+     * 显式请求适配时重算一次，其余时间位置和参考格距固定；网格锚定世界原点，因此
      * 调整格距档位或扩大可见范围时，已有线都不会移动。
      *
      * 桌面端底板由片元着色器逐像素解析生成（无限延伸、无边界、无几何），这里
@@ -401,8 +404,9 @@ public:
      * "内容"= 可见模型的联合包围盒；没有可见模型时优先沿用上一次加载过的
      * 内容（删掉/再加载同量级模型不会跳），完全没加载过则退化为引擎默认的
      * 单位包围球（中心原点、半径 1）——相机取景用的也是这个球，所以空场景
-     * 和"加载一个同等大小的模型"观感一致。模型集合变化后由 Scene 内部自动
-     * 更新，外部一般无需直接调用。
+     * 和"加载一个同等大小的模型"观感一致。文件导入、手动重新适配、切换平面
+     * 或反转时通过 RequestGroundGridFit 请求更新；算法结果、显隐、删除及
+     * 相机变化均不自动重新定位。
      */
     void UpdateGroundGrid();
 
@@ -836,8 +840,7 @@ protected:
 #ifndef __EMSCRIPTEN__
     // 计算底板的"内容包围盒"= 可见模型的联合包围盒（跳过中心坐标轴等
     // 辅助对象，也不包含底板自身）。没有可见模型时返回空包围盒。
-    // 取包围盒是廉价的（DataObject::ComputeBoundingBox 内部有 MTime 守卫），
-    // 因此可以每帧调用，用来判断底板是否需要重建。
+    // 仅在显式适配时读取，不跟踪交互预览的几何变化。
     BoundingBox ComputeGroundGridContentBox();
 #endif
     void InitOpenGL();
@@ -965,14 +968,11 @@ protected:
     bool m_GroundGridVisible {true};  // 底板显示开关
     GroundGridPlane m_GroundGridPlane {GroundGridPlane::XZ};
     bool m_GroundGridReversed {false};
-    bool m_GroundGridDirty {true};    // 需要重建底板几何
+    bool m_GroundGridDirty {true};    // 待处理的适配请求（首次绘制建立默认底板）
     bool m_GroundGridBuilt {false};   // 当前是否已有可用底板几何
     // 上一次加载过的"内容包围盒"：空场景时沿用它，使删掉/再加载同量级模型
     // 时底板不跳（完全没加载过则用默认单位包围球）。
     BoundingBox m_GroundGridLastContentBox;
-    // 上一次用于建板的"内容"（可见模型联合包围盒，可能为空）。每帧与当前
-    // 内容比较，只要变了就重建底板，避免漏掉"包围盒晚一帧才就绪"的情况。
-    BoundingBox m_GroundGridContentBox;
     igm::vec3 m_GroundGridCenter {0.0f, 0.0f, 0.0f}; // 底板中心（模型空间）
     float m_GroundGridRadius {0.0f};  // 底板外接圆半径（模型空间）
     float m_GroundGridCell {0.02f};   // 参考格距（模型空间，1/2/5 x 10^n）

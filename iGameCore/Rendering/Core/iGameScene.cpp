@@ -284,9 +284,6 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     }
     #endif
 
-#ifndef __EMSCRIPTEN__
-    m_GroundGridDirty = true; // 可见模型集合变化，底板需要重新适配尺寸
-#endif
     Update();
     return modelID;
 }
@@ -445,9 +442,6 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
     }
 
     UpdateCameraClippingRange();
-#ifndef __EMSCRIPTEN__
-    m_GroundGridDirty = true; // 可见模型集合变化，底板需要重新适配尺寸
-#endif
 }
 
 void Scene::SetBackGround(const Color& color) {
@@ -1290,12 +1284,11 @@ void Scene::DrawFrame() {
     }
 
 #ifndef __EMSCRIPTEN__
-    // 底板几何只在"内容"变化时重建。这里每帧比对一次内容包围盒而不是只用
-    // 一次性脏标记：模型刚加载时它的包围盒有可能晚一帧才就绪，只靠标志会
-    // 出现"消费掉脏标记后再也不更新"的情况。（取包围盒有 MTime 守卫，很便宜）
-    if (m_GroundGridDirty ||
-        ComputeGroundGridContentBox() != m_GroundGridContentBox) {
+    // 仅消费显式适配请求；放在 SyncGpuBuffers 之后，确保新导入几何已就绪。
+    // 裁剪预览、显隐及相机更新不再让底板跟随变化的结果包围盒移动。
+    if (m_GroundGridDirty) {
         UpdateGroundGrid();
+        UpdateCameraClippingRange();
     }
 
 #endif
@@ -3983,11 +3976,16 @@ BoundingBox Scene::ComputeGroundGridContentBox() {
     return box;
 }
 
+void Scene::RequestGroundGridFit() {
+    m_GroundGridDirty = true;
+    this->Modified();
+    Update();
+}
+
 void Scene::UpdateGroundGrid() {
     m_GroundGridDirty = false;
 
     BoundingBox box = ComputeGroundGridContentBox();
-    m_GroundGridContentBox = box; // 记录本次建板依据的内容，供每帧比对
     const bool useDefaultGrid = box.isNull() && m_GroundGridLastContentBox.isNull();
 
     // 没有可见模型时，把"内容"退化为：优先沿用上一次加载过的内容包围盒
@@ -4007,8 +4005,8 @@ void Scene::UpdateGroundGrid() {
     const double ymin = box.min[1], ymax = box.max[1];
     const double zmin = box.min[2], zmax = box.max[2];
 
-    // 刻度自动选档：按内容包围盒最长边（含 Y）定一个可读刻度。只有内容变化
-    // 时才会重算，同一批内容下刻度不会再变，也没有任何远处变宽的分级。
+    // 刻度自动选档：按内容包围盒最长边（含 Y）定一个可读刻度。
+    // 与位置共用显式适配时机，相机移动或结果几何变化均不重新选档。
     const float longestEdge = static_cast<float>(
             std::max({xmax - xmin, ymax - ymin, zmax - zmin}));
     const float cell = useDefaultGrid ? kGroundGridDefaultCell
@@ -4123,15 +4121,13 @@ void Scene::SetGroundGridPlane(GroundGridPlane plane) {
         plane != GroundGridPlane::YZ) { return; }
     if (m_GroundGridPlane == plane) { return; }
     m_GroundGridPlane = plane;
-    m_GroundGridDirty = true;
-    this->Modified();
+    RequestGroundGridFit();
 }
 
 void Scene::SetGroundGridReversed(bool reversed) {
     if (m_GroundGridReversed == reversed) { return; }
     m_GroundGridReversed = reversed;
-    m_GroundGridDirty = true;
-    this->Modified();
+    RequestGroundGridFit();
 }
 #endif
 
@@ -4408,9 +4404,6 @@ void Scene::UpdateModelsBoundingSphere() {
 
     if (box.isNull()) {
         m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
-#ifndef __EMSCRIPTEN__
-        m_GroundGridDirty = true;
-#endif
         return;
     }
 
@@ -4423,9 +4416,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-#ifndef __EMSCRIPTEN__
-    m_GroundGridDirty = true; // 场景范围变化，底板需要重新适配尺寸
-#endif
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,

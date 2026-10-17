@@ -1473,7 +1473,7 @@ void igQtMainWindow::initAllComponents() {
     ui->action_ShowOrientationAxes->setCheckable(true);
     ui->action_ShowOrientationAxes->setChecked(true);
 
-    // 底板（地面网格）：不透明暖灰底色与统一细线，随可见模型自动适配。
+    // 底板（地面网格）：仅导入、手动适配、切换平面或反转时重新定位。
     connect(ui->action_ShowGroundGrid, &QAction::toggled, this, [](bool checked) {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) { return; }
@@ -1484,6 +1484,10 @@ void igQtMainWindow::initAllComponents() {
     ui->action_ShowGroundGrid->setChecked(true);
 
 #ifndef __EMSCRIPTEN__
+    connect(ui->action_RefitGroundGrid, &QAction::triggered, this, []() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (scene) { scene->RequestGroundGridFit(); }
+    });
     using GroundPlane = iGame::Scene::GroundGridPlane;
     auto groundPlaneGroup = new QActionGroup(this);
     groundPlaneGroup->setExclusive(true);
