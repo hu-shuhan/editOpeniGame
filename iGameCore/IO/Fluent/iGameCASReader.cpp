@@ -64,7 +64,8 @@ bool CASReader::Parsing() {
         // C/S package paths may contain Unicode and spaces.
         std::vector<std::string> arguments = {"--input", casPath, "--output", outputDir};
         IGAME_CORE_DEBUG("[CASReader] Running converter: {} --input {} --output {}", exePath, casPath, outputDir);
-        if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+        if (!ExternalProcess::Run(exePath, arguments, returnCode,
+                                  FileSystem::PathToUtf8(tempDir))) {
             IGAME_CORE_ERROR("[CASReader] Failed to start converter: {}", exePath);
             return false;
         }

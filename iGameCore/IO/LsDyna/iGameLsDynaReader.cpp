@@ -63,7 +63,10 @@ bool LsDynaReader::Parsing() {
     IGAME_CORE_DEBUG("[LsDynaReader] Running converter: {} --input {} --output {}", exePath, lsDynaPath, outputFile);
 
     int returnCode = 0;
-    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+    // 同 CCM/Ansys：把本次运行自己的临时目录交给转换器当 TEMP/TMP，避免系统
+    // %TEMP% 不可写时 onefile 解包失败（"failed to open ... for writing"）。
+    if (!ExternalProcess::Run(exePath, arguments, returnCode,
+                              FileSystem::PathToUtf8(tempDir))) {
         IGAME_CORE_ERROR("[LsDynaReader] Failed to start converter: {}", exePath);
         return false;
     }

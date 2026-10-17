@@ -54,12 +54,22 @@ bool CCMReader::Parsing() {
     IGAME_CORE_DEBUG("[CCMReader] Running converter: {} --input {} --output {}", exePath, ccmPath, outputFile);
 
     int returnCode = 0;
-    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+    // 第 4 个参数把这个目录交给转换器当 TEMP/TMP：转换器是 onefile 自解包程序，
+    // 若用系统 %TEMP% 而它不可写，会在解包阶段失败（"failed to open ... for writing"），
+    // 与本仓库逻辑无关。这里强制它用我们自己能写的 temp/ 目录。
+    if (!ExternalProcess::Run(exePath, arguments, returnCode,
+                              FileSystem::PathToUtf8(tempDir))) {
         IGAME_CORE_ERROR("[CCMReader] Failed to start converter: {}", exePath);
         return false;
     }
     if (returnCode != 0) {
         IGAME_CORE_ERROR("[CCMReader] CCM to VTU conversion failed. Return code: {}", returnCode);
+        // onefile 自解包程序的典型失败：解包到 TEMP 时就写不进去。这条 hint 让
+        // 日志能直接指到"该目录是否可写"，而不是让人去猜转换器坏了。
+        IGAME_CORE_ERROR("[CCMReader] hint: the converter unpacks itself into its TEMP directory "
+                         "on startup; if the message above says 'failed to open ... for writing', "
+                         "make sure '{}' is writable",
+                         FileSystem::PathToUtf8(tempDir));
         return false;
     }
 

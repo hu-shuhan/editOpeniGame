@@ -62,12 +62,20 @@ bool AnsysReader::Parsing() {
     IGAME_CORE_DEBUG("[AnsysReader] Running converter: {} --input {} --output {}", exePath, ansysPath, outputFile);
 
     int returnCode = 0;
-    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+    // 第 4 个参数把本次运行的临时子目录交给转换器当 TEMP/TMP：转换器是 onefile
+    // 自解包程序，若系统 %TEMP% 不可写会在解包阶段失败
+    // （"failed to open ... for writing"），与本仓库逻辑无关。
+    if (!ExternalProcess::Run(exePath, arguments, returnCode,
+                              FileSystem::PathToUtf8(tempDir))) {
         IGAME_CORE_ERROR("[AnsysReader] Failed to start converter: {}", exePath);
         return false;
     }
     if (returnCode != 0) {
         IGAME_CORE_ERROR("[AnsysReader] Ansys to PVD conversion failed. Return code: {}", returnCode);
+        IGAME_CORE_ERROR("[AnsysReader] hint: the converter unpacks itself into its TEMP directory "
+                         "on startup; if the message above says 'failed to open ... for writing', "
+                         "make sure '{}' is writable",
+                         FileSystem::PathToUtf8(tempDir));
         return false;
     }
 

@@ -3,9 +3,12 @@
 
 #include "iGameFileSystem.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <cwchar>
 #include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #if defined(_WIN32)
@@ -72,12 +75,82 @@ inline std::string QuoteShellArgument(const std::string& argument) {
     return quoted;
 }
 
+/**
+ * 把「父进程环境」复制一份，并把 TEMP / TMP / TMPDIR 改写成 @p tempDirectory。
+ *
+ * 为什么需要它（这是本文件里最不直观的一段，值得读）：
+ * `Resources\pyCCMLib\ccm_to_vtu_converter.exe` 这类转换器是 **onefile 自解包**程序
+ * （Nuitka / PyInstaller 打包）。它们启动时先把自带的 DLL 解包到 `%TEMP%` 下的
+ * `onefile_*` 目录，再从那里加载。如果父进程的 TEMP 不可写（受限用户、容器/沙箱、
+ * 安全软件拦截、TEMP 被重定向到只读位置……），转换器会在**解包阶段**失败，只打印：
+ *
+ *     Error, failed to open '<TEMP>\onefile_xxx\yyy.dll' for writing.
+ *
+ * 然后以非 0 退出码结束 —— 看起来像"转换器坏了"，其实与转换逻辑毫无关系。
+ * 把子进程的 TEMP 指向一个我们确认可写的目录（调用方自己的 `temp/`），就能把这类
+ * 环境问题整体消除，而不必要求用户去改系统 TEMP 或加杀软白名单。
+ *
+ * @param out 产出的环境块（每个 "NAME=VALUE" 以 NUL 结尾，整块以额外一个 NUL 结束）
+ */
+inline bool BuildEnvironmentWithTemp(const std::wstring& tempDirectory,
+                                     std::vector<wchar_t>& out) {
+    LPWCH block = GetEnvironmentStringsW();
+    if (block == nullptr) { return false; }
+
+    std::vector<std::wstring> entries;
+    for (LPWCH cursor = block; *cursor != L'\0'; cursor += std::wcslen(cursor) + 1) {
+        entries.emplace_back(cursor);
+    }
+    FreeEnvironmentStringsW(block);
+
+    // 不区分大小写：Windows 环境变量名本身不区分大小写，TEMP / Temp / temp 都算。
+    auto hasName = [](const std::wstring& entry, const wchar_t* name) {
+        const size_t length = std::wcslen(name);
+        return entry.size() >= length + 1 && entry[length] == L'=' &&
+               _wcsnicmp(entry.c_str(), name, length) == 0;
+    };
+    entries.erase(std::remove_if(entries.begin(), entries.end(),
+                                 [&](const std::wstring& entry) {
+                                     return hasName(entry, L"TEMP") ||
+                                            hasName(entry, L"TMP") ||
+                                            hasName(entry, L"TMPDIR");
+                                 }),
+                  entries.end());
+
+    entries.push_back(L"TEMP=" + tempDirectory);
+    entries.push_back(L"TMP=" + tempDirectory);
+    // ★ 必须按「名字」**不区分大小写**排序。
+    //
+    // 这一条不是风格问题：Windows 对 lpEnvironment 做校验，未按此规则排序的
+    // 环境块会让 CreateProcessW 直接以 ERROR_INVALID_PARAMETER(87) 失败 ——
+    // 而失败点看起来与"环境块"毫无关系（实测踩过：override 路径 started=0，
+    // 错误码 87）。用 _wcsicmp 比较整条 "NAME=VALUE" 等价于比较 NAME：
+    // 因为 '='（0x3D）小于任何名字字符，所以 "PATH=" 与 "PATHS=" 的先后仍由
+    // 名字决定，与逐字符比较名字的结果一致。
+    std::sort(entries.begin(), entries.end(),
+              [](const std::wstring& a, const std::wstring& b) {
+                  return _wcsicmp(a.c_str(), b.c_str()) < 0;
+              });
+
+    out.clear();
+    for (const std::wstring& entry : entries) {
+        out.insert(out.end(), entry.begin(), entry.end());
+        out.push_back(L'\0');
+    }
+    out.push_back(L'\0');
+    return true;
+}
+
 } // namespace detail
 
 // 启动失败返回 false；成功则 returnCode 为子进程退出码（0 表示成功）。
+//
+// @param utf8TempDirectory 可选。非空时把子进程的 TEMP/TMP 指向该目录（不存在则创建），
+//        见上方 BuildEnvironmentWithTemp 的说明。空串表示完全继承父进程环境。
 inline bool Run(const std::string& utf8Executable,
                 const std::vector<std::string>& utf8Arguments,
-                int& returnCode) {
+                int& returnCode,
+                const std::string& utf8TempDirectory = std::string()) {
     namespace fs = std::filesystem;
     returnCode = -1;
     try {
@@ -93,11 +166,29 @@ inline bool Run(const std::string& utf8Executable,
         std::vector<wchar_t> commandBuffer(commandLine.begin(), commandLine.end());
         commandBuffer.push_back(L'\0');
 
+        // 需要时给子进程一组 TEMP/TMP 被改写过的环境块。
+        std::vector<wchar_t> environmentBlock;
+        void* environment = nullptr;
+        if (!utf8TempDirectory.empty()) {
+            const fs::path tempDirectory = FileSystem::PathFromUtf8(utf8TempDirectory);
+            std::error_code createError;
+            fs::create_directories(tempDirectory, createError);
+            if (!detail::BuildEnvironmentWithTemp(tempDirectory.native(), environmentBlock)) {
+                return false;
+            }
+            environment = environmentBlock.data();
+        }
+
         STARTUPINFOW startupInfo{};
         startupInfo.cb = sizeof(startupInfo);
         PROCESS_INFORMATION processInfo{};
+        // ★ 传了自定义环境块就必须带 CREATE_UNICODE_ENVIRONMENT。
+        //   否则 CreateProcessW 直接返回 ERROR_INVALID_PARAMETER(87) —— 实测踩过：
+        //   环境块本身完全合法（同样的块加上这个标志就能启动）。
+        const DWORD creationFlags = (environment != nullptr) ? CREATE_UNICODE_ENVIRONMENT : 0;
         if (!CreateProcessW(executable.c_str(), commandBuffer.data(), nullptr, nullptr,
-                            FALSE, 0, nullptr, nullptr, &startupInfo, &processInfo)) {
+                            FALSE, creationFlags, environment, nullptr, &startupInfo,
+                            &processInfo)) {
             return false;
         }
         WaitForSingleObject(processInfo.hProcess, INFINITE);
@@ -113,6 +204,11 @@ inline bool Run(const std::string& utf8Executable,
             commandLine.push_back(' ');
             commandLine += detail::QuoteShellArgument(argument);
         }
+        // 非 Windows 上暂不支持改写子进程的临时目录：本文件的四个调用方
+        // （CAS/CCM/Ansys/LsDyna 转换器）都是 Windows-only 的 exe，Linux/macOS
+        // 上这条路径目前没有任何真实调用。若将来需要，用 posix_spawn + envp
+        // 重写这段，而不是给 std::system 拼 "TMPDIR=..."（拼接会让引号规则变脆）。
+        (void) utf8TempDirectory;
         returnCode = std::system(commandLine.c_str());
         return true;
 #endif
