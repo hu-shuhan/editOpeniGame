@@ -492,15 +492,11 @@ int main(int argc, char** argv) {
         iGamePVNet::Cleanup();
         return 1;
     }
-    // 禁用 Nagle：降低交互延迟。
-    int one = 1;
-    setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
-#ifdef _WIN32
-               reinterpret_cast<const char*>(&one),
-#else
-               &one,
-#endif
-               sizeof(one));
+    // 交互 socket 调优：关 Nagle + 开 keepalive + send 超时。
+    // 关键作用（超算实测）：服务端进程卡死但 TCP 仍 ACK 时，I/O 线程的 send 会永久阻塞 ——
+    // 表现为「画面冻住、拖动/缩放全无反应，但本地键盘回调（HUD 文字变黄）还在动」。
+    // 有了 send 超时，I/O 线程会失败退出并让客户端干净退出，而不是假死。
+    iGamePVNet::ConfigureInteractiveSocket(sock);
 
     // 握手：接收标量范围 + colorbar ramp + 渲染分辨率。
     iGamePVNet::Metadata meta;
@@ -713,7 +709,14 @@ int main(int argc, char** argv) {
         g_diagSwapMs += std::chrono::duration<double, std::milli>(
                                 std::chrono::steady_clock::now() - tSwap0)
                                 .count();
-        if (g_serverGone.load()) { break; }
+        if (g_serverGone.load()) {
+            // 连接断了 / send 超时（keepalive 或 SO_SNDTIMEO 判定失效）/ recv 出错。
+            // 打一行明确原因，别让窗口"静默消失"让人以为是客户端自己崩了。
+            std::cerr << "[client] server connection lost (peer closed, send timeout "
+                         "or keepalive failure); exiting. Restart the client to "
+                         "reconnect.\n";
+            break;
+        }
 
         // 诊断：每 5s 打印显示循环速率、到达帧率、丢弃帧数、收字节数、RTT，
         // 以及显示循环各段耗时的单次平均值（poll=事件, upload=纹理上传, draw=绘制,

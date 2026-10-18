@@ -126,6 +126,57 @@ inline int LastError() {
 #endif
 }
 
+// ---------------------------------------------------------------------------
+// 交互 socket 的通用调优（服务端 accept 之后 / 客户端 connect 之后各调一次）。
+//
+// 为什么需要（超算上实测过的两个卡死形态）：
+//   1) SO_KEEPALIVE：对端「静默消失」（ssh -L 转发断掉、X 会话死掉、节点被抢占）时，
+//      没有 FIN/RST 到达本端，recv/select 会**永远阻塞**。服务端一旦卡在 recv 里就再也
+//      回不到 accept()，表现为「客户端断联一次后无法再连上」，同时其余 rank 全部堵在
+//      Broadcast(runningFlag) 上（整个作业看起来"卡住"）。探活能在 ~25s 内拆掉死连接。
+//   2) SO_SNDTIMEO / TCP_USER_TIMEOUT：对端**进程**卡住但 TCP 仍在 ACK 时，send 会永久
+//      阻塞（半帧写出去、两边互等）。给一个上限，超时即当断联处理，双方各自退出后
+//      服务端能重新 accept、客户端能重新连。
+//   3) TCP_NODELAY：关 Nagle，降低交互延迟（与旧行为一致）。
+inline void ConfigureInteractiveSocket(PVSocket s) {
+    if (s == PV_INVALID_SOCKET) { return; }
+#ifdef _WIN32
+    int one = 1;
+    setsockopt(s, IPPROTO_TCP, TCP_NODELAY,
+               reinterpret_cast<const char*>(&one), sizeof(one));
+    setsockopt(s, SOL_SOCKET, SO_KEEPALIVE,
+               reinterpret_cast<const char*>(&one), sizeof(one));
+    // Windows 的 keepalive 间隔默认 2 小时（要改得用 SIO_KEEPALIVE_VALS），前端一般在
+    // Linux 上跑，这里只保证"开着"，并把 send 卡死的上限设成 30s。
+    DWORD sndTimeoutMs = 30000;
+    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO,
+               reinterpret_cast<const char*>(&sndTimeoutMs), sizeof(sndTimeoutMs));
+#else
+    int one = 1;
+    setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+    setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one));
+#  ifdef TCP_KEEPIDLE
+    int keepIdleSec = 10;   // 空闲 10s 开始探活
+    setsockopt(s, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdleSec, sizeof(keepIdleSec));
+#  endif
+#  ifdef TCP_KEEPINTVL
+    int keepIntvlSec = 5;   // 探活间隔 5s
+    setsockopt(s, IPPROTO_TCP, TCP_KEEPINTVL, &keepIntvlSec, sizeof(keepIntvlSec));
+#  endif
+#  ifdef TCP_KEEPCNT
+    int keepCnt = 3;        // 连续 3 次无响应 ⇒ 连接失效（约 25s）
+    setsockopt(s, IPPROTO_TCP, TCP_KEEPCNT, &keepCnt, sizeof(keepCnt));
+#  endif
+#  ifdef TCP_USER_TIMEOUT
+    unsigned int userTimeoutMs = 30000; // 已发送但 30s 未被确认 ⇒ 连接失效
+    setsockopt(s, IPPROTO_TCP, TCP_USER_TIMEOUT, &userTimeoutMs,
+               sizeof(userTimeoutMs));
+#  endif
+    timeval sndTimeout{30, 0}; // send 最多阻塞 30s
+    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &sndTimeout, sizeof(sndTimeout));
+#endif
+}
+
 // 幂等初始化；Windows 需要 WSAStartup，Linux 无需。可重复调用。
 inline bool Startup() {
 #ifdef _WIN32

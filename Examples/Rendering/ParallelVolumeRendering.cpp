@@ -678,10 +678,13 @@ int main(int argc, char** argv) {
     // 否则（多块，或单块但不是结构化网格）一律重采样。
     std::vector<StructuredMesh::Pointer> volumes(static_cast<size_t>(numFrames));
     std::vector<UnsignedCharArray::Pointer> masks(static_cast<size_t>(numFrames));
-    // 每帧的重采样器（保留引用：后面用它的 ComputeVisibleBounds 圈「看得见」的体素范围；
-    // 它只多持有指向输出网格的指针，不额外占内存）。
-    std::vector<iGameVolumeResampleFilter::Pointer> resamplers(
-            static_cast<size_t>(numFrames));
+    // 只保留**起始帧**的重采样器（后面用它的 ComputeVisibleBounds 圈「看得见」的体素范围）。
+    //
+    // ⚠️ 不能把每帧的重采样器都留着：Filter 自己持有 m_Input（= 该帧读进来的全部分块），
+    // 留着就意味着"每帧的原始分块数据全部常驻内存"（旧代码在每个帧循环结束时析构，
+    // 内存随帧数线性增长；1000 rank 上足以把节点内存打满 → rank 被 OOM kill → 整个作业
+    // 挂住，表现为"画面卡住 + 客户端再也连不上"）。用完还会把它置空。
+    iGameVolumeResampleFilter::Pointer anchorResampler;
 
     // 重采样目标分辨率（只算一次：各帧空间位置一致，网格完全相同）。
     const auto blk = distributor->GetLocalBlock();
@@ -754,7 +757,7 @@ int main(int argc, char** argv) {
             }
             volumes[static_cast<size_t>(f)] = resampler->GetStructuredMesh();
             masks[static_cast<size_t>(f)] = resampler->GetValidMask();
-            resamplers[static_cast<size_t>(f)] = resampler;
+            if (f == startFrame) { anchorResampler = resampler; }
             if (f == startFrame) {
                 // 诊断只打一次（起始帧），避免多帧刷屏。
                 sourceMinSpacing = resampler->GetSourceMinSpacing();
@@ -1091,23 +1094,30 @@ int main(int argc, char** argv) {
                           << " ms\n";
             }
 
-            // ---- 每帧的「可见体素包围盒」：相机取景 / O 轨道 pivot 用它 ----
+            // ---- 「可见体素包围盒」：相机取景 / O 轨道 pivot 用它 ----
             //
             // 几何包围盒是分块 bbox 的并集，里面包含"标量恒等于最小值"的平台；默认传输
             // 函数在最小值处不透明度为 0，那块在屏幕上**完全不可见**。拿几何中心当焦点
             // 就等于把镜头对准了一团看不见的包围盒 —— 表现为模型整体偏到一边。
             //
             // 这里改用渲染器的空体素剔除阈值当可见判据（`scalar >= threshold` 且 mask!=0），
-            // 圈出"屏幕上真正会出颜色"的体素范围。开销：
-            //   · 计算：每 rank 扫一遍自己的体素，每轴隔 kVisibleBoundsStride 个取 1
-            //     （stride=2 ⇒ 只查 1/8），启动时每帧一次，量级 1~2 ms；
-            //   · 通信：每帧 2 次 AllReduce（各 3 个 double = 24 B/rank），只在启动时做。
+            // 圈出"屏幕上真正会出颜色"的体素范围。
+            //
+            // **只锚定在起始帧算一次**，然后把同一个中心/半径填给所有帧：
+            //   · 相机在切帧（N/P、A 自动播放）时完全不动 —— 否则多帧数据的场在演化，
+            //     每帧重算 pivot 与取景距离会让画面"跳一下"（闪动），观感很差；
+            //   · FOV 本来就固定 45°（kOrbitFixedFovDeg），随帧变动的其实是**距离**
+            //     （= 半径 × 系数），所以固定半径 = 固定观感尺寸；
+            //   · 顺带把启动开销从「每帧一遍」降到「一遍」。
+            //
+            // 开销：每 rank 扫一遍自己的体素，每轴隔 kVisibleBoundsStride 个取 1（只查 1/8），
+            // 量级 1~2 ms；通信 2 次 AllReduce（各 3 个 double = 24 B/rank），只做一次。
             // 渲染 / 合成 / ROI / 下行载荷全都不受影响（裁剪面仍用几何包围盒）。
             const float visibleThreshold = cpuRayCaster->GetOpacityThreshold();
             std::vector<double> frameFocusCentersXYZ(frameCentersXYZ); // 兜底 = 几何值
             std::vector<double> frameFocusRadii(frameRadii);
-            int visibleFrames = 0;
-            for (int f = 0; f < numFrames; ++f) {
+            bool focusAnchored = false;
+            {
                 double localMin[3] = {
                         std::numeric_limits<double>::infinity(),
                         std::numeric_limits<double>::infinity(),
@@ -1116,23 +1126,17 @@ int main(int argc, char** argv) {
                         -std::numeric_limits<double>::infinity(),
                         -std::numeric_limits<double>::infinity(),
                         -std::numeric_limits<double>::infinity()};
-                const auto& rs = resamplers[static_cast<std::size_t>(f)];
+                const auto& rs = anchorResampler;
                 const bool hasLocal =
                         rs && rs->ComputeVisibleBounds(visibleThreshold,
                                                        kVisibleBoundsStride,
                                                        localMin, localMax);
-                if (!hasLocal) {
-                    // 本 rank 没有可见体素（或该帧没走重采样）：提交空贡献。
-                    for (int a = 0; a < 3; ++a) {
-                        localMin[a] = std::numeric_limits<double>::infinity();
-                        localMax[a] = -std::numeric_limits<double>::infinity();
-                    }
-                }
+                (void)hasLocal; // 没算出来就是 ±inf，AllReduce 后会被下面的 ok 判掉
                 double gmin[3], gmax[3];
                 ctx->AllReduce(localMin, gmin, 3, ParallelContext::ReduceOp::Min);
                 ctx->AllReduce(localMax, gmax, 3, ParallelContext::ReduceOp::Max);
-                // 注意：这两个 AllReduce 必须**无条件**执行（不能按 hasLocal 跳过），
-                // 否则各 rank 的集合通信次数不一致 → 死锁（不变量 §4.3）。
+                // 注意：这两个 AllReduce 必须由**所有 rank 无条件**执行（不能按 hasLocal
+                // 跳过），否则各 rank 的集合通信次数不一致 → 死锁（不变量 §4.3）。
                 bool ok = true;
                 for (int a = 0; a < 3; ++a) {
                     if (!std::isfinite(gmin[a]) || !std::isfinite(gmax[a]) ||
@@ -1140,37 +1144,46 @@ int main(int argc, char** argv) {
                         ok = false;
                     }
                 }
-                if (!ok) { continue; } // 全透明/无可见体素：保留几何兜底值
-                const std::size_t base = static_cast<std::size_t>(f) * 3;
-                double ext[3];
-                for (int a = 0; a < 3; ++a) {
-                    frameFocusCentersXYZ[base + a] = (gmin[a] + gmax[a]) * 0.5;
-                    ext[a] = gmax[a] - gmin[a];
-                }
-                const double r =
-                        0.5 * std::sqrt(ext[0] * ext[0] + ext[1] * ext[1] +
-                                        ext[2] * ext[2]);
-                // 退化保护：可见区缩成一个点时（r 远小于几何半径）不拿它当取景依据，
-                // 否则相机距离会小到钻进数据里。保留几何兜底值。
-                if (r > radius * 1e-4) {
-                    frameFocusRadii[static_cast<std::size_t>(f)] = r;
-                    ++visibleFrames;
-                } else {
+                if (ok) {
+                    double center[3];
+                    double ext[3];
                     for (int a = 0; a < 3; ++a) {
-                        frameFocusCentersXYZ[base + a] =
-                                frameCentersXYZ[base + a];
+                        center[a] = (gmin[a] + gmax[a]) * 0.5;
+                        ext[a] = gmax[a] - gmin[a];
+                    }
+                    const double r =
+                            0.5 * std::sqrt(ext[0] * ext[0] + ext[1] * ext[1] +
+                                            ext[2] * ext[2]);
+                    // 退化保护：可见区缩成一个点时（r 远小于几何半径）不拿它当取景依据，
+                    // 否则相机距离会小到钻进数据里。保留几何兜底值。
+                    if (r > radius * 1e-4) {
+                        for (int f = 0; f < numFrames; ++f) {
+                            const std::size_t base = static_cast<std::size_t>(f) * 3;
+                            for (int a = 0; a < 3; ++a) {
+                                frameFocusCentersXYZ[base + a] = center[a];
+                            }
+                            frameFocusRadii[static_cast<std::size_t>(f)] = r;
+                        }
+                        focusAnchored = true;
                     }
                 }
+                // 用完立刻释放：不要让它继续持有该帧读进来的原始分块（见上面 anchorResampler
+                // 的注释 —— 这就是 1000 rank 上被 OOM 的直接来源）。
+                anchorResampler = nullptr;
             }
             if (rank == 0 && numFrames > 0) {
                 const std::size_t b0 = static_cast<std::size_t>(startFrame) * 3;
                 const double* gc0 = &frameCentersXYZ[b0];
                 const double* fc0 = &frameFocusCentersXYZ[b0];
                 std::cerr << "[bounds] visible bbox (threshold=" << visibleThreshold
-                          << ", stride=" << kVisibleBoundsStride << "): frames with "
-                             "visible voxels = "
-                          << visibleFrames << '/' << numFrames << '\n';
-                std::cerr << "[bounds] frame " << startFrame << " focus center = ("
+                          << ", stride=" << kVisibleBoundsStride << ") anchored at frame "
+                          << startFrame << ": "
+                          << (focusAnchored ? "used for all frames (camera is fixed "
+                                              "across frame switches)"
+                                            : "NOT found -> falling back to the "
+                                              "geometry bbox")
+                          << '\n';
+                std::cerr << "[bounds] anchor focus center = ("
                           << fc0[0] << ", " << fc0[1] << ", " << fc0[2]
                           << "), r=" << frameFocusRadii[static_cast<std::size_t>(startFrame)]
                           << "  vs geometry center = (" << gc0[0] << ", " << gc0[1]

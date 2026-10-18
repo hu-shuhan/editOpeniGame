@@ -74,6 +74,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 #include <zlib.h>
 
@@ -109,6 +110,15 @@ inline constexpr double kOrbitAzimDegPerSec = 20.0;       // 方位角连续旋�
 inline constexpr double kOrbitElevMaxDeg = 30.0;          // 俯仰扫掠的极限角（±度）
 inline constexpr double kOrbitElevHalfPeriodSec = 8.0;    // 俯仰从 -A 到 +A 的时间（秒）
 inline constexpr double kOrbitElevRampSec = 0.7;          // 俯仰折返处的短缓动时长（秒）
+
+// 一个会话「静默」多久之后，允许新连接的客户端接管它（秒）。
+//
+// 场景：客户端进程卡死（例如 X11 转发下 glfwSwapBuffers 卡住）或被 kill -9 以外的原因
+// 弄成半死状态时，TCP 连接仍然健康（keepalive 探活会被对端内核 ACK），服务端会一直阻塞
+// 在 recv 里，永远回不到 accept —— 用户重启客户端后表现为"再也连不上"。
+// 策略：只有当 (a) 监听 socket 上确实有新连接在等，且 (b) 当前会话已经静默超过该秒数时，
+// 才丢弃旧会话。这样"用户只是走开了一会儿"的空闲会话不会被误踢。
+inline constexpr double kStaleSessionTakeoverSec = 5.0;
 
 // 从传输函数颜色映射器构建 256 像素 RGBA8 colorbar ramp（仅颜色，alpha 恒 255）。
 // 与服务端握手时发给客户端，供其重建左下角 colorbar 渐变纹理。
@@ -254,6 +264,11 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
     // 触发本帧的 INTERACT 命令序号（rank 0 维护，随帧回传给客户端测 RTT）。
     std::uint32_t frameSeq = 0;
+    // 本会话最后一次收到客户端命令的时刻（rank 0 维护）。
+    // 用途：判断一个会话是不是"客户端已经卡死/断掉但 TCP 还没报错"的静默会话 ——
+    // 有新的客户端在 backlog 里等着时，允许它接管（见 kStaleSessionTakeoverSec）。
+    std::chrono::steady_clock::time_point sessionLastCmdTime =
+            std::chrono::steady_clock::now();
 
     // ---------- socket 监听 / 接受（仅 rank 0） ----------
     // 注意：任何 rank 0 侧的 socket 失败都必须通过 Broadcast 通知所有 rank 一起退出，
@@ -289,7 +304,9 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                     std::cerr << "[server] bind port " << port << " failed\n";
                     serverStatus = 0;
                 } else {
-                    listen(listenSock, 1);
+                    // backlog 从 1 提到 8：旧值 1 时，上一个会话的 TIME_WAIT / 半死连接
+                    // 可能让新连接进不来（SYN 被丢），表现为"断联后再也连不上"。
+                    listen(listenSock, 8);
                     std::cout << "[server] rank 0 listening on port " << port
                               << '\n';
                     std::cout.flush();
@@ -333,8 +350,15 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
     }
     netbuf.clear();
     clientSock = PV_INVALID_SOCKET;
+    // 新会话的静默计时从这里开始（见 kStaleSessionTakeoverSec）。
+    sessionLastCmdTime = std::chrono::steady_clock::now();
 
-    // 接受客户端（rank 0 阻塞）并发送握手元数据；accept 失败则广播一致退出服务循环。
+    // 接受客户端（rank 0 阻塞）并发送握手元数据。
+    //
+    // accept 的瞬时错误（EINTR / ECONNABORTED / EMFILE / ENFILE / ENOBUFS...）**不能**
+    // 直接让整个 MPI 作业退出：旧行为是「accept 一失败就 serverStatus=0 → break → 退出
+    // 服务循环」，于是客户端断联一次之后只要撞上一次瞬时错误，服务就永久消失（前端再也
+    // 连不上）。这里改成有界重试（最多 5s），只有持续失败才退出，并把 errno 打出来。
     serverStatus = 1;
     if (rank == 0) {
         sockaddr_in clientAddr{};
@@ -343,24 +367,29 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 #else
         socklen_t alen = sizeof(clientAddr);
 #endif
-        clientSock = accept(listenSock,
-                            reinterpret_cast<sockaddr*>(&clientAddr), &alen);
+        clientSock = PV_INVALID_SOCKET;
+        for (int attempt = 0; attempt < 50; ++attempt) {
+            alen = static_cast<decltype(alen)>(sizeof(clientAddr));
+            clientSock = accept(listenSock,
+                                reinterpret_cast<sockaddr*>(&clientAddr), &alen);
+            if (clientSock != PV_INVALID_SOCKET) { break; }
+            const int e = iGamePVNet::LastError();
+            std::cerr << "[server] accept error (errno=" << e << ", attempt "
+                      << (attempt + 1) << "/50), retrying...\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
         if (clientSock == PV_INVALID_SOCKET) {
-            std::cerr << "[server] accept failed\n";
+            std::cerr << "[server] accept failed repeatedly; shutting the service "
+                         "loop down (this ends the MPI job)\n";
             serverStatus = 0;
         } else {
             std::cout << "[server] client connected\n";
             std::cout.flush();
 
-            // 禁用 Nagle：降低交互延迟（对标 MiniPVServer）。
-            int one = 1;
-            setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY,
-#ifdef _WIN32
-                       reinterpret_cast<const char*>(&one),
-#else
-                       &one,
-#endif
-                       sizeof(one));
+            // 交互 socket 调优：关 Nagle + 开 keepalive + send 超时（见
+            // iGamePVNet::ConfigureInteractiveSocket 的注释：这是「断联后无法重连」与
+            // 「两侧互相 send 卡死」的根本防护）。
+            iGamePVNet::ConfigureInteractiveSocket(clientSock);
 
             // 握手：发送标量范围 + colorbar ramp + 渲染分辨率 + 帧数 + 字段名。
             iGamePVNet::Metadata meta;
@@ -706,10 +735,14 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         int frameStep = 0;      // 本批 NEXT/PREV 累积的帧步进（+1/-1）
 
         if (rank == 0) {
-            // 0) 动画期间用 select 超时等命令：到点就由服务端自己出下一帧，
-            //    不再阻塞在 recv 上（O/A 的动画节奏因此与客户端显示循环无关）。
-            //    轨道限速到 25fps（渲染比这更快时不必多出帧）；自动播放等到下一节拍。
-            int waitMs = -1; // -1 = 无限阻塞
+            // 0) 等命令。**空闲时也不再无限阻塞**（旧代码 waitMs = -1）：改成最多等 1s，
+            //    这样本轮超时后还能做两件事：
+            //      (a) 看看监听 socket 上是否有新客户端在 backlog 里等着接管一个已经
+            //          **静默**的旧会话（客户端进程卡死但 TCP 还活着时，这是唯一能
+            //          自己恢复的路径，否则服务端永远回不到 accept）；
+            //      (b) 让 keepalive / TCP_USER_TIMEOUT 有机会把死连接报上来。
+            //    动画期间仍按动画节拍等（O/A 的节奏与客户端显示循环无关）。
+            int waitMs = 1000;
             if (orbitActive || autoPlayActive) {
                 const auto now = std::chrono::steady_clock::now();
                 const auto toMs = [](std::chrono::steady_clock::duration d) {
@@ -757,6 +790,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                 // 3) 解析所有完整行，合并成一次相机更新 + 一次渲染。
                 std::string line;
                 while (clientAlive && iGamePVNet::PopLine(netbuf, line)) {
+                    sessionLastCmdTime = std::chrono::steady_clock::now();
                     if (line.empty()) { continue; }
                     std::istringstream iss(line);
                     std::string op;
@@ -888,6 +922,29 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                 needRender = true;
             }
 
+            // 4.5) 静默会话接管：本轮没有任何命令、也没有动画在跑，而当前会话已经静默
+            //      超过 kStaleSessionTakeoverSec，且监听 socket 上有新连接在等 —— 说明旧
+            //      客户端八成已经卡死（TCP 还活着，keepalive 检测不到）。此时丢弃旧会话，
+            //      让服务端回到 accept，新客户端立刻就能连上（"断联后无法重连"的真正解药）。
+            if (clientAlive && !needRender && !orbitActive && !autoPlayActive) {
+                const double idleSec =
+                        std::chrono::duration<double>(now - sessionLastCmdTime).count();
+                if (idleSec > kStaleSessionTakeoverSec) {
+                    fd_set lfds;
+                    FD_ZERO(&lfds);
+                    FD_SET(listenSock, &lfds);
+                    timeval zero{0, 0};
+                    const int pending = select(static_cast<int>(listenSock) + 1, &lfds,
+                                               nullptr, nullptr, &zero);
+                    if (pending > 0) {
+                        std::cerr << "[server] idle session silent for " << idleSec
+                                  << "s and a new client is waiting -> dropping the "
+                                     "stale session so the new one can connect\n";
+                        clientAlive = false;
+                    }
+                }
+            }
+
             // O 键轨道动画统一按「拖动档」渲染。**必须**在广播 interactiveMode 之前设置：
             // 所有 rank 的渲染分辨率必须一致（interactiveMode 是唯一广播的 LOD 开关）；
             // 若只在 rank 0 用 orbitActive 本地改 interactive，rank 0 会渲染 512²、其余
@@ -966,7 +1023,13 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
         // 发送失败（客户端断开）不在此处直接 break，而是标记 clientAlive=false，
         // 由下一轮顶部的 Broadcast 统一通知所有 rank 退出，避免失步死锁。
-        if (!renderFrame(interactive)) { clientAlive = false; }
+        if (!renderFrame(interactive)) {
+            // 打一行原因：区分「客户端真的走了」还是「send 超时/TCP 判定失效」
+            // （后者在超算上意味着 keepalive / SO_SNDTIMEO 生效，是预期行为）。
+            std::cerr << "[server] frame send failed -> ending this session "
+                         "(peer gone or send timeout)\n";
+            clientAlive = false;
+        }
     }
 
     // 客户端断开/EXIT/发送失败：关闭本会话 socket，回到 accept 等下一个客户端（不退出服务）。
@@ -975,6 +1038,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         clientSock = PV_INVALID_SOCKET;
         std::cout << "[server] client session ended; waiting for next client...\n";
         std::cout.flush();
+        // 只有看到这一行，才说明服务端**真的**回到了 accept；若断联后日志停在上一条
+        // [server] 帧行而没有这一行，说明服务端卡在读/写里（keepalive 尚未生效或还没到点）。
     }
     } // 持久服务循环
 
