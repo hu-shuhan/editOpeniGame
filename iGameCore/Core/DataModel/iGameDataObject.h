@@ -17,6 +17,27 @@ public:
     I_OBJECT(DataObject);
 
     /**
+     * @brief 模型自己的体绘制参数。
+     *
+     * 与 ColorMapper 一样，这些参数属于 DataObject，而不是场景中的某个临时
+     * 体层槽位。同一模型重新进入/离开可见体层时参数仍然保留；两个模型同时
+     * 参与体绘制时也各自使用自己的设置。
+     */
+    struct VolumeRenderingSettings {
+        bool enabled = true;
+        float opacityScale = 0.001f;
+        int maskMode = 0; // 0=off, 1=carve, 2=shell
+        float shellOpacity = 0.9f;
+    };
+
+    VolumeRenderingSettings& GetVolumeRenderingSettings() {
+        return m_VolumeRenderingSettings;
+    }
+    const VolumeRenderingSettings& GetVolumeRenderingSettings() const {
+        return m_VolumeRenderingSettings;
+    }
+
+    /**
      * 读取路径作用域：期间 AddSubDataObject 不再立刻 ConvertToDrawableData()。
      * 用于 FileIO::ReadFile —— 读盘/解析/挂载照旧，但“表面抽取 + 建渲染壳”推迟到
      * 第一次渲染或第一次 GetRenderableObject() 时执行。
@@ -237,6 +258,7 @@ protected:
     Object::Pointer m_AttributeHelper{};
 
     ScalarsToColors::Pointer m_ColorMapper = ScalarsToColors::New();
+    VolumeRenderingSettings m_VolumeRenderingSettings{};
 };
 
 //template<typename Functor, typename... Args>

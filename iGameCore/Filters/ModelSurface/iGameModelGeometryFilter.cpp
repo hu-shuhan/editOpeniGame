@@ -8,6 +8,8 @@
 #include <omp.h>
 #endif
 #include <stdexcept>
+#include <cctype>
+#include <string>
 IGAME_NAMESPACE_BEGIN
 #define ArrayList std::vector<ArrayObject>
 ModelGeometryFilter::ModelGeometryFilter() {
@@ -1243,6 +1245,12 @@ int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, 
 }
 
 
+namespace {
+inline bool IsBlankedGhostValue(unsigned char g) {
+    return (g & (0x01u | 0x02u | 0x20u)) != 0;
+}
+}
+
 struct ExtractSG : public ExtractCellBoundaries {
     StructuredMesh::Pointer Mesh;
     bool RemoveGhostInterFaces;
@@ -1279,12 +1287,12 @@ struct ExtractSG : public ExtractCellBoundaries {
             for (igIndex j = 0; j < cd1; ++j) {
                 for (igIndex i = 0; i < cd0; ++i) {
                     const igIndex cellId = i + cd0 * j + cellPlane01 * k;
-                    if ((this->CellGhosts[cellId] & 32) != 0) continue; // 跳过 ghost 单元
+                    if (IsBlankedGhostValue(this->CellGhosts[cellId])) continue; // 跳过 ghost 单元
                     if (this->CellVis && !this->CellVis[cellId]) continue;
                     const igIndex base = i + d0 * j + plane01 * k;
 
                     // k- 面
-                    if (k == 0 || (this->CellGhosts[cellId - cellPlane01] & 32) != 0) {
+                    if (k == 0 || IsBlankedGhostValue(this->CellGhosts[cellId - cellPlane01])) {
                         vhs[0] = base;
                         vhs[1] = base + 1;
                         vhs[2] = base + 1 + d0;
@@ -1293,7 +1301,7 @@ struct ExtractSG : public ExtractCellBoundaries {
                         f2c.emplace_back(cellId);
                     }
                     // k+ 面
-                    if (k == cd2 - 1 || (this->CellGhosts[cellId + cellPlane01] & 32) != 0) {
+                    if (k == cd2 - 1 || IsBlankedGhostValue(this->CellGhosts[cellId + cellPlane01])) {
                         vhs[0] = base + plane01;
                         vhs[1] = base + plane01 + 1;
                         vhs[2] = base + plane01 + 1 + d0;
@@ -1302,7 +1310,7 @@ struct ExtractSG : public ExtractCellBoundaries {
                         f2c.emplace_back(cellId);
                     }
                     // j- 面
-                    if (j == 0 || (this->CellGhosts[cellId - cd0] & 32) != 0) {
+                    if (j == 0 || IsBlankedGhostValue(this->CellGhosts[cellId - cd0])) {
                         vhs[0] = base;
                         vhs[1] = base + 1;
                         vhs[2] = base + 1 + plane01;
@@ -1311,7 +1319,7 @@ struct ExtractSG : public ExtractCellBoundaries {
                         f2c.emplace_back(cellId);
                     }
                     // j+ 面
-                    if (j == cd1 - 1 || (this->CellGhosts[cellId + cd0] & 32) != 0) {
+                    if (j == cd1 - 1 || IsBlankedGhostValue(this->CellGhosts[cellId + cd0])) {
                         vhs[0] = base + d0;
                         vhs[1] = base + d0 + 1;
                         vhs[2] = base + d0 + 1 + plane01;
@@ -1320,7 +1328,7 @@ struct ExtractSG : public ExtractCellBoundaries {
                         f2c.emplace_back(cellId);
                     }
                     // i- 面
-                    if (i == 0 || (this->CellGhosts[cellId - 1] & 32) != 0) {
+                    if (i == 0 || IsBlankedGhostValue(this->CellGhosts[cellId - 1])) {
                         vhs[0] = base;
                         vhs[1] = base + d0;
                         vhs[2] = base + d0 + plane01;
@@ -1329,7 +1337,7 @@ struct ExtractSG : public ExtractCellBoundaries {
                         f2c.emplace_back(cellId);
                     }
                     // i+ 面
-                    if (i == cd0 - 1 || (this->CellGhosts[cellId + 1] & 32) != 0) {
+                    if (i == cd0 - 1 || IsBlankedGhostValue(this->CellGhosts[cellId + 1])) {
                         vhs[0] = base + 1;
                         vhs[1] = base + 1 + d0;
                         vhs[2] = base + 1 + d0 + plane01;
@@ -1487,20 +1495,87 @@ int ModelGeometryFilter::ExecuteWithStructuredMesh(DataObject::Pointer input, Su
     CharArray::Pointer CellVisibleArray = CharArray::New();
     char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetCells());
     if (CellVisible) { return this->ExecuteWithVolumeMesh(input, output); }
-    // ResampleToImage writes vtkGhostType=32 for invalid samples. Validate
-    // association, tuple count and storage before using the contiguous mask.
     const unsigned char* cellGhosts = nullptr;
     const unsigned char* pointGhosts = nullptr;
+    std::vector<unsigned char> derivedCellGhosts;
     if (inAllDataArray) {
         auto attrs = inAllDataArray->GetAllAttributes();
-        for (IGsize index = 0; index < attrs->GetNumberOfElements(); ++index) {
+        const unsigned char* pointMask = nullptr;
+        auto rawBytes = [](const ArrayObject::Pointer& array, int& dimension,
+                           IGsize& count) -> const unsigned char* {
+            if (auto mask = DynamicCast<UnsignedCharArray>(array)) {
+                dimension = mask->GetDimension();
+                count = mask->GetNumberOfValues();
+                return mask->RawPointer();
+            }
+            if (auto mask = DynamicCast<CharArray>(array)) {
+                dimension = mask->GetDimension();
+                count = mask->GetNumberOfValues();
+                return reinterpret_cast<const unsigned char*>(mask->RawPointer());
+            }
+            return nullptr;
+        };
+        for (IGsize index = 0; attrs && index < attrs->GetNumberOfElements(); ++index) {
             const auto& attr = attrs->GetElement(index);
-            if (attr.isDeleted || !attr.pointer || attr.attachmentType != IG_CELL ||
-                attr.pointer->GetName() != "vtkGhostType") continue;
-            auto mask = DynamicCast<UnsignedCharArray>(attr.pointer);
-            if (mask && mask->GetDimension() == 1 && mask->GetNumberOfValues() == numCells)
-                cellGhosts = mask->RawPointer();
-            break;
+            if (attr.isDeleted || !attr.pointer) continue;
+            // 数组名大小写无关比较（读取器会把 FIELD 名字小写化）
+            const std::string name = attr.pointer->GetName();
+            auto nameIs = [&name](const char* expected) {
+                size_t i = 0;
+                for (; i < name.size() && expected[i] != '\0'; ++i) {
+                    if (std::tolower(static_cast<unsigned char>(name[i])) !=
+                        std::tolower(static_cast<unsigned char>(expected[i]))) {
+                        return false;
+                    }
+                }
+                return i == name.size() && expected[i] == '\0';
+            };
+            if (attr.attachmentType == IG_CELL && nameIs("vtkGhostType")) {
+                int dimension = 0;
+                IGsize count = 0;
+                const unsigned char* bytes = rawBytes(attr.pointer, dimension, count);
+                if (bytes && dimension == 1 && count == static_cast<IGsize>(numCells)) {
+                    cellGhosts = bytes;
+                }
+            } else if (attr.attachmentType == IG_POINT &&
+                       nameIs("vtkValidPointMask")) {
+                int dimension = 0;
+                IGsize count = 0;
+                const unsigned char* bytes = rawBytes(attr.pointer, dimension, count);
+                if (bytes && dimension == 1 &&
+                    count == static_cast<IGsize>(numInputPts)) {
+                    pointMask = bytes;
+                }
+            }
+        }
+
+        if (cellGhosts == nullptr && pointMask != nullptr) {
+            auto dims = Mesh->GetDimensionSize();
+            const igIndex cd0 = dims[0] - 1, cd1 = dims[1] - 1, cd2 = dims[2] - 1;
+            const igIndex pointPlane = dims[0] * dims[1];
+            derivedCellGhosts.assign(static_cast<size_t>(numCells), 0);
+            for (igIndex k = 0; k < cd2; ++k) {
+                for (igIndex j = 0; j < cd1; ++j) {
+                    for (igIndex i = 0; i < cd0; ++i) {
+                        const igIndex base = i + dims[0] * j + pointPlane * k;
+                        unsigned char blank = 0;
+                        for (int c = 0; c < 8; ++c) {
+                            const igIndex pi = i + (c & 1);
+                            const igIndex pj = j + ((c >> 1) & 1);
+                            const igIndex pk = k + ((c >> 2) & 1);
+                            const igIndex pid =
+                                    pi + dims[0] * pj + pointPlane * pk;
+                            if (pointMask[pid] == 0) {
+                                blank = 1;
+                                break;
+                            }
+                        }
+                        derivedCellGhosts[static_cast<size_t>(i + cd0 * j +
+                                                              cd0 * cd1 * k)] = blank;
+                    }
+                }
+            }
+            cellGhosts = derivedCellGhosts.data();
         }
     }
 

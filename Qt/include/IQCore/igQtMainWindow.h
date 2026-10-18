@@ -31,6 +31,7 @@ class QHBoxLayout;
 class igQtModelDrawWidget;
 class igQtFileLoader;
 class igQtColorManagerWidget;
+class igQtShadingWidget;
 class igQtFilterDialogDockWidget;
 class igQtSliceWidget;
 class igQtProgressBarWidget;
@@ -79,6 +80,7 @@ public:
     void initAllMySignalConnections();
     void initAllFilters();
     bool connectImportedFilterAction(QAction* action, const QString& filterId);
+    bool connectAdditionalFilterAction(QAction* action, const QString& filterId);
     bool connectMigratedFilterAction(QAction* action, const QString& filterId);
     void showAppendAttributesFilter();
     bool connectThirdBatchFilterAction(QAction* action, const QString& filterId);
@@ -105,6 +107,8 @@ public:
     igQtModelDialogWidget* modelTreeWidget = nullptr;
 
     igQtColorManagerWidget* ColorManagerWidget = nullptr;
+    // 着色与材质设置（常驻窗口，着色模型 + 材质参数）
+    igQtShadingWidget* shadingWidget = nullptr;
     igQtFilterDialogDockWidget* filterDialogDockWidget = nullptr;
     QDockWidget* SliceDockWidget = nullptr;
     QDockWidget* ContourDockWidget = nullptr;
@@ -223,6 +227,12 @@ private:
     void addToolbarTitle(QToolBar* toolbar, const QString& title, int iconSizePx);
     void relayoutToolbarWrappers();
     void initCustomTitleBar();
+    int leftDockContentWidth() const;
+    int leftDockAlignedWidth();
+    void applyLeftDockAlignment();
+    void startLeftDockAlignmentWatch();
+    int m_leftAlignTicks{0};
+    bool m_applyingLeftDockWidth{false};
 
     void applyStyleMode(int mode);
     QString styleSheetForMode(int mode) const;

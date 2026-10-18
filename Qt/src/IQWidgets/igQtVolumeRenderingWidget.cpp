@@ -4,7 +4,9 @@
 
 #include <iGameSceneManager.h>
 
+#include <QApplication>
 #include <QComboBox>
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QPushButton>
@@ -21,6 +23,13 @@ constexpr int kDispatchGroupSize = 8; // 与 VolumeRaymarch.comp 的 local_size 
 // 每步跨过的体素数超过这个值就认为该方向欠采样（会看到条带/漏采）
 constexpr double kUnderSamplingVoxelsPerStep = 2.0;
 constexpr double kRecommendedSamplesPerVoxel = 1.5;
+
+bool IsSpinBoxEditing(QWidget* spinBox) {
+    if (spinBox == nullptr) { return false; }
+    if (spinBox->hasFocus()) { return true; }
+    QWidget* focus = QApplication::focusWidget();
+    return focus != nullptr && spinBox->isAncestorOf(focus);
+}
 
 void SetLabelText(QLabel* label, const QString& text) {
     if (label != nullptr && label->text() != text) { label->setText(text); }
@@ -55,10 +64,15 @@ igQtVolumeRenderingWidget::~igQtVolumeRenderingWidget() { delete ui; }
 void igQtVolumeRenderingWidget::initUI() {
     ui->label_StepsHint->setStyleSheet(QStringLiteral("color: #9a9a9a;"));
     ui->label_Status->setStyleSheet(QStringLiteral("color: #9a9a9a;"));
+    // 输入过程不要逐键回写/被定时刷新覆盖：只在回车或失焦时提交
+    ui->spinBox_Steps->setKeyboardTracking(false);
+    ui->doubleSpinBox_Opacity->setKeyboardTracking(false);
+    ui->doubleSpinBox_ShellOpacity->setKeyboardTracking(false);
 
-    // 面板打开期间定时刷新：视口大小/DPR 会随窗口缩放、跨屏拖动变化
+    // 面板打开期间定时刷新：视口大小/DPR 会随窗口缩放、跨屏拖动变化，
+    // 帧率也要跟着动（400ms 足够跟手，又不会太吵）
     m_refreshTimer = new QTimer(this);
-    m_refreshTimer->setInterval(700);
+    m_refreshTimer->setInterval(400);
     connect(m_refreshTimer, &QTimer::timeout, this,
             &igQtVolumeRenderingWidget::refresh);
     m_refreshTimer->start();
@@ -80,6 +94,36 @@ void igQtVolumeRenderingWidget::initConnections() {
             &igQtVolumeRenderingWidget::onResetClicked);
     connect(ui->pushButton_Close, &QPushButton::clicked, this,
             [this]() { emit closeRequested(); });
+    // 掩膜 / 车壳层（作用于“当前体层”）：0=关闭 1=挖空 2=实体车壳
+    connect(ui->comboBox_MaskMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int mode) {
+                if (m_updating || m_currentLayer < 0) { return; }
+                auto scene = this->currentScene();
+                if (scene == nullptr) { return; }
+                scene->SetVolumeLayerMaskMode(
+                        m_currentLayer,
+                        static_cast<iGame::Scene::VolumeMaskMode>(mode));
+                // 结果由定时刷新回填（重建时会往日志里写掩膜来源与占比）
+            });
+    // 车壳实体模式的外壳不透明度（当前体层，只改 uniform，不重建体数据）
+    connect(ui->doubleSpinBox_ShellOpacity,
+            QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            [this](double opacity) {
+                if (m_updating || m_currentLayer < 0) { return; }
+                auto scene = this->currentScene();
+                if (scene == nullptr) { return; }
+                scene->SetVolumeLayerShellOpacity(
+                        m_currentLayer,
+                        static_cast<float>(opacity));
+            });
+    // 启用 / 停用当前体层
+    connect(ui->checkBox_CurrentLayerEnabled, &QCheckBox::toggled, this,
+            [this](bool checked) {
+                if (m_updating || m_currentLayer < 0) { return; }
+                auto scene = this->currentScene();
+                if (scene == nullptr) { return; }
+                scene->SetVolumeLayerEnabled(m_currentLayer, checked);
+            });
 }
 
 iGame::Scene::Pointer igQtVolumeRenderingWidget::currentScene() const {
@@ -105,14 +149,18 @@ void igQtVolumeRenderingWidget::refresh() {
 void igQtVolumeRenderingWidget::fillQualityFromScene(
         const iGame::Scene::VolumeRenderingInfo& info) {
     m_updating = true;
-    if (info.stepCount > 0) {
+    // 正在输入时不要用场景值覆盖用户输入（定时刷新会每 400ms 触发一次）
+    if (info.stepCount > 0 && !IsSpinBoxEditing(ui->spinBox_Steps)) {
         ui->spinBox_Steps->setValue(
                 std::clamp(info.stepCount, ui->spinBox_Steps->minimum(),
                            ui->spinBox_Steps->maximum()));
     }
-    if (info.opacityScale > 0.0f) {
+    float layerOpacity = info.layer0Opacity;
+    if (m_currentLayer == 1) { layerOpacity = info.layer1Opacity; }
+    if (layerOpacity > 0.0f &&
+        !IsSpinBoxEditing(ui->doubleSpinBox_Opacity)) {
         ui->doubleSpinBox_Opacity->setValue(
-                std::clamp(static_cast<double>(info.opacityScale),
+                std::clamp(static_cast<double>(layerOpacity),
                            ui->doubleSpinBox_Opacity->minimum(),
                            ui->doubleSpinBox_Opacity->maximum()));
     }
@@ -133,13 +181,72 @@ void igQtVolumeRenderingWidget::updateReadout(
                  ui->checkBox_LiveUpdate, ui->pushButton_Apply}) {
         widget->setEnabled(raycast);
     }
+    // ---- 当前体层：由模型树当前选中的模型决定（与 ColorMapper 一致）----
+    m_currentLayer = hasScene ? info.currentLayer : -1;
+    {
+        QString text = QStringLiteral("当前体层：-");
+        if (m_currentLayer == 0) {
+            text = QStringLiteral("当前体层：层0 - %1")
+                           .arg(QString::fromStdString(info.layer0Name));
+        } else if (m_currentLayer == 1) {
+            text = QStringLiteral("当前体层：层1 - %1")
+                           .arg(QString::fromStdString(info.layer1Name));
+        } else if (hasScene) {
+            text = QStringLiteral(
+                    "当前体层：-（在模型树中选中一个体层模型）");
+        }
+        SetLabelText(ui->label_CurrentVolumeLayer, text);
+    }
+
+    const bool hasCurrentLayer = raycast && m_currentLayer >= 0;
+    int currentMaskMode = 0;
+    bool currentMaskAvailable = false;
+    float currentShellOpacity = 0.9f;
+    bool currentEnabled = true;
+    if (m_currentLayer == 0) {
+        currentMaskMode = info.layer0MaskMode;
+        currentMaskAvailable = info.layer0MaskAvailable;
+        currentShellOpacity = info.layer0ShellOpacity;
+        currentEnabled = info.layer0Enabled;
+    } else if (m_currentLayer == 1) {
+        currentMaskMode = info.layer1MaskMode;
+        currentMaskAvailable = info.layer1MaskAvailable;
+        currentShellOpacity = info.layer1ShellOpacity;
+        currentEnabled = info.layer1Enabled;
+    }
+    ui->doubleSpinBox_Opacity->setEnabled(hasCurrentLayer);
+    {
+        const QSignalBlocker blocker(ui->comboBox_MaskMode);
+        ui->comboBox_MaskMode->setCurrentIndex(
+                std::clamp(currentMaskMode, 0,
+                           ui->comboBox_MaskMode->count() - 1));
+    }
+    ui->comboBox_MaskMode->setEnabled(hasCurrentLayer && currentMaskAvailable);
+    {
+        const QSignalBlocker blocker(ui->doubleSpinBox_ShellOpacity);
+        if (!IsSpinBoxEditing(ui->doubleSpinBox_ShellOpacity)) {
+            ui->doubleSpinBox_ShellOpacity->setValue(
+                    std::clamp(static_cast<double>(currentShellOpacity),
+                               ui->doubleSpinBox_ShellOpacity->minimum(),
+                               ui->doubleSpinBox_ShellOpacity->maximum()));
+        }
+    }
+    ui->doubleSpinBox_ShellOpacity->setEnabled(hasCurrentLayer &&
+                                               currentMaskAvailable &&
+                                               currentMaskMode == 2);
+    {
+        const QSignalBlocker blocker(ui->checkBox_CurrentLayerEnabled);
+        ui->checkBox_CurrentLayerEnabled->setChecked(currentEnabled);
+    }
+    ui->checkBox_CurrentLayerEnabled->setEnabled(hasCurrentLayer);
 
     if (!hasScene) {
         for (QLabel* label : std::initializer_list<QLabel*>{
                      ui->label_ViewportValue, ui->label_ResolutionValue,
                      ui->label_DispatchValue, ui->label_DimensionValue,
                      ui->label_MemoryValue, ui->label_DensityValue,
-                     ui->label_SampleValue}) {
+                     ui->label_SampleValue, ui->label_FpsValue,
+                     ui->label_FrameTimeValue}) {
             SetLabelText(label, QStringLiteral("-"));
         }
         SetLabelText(ui->label_Status, QStringLiteral("当前没有可用场景。"));
@@ -172,7 +279,7 @@ void igQtVolumeRenderingWidget::updateReadout(
         SetLabelText(ui->label_DispatchValue, QStringLiteral("-"));
     }
 
-    // ---- 体数据规模与纹理显存（R16F + 可选 R8 掩膜） ----
+    // ---- 体数据规模与纹理显存（R16F + 可选 R32F 掩膜） ----
     const double nx = static_cast<double>(info.volumeDimension[0]);
     const double ny = static_cast<double>(info.volumeDimension[1]);
     const double nz = static_cast<double>(info.volumeDimension[2]);
@@ -186,8 +293,8 @@ void igQtVolumeRenderingWidget::updateReadout(
                              .arg(FormatCount(voxels)));
         QString memory = FormatMB(voxels * 2.0) + QStringLiteral("（R16F）");
         if (info.maskEnabled) {
-            memory += QStringLiteral(" + ") + FormatMB(voxels) +
-                      QStringLiteral("（R8 掩膜）");
+            memory += QStringLiteral(" + ") + FormatMB(voxels * 4.0) +
+                      QStringLiteral("（R32F 掩膜）");
         }
         SetLabelText(ui->label_MemoryValue, memory);
     } else {
@@ -209,14 +316,53 @@ void igQtVolumeRenderingWidget::updateReadout(
         SetLabelText(ui->label_SampleValue, QStringLiteral("-"));
     }
 
+    // ---- 帧率与 GPU 帧时间 ----
+    // 渲染是事件驱动的：空闲不重绘时按“空闲”显示，而不是误导性的 0 FPS
+    if (!info.active) {
+        SetLabelText(ui->label_FpsValue, QStringLiteral("空闲（无重绘）"));
+    } else if (info.fps > 0.0) {
+        SetLabelText(ui->label_FpsValue,
+                     QStringLiteral("%1 FPS").arg(info.fps, 0, 'f', 1));
+    } else {
+        SetLabelText(ui->label_FpsValue, QStringLiteral("统计中…"));
+    }
+    SetLabelText(ui->label_FrameTimeValue,
+                 info.gpuFrameTimeMs > 0.0
+                         ? QStringLiteral("%1 ms（GPU，整帧）")
+                                   .arg(info.gpuFrameTimeMs, 0, 'f', 1)
+                         : QStringLiteral("-"));
+
     // ---- 状态行 ----
     QString status;
     switch (info.mode) {
         case iGame::Scene::VolumeRenderingMode::Raycast:
             status = QStringLiteral(
-                    "当前：compute 光线步进（结构化网格），参数立即生效。");
-            if (info.maskEnabled) {
-                status += QStringLiteral(" 已启用体数据掩膜。");
+                    "当前：compute 光线步进（结构化网格），体层 %1，参数立即生效。")
+                             .arg(info.layerCount);
+            if (info.layerCount >= 2) {
+                status += QStringLiteral(" 层0：%1，层1：%2。")
+                                  .arg(QString::fromStdString(info.layer0Name))
+                                  .arg(QString::fromStdString(info.layer1Name));
+            }
+            if (info.maskAvailable) {
+                const int invalidPercent =
+                        static_cast<int>(info.maskInvalidRatio * 100.0f + 0.5f);
+                QString modeText;
+                if (info.maskMode == 1) {
+                    modeText = QStringLiteral("已挖空");
+                } else if (info.maskMode == 2) {
+                    modeText = QStringLiteral("实体（不透明度 %1）")
+                                       .arg(info.shellOpacity, 0, 'f', 2);
+                } else {
+                    modeText = QStringLiteral("未启用");
+                }
+                status += QStringLiteral(" 掩膜可用：无效体素 %1%，当前%2。")
+                                  .arg(invalidPercent)
+                                  .arg(modeText);
+            } else {
+                status += QStringLiteral(
+                        " 数据里没有 vtkValidPointMask/vtkGhostType，"
+                        "掩膜不可用。");
             }
             break;
         case iGame::Scene::VolumeRenderingMode::Fragment:
@@ -287,9 +433,15 @@ void igQtVolumeRenderingWidget::applyQuality() {
     auto scene = this->currentScene();
     if (scene == nullptr) { return; }
 
-    scene->SetVolumeRaycastingQuality(ui->spinBox_Steps->value(),
-                                      static_cast<float>(
-                                              ui->doubleSpinBox_Opacity->value()));
+    // 步数是视图级参数；不透明度写到“当前体层”
+    scene->SetVolumeRaycastingQuality(
+            ui->spinBox_Steps->value(),
+            scene->GetVolumeLayerOpacityScale(0));
+    if (m_currentLayer >= 0) {
+        scene->SetVolumeLayerOpacityScale(
+                m_currentLayer,
+                static_cast<float>(ui->doubleSpinBox_Opacity->value()));
+    }
     m_pendingEdits = false;
     // 参数改动后采样密度提示与每帧采样数都要跟着变
     updateStepsHint(ui->spinBox_Steps->value());
@@ -332,16 +484,16 @@ void igQtVolumeRenderingWidget::onPresetChanged(int index) {
     switch (index) {
         case 1: // 快速预览
             steps = 128;
-            opacity = 0.05;
+            opacity = 0.0005;
             break;
         case 2: // 标准
             steps = 512;
-            opacity = 0.10;
+            opacity = 0.0010;
             break;
         case 3: { // 精细：按体数据推荐步数
             const int recommended = recommendedSteps();
             steps = recommended > 0 ? recommended : 1024;
-            opacity = 0.15;
+            opacity = 0.0015;
             break;
         }
         default:
@@ -380,7 +532,7 @@ void igQtVolumeRenderingWidget::onApplyClicked() { applyQuality(); }
 void igQtVolumeRenderingWidget::onResetClicked() {
     m_updating = true;
     ui->spinBox_Steps->setValue(128);
-    ui->doubleSpinBox_Opacity->setValue(0.1);
+    ui->doubleSpinBox_Opacity->setValue(0.001);
     ui->comboBox_Preset->setCurrentIndex(0);
     m_updating = false;
 

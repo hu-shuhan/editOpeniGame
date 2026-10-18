@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RenameArraysWidget</class>
+ <widget class="QWidget" name="RenameArraysWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>420</width>
+    <height>520</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_Main">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_Model">
+     <item>
+      <widget class="QLabel" name="label_ModelTitle">
+       <property name="text">
+        <string>输入模型</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_ModelName">
+       <property name="text">
+        <string>未选择</string>
+       </property>
+       <property name="textInteractionFlags">
+        <set>Qt::TextSelectableByMouse</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_Point">
+     <property name="title">
+      <string>点数组 (Point)</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_Point">
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_PointOriginal">
+        <item>
+         <widget class="QLabel" name="label_PointOriginal">
+          <property name="text">
+           <string>原数组名</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QListWidget" name="leftlistwidget">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_PointNew">
+        <item>
+         <widget class="QLabel" name="label_PointNew">
+          <property name="text">
+           <string>新数组名（双击编辑）</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QListWidget" name="rightlistwidget">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::EditTrigger::AnyKeyPressed|QAbstractItemView::EditTrigger::DoubleClicked|QAbstractItemView::EditTrigger::EditKeyPressed</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_Cell">
+     <property name="title">
+      <string>单元数组 (Cell)</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_Cell">
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_CellOriginal">
+        <item>
+         <widget class="QLabel" name="label_CellOriginal">
+          <property name="text">
+           <string>原数组名</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QListWidget" name="leftlistwidget_2">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_CellNew">
+        <item>
+         <widget class="QLabel" name="label_CellNew">
+          <property name="text">
+           <string>新数组名（双击编辑）</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QListWidget" name="rightlistwidget_2">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::EditTrigger::AnyKeyPressed|QAbstractItemView::EditTrigger::DoubleClicked|QAbstractItemView::EditTrigger::EditKeyPressed</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="pushButton">
+     <property name="text">
+      <string>执行</string>
+     </property>
+     <property name="toolTip">
+      <string>按右侧的新名生成一个全新的网格（输入模型不会被修改）</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_Message">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

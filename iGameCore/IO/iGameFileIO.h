@@ -41,6 +41,7 @@ public:
         D3PLOT,
         SPECTRAL_DAT,
         SPECTRAL_NEKTAR,
+        VTI, // ImageData support required by the Median example model
         // IGV（iGameVis 通用格式，HDF5 容器）。按 kia/igv分阶段实现方案.md §9 P2
         // 要求插入到 **FILETYPE_COUNT 之前**：既有取值一个都不变（已有格式的
         // switch 分支因此零回归），只把计数加一。

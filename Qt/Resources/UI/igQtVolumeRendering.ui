@@ -110,14 +110,51 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0" colspan="2">
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_FpsTitle">
+        <property name="text">
+         <string>帧率</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QLabel" name="label_FpsValue">
+        <property name="toolTip">
+         <string>实测帧率。拖动/缩放/改属性时重绘</string>
+        </property>
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByMouse</set>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_FrameTimeTitle">
+        <property name="text">
+         <string>帧时间</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1">
+       <widget class="QLabel" name="label_FrameTimeValue">
+        <property name="text">
+         <string>-</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByMouse</set>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0" colspan="2">
        <widget class="QLabel" name="label_SampleTitle">
         <property name="text">
          <string>每帧采样</string>
         </property>
        </widget>
       </item>
-      <item row="7" column="0" colspan="2">
+      <item row="9" column="0" colspan="2">
        <widget class="QLabel" name="label_SampleValue">
         <property name="text">
          <string>-</string>
@@ -125,6 +162,19 @@
        </widget>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_CurrentVolumeLayer">
+     <property name="toolTip">
+      <string>下面这些参数属于“当前体层”：在模型树里选中一个体层模型即可编辑它自己的参数（与 ColorMapper 的用法一致）</string>
+     </property>
+     <property name="text">
+      <string>当前体层：-</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
     </widget>
    </item>
    <item>
@@ -143,7 +193,7 @@
       <item row="0" column="1">
        <widget class="QSpinBox" name="spinBox_Steps">
         <property name="toolTip">
-         <string>每条光线最多采样多少次。步数越大越精细，越接近“每个体素都采到”，代价是每帧采样数线性增长。</string>
+         <string>每条光线最多采样次数。越大越精细。</string>
         </property>
         <property name="minimum">
          <number>32</number>
@@ -162,7 +212,7 @@
       <item row="0" column="2">
        <widget class="QPushButton" name="pushButton_Recommend">
         <property name="toolTip">
-         <string>按体数据最长轴的体素数推荐步数（约 1.5 体素/步），避免长轴方向欠采样</string>
+         <string>按体数据最长轴体素数推荐</string>
         </property>
         <property name="text">
          <string>推荐</string>
@@ -170,32 +220,32 @@
        </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="label_OpacityTitle">
-        <property name="text">
-         <string>不透明度缩放</string>
-        </property>
+        <widget class="QLabel" name="label_OpacityTitle">
+         <property name="text">
+         <string>当前层不透明度</string>
+         </property>
        </widget>
       </item>
       <item row="1" column="1" colspan="2">
-       <widget class="QDoubleSpinBox" name="doubleSpinBox_Opacity">
-        <property name="toolTip">
-         <string>整体浓淡。越大越浓（更容易糊成一块），越小越透（能看到更深的层次）。</string>
-        </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>0.001000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.005000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.100000000000000</double>
-        </property>
+        <widget class="QDoubleSpinBox" name="doubleSpinBox_Opacity">
+         <property name="toolTip">
+          <string>整体浓淡。越大越浓，越小越透。</string>
+         </property>
+         <property name="decimals">
+          <number>4</number>
+         </property>
+         <property name="minimum">
+          <double>0.000100000000000</double>
+         </property>
+         <property name="maximum">
+          <double>0.050000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.000100000000000</double>
+         </property>
+         <property name="value">
+          <double>0.001000000000000</double>
+         </property>
        </widget>
       </item>
       <item row="2" column="0">
@@ -207,9 +257,6 @@
       </item>
       <item row="2" column="1" colspan="2">
        <widget class="QComboBox" name="comboBox_Preset">
-        <property name="toolTip">
-         <string>一键套用常用组合；手动改过步数或不透明度后会回到“自定义”</string>
-        </property>
         <item>
          <property name="text">
           <string>自定义</string>
@@ -217,26 +264,23 @@
         </item>
         <item>
          <property name="text">
-          <string>快速预览（128 步 / 0.05）</string>
+          <string>快速预览（128 步 / 0.0005）</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>标准（512 步 / 0.10）</string>
+          <string>标准（512 步 / 0.001）</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>精细（推荐步数 / 0.15）</string>
+          <string>精细（推荐步数 / 0.0015）</string>
          </property>
         </item>
        </widget>
       </item>
       <item row="3" column="0" colspan="3">
        <widget class="QCheckBox" name="checkBox_LiveUpdate">
-        <property name="toolTip">
-         <string>取消勾选后，只有点“应用”才会生效，便于先调好数值再一次性套用</string>
-        </property>
         <property name="text">
          <string>参数变化立即生效</string>
         </property>
@@ -246,6 +290,77 @@
        </widget>
       </item>
       <item row="4" column="0" colspan="3">
+       <widget class="QLabel" name="label_MaskTitle">
+        <property name="toolTip">
+         <string>空白/ghost体素处理方式,需要vtkValidPointMask或vtkGhostType</string>
+        </property>
+        <property name="text">
+         <string>当前层掩膜</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1" colspan="2">
+       <widget class="QComboBox" name="comboBox_MaskMode">
+        <property name="toolTip">
+         <string>无效体素处理。挖空：完全不贡献；实体：固定颜色绘制</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>关闭</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>挖空</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>实体</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_ShellOpacityTitle">
+        <property name="text">
+         <string>当前层掩膜不透明度</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1" colspan="2">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_ShellOpacity">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.900000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0" colspan="3">
+       <widget class="QCheckBox" name="checkBox_CurrentLayerEnabled">
+        <property name="toolTip">
+         <string>启用/停用当前选中的体层（每个模型独立）</string>
+        </property>
+        <property name="text">
+         <string>启用当前体层</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0" colspan="3">
        <widget class="QLabel" name="label_StepsHint">
         <property name="text">
          <string>-</string>

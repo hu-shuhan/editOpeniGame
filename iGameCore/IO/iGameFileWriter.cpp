@@ -82,14 +82,14 @@ bool FileWriter::Execute()
 		return false;
 	}
 	this->BeginWriteProgress();
-	// 生成数据阶段：基类只能给出起点，具体进度由各 writer 自己上报
-	// （走 AddStringToBuffer 的自动有；自己写二进制的调 UpdateProgress，见 IGVWriter）。
+	// 生成数据阶段：无法预知总输出量，进度由 TickWriteProgress 按时间渐近推进。
 	if (!GenerateBuffers()) {
 		IGAME_CORE_ERROR("Could not generate buffer to load.");
 		this->EndWriteProgress();
 		return false;
 	}
 	// 写盘阶段：把 SaveBufferDataToFile 内部 0→1 的进度映射到 0.78→0.97 这一段。
+	// 一次写出几百 MB 时这段同样耗时，不能没有反馈。
 	this->SetProgressRange(kFlushProgressShift, kFlushProgressScale);
 	const bool saved = SaveBufferDataToFile();
 	this->EndWriteProgress();
@@ -157,7 +157,6 @@ void FileWriter::EndWriteProgress()
 	m_ProgressObserver->UpdateProgress(1.0); // 让进度条走到「完成」分支（会自行归零并隐藏）
 	m_ProgressObserver->UpdateText("");      // 清空文案，避免状态栏残留「正在写入…」
 }
-
 bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string filePath)
 {
 	this->SetInput(dataObject);
@@ -184,8 +183,8 @@ bool FileWriter::SaveBufferDataToFile()
 		                                                : "正在写入文件 " + fileName + "…");
 	}
 	const size_t bufferCount = m_Buffers.size();
-	// 大缓冲区按块写出：一次 fwrite 几百 MB（IGV 的 HDF5 内存镜像就是这样）时中间
-	// 没有任何进度可上报，分块后每块都能回报一次（Execute() 已把本阶段映射到 0.78→0.97）。
+	// 大缓冲区按块写出：一次 fwrite 几百 MB 时中间没有任何进度可上报，
+	// 分块后每块都能回报一次（Execute() 已把本阶段映射到 0.78→0.97）。
 	constexpr size_t kWriteChunkSize = 8u * 1024u * 1024u;
 	for (int i = 0; i < m_Buffers.size(); i++) {
 		const bool reportProgress = (t_WriteProgressOwner == this) && bufferCount > 0;

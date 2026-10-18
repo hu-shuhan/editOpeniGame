@@ -43,9 +43,25 @@ uniform vec3 backgroundColor; // 体后方的背景色（体数据独立渲染�
 uniform int debugMode;        // 0=正常渲染；1=输出命中诊断（一次性 GPU 自检用）
 
 uniform sampler3D volumeTexture;   // 体数据（R16F，三线性插值）
-uniform sampler3D volumeMask;      // 体数据掩膜（R8：1=有效，0=无效）
+uniform sampler3D volumeMask;      // 体数据掩膜（R32F：1=有效，0=无效）
 uniform int volumeMaskEnabled;     // 掩膜是否可用（0 时完全跳过掩膜采样）
+uniform sampler3D volumeMask2;     // 第二层掩膜（R32F：1=有效，0=无效）
+uniform int volumeMask2Enabled;    // 第二层掩膜是否启用
+uniform int maskMode;              // 1=挖空无效体素；2=把无效体素画成实体车壳
+uniform int maskMode2;             // 第二层掩膜模式
+uniform float shellOpacity;        // 车壳实体模式的外壳不透明度
+uniform float shellOpacity2;       // 第二层车壳实体不透明度
+uniform vec3 shellColor;           // 车壳实体颜色
 uniform sampler2D transferFunction;// 传输函数 LUT（256x1 RGBA8）
+
+// 第二体层（可选）：两个可见结构化模型一起体绘制
+uniform sampler3D volumeTexture2;  // 第二层体数据（R16F）
+uniform sampler2D transferFunction2; // 第二层传输函数 LUT
+uniform mat4 worldToTexture2;      // 第二层世界 -> 纹理空间
+uniform int layerCount;            // 1 = 单层；2 = 第二层参与
+uniform int layer0On;              // 第一层用户开关
+uniform int layer1On;              // 第二层用户开关
+uniform float opacityScale2;       // 第二层自己的不透明度缩放
 
 layout(binding = 0, rgba8) uniform writeonly image2D outImage;
 
@@ -54,6 +70,26 @@ float Hash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
+}
+
+// 稳健的 slab 求交（纹理空间单位立方体）：方向分量接近 0 时退化成“是否在板内”，
+// 否则 1/0 会得到 ±inf、0*inf 会得到 NaN，导致误判为不相交
+bool IntersectVolumeSlab(vec3 oT, vec3 dT, out float tNear, out float tFar) {
+    tNear = 0.0;
+    tFar = 1.0e30;
+    for (int axis = 0; axis < 3; ++axis) {
+        float o = oT[axis];
+        float d = dT[axis];
+        if (abs(d) < 1.0e-8) {
+            if (o < 0.0 || o > 1.0) { return false; }
+        } else {
+            float t0 = (0.0 - o) / d;
+            float t1 = (1.0 - o) / d;
+            tNear = max(tNear, min(t0, t1));
+            tFar = min(tFar, max(t0, t1));
+        }
+    }
+    return tFar > tNear;
 }
 
 void main() {
@@ -108,26 +144,29 @@ void main() {
     //    因此可以直接在纹理空间做 slab 求交，得到世界参数下的 [tNear, tFar]
     vec3 oT = (worldToTexture * vec4(rayOrigin, 1.0)).xyz;
     vec3 dT = (worldToTexture * vec4(rayDir, 0.0)).xyz;
+    float tNear0 = 0.0;
+    float tFar0 = 0.0;
+    bool hit0 = layer0On == 1 && IntersectVolumeSlab(oT, dT, tNear0, tFar0);
 
-    // 稳健的 slab 求交：方向分量接近 0 时退化成“是否在板内”的判断，
-    // 否则 1/0 会得到 ±inf、0*inf 会得到 NaN，导致误判为不相交
-    float tNear = 0.0;
-    float tFar = 1.0e30;
-    bool hit = true;
-    for (int axis = 0; axis < 3; ++axis) {
-        float o = oT[axis];
-        float d = dT[axis];
-        if (abs(d) < 1.0e-8) {
-            if (o < 0.0 || o > 1.0) {
-                hit = false;
-                break;
-            }
-        } else {
-            float t0 = (0.0 - o) / d;
-            float t1 = (1.0 - o) / d;
-            tNear = max(tNear, min(t0, t1));
-            tFar = min(tFar, max(t0, t1));
-        }
+    // 第二层：单独一套纹理空间变换（与第一层共享场景模型矩阵）
+    vec3 oT2 = vec3(0.0);
+    vec3 dT2 = vec3(0.0);
+    float tNear1 = 0.0;
+    float tFar1 = 0.0;
+    bool hit1 = false;
+    if (layerCount > 1 && layer1On == 1) {
+        oT2 = (worldToTexture2 * vec4(rayOrigin, 1.0)).xyz;
+        dT2 = (worldToTexture2 * vec4(rayDir, 0.0)).xyz;
+        hit1 = IntersectVolumeSlab(oT2, dT2, tNear1, tFar1);
+    }
+
+    // 一条光线按所有体积的并集步进
+    bool hit = hit0 || hit1;
+    float tNear = hit0 ? tNear0 : tNear1;
+    float tFar = hit0 ? tFar0 : tFar1;
+    if (hit0 && hit1) {
+        tNear = min(tNear0, tNear1);
+        tFar = max(tFar0, tFar1);
     }
 
     if (debugMode == 1) {
@@ -161,27 +200,79 @@ void main() {
     float transmittance = 1.0;
 
     for (int i = 0; i < steps; ++i) {
-        vec3 texCoord = oT + dT * t;
-        if (any(lessThan(texCoord, vec3(0.0))) ||
-            any(greaterThan(texCoord, vec3(1.0)))) {
-            break;
+        vec3 rgb = vec3(0.0);
+        float alpha = 0.0;
+
+        // 第一层：标量 + 掩膜/车壳
+        if (hit0) {
+            vec3 texCoord = oT + dT * t;
+            if (all(greaterThanEqual(texCoord, vec3(0.0))) &&
+                all(lessThanEqual(texCoord, vec3(1.0)))) {
+                float scalar =
+                        clamp(texture(volumeTexture, texCoord).r, 0.0, 1.0);
+                vec4 tf = texture(transferFunction, vec2(scalar, 0.5));
+                rgb = tf.rgb;
+                alpha = clamp(tf.a * opacityScale, 0.0, 1.0);
+
+                // 掩膜（1 = 有效流体，0 = 无效/车体）
+                //   maskMode == 1 挖空：无效体素完全不贡献
+                //   maskMode == 2 车壳实体：无效体素用固定颜色画成实体
+                if (volumeMaskEnabled == 1) {
+                    float mask = texture(volumeMask, texCoord).r;
+                    if (maskMode == 1) {
+                        alpha *= mask;
+                    } else if (maskMode == 2) {
+                        float shellAlpha =
+                                clamp(shellOpacity, 0.0, 1.0) * (1.0 - mask);
+                        float alphaSum = alpha + shellAlpha;
+                        if (alphaSum > 0.0) {
+                            rgb = (alpha * rgb + shellAlpha * shellColor) /
+                                  alphaSum;
+                            alpha = 1.0 - (1.0 - alpha) * (1.0 - shellAlpha);
+                        }
+                    }
+                }
+            }
         }
 
-        float scalar = clamp(texture(volumeTexture, texCoord).r, 0.0, 1.0);
-        vec4 tf = texture(transferFunction, vec2(scalar, 0.5));
-
-        // 掩膜：重采样时落在原网格外（车体内部 / 域外）的体素直接不贡献，
-        // 于是车体的轮廓会从体绘制里“挖”出来
-        float mask = 1.0;
-        if (volumeMaskEnabled == 1) {
-            mask = texture(volumeMask, texCoord).r;
+        // 第二层：标量 + 掩膜/车壳（与第一层同一套模式，各用自己的掩膜），
+        // 与第一层在同一采样点做对称合成
+        if (layer1On == 1 && hit1) {
+            vec3 texCoord2 = oT2 + dT2 * t;
+            if (all(greaterThanEqual(texCoord2, vec3(0.0))) &&
+                all(lessThanEqual(texCoord2, vec3(1.0)))) {
+                float scalar2 =
+                        clamp(texture(volumeTexture2, texCoord2).r, 0.0, 1.0);
+                vec4 tf2 = texture(transferFunction2, vec2(scalar2, 0.5));
+                vec3 rgb2 = tf2.rgb;
+                float alpha2 = clamp(tf2.a * opacityScale2, 0.0, 1.0);
+                if (volumeMask2Enabled == 1) {
+                    float mask2 = texture(volumeMask2, texCoord2).r;
+                    if (maskMode2 == 1) {
+                        alpha2 *= mask2;
+                    } else if (maskMode2 == 2) {
+                        float shellAlpha2 =
+                                clamp(shellOpacity2, 0.0, 1.0) * (1.0 - mask2);
+                        float alphaSum2 = alpha2 + shellAlpha2;
+                        if (alphaSum2 > 0.0) {
+                            rgb2 = (alpha2 * rgb2 + shellAlpha2 * shellColor) /
+                                   alphaSum2;
+                            alpha2 = 1.0 - (1.0 - alpha2) * (1.0 - shellAlpha2);
+                        }
+                    }
+                }
+                float alphaSum = alpha + alpha2;
+                if (alphaSum > 0.0) {
+                    rgb = (alpha * rgb + alpha2 * rgb2) / alphaSum;
+                    alpha = 1.0 - (1.0 - alpha) * (1.0 - alpha2);
+                }
+            }
         }
 
-        float alpha = clamp(tf.a * opacityScale, 0.0, 1.0) * mask;
         if (alpha > 0.0) {
             // 按实际步长补偿不透明度，使结果与步数基本无关
             alpha = 1.0 - pow(1.0 - alpha, opacityCorrection);
-            accumulated += transmittance * alpha * tf.rgb;
+            accumulated += transmittance * alpha * rgb;
             transmittance *= (1.0 - alpha);
             if (transmittance < 0.01) { break; } // 提前终止
         }

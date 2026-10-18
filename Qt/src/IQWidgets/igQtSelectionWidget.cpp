@@ -1,4 +1,4 @@
-#include <IQWidgets/igQtRenderWidget.h>
+﻿#include <IQWidgets/igQtRenderWidget.h>
 #include <IQWidgets/igQtSelectionWidget.h>
 #include <iGameSelectionParameter.h>
 #include <QRegularExpression>

@@ -76,11 +76,17 @@ bool MeshSimplifierWithAttributes::Execute()
     { 
         BuildAdjacency();
         size_t Count = BuildEdgeCollapses();
+        if (Count == 0) break;
         SortEdgeCollapses(Count);
         for (size_t i = 0; i < VertexCount; ++i) Mapping[i] = i; 
         
         memset(Locked.data(), 0, VertexCount * sizeof(unsigned char));
         size_t CollapsedCount = ExecuteEdgeCollapses(Count);
+        if (CollapsedCount == 0) {
+            // No legal collapse can move the mesh any closer to the requested
+            // target.  Avoid looping forever on constrained/boundary meshes.
+            break;
+        }
         UpdateQuadrics();
         IndexCount = RemapIndices();
         //break;
@@ -416,33 +422,33 @@ void MeshSimplifierWithAttributes::InitializeQuadrics()
         FVector p2 = Vertices[v2];
 
         FVector n = (p1 - p0).Cross(p2 - p0);
-        double area = n.Normalize();
+        const double area = 0.5 * n.Normalize();
+        if (area <= 0.0) continue;
         double d = -n.Dot(p0);
 
-        FQuadric Qface = FQuadric::FromPlane(n.x, n.y, n.z, d, 1.0);
-
-        double imp = 0.0;
-        if (UseVertexImportance && VertexImportance.size() == VertexCount) {
-            imp = (VertexImportance[v0] + VertexImportance[v1] + VertexImportance[v2]) / 3.0;
-        }
-
-        const double scale = 1.0 + VertexImportanceScale * imp;
-        if (scale != 1.0) {
-            Qface.a00 *= scale;
-            Qface.a11 *= scale;
-            Qface.a22 *= scale;
-            Qface.a10 *= scale;
-            Qface.a20 *= scale;
-            Qface.a21 *= scale;
-            Qface.b0 *= scale;
-            Qface.b1 *= scale;
-            Qface.b2 *= scale;
-            Qface.c *= scale;
-        }
+        FQuadric Qface = FQuadric::FromPlane(n.x, n.y, n.z, d, area);
 
         VertexQuadrics[v0] += Qface;
         VertexQuadrics[v1] += Qface;
         VertexQuadrics[v2] += Qface;
+    }
+
+    if (UseVertexImportance && VertexImportance.size() == VertexCount) {
+        for (size_t v = 0; v < VertexCount; ++v) {
+            const double scale = 1.0 + VertexImportanceScale * VertexImportance[v];
+            FQuadric& Qvertex = VertexQuadrics[v];
+            Qvertex.a00 *= scale;
+            Qvertex.a11 *= scale;
+            Qvertex.a22 *= scale;
+            Qvertex.a10 *= scale;
+            Qvertex.a20 *= scale;
+            Qvertex.a21 *= scale;
+            Qvertex.b0 *= scale;
+            Qvertex.b1 *= scale;
+            Qvertex.b2 *= scale;
+            Qvertex.c *= scale;
+            // Keep w as the original sum of incident face areas.
+        }
     }
 
     static constexpr int next[4] = {1, 2, 0, 1};
@@ -457,14 +463,21 @@ void MeshSimplifierWithAttributes::InitializeQuadrics()
             const unsigned int c = Indices[t + next[e + 1]];
 
             FQuadric Qedge = FQuadric::FromTriangleEdge(Vertices[a], Vertices[b], Vertices[c], 10.f);
+            // Boundary penalties affect the numerator, not the face-area denominator.
+            Qedge.w = 0.0;
 
             VertexQuadrics[a] += Qedge;
             VertexQuadrics[b] += Qedge;
         }
     }
 
-    AttributeQuadrics.resize(VertexCount);
-    std::memset(AttributeQuadrics.data(), 0, VertexCount * sizeof(FQuadric));
+    AttributeQuadrics.clear();
+    const bool useLegacyPenalty = PenaltyMethod == AttributePenaltyMethod::LegacyFaceResidual &&
+                                  AttributeCount && UseDynamicAttributePenalty;
+    if (useLegacyPenalty) {
+        AttributeQuadrics.resize(VertexCount);
+        std::memset(AttributeQuadrics.data(), 0, VertexCount * sizeof(FQuadric));
+    }
 
     AttributeGradients.resize(VertexCount * AttributeCount);
     std::memset(AttributeGradients.data(), 0, VertexCount * AttributeCount * sizeof(FGradient));
@@ -482,7 +495,7 @@ for (int f = 0; f < IndexCount; f += 3) {
         const FVector e20 = v2 - v0;
 
         const FVector crs = e10.Cross(e20);
-        const float triArea = 0.5f * crs.Length();
+        const double triArea = 0.5 * crs.Length();
 
         const float m00 = e10.x * e10.x + e10.y * e10.y + e10.z * e10.z;
         const float m01 = e10.x * e20.x + e10.y * e20.y + e10.z * e20.z;
@@ -500,9 +513,10 @@ for (int f = 0; f < IndexCount; f += 3) {
         const float gz_v = (m00 * e20.z - m01 * e10.z) * invDet;
 
         FQuadric Q;
-        std::memset(&Q, 0, sizeof(FQuadric));
-        Q.w = triArea;
-
+        if (useLegacyPenalty) {
+            Q.Zero();
+            Q.w = triArea;
+        }
         std::vector<FGradient> Grad(AttributeCount);
 
         for (size_t k = 0; k < AttributeCount; ++k) {
@@ -521,21 +535,23 @@ for (int f = 0; f < IndexCount; f += 3) {
 
             const float gw = a - v0.x * dx - v0.y * dy - v0.z * dz;
 
-            const float wx = triArea * dx;
-            const float wy = triArea * dy;
-            const float wz = triArea * dz;
-            const float ww = triArea * gw;
+            const double wx = triArea * dx;
+            const double wy = triArea * dy;
+            const double wz = triArea * dz;
+            const double ww = triArea * gw;
 
-            Q.a00 += wx * dx;
-            Q.a11 += wy * dy;
-            Q.a22 += wz * dz;
-            Q.a10 += wy * dx;
-            Q.a20 += wz * dx;
-            Q.a21 += wz * dy;
-            Q.b0 += wx * gw;
-            Q.b1 += wy * gw;
-            Q.b2 += wz * gw;
-            Q.c += ww * gw;
+            if (useLegacyPenalty) {
+                Q.a00 += wx * dx;
+                Q.a11 += wy * dy;
+                Q.a22 += wz * dz;
+                Q.a10 += wy * dx;
+                Q.a20 += wz * dx;
+                Q.a21 += wz * dy;
+                Q.b0 += wx * gw;
+                Q.b1 += wy * gw;
+                Q.b2 += wz * gw;
+                Q.c += ww * gw;
+            }
 
             Grad[k].gx = wx;
             Grad[k].gy = wy;
@@ -543,9 +559,11 @@ for (int f = 0; f < IndexCount; f += 3) {
             Grad[k].gw = ww;
         }
 
-        AttributeQuadrics[i0] += Q;
-        AttributeQuadrics[i1] += Q;
-        AttributeQuadrics[i2] += Q;
+        if (useLegacyPenalty) {
+            AttributeQuadrics[i0] += Q;
+            AttributeQuadrics[i1] += Q;
+            AttributeQuadrics[i2] += Q;
+        }
 
         for (size_t k = 0; k < AttributeCount; ++k) {
             const int o0 = i0 * AttributeCount + k;
@@ -559,101 +577,98 @@ for (int f = 0; f < IndexCount; f += 3) {
     }
 }
 
+double MeshSimplifierWithAttributes::PredictCollapsedAttribute(int i0, int i1, int k,
+                                                              const FVector& position,
+                                                              double areaWeight) const {
+    const double weight = AttributeWeights[k];
+    if (areaWeight <= 0.0) {
+        return 0.5 * (Attributes[k][i0] + Attributes[k][i1]) * weight;
+    }
+
+    const FGradient& G0 = AttributeGradients[i0 * AttributeCount + k];
+    const FGradient& G1 = AttributeGradients[i1 * AttributeCount + k];
+    const double gx = G0.gx + G1.gx;
+    const double gy = G0.gy + G1.gy;
+    const double gz = G0.gz + G1.gz;
+    const double gw = G0.gw + G1.gw;
+    return (gx * position.x + gy * position.y + gz * position.z + gw) / areaWeight;
+}
+
+double MeshSimplifierWithAttributes::ComputeAttributePenalty(int i0, int i1,
+                                                            const FVector& position) const {
+    const double areaWeight = VertexQuadrics[i0].w + VertexQuadrics[i1].w;
+    double penalty = 0.0;
+    for (int k = 0; k < AttributeCount; ++k) {
+        const double predicted = PredictCollapsedAttribute(i0, i1, k, position, areaWeight);
+        const double si = Attributes[k][i0] * AttributeWeights[k];
+        const double sj = Attributes[k][i1] * AttributeWeights[k];
+        const double di = predicted - si;
+        const double dj = predicted - sj;
+        penalty += di * di + dj * dj;
+    }
+    // Scale the endpoint prediction error by the incident face areas of both vertices.
+    return areaWeight * penalty / AttributeCount;
+}
+
+double MeshSimplifierWithAttributes::ComputeLegacyAttributePenalty(int i0, int i1,
+                                                                  const FVector& position) const {
+    const FQuadric Q_attr = IsOptimizedPosition
+        ? AttributeQuadrics[i0] + AttributeQuadrics[i1] : AttributeQuadrics[i0];
+    double r = Q_attr.Evaluate(position);
+
+    const auto addEndpointResidual = [&](int vertex) {
+        for (size_t k = 0; k < AttributeCount; ++k) {
+            const FGradient& G = AttributeGradients[vertex * AttributeCount + k];
+            const float a = Attributes[k][vertex] * AttributeWeights[k];
+            const float g = position.x * G.gx + position.y * G.gy + position.z * G.gz + G.gw;
+            r += a * (a * AttributeQuadrics[vertex].w - 2 * g);
+        }
+    };
+    addEndpointResidual(i0);
+    if (IsOptimizedPosition) {
+        addEndpointResidual(i1);
+        return std::abs(r);
+    }
+
+    const double len = (Vertices[i0] - Vertices[i1]).Length();
+    double h1 = 0.0;
+    if (len > 0.0) {
+        for (size_t k = 0; k < AttributeCount; ++k) {
+            const FGradient& G0 = AttributeGradients[i0 * AttributeCount + k];
+            const FGradient& G1 = AttributeGradients[i1 * AttributeCount + k];
+            const double dx = G0.gx - G1.gx;
+            const double dy = G0.gy - G1.gy;
+            const double dz = G0.gz - G1.gz;
+            h1 += (dx * dx + dy * dy + dz * dz) * len;
+        }
+    }
+    return std::abs(r) + 0.01 * h1;
+}
+
 FCollapseNode MeshSimplifierWithAttributes::ComputeEdgeCost(int i0, int i1) {
     FCollapseNode e;
-
     e.i0 = i0;
     e.i1 = i1;
 
-    if (IsOptimizedPosition)
-    {
+    double cost;
+    if (IsOptimizedPosition) {
         FQuadric Q_geom = VertexQuadrics[i0] + VertexQuadrics[i1];
-
-        FVector opt_pos;
-        if (!Q_geom.Optimize(opt_pos)) { opt_pos = (Vertices[i0] + Vertices[i1]) * 0.5f; }
-
-        double opt_cost = Q_geom.Error(opt_pos);
-
-        if (AttributeCount && UseDynamicAttributePenalty) {
-            const FQuadric Q_attr = AttributeQuadrics[i0] + AttributeQuadrics[i1];
-            double r = Q_attr.Evaluate(opt_pos);
-
-            for (size_t k = 0; k < AttributeCount; ++k) {
-                const FGradient& G1 = AttributeGradients[i0 * AttributeCount + k];
-                float a1 = Attributes[k][i0] * AttributeWeights[k];
-                float g1 = opt_pos.x * G1.gx + opt_pos.y * G1.gy + opt_pos.z * G1.gz + G1.gw;
-                r += a1 * (a1 * AttributeQuadrics[i0].w - 2 * g1);
-
-                const FGradient& G2 = AttributeGradients[i1 * AttributeCount + k];
-                float a2 = Attributes[k][i1] * AttributeWeights[k];
-                float g2 = opt_pos.x * G2.gx + opt_pos.y * G2.gy + opt_pos.z * G2.gz + G2.gw;
-                r += a2 * (a2 * AttributeQuadrics[i1].w - 2 * g2);
-            }
-
-            //double l2 = (Vertices[i0] - Vertices[i1]).LengthSquared();
-            //double len = l2 > 0.0 ? std::sqrt(l2) : 0.0;
-
-            //double h1 = 0.0;
-            //if (len > 0.0) {
-            //    double invw0 = 1.0 / (AttributeQuadrics[i0].w + 1e-12);
-            //    double invw1 = 1.0 / (AttributeQuadrics[i1].w + 1e-12);
-
-            //    for (int k = 0; k < AttributeCount; ++k) {
-            //        const FGradient& G0 = AttributeGradients[i0 * AttributeCount + k];
-
-            //        double dx = G0.gx - AttributeGradients[i1 * AttributeCount + k].gx;
-            //        double dy = G0.gy - AttributeGradients[i1 * AttributeCount + k].gy;
-            //        double dz = G0.gz - AttributeGradients[i1 * AttributeCount + k].gz;
-
-            //        h1 += (dx * dx + dy * dy + dz * dz) * len;
-            //    }
-            //}
-
-            //opt_cost += Lambda * (std::abs(r) + 0.01 * h1);
-            opt_cost += Lambda * std::abs(r);
+        if (!Q_geom.Optimize(e.target)) {
+            e.target = (Vertices[i0] + Vertices[i1]) * 0.5f;
         }
-        e.target = opt_pos;
-        e.cost = float(opt_cost);
+        cost = Q_geom.Error(e.target, DivideGeometricErrorByArea);
+    } else {
+        e.target = Vertices[i1];
+        cost = VertexQuadrics[i0].Error(e.target, DivideGeometricErrorByArea);
     }
-    else
-    {
-        const FVector& v = Vertices[i1];
-        double cost = VertexQuadrics[i0].Error(v);
 
-        if (AttributeCount && UseDynamicAttributePenalty) {
-            double r = AttributeQuadrics[i0].Evaluate(v);
-
-            for (size_t k = 0; k < AttributeCount; ++k) {
-                const FGradient& G1 = AttributeGradients[i0 * AttributeCount + k];
-                float a1 = Attributes[k][i0] * AttributeWeights[k];
-                float g1 = v.x * G1.gx + v.y * G1.gy + v.z * G1.gz + G1.gw;
-                r += a1 * (a1 * AttributeQuadrics[i0].w - 2 * g1);
-            }
-
-            double l2 = (Vertices[i0] - Vertices[i1]).LengthSquared();
-            double len = l2 > 0.0 ? std::sqrt(l2) : 0.0;
-
-            double h1 = 0.0;
-            if (len > 0.0) {
-                double invw0 = 1.0 / (AttributeQuadrics[i0].w + 1e-12);
-                double invw1 = 1.0 / (AttributeQuadrics[i1].w + 1e-12);
-
-                for (int k = 0; k < AttributeCount; ++k) {
-                    const FGradient& G0 = AttributeGradients[i0 * AttributeCount + k];
-
-                    double dx = G0.gx - AttributeGradients[i1 * AttributeCount + k].gx;
-                    double dy = G0.gy - AttributeGradients[i1 * AttributeCount + k].gy;
-                    double dz = G0.gz - AttributeGradients[i1 * AttributeCount + k].gz;
-
-                    h1 += (dx * dx + dy * dy + dz * dz) * len;
-                }
-            }
-
-            cost += Lambda * (std::abs(r) + 0.01 * h1);
-        }
-        e.target = v;
-        e.cost = float(cost);
+    if (AttributeCount && UseDynamicAttributePenalty) {
+        const double penalty = PenaltyMethod == AttributePenaltyMethod::LegacyFaceResidual
+            ? ComputeLegacyAttributePenalty(i0, i1, e.target)
+            : ComputeAttributePenalty(i0, i1, e.target);
+        cost += Lambda * penalty;
     }
+    e.cost = float(cost);
     return e;
 }
 
@@ -790,17 +805,21 @@ void MeshSimplifierWithAttributes::SortEdgeCollapses(size_t Count)
 
 size_t MeshSimplifierWithAttributes::ExecuteEdgeCollapses(size_t Count) 
 {
-    // 本次循环需要简化的面数量
-    size_t TargetTriangleCount = (IndexCount - TargetCount) / 3;
-    static const int next[4] = {1, 2, 0, 1};
-    // 坍缩的面数量
-    size_t CollapseCount = 0;
+    // Number of triangles that may still be removed without crossing the
+    // requested target. IndexCount and TargetCount store index counts.
+    const size_t targetTriangleCount = static_cast<size_t>(TargetCount) / 3;
+    const size_t currentTriangleCount = static_cast<size_t>(IndexCount) / 3;
+    const size_t trianglesToRemove = currentTriangleCount > targetTriangleCount
+        ? currentTriangleCount - targetTriangleCount
+        : 0;
+    size_t removedTriangleCount = 0;
 
     for (size_t i = 0; i < Count; ++i) {
         const auto& c = Collapses[Order[i]];
 
-        if ((c.cost > Collapses[Order[Count / 3]].cost && CollapseCount > TargetTriangleCount / 3) ||
-            IndexCount <= TargetCount) {
+        if ((c.cost > Collapses[Order[Count / 3]].cost &&
+             removedTriangleCount > trianglesToRemove / 3) ||
+            removedTriangleCount >= trianglesToRemove) {
             break;
         }
 
@@ -811,6 +830,32 @@ size_t MeshSimplifierWithAttributes::ExecuteEdgeCollapses(size_t Count)
         //if (VertexKind[i0] == Kind_Feature || VertexKind[i1] == Kind_Feature) continue;
 
         if (!IsCollapsable(c)) { continue; }
+
+        // Count the currently live incident triangles that this collapse would
+        // actually make degenerate. Several independent collapses are accepted
+        // in one batch, so relying on the stale IndexCount here can overshoot
+        // the target by thousands of faces.
+        size_t removedByThisCollapse = 0;
+        const size_t adjacencyBegin = VertexAdjacency.Begin(i0);
+        for (size_t j = 0; j < static_cast<size_t>(VertexAdjacency.Num(i0)); ++j) {
+            const auto& edge = VertexAdjacency.Data[adjacencyBegin + j];
+            const int mappedCenter = Mapping[i0];
+            const int mappedNext = Mapping[edge.next];
+            const int mappedPrev = Mapping[edge.prev];
+
+            const bool liveBefore = mappedCenter != mappedNext &&
+                                    mappedCenter != mappedPrev &&
+                                    mappedNext != mappedPrev;
+            const bool degenerateAfter = i1 == mappedNext ||
+                                         i1 == mappedPrev ||
+                                         mappedNext == mappedPrev;
+            if (liveBefore && degenerateAfter) ++removedByThisCollapse;
+        }
+
+        if (removedByThisCollapse == 0 ||
+            removedByThisCollapse > trianglesToRemove - removedTriangleCount) {
+            continue;
+        }
 
         if (c.duiou) {
             Indices[c.f0 * 3] = Indices[c.f0 * 3 + 1] = 0;
@@ -833,41 +878,24 @@ size_t MeshSimplifierWithAttributes::ExecuteEdgeCollapses(size_t Count)
         if (IsOptimizedPosition)
         {
             Vertices[i1] = c.target;
-
             if (AttributeCount) {
-                const FVector& pos = Vertices[i1];
-                double wsum = AttributeQuadrics[i0].w + AttributeQuadrics[i1].w;
-
-                if (wsum > 1e-12) {
-                    double inv_wsum = 1.0 / wsum;
-
-                    for (int k = 0; k < AttributeCount; ++k) {
-                        float wk = AttributeWeights[k];
-                        if (wk == 0.f) continue;
-
-                        const FGradient& G0 = AttributeGradients[i0 * AttributeCount + k];
-                        const FGradient& G1 = AttributeGradients[i1 * AttributeCount + k];
-
-                        double gx = G0.gx + G1.gx;
-                        double gy = G0.gy + G1.gy;
-                        double gz = G0.gz + G1.gz;
-                        double gw = G0.gw + G1.gw;
-
-                        double gsum = pos.x * gx + pos.y * gy + pos.z * gz + gw;
-
-                        double aw = gsum * inv_wsum;
-                        Attributes[k][i1] = float(aw / double(wk));
-                    }
+                const double areaWeight = VertexQuadrics[i0].w + VertexQuadrics[i1].w;
+                for (int k = 0; k < AttributeCount; ++k) {
+                    const double weight = AttributeWeights[k];
+                    if (weight == 0.0) continue;
+                    const double predicted = PredictCollapsedAttribute(i0, i1, k,
+                                                                        c.target, areaWeight);
+                    Attributes[k][i1] = float(predicted / weight);
                 }
             }
         }
         //if (c.duiou) {
         //    break;
         //}
-        CollapseCount += 2;
+        removedTriangleCount += removedByThisCollapse;
     }
 
-    return CollapseCount;
+    return removedTriangleCount;
 }
 
 bool MeshSimplifierWithAttributes::HasTriangleFlip(const FVector& vA, const FVector& vB, const FVector& vC,
@@ -948,9 +976,12 @@ void MeshSimplifierWithAttributes::UpdateQuadrics() {
 
         VertexQuadrics[target] += VertexQuadrics[v];
 
+        if (!AttributeQuadrics.empty()) {
+            AttributeQuadrics[target] += AttributeQuadrics[v];
+        }
+
         if (!AttributeCount) continue;
 
-        AttributeQuadrics[target] += AttributeQuadrics[v];
 
         const size_t src = v * AttributeCount;
         const size_t dst = target * AttributeCount;

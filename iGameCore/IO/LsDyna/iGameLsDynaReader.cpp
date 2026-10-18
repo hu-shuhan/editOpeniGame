@@ -63,7 +63,15 @@ bool LsDynaReader::Parsing() {
     IGAME_CORE_DEBUG("[LsDynaReader] Running converter: {} --input {} --output {}", exePath, lsDynaPath, outputFile);
 
     int returnCode = 0;
-    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+    // 转换器是外部 exe，无法给出内部进度；用时间驱动的进度条 + 状态栏文案代替，
+    // 否则这段「启动并等待」在 GUI 线程里毫无反馈，用户会以为软件卡死。
+    // 该对象活到 Parsing 结束：后面读回 PVD 仍是同一次「打开文件」操作。
+    ExternalProcess::ConverterProgress convertProgress("正在转换 LS-DYNA d3plot 文件");
+    // 同 CCM/Ansys：把本次运行自己的临时目录交给转换器当 TEMP/TMP，避免系统
+    // %TEMP% 不可写时 onefile 解包失败（"failed to open ... for writing"）。
+    if (!ExternalProcess::Run(exePath, arguments, returnCode,
+                              FileSystem::PathToUtf8(tempDir),
+                              convertProgress.Ticker())) {
         IGAME_CORE_ERROR("[LsDynaReader] Failed to start converter: {}", exePath);
         return false;
     }
@@ -74,6 +82,8 @@ bool LsDynaReader::Parsing() {
 
     // 读取生成的 PVD 文件
     auto pvdReader = iGame::iGamePVDReader::New();
+    // 转换阶段已推进到 0.85，PVD 读回映射到剩余的 0.85→1.0，进度条连续前进。
+    pvdReader->SetProgressRange(0.85, 0.15);
     pvdReader->SetFilePath(outputFile);
     if (!pvdReader->Execute()) {
         IGAME_CORE_ERROR("[LsDynaReader] Failed to read converted PVD file: {}", outputFile);

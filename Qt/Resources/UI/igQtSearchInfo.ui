@@ -20,7 +20,7 @@
       <string>数据类型</string>
      </property>
      <property name="styleSheet">
-      <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+      <string notr="true">QGroupBox {  color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_DataSelection">
@@ -33,7 +33,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
          <bool>true</bool>
         </property>
         <property name="styleSheet">
-         <string notr="true">QRadioButton { font-size: 14px; color: #C8C8C8; }</string>
+         <string notr="true">QRadioButton {  color: #C8C8C8; }</string>
         </property>
        </widget>
       </item>
@@ -43,7 +43,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
          <string>面数据</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">QRadioButton { font-size: 14px; color: #C8C8C8; }</string>
+         <string notr="true">QRadioButton {  color: #C8C8C8; }</string>
         </property>
        </widget>
       </item>
@@ -56,7 +56,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
       <string>查询条件</string>
      </property>
      <property name="styleSheet">
-      <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+      <string notr="true">QGroupBox {  color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_Query">
@@ -66,7 +66,7 @@ QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; 
          <string>属性:</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">QLabel { font-size: 14px; color: #C8C8C8; }</string>
+         <string notr="true">QLabel {  color: #C8C8C8; }</string>
         </property>
        </widget>
       </item>
@@ -86,7 +86,7 @@ QComboBox::item:selected { background-color: #3A3A3A; }</string>
          <string>操作符:</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">QLabel { font-size: 14px; color: #C8C8C8; }</string>
+         <string notr="true">QLabel {  color: #C8C8C8; }</string>
         </property>
        </widget>
       </item>
@@ -121,7 +121,7 @@ QComboBox::item:selected { background-color: #3A3A3A; }</string>
          <string>值:</string>
         </property>
         <property name="styleSheet">
-         <string notr="true">QLabel { font-size: 14px; color: #C8C8C8; }</string>
+         <string notr="true">QLabel {  color: #C8C8C8; }</string>
         </property>
        </widget>
       </item>
@@ -153,7 +153,7 @@ QPushButton:pressed { background-color: #1E1E1E; }</string>
       <string>查询结果</string>
      </property>
      <property name="styleSheet">
-      <string notr="true">QGroupBox { font-size: 14px; color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
+      <string notr="true">QGroupBox {  color: #C8C8C8; border: 1px solid #3C3C3C; border-radius: 4px; margin-top: 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_Results">

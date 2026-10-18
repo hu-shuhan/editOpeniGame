@@ -209,6 +209,7 @@ void AttribTreeWidgetItem::setDimension(int length) {
 }
 
 igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) {
+    setSelectionMode(QAbstractItemView::ExtendedSelection);
     // Keep eliding ("xxxx...") but show full name via tooltip.
     setTextElideMode(Qt::ElideRight);
 
@@ -394,7 +395,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 emit ChangeCurrentModel(item->getModel());
             }
 
-            item->setSelected(true);
+            // Qt applies Ctrl/Shift selection in the base event handler below.
             item->getModel()->ViewCloudPicture(-1);
             Q_EMIT ViewCloudPicture();
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
@@ -500,5 +501,44 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
     if (call) {
         // Call the base class's mousePressEvent to ensure that other events continue to be handled
         QTreeWidget::mousePressEvent(event);
+    }
+}
+
+void ModelTreeWidgetItem::refreshVisibilityIcon() {
+    this->setIcon(0, getVisibility() ? igQtModelTreeIcons::EyeOpen() : igQtModelTreeIcons::EyeClose());
+}
+
+
+std::vector<iGame::DataObject::Pointer> igQtModelTreeWidget::getSelectedDataObjects() const {
+    std::vector<iGame::DataObject::Pointer> result;
+    for (QTreeWidgetItem* it: selectedItems()) {
+        if (auto* modelItem = dynamic_cast<ModelTreeWidgetItem*>(it)) {
+            // 顶层模型行
+            if (modelItem->getModel() && modelItem->getModel()->GetDataObject()) {
+                result.push_back(modelItem->getModel()->GetDataObject());
+            }
+        } else if (auto* subItem = dynamic_cast<SubObjectTreeWidgetItem*>(it)) {
+            // 多块装配体的子块行：返回【子块本身】，而不是父模型
+            if (subItem->getDataObject()) { result.push_back(subItem->getDataObject()); }
+        }
+        // AttribTreeWidgetItem / SubAttribTreeWidgetItem 是属性行，不是数据对象，忽略
+    }
+    return result;
+}
+
+
+void igQtModelTreeWidget::syncVisibilityIcons() {
+    // 顶层模型节点：每个都按自己 DataObject 的真实可见性刷新
+    for (int i = 0; i < topLevelItemCount(); ++i) {
+        auto* item = dynamic_cast<ModelTreeWidgetItem*>(topLevelItem(i));
+        if (!item) { continue; }
+        item->refreshVisibilityIcon();
+
+        // 该模型下的多块子块节点（SyncIconWithVisibility 会递归到更深层）
+        for (int j = 0; j < item->childCount(); ++j) {
+            if (auto* sub = dynamic_cast<SubObjectTreeWidgetItem*>(item->child(j))) {
+                sub->SyncIconWithVisibility(true);
+            }
+        }
     }
 }

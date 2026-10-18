@@ -17,6 +17,8 @@
 #include <iostream>
 #include <utility>
 #include <functional>
+#include <cctype>
+#include <cmath>
 #include <unordered_set>
 
 IGAME_NAMESPACE_BEGIN
@@ -314,6 +316,129 @@ IGsize DrawObject::GetRealMemorySize() {
 }
 
 bool DrawObject::IsUseColor() { return m_UseColor; }
+
+std::vector<std::string> DrawObject::GetNormalSourceCandidates() {
+    std::vector<std::string> names;
+    auto append = [&](const std::string& name) {
+        if (!name.empty() && std::find(names.begin(), names.end(), name) == names.end()) names.push_back(name);
+    };
+    auto points = GetPoints();
+    if (points && m_Attributes) {
+        for (IGsize i = 0; i < m_Attributes->GetNumberOfAttributes(); ++i) {
+            const auto& attr = m_Attributes->GetAttribute(i);
+            if (!attr.isDeleted && attr.attachmentType == IG_POINT && attr.pointer &&
+                attr.pointer->GetDimension() == 3 && points->GetNumberOfPoints() > 0 &&
+                attr.pointer->GetNumberOfElements() == points->GetNumberOfPoints() &&
+                attr.pointer->GetNumberOfValues() == points->GetNumberOfPoints() * 3) {
+                append(attr.pointer->GetName());
+            }
+        }
+    }
+    if (HasSubDataObject()) {
+        for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
+            if (auto draw = DynamicCast<DrawObject>(it->second)) {
+                for (const auto& name : draw->GetNormalSourceCandidates()) append(name);
+            }
+        }
+    }
+    return names;
+}
+
+std::string DrawObject::GetNormalSource() {
+    if (!m_NormalSource.empty()) {
+        const auto candidates = GetNormalSourceCandidates();
+        if (std::find(candidates.begin(), candidates.end(), m_NormalSource) == candidates.end()) SetNormalSource("");
+    }
+    return m_NormalSource;
+}
+
+bool DrawObject::SetNormalSource(const std::string& name) {
+    if (!name.empty()) {
+        const auto candidates = GetNormalSourceCandidates();
+        if (std::find(candidates.begin(), candidates.end(), name) == candidates.end()) return false;
+    }
+    m_NormalSourceInitialized = true;
+    if (m_NormalSource != name) {
+        m_NormalSource = name;
+        m_NormalSourceArray = nullptr;
+        m_NormalSourceStamp = 0;
+    }
+    if (HasSubDataObject()) {
+        for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
+            if (auto draw = DynamicCast<DrawObject>(it->second)) {
+                if (!draw->SetNormalSource(name)) draw->SetNormalSource("");
+            }
+        }
+    }
+    for (auto draw : {m_RenderableMesh.SurfaceMesh, m_RenderableMesh.SimplifiedMesh}) {
+        if (draw && draw.get() != this) {
+            if (!draw->SetNormalSource(name)) draw->SetNormalSource("");
+        }
+    }
+    SyncNormalSource();
+    return true;
+}
+
+void DrawObject::InitializeNormalSourceOnImport() {
+    if (m_NormalSourceInitialized) return;
+    const auto candidates = GetNormalSourceCandidates();
+    for (const char* alias : {"normals", "normal", "pointnormals", "pointnormal"}) {
+        for (const auto& name : candidates) {
+            std::string lower = name;
+            std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (lower == alias) { SetNormalSource(name); return; }
+        }
+    }
+    SetNormalSource("");
+}
+
+void DrawObject::SyncNormalSource() {
+    ArrayObject::Pointer source;
+    auto points = GetPoints();
+    if (points && m_Attributes && !m_NormalSource.empty()) {
+        for (IGsize i = 0; i < m_Attributes->GetNumberOfAttributes(); ++i) {
+            const auto& attr = m_Attributes->GetAttribute(i);
+            if (!attr.isDeleted && attr.attachmentType == IG_POINT && attr.pointer &&
+                attr.pointer->GetName() == m_NormalSource && attr.pointer->GetDimension() == 3 &&
+                attr.pointer->GetNumberOfElements() == points->GetNumberOfPoints() &&
+                attr.pointer->GetNumberOfValues() == points->GetNumberOfPoints() * 3 &&
+                points->GetNumberOfPoints() > 0) { source = attr.pointer; break; }
+        }
+    }
+    if (!source) {
+        if (!HasSubDataObject() && !m_NormalSource.empty()) {
+            // Also clear extracted/LOD bindings when the original source dies.
+            SetNormalSource("");
+            return;
+        }
+        m_NormalSourceArray = nullptr;
+        m_NormalSourceStamp = 0;
+        if (m_Normals->GetNumberOfValues()) { m_Normals->Reset(); m_Normals->Modified(); }
+        return;
+    }
+    const auto stamp = source->GetMTime().GetMTime();
+    if (source.get() == m_NormalSourceArray && stamp == m_NormalSourceStamp &&
+        m_Normals->GetNumberOfElements() == source->GetNumberOfElements()) return;
+    // Keep a separate float drawing array: do not mutate imported attributes.
+    auto normals = FloatArray::New(); normals->SetDimension(3);
+    normals->Resize(source->GetNumberOfElements());
+    for (IGsize i = 0; i < source->GetNumberOfValues(); ++i) {
+        const float value = static_cast<float>(source->GetValue(i));
+        normals->SetValue(i, std::isfinite(value) ? value : 0.0f);
+    }
+    normals->Modified();
+    m_Normals = normals;
+    m_NormalSourceArray = source.get();
+    m_NormalSourceStamp = stamp;
+    if ((m_RenderableMesh.SurfaceMesh && m_RenderableMesh.SurfaceMesh.get() != this) ||
+        (m_RenderableMesh.SimplifiedMesh && m_RenderableMesh.SimplifiedMesh.get() != this)) {
+        // Extracted/LOD attributes can be compacted copies. Reuse the existing
+        // conversion path when source data changes instead of uploading stale
+        // copies or assuming their point order matches the original mesh.
+        m_ReConvertToDrawableData = true;
+        if (!m_AutoUpdateDrawData) m_DrawableConversionDeferred = true;
+    }
+}
 
 bool DrawObject::IsUseNormalSmooth() {
     if (m_UseNormalSmooth && m_Normals->GetNumberOfValues() == 0) {
@@ -684,6 +809,7 @@ void DrawObject::SyncRenderableState(const DrawObject::Pointer& renderableObject
     renderableObject->m_DefaultColor = this->m_DefaultColor;
     renderableObject->m_LineColor = this->m_LineColor;
     renderableObject->m_IsMainRenderableObject = false;
+    if (!renderableObject->SetNormalSource(m_NormalSource)) renderableObject->SetNormalSource("");
 }
 
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
@@ -906,6 +1032,7 @@ void DrawObject::SyncGpuBuffers() {
     auto convertStart = syncStart;
     auto convertEnd = syncStart;
 #endif
+    SyncNormalSource();
     if (m_AutoUpdateDrawData) {
 #ifdef __EMSCRIPTEN__
         convertStart = RenderTimingClock::now();
@@ -948,10 +1075,16 @@ void DrawObject::SyncGpuBuffers() {
         GLAllocateGLBuffer(m_NormalVBO, m_Normals->GetNumberOfValues() * sizeof(float), m_Normals->RawPointer());
         m_NormalVBO->Modified();
 
-        if (!m_RemoteRenderingEnabled || m_Normals->GetNumberOfValues() != 0) {
+        if (m_Normals->GetNumberOfValues() != 0) {
             SetNormalBufferToVAO(m_PointVAO, m_NormalVBO);
             SetNormalBufferToVAO(m_LineVAO, m_NormalVBO);
             SetNormalBufferToVAO(m_TriangleVAO, m_NormalVBO);
+        } else {
+            for (auto vao : {m_PointVAO, m_LineVAO, m_TriangleVAO}) {
+                vao->Bind();
+                glDisableVertexAttribArray(GL_LOCATION_IDX_2.Index());
+                vao->Release();
+            }
         }
     }
 

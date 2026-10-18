@@ -76,14 +76,12 @@ protected:
 	// Destructor for FileWriter.
 	~FileWriter() override;
 
-	// 写文件期间的进度上报框架（基类负责「框」，具体进度由各 writer 上报）：
-	//   Execute()    → BeginWriteProgress / EndWriteProgress 包住整个过程
-	//   生成数据阶段 → TickWriteProgress()（ASCII/XML writer 已挂在 AddStringToBuffer 上）
-	//   写盘阶段     → SaveBufferDataToFile 里按 8MB 分块自动上报
-	// 自己直接写二进制/容器（如 IGVWriter 写 HDF5）的 writer，在自身主循环里调
-	// UpdateProgress(phase) 即可，不必重造一套进度机制。
+	// 保存大模型（尤其 OBJ/OFF/PLY/STL 这类 ASCII 格式）时，生成缓冲区与写盘都可能
+	// 耗时数十秒。这三个函数负责在这段时间里给进度条反馈，否则 GUI 线程被占住、
+	// 界面上没有任何变化，用户会以为软件卡死。
 	//
-	// 嵌套写出（.igcm / .vtm 内部逐块写子文件）只由最外层负责上报。
+	// 嵌套写出（.igcm / .vtm 内部逐块写子文件）只由最外层负责上报，子文件不会把进度
+	// 推回 0，也不会覆盖外层「多块编码 3/10」这类文案。
 	void BeginWriteProgress();
 	void TickWriteProgress();
 	void EndWriteProgress();

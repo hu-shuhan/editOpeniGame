@@ -1,4 +1,4 @@
-#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
+﻿#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
 #include "IQCore/igQtFramelessWidget.h"
 #include <IQWidgets/igQtRenderWidget.h>
 #include <QMessageBox>

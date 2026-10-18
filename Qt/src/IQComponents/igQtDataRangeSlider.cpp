@@ -6,10 +6,10 @@
 namespace
 {
 	const int SliderBarHeight = 10;
-	const int HandleSideLength = SliderBarHeight + 1;
+	const int HandleSideLength = SliderBarHeight + 5;
 
 	const int LeftRightMargin = 10;
-	const int TopMargin = 2;
+	const int TopMargin = 4;
 }
 
 igQtDataRangeSlider::igQtDataRangeSlider(QWidget* parent) :QWidget(parent) {
@@ -17,9 +17,8 @@ igQtDataRangeSlider::igQtDataRangeSlider(QWidget* parent) :QWidget(parent) {
 	range[1] = 1.0;
 	min = 0.0;
 	max = 1.0;
-	rangeInColor.setRgbF(0.0, 0.8, 0.8);
-	rangeOutColor.setRgbF(0.9, 0.9, 0.9);
 	setMouseTracking(true);
+	setToolTip(QStringLiteral("拖动两侧圆点调整范围"));
 }
 void igQtDataRangeSlider::updateMinAndMax(float _min, float _max) {
 	min = _min;
@@ -37,51 +36,43 @@ void igQtDataRangeSlider::paintEvent(QPaintEvent* aEvent)
 	int st = range[0] * sliderBarLength;
 	int ed = range[1] * sliderBarLength;
 	const QColor trackColor = igQtRenderWidget::uiRole(Role::CardBg);
-	for (int i = 0; i < sliderBarLength; i++) {
-		if (i >= st && i <= ed) {
-			QRect rect(LeftRightMargin + i, TopMargin - 1, 1, SliderBarHeight + 2);
-			painter.fillRect(rect, rangeInColor);
-		}
-		else {
-			QRect rect(LeftRightMargin + i, TopMargin, 1, SliderBarHeight);
-			painter.fillRect(rect, trackColor);
-		}
-	}
-	QPen pen;
+	const QColor rangeColor = rangeInColor.isValid() ? rangeInColor : igQtRenderWidget::uiRole(Role::Accent);
+	// 手柄颜色在绘制时按悬停/拖拽状态取（见下），此处不再预取
 	painter.setRenderHint(QPainter::Antialiasing);
-	QBrush handleBrush(igQtRenderWidget::uiRole(Role::Text));
-	painter.setBrush(handleBrush);
-
-	for (int i = 0; i < 2; i++) {
-		pen.setColor(igQtRenderWidget::uiRole(Role::Border));
-		pen.setWidth(static_cast<int>(0.5));
-		painter.setPen(pen);
-		QRectF HandleRect = getHandleRectWithFloatValue(range[i]);
-		painter.drawRoundedRect(HandleRect, 5, 5);
+	painter.setPen(Qt::NoPen);
+	const qreal radius = SliderBarHeight / 2.0;
+	const QRectF trackRect(LeftRightMargin, TopMargin, sliderBarLength, SliderBarHeight);
+	painter.setBrush(trackColor);
+	painter.drawRoundedRect(trackRect, radius, radius);
+	if (ed > st) {
+		painter.setBrush(rangeColor);
+		painter.drawRoundedRect(QRectF(LeftRightMargin + st, TopMargin, ed - st, SliderBarHeight), radius, radius);
 	}
-
+	QPen trackPen(igQtRenderWidget::uiRole(Role::Border));
+	trackPen.setWidth(1);
+	painter.setPen(trackPen);
+	painter.setBrush(Qt::NoBrush);
+	painter.drawRoundedRect(trackRect.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+	for (int i = 0; i < 2; i++) {
+		const bool active = (i == m_HoverHandle || (isPressed && i == PressedHandle));
+		QPen pen(active ? igQtRenderWidget::uiRole(Role::Text) : igQtRenderWidget::uiRole(Role::Border));
+		pen.setWidth(active ? 2 : 1);
+		painter.setPen(pen);
+		painter.setBrush(active ? igQtRenderWidget::uiRole(Role::Accent) : igQtRenderWidget::uiRole(Role::Text));
+		painter.drawEllipse(getHandleRectWithFloatValue(range[i]));
+	}
 	float minRange = range[0] * (max - min) + min;
 	float maxRange = range[1] * (max - min) + min;
-	
-	// Use stringstream with scientific notation for proper display of very small values
 	std::ostringstream oss;
-	oss << std::scientific << std::setprecision(6);
-	oss << "Range:(" << minRange << ", " << maxRange << ")\n";
-	std::string str = oss.str();
-	
-	QFont font = *(new QFont);
-	font.setFamily("Microsoft YaHei");
-	font.setPointSize(12);
-	QFontMetrics fm(font);
-	QRect rect = fm.boundingRect(QString::fromStdString(str));
-	int textWidth = rect.width();
-	int textHeight = rect.height();
-	QRect textRect(LeftRightMargin, 2 * TopMargin + SliderBarHeight + 5, 2 * textWidth, textHeight);
-	pen.setColor(igQtRenderWidget::uiRole(Role::Text));
-	pen.setWidth(1);
-	painter.setPen(pen);
-	painter.setFont(font);
-	painter.drawText(textRect, QString::fromStdString(str));
+	oss << std::defaultfloat << std::setprecision(4);
+	oss << "Range: (" << minRange << ", " << maxRange << ")";
+	const QString text = QString::fromStdString(oss.str());
+	QFontMetrics fm(painter.font());
+	const int availW = this->width() - 2 * LeftRightMargin;
+	const QString shown = fm.elidedText(text, Qt::ElideRight, qMax(0, availW));
+	QRect textRect(LeftRightMargin, 2 * TopMargin + SliderBarHeight + 6, availW, fm.height());
+	painter.setPen(igQtRenderWidget::uiRole(Role::Text));
+	painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, shown);
 
 }
 
@@ -120,12 +111,22 @@ void igQtDataRangeSlider::mousePressEvent(QMouseEvent* aEvent)
 			mDelta = posValue - getHandleRectWithFloatValue(range[PressedHandle]).center().x();
 		}
 	}
-
+	m_HoverHandle = PressedHandle;
+	update();
 }
 
 void igQtDataRangeSlider::mouseMoveEvent(QMouseEvent* aEvent)
 {
-	if (aEvent->buttons() & Qt::LeftButton && isPressed && PressedHandle != -1)
+	if (!(aEvent->buttons() & Qt::LeftButton) || !isPressed || PressedHandle == -1)
+	{
+		int hover = -1;
+		for (int i = 0; i < 2; i++) {
+			if (getHandleRectWithFloatValue(range[i]).contains(aEvent->pos())) { hover = i; break; }
+		}
+		if (hover != m_HoverHandle) { m_HoverHandle = hover; update(); }
+		setCursor(hover != -1 ? Qt::SizeHorCursor : Qt::ArrowCursor);
+		return;
+	}
 	{
 		int posValue = aEvent->pos().x();
 		float value = 0.0;
@@ -147,4 +148,13 @@ void igQtDataRangeSlider::mouseReleaseEvent(QMouseEvent* aEvent)
 	Q_UNUSED(aEvent);
 	this->isPressed = false;
 	this->PressedHandle = -1;
+	update();
+}
+
+void igQtDataRangeSlider::leaveEvent(QEvent* aEvent)
+{
+	Q_UNUSED(aEvent);
+	m_HoverHandle = -1;
+	setCursor(Qt::ArrowCursor);
+	update();
 }

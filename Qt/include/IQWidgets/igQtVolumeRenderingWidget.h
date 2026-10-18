@@ -75,4 +75,6 @@ private:
     bool m_pendingEdits{false};
     /// 最近一次读到的体数据维度（采样密度提示用）
     int m_volumeDimension[3] = {0, 0, 0};
+    /// 当前面板编辑的体层（-1 = 当前选中模型不是体层）：由模型树选中项决定
+    int m_currentLayer = -1;
 };

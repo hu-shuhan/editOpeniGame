@@ -25,6 +25,9 @@
 #include "iGameShaderManager.h"
 #include "iGameTextOverlay2DActor.h"
 #include <chrono>
+#ifndef __EMSCRIPTEN__
+#include "iGameEnvironmentLight.h"
+#endif
 
 IGAME_NAMESPACE_BEGIN
 
@@ -185,7 +188,11 @@ public:
     SmartPointer<Camera> GetCamera();
 
     /**
-     * @brief 设置表面着色模式，当前仅Web端支持。
+     * @brief 设置表面着色模式。
+     *
+     * mode: 0 = Blinn-Phong（旧观感）、1 = 无光照（仅Web端生效）、
+     *       2 = PBR（仅桌面端生效，默认值）。超出 [0, 2] 时回退为 0。
+     *
      * @param mode 着色模式。
      */
     void SetSurfaceShadingMode(int mode);
@@ -193,6 +200,91 @@ public:
      * @brief 获取表面着色模式。
      */
     int GetSurfaceShadingMode() const;
+
+#ifndef __EMSCRIPTEN__
+    // Desktop environment lighting and independently controlled background.
+    void SetEnvironmentEnabled(bool enabled);
+    bool GetEnvironmentEnabled() const { return m_EnvironmentEnabled; }
+    void SetEnvironmentBackgroundVisible(bool visible);
+    bool GetEnvironmentBackgroundVisible() const { return m_EnvironmentBackgroundVisible; }
+    void SetEnvironmentIntensity(float intensity);
+    float GetEnvironmentIntensity() const { return m_EnvironmentIntensity; }
+    void SetEnvironmentRotation(float degrees);
+    float GetEnvironmentRotation() const { return m_EnvironmentRotation; }
+    void ApplyEnvironmentUniforms(const SmartPointer<GLShaderProgram>& shader) const;
+#endif
+
+    /**
+     * @brief 表面材质预设，仅作用于桌面端使用 PBR 着色的不透明表面。
+     */
+    enum class MaterialPreset {
+        GlossyPlastic = 0, ///< 反光塑料（默认）
+        Matte,             ///< 哑光
+        PolishedMetal,     ///< 光滑金属
+        BrushedMetal,      ///< 拉丝金属（较粗糙）
+    };
+
+    /**
+     * @brief 设置表面材质预设。
+     * @param preset 材质预设。
+     */
+    void SetMaterialPreset(MaterialPreset preset);
+    /**
+     * @brief 获取表面材质预设。
+     */
+    MaterialPreset GetMaterialPreset() const;
+    /**
+     * @brief 获取当前材质预设对应的金属度与粗糙度。
+     * @param metallic 输出金属度。
+     * @param roughness 输出粗糙度。
+     */
+    void GetMaterialParameters(float& metallic, float& roughness) const;
+    /**
+     * @brief 直接设置 PBR 材质参数（金属度 / 粗糙度）。
+     *
+     * 与 SetMaterialPreset 共用同一份状态：预设等价于「把金属度与粗糙度一次
+     * 置为某组常用值」，因此界面上的两个滑块与预设可以互相覆盖。
+     * 参数是全局的（Scene 级），对所有使用 PBR 着色的不透明表面生效。
+     *
+     * @param metallic 金属度，取值 [0, 1]。
+     * @param roughness 粗糙度，取值 [0, 1]（着色器内部还会再夹到最小粗糙度）。
+     */
+    void SetMaterialParameters(float metallic, float roughness);
+
+    /**
+     * @brief 设置 PBR 环境遮蔽强度（简易半球近似）。
+     *
+     * 与金属度/粗糙度一样是全局（Scene 级）参数，只作用于桌面端使用 PBR 着色的
+     * 不透明表面。0 = 关闭（画面与未引入本项时一致），1 = 全强度。实现见
+     * PBR.frag 的 HemisphereAo()：按「法线与世界 +Y 的夹角」压暗间接光，
+     * 不是屏幕空间 AO，不反映真实遮挡；色带模型在着色器内强制关闭。
+     *
+     * @param strength 环境遮蔽强度，取值 [0, 1]。
+     */
+    void SetSurfaceAo(float strength);
+    /**
+     * @brief 获取 PBR 环境遮蔽强度。
+     * @return 环境遮蔽强度，取值 [0, 1]。
+     */
+    float GetSurfaceAo() const;
+
+
+    /**
+     * @brief 设置 Blinn-Phong 高光参数。
+     *
+     * 仅作用于桌面端使用 Blinn-Phong 着色的表面。高光强度默认为 0，
+     * 设置为 0 可关闭镜面高光及环境镜面反射。
+     *
+     * @param strength 高光强度，取值 [0, 1]。
+     * @param shininess 高光指数，取值 [1, 100]，越大高光越集中。
+     */
+    void SetBlinnPhongParameters(float strength, float shininess);
+    /**
+     * @brief 获取 Blinn-Phong 高光参数。
+     * @param strength 输出高光强度。
+     * @param shininess 输出高光指数。
+     */
+    void GetBlinnPhongParameters(float& strength, float& shininess) const;
 
     /**
      * @brief 更改相机类型。
@@ -271,6 +363,67 @@ public:
      * @param visible 是否显示中心坐标轴
      */
     void SetCenterAxesVisible(bool visible);
+
+    /**
+     * @brief 切换底板（地面网格）的显示状态
+     */
+    void ToggleGroundGrid();
+    /**
+     * @brief 设置底板（地面网格）的显示状态
+     * @param visible 是否显示底板
+     */
+    void SetGroundGridVisible(bool visible);
+    /**
+     * @brief 获取底板（地面网格）的显示状态
+     * @return 是否显示底板
+     */
+    bool GetGroundGridVisible() const;
+
+#ifndef __EMSCRIPTEN__
+    enum class GroundGridPlane { XY, XZ, YZ };
+    void SetGroundGridPlane(GroundGridPlane plane);
+    GroundGridPlane GetGroundGridPlane() const { return m_GroundGridPlane; }
+    void SetGroundGridReversed(bool reversed);
+    bool GetGroundGridReversed() const { return m_GroundGridReversed; }
+
+    /** @brief 请求在下一绘制帧按当前可见模型重新适配底板。 */
+    void RequestGroundGridFit();
+
+    /**
+     * @brief 依据当前可见模型的包围盒更新底板参数。
+     *
+     * 底板位于所选平面的法向轴最小边界之外，反转后改为最大边界之外。
+     * 默认 XZ 平面（Y 最小侧），反转状态在切换平面时保留。
+     * 参考格距按"最长边 / 5"自动选档（1/2/5 x 10^n），只在
+     * 显式请求适配时重算一次，其余时间位置和参考格距固定；网格锚定世界原点，因此
+     * 调整格距档位或扩大可见范围时，已有线都不会移动。
+     *
+     * 桌面端底板由片元着色器逐像素解析生成（无限延伸、无边界、无几何），这里
+     * 只准备参数；不参与 Web 渲染流程。
+     *
+     * "内容"= 可见模型的联合包围盒；没有可见模型时优先沿用上一次加载过的
+     * 内容（删掉/再加载同量级模型不会跳），完全没加载过则退化为引擎默认的
+     * 单位包围球（中心原点、半径 1）——相机取景用的也是这个球，所以空场景
+     * 和"加载一个同等大小的模型"观感一致。文件导入、手动重新适配、切换平面
+     * 或反转时通过 RequestGroundGridFit 请求更新；算法结果、显隐、删除及
+     * 相机变化均不自动重新定位。
+     */
+    void UpdateGroundGrid();
+
+    /**
+     * @brief 更新底板的可见半径（模型空间）。
+     *
+     * 既保证能盖住模型本身，又跟随"相机到平面的高度"一起变大（拉远时网格
+     * 跟着铺开），桌面端用它作为距离渐隐半径并撑开相机远裁剪面；每帧相机变化
+     * 后调用，CameraClippingRange 更新前生效。
+     */
+    void UpdateGroundGridExtent();
+
+    /**
+     * @brief 绘制桌面端的解析式无限底板（仅桌面端，见 GroundGrid.frag）。
+     */
+    void DrawGroundGrid();
+#endif
 
     /**
      * @brief 切换XYZ坐标轴的显示状态
@@ -515,6 +668,48 @@ public:
     void SetVolumeRaycastingQuality(int numSteps, float opacityScale);
 
     /**
+     * @brief 体绘制掩膜（blanking ）的工作模式。
+     *
+     * @details
+     *  数据里带 vtkValidPointMask（点，1 = 有效）或 vtkGhostType（单元，0 = 有效）
+     *  时可用（ParaView 的 ResampleToImage 勾 "Mark Blank Points and Cells" 就会写）。
+     *  掩膜纹理是 R32F：1 = 有效（流体），0 = 无效（车体内部 / 域外）。同一个步进
+     *  循环里对掩膜层与标量层做同坐标合成，所以两层空间关系是正确的。
+     */
+    enum class VolumeMaskMode {
+        Off = 0,   ///< 不使用掩膜（默认）
+        Carve = 1, ///< 挖空：无效体素完全不贡献颜色（车体变成空腔）
+        Shell = 2  ///< 车壳实体：无效体素用固定颜色 + 固定不透明度画成实体
+    };
+
+    /// 设置掩膜模式（Off/Carve/Shell）。数据里没有可用数组时模式不生效（只记日志）。
+    void SetVolumeRaycastMaskMode(VolumeMaskMode mode);
+    VolumeMaskMode GetVolumeRaycastMaskMode() const { return m_VolumeMaskMode; }
+    /// 兼容写法：等价于 SetVolumeRaycastMaskMode(enabled ? Carve : Off)。
+    void SetVolumeRaycastMaskEnabled(bool enabled);
+    /// 车壳实体模式下的外壳不透明度（0~1，默认 0.9）。
+    void SetVolumeRaycastShellOpacity(float opacity);
+    float GetVolumeRaycastShellOpacity() const { return m_VolumeShellOpacity; }
+    /// 掩膜是否实际生效（模式 != Off && 数据里确实有可用的空白数组）。
+    bool GetVolumeRaycastMaskEnabled() const { return m_VolumeMaskEnabled; }
+    /// 数据里是否存在可用的空白数组（上一次构建体数据时的探测结果）。
+    bool GetVolumeRaycastMaskAvailable() const { return m_VolumeMaskAvailable; }
+
+    /// 当前是否有第二个体层（两个可见结构化模型一起体绘制）。
+    bool GetVolumeLayer2Enabled() const { return m_VolumeLayer2Enabled; }
+
+    /// 每个体层自己的可调参数（layer: 0 = 第一层，1 = 第二层）。
+    void SetVolumeLayerEnabled(int layer, bool enabled);
+    bool GetVolumeLayerEnabled(int layer) const;
+    void SetVolumeLayerOpacityScale(int layer, float scale);
+    float GetVolumeLayerOpacityScale(int layer) const;
+    /// 每个体层自己的掩膜模式 / 车壳不透明度（layer: 0 = 第一层，1 = 第二层）。
+    void SetVolumeLayerMaskMode(int layer, VolumeMaskMode mode);
+    VolumeMaskMode GetVolumeLayerMaskMode(int layer) const;
+    void SetVolumeLayerShellOpacity(int layer, float opacity);
+    float GetVolumeLayerShellOpacity(int layer) const;
+
+    /**
      * @brief 体绘制的只读状态快照（供「体绘制」设置面板显示）。
      *
      * @details
@@ -532,7 +727,28 @@ public:
         float voxelSpacing[3] = {0.0f, 0.0f, 0.0f};  ///< 体素间距（局部单位）
         int stepCount = 0;           ///< 每条光线最大采样步数
         float opacityScale = 0.0f;   ///< 不透明度缩放
-        bool maskEnabled = false;    ///< 体数据是否带掩膜纹理
+        int maskMode = 0;              ///< 掩膜模式：0=关闭 1=挖空 2=车壳实体
+        bool maskAvailable = false;    ///< 数据里是否有可用的空白/ghost 数组
+        bool maskEnabled = false;      ///< 掩膜是否实际生效（模式 != 0 && 可用）
+        float maskInvalidRatio = 0.0f; ///< 无效体素占比 0..1（诊断用）
+        float shellOpacity = 0.9f;     ///< 实体模式的外壳不透明度
+        int layerCount = 1;            ///< 参与体绘制的层数（1 或 2）
+        bool layer0Enabled = true;     ///< 第一层是否启用
+        bool layer1Enabled = true;     ///< 第二层是否启用
+        float layer0Opacity = 0.001f;  ///< 第一层不透明度缩放
+        float layer1Opacity = 0.001f;  ///< 第二层不透明度缩放
+        std::string layer0Name;        ///< 第一层模型名（面板显示）
+        std::string layer1Name;        ///< 第二层模型名（面板显示）
+        int currentLayer = -1;         ///< 当前选中模型对应的体层（-1 = 不是体层）
+        int layer0MaskMode = 0;        ///< 第一层掩膜模式
+        int layer1MaskMode = 0;        ///< 第二层掩膜模式
+        float layer0ShellOpacity = 0.9f;
+        float layer1ShellOpacity = 0.9f;
+        bool layer0MaskAvailable = false;
+        bool layer1MaskAvailable = false;
+        bool active = false;         ///< 最近 1.5 秒内是否发生过重绘（否则为空闲）
+        double fps = 0.0;            ///< 实测帧率（1 秒滑动窗口）
+        double gpuFrameTimeMs = 0.0; ///< GPU 帧时间（平滑值，整帧）
     };
 
     /// 取体绘制状态快照（设置面板显示用）。
@@ -620,6 +836,13 @@ protected:
     GetShader(ShaderType type); //获取指定类型的着色器程序
     void
     UpdateModelsBoundingSphere(); //更新场景中所有可见模型的包围球(用于视锥剔除和相机定位)
+
+#ifndef __EMSCRIPTEN__
+    // 计算底板的"内容包围盒"= 可见模型的联合包围盒（跳过中心坐标轴等
+    // 辅助对象，也不包含底板自身）。没有可见模型时返回空包围盒。
+    // 仅在显式适配时读取，不跟踪交互预览的几何变化。
+    BoundingBox ComputeGroundGridContentBox();
+#endif
     void InitOpenGL();
     void InitOIT();
     void InitAxes(); //初始化场景坐标轴
@@ -646,8 +869,14 @@ protected:
     // 构建默认传输函数 LUT（256x1 RGBA8）
     void BuildVolumeTransferFunction(ScalarsToColors::Pointer colorMapper,
                                      float valueMin, float valueMax);
+    // 把传输函数 LUT 构建到指定纹理（第二体层复用同一套逻辑）
+    void BuildVolumeTransferFunctionInto(SmartPointer<GLTexture2d> target,
+                                         ScalarsToColors::Pointer colorMapper,
+                                         float valueMin, float valueMax);
     // 查找当前场景中的体数据来源（第一个可见的结构化网格）
     SmartPointer<DrawObject> FindVolumeSource();
+    // 查找第二个可见的结构化网格（与第一层不同的数据对象）作为第二体层
+    SmartPointer<DrawObject> FindVolumeSource2();
     void ClearSceneFramebuffer(float depth, int width, int height);
 
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
@@ -734,6 +963,22 @@ protected:
     SmartPointer<Painter2D> m_Painter2D;
     SmartPointer<Painter3D> m_Painter3D;
 
+#ifndef __EMSCRIPTEN__
+    // 桌面端解析式底板：不进模型池，不参与包围盒统计、相机取景与拾取。
+    bool m_GroundGridVisible {true};  // 底板显示开关
+    GroundGridPlane m_GroundGridPlane {GroundGridPlane::XZ};
+    bool m_GroundGridReversed {false};
+    bool m_GroundGridDirty {true};    // 待处理的适配请求（首次绘制建立默认底板）
+    bool m_GroundGridBuilt {false};   // 当前是否已有可用底板几何
+    // 上一次加载过的"内容包围盒"：空场景时沿用它，使删掉/再加载同量级模型
+    // 时底板不跳（完全没加载过则用默认单位包围球）。
+    BoundingBox m_GroundGridLastContentBox;
+    igm::vec3 m_GroundGridCenter {0.0f, 0.0f, 0.0f}; // 底板中心（模型空间）
+    float m_GroundGridRadius {0.0f};  // 底板外接圆半径（模型空间）
+    float m_GroundGridCell {0.02f};   // 参考格距（模型空间，1/2/5 x 10^n）
+    float m_GroundGridContentScale {1.0f}; // 内容包围盒最长边（含 Y，模型空间）
+#endif
+
     bool m_FinishInit;            // 是否完成初始化
     // 是否启用旧的“片元链表”体绘制（VolumeRenderingMode::Fragment）
     bool m_EnableVolumeRendering;
@@ -741,9 +986,30 @@ protected:
     // compute shader 光线步进体绘制相关（VolumeRenderingMode::Raycast）
     bool m_EnableVolumeRaycasting = false; // 是否启用光线步进体绘制
     bool m_VolumeDataDirty = true;         // 需要（重新）构建体数据
+    // 构建第二体层（第二个可见的结构化网格）；体素构建逻辑与 BuildVolumeData 相同
+    bool BuildVolumeLayer2(SmartPointer<DataObject> dataObject, int attributeIndex,
+                           int attributeDimension);
+    // 读取数据里的空白/ghost 数组，生成 0/1 掩膜值（R32F 上传用）。
+    // 供第二体层使用；第一体层保留原内联实现（避免改动已稳定的单层路径）。
+    bool BuildVolumeMaskValues(SmartPointer<DataObject> mesh, igIndex nx,
+                               igIndex ny, igIndex nz,
+                               std::vector<float>& maskValues,
+                               std::string& source, float& validRatio);
+    // 当前体层槽位对应的数据对象；未构建或不存在时返回空。
+    SmartPointer<DataObject> GetVolumeLayerDataObject(int layer) const;
     SmartPointer<GLTexture3d> m_VolumeTexture3d; // 体数据 3D 纹理
-    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R8，1=有效）
-    bool m_VolumeMaskEnabled = false;            // 当前体数据是否带掩膜
+    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d; // 体数据掩膜（R32F，1=有效）
+    VolumeMaskMode m_VolumeMaskMode = VolumeMaskMode::Off; // 掩膜模式（默认关闭）
+    bool m_VolumeMaskAvailable = false; // 数据里是否有可用的空白/ghost 数组
+    bool m_VolumeMaskEnabled = false;   // 掩膜是否实际生效（模式 != Off && 可用）
+    std::string m_VolumeMaskSource;      // 掩膜来源数组名（日志用）
+    float m_VolumeMaskValidRatio = 0.0f; // 有效体素占比 0..1（日志用）
+    bool m_VolumeMaskReadbackDone = false; // 掩膜纹理一次性回读自检
+    VolumeMaskMode m_VolumeMaskMode2 = VolumeMaskMode::Off; // 第二层掩膜模式
+    float m_VolumeShellOpacity2 = 0.9f;    // 第二层车壳不透明度
+    // 车壳实体模式（VolumeMaskMode::Shell）的参数：固定颜色 + 不透明度
+    float m_VolumeShellOpacity = 0.9f;
+    igm::vec3 m_VolumeShellColor{0.85f, 0.86f, 0.88f};
     SmartPointer<GLTexture2d> m_VolumeTransferFunction; // 传输函数 LUT
     SmartPointer<DataObject> m_VolumeSourceObject; // 体数据来源对象
     unsigned int m_VolumeSourceMTime = 0; // 来源对象的修改时间（用于失效检测）
@@ -760,7 +1026,34 @@ protected:
     // 每条光线的采样步数：现在直接在视口分辨率下步进，
     // 步数是主要性能开关（interactive 时可用 SetVolumeRaycastingQuality 调低）
     int m_VolumeStepCount = 128;
-    float m_VolumeOpacityScale = 0.1f;     // 不透明度缩放
+    // 不透明度缩放：alpha = LUT 不透明度 × 该值。
+    // 默认 LUT 不透明度为常数 1，此时它等价于“每个体素的 alpha 贡献”；
+    // 可用范围约 0.0001~0.005（再大很快饱和），默认取 0.001。
+    float m_VolumeOpacityScale = 0.001f;
+
+    // ---- 第二体层（两个可见结构化模型一起体绘制）----
+    // 每层参数保存在各自 DataObject::VolumeRenderingSettings 中，
+    // 这里只是当前构建结果的 uniform 缓存。
+    SmartPointer<GLTexture3d> m_VolumeTexture3d2;
+    SmartPointer<GLTexture3d> m_VolumeMaskTexture3d2; // 第二层掩膜（R32F）
+    bool m_VolumeMaskAvailable2 = false;
+    bool m_VolumeMaskEnabled2 = false;
+    std::string m_VolumeMaskSource2;
+    float m_VolumeMaskValidRatio2 = 0.0f;
+    SmartPointer<GLTexture2d> m_VolumeTransferFunction2;
+    SmartPointer<DataObject> m_VolumeSourceObject2;
+    unsigned int m_VolumeSourceMTime2 = 0;
+    int m_VolumeAttributeIndex2 = -1;
+    int m_VolumeAttributeDimension2 = -1;
+    unsigned int m_VolumeMapperMTime2 = 0;
+    igm::mat4 m_VolumeLocalToTexture2{1.0f};
+    igm::vec3 m_VolumeLocalMin2{0.0f, 0.0f, 0.0f};
+    igm::vec3 m_VolumeLocalExtent2{1.0f, 1.0f, 1.0f};
+    int m_VolumeDimension2[3] = {0, 0, 0};
+    bool m_VolumeLayer2Enabled = false;
+    bool m_VolumeLayer0UserEnabled = true;  // 第一层用户开关（默认参与）
+    bool m_VolumeLayer2UserEnabled = true;  // 第二层用户开关（默认参与）
+    float m_VolumeOpacityScale2 = 0.001f;   // 第二层自己的不透明度缩放
     unsigned int m_VolumeFrameSeed = 0;     // 抖动种子（逐帧变化）
     // 以下三项为一次性自检开关：用于定位体绘制“不可见/无效果”的问题，
     // 稳定后可整体移除（对应 VolumeRaycastPass 中的诊断代码）
@@ -786,6 +1079,13 @@ protected:
     double m_LastGpuTimeMs = 0.0;
     double m_SmoothedGpuTimeMs = 0.0;
 
+    // 实测帧率：以 1 秒滑动窗口统计实际重绘次数（渲染是事件驱动的，
+    // 空闲不重绘时窗口不推进，界面上按“空闲”显示而不是 0 FPS）
+    double m_Fps = 0.0;
+    unsigned int m_FpsFrameCount = 0;
+    std::chrono::steady_clock::time_point m_FpsWindowStart;
+    bool m_FpsWindowStartValid = false;
+
     // 上一帧结束的时间点（用于“提前返回”判定）
     std::chrono::steady_clock::time_point m_LastRenderEnd;
     bool m_LastRenderEndValid = false;
@@ -793,8 +1093,29 @@ protected:
     // 记录是否处于交互状态
     bool m_IsInteracting = false;
 
-    //表面着色模式
-    int m_SurfaceShadingMode = 0;
+    //表面着色模式（0: Blinn-Phong，1: 无光照，2: PBR）
+    int m_SurfaceShadingMode = 2;
+
+#ifndef __EMSCRIPTEN__
+    SmartPointer<EnvironmentLight> m_EnvironmentLight;
+    bool m_EnvironmentEnabled = true;
+    bool m_EnvironmentBackgroundVisible = true;
+    float m_EnvironmentIntensity = 1.0f;
+    float m_EnvironmentRotation = 0.0f;
+#endif
+
+    //表面材质预设（仅桌面端 PBR 着色使用，仅作为金属度/粗糙度的一键回填）
+    MaterialPreset m_MaterialPreset = MaterialPreset::GlossyPlastic;
+
+    //PBR 材质参数（全局，仅桌面端 PBR 着色使用）
+    float m_SurfaceMetallic = 0.0f;
+    float m_SurfaceRoughness = 0.35f;
+    //PBR 环境遮蔽强度（全局，半球近似；0 = 关闭，1 = 全强度）
+    float m_SurfaceAo = 1.0f;
+
+    //Blinn-Phong 高光参数（全局，仅桌面端 Blinn-Phong 着色使用）
+    float m_SurfaceSpecularStrength = 0.0f;
+    float m_SurfaceShininess = 32.0f;
 
     friend class RenderWindow;
     friend class Model;

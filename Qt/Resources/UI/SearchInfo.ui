@@ -20,7 +20,7 @@
 }
 QHeaderView::section           
 {
-    font-size:14px;                
+                    
     font-family:&quot;Microsoft YaHei&quot;;
     color:#111111;                
  
@@ -43,7 +43,7 @@ QTableView QTableCornerButton::section {
 {
     background:#FFFFFF;         
 border:20px;
-    font-size:14px;                
+                    
     font-family:&quot;Microsoft YaHei&quot;; 
     color:#000000;                
 }
@@ -109,7 +109,7 @@ QScollBar::add-line:vertical, QScrollBar::sub-line:vertical
 }
 QHeaderView::section           // 标题头 每个单独的标题区域
 {
-    font-size:14px;                // 每个标题的字体大小
+                    // 每个标题的字体大小
     font-family:&quot;Microsoft YaHei&quot;; // 每个标题的字体类型
     color:#FFFFFF;                 // 每个标题的字体颜色
  
@@ -129,7 +129,7 @@ QHeaderView::section           // 标题头 每个单独的标题区域
     background:#FFFFFF;            // 整个表格控件 背景色
     border:none;                   // 整个表格控件 边框
  
-    font-size:12px;                // 所有字体大小
+                    // 所有字体大小
     font-family:&quot;Microsoft YaHei&quot;; // 所有字体 family
     color:#000000;                 // 所有字体颜色
 }

@@ -18,6 +18,8 @@
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/iGameSurfaceMeshTopologyChecker.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
+#include "DataProcessing/Simplification/iGameMeshVertexImportance.h"
+#include "DataProcessing/Simplification/iGameMeshAttributeTransfer.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
 #include "DataProcessing/iGameVolumeMeshSimplification.h"
 #include "DataProcessing/iGameMeshTetrahedralize.h"
@@ -48,6 +50,7 @@
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtElevationFilterPanel.h>
+#include <IQWidgets/igQtShadingWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtVolumeRenderingWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
@@ -68,6 +71,8 @@
 #include <QSaveFile>
 #include <limits>
 #include <QButtonGroup>
+#include <QActionGroup>
+#include <QSignalBlocker>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
@@ -681,6 +686,73 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     ThreadPool::Instance();
 }
 
+// 目标宽度：左栏右边缘与「文件与输出」分组工具栏的右边缘对齐
+int igQtMainWindow::leftDockAlignedWidth()
+{
+    if (QWidget* group = this->findChild<QWidget*>(QStringLiteral("toolbarContainer_toolBar_meshfile"))) {
+        if (group->isVisible() && group->width() > 0) {
+            const int rightX = group->mapTo(this, QPoint(group->width(), 0)).x();
+            if (rightX > 160) return qBound(280, rightX, 680);
+        }
+    }
+    return leftDockContentWidth();
+}
+
+void igQtMainWindow::applyLeftDockAlignment()
+{
+    if (!m_leftFieldDock || m_applyingLeftDockWidth) return;
+    QWidget* group = this->findChild<QWidget*>(QStringLiteral("toolbarContainer_toolBar_meshfile"));
+    if (!group || !group->isVisible() || group->width() <= 0) return;
+    const int aligned = leftDockAlignedWidth();
+    QDockWidget* props = modelTreeWidget ? modelTreeWidget->getPropertiesDock() : nullptr;
+    QDockWidget* visibleDock = m_leftFieldDock->isVisible() ? m_leftFieldDock : props;
+    if (visibleDock && visibleDock->width() == aligned) return;
+    m_applyingLeftDockWidth = true;
+    this->resizeDocks({m_leftFieldDock}, {aligned}, Qt::Horizontal);
+    if (props) this->resizeDocks({props}, {aligned}, Qt::Horizontal);
+    m_applyingLeftDockWidth = false;
+}
+
+void igQtMainWindow::startLeftDockAlignmentWatch()
+{
+    if (m_leftAlignTicks > 0) return;
+    m_leftAlignTicks = 20;
+    auto* timer = new QTimer(this);
+    timer->setInterval(120);
+    connect(timer, &QTimer::timeout, this, [this, timer]() {
+        applyLeftDockAlignment();
+        if (--m_leftAlignTicks <= 0) timer->stop();
+    });
+    timer->start();
+}
+
+int igQtMainWindow::leftDockContentWidth() const
+{
+    int w = 0;
+    const QList<QDockWidget*> panels = {
+        ui->dockWidget_ScalarField, ui->dockWidget_VectorField, ui->dockWidget_FlowField,
+        ui->dockWidget_TensorField, ui->dockWidget_ParallelCoordinatesField,
+        ui->dockWidget_VariableCorrelationField, ui->dockWidget_VariableDensityField,
+        ui->dockWidget_DataChangeField, ui->dockWidget_SelectionField,
+        ui->dockWidget_ContextPreservingShowField, ui->dockWidget_QualityDetection,
+        ui->dockWidget_EditMode, ui->dockWidget_ModelList, ui->dockWidget_ContourExtract
+    };
+    for (QDockWidget* dock : panels) {
+        if (!dock) continue;
+        w = qMax(w, qMax(dock->sizeHint().width(), dock->minimumSizeHint().width()));
+    }
+    if (m_leftFieldDock) {
+        w = qMax(w, qMax(m_leftFieldDock->sizeHint().width(), m_leftFieldDock->minimumSizeHint().width()));
+    }
+    if (modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
+        QDockWidget* props = modelTreeWidget->getPropertiesDock();
+        w = qMax(w, qMax(props->sizeHint().width(), props->minimumSizeHint().width()));
+    }
+    w += 24;
+    // 按左侧面板内容自适应：下限 360，上限 520
+    return qBound(360, w, 520);
+}
+
 void igQtMainWindow::initCustomTitleBar() {
     if (m_titleBar) return;
 
@@ -1133,6 +1205,12 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
     ColorManagerWidget->setGeometry(400, 500, 780, 1000);
+    // 着色与材质设置：常驻窗口（无边框、置顶），由菜单项控制显示/隐藏，
+    // 参数改动即时生效，因此这里不创建模态对话框。
+    this->shadingWidget = new igQtShadingWidget(this);
+    shadingWidget->hide();
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            shadingWidget, &igQtShadingWidget::syncNormalSource);
 
     // 初始化AI聊天DockWidget
     aiChatDockWidget = new QDockWidget(this);
@@ -1291,9 +1369,11 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
-            const int curW = m_leftFieldDock->width();
-            const int targetW = qMax(curW + 40, 320);
+            const int targetW = leftDockContentWidth();
             this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
+            if (modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
+                this->resizeDocks({modelTreeWidget->getPropertiesDock()}, {targetW}, Qt::Horizontal);
+            }
         }
     });
 
@@ -1392,6 +1472,63 @@ void igQtMainWindow::initAllComponents() {
    });
     ui->action_ShowOrientationAxes->setCheckable(true);
     ui->action_ShowOrientationAxes->setChecked(true);
+
+    // 底板（地面网格）：仅导入、手动适配、切换平面或反转时重新定位。
+    connect(ui->action_ShowGroundGrid, &QAction::toggled, this, [](bool checked) {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) { return; }
+        scene->SetGroundGridVisible(checked);
+        scene->Update();
+    });
+    ui->action_ShowGroundGrid->setCheckable(true);
+    ui->action_ShowGroundGrid->setChecked(true);
+
+#ifndef __EMSCRIPTEN__
+    connect(ui->action_RefitGroundGrid, &QAction::triggered, this, []() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (scene) { scene->RequestGroundGridFit(); }
+    });
+    using GroundPlane = iGame::Scene::GroundGridPlane;
+    auto groundPlaneGroup = new QActionGroup(this);
+    groundPlaneGroup->setExclusive(true);
+    const auto addGroundPlane = [this, groundPlaneGroup](QAction* action,
+                                                       GroundPlane plane) {
+        groundPlaneGroup->addAction(action);
+        action->setData(static_cast<int>(plane));
+        connect(action, &QAction::triggered, this, [plane]() {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (!scene) { return; }
+            scene->SetGroundGridPlane(plane);
+            scene->Update();
+        });
+    };
+    addGroundPlane(ui->action_GroundPlaneXY, GroundPlane::XY);
+    addGroundPlane(ui->action_GroundPlaneXZ, GroundPlane::XZ);
+    addGroundPlane(ui->action_GroundPlaneYZ, GroundPlane::YZ);
+    connect(ui->action_ReverseGroundGrid, &QAction::toggled, this,
+            [](bool reversed) {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) { return; }
+        scene->SetGroundGridReversed(reversed);
+        scene->Update();
+    });
+    connect(ui->menu_GroundSettings, &QMenu::aboutToShow, this,
+            [this, groundPlaneGroup]() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) { return; }
+        const QSignalBlocker blocker(ui->action_ShowGroundGrid);
+        const QSignalBlocker reverseBlocker(ui->action_ReverseGroundGrid);
+        ui->action_ShowGroundGrid->setChecked(scene->GetGroundGridVisible());
+        ui->action_ReverseGroundGrid->setChecked(scene->GetGroundGridReversed());
+        const int plane = static_cast<int>(scene->GetGroundGridPlane());
+        for (auto action : groundPlaneGroup->actions()) {
+            action->setChecked(action->data().toInt() == plane);
+        }
+    });
+#else
+    ui->menu_GroundSettings->menuAction()->setVisible(false);
+#endif
+
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
@@ -1458,6 +1595,26 @@ void igQtMainWindow::initAllComponents() {
             }
         });
     }
+  
+    // 着色与材质设置：可勾选菜单项控制常驻窗口的显示/隐藏（与 ColorManager 一致）。
+    connect(ui->action_ShadingSettings, &QAction::triggered, this, [this](bool checked) {
+        if (checked) {
+            if (!shadingWidget->property("igPlaced").toBool()) {
+                const QPoint origin = mapToGlobal(QPoint(width(), 0));
+                shadingWidget->move(origin.x() - shadingWidget->width() - 24,
+                                    origin.y() + 80);
+                shadingWidget->setProperty("igPlaced", true);
+            }
+            // 打开前同步一次场景里的当前值（着色模型可能已被其它入口改过）。
+            shadingWidget->syncFromScene();
+            shadingWidget->show();
+            shadingWidget->raise();
+            shadingWidget->activateWindow();
+        } else {
+            shadingWidget->hide();
+        }
+    });
+
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
@@ -2027,6 +2184,7 @@ void igQtMainWindow::initAllFilters() {
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
         if (connectMigratedFilterAction(action, filterId)) return true;
         if (connectThirdBatchFilterAction(action, filterId)) return true;
+        if (connectAdditionalFilterAction(action, filterId)) return true;
         if (connectImportedFilterAction(action, filterId)) return true;
         if (filterId == QStringLiteral("coordinates")) {
             connect(action, &QAction::triggered, this, [=, this](bool) {
@@ -2472,130 +2630,132 @@ void igQtMainWindow::initAllFilters() {
     }
     ui->menu_filters->addSeparator();
 
-    connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-        dialog->setFilterTitle(QStringLiteral("表面网格简化"));
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("简化比例 (0..1)"), "0.5");
-        int preserveId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("保留网格边界"), "true");
-        int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
-                                            "true");
-        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("几何相似性度量"),
-                                           "false");
-        tuneMeshSimplifyFilterDialog(dialog);
-        dialog->show();
-        dialog->setApplyFunctor([=, this]() {
-            bool ok;
-            QString result = "";
-
-            MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
-            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-            triangulation->SetInput(obj);
-            ok = triangulation->Execute();
-
-            if (!ok) {
-                result = QString("网格简化算法只支持表面网格");
-                showDarkFramelessMessage(QStringLiteral("非表面网格"), result);
-                dialog->close();
-                return;
-            }
-
-            obj = triangulation->GetOutput();
-
-            MeshSimplificationFilter::Pointer filter = MeshSimplificationFilter::New();
-            filter->SetTargetReduction(1 - dialog->getDouble(reductionId, ok));
-            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
-            filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
-            filter->SetInput(obj);
-
-            ok = filter->Execute();
-
-            if (!ok) {
-                const QString detail = QString::fromStdString(filter->GetErrorMessage());
-                result = detail.isEmpty()
-                                 ? QStringLiteral("表面网格简化未能完成。")
-                                 : detail;
-                result += QStringLiteral(
-                        "\n\n处理建议：\n"
-                        "1. 检查并清理重复面、退化三角形和非流形边；\n"
-                        "2. 降低简化比例，或取消“检查网格全部标量”后重试；\n"
-                        "3. 若仍无法处理，可改用“快速表面简化”。");
-                showDarkFramelessMessage(QStringLiteral("表面网格简化失败"), result);
-                dialog->close();
-                return;
-            }
-
-            auto oldMesh = DynamicCast<SurfaceMesh>(obj);
-            auto outObj = filter->GetOutput();
-            auto newMesh = DynamicCast<SurfaceMesh>(outObj);
-            auto oldPoints = oldMesh->GetPoints();
-            auto newPoints = newMesh->GetPoints();
-
-
-            if (dialog->getChecked(checkId, ok)) {
-                PointFinder::Pointer newPicker = PointFinder::New();
-                newPicker->SetPoints(newPoints);
-                newPicker->Initialize();
-
-                double w1 = 0.0, w2 = 0.0;
-                // 计算原始网格的表面积
-                for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
-                    igIndex f[3]{};
-                    oldMesh->GetFacePointIds(i, f);
-                    Point v0 = oldMesh->GetPoint(f[0]);
-                    Point v1 = oldMesh->GetPoint(f[1]);
-                    Point v2 = oldMesh->GetPoint(f[2]);
-
-                    Vector3f d10 = v1 - v0;
-                    Vector3f d20 = v2 - v0;
-
-                    w1 += CrossProduct(d10, d20).norm() / 2.0;
-                }
-
-                double d1 = 0.0, d2 = 0.0;
-                double d3 = 0.0, d4 = 0.0;
-
-                iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
-                ProgressBar->UpdateProgress(0);
-                int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
-                // 计算平均平方距离
-                for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
-                    if (i > progress * blockNum) {
-                        ProgressBar->UpdateProgress(progress * 0.01);
-                        progress++;
-                    }
-                    auto p = oldPoints->GetPoint(i);
-
-                    igIndex id = newPicker->FindClosestPoint(p);
-                    if (id != -1) {
-                        Point cp = newPoints->GetPoint(id);
-                        d1 += (p - cp).squaredNorm();
-                        d3 += (p - cp).norm();
-                    }
-                }
-
-                double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
-                double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
-
-                result += "\n几何相似性度量";
-                result += "\n Squared Mean Distance: " + QString::number(d);
-                result += "\n Mean Distance: " + QString::number(dd);
-                result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
-                result += "\nMean Distance: " + QString::number(dd / oldMesh->GetBoundingBox().diag() * 100) + "%";
-                result += "\n\n累计几何误差: " + QString::number(filter->GetError());
-            } else {
-                result += "\n累计几何误差: " + QString::number(filter->GetError());
-            }
-
-            modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
-            rendererWidget->update();
-
-            // QMessageBox::information(this, "简化成功", result);
-            dialog->close();
-        });
-    });
+    // Legacy surface simplification entry retained for future restoration.
+    // connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
+    //     if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+    //
+    //     igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+    //     dialog->setFilterTitle(QStringLiteral("表面网格简化"));
+    //     int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("简化比例 (0..1)"), "0.5");
+    //     int preserveId =
+    //             dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("保留网格边界"), "true");
+    //     int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
+    //                                         "true");
+    //     int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("几何相似性度量"),
+    //                                        "false");
+    //     tuneMeshSimplifyFilterDialog(dialog);
+    //     dialog->show();
+    //     dialog->setApplyFunctor([=, this]() {
+    //         bool ok;
+    //         QString result = "";
+    //
+    //         MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
+    //         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+    //         triangulation->SetInput(obj);
+    //         ok = triangulation->Execute();
+    //
+    //         if (!ok) {
+    //             result = QString("网格简化算法只支持表面网格");
+    //             showDarkFramelessMessage(QStringLiteral("非表面网格"), result);
+    //             dialog->close();
+    //             return;
+    //         }
+    //
+    //         obj = triangulation->GetOutput();
+    //
+    //         MeshSimplificationFilter::Pointer filter = MeshSimplificationFilter::New();
+    //         filter->SetTargetReduction(1 - dialog->getDouble(reductionId, ok));
+    //         filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+    //         filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
+    //         filter->SetInput(obj);
+    //
+    //         ok = filter->Execute();
+    //
+    //         if (!ok) {
+    //             const QString detail = QString::fromStdString(filter->GetErrorMessage());
+    //             result = detail.isEmpty()
+    //                              ? QStringLiteral("表面网格简化未能完成。")
+    //                              : detail;
+    //             result += QStringLiteral(
+    //                     "\n\n处理建议：\n"
+    //                     "1. 检查并清理重复面、退化三角形和非流形边；\n"
+    //                     "2. 降低简化比例，或取消“检查网格全部标量”后重试；\n"
+    //                     "3. 若仍无法处理，可改用“快速表面简化”。");
+    //             showDarkFramelessMessage(QStringLiteral("表面网格简化失败"), result);
+    //             dialog->close();
+    //             return;
+    //         }
+    //
+    //         auto oldMesh = DynamicCast<SurfaceMesh>(obj);
+    //         auto outObj = filter->GetOutput();
+    //         auto newMesh = DynamicCast<SurfaceMesh>(outObj);
+    //         auto oldPoints = oldMesh->GetPoints();
+    //         auto newPoints = newMesh->GetPoints();
+    //
+    //
+    //         if (dialog->getChecked(checkId, ok)) {
+    //             PointFinder::Pointer newPicker = PointFinder::New();
+    //             newPicker->SetPoints(newPoints);
+    //             newPicker->Initialize();
+    //
+    //             double w1 = 0.0, w2 = 0.0;
+    //             // 计算原始网格的表面积
+    //             for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
+    //                 igIndex f[3]{};
+    //                 oldMesh->GetFacePointIds(i, f);
+    //                 Point v0 = oldMesh->GetPoint(f[0]);
+    //                 Point v1 = oldMesh->GetPoint(f[1]);
+    //                 Point v2 = oldMesh->GetPoint(f[2]);
+    //
+    //                 Vector3f d10 = v1 - v0;
+    //                 Vector3f d20 = v2 - v0;
+    //
+    //                 w1 += CrossProduct(d10, d20).norm() / 2.0;
+    //             }
+    //
+    //             double d1 = 0.0, d2 = 0.0;
+    //             double d3 = 0.0, d4 = 0.0;
+    //
+    //             iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
+    //             ProgressBar->UpdateProgress(0);
+    //             int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
+    //             // 计算平均平方距离
+    //             for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+    //                 if (i > progress * blockNum) {
+    //                     ProgressBar->UpdateProgress(progress * 0.01);
+    //                     progress++;
+    //                 }
+    //                 auto p = oldPoints->GetPoint(i);
+    //
+    //                 igIndex id = newPicker->FindClosestPoint(p);
+    //                 if (id != -1) {
+    //                     Point cp = newPoints->GetPoint(id);
+    //                     d1 += (p - cp).squaredNorm();
+    //                     d3 += (p - cp).norm();
+    //                 }
+    //             }
+    //
+    //             double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
+    //             double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
+    //
+    //             result += "\n几何相似性度量";
+    //             result += "\n Squared Mean Distance: " + QString::number(d);
+    //             result += "\n Mean Distance: " + QString::number(dd);
+    //             result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
+    //             result += "\nMean Distance: " + QString::number(dd / oldMesh->GetBoundingBox().diag() * 100) + "%";
+    //             result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+    //         } else {
+    //             result += "\n累计几何误差: " + QString::number(filter->GetError());
+    //         }
+    //
+    //         modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
+    //         rendererWidget->update();
+    //
+    //         // QMessageBox::information(this, "简化成功", result);
+    //         dialog->close();
+    //     });
+    // });
+    //
 
     connect(mesh_processing->addAction(QStringLiteral("Fast Surface Simplification（快速表面简化）")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene() == nullptr
@@ -2662,157 +2822,318 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
-    // connect(mesh_processing->addAction(QStringLiteral("表面简化 (Surface Simplification)")),
-    //     &QAction::triggered, this, [&](bool checked) {
-    //     auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+    // Validate before triangulation and before indexing vertex/attribute buffers.
+    auto preparePaperSurface = [this](DataObject* object) -> SurfaceMesh::Pointer {
+        SurfaceMesh::Pointer surface;
+        if (object && object->GetDataObjectType() == IG_SURFACE_MESH)
+            surface = DynamicCast<SurfaceMesh>(object);
+        else if (object && object->GetDataObjectType() == IG_UNSTRUCTURED_MESH)
+            surface = DynamicCast<UnstructuredMesh>(object)->TransferToSurfaceMesh();
+        auto fail = [this]() -> SurfaceMesh::Pointer {
+            showDarkFramelessMessage(QStringLiteral("网格输入无效"),
+                QStringLiteral("请选择具有有效面、有限坐标和匹配属性元组的非退化表面网格。"));
+            return nullptr;
+        };
+        if (!surface || surface->GetNumberOfPoints() < 3 || !surface->GetNumberOfFaces() ||
+            surface->GetNumberOfPoints() > std::numeric_limits<int>::max() ||
+            surface->GetNumberOfFaces() > std::numeric_limits<int>::max() / 3) return fail();
+        for (IGsize i = 0; i < surface->GetNumberOfPoints(); ++i) {
+            auto p = surface->GetPoint(i);
+            for (int d = 0; d < 3; ++d) if (!std::isfinite(p[d])) return fail();
+        }
+        auto attrs = AttributeSet::New();
+        auto inputAttrs = surface->GetAttributeSet();
+        for (IGsize i = 0; inputAttrs && i < inputAttrs->GetNumberOfAttributes(); ++i) {
+            const auto& a = inputAttrs->GetAttribute(i);
+            if (a.isDeleted || !a.pointer) continue;
+            const auto& name = a.pointer->GetName();
+            if (name == "VertexSharpness" || name == "AttrFeature" || name == "VertexImportance") continue;
+            if (a.attachmentType != IG_POINT && a.attachmentType != IG_CELL) continue;
+            if (a.pointer->GetDimension() <= 0 || a.pointer->GetNumberOfElements() !=
+                (a.attachmentType == IG_POINT ? surface->GetNumberOfPoints() : surface->GetNumberOfFaces())) return fail();
+            for (IGsize j = 0; j < a.pointer->GetNumberOfValues(); ++j)
+                if (!std::isfinite(a.pointer->GetValue(j))) return fail();
+            attrs->AddAttribute(a.type, a.attachmentType, a.pointer, a.dataRange);
+        }
+        auto clean = SurfaceMesh::New();
+        clean->SetName(surface->GetName());
+        clean->SetPoints(surface->GetPoints());
+        clean->SetFaces(surface->GetFaces());
+        clean->SetAttributeSet(attrs);
+        for (IGsize f = 0; f < clean->GetNumberOfFaces(); ++f) {
+            const igIndex* ids = nullptr;
+            int n = clean->GetFaces()->GetCellIds(f, ids);
+            if (n < 3 || clean->GetFaces()->IsDeleted(f)) return fail();
+            for (int k = 0; k < n; ++k)
+                if (ids[k] < 0 || ids[k] >= clean->GetNumberOfPoints()) return fail();
+        }
+        auto triangulation = MeshTriangulationFilter::New();
+        triangulation->SetInput(clean);
+        if (!triangulation->Execute()) return fail();
+        auto result = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+        for (IGsize f = 0; f < result->GetNumberOfFaces(); ++f) {
+            igIndex ids[3];
+            result->GetFacePointIds(f, ids);
+            auto a = result->GetPoint(ids[0]);
+            auto b = result->GetPoint(ids[1]);
+            auto c = result->GetPoint(ids[2]);
+            if (CrossProduct(b - a, c - a).length() <= 0) return fail();
+        }
+        return result;
+    };
 
-    //     SurfaceMesh::Pointer mesh;
-    //     if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
-    //         mesh = DynamicCast<SurfaceMesh>(obj);
-    //     } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
-    //         mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
-    //     }
+    connect(mesh_processing->addAction(QStringLiteral("Surface Simplification（表面网格简化）")),
+        &QAction::triggered, this, [this, preparePaperSurface, tuneMeshSimplifyFilterDialog](bool checked) {
+        auto scene = rendererWidget->GetScene();
+        if (!scene || !scene->GetCurrentModel()) return;
+        auto input = scene->GetCurrentModel()->GetDataObject();
+        auto* dialog = new igQtFilterDialogDockWidget(this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("目标面保留比例 (0 < r ≤ 1)"), "0.05");
+        int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+            QStringLiteral("目标输出三角面数 (0=按比例)"), "0");
+        // Keep the optional tuning controls for future experiments.
+        // int gammaId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+        //     QStringLiteral("顶点重要度系数 γ (≥0)"), "5.0");
+        // int betaId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+        //     QStringLiteral("属性惩罚系数 β (≥0)"), "0.1");
 
-    //     MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
-    //     triangulation->SetInput(mesh);
-    //     if (!triangulation->Execute()) return false;
-    //     mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+        dialog->setFilterTitle(QStringLiteral("Surface Simplification（表面网格简化）"));
+        tuneMeshSimplifyFilterDialog(dialog);
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok;
+            const int requestedFaces = dialog->getInt(faceCountId, ok);
+            if (!ok || requestedFaces < 0) {
+                showDarkFramelessMessage(QStringLiteral("参数无效"),
+                    QStringLiteral("目标输出面数必须是非负整数，0 表示使用保留比例。"));
+                return;
+            }
+            double retention = 1.0;
+            if (requestedFaces == 0) {
+                retention = dialog->getDouble(reductionId, ok);
+                if (!ok || !std::isfinite(retention) || retention <= 0.0 || retention > 1.0) {
+                    showDarkFramelessMessage(QStringLiteral("参数无效"),
+                        QStringLiteral("目标保留比例必须在 (0, 1] 内。"));
+                    return;
+                }
+            }
+            constexpr double gamma = 5.0;
+            constexpr double beta = 0.1;
 
-    //     igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-    //     int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.05");
-    //     int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
+            auto mesh = preparePaperSurface(input);
+            if (!mesh) return;
+            const int inputFaceCount = static_cast<int>(mesh->GetNumberOfFaces());
+            if (requestedFaces > inputFaceCount) {
+                showDarkFramelessMessage(QStringLiteral("参数无效"),
+                    QStringLiteral("目标输出面数不能超过输入三角面数 %1。")
+                        .arg(inputFaceCount));
+                return;
+            }
+            const bool useFaceCount = requestedFaces > 0;
+            const int targetFaceCount = useFaceCount ? requestedFaces
+                : std::max(1, static_cast<int>(std::floor(inputFaceCount * retention)));
+            std::vector<FVector> V;
+            std::vector<int> F;
+            std::vector<std::vector<float>> A;
+            std::vector<float> AW;
+            const auto isAuxiliaryAttribute = [](const std::string& name) {
+                return name == "VertexSharpness" || name == "AttrFeature" || name == "VertexImportance";
+            };
 
-    //     dialog->show();
-    //     dialog->setApplyFunctor([=, this]() {
-    //         bool ok;
-    //         QString result = "";
+            float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
+            float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    //         std::vector<FVector> V;
-    //         std::vector<int> F;
-    //         std::vector<std::vector<float>> A;
-    //         std::vector<float> AW;
+            for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+                auto& v = mesh->GetPoint(i);
 
-    //         float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
-    //         float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+                V.push_back({v[0], v[1], v[2]});
 
-    //         for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
-    //             auto& v = mesh->GetPoint(i);
+                for (int j = 0; j < 3; ++j) {
+                    float vj = v[j];
 
-    //             V.push_back({v[0], v[1], v[2]});
+                    minv[j] = minv[j] > vj ? vj : minv[j];
+                    maxv[j] = maxv[j] < vj ? vj : maxv[j];
+                }
+            }
 
-    //             for (int j = 0; j < 3; ++j) {
-    //                 float vj = v[j];
+            float extent = 0.f;
 
-    //                 minv[j] = minv[j] > vj ? vj : minv[j];
-    //                 maxv[j] = maxv[j] < vj ? vj : maxv[j];
-    //             }
-    //         }
+            extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
+            extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
+            extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
 
-    //         float extent = 0.f;
+            float scale = extent == 0 ? 0.f : 1.f / extent;
 
-    //         extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
-    //         extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
-    //         extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
+            for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+                V[i].x = (V[i].x - minv[0]) * scale;
+                V[i].y = (V[i].y - minv[1]) * scale;
+                V[i].z = (V[i].z - minv[2]) * scale;
+            }
 
-    //         float scale = extent == 0 ? 0.f : 1.f / extent;
+            igIndex ids[3];
+            for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+                mesh->GetFacePointIds(i, ids);
+                F.push_back(ids[0]);
+                F.push_back(ids[1]);
+                F.push_back(ids[2]);
+            }
 
-    //         for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
-    //             V[i].x = (V[i].x - minv[0]) * scale;
-    //             V[i].y = (V[i].y - minv[1]) * scale;
-    //             V[i].z = (V[i].z - minv[2]) * scale;
-    //         }
+            for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
+                auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
+                if (attr.isDeleted || !attr.pointer || attr.attachmentType != IG_POINT ||
+                    attr.pointer->GetNumberOfElements() != mesh->GetNumberOfPoints()) continue;
+                if (isAuxiliaryAttribute(attr.pointer->GetName())) continue;
+                int dim = attr.pointer->GetDimension();
+                for (int d = 0; d < dim; d++) {
+                    double val_max = -FLT_MAX;
+                    double val_min = FLT_MAX;
+                    for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                        double val = attr.pointer->GetValue(j * dim + d);
+                        val_max = val_max < val ? val : val_max;
+                        val_min = val_min > val ? val : val_min;
+                    }
+                    if (val_min == val_max) {
+                        std::vector<float> data(mesh->GetNumberOfPoints(), 0.f);
+                        A.push_back(std::move(data));
+                        AW.push_back(0.f);
+                    } else {
+                        std::vector<float> data;
+                        for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                            data.push_back(attr.pointer->GetValue(j * dim + d));
+                        }
+                        //for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                        //    data.push_back((attr.pointer->GetValue(j * dim + d)));
+                        //}
+                        A.push_back(std::move(data));
+                        AW.push_back(1.0f / (val_max - val_min));
+                    }
+                }
+            }
 
-    //         igIndex ids[3];
-    //         for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
-    //             mesh->GetFacePointIds(i, ids);
-    //             F.push_back(ids[0]);
-    //             F.push_back(ids[1]);
-    //             F.push_back(ids[2]);
-    //         }
+            clock_t start = clock();
+            {
+                // Importance belongs to this invocation only. Never attach its
+                // intermediate fields to either the input or the output mesh.
+                std::vector<double> vertexImportance;
+                CalculateSurfaceMeshVertexImportance(mesh, V, F, true,
+                                                     vertexImportance);
 
-    //         for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
-    //             auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
-    //             int dim = attr.pointer->GetDimension();
-    //             for (int d = 0; d < dim; d++) {
-    //                 double val_max = -FLT_MAX;
-    //                 double val_min = FLT_MAX;
-    //                 for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-    //                     double val = attr.pointer->GetValue(j * dim + d);
-    //                     val_max = val_max < val ? val : val_max;
-    //                     val_min = val_min > val ? val : val_min;
-    //                 }
-    //                 if (val_min == val_max) {
-    //                     std::vector<float> data(mesh->GetNumberOfPoints(), 0.f);
-    //                     A.push_back(std::move(data));
-    //                     AW.push_back(0.f);
-    //                 } else {
-    //                     std::vector<float> data;
-    //                     for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-    //                         data.push_back(attr.pointer->GetValue(j * dim + d));
-    //                     }
-    //                     //for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-    //                     //    data.push_back((attr.pointer->GetValue(j * dim + d)));
-    //                     //}
-    //                     A.push_back(std::move(data));
-    //                     AW.push_back(1.0f / (val_max - val_min));
-    //                 }
-    //             }
-    //         }
+                MeshSimplifierWithAttributes simplifier(V, F, A, AW, vertexImportance,
+                                                        retention);
+                // Override the ratio-derived index budget with an exact face count.
+                simplifier.SetTargetFaceCount(targetFaceCount);
+                simplifier.SetUseVertexImportance(true);
+                simplifier.SetVertexImportanceScale(gamma);
+                simplifier.SetDivideGeometricErrorByArea(true);
+                simplifier.SetUseDynamicAttributePenalty(true);
+                simplifier.SetAttributePenaltyWeight(beta);
+                simplifier.SetAttributePenaltyMethod(
+                    MeshSimplifierWithAttributes::AttributePenaltyMethod::EndpointPrediction);
 
-    //         clock_t start = clock();
-    //         MeshSaliencyCalculator saliencyCalculator(V, F);
-    //         saliencyCalculator.Execute();
+                simplifier.IsOptimizedPosition = true;
+                if (!simplifier.Execute()) {
+                    showDarkFramelessMessage(QStringLiteral("简化失败"), QStringLiteral("简化器未能完成。"));
+                    return;
+                }
+            } // Release importance and simplifier workspace before attribute reconstruction.
 
-    //         MeshSimplifierWithAttributes simplifier(V, F, A, AW, saliencyCalculator.NormalCurvature,
-    //                                                 dialog->getDouble(reductionId, ok));
-
-    //         simplifier.SetUseVertexImportance(false);
-    //         simplifier.SetUseDynamicAttributePenalty(true);
-
-    //         simplifier.IsOptimizedPosition = true;
-    //         simplifier.Execute();
-
-    //         clock_t end = clock();
-    //         std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
+            clock_t end = clock();
+            std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
 
-    //         auto newMesh = SurfaceMesh::New();
-    //         for (const auto& v: V) {
-    //             newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
-    //         }
-    //         //for (const auto& v: V) {
-    //         //    newMesh->AddPoint(Point(v.x, v.y, v.z));
-    //         //}
-    //         auto CellArray = CellArray::New();
-    //         for (int i = 0; i < F.size() / 3; i++) { CellArray->AddCellId3(F[i * 3], F[i * 3 + 1], F[i * 3 + 2]); }
-    //         newMesh->SetFaces(CellArray);
+            // 1. 标记哪些顶点被 F 使用
+            std::vector<unsigned char> used(V.size(), 0);
+            for (int idx: F) { used[idx] = 1; }
 
-    //         int count = 0;
-    //         auto Attributes = AttributeSet::New();
-    //         for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
-    //             auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
-    //             int dim = attr.pointer->GetDimension();
-    //             auto arr = FloatArray::New();
-    //             arr->SetDimension(dim);
-    //             arr->Resize(mesh->GetNumberOfPoints());
-    //             arr->SetName(attr.pointer->GetName());
+            // 2. 建立旧顶点到新顶点的映射，同时收集有效顶点
+            std::vector<int> vertexMap(V.size(), -1);
+            std::vector<FVector> filteredVerts;
 
-    //             for (int d = 0; d < dim; d++) {
-    //                 for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-    //                     arr->SetValue(j * dim + d, A[count + d][j]);
-    //                 }
-    //             }
-    //             count += dim;
+            for (size_t i = 0; i < V.size(); ++i) {
+                if (used[i]) {
+                    vertexMap[i] = filteredVerts.size();
+                    filteredVerts.push_back(V[i]);
+                }
+            }
 
-    //             Attributes->AddAttribute(attr.type, attr.attachmentType, arr);
-    //         }
-    //         newMesh->SetAttributeSet(Attributes);
+            // 3. 更新 F 的索引
+            std::vector<int> filteredF;
+            filteredF.reserve(F.size());
+            for (int idx: F) { filteredF.push_back(vertexMap[idx]); }
 
-    //         modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
-    //         rendererWidget->update();
-    //         dialog->close();
-    //     });
-    // });
+            // 4. 用过滤后的数据构建 newMesh
+            auto newMesh = SurfaceMesh::New();
+            for (const auto& v: filteredVerts) {
+                newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
+            }
+
+            auto CellArray = CellArray::New();
+            for (size_t i = 0; i < filteredF.size(); i += 3) {
+                CellArray->AddCellId3(filteredF[i], filteredF[i + 1], filteredF[i + 2]);
+            }
+            newMesh->SetFaces(CellArray);
+
+            // 5. 梯度预测仅用于折叠代价和内部状态；最终属性从原始表面重心插值重建。
+            std::string transferError;
+            if (!TransferMeshAttributes(mesh, newMesh, transferError)) {
+                showDarkFramelessMessage(QStringLiteral("属性重建失败"),
+                                        QString::fromStdString(transferError));
+                return;
+            }
+            auto reconstructedAttributes = newMesh->GetAttributeSet();
+            if (reconstructedAttributes) {
+                const auto isAuxiliaryAttribute = [](const std::string& name) {
+                    return name == "VertexSharpness" ||
+                           name == "AttrFeature" ||
+                           name == "VertexImportance";
+                };
+
+                // DeleteAttribute() leaves a deleted entry with a null pointer in the
+                // attribute buffer.  Some rendering/model-tree code iterates every
+                // buffer entry without checking that pointer, so build a compact set
+                // that never contains the auxiliary fields instead.
+                auto physicalAttributes = AttributeSet::New();
+                for (IGsize i = 0; i < reconstructedAttributes->GetNumberOfAttributes(); ++i) {
+                    const auto& attr = reconstructedAttributes->GetAttribute(i);
+                    if (attr.isDeleted || !attr.pointer ||
+                        isAuxiliaryAttribute(attr.pointer->GetName())) {
+                        continue;
+                    }
+                    physicalAttributes->AddAttribute(attr.type, attr.attachmentType,
+                                                     attr.pointer, attr.dataRange);
+                }
+                newMesh->SetAttributeSet(physicalAttributes);
+            }
+
+            modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
+            rendererWidget->update();
+            dialog->close();
+            const auto actualFaces = newMesh->GetNumberOfFaces();
+            QString report = useFaceCount
+                ? QStringLiteral("使用方式：目标输出面数（优先于保留比例）")
+                : QStringLiteral("使用方式：目标面保留比例 %1%")
+                    .arg(retention * 100.0, 0, 'g', 8);
+            report += QStringLiteral("\n输入三角面数：%1\n目标输出面数：%2\n实际输出面数：%3")
+                .arg(inputFaceCount).arg(targetFaceCount).arg(static_cast<qulonglong>(actualFaces));
+            if (actualFaces > static_cast<IGsize>(targetFaceCount)) {
+                report += QStringLiteral("\n受边界、拓扑或合法折叠约束，未达到目标；保留当前结果，未切换目标方式。");
+            }
+            std::cout << "Simplification mode: "
+                      << (useFaceCount ? "target face count (takes priority over retention ratio)"
+                                       : "retention ratio") << '\n';
+            if (!useFaceCount)
+                std::cout << "Retention ratio: " << retention * 100.0 << "%\n";
+            std::cout << "Input triangle count: " << inputFaceCount
+                      << "\nTarget triangle count: " << targetFaceCount
+                      << "\nOutput triangle count: " << actualFaces << '\n';
+            if (actualFaces > static_cast<IGsize>(targetFaceCount))
+                std::cout << "Target not reached due to boundary, topology, or legal-collapse constraints. "
+                             "Keeping the result without switching target mode.\n";
+            std::cout << std::flush;
+            showDarkFramelessMessage(QStringLiteral("简化完成"), report);
+        });
+    });
 
     connect(mesh_processing->addAction(QStringLiteral("Surface Triangulation（表面三角化）")), &QAction::triggered, this, [this, showSurfaceTopologyReport](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -5402,7 +5723,9 @@ QString igQtMainWindow::LoadExternalFonts() {
     qDebug() << "Loaded font family:" << family;
 
     QFont     appFont(family);
-    appFont.setPointSize(12);
+    // 与 QSS 全局 font-size: 13px 对齐，避免未被样式覆盖的控件字号偏大
+    // 13px @96dpi = 9.75pt；用 pt 才能与 QSS 一样随系统 DPI 缩放
+    appFont.setPointSizeF(9.75);
 
     QApplication::setFont(appFont);
 
@@ -6839,6 +7162,10 @@ void igQtMainWindow::hookResponsiveEvents() {
 void igQtMainWindow::applyResponsiveToolbarLayout() {
     // 重建式拟合：由 relayoutToolbarWrappers 统一决定图标尺寸（缩小/放大/换行）
     relayoutToolbarWrappers();
+
+    applyLeftDockAlignment();
+    QTimer::singleShot(0, this, [this]() { applyLeftDockAlignment(); });
+    startLeftDockAlignmentWatch();
 }
 
 void igQtMainWindow::showEvent(QShowEvent* event) {

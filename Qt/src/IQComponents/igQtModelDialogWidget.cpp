@@ -937,6 +937,9 @@ QString igQtModelDialogWidget::renameModelRow(iGame::DataObject::Pointer obj, co
 }
 
 int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source) {
+    if (source == ItemSource::File) {
+        if (auto draw = DynamicCast<iGame::DrawObject>(obj)) draw->InitializeNormalSourceOnImport();
+    }
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     //modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -954,7 +957,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
     for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
         auto& attr = attrSet->GetElement(i);
-        if (attr.isDeleted) continue;
+        if (attr.isDeleted || !attr.pointer) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         const QString attrName = QString::fromStdString(attr.pointer->GetName());
         child->setText(0, attrName);
@@ -973,6 +976,10 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 
     updateCurrentModelProperty(model);
     updateCurrentModelInfo();
+#ifndef __EMSCRIPTEN__
+    // 仅文件导入请求适配；算法生成的临时结果不改变底板基准。
+    if (source == ItemSource::File) { scene->RequestGroundGridFit(); }
+#endif
     //QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     //std::cout << "add current model: " << currentItem << std::endl;
     return id;

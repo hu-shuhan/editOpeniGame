@@ -62,17 +62,34 @@ bool AnsysReader::Parsing() {
     IGAME_CORE_DEBUG("[AnsysReader] Running converter: {} --input {} --output {}", exePath, ansysPath, outputFile);
 
     int returnCode = 0;
-    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+    // 转换器是外部 exe，无法给出内部进度；用时间驱动的进度条 + 状态栏文案代替，
+    // 否则这段「启动并等待」在 GUI 线程里毫无反馈，用户会以为软件卡死。
+    // 该对象活到 Parsing 结束：后面读回 PVD 仍是同一次「打开文件」操作，
+    // 一并保持进度条可见。
+    ExternalProcess::ConverterProgress convertProgress("正在转换 Ansys 结果文件");
+    // 第 4 个参数把本次运行的临时子目录交给转换器当 TEMP/TMP：转换器是 onefile
+    // 自解包程序，若系统 %TEMP% 不可写会在解包阶段失败
+    // （"failed to open ... for writing"），与本仓库逻辑无关。
+    if (!ExternalProcess::Run(exePath, arguments, returnCode,
+                              FileSystem::PathToUtf8(tempDir),
+                              convertProgress.Ticker())) {
         IGAME_CORE_ERROR("[AnsysReader] Failed to start converter: {}", exePath);
         return false;
     }
     if (returnCode != 0) {
         IGAME_CORE_ERROR("[AnsysReader] Ansys to PVD conversion failed. Return code: {}", returnCode);
+        IGAME_CORE_ERROR("[AnsysReader] hint: the converter unpacks itself into its TEMP directory "
+                         "on startup; if the message above says 'failed to open ... for writing', "
+                         "make sure '{}' is writable",
+                         FileSystem::PathToUtf8(tempDir));
         return false;
     }
 
     // Load the generated PVD file
     auto pvdReader = iGame::iGamePVDReader::New();
+    // 转换阶段已经推进到 0.85，把 PVD 读回映射到剩余的 0.85→1.0，
+    // 让整条进度条连续往前走，而不是读完再跳一次。
+    pvdReader->SetProgressRange(0.85, 0.15);
     pvdReader->SetFilePath(outputFile);
     if (!pvdReader->Execute()) {
         IGAME_CORE_ERROR("[AnsysReader] Failed to read converted PVD file: {}", outputFile);

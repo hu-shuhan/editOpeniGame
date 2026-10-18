@@ -96,6 +96,13 @@ public:
     bool IsUseColor();        //是否使用颜色
     bool IsUseNormalSmooth(); //是否使用法线平滑
 
+    // Display-only source selection. Empty name means none. These APIs never
+    // enable normal smoothing; import detection is explicitly called once.
+    std::vector<std::string> GetNormalSourceCandidates();
+    std::string GetNormalSource();
+    bool SetNormalSource(const std::string& name);
+    void InitializeNormalSourceOnImport();
+
     void SetVisibility(bool f); //设置可见性
     bool GetVisibility();       //获取可见性
     /*ViewStyle's detail. See iGameType.h */
@@ -136,6 +143,13 @@ public:
     // 设置和获取显示对象
     void SetRenderableObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
+    // GroupDatasets clones need an independent mapper on both the object and
+    // its already-created renderable meshes after attachment to a container.
+    void SetColorMapperForRenderables(ScalarsToColors::Pointer mapper) {
+        SetColorMapper(mapper);
+        if (m_RenderableMesh.SurfaceMesh) m_RenderableMesh.SurfaceMesh->SetColorMapper(mapper);
+        if (m_RenderableMesh.SimplifiedMesh) m_RenderableMesh.SimplifiedMesh->SetColorMapper(mapper);
+    }
     void SetAutoBuildInteractionLod(bool enabled);
     bool GetAutoBuildInteractionLod() const;
 
@@ -201,6 +215,7 @@ protected:
 
     void CreateDrawBuffer();
     void SyncGpuBuffers();
+    void SyncNormalSource(); // CPU-only; resolves the selected attribute, never guesses
     // VAO配置辅助方法
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
@@ -238,6 +253,10 @@ protected:
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;
     FloatArray::Pointer m_Normals;
+    std::string m_NormalSource;
+    bool m_NormalSourceInitialized = false;
+    ArrayObject* m_NormalSourceArray = nullptr; // identity only; never dereferenced
+    unsigned int m_NormalSourceStamp = 0;
     FloatArray::Pointer m_Textures;
     //点线三角形索引
     UnsignedIntArray::Pointer m_PointIndices;
