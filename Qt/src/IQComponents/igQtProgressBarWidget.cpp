@@ -4,6 +4,8 @@
 
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <IQWidgets/igQtRenderWidget.h>
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <QHBoxLayout>
 #include <QColor>
 #include <QEvent>
@@ -62,7 +64,17 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
         [this, dispatch](iGame::Object*, unsigned long, void* data)-> void {
             if (!data) { return; }
             const double value = *static_cast<double*>(data);
-            dispatch([this, value]() { this->updateProgressBar(value); });
+            // 写文件是在 GUI 线程里同步执行的：期间事件循环停摆，这里的 show()/setValue()
+            // 要等整个操作结束才会被绘制，用户看到的就是「进度条一动不动、软件像卡死」。
+            // 写盘流程会把 ProgressObserver 的阻塞标记置位；此时且回调就在 GUI 线程上，
+            // 就地泵一次事件把进度真正画出来（排除用户输入，避免阻塞过程中被重入菜单/按钮）。
+            // 其它进度上报路径不受影响：标记只会由写盘流程置位。
+            const bool pumpNow = progressObserver->IsBlockingGuiThread() &&
+                                 QThread::currentThread() == this->thread();
+            dispatch([this, value, pumpNow]() {
+                this->updateProgressBar(value);
+                if (pumpNow) { QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents); }
+            });
         });
 
     m_TextObserverTag = progressObserver->AddObserver(iGame::Command::UpdateEvent,

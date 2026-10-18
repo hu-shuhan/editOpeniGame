@@ -1,5 +1,10 @@
 #include "iGameFileWriter.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <string>
+
 #ifdef PLATFORM_WINDOWS
 #include <windows.h>
 #include <stdio.h>
@@ -13,6 +18,49 @@
 #endif
 
 IGAME_NAMESPACE_BEGIN
+
+namespace {
+
+/*
+写文件（保存网格）期间的进度上报状态。
+
+为什么要用线程局部变量而不是成员：下面这几个量描述的是「一次保存操作」，
+而保存可能是嵌套的（iGameVTMWriter / iGameIGCMWriter 内部会逐块 new 一个子 writer
+再 Execute）。嵌套时只允许最外层那一个 writer 负责进度与文案，否则子文件写完后会把
+进度推回 0%（进度条组件的 100% 会自动归零），并覆盖外层「多块编码 3/10」的文案。
+*/
+thread_local const FileWriter* t_WriteProgressOwner = nullptr;
+thread_local std::chrono::steady_clock::time_point t_WriteStartTime{};
+thread_local int t_WriteTickCount = 0;
+thread_local double t_WriteLastTickElapsed = -1.0;
+
+// 「生成数据」阶段的进度曲线：无法预知最终输出多少字节，只能按时间渐近推进，
+// 上限留在 0.75，剩下的交给真正写盘（0.78 → 0.97）与收尾的 1.0。
+constexpr double kGenerateProgressBegin = 0.02;
+constexpr double kGenerateProgressEnd = 0.75;
+constexpr double kGenerateTimeConstant = 5.0; // 秒
+// 写盘阶段映射到的区间。
+constexpr double kFlushProgressShift = 0.78;
+constexpr double kFlushProgressScale = 0.19;
+// 节流：每 kTickCallStride 次写入才查一次时钟，两次上报至少间隔 kTickInterval 秒。
+// AddStringToBuffer 是热循环里每行都会调用的，不能每次都取时钟、更不能每次都发事件。
+constexpr int kTickCallStride = 512;
+constexpr double kTickInterval = 0.1;
+
+// 取扩展名 / 文件名用于状态栏文案（纯字符串处理，不经过文件系统，避免编码问题）。
+std::string FileSuffixOf(const std::string& path) {
+    const auto slash = path.find_last_of("/\\");
+    const auto dot = path.find_last_of('.');
+    if (dot == std::string::npos || (slash != std::string::npos && dot < slash)) { return std::string(); }
+    return path.substr(dot + 1);
+}
+
+std::string FileNameOf(const std::string& path) {
+    const auto slash = path.find_last_of("/\\");
+    return (slash == std::string::npos) ? path : path.substr(slash + 1);
+}
+
+} // namespace
 
 FileWriter::FileWriter()
 {
@@ -33,13 +81,83 @@ bool FileWriter::Execute()
 		igDebug("could not write nullptr object!");
 		return false;
 	}
+	this->BeginWriteProgress();
+	// 生成数据阶段：基类只能给出起点，具体进度由各 writer 自己上报
+	// （走 AddStringToBuffer 的自动有；自己写二进制的调 UpdateProgress，见 IGVWriter）。
 	if (!GenerateBuffers()) {
 		IGAME_CORE_ERROR("Could not generate buffer to load.");
+		this->EndWriteProgress();
 		return false;
 	}
-	return SaveBufferDataToFile();
-
+	// 写盘阶段：把 SaveBufferDataToFile 内部 0→1 的进度映射到 0.78→0.97 这一段。
+	this->SetProgressRange(kFlushProgressShift, kFlushProgressScale);
+	const bool saved = SaveBufferDataToFile();
+	this->EndWriteProgress();
+	return saved;
 }
+
+void FileWriter::BeginWriteProgress()
+{
+	// 嵌套写出（.igcm/.vtm 内部的子 block）不接管进度，交给最外层。
+	if (t_WriteProgressOwner != nullptr) { return; }
+	if (m_ProgressObserver == nullptr) { return; }
+
+	t_WriteProgressOwner = this;
+	t_WriteStartTime = std::chrono::steady_clock::now();
+	t_WriteTickCount = 0;
+	t_WriteLastTickElapsed = -1.0;
+
+	// 生成阶段同样阻塞 GUI 线程：置位后进度条组件才会把进度真正画出来
+	// （见 ProgressObserver::SetBlockingGuiThread）。
+	m_ProgressObserver->SetBlockingGuiThread(true);
+
+	const std::string suffix = FileSuffixOf(m_FilePath);
+	m_ProgressObserver->UpdateText(suffix.empty() ? std::string("正在生成文件数据…")
+	                                              : "正在生成 " + suffix + " 文件数据…");
+	// 先给一个非 0 值：进度条组件把 0 当作「复位」，不会显示。
+	this->UpdateProgress(kGenerateProgressBegin);
+}
+
+void FileWriter::TickWriteProgress()
+{
+	// 任何 writer（含嵌套的子 writer）都能推动同一条时间曲线，它们在等长的时间段里
+	// 干的都是「生成数据」这件事；但上报对象始终是最外层那一次保存。
+	if (t_WriteProgressOwner == nullptr) { return; }
+	if (++t_WriteTickCount < kTickCallStride) { return; }
+	t_WriteTickCount = 0;
+
+	const double elapsed =
+			std::chrono::duration<double>(std::chrono::steady_clock::now() - t_WriteStartTime).count();
+	if (t_WriteLastTickElapsed >= 0.0 && elapsed - t_WriteLastTickElapsed < kTickInterval) { return; }
+	t_WriteLastTickElapsed = elapsed;
+
+	auto* observer = ProgressObserver::Instance();
+	if (observer == nullptr) { return; }
+	const double fraction = kGenerateProgressBegin + (kGenerateProgressEnd - kGenerateProgressBegin) *
+	                                                     (1.0 - std::exp(-elapsed / kGenerateTimeConstant));
+	// 直接发给全局观察者：本对象可能不是进度区间（shift/scale）的拥有者。
+	observer->UpdateProgress(fraction);
+}
+
+void FileWriter::EndWriteProgress()
+{
+	// 只由最外层收尾；子 writer 结束后不能把外层的进度状态清掉。
+	if (t_WriteProgressOwner != this) { return; }
+	t_WriteProgressOwner = nullptr;
+	t_WriteTickCount = 0;
+	t_WriteLastTickElapsed = -1.0;
+
+	// 复位区间，避免把 shift/scale 留给下一次复用同一个 writer 的调用。
+	m_Progress = 0.0;
+	m_ProgressShift = 0.0;
+	m_ProgressScale = 1.0;
+
+	if (m_ProgressObserver == nullptr) { return; }
+	m_ProgressObserver->SetBlockingGuiThread(false);
+	m_ProgressObserver->UpdateProgress(1.0); // 让进度条走到「完成」分支（会自行归零并隐藏）
+	m_ProgressObserver->UpdateText("");      // 清空文案，避免状态栏残留「正在写入…」
+}
+
 bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string filePath)
 {
 	this->SetInput(dataObject);
@@ -60,13 +178,34 @@ bool FileWriter::SaveBufferDataToFile()
 			fileSize += m_Buffers[i]->GetNumberOfValues();
 		}
 	}
+	if (t_WriteProgressOwner == this) {
+		const std::string fileName = FileNameOf(m_FilePath);
+		m_ProgressObserver->UpdateText(fileName.empty() ? std::string("正在写入文件…")
+		                                                : "正在写入文件 " + fileName + "…");
+	}
+	const size_t bufferCount = m_Buffers.size();
+	// 大缓冲区按块写出：一次 fwrite 几百 MB（IGV 的 HDF5 内存镜像就是这样）时中间
+	// 没有任何进度可上报，分块后每块都能回报一次（Execute() 已把本阶段映射到 0.78→0.97）。
+	constexpr size_t kWriteChunkSize = 8u * 1024u * 1024u;
 	for (int i = 0; i < m_Buffers.size(); i++) {
-		if (m_Buffers[i] && m_Buffers[i]->RawPointer()) {
-			size_t bufferSize = m_Buffers[i]->GetNumberOfValues();
-			if (fwrite(m_Buffers[i]->RawPointer(), 1, bufferSize, file) != bufferSize) {
+		const bool reportProgress = (t_WriteProgressOwner == this) && bufferCount > 0;
+		const char* source = (m_Buffers[i] != nullptr) ? m_Buffers[i]->RawPointer() : nullptr;
+		const size_t bufferSize = (source != nullptr) ? m_Buffers[i]->GetNumberOfValues() : 0;
+		if (bufferSize == 0) {
+			if (reportProgress) { this->UpdateProgress(static_cast<double>(i + 1) / static_cast<double>(bufferCount)); }
+			continue;
+		}
+		for (size_t written = 0; written < bufferSize;) {
+			const size_t chunkSize = std::min(kWriteChunkSize, bufferSize - written);
+			if (fwrite(source + written, 1, chunkSize, file) != chunkSize) {
 				perror("fwrite failed");
 				fclose(file);
 				return false;
+			}
+			written += chunkSize;
+			if (reportProgress) {
+				const double bufferFraction = static_cast<double>(written) / static_cast<double>(bufferSize);
+				this->UpdateProgress((static_cast<double>(i) + bufferFraction) / static_cast<double>(bufferCount));
 			}
 		}
 	}
@@ -260,6 +399,9 @@ void FileWriter::AddStringToBuffer(std::string data, CharArray::Pointer buffer)
 	for (int i = 0; i < data.size(); i++) {
 		buffer->AddValue(data[i]);
 	}
+	// 所有 ASCII/XML writer 都是一行一次地调这里，正好是「生成数据」阶段唯一的公共钩子：
+	// 借它按时间把进度条往前推（内部有次数+时间双重节流，几乎零开销）。
+	this->TickWriteProgress();
 	return;
 }
 

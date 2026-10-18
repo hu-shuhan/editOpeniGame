@@ -622,6 +622,10 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         hasBounds = true;
     }
 
+    // 写盘进度（基类 BeginWriteProgress 已给出起点）：BuildHdf5 在内存里建完整镜像，
+    // 大模型下这一段是耗时主段，必须按阶段回报，否则进度条会一直停在起点。
+    this->UpdateProgress(0.10);
+
     // ---- 拓扑（按类型分型，§3.1）----
     const bool isPointSet = (meshType == IG_POINT_SET);
     const bool isStructured = (meshType == IG_STRUCTURED_MESH);
@@ -837,6 +841,9 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         }
     }
 
+    // 拓扑（接续关系 / offsets / types）已生成。
+    this->UpdateProgress(0.30);
+
     // ---- 属性暂存（§3.6 / §3.8）----
     std::vector<StagedAttribute> staged;
     AttributeSet* attrSet = m_DataObject->GetAttributeSet();
@@ -892,6 +899,9 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             staged.push_back(std::move(sa));
         }
     }
+
+    // 属性数据已全部暂存到内存（含 Range 计算）。
+    this->UpdateProgress(0.45);
 
     // -------------------------------------------------------------------------
     // 阶段 B：建 HDF5（core VFD 或直连路径）
@@ -1029,6 +1039,9 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         }
     }
 
+    // 几何 / 拓扑数据集已写入 HDF5。
+    this->UpdateProgress(0.55);
+
     // ---- §5.2：三个计数组必须用**回读实际落盘维度**填充，不能用写前期望值 ----
     //
     // 理由（§5.2 / R12）：一旦写前计算与实际写出不一致（例如属性被静默截断），
@@ -1092,7 +1105,13 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         }
     }
 
+    // 逐个属性写数据集：属性多、分量大时这一段与几何数据集同量级，按个数分摊上报。
+    size_t stagedIndex = 0;
+    const double stagedCount = static_cast<double>(staged.empty() ? 1 : staged.size());
     for (const StagedAttribute& sa : staged) {
+        this->UpdateProgress(0.55 + 0.20 * (static_cast<double>(stagedIndex) / stagedCount));
+        ++stagedIndex;
+
         H5GroupHandle g(H5Gopen2(root.Get(), sa.groupName.c_str(), H5P_DEFAULT));
         if (!g.IsValid()) {
             ClearHdf5Errors();
@@ -1153,6 +1172,9 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             return false;
         }
     }
+
+    // 生成阶段到此结束；随后由基类把内存镜像落盘（SaveBufferDataToFile 按 8MB 分块上报）。
+    this->UpdateProgress(0.75);
 
     // ---- §5.1 步骤 9–10：flush + 取回 file image（必须在 H5Fclose 之前） ----
     if (memoryImage != nullptr) {
