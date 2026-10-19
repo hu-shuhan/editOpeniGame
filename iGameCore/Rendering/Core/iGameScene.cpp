@@ -478,6 +478,10 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
 void Scene::ResetCameraView() {
+    ResetCameraViewInternal(true);
+}
+
+void Scene::ResetCameraViewInternal(bool alignGround) {
     UpdateModelsBoundingSphere();
     igm::vec4 boundingSphere = GetRotationBoundingSphere();
 
@@ -486,6 +490,11 @@ void Scene::ResetCameraView() {
     m_Camera->SetPosition(boundingSphere.x, boundingSphere.y,
                           boundingSphere.z + 3.0f * boundingSphere.w);
     m_Camera->SetFocal(boundingSphere.xyz());
+#ifndef __EMSCRIPTEN__
+    if (alignGround) { AlignViewToGroundGrid(); }
+#else
+    (void)alignGround;
+#endif
     this->UpdateCameraClippingRange();
     UpdateAxisSize();
 }
@@ -504,6 +513,9 @@ void Scene::ResetCameraView(const BoundingBox& bbox) {
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(x, y, z + 3.0f * r);
     m_Camera->SetFocal(igm::vec3{x, y, z});
+#ifndef __EMSCRIPTEN__
+    AlignViewToGroundGrid();
+#endif
     this->UpdateCameraClippingRange();
     UpdateAxisSize();
 }
@@ -3413,7 +3425,7 @@ void Scene::RefreshDrawCullDataBuffer() {
 }
 
 void Scene::ResetCameraViewToPositiveX() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3430,7 +3442,7 @@ void Scene::ResetCameraViewToPositiveX() {
 }
 
 void Scene::ResetCameraViewToNegativeX() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3447,7 +3459,7 @@ void Scene::ResetCameraViewToNegativeX() {
 }
 
 void Scene::ResetCameraViewToPositiveY() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3463,7 +3475,7 @@ void Scene::ResetCameraViewToPositiveY() {
 }
 
 void Scene::ResetCameraViewToNegativeY() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3480,7 +3492,7 @@ void Scene::ResetCameraViewToNegativeY() {
 }
 
 void Scene::ResetCameraViewToPositiveZ() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3496,7 +3508,7 @@ void Scene::ResetCameraViewToPositiveZ() {
 }
 
 void Scene::ResetCameraViewToNegativeZ() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3510,7 +3522,7 @@ void Scene::ResetCameraViewToNegativeZ() {
 }
 
 void Scene::ResetCameraViewToIsometric() {
-    ResetCameraView();
+    ResetCameraViewInternal(false);
 
     igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -3768,17 +3780,42 @@ void Scene::DrawGroundGrid() {
     glDepthRange(0.0, 1.0);
 }
 
+void Scene::AlignViewToGroundGrid() {
+    igm::vec3 normal{0.0f, 0.0f, 0.0f};
+    normal[GroundGridNormalAxis(m_GroundGridPlane)] =
+            m_GroundGridReversed ? -1.0f : 1.0f;
+    const igm::vec3 currentUp =
+            (m_ModelRotate * igm::vec4{normal, 0.0f}).xyz().normalized();
+    const igm::vec3 displayUp{0.0f, 1.0f, 0.0f};
+    igm::vec3 axis = igm::cross(currentUp, displayUp);
+    const float sine = axis.length();
+    const float cosine = std::clamp(currentUp.dot(displayUp), -1.0f, 1.0f);
+    if (sine < 1e-7f && cosine > 0.0f) { return; }
+
+    // 反向共线时叉积为零，选择与 +Y 垂直的 X 轴翻转 180 度。
+    axis = sine < 1e-7f ? igm::vec3{1.0f, 0.0f, 0.0f} : axis / sine;
+    const auto rotation = igm::rotate(igm::mat4{1.0f},
+                                     std::atan2(sine, cosine), axis);
+    const auto center =
+            (m_ModelMatrix * igm::vec4{GetRotationBoundingSphere().xyz(), 1.0f}).xyz();
+    m_ModelMatrix = igm::translate(igm::mat4{1.0f}, center) * rotation *
+                    igm::translate(igm::mat4{1.0f}, -center) * m_ModelMatrix;
+    m_ModelRotate = rotation * m_ModelRotate;
+}
+
 void Scene::SetGroundGridPlane(GroundGridPlane plane) {
     if (plane != GroundGridPlane::XY && plane != GroundGridPlane::XZ &&
         plane != GroundGridPlane::YZ) { return; }
     if (m_GroundGridPlane == plane) { return; }
     m_GroundGridPlane = plane;
+    AlignViewToGroundGrid();
     RequestGroundGridFit();
 }
 
 void Scene::SetGroundGridReversed(bool reversed) {
     if (m_GroundGridReversed == reversed) { return; }
     m_GroundGridReversed = reversed;
+    AlignViewToGroundGrid();
     RequestGroundGridFit();
 }
 #endif
