@@ -20,6 +20,8 @@
 // 这两个类，无条件 include 会让 OFF 构建在编译期就失败。
 #if defined(IGV_ENABLE)
 #include "IGV/iGameIGVReader.h"
+#include "IGV/iGameIGVMetadataReader.h"
+#include "IGV/iGameIGVStats.h"
 #include "IGV/iGameIGVWriter.h"
 #endif
 #include "INP/iGameINPReader.h"
@@ -674,6 +676,19 @@ DataObject::Pointer FileIO::ReadIGVFromMemory(const void* data, size_t size) {
     return nullptr;
 #endif
 }
+#if defined(IGV_ENABLE)
+bool FileIO::ReadIGVMetadata(const std::string& file_name, igv::IGVMetadata& out, std::string* error) {
+    // §11.3：入口清零、出口不清 —— 调用方返回后可以直接读
+    // igv::IGVStats::h5dreadCount 断言"这次快路径没读任何 dataset 数据"。
+    igv::IGVStats::Reset();
+
+    const bool ok = IGVMetadataReader::ReadFromFile(file_name, out, error);
+    if (!ok) {
+        IGAME_CORE_ERROR("Read IGV metadata failed: {}", error != nullptr ? *error : std::string("unknown"));
+    }
+    return ok;
+}
+#endif
 
 
 bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObject) {

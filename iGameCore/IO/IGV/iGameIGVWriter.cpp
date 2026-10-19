@@ -95,6 +95,38 @@ bool MapArrayDType(IGenum arrayType, DType& out) {
     }
 }
 
+/// 数组类型 → 日志可读名。只用于"跳过属性"的提示，不参与任何映射决策。
+const char* ArrayTypeLabel(IGenum arrayType) {
+    switch (arrayType) {
+        case IG_FloatArray:            return "FloatArray(f32)";
+        case IG_DoubleArray:           return "DoubleArray(f64)";
+        case IG_IntArray:
+        case IG_INTARRAY:              return "IntArray(i32)";
+        case IG_UnsignedIntArray:      return "UnsignedIntArray(u32)";
+        case IG_CharArray:             return "CharArray";
+        case IG_UnsignedCharArray:     return "UnsignedCharArray(u8)";
+        case IG_ShortArray:            return "ShortArray";
+        case IG_UnsignedShortArray:    return "UnsignedShortArray";
+        case IG_LongLongArray:         return "LongLongArray";
+        case IG_UnsignedLongLongArray: return "UnsignedLongLongArray";
+        default:                       return "unknown array type";
+    }
+}
+
+/// §3.6 只给属性定义了 f32 / f64 / u8 三种 dtype，但来源数据里常带 int32 的单元类型码
+/// （典型：STAR-CCM+ 转换器产出的 `CellType`）。这类数组**不该一票否决整次导出** ——
+/// 否则"所有从 ccm 转来的模型都无法保存为 igv"。
+///
+/// 处置：跳过该属性并明确告警。跳过而非静默丢弃：P2 的「不静默丢数据」原则要求可追溯，
+/// 所以必须落一条 WARN，且告警里带属性名与真实数组类型，方便用户判断是否需要另存。
+/// 网格本身（点/拓扑/其它可写属性）照常写出。
+void WarnSkipUnsupportedAttribute(const std::string& name, IGenum arrayType) {
+    IGAME_CORE_WARN("[IGV] attribute '{}' is skipped: its array type is {}, but IGV attributes "
+                    "only support FloatArray(f32) / DoubleArray(f64) / UnsignedCharArray(u8). "
+                    "The mesh itself is written normally.",
+                    name, ArrayTypeLabel(arrayType));
+}
+
 /// 属性名是否是合法 HDF5 名（§5.1 步骤 1.8）。
 /// HDF5 名是**路径**，含 '/' 会破坏分组结构；空名与以 '.' 开头的名会被 HDF5 保留语义吞掉。
 bool IsValidHdf5Name(std::string_view name) {
@@ -482,9 +514,10 @@ bool IGVWriter::ValidateDataObject() {
 
             DType dt = DType::Unknown;
             if (!MapArrayDType(array->GetArrayType(), dt)) {
-    Fail("attribute '" + name + "' has an array type outside IGV support (only "
-                     "FloatArray(f32) / DoubleArray(f64) / UnsignedCharArray(u8))");
-                return false;
+                // 跳过而不是拒绝：IGV 的属性 dtype 只有 f32/f64/u8（§3.6），
+                // 而来源数据常带 int32 单元类型码。见 WarnSkipUnsupportedAttribute。
+                WarnSkipUnsupportedAttribute(name, array->GetArrayType());
+                continue;
             }
 
             if (MapAttributeType(attr.GetType()).empty()) {
@@ -869,8 +902,9 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             // ValidateDataObject() 已校验过以下三项，这里只是防御性重查
             // （BuildHdf5 也可能被 WriteToFilePathDirect 之外的路径直接调用）。
             if (!MapArrayDType(array->GetArrayType(), sa.dtype)) {
-    Fail("attribute '" + sa.name + "' has an unsupported array type");
-                return false;
+                // 与 ValidateDataObject() 保持同一处置：跳过 + 告警，不否决整次导出。
+                WarnSkipUnsupportedAttribute(sa.name, array->GetArrayType());
+                continue;
             }
             if (sa.components <= 0) {
     Fail("attribute '" + sa.name + "' component count is " + std::to_string(sa.components));

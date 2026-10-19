@@ -535,6 +535,23 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
 endif ()
 
 # ---------------------------------------------------------------------------
+# IGV P3 的验收程序（设计文档 §7 元数据快路径 / §9 P3 / kia/P3实施记录.md）
+#
+# 与上面两个 IGV 程序的差别：
+#   * 只走 FileIO::ReadIGVMetadata + FileIO::ReadFile 两条**公开路径**，自己**不**直接调
+#     HDF5 C API（"零解压"的计数断言读的是 iGameIGVStats.h 的原子计数器），
+#     因此不需要像 testIGVRoundTrip 那样显式 link HDF5::HDF5；
+#   * 仍需 IGV_ENABLE 才能看到 ReadIGVMetadata 的签名，故同样挂在模块门控内。
+# ---------------------------------------------------------------------------
+if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
+    igame_add_example(testIGVMetadata IO/TestIGVMetadata.cpp)
+    target_compile_definitions(testIGVMetadata PUBLIC IGV_ENABLE)
+    # 与上面两个程序同一套资源定位：注入源码目录，使测试不依赖"当前工作目录"。
+    target_compile_definitions(testIGVMetadata PRIVATE
+        IGAME_IGV_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+endif ()
+
+# ---------------------------------------------------------------------------
 # IGV P2 的验收程序（设计文档 §9 P2 / kia/P2实施记录.md）
 #
 # 与 testIGVRoundTrip 不同，本程序**不**链接 HDF5、只经 FileIO 分派，因此刻意

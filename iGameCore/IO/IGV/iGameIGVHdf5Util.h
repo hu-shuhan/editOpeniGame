@@ -37,37 +37,19 @@
 #include <vector>
 
 #include "iGameIGVFormat.h"
+#include "iGameIGVStats.h"
 
 IGAME_NAMESPACE_BEGIN
 
 namespace igv {
 
 // =============================================================================
-// 0. 计数器（把"零 H5Dread"这类设计约束变成可断言事实）
+// 0. 计数器
 // =============================================================================
+//
+// struct IGVStats 已抽到 iGameIGVStats.h（P3）：它不含 HDF5 类型，独立成文件后
+// 验收程序/FileIO 不必为了看计数而依赖 <hdf5.h>。这里只保留一句转发说明。
 
-/**
- * §11.3 要求的可注入计数器。
- *
- * `IGVReader` 与 `IGVMetadataReader` 各自在 `H5Dopen` / `H5Dread` 处递增。
- * P3 的 V3.2 断言 `ReadIGVMetadata` 期间 `h5dreadCount == 0 && datasetOpenCount == 0`
- * —— 若将来有人为了"方便"在快路径里读了一下 `Points`，测试会立刻红。
- */
-struct IGVStats {
-    static std::atomic<uint64_t> h5dreadCount;      ///< H5Dread 调用次数
-    static std::atomic<uint64_t> datasetOpenCount;  ///< H5Dopen 调用次数
-    static std::atomic<uint64_t> h5areadCount;      ///< H5Aread 调用次数
-
-    static void Reset() {
-        h5dreadCount.store(0, std::memory_order_relaxed);
-        datasetOpenCount.store(0, std::memory_order_relaxed);
-        h5areadCount.store(0, std::memory_order_relaxed);
-    }
-};
-
-inline std::atomic<uint64_t> IGVStats::h5dreadCount{0};
-inline std::atomic<uint64_t> IGVStats::datasetOpenCount{0};
-inline std::atomic<uint64_t> IGVStats::h5areadCount{0};
 
 // =============================================================================
 // 1. 错误处理
