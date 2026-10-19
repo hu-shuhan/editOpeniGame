@@ -4,6 +4,7 @@
 #include "Log/iGameLogger.h"
 #include <cmath>
 #include <mutex>
+#include <limits>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
 
@@ -31,8 +32,9 @@ struct VoxelGrid {
 
 // 从 partedMesh 的质心和 part_id 构建体素网格
 VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
-                          ArrayObject::Pointer partIdArray) {
-    const int M = static_cast<int>(partedMesh->GetNumberOfCells());
+                          ArrayObject::Pointer partIdArray, bool pointLabels) {
+    const int M = static_cast<int>(pointLabels ? partedMesh->GetNumberOfPoints()
+                                               : partedMesh->GetNumberOfCells());
 
     // 1. 并行收集 partedMesh 各 cell 的质心和 part_id
     //    使用 GetCellPointIds（只读指针版本）保证线程安全，避免 GetCell() 内部的共享缓存写入
@@ -48,14 +50,19 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
         BoundingBox localBbox;
         localBbox.reset();
         for (int i = s; i < e; i++) {
-            const igIndex* ptIds = nullptr;
-            int n = partedMesh->GetCellPointIds(i, ptIds);
             Vector3d c(0.0, 0.0, 0.0);
-            for (int pi = 0; pi < n; pi++) {
-                auto& p = partedMesh->GetPoint(ptIds[pi]);
-                c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
+            if (pointLabels) {
+                const auto& p = partedMesh->GetPoint(i);
+                c = Vector3d(p[0], p[1], p[2]);
+            } else {
+                const igIndex* ptIds = nullptr;
+                int n = partedMesh->GetCellPointIds(i, ptIds);
+                for (int pi = 0; pi < n; pi++) {
+                    const auto& p = partedMesh->GetPoint(ptIds[pi]);
+                    c[0] += p[0]; c[1] += p[1]; c[2] += p[2];
+                }
+                c[0] /= n; c[1] /= n; c[2] /= n;
             }
-            if (n > 0) { c[0] /= n; c[1] /= n; c[2] /= n; }
             pts->SetPoint(i, c);
             localBbox.add(c);
             seedPartIds[i] = static_cast<int>(partIdArray->GetElementValue(i, 0));
@@ -65,7 +72,7 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
     });
 
     // 2. 包围盒加 padding
-    double pad = bbox.diagVector().maxCoeff() * 0.01;
+    double pad = std::max(bbox.diagVector().maxCoeff() * 0.01, 1e-6);
     bbox.min -= pad;
     bbox.max += pad;
 
@@ -94,7 +101,7 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
     const int totalVoxels = nx * ny * nz;
     grid.data.assign(static_cast<size_t>(totalVoxels), 0);
 
-    std::vector<int> seedDist(static_cast<size_t>(totalVoxels), -1);  // 播种距离，-1 = 未播种
+    std::vector<double> seedDist(static_cast<size_t>(totalVoxels), -1.0);  // 播种距离，-1 = 未播种
     for (int i = 0; i < M; i++) {
         auto& p = pts->GetPoint(i);
         int ix = static_cast<int>((p[0] - grid.origin[0]) * grid.rcpDx);
@@ -110,7 +117,7 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
         double cz = grid.origin[2] + (iz + 0.5) * dz;
         double dd = (p[0] - cx) * (p[0] - cx) + (p[1] - cy) * (p[1] - cy) + (p[2] - cz) * (p[2] - cz);
         if (seedDist[idx] < 0 || dd < seedDist[idx]) {
-            seedDist[idx] = static_cast<int>(dd);
+            seedDist[idx] = dd;
             grid.data[idx] = seedPartIds[i];
         }
     }
@@ -151,15 +158,47 @@ VoxelGrid buildVoxelGrid(UnstructuredMesh::Pointer partedMesh,
 // ---------------------------------------------------------------------------
 // 公共辅助
 // ---------------------------------------------------------------------------
-ArrayObject::Pointer BlockMapping::GetPartId(UnstructuredMesh::Pointer partedMesh) {
+ArrayObject::Pointer BlockMapping::GetPartId(UnstructuredMesh::Pointer partedMesh, bool& pointLabels) {
+    if (!partedMesh || !partedMesh->GetAttributeSet()) return nullptr;
     auto attrs = partedMesh->GetAttributeSet()->GetAllAttributes();
-    ArrayObject::Pointer result;
-    for (int i = 0; i < attrs->Size(); i++) {
-        auto& attr = attrs->GetElement(i);
-        if (attr.pointer->GetName() != "part_id") continue;
-        result = attr.pointer;
+    // Prefer cell labels when both associations exist, preserving legacy behavior.
+    for (IGenum association : {IG_CELL, IG_POINT}) {
+        for (int i = 0; i < attrs->Size(); ++i) {
+            auto& attr = attrs->GetElement(i);
+            if (!attr.pointer || attr.pointer->GetName() != "part_id" ||
+                attr.attachmentType != association) continue;
+            auto count = association == IG_POINT ? partedMesh->GetNumberOfPoints()
+                                                 : partedMesh->GetNumberOfCells();
+            if (count == 0 || count > std::numeric_limits<int>::max() ||
+                attr.pointer->GetDimension() != 1 || attr.pointer->GetNumberOfElements() != count) continue;
+            bool valid = true;
+            for (IGsize j = 0; j < count; ++j) {
+                double value = attr.pointer->GetElementValue(j, 0);
+                if (!std::isfinite(value) || value != std::trunc(value) ||
+                    value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max()) {
+                    valid = false;
+                    break;
+                }
+                if (association == IG_CELL) {
+                    const igIndex* ids = nullptr;
+                    if (partedMesh->GetCellPointIds(j, ids) <= 0) { valid = false; break; }
+                }
+            }
+            if (!valid) continue;
+            for (IGsize j = 0; j < partedMesh->GetNumberOfPoints(); ++j) {
+                const auto& p = partedMesh->GetPoint(j);
+                if (!std::isfinite(p[0]) || !std::isfinite(p[1]) || !std::isfinite(p[2])) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) continue;
+            pointLabels = association == IG_POINT;
+            return attr.pointer;
+        }
     }
-    return result;
+    igError("BlockMapping: expected valid scalar point/cell 'part_id' labels matching the source mesh.");
+    return nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,8 +206,10 @@ ArrayObject::Pointer BlockMapping::GetPartId(UnstructuredMesh::Pointer partedMes
 // ---------------------------------------------------------------------------
 std::vector<int> BlockMapping::GetMappingBlockCells(SurfaceMesh::Pointer oriMesh,
                                                     UnstructuredMesh::Pointer partedMesh) {
-    auto partIdArray = GetPartId(partedMesh);
-    auto grid = buildVoxelGrid(partedMesh, partIdArray);
+    bool pointLabels = false;
+    auto partIdArray = GetPartId(partedMesh, pointLabels);
+    if (!oriMesh || !partIdArray) return {};
+    auto grid = buildVoxelGrid(partedMesh, partIdArray, pointLabels);
 
     auto oriCellNum = oriMesh->GetNumberOfFaces();
     std::vector<int> result(oriCellNum, 0);
@@ -191,11 +232,8 @@ std::vector<int> BlockMapping::GetMappingBlockCells(SurfaceMesh::Pointer oriMesh
 
 IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(SurfaceMesh::Pointer oriMesh,
                                                           UnstructuredMesh::Pointer partedMesh) {
-    if (!GetPartId(partedMesh)) {
-        igError("BlockMapping: partedMesh has no 'part_id' attribute.");
-        return nullptr;
-    }
     auto vec = GetMappingBlockCells(oriMesh, partedMesh);
+    if (vec.empty()) return nullptr;
     auto result = IntArray::New();
     result->SetDimension(1);
     result->Reserve(static_cast<IGsize>(vec.size()));
@@ -208,8 +246,10 @@ IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(SurfaceMesh::Pointer o
 // ---------------------------------------------------------------------------
 std::vector<int> BlockMapping::GetMappingBlockCells(UnstructuredMesh::Pointer oriMesh,
                                                     UnstructuredMesh::Pointer partedMesh) {
-    auto partIdArray = GetPartId(partedMesh);
-    auto grid = buildVoxelGrid(partedMesh, partIdArray);
+    bool pointLabels = false;
+    auto partIdArray = GetPartId(partedMesh, pointLabels);
+    if (!oriMesh || !partIdArray) return {};
+    auto grid = buildVoxelGrid(partedMesh, partIdArray, pointLabels);
 
     auto oriCellNum = oriMesh->GetNumberOfCells();
     std::vector<int> result(oriCellNum, 0);
@@ -232,11 +272,8 @@ std::vector<int> BlockMapping::GetMappingBlockCells(UnstructuredMesh::Pointer or
 
 IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(UnstructuredMesh::Pointer oriMesh,
                                                           UnstructuredMesh::Pointer partedMesh) {
-    if (!GetPartId(partedMesh)) {
-        igError("BlockMapping: partedMesh has no 'part_id' attribute.");
-        return nullptr;
-    }
     auto vec = GetMappingBlockCells(oriMesh, partedMesh);
+    if (vec.empty()) return nullptr;
     auto result = IntArray::New();
     result->SetDimension(1);
     result->Reserve(static_cast<IGsize>(vec.size()));
@@ -249,8 +286,10 @@ IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(UnstructuredMesh::Poin
 // ---------------------------------------------------------------------------
 std::vector<int> BlockMapping::GetMappingBlockCells(VolumeMesh::Pointer oriMesh,
                                                     UnstructuredMesh::Pointer partedMesh) {
-    auto partIdArray = GetPartId(partedMesh);
-    auto grid = buildVoxelGrid(partedMesh, partIdArray);
+    bool pointLabels = false;
+    auto partIdArray = GetPartId(partedMesh, pointLabels);
+    if (!oriMesh || !partIdArray) return {};
+    auto grid = buildVoxelGrid(partedMesh, partIdArray, pointLabels);
 
     auto oriCellNum = oriMesh->GetNumberOfVolumes();
     std::vector<int> result(oriCellNum, 0);
@@ -273,11 +312,8 @@ std::vector<int> BlockMapping::GetMappingBlockCells(VolumeMesh::Pointer oriMesh,
 
 IntArray::Pointer BlockMapping::GetMappingBlockCellsArray(VolumeMesh::Pointer oriMesh,
                                                           UnstructuredMesh::Pointer partedMesh) {
-    if (!GetPartId(partedMesh)) {
-        igError("BlockMapping: partedMesh has no 'part_id' attribute.");
-        return nullptr;
-    }
     auto vec = GetMappingBlockCells(oriMesh, partedMesh);
+    if (vec.empty()) return nullptr;
     auto result = IntArray::New();
     result->SetDimension(1);
     result->Reserve(static_cast<IGsize>(vec.size()));

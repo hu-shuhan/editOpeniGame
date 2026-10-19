@@ -18,6 +18,8 @@
 #include <QDialogButtonBox>
 #include <QLineEdit>
 #include <QIntValidator>
+#include <exception>
+#include <memory>
 
 using namespace iGame;
 
@@ -501,35 +503,44 @@ void igQtAttributeSelectWidget::onGenerateClicked() {
     setBusy(true);
     setStatus(QStringLiteral("正在生成报告（可能需要较长时间），请稍候..."));
 
-    m_workerThread = new QThread(this);
-    // 注意：这里不能把 this 作为 connect 的 context 传入 —— 那样 lambda 会被投递到主线程执行，
-    // Execute() 整个流程（含等待服务器）都会阻塞 UI。不带 context 时在 QThread 的 run() 线程内直接执行。
-    // lambda 按值捕获所有需要的输入；ui 用 QPointer 弱引用，窗口关闭后不再触碰 widget 成员。
-    QPointer<igQtAttributeSelectWidget> ui = this;
-    connect(m_workerThread, &QThread::started, [ui, input = m_dataObj, savePath = m_savePath,
+    // create() 的函数返回后线程即结束，不会像普通 QThread 一样继续运行事件循环。
+    // 仅在 finished 后恢复 UI，确保下一次请求不会被旧线程的 isRunning() 拦截。
+    struct ReportResult {
+        bool success = false;
+        QString message;
+    };
+    auto result = std::make_shared<ReportResult>();
+    m_workerThread = QThread::create([result, input = m_dataObj, savePath = m_savePath,
                                                  serverHost = m_serverHost, serverPort = m_serverPort,
                                                  fields = GetSelectedAttributes()]() {
-        bool ok = false;
-        QString errorMessage;
-        if (input) {
-            auto generator = MeshReportGenerator::New(savePath.toStdString(), serverHost.toStdString(),
-                                                      serverPort);
-            generator->SetInput(input);
-            generator->SetSimplificationRatio(0.2f);
-            generator->SetTimeout(15 * 60 * 1000);
-            generator->SetSpecifiedFields(fields);
-            ok = generator->Execute();
-            if (!ok) {
-                errorMessage = QString::fromStdString(generator->GetErrorMessage());
+        try {
+            if (input) {
+                auto generator = MeshReportGenerator::New(savePath.toStdString(), serverHost.toStdString(),
+                                                          serverPort);
+                generator->SetInput(input);
+                generator->SetSimplificationRatio(0.2f);
+                generator->SetTimeout(15 * 60 * 1000);
+                generator->SetSpecifiedFields(fields);
+                result->success = generator->Execute();
+                if (!result->success) {
+                    result->message = QString::fromStdString(generator->GetErrorMessage());
+                }
+            } else {
+                result->message = QStringLiteral("Input data object is null");
             }
-        } else {
-            errorMessage = QStringLiteral("Input data object is null");
+        } catch (const std::exception& e) {
+            result->success = false;
+            result->message = QString::fromUtf8(e.what());
+        } catch (...) {
+            result->success = false;
+            result->message = QStringLiteral("Unexpected error while generating report");
         }
-        // 窗口可能已关闭：回调前检查弱引用，避免访问已销毁的 widget
-        if (ui) {
-            QMetaObject::invokeMethod(ui, "onAsyncFinished", Qt::QueuedConnection,
-                                      Q_ARG(bool, ok), Q_ARG(QString, errorMessage));
-        }
+    });
+    m_workerThread->setParent(this);
+    // 以 this 为 context：回调在 UI 线程执行，窗口销毁后自动断开。
+    connect(m_workerThread, &QThread::finished, this, [this, result]() {
+        m_workerThread = nullptr;
+        onAsyncFinished(result->success, result->message);
     });
     connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
     m_workerThread->start();
