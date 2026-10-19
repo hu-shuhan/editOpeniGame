@@ -552,6 +552,29 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
 endif ()
 
 # ---------------------------------------------------------------------------
+# IGV P4 的验收程序（设计文档 §9 P4 / kia/P4实施记录.md）
+#
+# 与前面三个 IGV 程序的差别：本程序**直接**用 IGCWriter / IGCReader（而不只是
+# FileIO），因为「保真边界报告」需要两样 FileIO 给不了的东西：
+#   1. 编码器产生的重排映射（`SetEncodeTrace`）—— IGC 会做空间重排，没有映射就
+#      无法把解码结果对回源对象，"逐值 bitwise"只能靠"顺序恰好相同"这个偶然前提；
+#   2. 可调的编码档位（`SetCodecControlParams`）—— 有损档必须能真的打开量化，
+#      否则 P4-3「必须诚实地说出不能保真」没有可验证的载体。
+# 它仍然只是「链接 + 使用」，不改 iGameCore 的任何既有行为。
+#
+# 已确认过的编译成本：这个 TU 只**声明**用到 IGCWriter，真正昂贵的模板实例化
+# （MeshEncoderFilter<>::WriteNumpyExports + cnpy）发生在已编好的
+# iGameIGCWriter.cpp 里，因此本文件是秒级编译，不是 20 分钟的重型 TU。
+# ---------------------------------------------------------------------------
+if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
+    igame_add_example(testIGVIGCConvert IO/TestIGVIGCConvert.cpp)
+    target_compile_definitions(testIGVIGCConvert PUBLIC IGV_ENABLE)
+    # 与其它 IGV 验收程序同一套资源定位：注入源码目录，供它找 Examples/Models。
+    target_compile_definitions(testIGVIGCConvert PRIVATE
+        IGAME_IGV_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+endif ()
+
+# ---------------------------------------------------------------------------
 # IGV P2 的验收程序（设计文档 §9 P2 / kia/P2实施记录.md）
 #
 # 与 testIGVRoundTrip 不同，本程序**不**链接 HDF5、只经 FileIO 分派，因此刻意
