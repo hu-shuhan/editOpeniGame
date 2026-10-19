@@ -381,6 +381,7 @@ public:
 
 #ifndef __EMSCRIPTEN__
     enum class GroundGridPlane { XY, XZ, YZ };
+    // 切换平面或反转时同步摆正显示姿态，原始数据坐标保持不变。
     void SetGroundGridPlane(GroundGridPlane plane);
     GroundGridPlane GetGroundGridPlane() const { return m_GroundGridPlane; }
     void SetGroundGridReversed(bool reversed);
@@ -832,6 +833,9 @@ protected:
     Scene();
     ~Scene() override;
 
+    // 标准轴视图跳过底板校正，保留按原始数据轴观察的语义。
+    void ResetCameraViewInternal(bool alignGround);
+
     SmartPointer<GLShaderProgram>
     GetShader(ShaderType type); //获取指定类型的着色器程序
     void
@@ -842,6 +846,8 @@ protected:
     // 辅助对象，也不包含底板自身）。没有可见模型时返回空包围盒。
     // 仅在显式适配时读取，不跟踪交互预览的几何变化。
     BoundingBox ComputeGroundGridContentBox();
+    // 绕当前显示空间旋转中心，把底板正法线对齐到 +Y；同步坐标轴旋转。
+    void AlignViewToGroundGrid();
 #endif
     void InitOpenGL();
     void InitOIT();

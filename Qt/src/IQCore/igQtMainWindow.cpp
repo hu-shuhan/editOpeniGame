@@ -1483,6 +1483,13 @@ void igQtMainWindow::initAllComponents() {
     ui->action_ShowGroundGrid->setChecked(true);
 
 #ifndef __EMSCRIPTEN__
+    // Keep text aligned across checked, unchecked and non-checkable items.
+    // Ordinary items reserve the same 14px column as the check indicator.
+    ui->menu_GroundSettings->setStyleSheet(QStringLiteral(
+            "QMenu#menu_GroundSettings::indicator { width: 14px; height: 14px; }"
+            "QMenu#menu_GroundSettings::item { padding-left: 26px; }"
+            "QMenu#menu_GroundSettings::item:exclusive,"
+            "QMenu#menu_GroundSettings::item:non-exclusive { padding-left: 12px; }"));
     connect(ui->action_RefitGroundGrid, &QAction::triggered, this, []() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (scene) { scene->RequestGroundGridFit(); }
@@ -1498,6 +1505,7 @@ void igQtMainWindow::initAllComponents() {
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
             if (!scene) { return; }
             scene->SetGroundGridPlane(plane);
+            scene->ResetCameraView();
             scene->Update();
         });
     };
@@ -1509,6 +1517,7 @@ void igQtMainWindow::initAllComponents() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) { return; }
         scene->SetGroundGridReversed(reversed);
+        scene->ResetCameraView();
         scene->Update();
     });
     connect(ui->menu_GroundSettings, &QMenu::aboutToShow, this,
