@@ -21,8 +21,16 @@
  * igvDump <file.igv>              # 结构 + attribute（不打印数据）
  * igvDump <file.igv> --data       # 额外打印每个 dataset 的前 N 个值（默认 8）
  * igvDump <file.igv> --limit 32   # 改 --data 的条数
+ * igvDump <file.igv> --gui        # 打开 Information 面板（ParaView 风格，Qt 构建才有）
+ * igvDump --gui                   # 空面板：拖放 / 文件 -> 打开
  * igvDump --self-check            # 自检：造样例 -> dump -> 断言关键行存在
  * ```
+ *
+ * **两种模式的定位差异**（都保留，因为用户习惯不同）：
+ *   * 文本模式回答"文件里**有什么**结构"——给排查/比对用，可 diff、可贴进 issue；
+ *   * `--gui` 回答"这些数据**是什么**"——Name / Type / Components / Ranges / Bounds，
+ *     形状照 ParaView 的 Information 面板做（见 `Examples/IO/igvDump_GUI.md`）。
+ *   两者都只走元数据快路径，都不解压任何 dataset。
  *
  * 提交状态：待提交。可用
  * `git log --diff-filter=A --format="%h %s" -- Examples/IO/igvDump.cpp` 查询引入它的提交。
@@ -48,6 +56,20 @@
 #include <fstream>
 #include <string>
 #include <vector>
+
+#ifdef IGV_DUMP_QT
+#include "IGVDumpInfoWindow.h"
+#endif
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -610,7 +632,55 @@ int RunSelfCheck() {
 
 void PrintUsage(const char* exe) {
     std::printf("Usage: %s <file.igv> [--data] [--limit N]\n"
-                "       %s --self-check\n", exe, exe);
+                "       %s <file.igv> --gui   (Information panel; Qt builds only)\n"
+                "       %s --gui              (empty panel: drag & drop / File > Open)\n"
+                "       %s <file.igv> --text  (force the text mode, e.g. in scripts)\n"
+                "       %s --gui --screenshot PNG [file.igv]\n"
+                "                             (render one frame to PNG and exit; UI smoke test)\n"
+                "       %s --self-check\n"
+                "\n"
+                "Launched with no arguments (double-click) a Qt build opens the empty panel.\n"
+                "Launched by Explorer / 'Open with' (own console) with a file, it opens the\n"
+                "panel too; from a command prompt it prints the text dump as before.\n",
+                exe, exe, exe, exe, exe, exe);
+}
+
+#ifdef _WIN32
+/// 这个控制台是不是**本进程独占**的？
+///
+/// 判据 `GetConsoleProcessList()`：只有本进程时，说明这个控制台是
+/// 资源管理器双击 / 右键"打开方式"启动时系统为它单独创建的
+/// （从 `cmd`/PowerShell 启动时，列表里还有那个 shell）。
+///
+/// 这个判据有两个用途，都依赖同一个事实：
+///   1. GUI 模式下隐藏这个黑窗口（否则面板旁边会多一个空控制台）；
+///   2. **不带显式模式参数时自动选 GUI**：双击一个 `.igv` 时，用户要的是面板，
+///      不是把一个即将随进程结束而消失的文本 dump 打进黑窗口。
+bool ConsoleIsExclusivelyOurs() {
+    DWORD pids[4] = {0, 0, 0, 0};
+    return ::GetConsoleProcessList(pids, 4) == 1;
+}
+
+void HideConsoleIfOwnedByThisProcess() {
+    if (ConsoleIsExclusivelyOurs()) {
+        if (HWND window = ::GetConsoleWindow()) {
+            ::ShowWindow(window, SW_HIDE);
+        }
+    }
+}
+#else
+bool ConsoleIsExclusivelyOurs() { return false; }
+void HideConsoleIfOwnedByThisProcess() {}
+#endif
+
+int ReportGuiUnavailable() {
+    // 明确告诉用户"这个构建没有 GUI"，而不是静默退化成文本模式 ——
+    // 后者会让人以为 --gui 起作用了。
+    std::fprintf(stderr,
+                 "GUI mode is not available in this build: igvDump was configured without "
+                 "Qt Widgets (ENABLE_QT_MODULE / Qt5).\n"
+                 "The text mode still works; or rebuild with a Qt-enabled configuration.\n");
+    return 3;
 }
 
 }  // namespace
@@ -619,6 +689,16 @@ int main(int argc, char** argv) {
     H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr);  // 不让 HDF5 自己的 stderr 噪声混进来
 
     if (argc < 2) {
+#ifdef IGV_DUMP_QT
+        // **双击 exe**（没有参数）：开空面板，而不是打一行用法就退出。
+        // 但只在自己独占控制台时这么做（= 资源管理器启动）：从终端敲 `igvDump`
+        // 仍然打印用法（旧行为），这样脚本/CTest 里少写参数也不会弹出窗口把
+        // 进程挂住。用法文本始终可以用 `--help` 拿到。
+        if (ConsoleIsExclusivelyOurs()) {
+            HideConsoleIfOwnedByThisProcess();
+            return RunIGVDumpInfoWindow(std::string(), std::string());
+        }
+#endif
         PrintUsage(argv[0]);
         return 2;
     }
@@ -628,19 +708,66 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    // 参数解析：新旧写法都收（`igvDump --gui file.igv` 与 `igvDump file.igv --gui`）。
+    // 注意**文件仍是唯一的位置参数**，`--self-check` 只认 argv[1]（保持原有语义，
+    // 也让 CTest 的 `igvDump --self-check` 一字不改地继续工作）。
     DumpOptions options;
-    std::string path = argv[1];
-    for (int i = 2; i < argc; ++i) {
+    bool gui = false;
+    bool forceText = false;
+    bool limitGiven = false;
+    std::string path;
+    std::string screenshot;
+    for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
-        if (a == "--data") {
+        if (a == "--gui" || a == "-g") {
+            gui = true;
+        } else if (a == "--text" || a == "--console") {
+            // 显式要文本：给脚本/批处理用，压过"双击自动 GUI"的推断。
+            forceText = true;
+        } else if (a == "--screenshot" && i + 1 < argc) {
+            // UI 冒烟：渲染一帧后退出。
+            screenshot = argv[++i];
+            gui = true;
+        } else if (a == "--data") {
             options.withData = true;
         } else if (a == "--limit" && i + 1 < argc) {
             options.valueLimit = static_cast<size_t>(std::atoi(argv[++i]));
-        } else {
+            limitGiven = true;
+        } else if (!a.empty() && a.front() == '-') {
             std::fprintf(stderr, "unknown argument: %s\n", a.c_str());
             PrintUsage(argv[0]);
             return 2;
+        } else if (path.empty()) {
+            path = a;
+        } else {
+            std::fprintf(stderr, "unexpected second file argument: %s\n", a.c_str());
+            PrintUsage(argv[0]);
+            return 2;
         }
+    }
+
+    // 模式推断（只在**没有显式指定**时有意义）：
+    //   有文件 + 控制台是本进程独占（资源管理器双击 / 右键"打开方式"）
+    //   + 没有 --data/--limit（那些是文本模式的参数）→ 用面板。
+    // 从 cmd/PowerShell 启动时控制台不是独占的，因此旧脚本行为**一字不变**。
+    bool autoGui = false;
+    if (!gui && !forceText && !path.empty() && !options.withData && !limitGiven) {
+        autoGui = ConsoleIsExclusivelyOurs();
+    }
+
+    if (gui || autoGui) {
+        HideConsoleIfOwnedByThisProcess();
+#ifdef IGV_DUMP_QT
+        return RunIGVDumpInfoWindow(path, screenshot);
+#else
+        (void)screenshot;
+        return ReportGuiUnavailable();
+#endif
+    }
+
+    if (path.empty()) {
+        PrintUsage(argv[0]);
+        return 2;
     }
 
     std::string text;

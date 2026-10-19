@@ -639,6 +639,40 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
     igame_add_example(igvDump IO/igvDump.cpp)
     target_link_libraries(igvDump PUBLIC HDF5::HDF5)
     target_compile_definitions(igvDump PUBLIC IGV_ENABLE)
+
+    # ------------------------------------------------------------------
+    # igvDump 的 GUI 模式（`--gui`）：一个 ParaView Information 风格的面板。
+    #
+    # 为什么和命令行做在同一个 exe 里：两者看的是同一份元数据，只是"读结构"与
+    # "看数值"两种习惯；拆成两个 exe 会让 `--self-check`（CTest 用）与 GUI
+    # 各存一份入口。IGV_DUMP_QT 只影响 IGVDumpInfoWindow.cpp 是否参与编译，
+    # 命令行分支在两种构建里**完全一致**。
+    #
+    # 没有 Qt 的构建：`--gui` 打印一行明确说明并返回 3（不静默退化成文本模式）。
+    # ------------------------------------------------------------------
+    if (ENABLE_QT_MODULE)
+        find_package(Qt5 QUIET COMPONENTS Core Gui Widgets)
+        if (TARGET Qt5::Widgets)
+            target_sources(igvDump PRIVATE IO/IGVDumpInfoWindow.cpp)
+            target_link_libraries(igvDump PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+            target_compile_definitions(igvDump PRIVATE IGV_DUMP_QT)
+            target_include_directories(igvDump PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/IO")
+
+            # 让 exe 能在资源管理器里双击 / 右键直接启动：Qt 的 DLL 与
+            # platforms 插件必须和 exe 同目录，否则一启动就是 0xC0000135
+            # （窗口一闪而过，看起来像"程序什么都没干"）。
+            if (WIN32 AND DEPLOYQT_EXECUTABLE)
+                add_custom_command(TARGET igvDump POST_BUILD
+                        COMMAND "${DEPLOYQT_EXECUTABLE}"
+                        --no-translations --no-opengl-sw --no-compiler-runtime
+                        --no-system-d3d-compiler
+                        "$<TARGET_FILE:igvDump>"
+                        COMMENT "Deploying Qt runtime for igvDump (GUI mode)")
+            endif ()
+        else ()
+            message(STATUS "igvDump: Qt5 Widgets not found - GUI mode (--gui) will report as unavailable")
+        endif ()
+    endif ()
 endif ()
 
 # ---------------------------------------------------------------------------
