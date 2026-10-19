@@ -5,6 +5,14 @@
  * 对应 kia/igv分阶段实现方案.md §9「P5 — 鲁棒性与大文件回归」的 **P5-1…P5-11、P5-14**，
  * 以及 §6.3「读取侧鲁棒性」全表。记录见 kia/P5实施记录.md。
  *
+ * P6 阶段（「不静默丢数据」的拒绝路径）在本程序里新增了 **P6-1…P6-6** 一节，
+ * 记录见 kia/P6实施记录.md。新增该节的原因是一个具体的危险：含 `Block_*`（多块）或
+ * `Steps`（单文件内嵌时变）的文件，若读取器只把 `/IGV` 自己的几何当整体返回，
+ * **不会报错、却只给了用户一部分数据** —— 这种"部分成功"比拒绝危险得多。
+ * 同一条危险在写侧的表现是"五类网格之一自带子块，写出时只写父对象"。
+ * 该节因此同时钉住：读侧拒绝并返回 nullptr、`Block_` 前缀只认**组**不认**属性名**、
+ * 以及格式表里**没有**为 MultiBlock 预留 `Type` 取值。
+ *
  * ============================================================================
  * 为什么需要这个程序（要保证的正确行为）
  * ============================================================================
@@ -27,23 +35,28 @@
  *     约 1032:1），不引入拍脑袋的阈值。
  *   - **属性长度 ≠ 点数**：属性自己的 dataspace 自洽，跨对象的一致性原先只有写侧把关；
  *     §6.3 要求读侧也拒绝。
+ *   - **`PointData` 下名为 `Block_0` 的属性**（P6-3）：判块必须看"是不是组"，
+ *     不能只看名字前缀，否则一份合法文件会被误拒。
  *
  * 明确**不**声称覆盖：
  *   - >4 GiB 与亿级单元：属 P5-12 / P5-13，见 `TestIGVLargeFile.cpp`（单独门控）。
  *   - 真有内存破坏（ASAN）类问题：本机 MSVC Release 不带 ASAN。fuzz 只能证明"没崩"，
  *     不能证明"没有未定义行为"。
  *   - 并发读同一个文件：§15 R1 提到的 HDF5 线程安全属产品侧约束，不在此验证。
+ *   - 多块 / 时变的**读写实现**（P6 只做拒绝路径，见 kia/未来任务.md F5 / F6）。
  *
  * 提交状态：待提交。测试与实现同次首次提交，因此无法记录自引用提交号；
  * 可用 `git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVRobustness.cpp`
- * 查询引入本文件的提交。
+ * 查询引入本文件的提交（P6 一节的提交主题："add: igv p6 reject path"）。
  */
 
+#include <IGV/iGameIGVMetadataReader.h>
 #include <IGV/iGameIGVReader.h>
 #include <IGV/iGameIGVWriter.h>
 
 #include <iGameAttributeSet.h>
 #include <iGameCellType.h>
+#include <iGameDrawObject.h>
 #include <iGameFlatArray.h>
 #include <iGamePointSet.h>
 #include <iGameStructuredMesh.h>
@@ -886,14 +899,9 @@ int main(int argc, char** argv) {
          [](hid_t f, const fs::path&, std::string& e) { return DeleteObject(f, "/IGV/Version", e); },
          "Version"},
 
-        {"+ a Block_0 subgroup declares MultiBlock (P6: never drop blocks silently)", "px_block.igv",
-         [](hid_t f, const fs::path&, std::string& e) {
-             hid_t g = H5Gcreate2(f, "/IGV/Block_0", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-             if (g < 0) { e = "cannot create Block_0"; return false; }
-             H5Gclose(g);
-             return true;
-         },
-         "MultiBlock is not supported"},
+        // 注：`Block_*` 子组（多块）的拒绝用例从这张表挪到了下面的 P6 一节 ——
+        // 那一节用的是更强的夹具（**两个**块 + 一份完整的 `/IGV` 几何），
+        // 且同时断言"返回 nullptr"与"错误信息指明容器种类"，见 P6-1 / P6-2。
     };
 
     for (const MutationCase& c : cases) {
@@ -967,6 +975,252 @@ int main(int argc, char** argv) {
             Check(err.find("name") != std::string::npos,
                   nc.title + ": the error message mentions the attribute name (actual: " + err + ")");
         }
+    }
+
+    // -------------------------------------------------------------------------
+    Section("P6 MultiBlock / time-series containers: probe and reject, never drop data");
+    // -------------------------------------------------------------------------
+    //
+    // 背景（要保证的正确行为）：
+    //   §12.1 / §12.2 明确本期**不实现**多块与时变的读写，并把 P6 的唯一目的定为
+    //   「不静默丢数据」：含 `Block_*` 子组（多块）或 `Steps` 组（单文件内嵌时变）的文件
+    //   必须**拒绝**，绝不能把第一块 / 第 0 步当整体返回 —— 那种"部分成功"会让用户
+    //   以为数据完整，比报错危险得多（P6-1 / P6-2）。
+    //
+    //   P6-3 钉的是同一设计里相反的一面：`PointData` 下一个**名为 Block_0 的属性**
+    //   不是块。若实现用"名字里出现 Block_"来判块，这条会误伤合法文件。
+    //
+    //   构造这些夹具时**保留 `/IGV` 自己那份完整几何/拓扑**，这是最危险的形态：
+    //   只读 `/IGV` 也能"成功"拿到一份看起来完整的网格，于是"部分成功"很难被发现。
+    //
+    //   P6-6 是**写侧**的同一条危险：五类网格之一若自带子块，类型检查会放行，
+    //   而写出实现只遍历父对象自己的几何 —— 子块就被静默丢弃。
+    //
+    // 明确**不**声称覆盖：真正读写多块 / 时变（属 kia/未来任务.md F5 / F6，本期不做）。
+
+    // --- P6-1 + P6-2: 多块探测、显式拒绝、返回 nullptr ---
+    {
+        const fs::path p = WorkDir() / "p61_multiblock.igv";
+        std::string error;
+        bool ok = CopyFileTo(seed, p, error);
+        if (ok) {
+            RwFile f;
+            ok = f.Open(p, error);
+            if (ok) {
+                for (const char* b : {"Block_0", "Block_1"}) {
+                    hid_t g = H5Gcreate2(f.Raw(), (std::string("/IGV/") + b).c_str(), H5P_DEFAULT,
+                                         H5P_DEFAULT, H5P_DEFAULT);
+                    if (g < 0) {
+                        error = std::string("cannot create ") + b;
+                        ok = false;
+                        break;
+                    }
+                    H5Gclose(g);
+                }
+            }
+        }
+        if (!ok) {
+            Check(false, "P6-1: " + error);
+        } else {
+            Info("P6-1: fixture has /IGV/Block_0 and /IGV/Block_1 on top of a complete /IGV block");
+            ExpectReject("P6-1 a file with Block_* subgroups", p, "MultiBlock is not supported");
+
+            // P6-2：必须返回 nullptr。`TryRead()` 的 `parsed` 就是
+            // `ReadFile(...) != nullptr`，所以上面已断言了这一点；这里把
+            // 「不静默丢数据」写成显式判据并检查错误信息指明了是哪一种容器。
+            const ReadOutcome out = TryRead(p);
+            Check(!out.parsed,
+                  "P6-2 the reader returns nullptr - no partial object that silently drops the blocks");
+            Check(out.error.find("MultiBlock") != std::string::npos,
+                  "P6-2 the rejection names MultiBlock (actual: " + out.error + ")");
+
+            // P6-2b：**元数据快路径**也必须拒绝。理由不是"读不了"（它本来就只读 attribute），
+            // 而是"别让文件浏览器列出一份看起来正常的清单、点开才发现打不开"。
+            igv::IGVMetadata meta;
+            std::string metaError;
+            const bool metaOk = IGVMetadataReader::ReadFromFile(p.string(), meta, &metaError);
+            Check(!metaOk, "P6-2b the metadata fast path rejects the block file too (no misleading listing)");
+            Check(metaError.find("MultiBlock") != std::string::npos,
+                  "P6-2b the metadata rejection names MultiBlock (actual: " + metaError + ")");
+        }
+    }
+
+    // --- P6-3: PointData 下名为 Block_0 的**属性**不能被误判为块 ---
+    {
+        const fs::path p = WorkDir() / "p63_attr_named_block.igv";
+        std::string error;
+        bool ok = CopyFileTo(seed, p, error);
+        if (ok) {
+            RwFile f;
+            ok = f.Open(p, error);
+            if (ok) {
+                // 硬链接把 f_scalar 挂到同一组下的名字 Block_0：attribute
+                // （AttributeType / attachment / range）与数据一并过来，是一份**完全合法**的属性。
+                if (H5Lcreate_hard(f.Raw(), "/IGV/PointData/f_scalar", f.Raw(),
+                                   "/IGV/PointData/Block_0", H5P_DEFAULT, H5P_DEFAULT) < 0) {
+                    error = "cannot hard-link f_scalar to Block_0";
+                    ok = false;
+                }
+            }
+        }
+        if (!ok) {
+            Check(false, "P6-3: " + error);
+        } else {
+            IGVReader::Pointer reader = IGVReader::New();
+            DataObject::Pointer obj = reader->ReadFile(p.string());
+            Check(obj != nullptr,
+                  "P6-3 an attribute named Block_0 does not trip the block detector (file is accepted)");
+            if (!obj) {
+                Info("P6-3: rejected with: " + reader->GetLastError());
+            } else {
+                const igv::IGVMetadata& meta = reader->GetParsedMetadata();
+                Check(meta.pointCount == 18 && meta.cellCount == 4,
+                      "P6-3 the mesh itself is still the seed (18 points / 4 cells), actual " +
+                          Num(meta.pointCount) + " / " + Num(meta.cellCount));
+
+                AttributeSet* set = obj->GetAttributeSet();
+                AttributeSet::Attribute& block = set->GetAttribute(std::string("Block_0"), IG_SCALAR);
+                Check(!block.IsNone(), "P6-3 the attribute 'Block_0' exists in the read-back object");
+                if (!block.IsNone()) {
+                    auto arr = DynamicCast<FloatArray>(block.GetPointer());
+                    Check(arr != nullptr && arr->GetNumberOfValues() == 18,
+                          "P6-3 'Block_0' is a float array of 18 values (name and value both preserved)");
+                    bool same = (arr != nullptr && arr->GetNumberOfValues() == 18);
+                    if (same) {
+                        for (IGsize i = 0; i < 18; ++i) {
+                            // 种子里 f_scalar 的第 i 个值是 i * 0.5f（精确可表示）
+                            if (arr->RawPointer()[i] != static_cast<float>(i) * 0.5f) { same = false; }
+                        }
+                    }
+                    Check(same, "P6-3 'Block_0' keeps the same values as f_scalar (bit-identical)");
+                }
+            }
+        }
+    }
+
+    // --- P6-3b: /IGV/Steps（单文件内嵌时变）同样必须拒绝 ---
+    {
+        const fs::path p = WorkDir() / "p63b_steps.igv";
+        std::string error;
+        bool ok = CopyFileTo(seed, p, error);
+        if (ok) {
+            RwFile f;
+            ok = f.Open(p, error);
+            if (ok) {
+                hid_t g = H5Gcreate2(f.Raw(), "/IGV/Steps", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+                if (g < 0) {
+                    error = "cannot create /IGV/Steps";
+                    ok = false;
+                } else {
+                    H5Gclose(g);
+                }
+            }
+        }
+        if (!ok) {
+            Check(false, "P6-3b: " + error);
+        } else {
+            ExpectReject("P6-3b a file with a Steps group (single-file time series)", p,
+                         "time series is not supported");
+
+            // 元数据快路径同样拒绝（与 P6-2b 同理，见 §12.1.3）。
+            igv::IGVMetadata meta;
+            std::string metaError;
+            const bool metaOk = IGVMetadataReader::ReadFromFile(p.string(), meta, &metaError);
+            Check(!metaOk, "P6-3c the metadata fast path rejects the Steps file too");
+            Check(metaError.find("time series") != std::string::npos,
+                  "P6-3c the metadata rejection names the time series (actual: " + metaError + ")");
+        }
+    }
+
+    // --- P6-4: 单块文件不受影响（拒绝分支不误伤正常文件）---
+    {
+        IGVReader::Pointer reader = IGVReader::New();
+        DataObject::Pointer obj = reader->ReadFile(seed.string());
+        const igv::IGVMetadata& meta = reader->GetParsedMetadata();
+        Check(obj != nullptr && meta.pointCount == 18 && meta.cellCount == 4,
+              "P6-4 a normal single-block file is unaffected (18 points / 4 cells read back)");
+
+        IGVReader::Pointer structured = IGVReader::New();
+        DataObject::Pointer sobj = structured->ReadFile(structuredSeed.string());
+        const igv::IGVMetadata& smeta = structured->GetParsedMetadata();
+        Check(sobj != nullptr && smeta.pointCount == 36 && smeta.hasDimensions,
+              "P6-4 the structured single-block seed is unaffected too (36 points + Dimensions)");
+    }
+
+    // --- P6-5: 格式表里不存在 MultiBlock 的 Type 取值（§1.4 原则 1）---
+    {
+        using namespace iGame::igv;
+        Check(!IsSupportedTypeToken("MultiBlock") && !IsSupportedTypeToken("MultiBlockDataSet"),
+              "P6-5 no MultiBlock Type token exists in the frozen format table (no schema reserved)");
+        Check(IsSupportedTypeToken("UnstructuredGrid") && IsSupportedTypeToken("PolyData") &&
+                  IsSupportedTypeToken("StructuredGrid"),
+              "P6-5 the three real Type tokens are still the only supported ones");
+        Check(ClassifyUnsupportedContainer("Block_7") == UnsupportedContainer::MultiBlock,
+              "P6-5 'Block_7' is classified as a MultiBlock container");
+        Check(ClassifyUnsupportedContainer("Steps") == UnsupportedContainer::TimeSeries,
+              "P6-5 'Steps' is classified as a time-series container");
+        Check(ClassifyUnsupportedContainer("PointData") == UnsupportedContainer::None &&
+                  ClassifyUnsupportedContainer("CellData") == UnsupportedContainer::None &&
+                  ClassifyUnsupportedContainer("FieldData") == UnsupportedContainer::None,
+              "P6-5 the three attribute groups are NOT classified as blocks");
+        Check(!IsBlockGroupName("Block_") && IsBlockGroupName("Block_0"),
+              "P6-5 a bare 'Block_' prefix is not a block name");
+
+        // 反向钉住：把根组 Type 改成 "MultiBlock" 必须被当作**未知 Type** 拒绝，
+        // 而不是被"识别"成某种已支持的类型。
+        const fs::path p = WorkDir() / "p65_type_multiblock.igv";
+        std::string error;
+        bool ok = CopyFileTo(seed, p, error);
+        if (ok) {
+            RwFile f;
+            ok = f.Open(p, error);
+            if (ok) {
+                TypedHandle root(H5Gopen2(f.Raw(), "/IGV", H5P_DEFAULT), Obj::Group);
+                if (!root.Ok()) {
+                    error = "cannot open /IGV";
+                    ok = false;
+                } else {
+                    ok = ReplaceAsciiAttribute(root.Get(), "Type", "MultiBlock", error);
+                }
+            }
+        }
+        if (!ok) {
+            Check(false, "P6-5: " + error);
+        } else {
+            ExpectReject("P6-5 a file whose Type says MultiBlock", p, "unknown Type value");
+        }
+    }
+
+    // --- P6-6（写侧）: 带子块的对象绝不能被"写一部分" ---
+    {
+        // (a) 真正的危险窗口：**五类网格之一自带子块**。类型检查会放行，
+        //     若写侧不专门拦，写出实现只遍历父对象自己的几何 → 子块静默丢失。
+        DataObject::Pointer parent = MakeSeedMesh();
+        parent->AddSubDataObject(MakeSeedMesh());
+        IGVWriter::Pointer w1 = IGVWriter::New();
+        const fs::path outA = WorkDir() / "p66_mesh_with_block.igv";
+        const bool wroteA = w1->WriteToFile(parent, outA.string());
+        Check(!wroteA, "P6-6a a mesh carrying sub-blocks is rejected (its blocks must not be dropped silently)");
+        Check(w1->GetLastError().find("MultiBlock is not supported") != std::string::npos,
+              "P6-6a the write rejection names MultiBlock (actual: " + w1->GetLastError() + ")");
+
+        // (b) 真实的多块父对象形态（DrawObject + 子对象，CGNS 多 zone / VTM / PVD / IGCM）：
+        //     原先只报"unsupported data object type"，看不出真实原因是多块。
+        DrawObject::Pointer root = DrawObject::New();
+        root->AddSubDataObject(MakeSeedMesh());
+        IGVWriter::Pointer w2 = IGVWriter::New();
+        const fs::path outB = WorkDir() / "p66_drawobject_blocks.igv";
+        const bool wroteB = w2->WriteToFile(root, outB.string());
+        Check(!wroteB, "P6-6b a DrawObject carrying blocks is rejected");
+        Check(w2->GetLastError().find("sub-block") != std::string::npos,
+              "P6-6b the rejection reports how many blocks would be dropped (actual: " +
+                  w2->GetLastError() + ")");
+
+        // (c) 单块对象仍然写得出来（拒绝分支不误伤正常写出）
+        IGVWriter::Pointer w3 = IGVWriter::New();
+        const fs::path outC = WorkDir() / "p66_single_block_ok.igv";
+        Check(w3->WriteToFile(MakeSeedMesh(), outC.string()),
+              "P6-6c a single-block object is still written normally");
     }
 
     // -------------------------------------------------------------------------

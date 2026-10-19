@@ -475,7 +475,16 @@ bool IGVReader::Parsing() {
     }
     this->UpdateProgress(0.10);
 
-    // ---- 步骤 3b：多块探测与显式拒绝（P6 / §12.2，"不静默丢数据"）----
+    // ---- 步骤 3b：多块 / 时变探测与显式拒绝（P6 / §12.1 / §12.2）----
+    //
+    // 本阶段唯一的目的是**不静默丢数据**：
+    //   * 含 `Block_*` 的文件是多块文件 —— 若把 `/IGV` 自己的几何当整体返回，
+    //     用户会以为拿到了全部块，而实际只拿到"父块的壳"；
+    //   * 含 `Steps` 的文件是单文件内嵌时变 —— 同样存在"只返回第 0 步"的风险。
+    // 两者都必须在**读任何数据之前**拒绝，且错误信息要指明是哪一种（P6-1 / P6-3b）。
+    //
+    // 刻意**不**对"未知组"一概拒绝：§10.3 要求 minor 更高的文件被接受
+    // （未知 attribute / dataset 跳过），所以只拒绝这两类**已被规范命名**的容器。
     {
         std::vector<std::string> groups;
         if (!ListGroupMembers(root.Get(), &groups, nullptr)) {
@@ -483,14 +492,24 @@ bool IGVReader::Parsing() {
             return false;
         }
         for (const std::string& g : groups) {
-            if (IsBlockGroupName(g)) {
-                // 绝不允许把第一块当整体返回 —— 那种"部分成功"会让用户以为数据完整，
-                // 比报错危险得多（§12.2）。
-    Fail("found block subgroup '" + g +
-                     "': MultiBlock is not supported in this release"
-                     " (design doc section 12.2 / P6)."
-                     " Reading is rejected so that the remaining blocks are not dropped silently");
-                return false;
+            switch (ClassifyUnsupportedContainer(g)) {
+                case UnsupportedContainer::MultiBlock:
+                    // 绝不允许把第一块当整体返回 —— 那种"部分成功"会让用户以为数据完整，
+                    // 比报错危险得多（§12.2）。
+     Fail("found block subgroup '" + g +
+                         "': MultiBlock is not supported in this release"
+                         " (design doc section 12.2 / P6)."
+                         " Reading is rejected so that the remaining blocks are not dropped silently");
+                    return false;
+                case UnsupportedContainer::TimeSeries:
+     Fail("found time-series group '" + g +
+                         "': a single-file time series is not supported in this release"
+                         " (design doc section 12.1 / P6)."
+                         " Reading is rejected so that the other time steps are not dropped silently");
+                    return false;
+                case UnsupportedContainer::None:
+                default:
+                    break;
             }
         }
     }

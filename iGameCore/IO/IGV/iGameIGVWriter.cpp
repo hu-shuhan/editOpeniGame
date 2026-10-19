@@ -422,6 +422,28 @@ bool IGVWriter::ValidateDataObject() {
         return false;
     }
 
+    // 1.1b 多块容器：**绝不**只写父对象而把子块丢掉（P6「不静默丢数据」）。
+    //
+    // 为什么这条必须在写盘之前、且在类型判定之前：
+    //   1. iGame 的"多块"是 `DataObject` + `SubDataObjectsHelper` 树
+    //      （CGNS 多 zone / VTM / PVD / IGCM，见 §12.2 的现状表），父对象通常是
+    //      `DrawObject`，其 `GetDataObjectType()` 不属五类网格 —— 1.2 会拒绝它，
+    //      但报出的是"unsupported data object type 8"，用户看不出真正的原因是
+    //      "这是多块文件，IGV 本期不写多块"；
+    //   2. 更危险的是**五类网格之一自带子块**的情形：1.2 会放行，
+    //      而写出实现只遍历父对象自己的几何/拓扑，子块就被**静默丢弃**。
+    //      这与 §12.2「绝不允许把第一块当整体返回」是同一个危险，只是方向相反。
+    //
+    // 处置与读侧一致：拒绝 + 说清"是 2 个块、本期不支持"，而不是猜着写一部分。
+    if (m_DataObject->HasSubDataObject()) {
+        const int blocks = m_DataObject->GetNumberOfSubDataObjects();
+        Fail("the data object holds " + std::to_string(blocks) +
+             " sub-block(s): MultiBlock is not supported in this release"
+             " (design doc section 12.2 / P6)."
+             " Writing is rejected so that the sub-blocks are not dropped silently");
+        return false;
+    }
+
     // 1.2 必须是 IGV 支持的五类网格之一
     std::string_view typeToken;
     std::string_view igvDataTypeToken;

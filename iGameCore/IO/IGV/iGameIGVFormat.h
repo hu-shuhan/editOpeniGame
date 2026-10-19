@@ -56,8 +56,17 @@ inline constexpr std::string_view kGroupCellData = "CellData";
 inline constexpr std::string_view kGroupFieldData = "FieldData";
 
 /// 多块子组名前缀。**仅用于"识别出这不是单块文件"**，不作为类型取值预留
-/// （§1.4 原则 1：不为未实现的能力预留）。见 §12.2。
+/// （§1.4 原则 1：不为未实现的能力预留）。见 §12.2 与 P6。
 inline constexpr std::string_view kBlockGroupPrefix = "Block_";
+
+/// 时变序列的容器组名（`Steps`，VTKHDF 的范式，见 §12.1.1）。
+///
+/// **这同样只是一条"识别用"的字符串，不是为时变预留 schema**（§1.4 原则 1）：
+/// IGV 本期既不写也不读该组，也没有任何"Steps 的字段定义"。
+/// 它存在的唯一理由与 `kBlockGroupPrefix` 相同 —— P6 的目标是**不静默丢数据**：
+/// 一个带 `Steps` 组的文件含多个时间步，若我们只把第 0 步当整体返回，
+/// 用户会以为拿到了全部数据。因此宁可在读取入口就拒绝并说清原因。
+inline constexpr std::string_view kTimeSeriesGroup = "Steps";
 
 // =============================================================================
 // 3. 根组 attribute 名
@@ -272,6 +281,29 @@ enum class DType {
 [[nodiscard]] inline constexpr bool IsBlockGroupName(std::string_view name) noexcept {
     return name.size() > kBlockGroupPrefix.size() &&
            name.compare(0, kBlockGroupPrefix.size(), kBlockGroupPrefix) == 0;
+}
+
+/// `/IGV` 下"携带数据、但本期不实现"的容器的分类结果（P6，§1.7）。
+///
+/// 为什么不直接返回 bool：`Block_*` 与时变是**两件不同的事**，
+/// 报错必须说清是哪一件（用户据此才知道该换哪种导出方式）。见 P6-1 / P6-3b。
+enum class UnsupportedContainer {
+    None = 0,     ///< 不是已知的未实现容器（含三个属性组、未知的普通组）
+    MultiBlock,   ///< `Block_0` / `Block_1` … —— 多块容器（§12.2）
+    TimeSeries,   ///< `Steps` —— 单文件内嵌时变（§12.1.1）
+};
+
+/// 按组名判别它是不是"本实现明确不支持、必须拒绝"的数据容器。
+///
+/// 刻意**只**认这两个已知名字，而不是"凡未知组皆拒绝"：
+/// §10.3 规定 minor 更高的文件要**接受**（未知 attribute / dataset 跳过），
+/// 所以读侧不能对未知组一概拒绝；这里只对"已经被规范命名、且确实携带整块数据"
+/// 的两个容器做拒绝，从而在不破坏前向兼容的前提下消除静默丢数据。
+[[nodiscard]] inline constexpr UnsupportedContainer ClassifyUnsupportedContainer(
+        std::string_view name) noexcept {
+    if (IsBlockGroupName(name)) { return UnsupportedContainer::MultiBlock; }
+    if (name == kTimeSeriesGroup) { return UnsupportedContainer::TimeSeries; }
+    return UnsupportedContainer::None;
 }
 
 /// attachment 取值是否合法。

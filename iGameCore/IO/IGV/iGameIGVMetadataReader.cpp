@@ -54,6 +54,61 @@ bool ListDatasets(hid_t group, std::vector<std::string>& out) {
     return true;
 }
 
+/// H5Literate 回调：只收集 **group** 名（与 CollectDatasetNames 对称）。
+///
+/// 用途只有一个：P6 的"未实现容器"探测（`Block_*` / `Steps`，见 §12.1.3 / §12.2）。
+/// 同样只读对象头，**不触碰任何 dataset 数据**，因此 `h5dreadCount` 不变。
+herr_t CollectGroupNames(hid_t group, const char* name, const H5L_info_t* /*info*/, void* opData) {
+    auto* out = static_cast<std::vector<std::string>*>(opData);
+    if (out == nullptr || name == nullptr) { return 0; }
+    H5O_info2_t info{};
+    if (H5Oget_info_by_name3(group, name, &info, H5O_INFO_BASIC, H5P_DEFAULT) < 0) {
+        ClearHdf5Errors();
+        return 0;
+    }
+    if (info.type == H5O_TYPE_GROUP) { out->emplace_back(name); }
+    return 0;
+}
+
+bool ListGroups(hid_t group, std::vector<std::string>& out) {
+    out.clear();
+    if (H5Literate(group, H5_INDEX_NAME, H5_ITER_NATIVE, nullptr, CollectGroupNames, &out) < 0) {
+        ClearHdf5Errors();
+        return false;
+    }
+    return true;
+}
+
+/// P6：根组下若存在"本期明确不实现"的数据容器（多块 / 单文件内嵌时变）→ 拒绝。
+///
+/// **快路径也要拒绝，理由不是"读不了"，而是"别让调用方以为这个文件能打开"**：
+/// 文件浏览器用本函数填列表，若它给出一份看起来正常的包围盒与属性清单，
+/// 用户点开时才会撞上 `IGVReader` 的拒绝 —— 那是最差的时机。
+/// 与其在 UI 上制造"能列出但打不开"的文件，不如在列清单这一步就说清原因。
+/// 见 §12.1.3 / §12.2 与 P6-1 / P6-3b。
+bool RejectUnsupportedContainer(hid_t root, std::string* error) {
+    std::vector<std::string> groups;
+    if (!ListGroups(root, groups)) {
+        return Fail(error, "cannot enumerate the subgroups of /IGV");
+    }
+    for (const std::string& g : groups) {
+        switch (ClassifyUnsupportedContainer(g)) {
+            case UnsupportedContainer::MultiBlock:
+                return Fail(error, "/IGV contains the block subgroup '" + g +
+                                       "': MultiBlock is not supported in this release"
+                                       " (design doc section 12.2 / P6)");
+            case UnsupportedContainer::TimeSeries:
+                return Fail(error, "/IGV contains the time-series group '" + g +
+                                       "': a single-file time series is not supported in this release"
+                                       " (design doc section 12.1 / P6)");
+            case UnsupportedContainer::None:
+            default:
+                break;
+        }
+    }
+    return true;
+}
+
 /// attribute 是否存在（用 H5Aexists，不打开）。
 bool AttributeExists(hid_t loc, std::string_view name) {
     return H5Aexists(loc, std::string(name).c_str()) > 0;
@@ -153,6 +208,11 @@ int ValueSizeOf(DType t) {
 
 /// 根组 attribute + Version + 计数（§3.1 / §3.4 / §3.10）。
 bool ParseRoot(const H5GroupHandle& root, IGVMetadata& out, std::string* error) {
+    // 第 0 步：未实现的数据容器（多块 / 单文件内嵌时变）直接拒绝（P6）。
+    // 放在最前：这两个容器一旦存在，根组里那份"父块"的 metadata 就**不代表文件的内容**，
+    // 后面读出什么都会误导调用方。
+    if (!RejectUnsupportedContainer(root.Get(), error)) { return false; }
+
     if (!RequireAscii(root.Get(), kAttrType, out.type, "/IGV", error)) { return false; }
     if (!RequireAscii(root.Get(), kAttrIGVDataType, out.igvDataType, "/IGV", error)) { return false; }
 
