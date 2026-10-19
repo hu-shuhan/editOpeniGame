@@ -103,7 +103,13 @@ public:
 	int ReadCellsWithCellSizeType(int CellNum,int size, ArrayObject::Pointer& CellsId, ArrayObject::Pointer& CellsConnect);
 
 
-	bool ProcessMetaData();
+	/**
+	 * 解析数组/段落后的 metadata 块。
+	 * @param componentCount 上一个数组的分量数：VTK 5.1 的 COMPONENT_NAMES
+	 *        格式按它决定要读几行；<=0 时按空行结束（旧格式 INFORMATION
+	 *        自带计数，不受影响）。
+	 */
+	bool ProcessMetaData(int componentCount = -1);
 
 	bool ReadUnstructuredGrid();
 	bool ReadSurfaceMesh();

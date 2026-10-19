@@ -137,6 +137,9 @@ inline int mAtoi(const char* str) {
         s++;
     } else if (*str == '+')
         s++;
+    // 非数字开头：以前这里会越界访问 morn_atoi（s[0]-'0' 可能大于 9），
+    // 既是未定义行为，也会让解析位置带偏（表现为读到 "ouble" 这种残缺 token）
+    if (s[0] < '0' || s[0] > '9') { return 0; }
     int data = morn_atoi[0][s[0] - '0'];
     if ((s[1] < '0') || (s[1] > '9')) {
         data = data / 100000000;
@@ -194,6 +197,11 @@ inline const char* mAtoi(const char* str, int& val) {
         s++;
     } else if (*str == '+')
         s++;
+    // 同上：非数字开头直接返回 0，且不推进指针，由调用方决定怎么跳过
+    if (s[0] < '0' || s[0] > '9') {
+        val = 0;
+        return str;
+    }
     int data = morn_atoi[0][s[0] - '0'];
     if ((s[1] < '0') || (s[1] > '9')) {
         data = data / 100000000;
