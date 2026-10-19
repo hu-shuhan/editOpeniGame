@@ -131,6 +131,14 @@ private:
     /// 读几何/拓扑 dataset 并做 §6.3 的全部交叉校验（§6.1 步骤 8）。
     bool ParseGeometryAndTopology(int64_t root);
 
+    /// 属性的**元素数**必须与它依附的对象数量一致（§6.3 / P5-5）。
+    ///
+    /// 必须在 `ParseGeometryAndTopology()` **之后**调用 —— pointCount / cellCount
+    /// 是那一步才确定的。属性自己的 dataspace 只能保证"内部自洽"，
+    /// 「point 属性的长度等于点数」这条**跨对象**约束原先只有写侧在把关；
+    /// P5 把它补到读侧（§6.3 明确要求读侧拒绝）。
+    bool ValidateAttributeLengths();
+
     /// 把在 Parsing() 里暂存的原始数组交给解码适配器，重建出 DataObject（§6.2）。
     bool RebuildFromParsed();
 

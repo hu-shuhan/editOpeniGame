@@ -365,9 +365,24 @@ function(igame_register_example_test EXAMPLE_TARGET)
             "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
             "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
-            "${EXAMPLE_TARGET}" STREQUAL "probeIGVTopologyLayers" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testIGVRoundTrip" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testIGVFileIO" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testIGVIGCConvert" OR
+            "${EXAMPLE_TARGET}" STREQUAL "testIGVLargeFile" OR
             "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 180 -RequireExit)
+            set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
+        elseif ("${EXAMPLE_TARGET}" STREQUAL "igvDump")
+            # igvDump 是工具：不带参数时打印用法并返回 2，所以 CTest 走它自己的自检模式。
+            list(APPEND _TEST_COMMAND -TimeoutSeconds 120 -RequireExit -Arguments "--self-check")
+            set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
+        elseif ("${EXAMPLE_TARGET}" STREQUAL "testIGVRobustness")
+            # 这个目标要跑 1000 次变异 fuzz（每次一遍 HDF5 打开 + 解析）。
+            # 实测：直接运行约 22 s；经 run_smoke_test.ps1（Start-Process，输出到隐藏控制台）
+            # 在磁盘忙时可到约 104 s —— 控制台写入与磁盘 I/O 都是同步的。CI 机器更慢，
+            # 所以进程级超时给到 600 s（下面的 TIMEOUT 也同步放大）。
+            # 注意：它**不能**放进上面那个 OR 列表 —— 那里统一是 180 s。
+            list(APPEND _TEST_COMMAND -TimeoutSeconds 600 -RequireExit)
             set(_TEST_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>")
         elseif ("${EXAMPLE_TARGET}" STREQUAL "testLosslessEncode")
             list(APPEND _TEST_COMMAND -TimeoutSeconds 120
@@ -384,6 +399,10 @@ function(igame_register_example_test EXAMPLE_TARGET)
             WORKING_DIRECTORY "${_TEST_WORKING_DIRECTORY}"
         )
         set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 200)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testIGVRobustness")
+            # 1000 次变异 fuzz：见上面 Windows 分支里对 600 s 的说明。
+            set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 600)
+        endif ()
         if ("${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             set_tests_properties(${EXAMPLE_TARGET} PROPERTIES SKIP_RETURN_CODE 77)
         endif ()
@@ -396,7 +415,11 @@ function(igame_register_example_test EXAMPLE_TARGET)
         "${EXAMPLE_TARGET}" STREQUAL "testVertexReaderValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testZeroCellPointCloudValidation" OR
         "${EXAMPLE_TARGET}" STREQUAL "testPolylineWireframeValidation" OR
-        "${EXAMPLE_TARGET}" STREQUAL "probeIGVTopologyLayers" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testIGVRoundTrip" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testIGVFileIO" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testIGVIGCConvert" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testIGVRobustness" OR
+        "${EXAMPLE_TARGET}" STREQUAL "testIGVLargeFile" OR
         "${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
         set(_VALIDATION_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
         if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -409,6 +432,10 @@ function(igame_register_example_test EXAMPLE_TARGET)
             WORKING_DIRECTORY "$<TARGET_FILE_DIR:${EXAMPLE_TARGET}>"
         )
         set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 180)
+        if ("${EXAMPLE_TARGET}" STREQUAL "testIGVRobustness")
+            # 1000 次变异 fuzz：见上面 Windows 分支里对 600 s 的说明。
+            set_tests_properties(${EXAMPLE_TARGET} PROPERTIES TIMEOUT 600)
+        endif ()
         if ("${EXAMPLE_TARGET}" STREQUAL "testAnimationExportRangeValidation")
             set_tests_properties(${EXAMPLE_TARGET} PROPERTIES SKIP_RETURN_CODE 77)
         endif ()
@@ -417,6 +444,11 @@ function(igame_register_example_test EXAMPLE_TARGET)
 
     set(_TEST_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/ci/run_smoke_test.sh")
     set(_TEST_COMMAND bash "${_TEST_SCRIPT}" "$<TARGET_FILE:${EXAMPLE_TARGET}>")
+
+    if ("${EXAMPLE_TARGET}" STREQUAL "igvDump")
+        # igvDump 是工具：不带参数时打印用法并返回 2，所以 CTest 走它自己的自检模式。
+        set(_TEST_COMMAND bash "${_TEST_SCRIPT}" "$<TARGET_FILE:${EXAMPLE_TARGET}>" 120 -- --self-check)
+    endif ()
 
     if ("${EXAMPLE_TARGET}" STREQUAL "testLosslessEncode")
         set(_TEST_COMMAND bash "${_TEST_SCRIPT}" "$<TARGET_FILE:${EXAMPLE_TARGET}>" 120 -- Models/Quad_Plane_Tensor.vtk)
@@ -509,9 +541,15 @@ igame_add_example(testPolylineWireframeValidation Rendering/PolylineWireframeVal
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
 # IGV 实现阶段 P1 的前置问题探针（回答 kia/P0实施记录.md §5.2 的 Q1/Q2/Q3）。
-# 它自带断言并返回非 0，因此按 validation 类目标注册（在可执行文件目录下运行，
-# 以便用 "Models/..." 相对路径找到夹具）。
-igame_add_example(probeIGVTopologyLayers IO/ProbeIGVTopologyLayers.cpp)
+#
+# ★ P5（CI 接入）起**不再构建**：它在当前树上编译不过 —— 14 处 API 漂移
+#   （`Points::GetDimension` / `Points::GetArrayTypedSize` / `IdArray::GetNumberOfValues` /
+#    `SurfaceMesh::GetCells` 等都不存在了，`Merge branch 'main' into igv` 之后一直如此）。
+#   它是一份**打印式诊断**（不做产品断言），要回答的三个问题已经在
+#   kia/P0实施记录.md §5.2 有结论，因此这里选择"不构建"而不是"猜着改回旧 API"：
+#   强行改会把它变成一个我猜出来的新工具，反而失去"当时实测过什么"的可追溯性。
+#   源码保留在 Examples/IO/ProbeIGVTopologyLayers.cpp 作为历史产物。
+# igame_add_example(probeIGVTopologyLayers IO/ProbeIGVTopologyLayers.cpp)
 
 # ---------------------------------------------------------------------------
 # IGV P1 的验收程序（设计文档 §9 P1 / kia/P1实施记录.md）
@@ -572,6 +610,35 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
     # 与其它 IGV 验收程序同一套资源定位：注入源码目录，供它找 Examples/Models。
     target_compile_definitions(testIGVIGCConvert PRIVATE
         IGAME_IGV_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+endif ()
+
+# ---------------------------------------------------------------------------
+# IGV P5 的验收程序（设计文档 §9 P5 / kia/P5实施记录.md）
+#
+# 两个目标，性质不同：
+#   * testIGVRobustness：畸形文件必须被拒绝（P5-1…P5-11、P5-14）。**默认构建**，
+#     它自己造种子文件，不依赖任何外部模型，跑一次是秒级。
+#   * testIGVLargeFile：>4 GiB 与亿级单元（P5-12 / P5-13）。**默认不构建**，
+#     由 IGAME_ENABLE_IGV_LARGE_TESTS 打开 —— 一次要几 GB 内存与磁盘、耗时分钟级，
+#     不能让每个开发者/CI 都无条件承担。
+# 两者都需要直接调 HDF5 C API（造/改畸形文件、读回校验），故显式链接 HDF5::HDF5。
+# ---------------------------------------------------------------------------
+if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
+    igame_add_example(testIGVRobustness IO/TestIGVRobustness.cpp)
+    target_link_libraries(testIGVRobustness PUBLIC HDF5::HDF5)
+    target_compile_definitions(testIGVRobustness PUBLIC IGV_ENABLE)
+
+    if (IGAME_ENABLE_IGV_LARGE_TESTS)
+        igame_add_example(testIGVLargeFile IO/TestIGVLargeFile.cpp)
+        target_link_libraries(testIGVLargeFile PUBLIC HDF5::HDF5)
+        target_compile_definitions(testIGVLargeFile PUBLIC IGV_ENABLE)
+    endif ()
+
+    # 结构 dump 工具（等价 h5dump -H -A 的可读版）：既是人工排查工具，
+    # 也带 `--self-check`（造样例 → dump → 断言关键行），因此能在 CTest 里跑。
+    igame_add_example(igvDump IO/igvDump.cpp)
+    target_link_libraries(igvDump PUBLIC HDF5::HDF5)
+    target_compile_definitions(igvDump PUBLIC IGV_ENABLE)
 endif ()
 
 # ---------------------------------------------------------------------------

@@ -72,6 +72,58 @@ bool MulWouldOverflow(int64_t a, int64_t b) {
     return a > (std::numeric_limits<int64_t>::max() / b);
 }
 
+/**
+ * dataspace 声明的元素数必须与文件里**实际分配的存储**相符（§6.3 / P5-11）。
+ *
+ * 为什么需要它：`MulWouldOverflow()` 只能挡住"乘出来超过 int64"的荒谬维度，
+ * 挡不住 `2^32` 这种**算得出来但显然不可能**的维度 —— 而后者会让
+ * `std::vector::resize()` 在 `H5Dread` **之前**就去申请 TB 级内存，进程直接被
+ * OOM 杀掉。而 §9 P5-1 的判据是「拒绝、不崩溃、不 OOM」。
+ *
+ * 判据是**物理**的，不是拍脑袋的阈值：
+ *   - IGV 的数据集要么不压缩（声明字节数 == 文件内已分配字节数），
+ *   - 要么只走 gzip(deflate)。deflate 单流的物理压缩比上限约 1032:1，
+ *     因此「解压后字节数 / 已分配字节数」超过 4096 就必然是坏元数据。
+ *
+ * 这条检查只读对象头与存储布局，**不读任何数据**（不增加 H5Dread 计数）。
+ *
+ * @param dataset      已打开的 dataset 句柄
+ * @param label        报错用的可读名字（"Points" / "attribute 'pid'" …）
+ * @param elementCount dataspace 声明的元素数
+ * @param elementBytes 单个元素的字节数（dtype 宽度 × 分量数）
+ * @param error        失败时的原因
+ */
+/// deflate 的物理压缩比上限约 1032:1，取 4096 留 4x 余量。
+inline constexpr int64_t kMaxStorageExpansion = 4096;
+
+bool CheckDeclaredStorage(hid_t dataset, std::string_view label, int64_t elementCount,
+                          int64_t elementBytes, std::string& error) {
+    if (elementCount <= 0 || elementBytes <= 0) { return true; }  // 空数组无需校验
+
+    const std::string name(label);
+    const hsize_t storage = H5Dget_storage_size(dataset);
+    if (storage == 0) {
+        ClearHdf5Errors();
+        error = name + " declares " + std::to_string(elementCount) +
+                " element(s) but the file allocates no storage for it (corrupt or hand-made file)";
+        return false;
+    }
+
+    // elementCount * elementBytes 已在调用方做过整数溢出检查。
+    const int64_t declaredBytes = elementCount * elementBytes;
+    const int64_t maxBytes = static_cast<int64_t>(storage) * kMaxStorageExpansion;
+    if (declaredBytes > maxBytes) {
+        error = name + " declares " + std::to_string(declaredBytes) + " byte(s) (" +
+                std::to_string(elementCount) + " elements x " + std::to_string(elementBytes) +
+                " B) but the file only allocates " + std::to_string(storage) +
+                " byte(s) (expansion ratio " + std::to_string(kMaxStorageExpansion) +
+                "x is already the physical limit of deflate) - this dataspace is corrupt, "
+                "rejecting before allocating";
+        return false;
+    }
+    return true;
+}
+
 // =============================================================================
 // H5Literate 回调：只收集名字，不做任何 H5Dopen（§6.1 步骤 6 / §7.2）
 // =============================================================================
@@ -508,6 +560,12 @@ bool IGVReader::Parsing() {
         return false;
     }
 
+    // ---- 步骤 8b：属性的元素数 vs 网格计数（§6.3 / P5-5）----
+    // 这一步必须在 ParseGeometryAndTopology 之后：pointCount / cellCount 到这里才确定。
+    if (!ValidateAttributeLengths()) {
+        return false;
+    }
+
     // ---- 步骤 9：H5Fclose 由 H5FileHandle 析构自动完成 ----
     // §6.1 的关键约束：需要的数据**全部**已在上面读进内存成员，
     // CreateDataObject() 不会再触碰任何 HDF5 句柄（R3）。
@@ -710,6 +768,16 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
              std::to_string(pa.count) + ", components=" + std::to_string(pa.components) + ")");
         return false;
     }
+    {
+        // P5-11：与 Points 同理 —— 属性 dataset 的 dataspace 也可能被篡改。
+        std::string why;
+        const int64_t elementBytes =
+            static_cast<int64_t>(SizeOfDType(pa.dtype)) * static_cast<int64_t>(pa.components);
+        if (!CheckDeclaredStorage(obj, "attribute '" + name + "'", pa.count, elementBytes, why)) {
+            Fail(why);
+            return false;
+        }
+    }
 
     // ---- attachment：优先 dataset 的 attribute，缺失则按组名兜底 ----
     if (!ReadAsciiAttribute(obj, kAttrAttachment, pa.attachmentToken)) {
@@ -836,6 +904,22 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         if (MulWouldOverflow(n, kPointsComponents)) {
    Fail("Points n*3 overflows (n=" + std::to_string(n) + ")");
             return false;
+        }
+        {
+            // P5-11：先确认"声明的字节数"没有荒谬到超出文件的物理存储，
+            // 再 resize —— 否则一份被篡改的 dataspace 会让进程在分配处被 OOM 杀掉。
+            H5DatasetHandle ds(H5Dopen2(root, std::string(kDatasetPoints).c_str(), H5P_DEFAULT));
+            std::string why;
+            if (!ds.IsValid()) {
+                ClearHdf5Errors();
+                Fail("cannot open /IGV/Points");
+                return false;
+            }
+            if (!CheckDeclaredStorage(ds.Get(), kDatasetPoints, n,
+                                      static_cast<int64_t>(kPointsComponents) * 4, why)) {
+                Fail(why);
+                return false;
+            }
         }
         m_Points.clear();
         if (n > 0 && !ReadDataset(root, kDatasetPoints, DType::F32,
@@ -993,6 +1077,19 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
                  ") - count dataset disagrees with the array length");
             return false;
         }
+        {
+            H5DatasetHandle ds(H5Dopen2(root, std::string(kDatasetConnectivity).c_str(), H5P_DEFAULT));
+            std::string why;
+            if (!ds.IsValid()) {
+                ClearHdf5Errors();
+                Fail("cannot open /IGV/Connectivity");
+                return false;
+            }
+            if (!CheckDeclaredStorage(ds.Get(), kDatasetConnectivity, declaredConn, 4, why)) {
+                Fail(why);
+                return false;
+            }
+        }
         if (declaredConn > 0 &&
             !ReadDataset(root, kDatasetConnectivity, DType::I32,
                          static_cast<size_t>(declaredConn), m_Connectivity)) {
@@ -1025,6 +1122,19 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
                  ") != NumberOfCells+1(" + std::to_string(declaredCells + 1) +
                  ") - count dataset disagrees with the array length");
             return false;
+        }
+        {
+            H5DatasetHandle ds(H5Dopen2(root, std::string(kDatasetOffsets).c_str(), H5P_DEFAULT));
+            std::string why;
+            if (!ds.IsValid()) {
+                ClearHdf5Errors();
+                Fail("cannot open /IGV/Offsets");
+                return false;
+            }
+            if (!CheckDeclaredStorage(ds.Get(), kDatasetOffsets, declaredCells + 1, 8, why)) {
+                Fail(why);
+                return false;
+            }
         }
         if (!ReadDataset(root, kDatasetOffsets, DType::I64,
                          static_cast<size_t>(declaredCells + 1), m_Offsets)) {
@@ -1086,6 +1196,19 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
    Fail("NumberOfCells(" + std::to_string(declaredCells) + ") != Types length(" +
                  std::to_string(shape[0]) + ") - count dataset disagrees with the array length");
             return false;
+        }
+        {
+            H5DatasetHandle ds(H5Dopen2(root, std::string(kDatasetTypes).c_str(), H5P_DEFAULT));
+            std::string why;
+            if (!ds.IsValid()) {
+                ClearHdf5Errors();
+                Fail("cannot open /IGV/Types");
+                return false;
+            }
+            if (!CheckDeclaredStorage(ds.Get(), kDatasetTypes, declaredCells, 1, why)) {
+                Fail(why);
+                return false;
+            }
         }
         if (declaredCells > 0 &&
             !ReadDataset(root, kDatasetTypes, DType::U8, static_cast<size_t>(declaredCells),
@@ -1154,6 +1277,64 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
 
     m_HasTopology = true;
     this->UpdateProgress(0.85); // 几何/拓扑读毕（0.55 → 0.85 覆盖三个大数组）
+    return true;
+}
+
+// =============================================================================
+// 属性长度 vs 网格计数（§6.3 / P5-5）
+// =============================================================================
+
+bool IGVReader::ValidateAttributeLengths() {
+    const int64_t pointCount = m_Meta.pointCount;
+
+    // 结构化网格：单元数由 Dimensions 隐式决定，与 iGame 的
+    // `StructuredMesh::GetNumberOfCells()` 保持同一口径
+    // （`size[2] > 1` 取体数，否则取面数 → (nx-1)(ny-1)max(nz-1,1)）。
+    int64_t structuredCells = -1;
+    if (m_MeshType == IG_STRUCTURED_MESH && m_Meta.hasDimensions) {
+        const int64_t nx = m_Meta.dimensions[0];
+        const int64_t ny = m_Meta.dimensions[1];
+        const int64_t nz = m_Meta.dimensions[2];
+        if (nx > 1 && ny > 1 && nz >= 1) {
+            structuredCells = (nx - 1) * (ny - 1) * ((nz > 1) ? (nz - 1) : 1);
+        }
+    }
+
+    for (const ParsedAttribute& pa : m_Attributes) {
+        if (pa.attachmentTypeValue == IG_POINT) {
+            if (pa.count != pointCount) {
+                Fail("attribute '" + pa.name + "' (" + pa.groupName + ") has " +
+                     std::to_string(pa.count) + " element(s) but it is attached to points and the mesh has " +
+                     std::to_string(pointCount) + " point(s) - section 6.3 requires rejection");
+                return false;
+            }
+            continue;
+        }
+        if (pa.attachmentTypeValue != IG_CELL) { continue; }  // 其余依附类型无网格计数可对
+
+        if (m_MeshType == IG_POINT_SET) {
+            Fail("attribute '" + pa.name + "' is attached to cells, but the file declares a PointSet "
+                 "(no cells at all) - section 6.3 / 3.3");
+            return false;
+        }
+        if (m_MeshType == IG_STRUCTURED_MESH) {
+            if (structuredCells >= 0 && pa.count != structuredCells) {
+                Fail("attribute '" + pa.name + "' (" + pa.groupName + ") has " +
+                     std::to_string(pa.count) + " element(s) but Dimensions [" +
+                     std::to_string(m_Meta.dimensions[0]) + "," + std::to_string(m_Meta.dimensions[1]) +
+                     "," + std::to_string(m_Meta.dimensions[2]) + "] imply " +
+                     std::to_string(structuredCells) + " cell(s) - section 6.3 requires rejection");
+                return false;
+            }
+            continue;
+        }
+        if (pa.count != m_Meta.cellCount) {
+            Fail("attribute '" + pa.name + "' (" + pa.groupName + ") has " + std::to_string(pa.count) +
+                 " element(s) but it is attached to cells and the mesh has " +
+                 std::to_string(m_Meta.cellCount) + " cell(s) - section 6.3 requires rejection");
+            return false;
+        }
+    }
     return true;
 }
 

@@ -312,6 +312,18 @@ void CheckOneFile(const fs::path& path, int64_t& outPoints, int64_t& outCells) {
     Check(meta.versionMajor == 1 && meta.versionMinor == 0,
           "V3.1 version == {1,0}（实际 {" + std::to_string(meta.versionMajor) + "," +
                   std::to_string(meta.versionMinor) + "}）");
+    // 0 点的文件是**合法**的（P1 的拒绝路径用例会在临时目录里留下 reject_empty.igv 这类
+    // 产物，它本身是结构合法的空网格）。本程序会顺手扫描这些临时目录，因此不能把
+    // "点数 == 0" 当失败；下面的逐值校验对空网格本来也没有意义，直接跳过并**明说**。
+    if (meta.pointCount == 0) {
+        // ASCII only: new console output must not add to the file's pre-existing
+        // non-ASCII debt (see kia/P5实施记录.md section 5).
+        std::cout << "   [skip] this file has 0 points (empty mesh / a rejection-path artifact); "
+                     "the point-count dependent V3.1 checks do not apply to it\n";
+        outPoints = 0;
+        outCells = meta.hasCellCount ? meta.cellCount : 0;
+        return;
+    }
     Check(meta.pointCount > 0, "V3.1 pointCount > 0（" + std::to_string(meta.pointCount) + "）");
     Check(meta.hasDimensions == (meta.igvDataType == "StructuredMesh"),
           "V3.1 hasDimensions 只在 StructuredMesh 上为真");
