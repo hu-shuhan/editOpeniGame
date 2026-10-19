@@ -1026,9 +1026,10 @@ bool VTKAbstractReader::ReadStructuredGrid() {
     m_DataObjectType = IG_STRUCTURED_MESH;
     char line[IGAME_CELL_MAX_SIZE];
     char buffer[IGAME_CELL_MAX_SIZE];
-    igIndex size[3];
-    double origin[3];
-    double aspectRatio[3];
+    igIndex size[3] = {0, 0, 0};
+    // STRUCTURED_POINTS 的点坐标由 原点 + 间距 推出；文件里没写时按 VTK 默认值 0 / 1
+    double origin[3] = {0.0, 0.0, 0.0};
+    double aspectRatio[3] = {1.0, 1.0, 1.0};
     igIndex npts = 0;
     igIndex ncells = 0;
 
@@ -1042,7 +1043,8 @@ bool VTKAbstractReader::ReadStructuredGrid() {
             }
             if (size[2] == 0) { size[2] = 1; }
             m_StructuredMesh->SetDimensionSize(size);
-        } else if (!strncmp(line, "aspect_ratio", 12)) {
+        } else if (!strncmp(line, "spacing", 7) || !strncmp(line, "aspect_ratio", 12)) {
+            // SPACING 是 VTK legacy 格式的标准写法，ASPECT_RATIO 是它的旧名，两者含义相同
             if (!this->Read(&aspectRatio[0]) || !this->Read(&aspectRatio[1]) || !this->Read(&aspectRatio[2])) {
                 igError("Read extend error!");
                 return false;

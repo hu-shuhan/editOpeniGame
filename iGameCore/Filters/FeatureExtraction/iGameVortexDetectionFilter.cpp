@@ -554,13 +554,19 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     std::memcpy(Predict.data(), src, sizeof(float) * NumPoints);
 
     int dim = volume_Mesh->GetAttributeSet()->GetNumberOfAttributes();
+    bool hasGroundTruth = false;
     for (int i = 0; i < dim; i++) {
         std::string name = volume_Mesh->GetAttributeSet()->GetAttribute(i).pointer->GetName();
         if (name == "PredictedLabel") {
             ArrayObject::Pointer label = Attributes->GetAttribute(i).pointer;
             EvaluatePredictMetrics(label, Predict);
+            hasGroundTruth = true;
             break;
         }
+    }
+    if (!hasGroundTruth) {
+        std::cout << "[VortexDetection] No ground-truth array \"PredictedLabel\" found, evaluation skipped."
+                  << std::endl;
     }
     UpdateProgress(95 * 0.01);
 
@@ -589,6 +595,14 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     const float gt_thresh = 0.0f;
     const float pred_thresh = 0.5f;
 
+    // 真值数组长度必须覆盖所有预测点（例如真值挂在单元上时长度对不上），否则逐点比较会越界
+    if (Attributes_gc == nullptr || Attributes_gc->GetNumberOfElements() < N) {
+        std::cout << "[VortexDetection] Ground-truth array size ("
+                  << (Attributes_gc ? Attributes_gc->GetNumberOfElements() : 0)
+                  << ") does not match prediction size (" << N << "), evaluation skipped." << std::endl;
+        return;
+    }
+
     size_t TP = 0, FP = 0, TN = 0, FN = 0;
     for (size_t i = 0; i < N; ++i) {
         const float q_val = Attributes_gc->GetValue(i);
@@ -610,10 +624,14 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
 
     std::cout << "\n================ Evaluation Metrics ================\n";
+    std::cout << "TP            : " << TP << "\n";
+    std::cout << "FP            : " << FP << "\n";
+    std::cout << "FN            : " << FN << "\n";
+    std::cout << "TN            : " << TN << "\n";
     std::cout << "Accuracy      : " << accuracy << "\n";
     std::cout << "Precision     : " << precision << "\n";
     std::cout << "Recall        : " << recall << "\n";
-    std::cout << "===================================================\n";
+    std::cout << "===================================================" << std::endl;
 
     m_Accuracy = accuracy;
     m_Precision = precision;
