@@ -802,9 +802,8 @@ void igQtMainWindow::initCustomTitleBar() {
     m_topMenuLayout = topLayout;
     if (ui->menuBar) {
         ui->menuBar->setParent(topRow);
-        // 菜单栏不可被压缩：一旦被挤窄，Qt 会把全部菜单收进「»」溢出按钮（高 DPI、长标题、窄窗口时最易触发）
+        // 保持自然宽度，高度由字体和样式决定；高度不足也会触发 Qt 的菜单溢出按钮。
         ui->menuBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        ui->menuBar->setFixedHeight(28);
         ui->menuBar->show();
         m_topMenuLayout->insertWidget(1, ui->menuBar, 0, Qt::AlignVCenter);
     }
