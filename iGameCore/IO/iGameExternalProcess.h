@@ -2,13 +2,18 @@
 #define iGameExternalProcess_h
 
 #include "iGameFileSystem.h"
+#include "iGameProgressObserver.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <cwchar>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #if defined(_WIN32)
@@ -143,14 +148,74 @@ inline bool BuildEnvironmentWithTemp(const std::wstring& tempDirectory,
 
 } // namespace detail
 
+/**
+ * 外部转换器（商软格式 -> PVD/VTU 的 python 打包 exe）不会上报自己的内部进度：
+ * 调用方只能「启动 → 等待 → 结束」。而这段等待是在 GUI 线程里同步阻塞的，界面完全
+ * 没有反馈，用户会以为软件卡死。
+ *
+ * 本类用「时间驱动」的渐近曲线代替真实进度：等待期间把进度从 @p begin 缓慢推进到
+ * @p end（永远到不了 @p end，避免提前显示 100%），同时把「正在转换 …(12s)」写进状态栏
+ * 文案，让用户看到软件在动、也已经等了多久。
+ *
+ * 用法（把 Ticker() 传给 Run 的第 5 个参数即可）：
+ *     ExternalProcess::ConverterProgress progress("正在转换 Ansys 结果文件");
+ *     ExternalProcess::Run(exe, args, returnCode, tempDir, progress.Ticker());
+ *
+ * 生命周期内会把 ProgressObserver 的「阻塞 GUI 线程」标记置位，让进度条控件有机会
+ * 把进度真正画出来（见 ProgressObserver::SetBlockingGuiThread）。
+ */
+class ConverterProgress {
+public:
+    explicit ConverterProgress(std::string label, double begin = 0.05, double end = 0.85)
+            : m_Label(std::move(label)), m_Begin(begin), m_End(std::max(begin, end)),
+              m_Start(std::chrono::steady_clock::now()) {
+        ProgressObserver::Instance()->SetBlockingGuiThread(true);
+    }
+    ~ConverterProgress() { ProgressObserver::Instance()->SetBlockingGuiThread(false); }
+    ConverterProgress(const ConverterProgress&) = delete;
+    ConverterProgress& operator=(const ConverterProgress&) = delete;
+
+    // 交给 ExternalProcess::Run 的等待回调：Run 每隔约 100ms 调用一次。
+    std::function<void()> Ticker() {
+        return [this]() { this->Report(); };
+    }
+
+private:
+    // 6 秒时间常数：前 6 秒走完约 63% 的区间，之后继续缓慢逼近上限，
+    // 转换器再慢也不会「停在某个数字上一动不动」。
+    static constexpr double kTimeConstantSeconds = 6.0;
+
+    void Report() {
+        const auto now = std::chrono::steady_clock::now();
+        const double elapsed = std::chrono::duration<double>(now - m_Start).count();
+        const double fraction = m_Begin + (m_End - m_Begin) * (1.0 - std::exp(-elapsed / kTimeConstantSeconds));
+
+        auto* observer = ProgressObserver::Instance();
+        if (observer == nullptr) { return; }
+        // 先文案、后进度：进度事件才是「泵一次事件并重绘」的触发点，
+        // 先写文案能保证同一次重绘里文字和进度条一起更新。
+        observer->UpdateText(m_Label + "…(" + std::to_string(static_cast<long long>(elapsed)) + "s)");
+        observer->UpdateProgress(fraction);
+    }
+
+    std::string m_Label;
+    double m_Begin;
+    double m_End;
+    std::chrono::steady_clock::time_point m_Start;
+};
+
 // 启动失败返回 false；成功则 returnCode 为子进程退出码（0 表示成功）。
 //
 // @param utf8TempDirectory 可选。非空时把子进程的 TEMP/TMP 指向该目录（不存在则创建），
 //        见上方 BuildEnvironmentWithTemp 的说明。空串表示完全继承父进程环境。
+// @param onWaitTick 可选。非空时不再一次性无限等待，而是每约 100ms 醒一次并调用它，
+//        让调用方在等待期间上报进度/文案（转换器本身无法给出真实进度）。
+//        为空时行为与原先完全一致（单次 INFINITE 等待）。
 inline bool Run(const std::string& utf8Executable,
                 const std::vector<std::string>& utf8Arguments,
                 int& returnCode,
-                const std::string& utf8TempDirectory = std::string()) {
+                const std::string& utf8TempDirectory = std::string(),
+                const std::function<void()>& onWaitTick = std::function<void()>()) {
     namespace fs = std::filesystem;
     returnCode = -1;
     try {
@@ -191,7 +256,16 @@ inline bool Run(const std::string& utf8Executable,
                             &processInfo)) {
             return false;
         }
-        WaitForSingleObject(processInfo.hProcess, INFINITE);
+        // 先上报一次，让进度条在转换器启动的瞬间就出现（而不是熬到第一次 tick）。
+        if (onWaitTick) { onWaitTick(); }
+
+        // 有等待回调时改成每 100ms 醒一次：一边等子进程，一边把进度/文案推给界面。
+        // 没有回调时（如 CAS 读取器）保持原先的单次 INFINITE 等待，行为完全不变。
+        const DWORD waitSlice = onWaitTick ? 100u : INFINITE;
+        while (WaitForSingleObject(processInfo.hProcess, waitSlice) == WAIT_TIMEOUT) {
+            if (onWaitTick) { onWaitTick(); }
+        }
+
         DWORD exitCode = 0;
         GetExitCodeProcess(processInfo.hProcess, &exitCode);
         CloseHandle(processInfo.hProcess);
@@ -209,6 +283,8 @@ inline bool Run(const std::string& utf8Executable,
         // 上这条路径目前没有任何真实调用。若将来需要，用 posix_spawn + envp
         // 重写这段，而不是给 std::system 拼 "TMPDIR=..."（拼接会让引号规则变脆）。
         (void) utf8TempDirectory;
+        // std::system 期间无法醒来上报进度，只能上报启动前的一次（非 Windows 路径当前无真实调用）。
+        if (onWaitTick) { onWaitTick(); }
         returnCode = std::system(commandLine.c_str());
         return true;
 #endif

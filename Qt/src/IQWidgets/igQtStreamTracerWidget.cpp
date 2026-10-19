@@ -759,10 +759,8 @@ void igQtStreamTracerWidget::generateStreamline() {
     newResult->DataObject::SetName(masterName + "_StreamLine_" + std::to_string(m_StreamlineCounter) + "_" + ctrlTag);
     Q_EMIT AddStreamObject(newResult);
 
-    bool wasFirstDraw = !haveDraw;
     haveDraw = true;
     m_ResultObject = newResult;
-    if (wasFirstDraw) scene->GetCurrentModel()->SetViewPointsSwitch(true);
     // scene->SetCurrentModel(1);
 
     if (isExisted == false) {
