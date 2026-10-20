@@ -97,6 +97,7 @@ inline std::string QuoteShellArgument(const std::string& argument) {
  *
  * @param out 产出的环境块（每个 "NAME=VALUE" 以 NUL 结尾，整块以额外一个 NUL 结束）
  */
+#if defined(_WIN32)
 inline bool BuildEnvironmentWithTemp(const std::wstring& tempDirectory,
                                      std::vector<wchar_t>& out) {
     LPWCH block = GetEnvironmentStringsW();
@@ -145,6 +146,7 @@ inline bool BuildEnvironmentWithTemp(const std::wstring& tempDirectory,
     out.push_back(L'\0');
     return true;
 }
+#endif
 
 } // namespace detail
 
