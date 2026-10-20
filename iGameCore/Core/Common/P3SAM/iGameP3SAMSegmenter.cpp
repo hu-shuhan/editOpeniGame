@@ -10,6 +10,7 @@
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "OBJ/iGameOBJWriter.h"
 #include "Log/iGameLogger.h"
+#include <unordered_set>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -275,13 +276,12 @@ bool P3SAMSegmenter::mapBackToOriginal(DataObject::Pointer original, DataObject:
     original->SetBlockMapping(resultArray);
 
     // 统计部件数量
-    m_partCount = 0;
-    for (int i = 0; i < resultArray->GetNumberOfValues(); ++i) {
-        int partId = resultArray->GetValue(i);
-        if (partId >= 0 && partId >= m_partCount) {
-            m_partCount = partId + 1;
-        }
+    std::unordered_set<int> parts;
+    for (IGsize i = 0; i < resultArray->GetNumberOfValues(); ++i) {
+        const int partId = resultArray->GetValue(i);
+        if (partId >= 0) parts.insert(partId);
     }
+    m_partCount = static_cast<int>(parts.size());
 
     igDebug("P3SAMSegmenter: Mapping complete. Total parts: {}", m_partCount);
     return true;

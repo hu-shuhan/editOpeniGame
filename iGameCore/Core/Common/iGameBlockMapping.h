@@ -10,6 +10,8 @@
 
 IGAME_NAMESPACE_BEGIN
 // 输入原始mesh和含分块信息的unstructmesh，将分块信息映射回原始mesh
+// Accepts scalar cell or point part_id labels; output always labels original cells.
+// Point labels seed the spatial mapping at point positions; cell labels use centroids.
 class BlockMapping {
 public:
     static std::vector<int> GetMappingBlockCells(SurfaceMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
@@ -22,6 +24,6 @@ public:
     static IntArray::Pointer GetMappingBlockCellsArray(VolumeMesh::Pointer oriMesh, UnstructuredMesh::Pointer partedMesh);
 
 private:
-    static ArrayObject::Pointer GetPartId(UnstructuredMesh::Pointer partedMesh);
+    static ArrayObject::Pointer GetPartId(UnstructuredMesh::Pointer partedMesh, bool& pointLabels);
 };
 IGAME_NAMESPACE_END

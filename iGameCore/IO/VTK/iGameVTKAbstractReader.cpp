@@ -1,5 +1,6 @@
 #include "iGameVTKAbstractReader.h"
 #include "iGameByteSwap.h"
+#include <cstring>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 
@@ -205,6 +206,7 @@ int VTKAbstractReader::ReadCellData(int CellsNum) {
     char line[256];
     this->DataType = CELL_TYPE;
     igDebug("Reading vtk cell data");
+    int unrecognized = 0;
     //
     // Read keywords until end-of-file
     //
@@ -293,7 +295,22 @@ int VTKAbstractReader::ReadCellData(int CellsNum) {
         } else {
             //igError("Unsupported cell attribute type: " << line
             //	<< " for file: " << (fname ? fname : "(Null FileName)"));
-            return 0;
+            // 不认识的关键字：不再整体放弃。历史上这里直接 return 0，而上层
+            // 忽略返回值，会让同一个文件里后面的 POINT_DATA 整段静默丢失。
+            // 这里跳过当前行继续扫描；跳过长度和次数都有上限，避免在错位的
+            // 二进制内容里空转。
+            if (++unrecognized > 64) {
+                igError("Too many unrecognized keywords in vtk cell data!");
+                return 0;
+            }
+            igDebug("Unsupported vtk cell attribute keyword: {}", line);
+            int scanned = 0;
+            while (this->IS < this->FILEEND && *this->IS != '\n' &&
+                   scanned < 4096) {
+                ++this->IS;
+                ++scanned;
+            }
+            if (this->IS < this->FILEEND && *this->IS == '\n') { ++this->IS; }
         }
     }
     this->UpdateReadProgress();
@@ -311,6 +328,7 @@ int VTKAbstractReader::ReadPointData(int PointsNum) {
 
     this->DataType = POINT_TYPE;
     igDebug("Reading vtk point data");
+    int unrecognized = 0;
     //
     // Read keywords until end-of-file
     //
@@ -405,7 +423,19 @@ int VTKAbstractReader::ReadPointData(int PointsNum) {
         } else {
             //igError("Unsupported point attribute type: " << line
             //	<< " for file: " << (fname ? fname : "(Null FileName)"));
-            return 0;
+            // 同 ReadCellData：跳过当前行继续扫描，而不是整体放弃
+            if (++unrecognized > 64) {
+                igError("Too many unrecognized keywords in vtk point data!");
+                return 0;
+            }
+            igDebug("Unsupported vtk point attribute keyword: {}", line);
+            int scanned = 0;
+            while (this->IS < this->FILEEND && *this->IS != '\n' &&
+                   scanned < 4096) {
+                ++this->IS;
+                ++scanned;
+            }
+            if (this->IS < this->FILEEND && *this->IS == '\n') { ++this->IS; }
         }
     }
     this->UpdateReadProgress();
@@ -712,18 +742,24 @@ int VTKAbstractReader::ReadFieldData() {
     int i, numArrays = 0, skipField = 0;
 
     char name[256], type[256];
-    int numComp, numTuples;
+    // metadata 块会用到上一个数组的分量数，初始化为安全值
+    int numComp = 1, numTuples = 0;
     ArrayObject::Pointer data;
 
     if (!(this->ReadString(name) && this->Read(&numArrays))) { return 0; }
     // Read the number of arrays specified
+    int addedArrays = 0;
+    int skippedArrays = 0;
     for (i = 0; i < numArrays; i++) {
         char buffer[256];
         this->ReadString(buffer);
         if (strcmp(this->LowerCase(buffer), "null_array") == 0) { continue; }
-        if (strcmp(buffer, "metadata") == 0) {
+        // 大小写无关：VTK 5.1 写的是 "METADATA"，这里原来只比小写，
+        // 会把 METADATA 当数组名继续解析，导致整段错位
+        if (strcmp(this->LowerCase(buffer), "metadata") == 0) {
             i--;
-            ProcessMetaData();
+            // COMPONENT_NAMES 格式需要知道上一个数组的分量数
+            ProcessMetaData(numComp);
             continue;
         }
         this->DecodeString(name, buffer);
@@ -746,27 +782,67 @@ int VTKAbstractReader::ReadFieldData() {
             } else if (this->DataType == CELL_TYPE) {
                 m_Data.GetData()->AddAttribute(IG_SCALAR, IG_CELL, data);
             }
+            ++addedArrays;
+        } else {
+            // 类型不支持时 ReadArray 返回空指针；此时数据已经被跳过（或根本无法
+            // 跳过），记录下来，避免像以前一样完全静默
+            ++skippedArrays;
+            igDebug("ReadFieldData: unsupported array '{}' type '{}'", name,
+                    type);
         }
     }
     this->UpdateReadProgress();
+    igDebug("ReadFieldData: {} arrays added, {} skipped ({})", addedArrays,
+            skippedArrays,
+            this->DataType == POINT_TYPE ? "point data" : "cell data");
     return 1;
 }
-bool VTKAbstractReader::ProcessMetaData() {
+bool VTKAbstractReader::ProcessMetaData(int componentCount) {
     char buffer[IGAME_CELL_MAX_SIZE];
     int infoNum = 0;
-    if (!this->ReadString(buffer) || strncmp(this->LowerCase(buffer), "information", 6)) {
+    if (!this->ReadString(buffer)) {
         igError("metadata error!");
         return false;
     }
-    if (!this->Read(&infoNum)) {
-        igError("metadata error!");
-        return false;
+
+    const std::string key = this->LowerCase(buffer, sizeof(buffer));
+    if (strncmp(key.c_str(), "information", 6) == 0) {
+        // 旧格式：metadata / INFORMATION n / (name, value) × n
+        if (!this->Read(&infoNum)) {
+            igError("metadata error!");
+            return false;
+        }
+        // Read() 之后指针停在数字后的换行上，ReadLine 需要从行首开始读
+        this->SkipNullData();
+        for (int i = 0; i < infoNum; i++) {
+            if (!this->ReadLine(buffer)) return false;
+            if (!this->ReadLine(buffer)) return false;
+        }
+        return true;
     }
-    for (int i = 0; i < infoNum; i++) {
-        if (!this->ReadLine(buffer)) return false;
-        if (!this->ReadLine(buffer)) return false;
+
+    if (strncmp(key.c_str(), "component_names", 15) == 0) {
+        // VTK 5.1 给多分量数组写的元数据：metadata / COMPONENT_NAMES /
+        // 每行一个分量名（行数 == 分量数），最后跟一个空行。
+        // 有分量数就按数量读，没有就按空行结束（上限 64 行防止跑偏）。
+        // 注意：ReadString 把指针停在换行上，必须先走到下一行行首，
+        // 否则 ReadLine 会立刻返回失败（这正是之前多分量数组读崩的原因）。
+        this->SkipNullData();
+        const int lineCount = componentCount > 0 ? componentCount : 64;
+        for (int i = 0; i < lineCount; i++) {
+            if (this->IS >= this->FILEEND) { return true; }
+            // 空行 = 分量名结束（无分量数时靠它判断，也顺便吃掉分隔空行）
+            if (*this->IS == '\n' || *this->IS == '\r') {
+                this->SkipNullData();
+                return true;
+            }
+            if (!this->ReadLine(buffer)) { return true; }
+        }
+        return true;
     }
-    return true;
+
+    igError("metadata error!");
+    return false;
 }
 int VTKAbstractReader::ReadCellsWithOffsetType(int& CellsNum, ArrayObject::Pointer& CellsId,
                                                ArrayObject::Pointer& CellsConnect) {
@@ -896,8 +972,10 @@ bool VTKAbstractReader::ReadUnstructuredGrid() {
                 igError("Number of cells don't match!");
                 return false;
             }
-            this->ReadCellData(CellsNum);
-            break; // out of this loop
+            // 不要 break：同一个文件里 CELL_DATA 之后可能还有 POINT_DATA
+            if (!this->ReadCellData(CellsNum)) {
+                igDebug("Read vtk cell data returned error, continue scanning!");
+            }
         }
 
         else if (!strncmp(line, "point_data", 10)) {
@@ -909,8 +987,9 @@ bool VTKAbstractReader::ReadUnstructuredGrid() {
                 igError("Number of points don't match!");
                 return false;
             }
-            this->ReadPointData(PointsNum);
-            break; // out of this loop
+            if (!this->ReadPointData(PointsNum)) {
+                igDebug("Read vtk point data returned error, continue scanning!");
+            }
         } else if (!strncmp(line, "metadata", 8)) {
             this->ProcessMetaData();
         } else {
@@ -933,6 +1012,38 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
     igIndex offsetsSize = 0, connSize = 0;
     ArrayObject::Pointer CellsId;
     ArrayObject::Pointer CellsConnect;
+    bool sawVertices = false;
+    bool sawLines = false;
+    bool sawPolygons = false;
+
+    // 在不分配数组的前提下跳过一段二进制数据（用于 VERTICES 这类本读取器
+    // 不参与绘制的 payload）。返回 false 表示越界或类型无法识别而长度未知。
+    const auto skipBinaryValues = [this](const char* typeToken, size_t count) -> bool {
+        if (!typeToken) { return false; }
+        char type[64] = {0};
+        for (int i = 0; i < 63 && typeToken[i] != '\0'; ++i) { type[i] = typeToken[i]; }
+        this->LowerCase(type, sizeof(type));
+
+        size_t itemSize = 4;  // 默认按 int32 处理
+        if (strstr(type, "int64") != nullptr ||
+            strstr(type, "long_long") != nullptr ||
+            strstr(type, "long long") != nullptr) {
+            itemSize = 8;
+        } else if (strncmp(type, "short", 5) == 0) {
+            itemSize = 2;
+        } else if (strncmp(type, "char", 4) == 0) {
+            itemSize = 1;
+        } else if (strncmp(type, "double", 6) == 0) {
+            itemSize = 8;
+        } else if (strncmp(type, "float", 5) == 0) {
+            itemSize = 4;
+        }
+        const size_t bytes = count * itemSize;
+        if (this->IS + bytes > this->FILEEND) { return false; }
+        this->IS += bytes;
+        return true;
+    };
+
     while (true) {
         if (!this->ReadString(line)) { break; }
         if (line[0] == '\0') {
@@ -968,6 +1079,74 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
                 }
             }
             m_SurfaceMesh->SetEdges(this->CreateCellArray(CellsId, CellsConnect));
+            sawLines = true;
+        }
+
+        else if (!strncmp(line, "vertices", 8)) {
+            // 与 lines/polygons 一致：先记住两个计数之前的位置，
+            // 便于 ASCII 的 OFFSETS 分支回退重读。
+            const char* tmpIS = this->IS;
+            igIndex verticesNum = 0, verticesSize = 0;
+            if (!(this->Read(&verticesNum) && this->Read(&verticesSize))) {
+                igError("Cannot read vertices!");
+                return false;
+            }
+            if (verticesNum < 0 || verticesSize < 0) {
+                igError("Invalid vertices counts!");
+                return false;
+            }
+            if (this->m_FileType == IGAME_BINARY) {
+                // POLYDATA 的 VERTICES 是“每 cell 一个点”的点云单元，本读取器
+                // 以“点 + 点属性”形式承载它，不需要真正建立 8192 万个单点单元。
+                // 关键是按正确字节数跳过 payload，避免把二进制当文本继续扫描。
+                bool skipped = false;
+                if (this->FileVersion >= 51) {
+                    // VTK 5.1+ offset 布局：
+                    // <offsetsSize> <connSize> "OFFSETS" <type> <data> "CONNECTIVITY" <type> <data>
+                    igIndex offsetsCount = 0, connectCount = 0;
+                    char token[256], typeName[256];
+                    if (!(this->Read(&offsetsCount) && this->Read(&connectCount)) ||
+                        !this->ReadString(token) ||
+                        strcmp(this->LowerCase(token), "offsets") != 0 ||
+                        !this->ReadString(typeName)) {
+                        igError("Error reading vertices offset header.");
+                        return false;
+                    }
+                    if (offsetsCount < 0 || connectCount < 0) {
+                        igError("Invalid vertices offset counts!");
+                        return false;
+                    }
+                    skipped = skipBinaryValues(typeName, offsetsCount);
+                    if (skipped && (!this->ReadString(token) ||
+                                    strcmp(this->LowerCase(token), "connectivity") != 0 ||
+                                    !this->ReadString(typeName))) {
+                        igError("Error reading vertices connectivity header.");
+                        return false;
+                    }
+                    if (skipped) { skipped = skipBinaryValues(typeName, connectCount); }
+                } else {
+                    // 经典布局（VTK <= 5.0）：size 个 int32，按 (count, ids...) 排列
+                    skipped = skipBinaryValues("int", verticesSize);
+                }
+                if (!skipped) {
+                    igError("Cannot skip vertices payload!");
+                    return false;
+                }
+            } else {
+                this->SkipNullData();
+                if (strncmp(this->IS, "OFFSETS", 7) == 0) {
+                    this->IS = tmpIS;
+                    if (!this->ReadCellsWithOffsetType(verticesNum, CellsId, CellsConnect)) {
+                        igError("Error reading vertices offset cells!");
+                        return false;
+                    }
+                } else if (!this->ReadCellsWithCellSizeType(verticesNum, verticesSize, CellsId,
+                                                           CellsConnect)) {
+                    igError("Error reading vertices cells!");
+                    return false;
+                }
+            }
+            sawVertices = true;
         }
         
         
@@ -990,6 +1169,7 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
                 }
             }
             m_SurfaceMesh->SetFaces(this->CreateCellArray(CellsId, CellsConnect));
+            sawPolygons = true;
         } else if (!strncmp(line, "cell_data", 9)) {
             if (!this->Read(&CellsNum)) {
                 igError("Cannot read cell data!");
@@ -999,8 +1179,10 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
                 igError("Number of cells don't match!");
                 return false;
             }
-            this->ReadCellData(ncells);
-            break; // out of this loop
+            // 不要 break：同一个文件里 CELL_DATA 之后可能还有 POINT_DATA
+            if (!this->ReadCellData(ncells)) {
+                igDebug("Read vtk cell data returned error, continue scanning!");
+            }
         } else if (!strncmp(line, "point_data", 10)) {
             if (!this->Read(&PointsNum)) {
                 igError("Cannot read point data!");
@@ -1010,14 +1192,20 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
                 igError("Number of points don't match!");
                 return false;
             }
-            this->ReadPointData(PointsNum);
-            break; // out of this loop
+            if (!this->ReadPointData(PointsNum)) {
+                igDebug("Read vtk point data returned error, continue scanning!");
+            }
         } else if (!strncmp(line, "metadata", 8)) {
             this->ProcessMetaData();
         } else {
             //igDebug("Unrecognized keyword: " << line);
             //return false;
         }
+    }
+    // 只有 VERTICES 的 POLYDATA 是点云：保留点与点属性，用点样式显示
+    // （SurfaceMesh 默认样式是 IG_SURFACE，没有面片时不可见）。
+    if (sawVertices && !sawLines && !sawPolygons) {
+        m_SurfaceMesh->SetViewStyle(IG_POINT);
     }
     return true;
 }
@@ -1026,9 +1214,10 @@ bool VTKAbstractReader::ReadStructuredGrid() {
     m_DataObjectType = IG_STRUCTURED_MESH;
     char line[IGAME_CELL_MAX_SIZE];
     char buffer[IGAME_CELL_MAX_SIZE];
-    igIndex size[3];
-    double origin[3];
-    double aspectRatio[3];
+    igIndex size[3] = {0, 0, 0};
+    // STRUCTURED_POINTS 的点坐标由 原点 + 间距 推出；文件里没写时按 VTK 默认值 0 / 1
+    double origin[3] = {0.0, 0.0, 0.0};
+    double aspectRatio[3] = {1.0, 1.0, 1.0};
     igIndex npts = 0;
     igIndex ncells = 0;
 
@@ -1042,7 +1231,8 @@ bool VTKAbstractReader::ReadStructuredGrid() {
             }
             if (size[2] == 0) { size[2] = 1; }
             m_StructuredMesh->SetDimensionSize(size);
-        } else if (!strncmp(line, "aspect_ratio", 12)) {
+        } else if (!strncmp(line, "spacing", 7) || !strncmp(line, "aspect_ratio", 12)) {
+            // SPACING 是 VTK legacy 格式的标准写法，ASPECT_RATIO 是它的旧名，两者含义相同
             if (!this->Read(&aspectRatio[0]) || !this->Read(&aspectRatio[1]) || !this->Read(&aspectRatio[2])) {
                 igError("Read extend error!");
                 return false;
@@ -1069,24 +1259,36 @@ bool VTKAbstractReader::ReadStructuredGrid() {
                 igError("Cannot read cell data!");
                 return false;
             }
-            if ((size[2] == 1 && (ncells != (size[0] - 1) * (size[1] - 1))) ||
-                (size[2] != 1 && (ncells != (size[0] - 1) * (size[1] - 1) * (size[2] - 1)))) {
+            // 用 64 位比较：网格稍大时 size[0]*size[1]*size[2] 会溢出 int
+            const long long expectedCells =
+                    size[2] == 1
+                            ? static_cast<long long>(size[0] - 1) * (size[1] - 1)
+                            : static_cast<long long>(size[0] - 1) *
+                                      (size[1] - 1) * (size[2] - 1);
+            if (ncells != expectedCells) {
                 igError("Number of cells don't match!");
                 return false;
             }
-            this->ReadCellData(ncells);
-            break; // out of this loop
+            // 注意：不要 break。同一个文件里 CELL_DATA 之后往往还有 POINT_DATA
+            // （ParaView 导出的顺序就是 CELL_DATA 在前），提前 break 会把点数据
+            // 整段丢掉，界面上就只剩一个 ghost 属性。
+            if (!this->ReadCellData(ncells)) {
+                igDebug("Read vtk cell data returned error, continue scanning!");
+            }
         } else if (!strncmp(line, "point_data", 10)) {
             if (!this->Read(&npts)) {
                 igError("Cannot read point data!");
                 return false;
             }
-            if (size[0] * size[1] * size[2] != npts) {
+            const long long expectedPoints =
+                    static_cast<long long>(size[0]) * size[1] * size[2];
+            if (npts != expectedPoints) {
                 igError("Number of points don't match!");
                 return false;
             }
-            this->ReadPointData(npts);
-            break; // out of this loop
+            if (!this->ReadPointData(npts)) {
+                igDebug("Read vtk point data returned error, continue scanning!");
+            }
         } else if (!strncmp(line, "metadata", 8)) {
             this->ProcessMetaData();
         } else {

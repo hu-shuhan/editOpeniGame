@@ -46,6 +46,11 @@ public:
     void EnsureDrawableData();                        // 有待转换则立即执行
     bool IsDrawableConversionDeferred() const { return m_DrawableConversionDeferred; }
     virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
+    // Explicit line cells remain visible in the surface representation.
+    virtual bool HasExplicitLineCells() const { return false; }
+    bool IsLineRenderingEnabled() const {
+        return (m_ViewStyle & IG_WIREFRAME) || ((m_ViewStyle & IG_SURFACE) && HasExplicitLineCells());
+    }
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 

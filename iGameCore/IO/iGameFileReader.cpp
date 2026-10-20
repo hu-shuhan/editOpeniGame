@@ -557,7 +557,16 @@ int iGameReadASCIIData(FileReader::Pointer self, T* data, int numTuples, int num
 ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, int numComp) {
     char* type = strdup(dataType);
     type = this->LowerCase(type);
-    this->SkipNullData();
+    if (m_FileType == IGAME_BINARY) {
+        // 只吃掉数组头这一行的行尾（空格/制表/回车 + 一个换行），不动数据本身
+        while (this->IS < this->FILEEND &&
+               (*this->IS == ' ' || *this->IS == '\t' || *this->IS == '\r')) {
+            this->IS++;
+        }
+        if (this->IS < this->FILEEND && *this->IS == '\n') { this->IS++; }
+    } else {
+        this->SkipNullData();
+    }
     ArrayObject::Pointer array{nullptr};
     if (!strncmp(type, "bit", 3)) {
         // process in fulture

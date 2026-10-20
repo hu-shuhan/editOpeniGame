@@ -30,6 +30,7 @@
 #include "Convert/iGameConvertToPointCloudFilter.h"
 #include "Convert/iGameConvertToPointDataFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
+#include "ModelSurface/iGameMultiBlockGeometryFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
 
 #include "Interactor/iGameInteractor.h"
@@ -802,9 +803,8 @@ void igQtMainWindow::initCustomTitleBar() {
     m_topMenuLayout = topLayout;
     if (ui->menuBar) {
         ui->menuBar->setParent(topRow);
-        // 菜单栏不可被压缩：一旦被挤窄，Qt 会把全部菜单收进「»」溢出按钮（高 DPI、长标题、窄窗口时最易触发）
+        // 保持自然宽度，高度由字体和样式决定；高度不足也会触发 Qt 的菜单溢出按钮。
         ui->menuBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        ui->menuBar->setFixedHeight(28);
         ui->menuBar->show();
         m_topMenuLayout->insertWidget(1, ui->menuBar, 0, Qt::AlignVCenter);
     }
@@ -1209,8 +1209,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 参数改动即时生效，因此这里不创建模态对话框。
     this->shadingWidget = new igQtShadingWidget(this);
     shadingWidget->hide();
-    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
-            shadingWidget, &igQtShadingWidget::syncNormalSource);
 
     // 初始化AI聊天DockWidget
     aiChatDockWidget = new QDockWidget(this);
@@ -1295,6 +1293,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
 
     modelTreeWidget = new igQtModelDialogWidget(this);
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            shadingWidget, &igQtShadingWidget::syncNormalSource);
 
     auto makeWidgetScrollable = [&](QWidget* content, QWidget* parent) -> QWidget* {
         if (!content) return nullptr;
@@ -1484,6 +1484,13 @@ void igQtMainWindow::initAllComponents() {
     ui->action_ShowGroundGrid->setChecked(true);
 
 #ifndef __EMSCRIPTEN__
+    // Keep text aligned across checked, unchecked and non-checkable items.
+    // Ordinary items reserve the same 14px column as the check indicator.
+    ui->menu_GroundSettings->setStyleSheet(QStringLiteral(
+            "QMenu#menu_GroundSettings::indicator { width: 14px; height: 14px; }"
+            "QMenu#menu_GroundSettings::item { padding-left: 26px; }"
+            "QMenu#menu_GroundSettings::item:exclusive,"
+            "QMenu#menu_GroundSettings::item:non-exclusive { padding-left: 12px; }"));
     connect(ui->action_RefitGroundGrid, &QAction::triggered, this, []() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (scene) { scene->RequestGroundGridFit(); }
@@ -1499,6 +1506,7 @@ void igQtMainWindow::initAllComponents() {
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
             if (!scene) { return; }
             scene->SetGroundGridPlane(plane);
+            scene->ResetCameraView();
             scene->Update();
         });
     };
@@ -1510,6 +1518,7 @@ void igQtMainWindow::initAllComponents() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) { return; }
         scene->SetGroundGridReversed(reversed);
+        scene->ResetCameraView();
         scene->Update();
     });
     connect(ui->menu_GroundSettings, &QMenu::aboutToShow, this,
@@ -2040,6 +2049,7 @@ void igQtMainWindow::initAllFilters() {
         {"extract_location", "提取位置", StandardFilterCategory::Extraction, false},
         {"extract_selection", "提取选择", StandardFilterCategory::Extraction, false},
         {"extract_subset", "提取子集", StandardFilterCategory::Extraction, true},
+        {"extract_surface", "表面提取", StandardFilterCategory::Extraction, false},
         {"extract_time_steps", "提取时间步", StandardFilterCategory::Extraction, false},
         {"feature_edges", "特征边", StandardFilterCategory::Geometry, true},
         {"feature_edges_region_ids", "特征边区域标识符", StandardFilterCategory::DataAttributes, false},
@@ -2058,7 +2068,6 @@ void igQtMainWindow::initAllFilters() {
         {"median", "中位数", StandardFilterCategory::DataAttributes, false},
         {"merge_vector_components", "合并向量分量", StandardFilterCategory::DataAttributes, false},
         {"mesh_quality", "网格质量", StandardFilterCategory::MeshQuality, true},
-        {"multiblock_surface_as_multiblock", "多块表面保留多块结构", StandardFilterCategory::Composite, false},
         {"outline", "轮廓", StandardFilterCategory::Extraction, false},
         {"outline_corners", "轮廓角", StandardFilterCategory::Extraction, false},
         {"overlapping_cells_detector", "重叠单元检测", StandardFilterCategory::Geometry, false},
@@ -2181,7 +2190,78 @@ void igQtMainWindow::initAllFilters() {
         showDarkFramelessMessage(title, QStringLiteral("Filter 执行完成。"), true);
     };
 
+    auto extractSurface = [this]() {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+
+        if (obj->HasSubDataObject()) {
+            auto filter = MultiBlockGeometryFilter::New();
+            filter->SetInput(obj);
+            if (!filter->Execute()) {
+                QString message = QString::fromStdString(filter->GetMessage());
+                if (message.isEmpty()) message = QStringLiteral("表面提取失败。");
+                showDarkFramelessMessage(QStringLiteral("Warning"), message);
+                return;
+            }
+
+            auto surface = filter->GetOutput();
+            if (!surface) {
+                showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
+                return;
+            }
+            surface->SetName(obj->GetName() + "_surface");
+            modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
+            rendererWidget->update();
+
+            const auto& failedBlocks = filter->GetFailedBlocks();
+            if (!failedBlocks.empty()) {
+                QString message = QStringLiteral("表面提取已完成，但以下 %1 个子构件处理异常（已为您原样保留）：\n")
+                                      .arg(failedBlocks.size());
+                for (const auto& block : failedBlocks) {
+                    message += QStringLiteral("• [%1]: %2\n")
+                                   .arg(QString::fromStdString(block.path), QString::fromStdString(block.reason));
+                }
+                showDarkFramelessMessage(QStringLiteral("部分子构件提示"), message);
+            }
+            return;
+        }
+
+        auto filter = ConvertToSurfaceMeshFilter::New();
+        filter->SetInput(obj);
+        filter->SetConvertMethod(ConvertToSurfaceMeshFilter::IG_EXTRACT_SURFACE_MESH);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("当前数据类型不支持表面提取。"));
+            return;
+        }
+
+        auto surface = filter->GetSurfaceMesh();
+        if (!surface) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
+            return;
+        }
+        if (surface.GetPointer() == obj.GetPointer()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("当前模型已经是表面网格，无需提取。"));
+            return;
+        }
+        if (surface->GetNumberOfFaces() == 0) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("提取结果为空，当前模型没有可提取的表面单元。"));
+            return;
+        }
+
+        surface->SetName(obj->GetName() + "_surface");
+        modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
+        rendererWidget->update();
+    };
+
     auto connectStandardFilterAction = [&](QAction* action, const QString& filterId) -> bool {
+        if (filterId == QStringLiteral("extract_surface")) {
+            connect(action, &QAction::triggered, this, extractSurface);
+            return true;
+        }
         if (connectMigratedFilterAction(action, filterId)) return true;
         if (connectThirdBatchFilterAction(action, filterId)) return true;
         if (connectAdditionalFilterAction(action, filterId)) return true;
@@ -2607,8 +2687,9 @@ void igQtMainWindow::initAllFilters() {
 
     for (const StandardFilterEntry& entry: standardFilterEntries) {
         const QString filterId = QString::fromLatin1(entry.id);
-        const QString actionText = QStringLiteral("%1（%2）")
-                                           .arg(filterId, QString::fromUtf8(entry.chineseName));
+        const QString actionText = filterId == QStringLiteral("extract_surface")
+                ? QStringLiteral("Extract Surface（表面提取）")
+                : QStringLiteral("%1（%2）").arg(filterId, QString::fromUtf8(entry.chineseName));
         QAction* action = new QAction(actionText, standardFilters);
         action->setObjectName(QStringLiteral("action_filter_%1").arg(filterId));
         action->setData(filterId);
@@ -3149,40 +3230,9 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("Surface Extraction（表面提取）")), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return;
-
-        auto filter = ConvertToSurfaceMeshFilter::New();
-        filter->SetInput(obj);
-        filter->SetConvertMethod(ConvertToSurfaceMeshFilter::IG_EXTRACT_SURFACE_MESH);
-        if (!filter->Execute()) {
-            showDarkFramelessMessage(QStringLiteral("Warning"),
-                                     QStringLiteral("当前数据类型不支持表面提取。"));
-            return;
-        }
-
-        auto surface = filter->GetSurfaceMesh();
-        if (!surface) {
-            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
-            return;
-        }
-        if (surface.GetPointer() == obj.GetPointer()) {
-            showDarkFramelessMessage(QStringLiteral("Warning"),
-                                     QStringLiteral("当前模型已经是表面网格，无需提取。"));
-            return;
-        }
-        if (surface->GetNumberOfFaces() == 0) {
-            showDarkFramelessMessage(QStringLiteral("Warning"),
-                                     QStringLiteral("提取结果为空，当前模型没有可提取的表面单元。"));
-            return;
-        }
-
-        surface->SetName(obj->GetName() + "_surface");
-        modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
-        rendererWidget->update();
-    });
+    auto* surfaceExtractionAction = mesh_processing->addAction(QStringLiteral("Surface Extraction（表面提取）"));
+    surfaceExtractionAction->setObjectName("action_filter_surface_extraction");
+    connect(surfaceExtractionAction, &QAction::triggered, this, extractSurface);
 
     auto* tetraAction = mesh_processing->addAction(QStringLiteral("Mesh Tetrahedralize（四面体化）"));
     tetraAction->setObjectName("action_filter_mesh_tetrahedralize");
