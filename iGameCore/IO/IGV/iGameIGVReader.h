@@ -84,9 +84,11 @@ private:
         int components{1};
         igv::DType dtype{igv::DType::F32};
         std::vector<double> range;
-        std::vector<float> f32;
-        std::vector<double> f64;
-        std::vector<unsigned char> u8;
+        /// 属性值的**原始字节**（按 `dtype` 解释；读入时已由 HDF5 转成本机字节序）。
+        ///
+        /// 用字节而不是"每种 dtype 一个 vector"：10 类定宽 dtype 只需一条读取/重建路径，
+        /// 宽度由 `SizeOfDType(dtype)` 唯一确定（§3.5）。
+        std::vector<unsigned char> bytes;
     };
 
     igv::IGVMetadata m_Meta;

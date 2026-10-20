@@ -403,6 +403,18 @@ void CheckOneFile(const fs::path& path, int64_t& outPoints, int64_t& outCells) {
               "V3.1 属性 '" + info.name + "' valueSize 一致（快 " + std::to_string(info.valueSize) +
                       " vs 全量 " + std::to_string(match->valueSize) + "）");
 
+        // 1.x：快路径报出的定宽 dtype（DataType/DataTypeBits）必须与字节宽度自洽，
+        // 且能被解析回一个合法 DType。这条防的是"字段填了但填错"——比不填更危险。
+        {
+            const igv::DType reported = igv::ParseDTypeToken(info.dTypeToken);
+            Check(reported != igv::DType::Unknown,
+                  "V3.1 array '" + info.name + "' reports a fixed-width DataType token ('" +
+                          info.dTypeToken + "')");
+            Check(igv::DTypeBits(reported) == info.dTypeBits && info.dTypeBits == info.valueSize * 8,
+                  "V3.1 array '" + info.name + "' DataTypeBits (" + std::to_string(info.dTypeBits) +
+                          ") agrees with valueSize (" + std::to_string(info.valueSize) + " bytes)");
+        }
+
         // range 与「读回数据重算」一致（不是拿文件的 range 自证）
         if (match->range.size() == info.range.size()) {
             bool same = true;

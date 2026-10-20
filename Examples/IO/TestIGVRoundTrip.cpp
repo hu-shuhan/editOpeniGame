@@ -210,12 +210,98 @@ struct Snapshot {
         int components{1};
         int valueSize{0};
         int64_t elementCount{0};
+        /// iGame 的数组类（`IG_CharArray` / `IG_ShortArray` / …）。
+        ///
+        /// **必须比**：只有 `valueSize` 无法区分 `Int32` / `UInt32` / `Float32`
+        /// （都是 4 字节），漏比这一项，"类型被悄悄换成另一个 4 字节类型"就会蒙混过关。
+        IGenum arrayType{IG_NONE};
         std::vector<float> f32;
         std::vector<double> f64;
         std::vector<unsigned char> u8;
+        /// 任意 dtype 的原始字节（10 类 dtype 的逐字节比对）。
+        std::vector<unsigned char> bytes;
     };
     std::vector<Attr> attrs;
 };
+
+/// 取数组的原始字节指针（10 类 dtype）。
+///
+/// `ArrayObject` 没有虚的 `RawPointer()`，所以这里按具体类分派一次 ——
+/// 只用于测试的快照，不影响产品代码。
+const void* RawArrayBytes(ArrayObject::Pointer arr, IGenum arrayType) {
+    switch (arrayType) {
+        case IG_FloatArray:            return DynamicCast<FloatArray>(arr)->RawPointer();
+        case IG_DoubleArray:           return DynamicCast<DoubleArray>(arr)->RawPointer();
+        case IG_UnsignedCharArray:     return DynamicCast<UnsignedCharArray>(arr)->RawPointer();
+        case IG_CharArray:             return DynamicCast<CharArray>(arr)->RawPointer();
+        case IG_ShortArray:            return DynamicCast<ShortArray>(arr)->RawPointer();
+        case IG_UnsignedShortArray:    return DynamicCast<UnsignedShortArray>(arr)->RawPointer();
+        case IG_IntArray:
+        case IG_INTARRAY:              return DynamicCast<IntArray>(arr)->RawPointer();
+        case IG_UnsignedIntArray:      return DynamicCast<UnsignedIntArray>(arr)->RawPointer();
+        case IG_LongLongArray:         return DynamicCast<LongLongArray>(arr)->RawPointer();
+        case IG_UnsignedLongLongArray: return DynamicCast<UnsignedLongLongArray>(arr)->RawPointer();
+        default:                       return nullptr;
+    }
+}
+
+/// V1.12 夹具：一份网格 + **全部 10 类标量 dtype** 的属性数组。
+///
+/// 取值刻意压在各类型的边界上（-128 / 255 / -32768 / 65535 / INT_MIN / UINT_MAX /
+/// INT64_MIN / UINT64_MAX），任何"窄类型被提升或被截断"的实现都会在逐字节比对里暴露。
+template <class ArrayT, typename T>
+void AddTypedAttr(AttributeSet* set, const char* name, const std::vector<T>& values) {
+    typename ArrayT::Pointer a = ArrayT::New();
+    a->SetDimension(1);
+    a->SetName(name);
+    a->Resize(static_cast<IGsize>(values.size()));
+    std::memcpy(a->RawPointer(), values.data(), values.size() * sizeof(T));
+    set->AddAttribute(IG_SCALAR, IG_POINT, a);
+}
+
+UnstructuredMesh::Pointer MakeAllDTypeMesh() {
+    auto mesh = UnstructuredMesh::New();
+
+    Points::Pointer pts = Points::New();
+    pts->Resize(4);
+    const float coords[12] = {0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f};
+    std::memcpy(pts->RawPointer(), coords, sizeof(coords));
+    mesh->SetPoints(pts);
+
+    CellArray::Pointer cells = CellArray::New();
+    igIndex tet[4] = {0, 1, 2, 3};
+    cells->AddCellIds(tet, 4);
+    UnsignedIntArray::Pointer cellTypes = UnsignedIntArray::New();
+    cellTypes->AddValue(static_cast<unsigned int>(IG_TETRA));
+    mesh->SetCells(cells, cellTypes);
+
+    AttributeSet* set = mesh->GetAttributeSet();
+    const auto i64min = std::numeric_limits<long long>::min();
+    const auto i64max = std::numeric_limits<long long>::max();
+    const auto u64max = std::numeric_limits<unsigned long long>::max();
+    const auto i32min = std::numeric_limits<int>::min();
+    const auto u32max = std::numeric_limits<unsigned int>::max();
+
+    AddTypedAttr<CharArray, char>(set, "a_i8",
+                                  {static_cast<char>(-128), static_cast<char>(-1),
+                                   static_cast<char>(0), static_cast<char>(127)});
+    AddTypedAttr<ShortArray, short>(set, "a_i16", {-32768, -1, 0, 32767});
+    AddTypedAttr<IntArray, int>(set, "a_i32", {i32min, -1, 0, 2147483647});
+    AddTypedAttr<LongLongArray, long long>(set, "a_i64", {i64min, -1, 0, i64max});
+
+    AddTypedAttr<UnsignedCharArray, unsigned char>(set, "a_u8",
+                                                   {0, 1, 254, static_cast<unsigned char>(255)});
+    AddTypedAttr<UnsignedShortArray, unsigned short>(set, "a_u16",
+                                                     {0, 1, 65534, static_cast<unsigned short>(65535)});
+    AddTypedAttr<UnsignedIntArray, unsigned int>(set, "a_u32", {0, 1, u32max - 1, u32max});
+    AddTypedAttr<UnsignedLongLongArray, unsigned long long>(set, "a_u64",
+                                                            {0, 1, u64max - 1, u64max});
+
+    AddTypedAttr<FloatArray, float>(set, "a_f32", {-0.0f, 0.5f, 1e-30f, 3.4028235e38f});
+    AddTypedAttr<DoubleArray, double>(set, "a_f64",
+                                      {-0.0, 0.1, 1e-300, 1.7976931348623157e308});
+    return mesh;
+}
 
 Snapshot TakeSnapshot(DataObject::Pointer obj) {
     Snapshot s;
@@ -299,6 +385,17 @@ Snapshot TakeSnapshot(DataObject::Pointer obj) {
             sa.components = arr->GetDimension();
             sa.valueSize = static_cast<int>(arr->GetArrayTypedSize());
             sa.elementCount = static_cast<int64_t>(arr->GetNumberOfElements());
+            sa.arrayType = arr->GetArrayType();
+            {
+                const IGsize valueCount = arr->GetNumberOfValues();
+                const size_t totalBytes =
+                    static_cast<size_t>(valueCount) * static_cast<size_t>(sa.valueSize);
+                const void* raw = RawArrayBytes(arr, sa.arrayType);
+                if (raw != nullptr && totalBytes > 0) {
+                    sa.bytes.assign(totalBytes, 0);
+                    std::memcpy(sa.bytes.data(), raw, totalBytes);
+                }
+            }
 
             if (auto f = DynamicCast<FloatArray>(arr)) {
                 sa.f32.assign(f->RawPointer(), f->RawPointer() + arr->GetNumberOfValues());
@@ -323,7 +420,14 @@ const Snapshot::Attr* FindAttr(const Snapshot& s, const std::string& name) {
 bool AttrEquals(const Snapshot::Attr& a, const Snapshot::Attr& b) {
     if (a.name != b.name || a.type != b.type || a.attachment != b.attachment ||
         a.components != b.components || a.valueSize != b.valueSize ||
-        a.elementCount != b.elementCount) {
+        a.elementCount != b.elementCount || a.arrayType != b.arrayType) {
+        return false;
+    }
+    // 逐字节比对（10 类 dtype 通用）：先于下面的 f32/f64/u8 特例，
+    // 这样"窄类型被提升/截断"一定会在字节上暴露。
+    if (a.bytes.size() != b.bytes.size()) { return false; }
+    if (!a.bytes.empty() &&
+        std::memcmp(a.bytes.data(), b.bytes.data(), a.bytes.size()) != 0) {
         return false;
     }
     if (!a.f32.empty() || !b.f32.empty()) { return SameFloats(a.f32, b.f32); }
@@ -1874,6 +1978,61 @@ int main(int argc, char** argv) {
                 Check(!sb.hasTopology, label + ": read-back kept the empty-topology branch");
             }
             CompareObjects(sa, sb, label);
+        }
+    }
+
+    // =========================================================================
+    Section("V1.12 all 10 fixed-width scalar attribute dtypes round-trip bit-exactly");
+    // =========================================================================
+    //
+    // 为什么单列一节：VTK 的标量类型有 12 个（含 `bit` / `id type`），而 IGV 1.0 的
+    // 属性只写 f32/f64/u8 —— 其余类型会被**跳过并告警**，对用户就是丢数据。
+    // 现在 10 类定宽类型全部支持，且文件里显式带 `DataType` + `DataTypeBits`。
+    // 本节保证：每一类都能原样写完再原样读回（数组类与逐字节值都不许变）。
+    {
+        DataObject::Pointer mesh = MakeAllDTypeMesh();
+        const Snapshot before = TakeSnapshot(mesh);
+        Check(before.attrs.size() == 10,
+              "V1.12 the fixture carries 10 attribute arrays, one per dtype");
+
+        const fs::path out = WorkDir() / "v112_all_dtypes.igv";
+        IGVWriter::Pointer w = IGVWriter::New();
+        if (!w->WriteToFile(mesh, out.string())) {
+            Check(false, "V1.12: write failed - " + w->GetLastError());
+        } else {
+            IGVReader::Pointer r = IGVReader::New();
+            DataObject::Pointer back = r->ReadFile(out.string());
+            if (!back) {
+                Check(false, "V1.12: read-back failed - " + r->GetLastError());
+            } else {
+                CompareObjects(before, TakeSnapshot(back), "V1.12 dtype matrix");
+
+                // 再点名一次：CompareObjects 只报"有差异"，这里报"是哪一类没保住"。
+                const Snapshot after = TakeSnapshot(back);
+                struct Expect {
+                    const char* name;
+                    IGenum arrayType;
+                    const char* dtype;
+                };
+                const Expect expects[] = {
+                        {"a_i8",  IG_CharArray,             "Int8(8bit)"},
+                        {"a_i16", IG_ShortArray,            "Int16(16bit)"},
+                        {"a_i32", IG_IntArray,              "Int32(32bit)"},
+                        {"a_i64", IG_LongLongArray,         "Int64(64bit)"},
+                        {"a_u8",  IG_UnsignedCharArray,     "UInt8(8bit)"},
+                        {"a_u16", IG_UnsignedShortArray,    "UInt16(16bit)"},
+                        {"a_u32", IG_UnsignedIntArray,      "UInt32(32bit)"},
+                        {"a_u64", IG_UnsignedLongLongArray, "UInt64(64bit)"},
+                        {"a_f32", IG_FloatArray,            "Float32(32bit)"},
+                        {"a_f64", IG_DoubleArray,           "Float64(64bit)"},
+                };
+                for (const Expect& e : expects) {
+                    const Snapshot::Attr* a = FindAttr(after, e.name);
+                    Check(a != nullptr && a->arrayType == e.arrayType,
+                          std::string("V1.12 ") + e.name + " round-trips as " + e.dtype +
+                                  " (no widening / narrowing / replacement)");
+                }
+            }
         }
     }
 

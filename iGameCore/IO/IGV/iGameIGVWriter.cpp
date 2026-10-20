@@ -86,12 +86,25 @@ std::string_view GroupOfAttachment(IGenum a) {
 }
 
 /// iGame 数组类 → 规范 dtype（§3.5 / §3.6 的 dtype 映射表）。
+///
+/// **10 类一一对应、无降级**：iGame 的数组族与 VTK 的标量类型正好同构，
+/// 因此"全部支持"就是把这张表列全，而不是把窄类型提升成宽类型。
+/// 一旦这里少一行，写侧就会走"跳过该属性 + WARN"的路径 —— 那对用户是**数据丢失**，
+/// 所以 P6 之后这里不再有任何 dtype 白名单。
 bool MapArrayDType(IGenum arrayType, DType& out) {
     switch (arrayType) {
-        case IG_FloatArray:          out = DType::F32; return true;
-        case IG_DoubleArray:         out = DType::F64; return true;
-        case IG_UnsignedCharArray:   out = DType::U8;  return true;
-        default:                     return false;
+        case IG_FloatArray:            out = DType::F32; return true;
+        case IG_DoubleArray:           out = DType::F64; return true;
+        case IG_UnsignedCharArray:     out = DType::U8;  return true;
+        case IG_CharArray:             out = DType::I8;  return true;
+        case IG_ShortArray:            out = DType::I16; return true;
+        case IG_UnsignedShortArray:    out = DType::U16; return true;
+        case IG_IntArray:
+        case IG_INTARRAY:              out = DType::I32; return true;
+        case IG_UnsignedIntArray:      out = DType::U32; return true;
+        case IG_LongLongArray:         out = DType::I64; return true;
+        case IG_UnsignedLongLongArray: out = DType::U64; return true;
+        default:                       return false;
     }
 }
 
@@ -121,9 +134,9 @@ const char* ArrayTypeLabel(IGenum arrayType) {
 /// 所以必须落一条 WARN，且告警里带属性名与真实数组类型，方便用户判断是否需要另存。
 /// 网格本身（点/拓扑/其它可写属性）照常写出。
 void WarnSkipUnsupportedAttribute(const std::string& name, IGenum arrayType) {
-    IGAME_CORE_WARN("[IGV] attribute '{}' is skipped: its array type is {}, but IGV attributes "
-                    "only support FloatArray(f32) / DoubleArray(f64) / UnsignedCharArray(u8). "
-                    "The mesh itself is written normally.",
+    IGAME_CORE_WARN("[IGV] attribute '{}' is skipped: its array type is {}, which is not one of "
+                    "the 10 fixed-width scalar dtypes (Int8/16/32/64, UInt8/16/32/64, "
+                    "Float32/64). The mesh itself is written normally.",
                     name, ArrayTypeLabel(arrayType));
 }
 
@@ -252,27 +265,17 @@ struct StagedAttribute {
     int64_t count{0};              ///< 元素数
     int components{1};
     DType dtype{DType::F32};
-    std::vector<float> f32;
-    std::vector<double> f64;
-    std::vector<unsigned char> u8;
+
+    /// 按 dtype 的原样字节（主机小端，落盘由 HDF5 转成 *_LE）。
+    ///
+    /// 为什么不给每种 dtype 各留一个 `std::vector`：10 类 dtype 会让 StagedAttribute
+    /// 变成 10 个向量 + 10 个分支，而"字节 + dtype"这层表达本来就足够——宽度由
+    /// `SizeOfDType(dtype)` 唯一确定（§3.5）。
+    std::vector<unsigned char> bytes;
     std::vector<double> range;
 
-    [[nodiscard]] const void* Data() const {
-        switch (dtype) {
-            case DType::F32: return f32.data();
-            case DType::F64: return f64.data();
-            case DType::U8:  return u8.data();
-            default:         return nullptr;
-        }
-    }
-    [[nodiscard]] size_t ValueCount() const {
-        switch (dtype) {
-            case DType::F32: return f32.size();
-            case DType::F64: return f64.size();
-            case DType::U8:  return u8.size();
-            default:         return 0;
-        }
-    }
+    [[nodiscard]] const void* Data() const { return bytes.empty() ? nullptr : bytes.data(); }
+    [[nodiscard]] size_t ValueCount() const { return bytes.size() / SizeOfDType(dtype); }
 };
 
 /// 计算逐属性 range（§8.2）。
@@ -339,6 +342,41 @@ std::vector<double> ComputeRange(const T* data, int64_t count, int components) {
         out.push_back(std::isnan(cmax[j]) ? 0.0 : cmax[j]);
     }
     return out;
+}
+
+/// 把某个具体数组类的数据原样取成字节，并算 range（§3.5 的 10 类 dtype 共用）。
+///
+/// 模板参数是"数组类 + 元素类型"：两者必须匹配（iGame 的数组族是一一对应的），
+/// `DynamicCast` 失败即说明 `MapArrayDType` 与实际类不一致 —— 那是 bug，不是数据问题，
+/// 所以返回 false 由调用方报错。
+template <class ArrayT, typename T>
+bool StageTypedArray(const ArrayObject::Pointer& array, StagedAttribute& sa) {
+    auto typed = DynamicCast<ArrayT>(array);
+    if (!typed) { return false; }
+
+    const size_t valueCount = static_cast<size_t>(array->GetNumberOfValues());
+    const T* src = typed->RawPointer();
+    sa.bytes.assign(valueCount * sizeof(T), 0);
+    if (valueCount > 0) { std::memcpy(sa.bytes.data(), src, valueCount * sizeof(T)); }
+    sa.range = ComputeRange(src, sa.count, sa.components);
+    return true;
+}
+
+/// 按 dtype 分派到上面的模板（10 类，无默认分支 —— 漏一类就编译告警）。
+bool StageAttributeData(const ArrayObject::Pointer& array, StagedAttribute& sa) {
+    switch (sa.dtype) {
+        case DType::F32: return StageTypedArray<FloatArray, float>(array, sa);
+        case DType::F64: return StageTypedArray<DoubleArray, double>(array, sa);
+        case DType::U8:  return StageTypedArray<UnsignedCharArray, unsigned char>(array, sa);
+        case DType::I8:  return StageTypedArray<CharArray, char>(array, sa);
+        case DType::I16: return StageTypedArray<ShortArray, short>(array, sa);
+        case DType::U16: return StageTypedArray<UnsignedShortArray, unsigned short>(array, sa);
+        case DType::I32: return StageTypedArray<IntArray, int>(array, sa);
+        case DType::U32: return StageTypedArray<UnsignedIntArray, unsigned int>(array, sa);
+        case DType::I64: return StageTypedArray<LongLongArray, long long>(array, sa);
+        case DType::U64: return StageTypedArray<UnsignedLongLongArray, unsigned long long>(array, sa);
+        default:         return false;
+    }
 }
 
 } // namespace
@@ -536,8 +574,9 @@ bool IGVWriter::ValidateDataObject() {
 
             DType dt = DType::Unknown;
             if (!MapArrayDType(array->GetArrayType(), dt)) {
-                // 跳过而不是拒绝：IGV 的属性 dtype 只有 f32/f64/u8（§3.6），
-                // 而来源数据常带 int32 单元类型码。见 WarnSkipUnsupportedAttribute。
+                // 跳过而不是拒绝：走到这里说明数组类型不在**10 类定宽标量**里
+                // （正常数据不该出现——iGame 的数组族已全部覆盖）。见
+                // WarnSkipUnsupportedAttribute。
                 WarnSkipUnsupportedAttribute(name, array->GetArrayType());
                 continue;
             }
@@ -937,19 +976,10 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
                 return false;
             }
 
-            const size_t valueCount = static_cast<size_t>(array->GetNumberOfValues());
-            if (sa.dtype == DType::F32) {
-                auto f = DynamicCast<FloatArray>(array);
-                sa.f32.assign(f->RawPointer(), f->RawPointer() + valueCount);
-                sa.range = ComputeRange(sa.f32.data(), sa.count, sa.components);
-            } else if (sa.dtype == DType::F64) {
-                auto d = DynamicCast<DoubleArray>(array);
-                sa.f64.assign(d->RawPointer(), d->RawPointer() + valueCount);
-                sa.range = ComputeRange(sa.f64.data(), sa.count, sa.components);
-            } else {
-                auto u = DynamicCast<UnsignedCharArray>(array);
-                sa.u8.assign(u->RawPointer(), u->RawPointer() + valueCount);
-                sa.range = ComputeRange(sa.u8.data(), sa.count, sa.components);
+            if (!StageAttributeData(array, sa)) {
+    Fail("attribute '" + sa.name + "' could not be read as " +
+                 std::string(DTypeToken(sa.dtype)));
+                return false;
             }
 
             staged.push_back(std::move(sa));
@@ -1193,6 +1223,19 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         if (!ds.IsValid()) {
             ClearHdf5Errors();
    Fail("failed to reopen attribute dataset '" + sa.name + "' failed");
+            return false;
+        }
+
+        // 显式 dtype 声明（1.x）：定宽名 + 位宽。
+        //
+        // 与 HDF5 自身的类型**冗余**，但这正是要点：VTK 的 `long`/`id type` 宽度随平台
+        // 变化，读取方不该被迫去推断。三份信息（HDF5 类型 / DataType / DataTypeBits）
+        // 互相交叉校验，任何一份不一致都说明文件坏了（§6.3）。
+        if (!WriteAsciiAttribute(ds.Get(), kAttrDataType, DTypeToken(sa.dtype)) ||
+            !WriteI64Attribute(ds.Get(), kAttrDataTypeBits,
+                               static_cast<int64_t>(DTypeBits(sa.dtype)))) {
+            ClearHdf5Errors();
+   Fail("failed to write attribute '" + sa.name + "' DataType/DataTypeBits");
             return false;
         }
 

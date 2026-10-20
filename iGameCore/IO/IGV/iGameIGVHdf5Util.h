@@ -137,6 +137,11 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
         case DType::U8:  return H5T_STD_U8LE;
         case DType::I32: return H5T_STD_I32LE;
         case DType::I64: return H5T_STD_I64LE;
+        case DType::I8:  return H5T_STD_I8LE;
+        case DType::I16: return H5T_STD_I16LE;
+        case DType::U16: return H5T_STD_U16LE;
+        case DType::U32: return H5T_STD_U32LE;
+        case DType::U64: return H5T_STD_U64LE;
         default:         return H5T_NATIVE_INT;  // 不应到达；由调用方先校验
     }
 }
@@ -150,6 +155,11 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
         case DType::U8:  return H5T_NATIVE_UCHAR;
         case DType::I32: return H5T_NATIVE_INT32;
         case DType::I64: return H5T_NATIVE_INT64;
+        case DType::I8:  return H5T_NATIVE_INT8;
+        case DType::I16: return H5T_NATIVE_INT16;
+        case DType::U16: return H5T_NATIVE_UINT16;
+        case DType::U32: return H5T_NATIVE_UINT32;
+        case DType::U64: return H5T_NATIVE_UINT64;
         default:         return H5T_NATIVE_INT;
     }
 }
@@ -187,13 +197,24 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
         return false;
     }
     if (cls == H5T_INTEGER) {
+        // 整数按 **(符号, 宽度)** 唯一确定一个定宽 DType —— 不再有"只认 u8/i32/i64"
+        // 的白名单：VTK 的全部整型都要能无损进出（§3.5 的 10 类 dtype）。
         if (sign == H5T_SGN_NONE) {
-            if (size == 1) { out = DType::U8; return true; }
-            return false;  // 无符号 i32/i64 不在规范内
+            switch (size) {
+                case 1: out = DType::U8;  return true;
+                case 2: out = DType::U16; return true;
+                case 4: out = DType::U32; return true;
+                case 8: out = DType::U64; return true;
+                default: return false;
+            }
         }
-        if (size == 4) { out = DType::I32; return true; }
-        if (size == 8) { out = DType::I64; return true; }
-        return false;
+        switch (size) {
+            case 1: out = DType::I8;  return true;
+            case 2: out = DType::I16; return true;
+            case 4: out = DType::I32; return true;
+            case 8: out = DType::I64; return true;
+            default: return false;
+        }
     }
     return false;
 }
@@ -696,6 +717,82 @@ inline bool ReadbackElementCount(hid_t loc, std::string_view name, int64_t& out)
 /// 读一个 dataset 的全部元素到 `out`（按 native 类型）。
 ///
 /// @param expectedElemCount 期望元素数；0 表示不校验
+/**
+ * 读一个 dataset 的**原始字节**（任意定宽 dtype）。
+ *
+ * 与 `ReadDataset<T>` 的分工：那个版本要求调用方事先知道元素类型 `T`（`vector<T>`）；
+ * 本函数按文件里的 dtype 决定宽度，把 n 个元素读成 `n * SizeOfDType(dtype)` 字节。
+ * 属性的 10 类 dtype 都走这一条路，因此不需要为每种类型各写一个分支。
+ */
+/// 从**已打开**的 dataset 句柄读原始字节（属性路径用它：调用方手里已经有 handle）。
+inline bool ReadDatasetAsBytesFrom(hid_t dsId, DType expectedType, size_t expectedElemCount,
+                                   std::vector<unsigned char>& out) {
+    if (dsId < 0) { return false; }
+
+    H5TypeHandle type(H5Dget_type(dsId));
+    if (!type.IsValid()) { ClearHdf5Errors(); return false; }
+
+    DType actual = DType::Unknown;
+    if (!DTypeFromFileType(type.Get(), actual)) { ClearHdf5Errors(); return false; }
+    if (actual != expectedType) { ClearHdf5Errors(); return false; }
+
+    H5DataspaceHandle space(H5Dget_space(dsId));
+    if (!space.IsValid()) { ClearHdf5Errors(); return false; }
+
+    const hsize_t n = H5Sget_simple_extent_npoints(space.Get());
+    if (expectedElemCount != 0 && n != static_cast<hsize_t>(expectedElemCount)) {
+        ClearHdf5Errors();
+        return false;
+    }
+
+    const size_t elemBytes = SizeOfDType(expectedType);
+    out.assign(static_cast<size_t>(n) * elemBytes, 0);
+    if (n == 0) { return true; }
+    if (H5Dread(dsId, NativeTypeOf(expectedType), H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                out.data()) < 0) {
+        ClearHdf5Errors();
+        return false;
+    }
+    IGVStats::h5dreadCount.fetch_add(1, std::memory_order_relaxed);
+    return true;
+}
+
+inline bool ReadDatasetAsBytes(hid_t loc, std::string_view name, DType expectedType,
+                               size_t expectedElemCount, std::vector<unsigned char>& out) {
+    const std::string nameStr(name);
+    IGVStats::datasetOpenCount.fetch_add(1, std::memory_order_relaxed);
+
+    H5DatasetHandle ds(H5Dopen2(loc, nameStr.c_str(), H5P_DEFAULT));
+    if (!ds.IsValid()) { ClearHdf5Errors(); return false; }
+
+    H5TypeHandle type(H5Dget_type(ds.Get()));
+    if (!type.IsValid()) { ClearHdf5Errors(); return false; }
+
+    DType actual = DType::Unknown;
+    if (!DTypeFromFileType(type.Get(), actual)) { ClearHdf5Errors(); return false; }
+    if (actual != expectedType) { ClearHdf5Errors(); return false; }
+
+    H5DataspaceHandle space(H5Dget_space(ds.Get()));
+    if (!space.IsValid()) { ClearHdf5Errors(); return false; }
+
+    const hsize_t n = H5Sget_simple_extent_npoints(space.Get());
+    if (expectedElemCount != 0 && n != static_cast<hsize_t>(expectedElemCount)) {
+        ClearHdf5Errors();
+        return false;
+    }
+
+    const size_t elemBytes = SizeOfDType(expectedType);
+    out.assign(static_cast<size_t>(n) * elemBytes, 0);
+    if (n == 0) { return true; }
+    if (H5Dread(ds.Get(), NativeTypeOf(expectedType), H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                out.data()) < 0) {
+        ClearHdf5Errors();
+        return false;
+    }
+    IGVStats::h5dreadCount.fetch_add(1, std::memory_order_relaxed);
+    return true;
+}
+
 template <typename T>
 inline bool ReadDataset(hid_t loc, std::string_view name, DType expectedType,
                         size_t expectedElemCount, std::vector<T>& out) {

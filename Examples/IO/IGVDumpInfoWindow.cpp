@@ -108,14 +108,21 @@ QString FormatCount(int64_t value) {
     return QLocale(QLocale::English).toString(static_cast<qlonglong>(value));
 }
 
-/// `valueSize`（字节）→ 人类可读的 dtype 名。与 §3.5 的 dtype 表一一对应。
-QString DTypeName(int valueSize) {
-    switch (valueSize) {
-        case 4: return QStringLiteral("Float32");
-        case 8: return QStringLiteral("Float64");
-        case 1: return QStringLiteral("UInt8");
-        default: return QStringLiteral("?") + QString::number(valueSize);
+/// 属性数组的类型标签：`Float64(64bit)`。
+///
+/// 位宽**一定**显示，因为这是用户对着 vtk legacy 的 `long`/`id type` 踩过的坑：
+/// 同一个文件在两台机器上按不同宽度解释。IGV 里类型是定宽的（§3.5），
+/// 面板把它连名字带位宽一起摊开，读者不需要去查"double 是几位"。
+QString DTypeLabelOf(const igv::IGVArrayInfo& array) {
+    if (!array.dTypeToken.empty() && array.dTypeBits > 0) {
+        return QString::fromStdString(array.dTypeToken) + QStringLiteral("(") +
+               QString::number(array.dTypeBits) + QStringLiteral("bit)");
     }
+    // 1.0 的老文件没有 DataType attribute：只能按字节数给保守标签（不带符号信息）。
+    if (array.valueSize > 0) {
+        return QStringLiteral("?(") + QString::number(array.valueSize * 8) + QStringLiteral("bit)");
+    }
+    return QStringLiteral("-");
 }
 
 /// 依附类型 → 面板上的短名。空串（老文件没有 `attachment`）时显示 unknown。
@@ -645,9 +652,17 @@ private:
             nameItem->setToolTip(QString::fromStdString(a.name));
             m_Table->setItem(i, 1, nameItem);
 
-            auto* typeItem = new QTableWidgetItem(DTypeName(a.valueSize));
-            typeItem->setToolTip(QStringLiteral("AttributeType = %1")
-                                         .arg(QString::fromStdString(a.attributeType)));
+            auto* typeItem = new QTableWidgetItem(DTypeLabelOf(a));
+            const igv::DType arrayDType = igv::ParseDTypeToken(a.dTypeToken);
+            const QString declared = a.dTypeToken.empty()
+                                             ? QStringLiteral("(not declared, inferred from HDF5)")
+                                             : QString::fromStdString(a.dTypeToken);
+            typeItem->setToolTip(
+                    QStringLiteral("DataType = %1, %2 bit\n%3\nAttributeType = %4")
+                            .arg(declared)
+                            .arg(a.dTypeBits)
+                            .arg(QString::fromStdString(std::string(igv::DTypeVTKName(arrayDType))))
+                            .arg(QString::fromStdString(a.attributeType)));
             m_Table->setItem(i, 2, typeItem);
 
             auto* compItem = new QTableWidgetItem(QString::number(a.components));
@@ -727,10 +742,11 @@ private:
                             QStringLiteral("comp").leftJustified(5),
                             QStringLiteral("ranges"));
         for (const igv::IGVArrayInfo& a : meta.arrays) {
+            // 复制出来的文本与面板同构：类型也带位宽（`Float64(64bit)`）。
             out += QStringLiteral("  %1 %2 %3 %4 %5\n")
                            .arg(ScopeName(a.attachment).leftJustified(9),
                                 QString::fromStdString(a.name).leftJustified(28),
-                                DTypeName(a.valueSize).leftJustified(9),
+                                DTypeLabelOf(a).leftJustified(14),
                                 QString::number(a.components).leftJustified(5),
                                 FormatRanges(a));
         }

@@ -293,6 +293,39 @@ private:
     MemoryImageOwner* m_Owner{nullptr};
 };
 
+/// 从"原始字节 + dtype"建出对应的 iGame 数组（10 类，**无降级**）。
+template <class ArrayT, typename T>
+ArrayObject::Pointer MakeTypedAttributeArray(const std::vector<unsigned char>& bytes,
+                                            int components, const std::string& name) {
+    const size_t elemBytes = sizeof(T) * static_cast<size_t>(std::max(components, 1));
+    const size_t elements = (elemBytes == 0) ? 0 : bytes.size() / elemBytes;
+
+    typename ArrayT::Pointer arr = ArrayT::New();
+    arr->SetDimension(components);
+    arr->SetName(name);
+    arr->Resize(static_cast<IGsize>(elements));
+    if (!bytes.empty()) { std::memcpy(arr->RawPointer(), bytes.data(), bytes.size()); }
+    return arr;
+}
+
+/// 按 dtype 分派（与写侧的 StageAttributeData 一一对应）。
+ArrayObject::Pointer MakeAttributeArray(const std::vector<unsigned char>& bytes, DType dtype,
+                                        int components, const std::string& name) {
+    switch (dtype) {
+        case DType::F32: return MakeTypedAttributeArray<FloatArray, float>(bytes, components, name);
+        case DType::F64: return MakeTypedAttributeArray<DoubleArray, double>(bytes, components, name);
+        case DType::U8:  return MakeTypedAttributeArray<UnsignedCharArray, unsigned char>(bytes, components, name);
+        case DType::I8:  return MakeTypedAttributeArray<CharArray, char>(bytes, components, name);
+        case DType::I16: return MakeTypedAttributeArray<ShortArray, short>(bytes, components, name);
+        case DType::U16: return MakeTypedAttributeArray<UnsignedShortArray, unsigned short>(bytes, components, name);
+        case DType::I32: return MakeTypedAttributeArray<IntArray, int>(bytes, components, name);
+        case DType::U32: return MakeTypedAttributeArray<UnsignedIntArray, unsigned int>(bytes, components, name);
+        case DType::I64: return MakeTypedAttributeArray<LongLongArray, long long>(bytes, components, name);
+        case DType::U64: return MakeTypedAttributeArray<UnsignedLongLongArray, unsigned long long>(bytes, components, name);
+        default:         return nullptr;
+    }
+}
+
 } // namespace
 
 // =============================================================================
@@ -798,6 +831,38 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
         }
     }
 
+    // ---- 显式 dtype 声明（1.x，§3.6）：定宽名 + 位宽，与 HDF5 类型三方交叉校验 ----
+    //
+    // 三者是**独立的事实来源**：HDF5 类型来自对象头，`DataType`/`DataTypeBits` 来自
+    // 写出方的声明。任何一个对不上，说明文件自相矛盾 —— 按 §6.3 拒绝，不做"以哪个为准"
+    // 的猜测。老文件（1.0）没有这两个 attribute，此时**只用 HDF5 类型**（向后兼容）。
+    {
+        std::string declaredToken;
+        if (ReadAsciiAttribute(obj, kAttrDataType, declaredToken)) {
+            const DType declared = ParseDTypeToken(declaredToken);
+            if (declared == DType::Unknown) {
+   Fail("attribute '" + name + "' declares DataType='" + declaredToken +
+                     "', which is not one of the 10 fixed-width types (section 3.6)");
+                return false;
+            }
+            if (declared != pa.dtype) {
+   Fail("attribute '" + name + "' declares DataType=" + declaredToken +
+                     " but its HDF5 type is " + std::string(DTypeToken(pa.dtype)) +
+                     " (section 3.6 requires the two to agree)");
+                return false;
+            }
+        }
+        int64_t declaredBits = 0;
+        if (ReadI64Attribute(obj, kAttrDataTypeBits, declaredBits)) {
+            if (declaredBits != static_cast<int64_t>(DTypeBits(pa.dtype))) {
+   Fail("attribute '" + name + "' declares DataTypeBits=" +
+                     std::to_string(declaredBits) + " but its HDF5 type is " +
+                     std::to_string(DTypeBits(pa.dtype)) + " bit (section 3.6 requires agreement)");
+                return false;
+            }
+        }
+    }
+
     // ---- attachment：优先 dataset 的 attribute，缺失则按组名兜底 ----
     if (!ReadAsciiAttribute(obj, kAttrAttachment, pa.attachmentToken)) {
         const IGenum implied = AttachmentFromGroup(groupName);
@@ -854,35 +919,14 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
     }
 
     // ---- 读数据（native 类型，HDF5 负责端序转换）----
+    // 一条路径覆盖全部 10 类定宽 dtype：宽度由 dtype 决定，见 ReadDatasetAsBytes。
     const size_t total = static_cast<size_t>(pa.count * pa.components);
-    switch (dtype) {
-        case DType::F32:
-            if (!ReadDataset(group, name, DType::F32, total, pa.f32)) {
-                ClearHdf5Errors();
-    Fail("failed to read attribute dataset '" + name + "' (expected f32)");
-                return false;
-            }
-            break;
-        case DType::F64:
-            if (!ReadDataset(group, name, DType::F64, total, pa.f64)) {
-                ClearHdf5Errors();
-    Fail("failed to read attribute dataset '" + name + "' (expected f64)");
-                return false;
-            }
-            break;
-        case DType::U8:
-            if (!ReadDataset(group, name, DType::U8, total, pa.u8)) {
-                ClearHdf5Errors();
-    Fail("failed to read attribute dataset '" + name + "' (expected u8)");
-                return false;
-            }
-            break;
-        default:
-   Fail("attribute '" + name + "' dtype (" + DTypeName(dtype) +
-                 ") is outside IGV support (only f32 / f64 / u8, see spec section 3.5)");
-            return false;
+    if (!ReadDatasetAsBytesFrom(obj, dtype, total, pa.bytes)) {
+        ClearHdf5Errors();
+   Fail("failed to read attribute dataset '" + name + "' (expected " +
+                 std::string(DTypeName(dtype)) + ")");
+        return false;
     }
-
     m_Attributes.push_back(std::move(pa));
     return true;
 }
@@ -1419,71 +1463,48 @@ bool IGVReader::RebuildFromParsed() {
         }
     }
 
-    // 步骤 5：属性
+    // 步骤 5：属性 —— 直接从"原始字节 + dtype"建 iGame 数组（10 类 dtype 一条路径）
+    //
+    // 为什么不再经 `AttributeBuffer` / `adapter->AddAttribute()`：
+    //   那个结构只承载 float / double / uint8 三种负载（iGameCodecPayload.h），
+    //   其余 dtype 在适配器里会被当成 double 处理 —— 对交换格式就是静默丢精度。
+    //   IGV 要无损承载 VTK 的全部标量类型，所以属性数组在这里直接构造；
+    //   几何 / 拓扑仍然复用适配器（A5 的支点不变）。
     this->UpdateProgress(0.90); // 拓扑已建好
-    size_t rebuiltAttributes = 0;
-    for (const ParsedAttribute& pa : m_Attributes) {
-        // ⚠ 警告：`AttributeBuffer` 的 type / attachmentType / dimension / valueSize
-        // **没有默认初值**（iGameCodecPayload.h:31-36）。而 AddAttribute 只按
-        // valueSize 分派（isFloat ⇔ 4，isUInt8 ⇔ 1，其余一律走 double 分支），
-        // 因此这五个标量必须全部显式赋值，否则 payload 会被静默丢弃。
-        AttributeBuffer buf;
-        buf.name = pa.name;
-        buf.type = pa.attributeTypeValue;
-        buf.attachmentType = pa.attachmentTypeValue;
-        buf.dimension = pa.components;
-        switch (pa.dtype) {
-            case DType::F32:
-                buf.valueSize = static_cast<int>(sizeof(float));
-                buf.floatData = pa.f32;
-                break;
-            case DType::F64:
-                buf.valueSize = static_cast<int>(sizeof(double));
-                buf.doubleData = pa.f64;
-                break;
-            case DType::U8:
-                buf.valueSize = static_cast<int>(sizeof(unsigned char));
-                buf.uint8Data = pa.u8;
-                break;
-            default:
-    Fail("attribute '" + pa.name + "' dtype cannot be handled during rebuild");
-                return false;
-        }
-        adapter->AddAttribute(buf);
-
-        ++rebuiltAttributes;
-        if (!m_Attributes.empty()) {
-            this->UpdateProgress(
-                    0.90 + 0.06 * static_cast<double>(rebuiltAttributes) /
-                                   static_cast<double>(m_Attributes.size()));
-        }
-    }
 
     DataObject::Pointer obj = adapter->GetOutput();
     if (!obj) {
-  Fail("MeshDecodeAdapterToDataObject::GetOutput() returned null");
+   Fail("MeshDecodeAdapterToDataObject::GetOutput() returned null");
+        return false;
+    }
+    AttributeSet* attrSet = obj->GetAttributeSet();
+    if (attrSet == nullptr) {
+   Fail("the rebuilt object has no AttributeSet");
         return false;
     }
 
-    // 步骤 7：把文件里的预计算 range 挂回属性。
-    //
-    // ⚠ 排列换算：iGame 的 `dataRange` 是 (dim+1) x 2 的表 ——
-    //     element 0    = 模长 min/max
-    //     element 1+j  = 分量 j 的 min/max（**每个分量只占一个 element**，靠第二维放 min/max）
-    //   而 IGV 的写法是扁平的一维 [magMin, magMax, c0Min, c0Max, ...]
-    //   （**每个分量占两个连续位置**）。
-    //   两者信息等价、**排列不同**，必须显式换算，不能 memcpy。
-    AttributeSet* attrSet = obj->GetAttributeSet();
-    if (attrSet != nullptr) {
-        for (const ParsedAttribute& pa : m_Attributes) {
-            AttributeSet::Attribute& attr =
-                attrSet->GetAttribute(pa.name, pa.attributeTypeValue);
-            if (attr.IsNone()) { continue; }
+    size_t rebuiltAttributes = 0;
+    for (const ParsedAttribute& pa : m_Attributes) {
+        ArrayObject::Pointer arr = MakeAttributeArray(pa.bytes, pa.dtype, pa.components, pa.name);
+        if (!arr) {
+   Fail("attribute '" + pa.name + "' cannot be rebuilt as " +
+                 std::string(DTypeToken(pa.dtype)));
+            return false;
+        }
+        attrSet->AddAttribute(pa.attributeTypeValue, pa.attachmentTypeValue, arr);
 
+        // 步骤 7：把文件里的预计算 range 挂回属性。
+        //
+        // ⚠ 排列换算：iGame 的 `dataRange` 是 (dim+1) x 2 的表 ——
+        //     element 0    = 模长 min/max
+        //     element 1+j  = 分量 j 的 min/max（**每个分量只占一个 element**，靠第二维放 min/max）
+        //   而 IGV 的写法是扁平的一维 [magMin, magMax, c0Min, c0Max, ...]
+        //   （**每个分量占两个连续位置**）。两者信息等价、**排列不同**，必须显式换算。
+        AttributeSet::Attribute& attr = attrSet->GetAttribute(pa.name, pa.attributeTypeValue);
+        if (!attr.IsNone()) {
             DoubleArray::Pointer range = DoubleArray::New();
             range->SetDimension(2);
             range->Resize(static_cast<IGsize>(pa.components) + 1);
-
             if (pa.components == 1) {
                 if (pa.range.size() >= 2) {
                     range->SetElement(0, {pa.range[0], pa.range[1]});
@@ -1498,7 +1519,15 @@ bool IGVReader::RebuildFromParsed() {
             }
             attr.SetDataRange(range);
         }
+
+        ++rebuiltAttributes;
+        if (!m_Attributes.empty()) {
+            this->UpdateProgress(
+                    0.90 + 0.06 * static_cast<double>(rebuiltAttributes) /
+                                   static_cast<double>(m_Attributes.size()));
+        }
     }
+    this->UpdateProgress(0.96);
 
     // 步骤 7b：Bounds 一致性自检（**不拒绝** —— 写出方可能是另一实现；
     // 这条自检用于暴露写出侧 bug，见 §6.2 步骤 7）。

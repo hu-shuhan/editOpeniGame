@@ -601,6 +601,11 @@ int RunSelfCheck() {
         {"GROUP \"FieldData\"", "FieldData group"},
         {"ATTRIBUTE \"attachment\"", "per-attribute attachment"},
         {"ATTRIBUTE \"range\"", "per-attribute range"},
+        // 1.x：每个属性 dataset 显式声明定宽类型 + 位宽（§3.6）。
+        // 这两条一起钉住"文件不需要读者去猜类型宽度"这件事。
+        {"ATTRIBUTE \"DataType\"", "per-attribute fixed-width DataType token"},
+        {"ATTRIBUTE \"DataTypeBits\"", "per-attribute explicit bit width"},
+        {"ATTRIBUTE \"DataType\" = \"Float64\"", "the f64 attribute declares Float64"},
         {"f_scalar", "f32 attribute"},
         {"d_scalar", "f64 attribute"},
         {"u8_scalar", "u8 attribute"},

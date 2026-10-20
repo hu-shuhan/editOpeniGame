@@ -131,6 +131,20 @@ inline constexpr std::string_view kAttrRange = "range";                     ///<
 inline constexpr std::string_view kAttrIGAttributeType = "IGAttributeType"; ///< int64 标量，iGame 枚举原值（保真冗余）
 inline constexpr std::string_view kAttrIGAttachmentType = "IGAttachmentType"; ///< int64 标量，iGame 枚举原值
 
+/// **数据类型显式声明**（1.x）。取值见 `DTypeToken()`：`Int8`/`UInt16`/`Float64`/…
+///
+/// 为什么在 HDF5 类型之外还要再写一遍：HDF5 的类型是**自描述**的，但它只告诉自己
+/// 有多宽、是整型还是浮点，不告诉读者"这是不是 VTK 的 `long`"这类**语义**。
+/// 把定宽名显式写出来，读取方（包括外部实现者）不必做任何平台推断；
+/// 同时它与 `DataTypeBits` 构成一对**冗余校验**（与 §3.4 的计数组同一思路）。
+inline constexpr std::string_view kAttrDataType = "DataType";
+
+/// 数据类型位宽（i64 标量，8/16/32/64）。
+///
+/// 与 `DataType` 冗余，但两者是**独立事实**：写侧两者不一致 → 文件自相矛盾；
+/// 侧者与 HDF5 实际类型不一致 → 文件说谎。读侧把三者交叉校验（§6.3）。
+inline constexpr std::string_view kAttrDataTypeBits = "DataTypeBits";
+
 /// 组级"激活属性"标记（对齐 VTKHDF 的 PointData/Scalars 写法）。
 inline constexpr std::array<std::string_view, 5> kGroupActiveMarkers = {
     "Scalars", "Vectors", "Normals", "TCoords", "Tensors",
@@ -222,13 +236,31 @@ inline constexpr int kTypesDtypeBytes = 1;
 // iGameIGVHdf5Util.h，因为它们必须看见 HDF5 的类型宏。
 
 /// 规范要求的数据类型标识。与 §3.5 的 IGV dtype 表一一对应。
+///
+/// **为什么这里有 10 种、而不是只留 f32/f64/u8**：
+/// IGV 是交换格式，属性数组必须与来源**等宽无损**。VTK 的标量类型共 12 个
+/// （`char`/`short`/`int`/`long long`、各自的无符号版、`float`/`double`，外加
+/// `bit` 与 `id type`），其中 `long` 的宽度**依赖平台**（LP64=8 / LLP64=4）。
+/// 把 VTK 的类型名直接写进交换格式，就会得到"同一份文件在两台机器上解析成不同
+/// 字节宽"的经典事故 —— 所以 IGV 只承认**定宽**类型（与 NumPy 的
+/// int8…uint64 / float32 / float64 一一对应），并把宽度**显式写进文件**
+/// （每个属性 dataset 上的 `DataType` + `DataTypeBits`，见 §3.6）。
+///
+/// 枚举值只在编译期使用，不写进文件（文件里存的是 HDF5 类型 + 上面两个 attribute）。
 enum class DType {
     Unknown = 0,
-    F32,   ///< H5T_IEEE_F32LE  Points / FloatArray
-    F64,   ///< H5T_IEEE_F64LE  DoubleArray
-    U8,    ///< H5T_STD_U8LE    UnsignedCharArray / Types
-    I32,   ///< H5T_STD_I32LE   IdArray -> Connectivity
-    I64,   ///< H5T_STD_I64LE   Offsets / NumberOf* / Version / Dimensions
+    // ---- 1.0 起的五类：几何/拓扑 dataset 与最常用的属性 ----
+    F32,   ///< H5T_IEEE_F32LE  Points / FloatArray          float   (32 bit)
+    F64,   ///< H5T_IEEE_F64LE  DoubleArray                  double  (64 bit)
+    U8,    ///< H5T_STD_U8LE    UnsignedCharArray / Types    uint8   (8 bit)
+    I32,   ///< H5T_STD_I32LE   Connectivity / IntArray      int32   (32 bit)
+    I64,   ///< H5T_STD_I64LE   Offsets / 计数组 / LongLong  int64   (64 bit)
+    // ---- 1.x 补齐：属性数组现在可以无损承载 VTK 的全部标量类型 ----
+    I8,    ///< H5T_STD_I8LE    CharArray                    int8    (8 bit)
+    I16,   ///< H5T_STD_I16LE   ShortArray                   int16   (16 bit)
+    U16,   ///< H5T_STD_U16LE   UnsignedShortArray           uint16  (16 bit)
+    U32,   ///< H5T_STD_U32LE   UnsignedIntArray             uint32  (32 bit)
+    U64,   ///< H5T_STD_U64LE   UnsignedLongLongArray        uint64  (64 bit)
 };
 
 [[nodiscard]] inline constexpr const char* DTypeName(DType t) noexcept {
@@ -238,19 +270,112 @@ enum class DType {
         case DType::U8:  return "u8(H5T_STD_U8LE)";
         case DType::I32: return "i32(H5T_STD_I32LE)";
         case DType::I64: return "i64(H5T_STD_I64LE)";
+        case DType::I8:  return "i8(H5T_STD_I8LE)";
+        case DType::I16: return "i16(H5T_STD_I16LE)";
+        case DType::U16: return "u16(H5T_STD_U16LE)";
+        case DType::U32: return "u32(H5T_STD_U32LE)";
+        case DType::U64: return "u64(H5T_STD_U64LE)";
         default:         return "unknown";
     }
 }
 
-[[nodiscard]] inline constexpr size_t SizeOfDType(DType t) noexcept {
+/// 位宽（bit）。与 §3.5 的 dtype 表严格一致，**绝不**做平台推断。
+[[nodiscard]] inline constexpr int DTypeBits(DType t) noexcept {
     switch (t) {
-        case DType::F32: return 4;
-        case DType::F64: return 8;
-        case DType::U8:  return 1;
-        case DType::I32: return 4;
-        case DType::I64: return 8;
+        case DType::U8:
+        case DType::I8:  return 8;
+        case DType::I16:
+        case DType::U16: return 16;
+        case DType::F32:
+        case DType::I32:
+        case DType::U32: return 32;
+        case DType::F64:
+        case DType::I64:
+        case DType::U64: return 64;
         default:         return 0;
     }
+}
+
+/// 定宽类型名 —— 也就是 `DataType` attribute 的取值。
+///
+/// 刻意**不用** VTK 的 `int` / `long` / `double`：那些名字会诱导读者按平台宽度去
+/// 解释（用户的原始诉求正是"避免 vtk legacy 的语义模糊"）。这里名字本身就含宽度，
+/// 与 `DataTypeBits` 互为交叉校验。
+[[nodiscard]] inline constexpr std::string_view DTypeToken(DType t) noexcept {
+    switch (t) {
+        case DType::I8:  return "Int8";
+        case DType::I16: return "Int16";
+        case DType::I32: return "Int32";
+        case DType::I64: return "Int64";
+        case DType::U8:  return "UInt8";
+        case DType::U16: return "UInt16";
+        case DType::U32: return "UInt32";
+        case DType::U64: return "UInt64";
+        case DType::F32: return "Float32";
+        case DType::F64: return "Float64";
+        default:         return {};
+    }
+}
+
+/// `DataType` 取值 -> DType。未知返回 `DType::Unknown`（调用方必须拒绝，不得猜）。
+[[nodiscard]] inline constexpr DType ParseDTypeToken(std::string_view token) noexcept {
+    if (token == "Int8") { return DType::I8; }
+    if (token == "Int16") { return DType::I16; }
+    if (token == "Int32") { return DType::I32; }
+    if (token == "Int64") { return DType::I64; }
+    if (token == "UInt8") { return DType::U8; }
+    if (token == "UInt16") { return DType::U16; }
+    if (token == "UInt32") { return DType::U32; }
+    if (token == "UInt64") { return DType::U64; }
+    if (token == "Float32") { return DType::F32; }
+    if (token == "Float64") { return DType::F64; }
+    return DType::Unknown;
+}
+
+/// 面板 / 日志用的标签：`Float64(64bit)`。
+[[nodiscard]] inline std::string DTypeLabel(DType t) {
+    const std::string_view token = DTypeToken(t);
+    if (token.empty()) { return "unknown"; }
+    return std::string(token) + "(" + std::to_string(DTypeBits(t)) + "bit)";
+}
+
+/// 对应的 VTK / NumPy 名字（**只**用于 GUI tooltip 与文档，不写进文件）。
+[[nodiscard]] inline constexpr std::string_view DTypeVTKName(DType t) noexcept {
+    switch (t) {
+        case DType::I8:  return "VTK_CHAR / signed char / int8";
+        case DType::I16: return "VTK_SHORT / short / int16";
+        case DType::I32: return "VTK_INT / int / int32";
+        case DType::I64: return "VTK_LONG_LONG / long long / int64";
+        case DType::U8:  return "VTK_UNSIGNED_CHAR / unsigned char / uint8";
+        case DType::U16: return "VTK_UNSIGNED_SHORT / unsigned short / uint16";
+        case DType::U32: return "VTK_UNSIGNED_INT / unsigned int / uint32";
+        case DType::U64: return "VTK_UNSIGNED_LONG_LONG / unsigned long long / uint64";
+        case DType::F32: return "VTK_FLOAT / float / float32";
+        case DType::F64: return "VTK_DOUBLE / double / float64";
+        default:         return "unknown";
+    }
+}
+
+[[nodiscard]] inline constexpr bool IsFloatDType(DType t) noexcept {
+    return t == DType::F32 || t == DType::F64;
+}
+
+[[nodiscard]] inline constexpr bool IsIntegerDType(DType t) noexcept {
+    switch (t) {
+        case DType::I8:
+        case DType::I16:
+        case DType::I32:
+        case DType::I64:
+        case DType::U8:
+        case DType::U16:
+        case DType::U32:
+        case DType::U64: return true;
+        default:         return false;
+    }
+}
+
+[[nodiscard]] inline constexpr size_t SizeOfDType(DType t) noexcept {
+    return static_cast<size_t>(DTypeBits(t)) / 8u;
 }
 
 // 注意：chunk 尺寸与压缩级别**不属于格式约束**，而是写侧的调优策略
@@ -385,7 +510,11 @@ struct IGVArrayInfo {
     std::string attachment;     ///< "point" / "cell" / ...
     int64_t count{0};           ///< 元素数（不是标量数）
     int components{1};          ///< 每元素分量数
-    int valueSize{4};           ///< 4 / 8 / 1
+    int valueSize{4};           ///< 每元素字节数：1 / 2 / 4 / 8
+    /// 定宽数据类型名（`DataType` attribute 的取值；1.0 的老文件缺失时由 HDF5 类型推断）。
+    /// 面板展示 `Float64(64bit)` 就靠这两个字段 —— 名字与位宽互为校验。
+    std::string dTypeToken;     ///< "Int8" / "UInt16" / "Float64" / ...
+    int dTypeBits{0};           ///< 8 / 16 / 32 / 64
     std::vector<double> range;  ///< 预计算范围，长度 2 或 2*(1+components)
 };
 

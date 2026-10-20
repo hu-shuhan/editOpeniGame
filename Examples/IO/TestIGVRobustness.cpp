@@ -402,6 +402,23 @@ bool ReplaceAsciiAttribute(hid_t loc, const char* name, const std::string& value
     return true;
 }
 
+/// 写一个 int64 标量 attribute（用于篡改 DataTypeBits 这类显式声明）。
+bool WriteI64ScalarAttribute(hid_t loc, const char* name, int64_t value, std::string& error) {
+    H5Adelete(loc, name);  // 不存在也没关系
+    TypedHandle space(H5Screate(H5S_SCALAR), Obj::Dataspace);
+    TypedHandle attr(H5Acreate2(loc, name, H5T_NATIVE_INT64, space.Get(), H5P_DEFAULT, H5P_DEFAULT),
+                     Obj::Attribute);
+    if (!space.Ok() || !attr.Ok()) {
+        error = std::string("cannot create attribute '") + name + "'";
+        return false;
+    }
+    if (H5Awrite(attr.Get(), H5T_NATIVE_INT64, &value) < 0) {
+        error = std::string("cannot write attribute '") + name + "'";
+        return false;
+    }
+    return true;
+}
+
 bool WriteF64ArrayAttribute(hid_t loc, const char* name, const std::vector<double>& values,
                             std::string& error) {
     H5Adelete(loc, name);
@@ -898,6 +915,33 @@ int main(int argc, char** argv) {
         {"+ Version dataset is missing", "px_version_missing.igv",
          [](hid_t f, const fs::path&, std::string& e) { return DeleteObject(f, "/IGV/Version", e); },
          "Version"},
+
+        // ---- 1.x：显式 dtype 声明必须与 HDF5 类型一致（§3.6 / §6.3）----
+        // 这三条是"类型宽度不靠猜"的守卫：任何一个声明与实际类型不符，都要在
+        // **读任何数据之前**拒绝，而不是"以某个为准"地继续读。
+        {"+ DataType disagrees with the HDF5 type", "px_dtype_mismatch.igv",
+         [](hid_t f, const fs::path&, std::string& e) {
+             TypedHandle ds(H5Dopen2(f, "/IGV/PointData/d_scalar", H5P_DEFAULT), Obj::Dataset);
+             if (!ds.Ok()) { e = "cannot open d_scalar"; return false; }
+             return ReplaceAsciiAttribute(ds.Get(), "DataType", "Float32", e);
+         },
+         "requires the two to agree"},
+
+        {"+ DataTypeBits disagrees with the HDF5 type", "px_dtypebits_mismatch.igv",
+         [](hid_t f, const fs::path&, std::string& e) {
+             TypedHandle ds(H5Dopen2(f, "/IGV/PointData/d_scalar", H5P_DEFAULT), Obj::Dataset);
+             if (!ds.Ok()) { e = "cannot open d_scalar"; return false; }
+             return WriteI64ScalarAttribute(ds.Get(), "DataTypeBits", 16, e);
+         },
+         "requires agreement"},
+
+        {"+ DataType is not one of the 10 fixed-width types", "px_dtype_unknown.igv",
+         [](hid_t f, const fs::path&, std::string& e) {
+             TypedHandle ds(H5Dopen2(f, "/IGV/PointData/d_scalar", H5P_DEFAULT), Obj::Dataset);
+             if (!ds.Ok()) { e = "cannot open d_scalar"; return false; }
+             return ReplaceAsciiAttribute(ds.Get(), "DataType", "LongDouble", e);
+         },
+         "not one of the 10 fixed-width types"},
 
         // 注：`Block_*` 子组（多块）的拒绝用例从这张表挪到了下面的 P6 一节 ——
         // 那一节用的是更强的夹具（**两个**块 + 一份完整的 `/IGV` 几何），

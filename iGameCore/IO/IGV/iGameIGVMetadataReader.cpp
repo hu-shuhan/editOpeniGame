@@ -190,17 +190,8 @@ bool DatasetShape(hid_t group, std::string_view name, std::vector<hsize_t>& dims
     return true;
 }
 
-/// DType → 每元素字节数（§7.1 的 `valueSize`）。
-int ValueSizeOf(DType t) {
-    switch (t) {
-        case DType::F32: return 4;
-        case DType::F64: return 8;
-        case DType::U8:  return 1;
-        case DType::I32: return 4;
-        case DType::I64: return 8;
-        default:         return 0;
-    }
-}
+/// DType → 每元素字节数（§7.1 的 `valueSize`）。宽度只由 DType 决定（§3.5）。
+int ValueSizeOf(DType t) { return static_cast<int>(SizeOfDType(t)); }
 
 // -----------------------------------------------------------------------------
 // 各段解析
@@ -375,10 +366,39 @@ bool ParseAttributeGroup(const H5GroupHandle& root, std::string_view groupName,
         if (!type.IsValid()) { return Fail(error, where + ": cannot read datatype"); }
         DType dtype = DType::Unknown;
         if (!DTypeFromFileType(type.Get(), dtype)) {
-            return Fail(error, where + ": datatype is outside IGV support (f32/f64/u8)");
+            return Fail(error, where + ": datatype is not one of the 10 fixed-width IGV types "
+                                       "(Int8/16/32/64, UInt8/16/32/64, Float32/64)");
         }
         info.valueSize = ValueSizeOf(dtype);
         if (info.valueSize == 0) { return Fail(error, where + ": unsupported value size"); }
+        info.dTypeToken = std::string(DTypeToken(dtype));
+        info.dTypeBits = DTypeBits(dtype);
+
+        // ---- 与显式声明交叉校验（§3.6）：HDF5 类型 vs DataType vs DataTypeBits ----
+        // 快路径也只读 attribute / 对象头，**不**碰 dataset 数据，因此这里加校验
+        // 不会破坏 P3 的"零解压"不变量。
+        {
+            std::string declaredToken;
+            if (ReadAsciiAttribute(ds.Get(), kAttrDataType, declaredToken)) {
+                const DType declared = ParseDTypeToken(declaredToken);
+                if (declared == DType::Unknown) {
+                    return Fail(error, where + ": DataType='" + declaredToken +
+                                       "' is not one of the 10 fixed-width types");
+                }
+                if (declared != dtype) {
+                    return Fail(error, where + ": DataType='" + declaredToken +
+                                       "' disagrees with the HDF5 datatype (" +
+                                       std::string(DTypeToken(dtype)) + ")");
+                }
+            }
+            int64_t declaredBits = 0;
+            if (ReadI64Attribute(ds.Get(), kAttrDataTypeBits, declaredBits) &&
+                declaredBits != static_cast<int64_t>(DTypeBits(dtype))) {
+                return Fail(error, where + ": DataTypeBits=" + std::to_string(declaredBits) +
+                                   " disagrees with the HDF5 datatype (" +
+                                   std::to_string(DTypeBits(dtype)) + " bit)");
+            }
+        }
 
         // ---- 交叉校验：range 长度编码了 components（§3.6） ----
         const size_t expectedRange = (info.components == 1)
