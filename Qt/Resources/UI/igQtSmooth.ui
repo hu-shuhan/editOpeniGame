@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>igQtSmooth</class>
+ <widget class="QWidget" name="igQtSmooth">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>400</width><height>340</height></rect>
+  </property>
+  <property name="windowTitle"><string>表面平滑</string></property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox_Parameters">
+     <property name="title"><string>平滑参数</string></property>
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_Iterations">
+        <property name="text"><string>迭代次数：</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QSpinBox" name="spinBox_Iterations">
+        <property name="toolTip"><string>最大迭代次数，对应 ParaView 的 Number of Iterations；0 表示仅复制模型。</string></property>
+        <property name="maximum"><number>1000</number></property>
+        <property name="value"><number>20</number></property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_Convergence">
+        <property name="text"><string>收敛阈值 (Convergence)：</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_Convergence">
+        <property name="toolTip"><string>位移阈值占输入包围盒对角线的比例；0 禁用提前停止。</string></property>
+        <property name="decimals"><number>6</number></property>
+        <property name="maximum"><double>1.000000000000000</double></property>
+        <property name="singleStep"><double>0.000100000000000</double></property>
+        <property name="value"><double>0.000000000000000</double></property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_RelaxationFactor">
+        <property name="text"><string>平滑系数：</string></property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_RelaxationFactor">
+        <property name="toolTip"><string>范围 0 到 1；值越大，每轮移动幅度越大。0 表示不移动顶点。</string></property>
+        <property name="decimals"><number>4</number></property>
+        <property name="maximum"><double>1.000000000000000</double></property>
+        <property name="singleStep"><double>0.010000000000000</double></property>
+        <property name="value"><double>0.010000000000000</double></property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QCheckBox" name="checkBox_PreserveBoundary">
+        <property name="toolTip"><string>开启时固定开放边界；默认关闭，允许沿平缓边界平滑。边界拐角仍固定。</string></property>
+        <property name="text"><string>保留边界 (Preserve Boundary)</string></property>
+        <property name="checked"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_Notice">
+     <property name="text"><string>生成独立结果，保留原模型。较多迭代或较大的系数可能使模型收缩。</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_Buttons">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_Apply">
+       <property name="text"><string>应用</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_Cancel">
+       <property name="text"><string>取消</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

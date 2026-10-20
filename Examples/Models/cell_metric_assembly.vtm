@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<VTKFile type="vtkMultiBlockDataSet" version="1.0" byte_order="LittleEndian">
+  <vtkMultiBlockDataSet>
+    <Block index="0" name="Assembly">
+      <DataSet index="0" file="cell_metric_tet.vtk"/>
+      <DataSet index="1" file="cell_metric_hex.vtk"/>
+    </Block>
+  </vtkMultiBlockDataSet>
+</VTKFile>

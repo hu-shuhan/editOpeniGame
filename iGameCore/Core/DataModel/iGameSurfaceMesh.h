@@ -1,4 +1,4 @@
-﻿#ifndef iGameSurfaceMesh_h
+#ifndef iGameSurfaceMesh_h
 #define iGameSurfaceMesh_h
 
 #include "iGameCellArray.h"
@@ -32,6 +32,12 @@ public:
 
 	// Get edge array
 	CellArray* GetEdges();
+	// Whether the edge array was derived from the faces by BuildEdges() (it overwrites m_Edges there).
+	// false means the edges were set explicitly, e.g. the LINES section of a legacy VTK POLYDATA.
+	bool AreEdgesDerivedFromFaces() const noexcept { return m_FaceEdges != nullptr; }
+    bool HasExplicitLineCells() const override {
+        return GetDataObjectType() == IG_SURFACE_MESH && !AreEdgesDerivedFromFaces() && GetNumberOfEdges() > 0;
+    }
 	// Get face array
 	CellArray* GetFaces();
     virtual CellArray::Pointer GetCellArray() override { return m_Faces; }
@@ -46,6 +52,9 @@ public:
 	Face* GetFace(const IGsize faceId);
 
 	// Get edge's point index. Return PointIds size
+	// 边按约定是 2 点单元；若 m_Edges 里存了 legacy POLYDATA LINES 读入的 n 点多段线，
+	// 这里最多只拷贝 2 个点，避免写穿调用方的定长缓冲（igIndex e[2] / [32] / IGAME_CELL_MAX_SIZE）。
+	// 需要完整折线点序时请直接用 CellArray::GetCellIds(cellId, const igIndex*&) 重载。
 	int GetEdgePointIds(const IGsize edgeId, igIndex* ptIds);
 	// Get face's point index. Return PointIds size
 	int GetFacePointIds(const IGsize faceId, igIndex* ptIds);

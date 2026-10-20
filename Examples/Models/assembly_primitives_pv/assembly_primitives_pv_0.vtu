@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="12"                   NumberOfCells="2"                   >
+      <PointData Scalars="Temperature">
+        <DataArray type="Float32" Name="Temperature" format="appended" RangeMin="20"                   RangeMax="52"                   offset="0"                   />
+      </PointData>
+      <CellData Scalars="VonMisesStress">
+        <DataArray type="Float32" Name="VonMisesStress" format="appended" RangeMin="105.19999695"         RangeMax="188.69999695"         offset="84"                  />
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="appended" RangeMin="0"                    RangeMax="2.4494897428"         offset="132"                 />
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="208"                 />
+        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="292"                 />
+        <DataArray type="UInt8" Name="types" format="appended" RangeMin=""                     RangeMax=""                     offset="336"                 />
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+  <AppendedData encoding="base64">
+   _AQAAAACAAAAwAAAAKwAAAA==eJxjYFjgyMBwAog/APEGIL4BxAxODAwKQGwCxB5ArAHENkAc4AQA5m8IRA==AQAAAACAAAAIAAAAEAAAAA==eJxLS7vkZLzZxhkAD9gDRg==AQAAAACAAACQAAAAJwAAAA==eJxjYEAGDfZIHAcGrHIgGq7OAU0PmjyYdsCuHxnDzGmwBwCfigzxAQAAAACAAACAAAAALAAAAA==eJxjYIAARijNAqWZoTQblGaH0lxQmhNNHxOUZkUzB6aPA0pzo5kDABMgAFk=AQAAAACAAAAQAAAADgAAAA==eJzjYIAAASgNAAEQABk=AQAAAACAAAACAAAACgAAAA==eJzj4QEAACYAGQ==
+  </AppendedData>
+</VTKFile>

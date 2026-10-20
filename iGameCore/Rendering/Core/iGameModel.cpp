@@ -181,6 +181,16 @@ ForEachDrawObject(DataObject::Pointer root,
     }
 }
 
+static void ForEachRenderableLeaf(DataObject::Pointer root,
+        const std::function<void(DrawObject::Pointer)>& fn) {
+    if (!root) return;
+    auto draw = DynamicCast<DrawObject>(root);
+    if (!draw) return;
+    if (!draw->HasSubDataObject()) { fn(draw); return; }
+    for (auto it = root->SubDataObjectIteratorBegin(); it != root->SubDataObjectIteratorEnd(); ++it)
+        ForEachRenderableLeaf(it->second, fn);
+}
+
 // 表面着色用的 shader 选择：0/1 保持旧的 Blinn-Phong 行为，2 使用 PBR。
 // 注意：PBR.frag 依赖 ShaderManager::MapBufferBlock 中的 UBO 绑定。
 static ShaderType SurfaceShaderTypeFor(Scene* scene) {
@@ -505,7 +515,7 @@ void Model::Draw() {
 #endif
             }
 
-            if (viewStyle & IG_WIREFRAME) {
+            if (renderableObject->IsLineRenderingEnabled()) {
 #ifdef __EMSCRIPTEN__
                 if (combinedSurfaceWireframe) {
                     glDepthMask(GL_FALSE);
@@ -558,17 +568,7 @@ void Model::Draw() {
         }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachRenderableLeaf(m_DataObject, draw);
 }
 
 void Model::DrawWithTransparency() {
@@ -644,9 +644,10 @@ void Model::DrawWithTransparency() {
 
 #ifdef __EMSCRIPTEN__
         const bool drawTransparentWireframe =
-                (viewStyle & IG_WIREFRAME) && !(viewStyle & IG_SURFACE);
+                ((viewStyle & IG_WIREFRAME) && !(viewStyle & IG_SURFACE)) ||
+                ((viewStyle & IG_SURFACE) && renderableObject->HasExplicitLineCells());
 #else
-        const bool drawTransparentWireframe = viewStyle & IG_WIREFRAME;
+        const bool drawTransparentWireframe = renderableObject->IsLineRenderingEnabled();
 #endif
         if (drawTransparentWireframe) {
             if (lineUsesVertexColor) {
@@ -704,17 +705,7 @@ void Model::DrawWithTransparency() {
         }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachRenderableLeaf(m_DataObject, draw);
 }
 
 void Model::DrawWithVolume() {
@@ -765,17 +756,7 @@ void Model::DrawWithVolume() {
         }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachRenderableLeaf(m_DataObject, draw);
 }
 
 void Model::DrawPhase1() {
@@ -843,7 +824,7 @@ void Model::DrawPhase1() {
             }
         }
 
-        if (viewStyle & IG_WIREFRAME) {
+        if (surfaceObject->IsLineRenderingEnabled()) {
             if (useColor) {
                 m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
             } else {
@@ -975,7 +956,7 @@ void Model::DrawPhase1() {
             }
         }
 
-        if (viewStyle & IG_WIREFRAME) {
+        if (surfaceObject->IsLineRenderingEnabled()) {
             if (useColor && !colorWithCell) {
                 m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
             } else {
@@ -1067,17 +1048,7 @@ void Model::DrawPhase1() {
     };
     #endif
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachRenderableLeaf(m_DataObject, draw);
 #endif
 }
 
@@ -1145,7 +1116,7 @@ void Model::DrawPhase2() {
             }
         }
 
-        if (viewStyle & IG_WIREFRAME) {
+        if (surfaceObject->IsLineRenderingEnabled()) {
             if (useColor) {
                 m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
             } else {
@@ -1279,7 +1250,7 @@ void Model::DrawPhase2() {
             }
         }
 
-        if (viewStyle & IG_WIREFRAME) {
+        if (surfaceObject->IsLineRenderingEnabled()) {
             if (useColor && !colorWithCell) {
                 m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
             } else {
@@ -1411,17 +1382,7 @@ void Model::DrawPhase2() {
     };
     #endif
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachRenderableLeaf(m_DataObject, draw);
 #endif
 }
 
@@ -1508,17 +1469,7 @@ void Model::TestOcclusionResults() {
         // }
     };
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->HasSubDataObject()) {
-        draw(drawObject);
-    } else {
-        for (auto it = drawObject->SubDataObjectIteratorBegin();
-             it != drawObject->SubDataObjectIteratorEnd(); it++) {
-            auto subDataObj = it->second;
-            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj);
-        }
-    }
+    ForEachRenderableLeaf(m_DataObject, draw);
 #endif
 }
 

@@ -1208,8 +1208,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 参数改动即时生效，因此这里不创建模态对话框。
     this->shadingWidget = new igQtShadingWidget(this);
     shadingWidget->hide();
-    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
-            shadingWidget, &igQtShadingWidget::syncNormalSource);
 
     // 初始化AI聊天DockWidget
     aiChatDockWidget = new QDockWidget(this);
@@ -1294,6 +1292,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
 
     modelTreeWidget = new igQtModelDialogWidget(this);
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            shadingWidget, &igQtShadingWidget::syncNormalSource);
 
     auto makeWidgetScrollable = [&](QWidget* content, QWidget* parent) -> QWidget* {
         if (!content) return nullptr;
