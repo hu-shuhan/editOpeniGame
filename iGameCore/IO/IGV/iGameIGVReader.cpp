@@ -998,6 +998,26 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
 
     const int64_t pointCount = m_Meta.pointCount;
 
+    // ---- TopologyIndex（可选 attribute；缺省 = Primary）----
+    //
+    // 它声明的是 `Connectivity` 的**语义**：一级索引里是"单元→点"，二级索引
+    // （多面体）里是"体→面"。这不是能靠猜的东西 —— 与 `CellTypeEncoding`（A3）
+    // 同一套思路：约定必须写在文件里，读侧只做校验。
+    {
+        std::string mode;
+        if (ReadAsciiAttribute(root, kAttrTopologyIndex, mode)) {
+            m_Meta.topologyIndex = mode;
+            if (mode == kTopologyIndexSecondary) {
+                m_SecondaryIndex = true;
+            } else if (mode != kTopologyIndexPrimary) {
+   Fail("TopologyIndex='" + mode + "' is unknown (allowed: '" +
+                 std::string(kTopologyIndexPrimary) + "' / '" +
+                 std::string(kTopologyIndexSecondary) + "')");
+                return false;
+            }
+        }
+    }
+
     // ---- NumberOfPoints 必填，且必须与 Points.dims[0] 一致（§3.4 / §6.3）----
     {
         std::vector<int64_t> v;
@@ -1023,7 +1043,9 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         // （iGame 的 PointSet 没有单元表达能力），因此必须拒绝。
         for (std::string_view bad : {kDatasetConnectivity, kDatasetOffsets, kDatasetTypes,
                                      kDatasetNumberOfCells,
-                                     kDatasetNumberOfConnectivityIds}) {
+                                     kDatasetNumberOfConnectivityIds,
+                                     kDatasetFaceConnectivity, kDatasetFaceOffsets,
+                                     kDatasetNumberOfFaces}) {
             if (DatasetExists(root, bad)) {
     Fail("Type/IGVDataType declares PointSet, but a topology dataset exists: '" +
                      std::string(bad) +
@@ -1226,12 +1248,31 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         }
     }
 
-    // ---- Connectivity 索引越界（§6.3：值 >= pointCount 即拒绝，并报出越界位置）----
+    // ---- 多面体的面表（二级索引）：必须在校验 Connectivity 之前读出来 ----
+    if (m_SecondaryIndex) {
+        if (!ParsePolyhedronFaces(root, declaredCells, pointCount)) { return false; }
+    } else {
+        // 一级索引却带着面表 = 写出方自相矛盾；静默忽略等于丢数据，因此拒绝。
+        for (std::string_view extra : kPolyhedronTopologyDatasets) {
+            if (DatasetExists(root, extra)) {
+   Fail(std::string("the file contains the polyhedron-only dataset '") +
+                     std::string(extra) + "' but does not declare TopologyIndex=" +
+                     std::string(kTopologyIndexSecondary) +
+                     " (a primary-index file must not carry face tables)");
+                return false;
+            }
+        }
+    }
+
+    // ---- Connectivity 索引越界（§6.3：一级索引比 pointCount，二级索引比 faceCount）----
+    const int64_t connectivityLimit = m_SecondaryIndex ? m_FaceCount : pointCount;
+    const char* const limitName = m_SecondaryIndex ? "faceCount" : "pointCount";
     for (size_t i = 0; i < m_Connectivity.size(); ++i) {
         const int64_t id = static_cast<int64_t>(m_Connectivity[i]);
-        if (id < 0 || id >= pointCount) {
+        if (id < 0 || id >= connectivityLimit) {
    Fail("Connectivity[" + std::to_string(i) + "] = " + std::to_string(id) +
-                 " is out of range (pointCount = " + std::to_string(pointCount) + ")");
+                 " is out of range (" + std::string(limitName) + " = " +
+                 std::to_string(connectivityLimit) + ")");
             return false;
         }
     }
@@ -1283,8 +1324,19 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
     }
 
     this->UpdateProgress(0.82); // Types 已读入，剩下白名单校验与 dataspace 检查
+    if (m_SecondaryIndex && m_Types.empty()) {
+   Fail("TopologyIndex=Secondary requires the Types dataset with one IG_POLYHEDRON entry per cell");
+        return false;
+    }
     for (size_t i = 0; i < m_Types.size(); ++i) {
         const int code = static_cast<int>(m_Types[i]);
+        if (m_SecondaryIndex) {
+            // 二级索引里 IG_POLYHEDRON(8) 是合法类型；别的类型说明模式与数据不一致。
+            if (IsWritableCellTypeInSecondaryIndex(code)) { continue; }
+   Fail("Types[" + std::to_string(i) + "] = " + std::to_string(code) +
+                 " but TopologyIndex=Secondary requires every cell to be IG_POLYHEDRON(8)");
+            return false;
+        }
         if (IsWritableCellType(code)) { continue; }
         if (const auto* forbidden = FindForbiddenCellType(code)) {
    Fail("Types[" + std::to_string(i) + "] = " + std::to_string(code) + " (" +
@@ -1346,6 +1398,126 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
 // =============================================================================
 // 属性长度 vs 网格计数（§6.3 / P5-5）
 // =============================================================================
+
+/// 多面体面表：FaceConnectivity（面→点）+ FaceOffsets + NumberOfFaces（§3.7 / §6.3）。
+///
+/// 校验项与一级索引同构 —— 偏移从 0 起、严格递增、末值等于数组长度、索引不越界、
+/// 显式计数与数组长度一致。它必须在 Connectivity 越界校验**之前**跑完，因为二级
+/// 索引里的 Connectivity 存的是面 id（上限是 faceCount，不是 pointCount）。
+bool IGVReader::ParsePolyhedronFaces(int64_t rootId, int64_t declaredCells, int64_t pointCount) {
+    const hid_t root = static_cast<hid_t>(rootId);
+
+    for (std::string_view name : kPolyhedronTopologyDatasets) {
+        if (!DatasetExists(root, name)) {
+   Fail("TopologyIndex=Secondary but the required dataset '" + std::string(name) +
+                 "' is missing (spec section 3.7)");
+            return false;
+        }
+    }
+
+    // ---- NumberOfFaces（显式计数，A15 思路：数量不从 dataspace 推导）----
+    std::vector<int64_t> faces;
+    if (!ReadDataset(root, kDatasetNumberOfFaces, DType::I64, 1, faces)) {
+        ClearHdf5Errors();
+   Fail("cannot read the required count dataset NumberOfFaces");
+        return false;
+    }
+    if (faces[0] <= 0) {
+   Fail("NumberOfFaces must be positive, actual " + std::to_string(faces[0]));
+        return false;
+    }
+
+    // ---- FaceOffsets ----
+    {
+        std::vector<hsize_t> shape;
+        DType dtype = DType::Unknown;
+        if (PeekDatasetShape(root, kDatasetFaceOffsets, shape, &dtype) < 0) {
+            ClearHdf5Errors();
+   Fail("missing or unreadable /IGV/FaceOffsets");
+            return false;
+        }
+        if (shape.size() != 1) {
+   Fail("FaceOffsets rank must be 1, actual " + std::to_string(shape.size()));
+            return false;
+        }
+        if (dtype != DType::I64) {
+   Fail(std::string("FaceOffsets dtype must be i64 (H5T_STD_I64LE), actual ") + DTypeName(dtype));
+            return false;
+        }
+        if (static_cast<int64_t>(shape[0]) != faces[0] + 1) {
+   Fail("NumberOfFaces(" + std::to_string(faces[0]) + ") + 1 != FaceOffsets length(" +
+                 std::to_string(shape[0]) + ") - count dataset disagrees with the array length");
+            return false;
+        }
+        if (!ReadDataset(root, kDatasetFaceOffsets, DType::I64,
+                         static_cast<size_t>(faces[0] + 1), m_FaceOffsets)) {
+            ClearHdf5Errors();
+   Fail("read /IGV/FaceOffsets failed");
+            return false;
+        }
+        if (m_FaceOffsets.front() != 0) {
+   Fail("FaceOffsets[0] must be 0, actual " + std::to_string(m_FaceOffsets.front()));
+            return false;
+        }
+        for (size_t i = 0; i + 1 < m_FaceOffsets.size(); ++i) {
+            if (m_FaceOffsets[i + 1] <= m_FaceOffsets[i]) {
+   Fail("FaceOffsets must be strictly increasing: at index " + std::to_string(i) + " - " +
+                     std::to_string(m_FaceOffsets[i]) + " -> " +
+                     std::to_string(m_FaceOffsets[i + 1]));
+                return false;
+            }
+        }
+    }
+
+    // ---- FaceConnectivity（面→点）----
+    {
+        std::vector<hsize_t> shape;
+        DType dtype = DType::Unknown;
+        if (PeekDatasetShape(root, kDatasetFaceConnectivity, shape, &dtype) < 0) {
+            ClearHdf5Errors();
+   Fail("missing or unreadable /IGV/FaceConnectivity");
+            return false;
+        }
+        if (shape.size() != 1) {
+   Fail("FaceConnectivity rank must be 1, actual " + std::to_string(shape.size()));
+            return false;
+        }
+        if (dtype != DType::I32) {
+   Fail(std::string("FaceConnectivity dtype must be i32 (H5T_STD_I32LE), actual ") +
+                 DTypeName(dtype));
+            return false;
+        }
+        if (m_FaceOffsets.back() != static_cast<int64_t>(shape[0])) {
+   Fail("FaceOffsets last value(" + std::to_string(m_FaceOffsets.back()) +
+                 ") != FaceConnectivity length(" + std::to_string(shape[0]) + ")");
+            return false;
+        }
+        if (!ReadDataset(root, kDatasetFaceConnectivity, DType::I32,
+                         static_cast<size_t>(shape[0]), m_FaceConnectivity)) {
+            ClearHdf5Errors();
+   Fail("read /IGV/FaceConnectivity failed");
+            return false;
+        }
+        for (size_t i = 0; i < m_FaceConnectivity.size(); ++i) {
+            const int64_t id = static_cast<int64_t>(m_FaceConnectivity[i]);
+            if (id < 0 || id >= pointCount) {
+   Fail("FaceConnectivity[" + std::to_string(i) + "] = " + std::to_string(id) +
+                     " is out of range (pointCount = " + std::to_string(pointCount) + ")");
+                return false;
+            }
+        }
+    }
+
+    if (declaredCells <= 0) {
+   Fail("polyhedron file has no cells");
+        return false;
+    }
+
+    m_FaceCount = faces[0];
+    m_Meta.faceCount = faces[0];
+    m_Meta.hasFaceCount = true;
+    return true;
+}
 
 bool IGVReader::ValidateAttributeLengths() {
     const int64_t pointCount = m_Meta.pointCount;
@@ -1429,6 +1601,21 @@ bool IGVReader::RebuildFromParsed() {
         // 对齐 iGameMeshDecoderFilter.h:381 的既有做法：
         // 结构化网格不写拓扑 payload，由尺寸 + 点数隐式生成连通性。
         adapter->SetStructuredMeshDimension(axisSize);
+    } else if (m_SecondaryIndex) {
+        // 多面体：适配器要的是"每单元 面数 / 每面 点数"，文件里存的是偏移，先换算。
+        std::vector<unsigned int> v2fIndex(m_Connectivity.begin(), m_Connectivity.end());
+        std::vector<unsigned int> f2pIndex(m_FaceConnectivity.begin(), m_FaceConnectivity.end());
+        std::vector<unsigned int> v2fSize;
+        std::vector<unsigned int> f2pSize;
+        v2fSize.reserve(m_Offsets.size() > 0 ? m_Offsets.size() - 1 : 0);
+        for (size_t i = 0; i + 1 < m_Offsets.size(); ++i) {
+            v2fSize.push_back(static_cast<unsigned int>(m_Offsets[i + 1] - m_Offsets[i]));
+        }
+        f2pSize.reserve(m_FaceOffsets.size() > 0 ? m_FaceOffsets.size() - 1 : 0);
+        for (size_t i = 0; i + 1 < m_FaceOffsets.size(); ++i) {
+            f2pSize.push_back(static_cast<unsigned int>(m_FaceOffsets[i + 1] - m_FaceOffsets[i]));
+        }
+        adapter->AddSecondaryIndexCells(v2fIndex, v2fSize, f2pIndex, f2pSize);
     } else {
         const int64_t nCells = m_Meta.hasCellCount ? m_Meta.cellCount : 0;
         std::vector<uint32_t> ids(m_Connectivity.begin(), m_Connectivity.end());
@@ -1491,7 +1678,10 @@ bool IGVReader::RebuildFromParsed() {
                  std::string(DTypeToken(pa.dtype)));
             return false;
         }
-        attrSet->AddAttribute(pa.attributeTypeValue, pa.attachmentTypeValue, arr);
+        // 用返回的索引定位（而不是按名字再查一遍）：同一个名字可以同时存在于
+        // PointData 与 CellData（CCM/Plane 这类数据就是这样），按名字查会指向错的那条。
+        const IGsize attrIndex =
+                attrSet->AddAttribute(pa.attributeTypeValue, pa.attachmentTypeValue, arr);
 
         // 步骤 7：把文件里的预计算 range 挂回属性。
         //
@@ -1500,7 +1690,7 @@ bool IGVReader::RebuildFromParsed() {
         //     element 1+j  = 分量 j 的 min/max（**每个分量只占一个 element**，靠第二维放 min/max）
         //   而 IGV 的写法是扁平的一维 [magMin, magMax, c0Min, c0Max, ...]
         //   （**每个分量占两个连续位置**）。两者信息等价、**排列不同**，必须显式换算。
-        AttributeSet::Attribute& attr = attrSet->GetAttribute(pa.name, pa.attributeTypeValue);
+        AttributeSet::Attribute& attr = attrSet->GetAttribute(attrIndex);
         if (!attr.IsNone()) {
             DoubleArray::Pointer range = DoubleArray::New();
             range->SetDimension(2);

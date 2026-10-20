@@ -1,6 +1,7 @@
 #include "iGameIGVWriter.h"
 
 #include <cmath>
+#include <map>
 #include <cstring>
 #include <limits>
 #include <unordered_map>
@@ -359,6 +360,218 @@ bool StageTypedArray(const ArrayObject::Pointer& array, StagedAttribute& sa) {
     sa.bytes.assign(valueCount * sizeof(T), 0);
     if (valueCount > 0) { std::memcpy(sa.bytes.data(), src, valueCount * sizeof(T)); }
     sa.range = ComputeRange(src, sa.count, sa.components);
+    return true;
+}
+
+/// 多面体（二级索引）→ IGV 的四组数组 + 写侧自校验（§3.7）。
+///
+/// 输出：
+///   connectivity      = 体 → 面 的面 id（i32）
+///   offsets           = 体 → 面 的偏移（i64，ncells+1）
+///   types             = 每单元 `IG_POLYHEDRON`
+///   faceConnectivity  = 面 → 点 的点 id（i32）
+///   faceOffsets       = 面 → 点 的偏移（i64，nfaces+1）
+///
+/// **为什么不调用 `MeshEncodeAdapterFromDataObject::SplitSecondaryIndex()`**：
+/// 那个函数在"所有面点数相同"的网格上会越界读 —— iGame 的 `CellArray` 把定长单元
+/// 折叠成 `m_FixedCellSize`，此时 `GetOffset()` 只返回 `{0}`，而它却用
+/// `face2pointsOffset[faces->GetNumberOfCells()]` 取值（实测 0xC0000005）。
+/// 一个"每条边都等长的立方体"就会触发，所以这里直接从 VolumeMesh 的公开 API 取
+/// （上游缺陷见 kia/主仓库问题.md 问题 4；本分支不改共享基础设施，见 §1.4 原则 4）。
+///
+/// 两种 iGame 表示都支持：
+///   * `VolumeMesh` + `IsPolyhedronType`：已有 face 表与 volume→face 表，直接读；
+///   * `UnstructuredMesh` + `IG_POLYHEDRON`：单元缓冲是**展开的面流**
+///     `[fcnt, vcnt0, ids..., vcnt1, ...]`，这里按"首次出现"去重成面表
+///     （与解码适配器展开时的顺序一致，因此往返逐值不变）。
+bool BuildPolyhedronTopology(const DataObject::Pointer& obj, int64_t pointCount,
+                             std::vector<int32_t>& connectivity,
+                             std::vector<int64_t>& offsets,
+                             std::vector<uint8_t>& types,
+                             std::vector<int32_t>& faceConnectivity,
+                             std::vector<int64_t>& faceOffsets,
+                             int64_t& faceCount, int64_t& cellCount,
+                             int64_t& connectivityIdCount, std::string& error) {
+    std::vector<int32_t> faces;      // 面 → 点（扁平）
+    std::vector<int64_t> faceOff;    // nfaces + 1
+    std::vector<int32_t> v2f;        // 体 → 面（扁平）
+    std::vector<int64_t> vOff;       // ncells + 1
+    faceOff.push_back(0);
+    vOff.push_back(0);
+
+    // 面去重（保留点序列的顺序 = 朝向）。只在 UnstructuredMesh 分支用到。
+    std::map<std::vector<igIndex>, int64_t> faceIds;
+
+    auto appendFace = [&](const igIndex* pts, int n) -> bool {
+        if (n < 3 || pts == nullptr) {
+            error = "polyhedron face has " + std::to_string(n) + " points (a face needs >= 3)";
+            return false;
+        }
+        for (int i = 0; i < n; ++i) {
+            if (pts[i] < 0 || static_cast<int64_t>(pts[i]) >= pointCount) {
+                error = "polyhedron face references point " + std::to_string(pts[i]) +
+                        ", out of range (pointCount = " + std::to_string(pointCount) + ")";
+                return false;
+            }
+            faces.push_back(static_cast<int32_t>(pts[i]));
+        }
+        faceOff.push_back(static_cast<int64_t>(faces.size()));
+        return true;
+    };
+
+    if (VolumeMesh::Pointer vm = DynamicCast<VolumeMesh>(obj)) {
+        CellArray::Pointer faceCells = vm->GetFaces();
+        if (!faceCells) {
+            error = "the polyhedron VolumeMesh has no face table (GetFaces() returned null)";
+            return false;
+        }
+        const int64_t nFaces = static_cast<int64_t>(faceCells->GetNumberOfCells());
+        if (nFaces <= 0) {
+            error = "the polyhedron VolumeMesh has 0 faces";
+            return false;
+        }
+        for (int64_t f = 0; f < nFaces; ++f) {
+            const igIndex* pts = nullptr;
+            const int n = faceCells->GetCellIds(static_cast<IGsize>(f), pts);
+            if (!appendFace(pts, n)) { return false; }
+        }
+
+        const int64_t nVolumes = static_cast<int64_t>(vm->GetNumberOfVolumes());
+        if (nVolumes <= 0) {
+            error = "the polyhedron VolumeMesh has 0 volumes";
+            return false;
+        }
+        std::vector<igIndex> fhs(IGAME_CELL_MAX_SIZE);
+        for (int64_t i = 0; i < nVolumes; ++i) {
+            const int fcnt = vm->GetVolumeFaceIds(static_cast<igIndex>(i), fhs.data());
+            if (fcnt <= 0) {
+                error = "volume " + std::to_string(i) + " has " + std::to_string(fcnt) +
+                        " faces (a polyhedron cell needs >= 1)";
+                return false;
+            }
+            for (int j = 0; j < fcnt; ++j) {
+                const int64_t fid = static_cast<int64_t>(fhs[j]);
+                if (fid < 0 || fid >= nFaces) {
+                    error = "volume " + std::to_string(i) + " references face " +
+                            std::to_string(fid) + ", out of range (faceCount = " +
+                            std::to_string(nFaces) + ")";
+                    return false;
+                }
+                v2f.push_back(static_cast<int32_t>(fid));
+            }
+            vOff.push_back(static_cast<int64_t>(v2f.size()));
+        }
+        cellCount = nVolumes;
+
+    } else if (UnstructuredMesh::Pointer um = DynamicCast<UnstructuredMesh>(obj)) {
+        CellArray* cells = um->GetCellArray();
+        if (cells == nullptr) {
+            error = "the polyhedron UnstructuredMesh has no CellArray";
+            return false;
+        }
+        const int64_t nCells = static_cast<int64_t>(cells->GetNumberOfCells());
+        if (nCells <= 0) {
+            error = "the polyhedron UnstructuredMesh has 0 cells";
+            return false;
+        }
+        for (int64_t c = 0; c < nCells; ++c) {
+            const igIndex* stream = nullptr;
+            const int len = cells->GetCellIds(static_cast<IGsize>(c), stream);
+            if (len <= 0 || stream == nullptr) {
+                error = "cell " + std::to_string(c) + " has an empty face stream";
+                return false;
+            }
+            int k = 0;
+            const int fcnt = static_cast<int>(stream[k++]);
+            if (fcnt <= 0) {
+                error = "cell " + std::to_string(c) + " declares " + std::to_string(fcnt) + " faces";
+                return false;
+            }
+            for (int f = 0; f < fcnt; ++f) {
+                if (k >= len) {
+                    error = "cell " + std::to_string(c) + ": face stream ends inside a face";
+                    return false;
+                }
+                const int vcnt = static_cast<int>(stream[k++]);
+                if (vcnt <= 0 || k + vcnt > len) {
+                    error = "cell " + std::to_string(c) + ": face " + std::to_string(f) +
+                            " declares " + std::to_string(vcnt) + " points but the stream ends";
+                    return false;
+                }
+                std::vector<igIndex> key(stream + k, stream + k + vcnt);
+                auto it = faceIds.find(key);
+                int64_t fid = 0;
+                if (it != faceIds.end()) {
+                    fid = it->second;
+                } else {
+                    fid = static_cast<int64_t>(faceOff.size()) - 1;
+                    if (!appendFace(key.data(), vcnt)) { return false; }
+                    faceIds.emplace(std::move(key), fid);
+                }
+                v2f.push_back(static_cast<int32_t>(fid));
+                k += vcnt;
+            }
+            if (k != len) {
+                error = "cell " + std::to_string(c) + " has " + std::to_string(len - k) +
+                        " trailing ids after its face stream";
+                return false;
+            }
+            vOff.push_back(static_cast<int64_t>(v2f.size()));
+        }
+        cellCount = nCells;
+
+    } else {
+        error = "the mesh claims to be a polyhedron but is neither a VolumeMesh nor an UnstructuredMesh";
+        return false;
+    }
+
+    // ---- 统一校验（与一级索引同构的不变量）----
+    faceCount = static_cast<int64_t>(faceOff.size()) - 1;
+    connectivityIdCount = static_cast<int64_t>(v2f.size());
+    if (faceCount <= 0 || connectivityIdCount <= 0) {
+        error = "polyhedron topology is empty (faces=" + std::to_string(faceCount) +
+                ", volume->face ids=" + std::to_string(connectivityIdCount) + ")";
+        return false;
+    }
+    auto checkOffsets = [&error](const char* what, const std::vector<int64_t>& off,
+                                 size_t indexCount) -> bool {
+        if (off.empty() || off.front() != 0) {
+            error = std::string(what) + "[0] must be 0";
+            return false;
+        }
+        for (size_t i = 0; i + 1 < off.size(); ++i) {
+            if (off[i + 1] <= off[i]) {
+                error = std::string(what) + " must be strictly increasing at index " +
+                        std::to_string(i) + " (" + std::to_string(off[i]) + " -> " +
+                        std::to_string(off[i + 1]) + ")";
+                return false;
+            }
+        }
+        if (off.back() != static_cast<int64_t>(indexCount)) {
+            error = std::string(what) + " last value (" + std::to_string(off.back()) +
+                    ") must equal the index array length (" + std::to_string(indexCount) + ")";
+            return false;
+        }
+        return true;
+    };
+    if (!checkOffsets("volume->face Offsets", vOff, v2f.size()) ||
+        !checkOffsets("face->point FaceOffsets", faceOff, faces.size())) {
+        return false;
+    }
+    for (size_t i = 0; i < v2f.size(); ++i) {
+        if (static_cast<int64_t>(v2f[i]) >= faceCount) {
+            error = "volume->face index[" + std::to_string(i) + "] = " +
+                    std::to_string(v2f[i]) + " is out of range (faceCount = " +
+                    std::to_string(faceCount) + ")";
+            return false;
+        }
+    }
+
+    connectivity = std::move(v2f);
+    offsets = std::move(vOff);
+    faceConnectivity = std::move(faces);
+    faceOffsets = std::move(faceOff);
+    types.assign(static_cast<size_t>(cellCount), static_cast<uint8_t>(IG_POLYHEDRON));
     return true;
 }
 
@@ -728,10 +941,17 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
     std::vector<int32_t> connectivity;
     std::vector<int64_t> offsets;
     std::vector<uint8_t> types;
+    std::vector<int32_t> faceConnectivity;
+    std::vector<int64_t> faceOffsets;
     int64_t cellCount = 0;
     int64_t connectivityIdCount = 0;
+    int64_t faceCount = 0;
     int64_t structuredDims[3] = {0, 0, 0};
     int64_t fixedCellSize = -1;
+
+    // 多面体（二级索引）判定必须提前：根组 attribute（TopologyIndex）在拓扑数组
+    // 生成之前就要写出，因此这里先问适配器一次，后面不再重复判定。
+    const bool polyhedron = hasTopology && adapter->IsSecondaryIndexPolyhedronMesh();
 
     if (isStructured) {
         auto mesh = DynamicCast<StructuredMesh>(m_DataObject);
@@ -741,17 +961,24 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         structuredDims[2] = dims[2];
     }
 
-    if (hasTopology) {
-        // 多面体（二级索引）在本期不支持：§3.7 明确 IGV 只存一级索引。
-        // 必须在写盘前拒绝 —— 否则会写出"一级索引 + Types 标成多面体"的损坏文件，
-        // 读取侧将走到未定义行为（V1.7 第 6 项）。
-        if (adapter->IsSecondaryIndexPolyhedronMesh()) {
-   Fail("polyhedron meshes (secondary index, e.g. IG_POLYHEDRON volumes->faces->points) "
-                 "are not supported in this phase: IGV stores a primary index only "
-                 "(spec section 3.7)");
+    // ---- 多面体（二级索引，体→面→点）：§3.7 的 1.x 扩展 ----
+    //
+    // 一级索引与二级索引的区别不只是"多两张表"：**`Connectivity` 的含义变了**
+    // （一级 = 单元→点，二级 = 体→面）。因此文件里必须显式写
+    // `TopologyIndex = "Secondary"`，否则读取方无从判断该按哪种语义解释。
+    if (polyhedron) {
+        std::string error;
+        if (!BuildPolyhedronTopology(m_DataObject, pointCount, connectivity, offsets, types,
+                                     faceConnectivity, faceOffsets, faceCount, cellCount,
+                                     connectivityIdCount, error)) {
+   Fail(error);
             return false;
         }
+        // 多面体没有"定长单元"的概念：FixedCellSize 必须保持 -1（不写该 attribute）。
+        fixedCellSize = -1;
+    }
 
+    if (hasTopology && !polyhedron) {
         CellArray* cells = m_DataObject->GetCellArray();
         IdArray::Pointer cellIds = adapter->GetCellIdBuffer();
 
@@ -1044,6 +1271,15 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         return false;
     }
 
+    // 多面体：显式声明 Connectivity 的语义是"体 → 面"。
+    // 缺省（attribute 缺失）= Primary，因此老文件与既有写法完全兼容。
+    if (polyhedron &&
+        !WriteAsciiAttribute(root.Get(), kAttrTopologyIndex, kTopologyIndexSecondary)) {
+        ClearHdf5Errors();
+        Fail("failed to write the TopologyIndex attribute");
+        return false;
+    }
+
     {
         const int64_t version[2] = {kVersion[0], kVersion[1]};
         const hsize_t vdims[1] = {2};
@@ -1121,6 +1357,34 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
                           std::vector<hsize_t>(tdims, tdims + 1), types.data(), compress)) {
             ClearHdf5Errors();
    Fail("failed to write the Types dataset");
+            return false;
+        }
+    }
+
+    // ---- 多面体的面表（§3.7，1.x）：FaceConnectivity / FaceOffsets / NumberOfFaces ----
+    if (polyhedron) {
+        const hsize_t fcdims[1] = {static_cast<hsize_t>(faceConnectivity.size())};
+        if (!WriteDataset(root.Get(), kDatasetFaceConnectivity, DType::I32,
+                          std::vector<hsize_t>(fcdims, fcdims + 1), faceConnectivity.data(),
+                          compress)) {
+            ClearHdf5Errors();
+   Fail("failed to write the FaceConnectivity dataset");
+            return false;
+        }
+        const hsize_t fodims[1] = {static_cast<hsize_t>(faceOffsets.size())};
+        if (!WriteDataset(root.Get(), kDatasetFaceOffsets, DType::I64,
+                          std::vector<hsize_t>(fodims, fodims + 1), faceOffsets.data(),
+                          compress)) {
+            ClearHdf5Errors();
+   Fail("failed to write the FaceOffsets dataset");
+            return false;
+        }
+        const int64_t faces = faceCount;
+        const hsize_t nfdims[1] = {1};
+        if (!WriteDataset(root.Get(), kDatasetNumberOfFaces, DType::I64,
+                          std::vector<hsize_t>(nfdims, nfdims + 1), &faces, false)) {
+            ClearHdf5Errors();
+   Fail("failed to write the NumberOfFaces dataset");
             return false;
         }
     }

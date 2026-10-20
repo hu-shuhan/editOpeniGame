@@ -114,6 +114,39 @@ inline constexpr std::array<std::string_view, 6> kUnstructuredTopologyDatasets =
     kDatasetNumberOfConnectivityIds,
 };
 
+/// 多面体（二级索引）的拓扑 dataset（§3.7，1.x 扩展）。
+///
+/// 语义（只在 `TopologyIndex = "Secondary"` 时出现，见 `kAttrTopologyIndex`）：
+///   `Connectivity`     = **体 → 面** 的面 id（而不是点 id）
+///   `Offsets`          = 体 → 面的偏移（ncells+1）
+///   `FaceConnectivity` = **面 → 点** 的点 id
+///   `FaceOffsets`      = 面 → 点的偏移（nfaces+1）
+///
+/// 为什么不像 VTK legacy 那样把每个面的点重复写进每个体：那会丢掉"共享面"
+/// 的身份（两个相邻单元引用同一个面），并让文件体积按面数×相邻单元数膨胀。
+/// iGame 的多面体本来就是二级索引（`VolumeMesh::GetFaces()`），IGV 直接存它。
+inline constexpr std::string_view kDatasetFaceConnectivity = "FaceConnectivity"; ///< i32 (nFaceIds)
+inline constexpr std::string_view kDatasetFaceOffsets = "FaceOffsets";           ///< i64 (nFaces+1)
+inline constexpr std::string_view kDatasetNumberOfFaces = "NumberOfFaces";       ///< i64 (1)
+
+/// 根组 attribute：拓扑索引形态（**只在多面体时写出**，缺省即 `Primary`）。
+///
+/// 存在的理由：`Connectivity` 在两种模式下含义不同（点 id vs 面 id）。这不是
+/// 可以"看 Types 猜"的东西 —— 写清声明、读侧校验，与 `CellTypeEncoding`（A3）
+/// 是同一套思路：**约定必须写在文件里，而不是让人猜**。
+inline constexpr std::string_view kAttrTopologyIndex = "TopologyIndex";
+
+/// `TopologyIndex` 取值。
+inline constexpr std::string_view kTopologyIndexPrimary = "Primary";     ///< 缺省：Connectivity 是单元→点
+inline constexpr std::string_view kTopologyIndexSecondary = "Secondary"; ///< 多面体：Connectivity 是体→面
+
+/// 多面体模式下的必填拓扑 dataset（§6.3）。
+inline constexpr std::array<std::string_view, 3> kPolyhedronTopologyDatasets = {
+    kDatasetFaceConnectivity,
+    kDatasetFaceOffsets,
+    kDatasetNumberOfFaces,
+};
+
 /// 计数组集合（用于"读取侧必须交叉校验"的实现）。
 inline constexpr std::array<std::string_view, 3> kCountDatasets = {
     kDatasetNumberOfPoints,
@@ -541,6 +574,13 @@ struct IGVMetadata {
 
     int64_t connectivityIdCount{0};
     bool hasConnectivityIdCount{false};
+
+    /// 多面体（二级索引）时才有：面数（由 `FaceOffsets` 的 dataspace 推出，不读数据）。
+    int64_t faceCount{0};
+    bool hasFaceCount{false};
+
+    /// `TopologyIndex` attribute 的原值；空串表示文件没写（= `Primary`）。
+    std::string topologyIndex;
 
     int64_t fixedCellSize{-1};  ///< -1 == 无 FixedCellSize attribute
 

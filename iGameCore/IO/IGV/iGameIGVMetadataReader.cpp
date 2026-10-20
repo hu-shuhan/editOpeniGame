@@ -290,6 +290,46 @@ bool ParseRoot(const H5GroupHandle& root, IGVMetadata& out, std::string* error) 
         out.cellCount = cellsFromOffsets;
         out.hasCellCount = true;
     }
+    // ---- TopologyIndex（可选 attribute；缺省 = Primary）+ 多面体面数 ----
+    //
+    // 面数从 `FaceOffsets` 的 **dataspace** 推出（nfaces = len-1），不读它的值 ——
+    // 与三个计数组的处理一致，保持快路径零解压（§11.3）。
+    {
+        std::string topologyIndex;
+        if (ReadAsciiAttribute(root.Get(), kAttrTopologyIndex, topologyIndex)) {
+            if (topologyIndex != kTopologyIndexPrimary &&
+                topologyIndex != kTopologyIndexSecondary) {
+                return Fail(error, "/IGV TopologyIndex='" + topologyIndex +
+                                   "' is unknown (allowed: '" +
+                                   std::string(kTopologyIndexPrimary) + "' / '" +
+                                   std::string(kTopologyIndexSecondary) + "')");
+            }
+            out.topologyIndex = topologyIndex;
+        }
+
+        if (out.topologyIndex == kTopologyIndexSecondary) {
+            for (std::string_view required : kPolyhedronTopologyDatasets) {
+                if (!DatasetExists(root.Get(), required)) {
+                    return Fail(error, "/IGV declares TopologyIndex=Secondary but the required "
+                                       "dataset '" + std::string(required) + "' is missing");
+                }
+            }
+            if (!DatasetExists(root.Get(), kDatasetTypes)) {
+                return Fail(error, "/IGV declares TopologyIndex=Secondary but has no Types dataset");
+            }
+            std::vector<hsize_t> faceDims;
+            DType faceType = DType::Unknown;
+            if (!DatasetShape(root.Get(), kDatasetFaceOffsets, faceDims, faceType, error, "/IGV")) {
+                return false;
+            }
+            if (faceDims.size() != 1 || faceDims[0] < 2) {
+                return Fail(error, "/IGV 'FaceOffsets' must be rank-1 with at least two elements");
+            }
+            out.faceCount = static_cast<int64_t>(faceDims[0]) - 1;
+            out.hasFaceCount = true;
+        }
+    }
+
     if (DatasetExists(root.Get(), kDatasetConnectivity)) {
         std::vector<hsize_t> connDims;
         DType connType = DType::Unknown;

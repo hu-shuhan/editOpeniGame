@@ -85,6 +85,7 @@ File Properties
 Data Statistics
   Type            UnstructuredGrid  (UnstructuredMesh)
   # of Cells      4,800
+  # of Faces      419,790     <- 仅多面体（TopologyIndex=Secondary）
   # of Points     6,724
   Connectivity ids 24,000
   Memory (data)   1.02539 MB
@@ -115,6 +116,7 @@ Data Arrays                                    (过滤: ______________)
   `components == 1` 是一对 `[min, max]`；多分量是 `[模长 min, 模长 max], [c0 min, c0 max], …`
   （与 `kia/igv分阶段实现方案.md` §3.6 / §8.2 的定义一致）。所以这个面板同时可以当
   "写出侧的 range 对不对"的检查入口。
+* **`# of Faces`** 只在多面体（`TopologyIndex=Secondary`，见 `kia/多面体支持实施记录.md`）时出现，`FaceOffsets` 的 dataspace 长度 - 1；tooltip 里写明 `Connectivity` 在该模式下存的是"体→面 的面 id"。
 * **Memory (data)** 是"这些数组进内存大概多大"的**估算**（点坐标 + 连通性 + 偏移 + 单元类型 +
   各属性），不等同于文件大小（gzip 后更小），也不等同于峰值内存（读出时还有副本）。
 

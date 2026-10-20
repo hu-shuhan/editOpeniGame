@@ -216,6 +216,12 @@ int64_t EstimateDataBytes(const igv::IGVMetadata& meta) {
         bytes += a.count * static_cast<int64_t>(std::max(a.components, 1)) *
                  static_cast<int64_t>(a.valueSize > 0 ? a.valueSize : 4);
     }
+    // 多面体的面表：面→点（i32）+ 面→点的偏移（i64，nfaces+1）。少了这一段，
+    // 面板的 Memory 会把多面体网格低报一大截。
+    if (meta.hasFaceCount && meta.faceCount > 0) {
+        bytes += (meta.faceCount + 1) * static_cast<int64_t>(igv::SizeOfDType(igv::DType::I64));
+        bytes += meta.faceCount * 3 * static_cast<int64_t>(igv::SizeOfDType(igv::DType::I32));
+    }
     return bytes;
 }
 
@@ -443,6 +449,7 @@ private:
         row = 0;
         m_Type = AddInfoRow(statGrid, row++, QStringLiteral("Type"), kLabelWidth);
         m_Cells = AddInfoRow(statGrid, row++, QStringLiteral("# of Cells"), kLabelWidth);
+        m_Faces = AddInfoRow(statGrid, row++, QStringLiteral("# of Faces"), kLabelWidth);
         m_Points = AddInfoRow(statGrid, row++, QStringLiteral("# of Points"), kLabelWidth);
         m_Conn = AddInfoRow(statGrid, row++, QStringLiteral("Connectivity ids"), kLabelWidth);
         m_Memory = AddInfoRow(statGrid, row++, QStringLiteral("Memory (data)"), kLabelWidth);
@@ -565,6 +572,18 @@ private:
             m_Cells.value->setText(meta.hasCellCount ? FormatCount(meta.cellCount)
                                                      : QStringLiteral("n/a"));
             m_Points.value->setText(FormatCount(meta.pointCount));
+            // 多面体（二级索引）才有面数；一级索引文件里这一行隐藏，避免"No data"噪声。
+            m_Faces.SetVisible(meta.hasFaceCount);
+            if (meta.hasFaceCount) {
+                m_Faces.value->setText(FormatCount(meta.faceCount));
+            }
+            if (!meta.topologyIndex.empty() &&
+                meta.topologyIndex != igv::kTopologyIndexPrimary) {
+                m_Faces.value->setToolTip(
+                        QStringLiteral("TopologyIndex = %1（Connectivity 存的是体→面 的面 id，"
+                                       "面→点 在 FaceConnectivity 里）")
+                                .arg(QString::fromStdString(meta.topologyIndex)));
+            }
             m_Memory.value->setText(FormatBytes(EstimateDataBytes(meta)));
             m_Bounds.value->setText(meta.hasBounds ? FormatBounds(meta.bounds)
                                                    : QStringLiteral("(文件未写 Bounds attribute)"));
@@ -717,6 +736,13 @@ private:
         out += QStringLiteral("\n=== Data Statistics ===\n");
         out += QStringLiteral("Type            : %1\n").arg(m_Type.value->text());
         out += QStringLiteral("# of Cells      : %1\n").arg(m_Cells.value->text());
+        if (meta.hasFaceCount) {
+            out += QStringLiteral("# of Faces      : %1\n").arg(m_Faces.value->text());
+        }
+        if (!meta.topologyIndex.empty()) {
+            out += QStringLiteral("TopologyIndex   : %1\n")
+                           .arg(QString::fromStdString(meta.topologyIndex));
+        }
         out += QStringLiteral("# of Points     : %1\n").arg(m_Points.value->text());
         if (meta.hasConnectivityIdCount) {
             out += QStringLiteral("Connectivity ids: %1\n").arg(m_Conn.value->text());
@@ -766,6 +792,7 @@ private:
 
     InfoRow m_Type;
     InfoRow m_Cells;
+    InfoRow m_Faces;
     InfoRow m_Points;
     InfoRow m_Conn;
     InfoRow m_Memory;

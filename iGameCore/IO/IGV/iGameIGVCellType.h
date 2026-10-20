@@ -249,8 +249,10 @@ inline constexpr ForbiddenCellType kForbiddenCellTypes[] = {
      "iGame-internal intermediate-dimension marker (GetCellDimension returns -1), not a real cell;"
      " value 7 is VTK_POLYGON in VTK, so it would be silently mis-parsed"},
     {IG_POLYHEDRON, "Polyhedron",
-     "requires the secondary index path (volume->face->point), while IGV stores only the primary"
-     " index (section 3.7); value 8 is VTK_PIXEL in VTK, so it would be silently mis-parsed"},
+     "requires the secondary index path (volume->face->point). IGV 1.x CAN store it, but only"
+     " when the file declares TopologyIndex=\"Secondary\" (then Connectivity holds face ids);"
+     " in the default primary-index mode writing 8 would make face ids look like point ids."
+     " value 8 is VTK_PIXEL in VTK, so it would also be silently mis-parsed outside IGV"},
 };
 
 // =============================================================================
@@ -263,6 +265,16 @@ inline constexpr ForbiddenCellType kForbiddenCellTypes[] = {
         if (static_cast<int32_t>(entry.value) == value) { return true; }
     }
     return false;
+}
+
+/// 该值是否允许写入 `Types` —— **仅**在二级索引（多面体）模式下。
+///
+/// `IG_POLYHEDRON(8)` 在两级索引里是合法单元类型，但它**只有在**文件声明了
+/// `TopologyIndex = "Secondary"`（即 `Connectivity` 存的是面 id）时才成立。
+/// 一级索引模式下写 8 会得到一个"面 id 被当成点 id"的损坏文件，所以那里的
+/// 禁止表仍然有效（见 `kForbiddenCellTypes`）。
+[[nodiscard]] constexpr bool IsWritableCellTypeInSecondaryIndex(int32_t value) noexcept {
+    return value == static_cast<int32_t>(IG_POLYHEDRON);
 }
 
 /// 命中禁止表则返回条目指针（用于给出精确错误信息）；否则返回 nullptr。

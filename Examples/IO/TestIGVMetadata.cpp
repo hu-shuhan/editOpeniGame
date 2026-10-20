@@ -385,7 +385,10 @@ void CheckOneFile(const fs::path& path, int64_t& outPoints, int64_t& outCells) {
 
         const FullArray* match = nullptr;
         for (const FullArray& fa : full.arrays) {
-            if (fa.name == info.name) { match = &fa; break; }
+            // 名字可能重复（PointData/test_1 与 CellData/test_1 是两条不同的属性），
+            // 因此必须同时比 attachment，否则"快路径拿到 cell、全量拿到 point"这类误配
+            // 会被当成产品缺陷。
+            if (fa.name == info.name && fa.attachment == info.attachment) { match = &fa; break; }
         }
         Check(match != nullptr, "V3.3 全量读里能找到属性 '" + info.name + "'");
         if (match == nullptr) { continue; }

@@ -103,6 +103,14 @@ private:
     bool m_HasTopology{false};
     int64_t m_FixedCellSize{-1};
 
+    // 多面体（二级索引，§3.7 的 1.x 扩展）。只有 `TopologyIndex = "Secondary"` 时才使用：
+    //   m_Connectivity     = 体 → 面 的面 id（**不是**点 id）
+    //   m_FaceConnectivity = 面 → 点 的点 id
+    bool m_SecondaryIndex{false};
+    std::vector<int32_t> m_FaceConnectivity;
+    std::vector<int64_t> m_FaceOffsets;
+    int64_t m_FaceCount{0};
+
     std::vector<ParsedAttribute> m_Attributes;
 
     /// 解析出的 iGame 数据对象类型（由 IGVDataType 优先、Type 兜底推导）。
@@ -132,6 +140,10 @@ private:
 
     /// 读几何/拓扑 dataset 并做 §6.3 的全部交叉校验（§6.1 步骤 8）。
     bool ParseGeometryAndTopology(int64_t root);
+
+    /// 多面体的面表：解析 FaceConnectivity / FaceOffsets / NumberOfFaces 并交叉校验
+    /// （§3.7 / §6.3）。只在 `m_SecondaryIndex == true` 时调用。
+    bool ParsePolyhedronFaces(int64_t root, int64_t declaredCells, int64_t pointCount);
 
     /// 属性的**元素数**必须与它依附的对象数量一致（§6.3 / P5-5）。
     ///

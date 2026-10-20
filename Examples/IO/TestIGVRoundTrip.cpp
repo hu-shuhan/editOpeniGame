@@ -48,8 +48,14 @@
 #include <IGV/iGameIGVReader.h>
 #include <IGV/iGameIGVWriter.h>
 #include <iGameFileIO.h>
+
+#include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
+#include "MeshCodec/EncodeAdapter/iGameMeshEncodeAdapterFromDataObject.h"
+#include <IGV/iGameIGVMetadataReader.h>
 #include <iGameFlatArray.h>
 #include <iGameIGVCellType.h>
+
+#include <hdf5.h>
 
 #include <algorithm>
 #include <cmath>
@@ -301,6 +307,307 @@ UnstructuredMesh::Pointer MakeAllDTypeMesh() {
     AddTypedAttr<DoubleArray, double>(set, "a_f64",
                                       {-0.0, 0.1, 1e-300, 1.7976931348623157e308});
     return mesh;
+}
+
+/// V1.13 / V1.14 的公共夹具：一个**多面体**（二级索引）网格。
+///
+/// 用单位立方体（8 点）+ 6 个四边形面构造，与 iGame 的多面体表示一一对应：
+///   volumeToFaceIndex  = 6 个面 id（0..5）
+///   faceToPointIndex   = 24 个点 id（6 面 × 4 点）
+/// 这份夹具刻意**不**经过任何文件读取，因此可以在 CI 里稳定复现，
+/// 与 V1.14（真实 CCM 文件，需要外部转换器）分开。
+DataObject::Pointer MakePolyhedronMesh() {
+    std::vector<float> points = {
+            0.f, 0.f, 0.f,  1.f, 0.f, 0.f,  1.f, 1.f, 0.f,  0.f, 1.f, 0.f,
+            0.f, 0.f, 1.f,  1.f, 0.f, 1.f,  1.f, 1.f, 1.f,  0.f, 1.f, 1.f,
+    };
+
+    // 6 个四边形面（每面 4 点）
+    std::vector<unsigned int> faceToPointIndex = {
+            0, 3, 2, 1,   // bottom (-z)
+            4, 5, 6, 7,   // top (+z)
+            0, 1, 5, 4,   // y = 0
+            1, 2, 6, 5,   // x = 1
+            2, 3, 7, 6,   // y = 1
+            3, 0, 4, 7,   // x = 0
+    };
+    std::vector<unsigned int> faceToPointSize(6, 4);
+
+    // 1 个单元 = 全部 6 个面
+    std::vector<unsigned int> volumeToFaceIndex = {0, 1, 2, 3, 4, 5};
+    std::vector<unsigned int> volumeToFaceSize = {6};
+
+    MeshDecodeAdapterToDataObject adapter;
+    adapter.SetMeshType(IG_VOLUME_MESH);
+    adapter.SetPointBuffer(points);
+    adapter.AddSecondaryIndexCells(volumeToFaceIndex, volumeToFaceSize,
+                                   faceToPointIndex, faceToPointSize);
+    return adapter.GetOutput();
+}
+
+/// 从多面体 VolumeMesh 直接取四组表（写侧与读回侧用的是**同一个公开 API**）。
+///
+/// 刻意**不用** `MeshEncodeAdapterFromDataObject::SplitSecondaryIndex()`：
+/// 它在"所有面点数相同"的网格上会越界读 —— iGame 的 `CellArray` 把定长单元折叠成
+/// `m_FixedCellSize`，此时 `GetOffset()` 只返回 `{0}`，而那个函数按
+/// `face2pointsOffset[GetNumberOfCells()]` 取值（实测 0xC0000005）。
+/// 一个规则的立方体就会触发。上游缺陷见 kia/主仓库问题.md 问题 4。
+bool ExtractPolyhedronTables(DataObject::Pointer obj, std::vector<int32_t>& v2f,
+                             std::vector<int64_t>& vOff, std::vector<int32_t>& f2p,
+                             std::vector<int64_t>& fOff, int64_t& faceCountOut) {
+    VolumeMesh::Pointer vm = DynamicCast<VolumeMesh>(obj);
+    if (!vm) { return false; }
+    CellArray::Pointer faces = vm->GetFaces();
+    if (!faces) { return false; }
+
+    v2f.clear();
+    vOff.clear();
+    f2p.clear();
+    fOff.clear();
+
+    fOff.push_back(0);
+    const int64_t nFaces = static_cast<int64_t>(faces->GetNumberOfCells());
+    for (int64_t f = 0; f < nFaces; ++f) {
+        const igIndex* pts = nullptr;
+        const int n = faces->GetCellIds(static_cast<IGsize>(f), pts);
+        if (n <= 0 || pts == nullptr) { return false; }
+        for (int i = 0; i < n; ++i) { f2p.push_back(static_cast<int32_t>(pts[i])); }
+        fOff.push_back(static_cast<int64_t>(f2p.size()));
+    }
+
+    vOff.push_back(0);
+    const int64_t nVolumes = static_cast<int64_t>(vm->GetNumberOfVolumes());
+    constexpr int kMaxFacePoints = 256;  // 与 IGAME_CELL_MAX_SIZE 同值
+    std::vector<igIndex> fhs(kMaxFacePoints);
+    for (int64_t i = 0; i < nVolumes; ++i) {
+        const int fcnt = vm->GetVolumeFaceIds(static_cast<igIndex>(i), fhs.data());
+        if (fcnt <= 0) { return false; }
+        for (int j = 0; j < fcnt; ++j) { v2f.push_back(static_cast<int32_t>(fhs[j])); }
+        vOff.push_back(static_cast<int64_t>(v2f.size()));
+    }
+
+    faceCountOut = nFaces;
+    return !vOff.empty() && !fOff.empty();
+}
+
+/// 直接从 HDF5 读一组 i32 / i64（**独立于读取器**，用于"文件 vs 对象"对照）。
+bool ReadFileArrayI32(const fs::path& path, const char* name, std::vector<int32_t>& out) {
+    const hid_t f = H5Fopen(path.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (f < 0) { H5Eclear2(H5E_DEFAULT); return false; }
+    const hid_t ds = H5Dopen2(f, name, H5P_DEFAULT);
+    if (ds < 0) { H5Eclear2(H5E_DEFAULT); H5Fclose(f); return false; }
+    const hid_t sp = H5Dget_space(ds);
+    const hssize_t n = (sp >= 0) ? H5Sget_simple_extent_npoints(sp) : -1;
+    bool ok = (n >= 0);
+    if (ok) {
+        out.assign(static_cast<size_t>(n), 0);
+        if (n > 0 && H5Dread(ds, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, out.data()) < 0) {
+            ok = false;
+            H5Eclear2(H5E_DEFAULT);
+        }
+    }
+    if (sp >= 0) { H5Sclose(sp); }
+    H5Dclose(ds);
+    H5Fclose(f);
+    return ok;
+}
+
+bool ReadFileArrayI64(const fs::path& path, const char* name, std::vector<int64_t>& out) {
+    const hid_t f = H5Fopen(path.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (f < 0) { H5Eclear2(H5E_DEFAULT); return false; }
+    const hid_t ds = H5Dopen2(f, name, H5P_DEFAULT);
+    if (ds < 0) { H5Eclear2(H5E_DEFAULT); H5Fclose(f); return false; }
+    const hid_t sp = H5Dget_space(ds);
+    const hssize_t n = (sp >= 0) ? H5Sget_simple_extent_npoints(sp) : -1;
+    bool ok = (n >= 0);
+    if (ok) {
+        out.assign(static_cast<size_t>(n), 0);
+        if (n > 0 && H5Dread(ds, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, out.data()) < 0) {
+            ok = false;
+            H5Eclear2(H5E_DEFAULT);
+        }
+    }
+    if (sp >= 0) { H5Sclose(sp); }
+    H5Dclose(ds);
+    H5Fclose(f);
+    return ok;
+}
+
+/// 取 UnstructuredMesh 多面体的"逐单元面流"（`[fcnt, vcnt0, ids..., vcnt1, ...]`）。
+///
+/// 这是 iGame 对这种网格的**原生**存储形态（见解码适配器的展开逻辑），
+/// 因此它是往返比对的正确对象：只要每个单元的面流逐值不变，信息就没有丢。
+bool ExtractPolyhedronStreams(DataObject::Pointer obj, std::vector<std::vector<int32_t>>& streams) {
+    UnstructuredMesh::Pointer um = DynamicCast<UnstructuredMesh>(obj);
+    if (!um) { return false; }
+    CellArray* cells = um->GetCellArray();
+    if (cells == nullptr) { return false; }
+    const int64_t n = static_cast<int64_t>(cells->GetNumberOfCells());
+    if (n <= 0) { return false; }
+    streams.clear();
+    streams.reserve(static_cast<size_t>(n));
+    for (int64_t c = 0; c < n; ++c) {
+        const igIndex* ids = nullptr;
+        const int len = cells->GetCellIds(static_cast<IGsize>(c), ids);
+        if (len <= 0 || ids == nullptr) { return false; }
+        streams.emplace_back(ids, ids + len);
+    }
+    return true;
+}
+
+/// 多面体往返断言（V1.13 / V1.14 共用）：文件结构 + 元数据 + 对象，三路对照。
+///
+/// 两种 iGame 表示分别按各自的原生形态比对：
+///   * `VolumeMesh`（有 face 表）：体→面 / 面→点 四组数组逐值相等；
+///   * `UnstructuredMesh`（面流展开）：逐单元面流逐值相等。
+/// 两条路都额外校验文件里那五张表的**结构自洽**（长度、偏移、越界、计数），
+/// 以及元数据快路径给出的模式与面数。
+void CheckPolyhedronRoundTrip(DataObject::Pointer mesh, const fs::path& out,
+                              const std::string& label) {
+    const bool isVolumeMesh = DynamicCast<VolumeMesh>(mesh) != nullptr;
+
+    std::vector<int32_t> v2f0, f2p0;
+    std::vector<int64_t> vOff0, fOff0;
+    int64_t faces0 = 0;
+    std::vector<std::vector<int32_t>> streams0;
+
+    if (isVolumeMesh) {
+        if (!ExtractPolyhedronTables(mesh, v2f0, vOff0, f2p0, fOff0, faces0)) {
+            Check(false, label + ": cannot read the source polyhedron tables");
+            return;
+        }
+        Info(label + ": source = " + std::to_string(vOff0.size() - 1) + " cells, " +
+             std::to_string(faces0) + " faces, " + std::to_string(f2p0.size()) +
+             " face-point slots");
+    } else {
+        if (!ExtractPolyhedronStreams(mesh, streams0)) {
+            Check(false, label + ": cannot read the source face streams "
+                                 "(the object is neither a polyhedron VolumeMesh nor an "
+                                 "UnstructuredMesh with a cell array)");
+            return;
+        }
+        Info(label + ": source = " + std::to_string(streams0.size()) +
+             " cells (UnstructuredMesh face-stream form)");
+    }
+
+    IGVWriter::Pointer w = IGVWriter::New();
+    if (!w->WriteToFile(mesh, out.string())) {
+        Check(false, label + ": write failed - " + w->GetLastError());
+        return;
+    }
+
+    // ---- 1) 文件结构（直接读 HDF5，不经过读取器）----
+    std::vector<int32_t> fileConn, fileFaceConn;
+    std::vector<int64_t> fileOff, fileFaceOff, fileNf;
+    const bool fileOk = ReadFileArrayI32(out, "/IGV/Connectivity", fileConn) &&
+                        ReadFileArrayI64(out, "/IGV/Offsets", fileOff) &&
+                        ReadFileArrayI32(out, "/IGV/FaceConnectivity", fileFaceConn) &&
+                        ReadFileArrayI64(out, "/IGV/FaceOffsets", fileFaceOff) &&
+                        ReadFileArrayI64(out, "/IGV/NumberOfFaces", fileNf);
+    Check(fileOk, label +
+                          ": the file carries Connectivity/Offsets/FaceConnectivity/"
+                          "FaceOffsets/NumberOfFaces");
+    if (fileOk) {
+        const int64_t fileFaces = fileNf.size() == 1 ? fileNf[0] : -1;
+        Check(fileFaces > 0 && fileFaceOff.size() == static_cast<size_t>(fileFaces) + 1,
+              label + ": NumberOfFaces agrees with the FaceOffsets length");
+        Check(!fileFaceOff.empty() && fileFaceOff.back() == static_cast<int64_t>(fileFaceConn.size()),
+              label + ": FaceOffsets is closed around FaceConnectivity");
+        Check(!fileOff.empty() && fileOff.back() == static_cast<int64_t>(fileConn.size()),
+              label + ": Offsets is closed around Connectivity");
+        bool inRange = true;
+        for (int32_t id : fileFaceConn) {
+            if (id < 0 || static_cast<int64_t>(id) >= (fileOk ? 0 : 0)) { inRange = false; break; }
+        }
+        // 点 id 上限用源对象的点数（与文件无关的独立来源）
+        int64_t sourcePoints = -1;
+        if (auto ps = DynamicCast<PointSet>(mesh)) {
+            if (ps->GetPoints()) { sourcePoints = ps->GetPoints()->GetNumberOfPoints(); }
+        }
+        inRange = true;
+        for (int32_t id : fileFaceConn) {
+            if (id < 0 || (sourcePoints >= 0 && static_cast<int64_t>(id) >= sourcePoints)) {
+                inRange = false;
+                break;
+            }
+        }
+        Check(inRange, label + ": every FaceConnectivity id is a valid point index");
+        bool facesInRange = true;
+        for (int32_t id : fileConn) {
+            if (id < 0 || static_cast<int64_t>(id) >= fileFaces) { facesInRange = false; break; }
+        }
+        Check(facesInRange, label + ": every Connectivity id (a face id) is < NumberOfFaces");
+
+        if (isVolumeMesh) {
+            Check(fileConn == v2f0, label + ": file Connectivity == volume->face ids (bit-identical)");
+            Check(fileOff == vOff0, label + ": file Offsets == volume->face offsets (bit-identical)");
+            Check(fileFaceConn == f2p0,
+                  label + ": file FaceConnectivity == face->point ids (bit-identical)");
+            Check(fileFaceOff == fOff0,
+                  label + ": file FaceOffsets == face->point offsets (bit-identical)");
+            Check(fileFaces == faces0,
+                  label + ": file NumberOfFaces == " + std::to_string(faces0));
+        }
+    }
+
+    // ---- 2) 元数据快路径：模式 + 面数（不读数据）----
+    igv::IGVMetadata meta;
+    std::string metaError;
+    Check(IGVMetadataReader::ReadFromFile(out.string(), meta, &metaError),
+          label + ": the metadata fast path reads the file" +
+                  (metaError.empty() ? std::string() : (" - " + metaError)));
+    Check(meta.topologyIndex == std::string(igv::kTopologyIndexSecondary),
+          label + ": TopologyIndex == Secondary");
+    Check(meta.hasFaceCount && meta.faceCount > 0,
+          label + ": the fast path reports a positive face count (" +
+                  std::to_string(meta.faceCount) + ")");
+
+    // ---- 3) 读回对象 ----
+    IGVReader::Pointer r = IGVReader::New();
+    DataObject::Pointer back = r->ReadFile(out.string());
+    if (!back) {
+        Check(false, label + ": read-back failed - " + r->GetLastError());
+        return;
+    }
+
+    if (isVolumeMesh) {
+        Check(back->GetDataObjectType() == IG_VOLUME_MESH,
+              label + ": the read-back object is a VolumeMesh");
+        std::vector<int32_t> v2f1, f2p1;
+        std::vector<int64_t> vOff1, fOff1;
+        int64_t faces1 = 0;
+        const bool backOk = ExtractPolyhedronTables(back, v2f1, vOff1, f2p1, fOff1, faces1);
+        Check(backOk, label + ": the read-back object is a polyhedron VolumeMesh");
+        Check(backOk && v2f1 == v2f0,
+              label + ": volume->face ids are bit-identical after the round-trip");
+        Check(backOk && vOff1 == vOff0,
+              label + ": volume->face offsets are bit-identical after the round-trip");
+        Check(backOk && f2p1 == f2p0,
+              label + ": face->point ids are bit-identical after the round-trip");
+        Check(backOk && fOff1 == fOff0,
+              label + ": face->point offsets are bit-identical after the round-trip");
+        Check(backOk && faces1 == faces0, label + ": the face count is unchanged");
+    } else {
+        std::vector<std::vector<int32_t>> streams1;
+        const bool backOk = ExtractPolyhedronStreams(back, streams1);
+        Check(backOk, label + ": the read-back object is a polyhedron UnstructuredMesh");
+        Check(backOk && streams1.size() == streams0.size(),
+              label + ": the cell count is unchanged (" + std::to_string(streams0.size()) + ")");
+        bool sameStreams = (backOk && streams1.size() == streams0.size());
+        if (sameStreams) {
+            for (size_t c = 0; c < streams0.size(); ++c) {
+                if (streams1[c] != streams0[c]) { sameStreams = false; break; }
+            }
+        }
+        Check(sameStreams, label + ": every cell face stream is bit-identical after the round-trip");
+        if (auto um = DynamicCast<UnstructuredMesh>(back)) {
+            if (UnsignedIntArray::Pointer ts = um->GetCellTypes()) {
+                Check(ts->GetNumberOfValues() > 0 &&
+                              static_cast<int>(ts->GetValue(0)) == static_cast<int>(IG_POLYHEDRON),
+                      label + ": the read-back Types are IG_POLYHEDRON");
+            }
+        }
+    }
 }
 
 Snapshot TakeSnapshot(DataObject::Pointer obj) {
@@ -843,6 +1150,7 @@ int main(int argc, char** argv) {
     std::string modelsDir = "Models";
     std::string goldenDir;
     bool onlyList = false;
+    bool runCcm = false;   // V1.14：真实 CCM 多面体（需要外部转换器，默认关闭）
 
     // 资源定位根目录（argv[0] 所在目录 / CWD / 源码目录），逐个向上找。
     const std::vector<fs::path> roots = ResourceSearchRoots(argc > 0 ? argv[0] : nullptr);
@@ -852,6 +1160,7 @@ int main(int argc, char** argv) {
         if (a == "--models" && i + 1 < argc) { modelsDir = argv[++i]; }
         else if (a == "--golden" && i + 1 < argc) { goldenDir = argv[++i]; }
         else if (a == "--list") { onlyList = true; }
+        else if (a == "--ccm") { runCcm = true; }
     }
     if (onlyList) {
   std::cerr << "This program has no --list mode; ignoring the flag.\n";
@@ -2032,6 +2341,53 @@ int main(int argc, char** argv) {
                           std::string("V1.12 ") + e.name + " round-trips as " + e.dtype +
                                   " (no widening / narrowing / replacement)");
                 }
+            }
+        }
+    }
+
+    // =========================================================================
+    Section("V1.13 polyhedron (secondary index) round-trip: volume->face->point");
+    // =========================================================================
+    //
+    // 背景：1.0 的 IGV 只存一级索引（cell->point），多面体因此被**拒绝写出**
+    // （§3.7 当时的决定），CCM 这类多面体数据源完全无法保存成 .igv。
+    // 1.x 增加二级索引的显式表达：
+    //   Connectivity     = 体→面（面 id）     Offsets     = 体→面的偏移
+    //   FaceConnectivity = 面→点              FaceOffsets = 面→点的偏移
+    //   TopologyIndex    = "Secondary"（声明 Connectivity 的语义）
+    // 本节用**人工构造**的多面体（不依赖任何外部读取器/转换器）验证完整往返。
+    {
+        DataObject::Pointer mesh = MakePolyhedronMesh();
+        Check(mesh != nullptr, "V1.13 the polyhedron fixture was built");
+        std::vector<int32_t> v2f, f2p;
+        std::vector<int64_t> vOff, fOff;
+        int64_t faces = 0;
+        const bool built = ExtractPolyhedronTables(mesh, v2f, vOff, f2p, fOff, faces);
+        Check(built, "V1.13 the fixture exposes a VolumeMesh polyhedron table");
+        Check(built && vOff.size() == 2 && v2f.size() == 6,
+              "V1.13 the fixture is 1 cell referencing 6 faces");
+        Check(built && fOff.size() == 7 && f2p.size() == 24,
+              "V1.13 the fixture is 6 quad faces referencing 24 point slots");
+        CheckPolyhedronRoundTrip(mesh, WorkDir() / "v113_polyhedron.igv", "V1.13");
+    }
+
+    // =========================================================================
+    Section("V1.14 real CCM polyhedron (opt-in: --ccm, needs the external converter)");
+    // =========================================================================
+    //
+    // 真实数据：`Examples/Models/FireAndSmokeWizardStecklerRoom_final.ccm` 就是用户
+    // 遇到的样本（CCM → VolumeMesh + 多面体）。它依赖 CCM→VTU 的外部转换器，CI 机器
+    // 上通常没有，所以**默认不跑**，用 `--ccm` 显式打开。
+    if (runCcm) {
+        const fs::path ccm = FindResource(
+                roots, fs::path("Models") / "FireAndSmokeWizardStecklerRoom_final.ccm");
+        if (ccm.empty()) {
+            Check(false, "V1.14 --ccm was requested but the CCM model was not found");
+        } else {
+            DataObject::Pointer obj = FileIO::ReadFile(ccm.string());
+            Check(obj != nullptr, "V1.14 the CCM model was read");
+            if (obj != nullptr) {
+                CheckPolyhedronRoundTrip(obj, WorkDir() / "v114_ccm_polyhedron.igv", "V1.14");
             }
         }
     }

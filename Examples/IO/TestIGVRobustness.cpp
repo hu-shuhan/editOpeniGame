@@ -402,6 +402,30 @@ bool ReplaceAsciiAttribute(hid_t loc, const char* name, const std::string& value
     return true;
 }
 
+/// 新建一个 int64 dataset（用于给一级索引文件"塞进"多面体的面表）。
+bool CreateI64Dataset(hid_t file, const char* path, const std::vector<int64_t>& values,
+                      std::string& error) {
+    hsize_t dims[1] = {static_cast<hsize_t>(values.size())};
+    TypedHandle space(H5Screate_simple(1, dims, nullptr), Obj::Dataspace);
+    if (!space.Ok()) {
+        error = std::string("cannot create dataspace for '") + path + "'";
+        return false;
+    }
+    TypedHandle ds(H5Dcreate2(file, path, H5T_STD_I64LE, space.Get(), H5P_DEFAULT, H5P_DEFAULT,
+                              H5P_DEFAULT),
+                   Obj::Dataset);
+    if (!ds.Ok()) {
+        error = std::string("cannot create dataset '") + path + "'";
+        return false;
+    }
+    if (!values.empty() &&
+        H5Dwrite(ds.Get(), H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, values.data()) < 0) {
+        error = std::string("cannot write dataset '") + path + "'";
+        return false;
+    }
+    return true;
+}
+
 /// 写一个 int64 标量 attribute（用于篡改 DataTypeBits 这类显式声明）。
 bool WriteI64ScalarAttribute(hid_t loc, const char* name, int64_t value, std::string& error) {
     H5Adelete(loc, name);  // 不存在也没关系
@@ -934,6 +958,29 @@ int main(int argc, char** argv) {
              return WriteI64ScalarAttribute(ds.Get(), "DataTypeBits", 16, e);
          },
          "requires agreement"},
+
+        // ---- §3.7 / §6.3：多面体（二级索引）的声明与数据必须自洽 ----
+        {"+ TopologyIndex is an unknown value", "px_topomode_unknown.igv",
+         [](hid_t f, const fs::path&, std::string& e) {
+             TypedHandle root(H5Gopen2(f, "/IGV", H5P_DEFAULT), Obj::Group);
+             if (!root.Ok()) { e = "cannot open /IGV"; return false; }
+             return ReplaceAsciiAttribute(root.Get(), "TopologyIndex", "Sideways", e);
+         },
+         "TopologyIndex"},
+
+        {"+ TopologyIndex=Secondary without the face tables", "px_secondary_no_faces.igv",
+         [](hid_t f, const fs::path&, std::string& e) {
+             TypedHandle root(H5Gopen2(f, "/IGV", H5P_DEFAULT), Obj::Group);
+             if (!root.Ok()) { e = "cannot open /IGV"; return false; }
+             return ReplaceAsciiAttribute(root.Get(), "TopologyIndex", "Secondary", e);
+         },
+         "is missing"},
+
+        {"+ a primary-index file that carries a face table", "px_primary_with_faces.igv",
+         [](hid_t f, const fs::path&, std::string& e) {
+             return CreateI64Dataset(f, "/IGV/FaceOffsets", {0, 4}, e);
+         },
+         "must not carry face tables"},
 
         {"+ DataType is not one of the 10 fixed-width types", "px_dtype_unknown.igv",
          [](hid_t f, const fs::path&, std::string& e) {
