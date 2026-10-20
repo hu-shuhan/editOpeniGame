@@ -149,6 +149,7 @@ void DrawObject::ConvertToDrawableData() {
 }
 
 bool DrawObject::IsUseSinglePassWireframeRendering() {
+    if (HasExplicitLineCells()) { return false; }
     if (m_TriangleIndices->GetNumberOfElements() && m_TriangleEdgeMasks->GetNumberOfElements() &&
         (!m_RemoteRenderingEnabled || (m_ColorWithCell ? m_CellEdgeMaskAvailable : m_EdgeMaskAvailable))) {
         return true;
@@ -183,6 +184,7 @@ void DrawObject::SetRemoteRenderingEnabled(bool enabled) {
 }
 
 bool DrawObject::NeedsExplicitWireframeGeometry(IGenum viewStyle) {
+    if (HasExplicitLineCells() && (viewStyle & (IG_SURFACE | IG_WIREFRAME))) { return true; }
     if (!m_RemoteRenderingEnabled) return true; // main eagerly prepares explicit edges.
     if ((viewStyle & IG_WIREFRAME) == 0) { return false; }
 #ifdef __EMSCRIPTEN__
@@ -196,6 +198,7 @@ bool DrawObject::NeedsExplicitWireframeGeometry(IGenum viewStyle) {
 }
 
 void DrawObject::MarkWireframeGeometryDirtyIfNeeded(IGenum viewStyle) {
+    if (HasExplicitLineCells()) { m_ReConvertToDrawableData = true; return; }
     if (!m_RemoteRenderingEnabled) return;
     // Composite parents only forward state, and shell-rendered sources forward
     // drawing to their SurfaceMesh. Mark only the leaf owning the draw arrays.

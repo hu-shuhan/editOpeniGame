@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<VTKFile type="vtkMultiBlockDataSet" version="1.0" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <vtkMultiBlockDataSet>
+    <DataSet index="0" name="assembly_cube_hex" file="assembly_primitives_pv/assembly_primitives_pv_0.vtu"/>
+    <DataSet index="1" name="assembly_wedge_prism" file="assembly_primitives_pv/assembly_primitives_pv_1.vtu"/>
+  </vtkMultiBlockDataSet>
+</VTKFile>
