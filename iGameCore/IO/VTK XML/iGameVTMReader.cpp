@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <string>
 #include <system_error>
@@ -254,17 +255,14 @@ bool iGameVTMReader::Parsing() {
     tinyxml2::XMLElement* DataSetElem = vtkMultiBlockElem->FirstChildElement("DataSet");
     const bool isFlatDataSet = BlockElem == nullptr && DataSetElem != nullptr;
     std::size_t totalFileCount = 0;
-    if (BlockElem) {
-        for (auto* block = BlockElem; block; block = block->NextSiblingElement("Block")) {
-            for (auto* elem = block->FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
-                if (elem->Attribute("file")) { ++totalFileCount; }
-            }
+    std::function<void(tinyxml2::XMLElement*)> countFiles = [&](tinyxml2::XMLElement* parent) {
+        for (auto* elem = parent->FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
+            const std::string tag = elem->Name();
+            if (tag == "Block") { countFiles(elem); }
+            else if (tag == "DataSet" && elem->Attribute("file")) { ++totalFileCount; }
         }
-    } else {
-        for (auto* dataSet = DataSetElem; dataSet; dataSet = dataSet->NextSiblingElement("DataSet")) {
-            if (dataSet->Attribute("file")) { ++totalFileCount; }
-        }
-    }
+    };
+    countFiles(vtkMultiBlockElem);
 
     if (totalFileCount == 0) {
         IGAME_CORE_ERROR("[VTM] No referenced files found in {}", m_FilePath);
@@ -361,34 +359,37 @@ bool iGameVTMReader::Parsing() {
 
     // Handle <Block> format (nested structure)
     if (BlockElem) {
-        while (BlockElem) {
-            tinyxml2::XMLElement* elem = BlockElem->FirstChildElement();
-
-            // 因为Scene中都用到了DrawObject的属性，后续多块要特殊处理
-            // DataObject::Pointer curMultiBlock = DataObject::New();
-            DataObject::Pointer curMultiBlock = DrawObject::New();
-            if (m_RemoteRenderingEnabled) DynamicCast<DrawObject>(curMultiBlock)->SetRemoteRenderingEnabled(true);
-
-            while (elem) {
-                // TODO: Not finish Reading the Nested block.
-                //            std::string elemType(elem->Value());
-
-                const char* existAttribute = elem->Attribute("file");
-                if (existAttribute) {
-                    DataObject::Pointer newObj = readReferencedFile(existAttribute);
-                    if (!newObj) {
-                        IGAME_CORE_ERROR("[VTM] Aborting after {}/{} referenced files were read successfully",
-                                         successfulFileCount,
-                                         totalFileCount);
-                        return false;
+        // Every assembly node must be drawable: Model/UI code accesses its
+        // visibility. Recurse through nested blocks rather than dropping them.
+        std::function<bool(tinyxml2::XMLElement*, DrawObject::Pointer)> readChildren;
+        readChildren = [&](tinyxml2::XMLElement* parent, DrawObject::Pointer assembly) {
+            for (auto* elem = parent->FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
+                const std::string tag = elem->Name();
+                if (tag == "Block") {
+                    auto child = DrawObject::New();
+                    if (const char* name = elem->Attribute("name")) { child->SetName(name); }
+                    if (m_RemoteRenderingEnabled) { child->SetRemoteRenderingEnabled(true); }
+                    if (!readChildren(elem, child)) { return false; }
+                    assembly->AddSubDataObject(child);
+                } else if (tag == "DataSet") {
+                    if (const char* file = elem->Attribute("file")) {
+                        auto child = readReferencedFile(file);
+                        if (!child) { return false; }
+                        if (const char* name = elem->Attribute("name")) { child->SetName(name); }
+                        assembly->AddSubDataObject(child);
                     }
-                    curMultiBlock->AddSubDataObject(newObj);
                 }
-                elem = elem->NextSiblingElement();
             }
-
-            overall_multiBlock.push_back(curMultiBlock);
-            BlockElem = BlockElem->NextSiblingElement("Block");
+            return true;
+        };
+        auto rootAssembly = DrawObject::New();
+        if (m_RemoteRenderingEnabled) { rootAssembly->SetRemoteRenderingEnabled(true); }
+        if (!readChildren(vtkMultiBlockElem, rootAssembly)) { return false; }
+        // Preserve the historical single-assembly root shape.
+        if (rootAssembly->GetNumberOfSubDataObjects() == 1) {
+            overall_multiBlock.push_back(rootAssembly->SubDataObjectIteratorBegin()->second);
+        } else {
+            overall_multiBlock.push_back(rootAssembly);
         }
     }
     // Handle <DataSet> format (flat structure)
@@ -437,7 +438,7 @@ bool iGameVTMReader::Parsing() {
         }
         return true;
     } else {
-        DataObject::Pointer rootDataObject = DataObject::New();
+        DataObject::Pointer rootDataObject = DrawObject::New();
         for (const auto& mp: overall_multiBlock) rootDataObject->AddSubDataObject(mp);
 
         parseData = rootDataObject;
