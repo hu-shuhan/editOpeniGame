@@ -141,7 +141,12 @@ private:
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        if (!MeshCodecZSTD().Decompress(bufDecompressed, buf)) { return false; }
+        if (buf.empty()) {
+            // 编码端对空数据会写出长度为 0 的载荷（如结构化网格/点云的拓扑），这里按空载荷处理
+            if (!CanAcceptEmptyPayload(type)) { return false; }
+        } else if (!MeshCodecZSTD().Decompress(bufDecompressed, buf)) {
+            return false;
+        }
 
         switch (type) {
             case PayloadType::kParameterSet: {
@@ -167,6 +172,17 @@ private:
                 break;
         }
         return true;
+    }
+
+    bool CanAcceptEmptyPayload(PayloadType type) const {
+        if (type == PayloadType::kTopologyBrick) {
+            return this->m_codecParams.meshType == IG_POINT_SET ||
+                   this->m_codecParams.meshType == IG_STRUCTURED_MESH;
+        }
+        if (type == PayloadType::kAttributeBrick) {
+            return this->m_codecParams.attrParams.empty();
+        }
+        return false;
     }
     // endregion
 
