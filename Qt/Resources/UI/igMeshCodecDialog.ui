@@ -304,6 +304,19 @@
           </widget>
          </item>
          <item>
+          <widget class="QCheckBox" name="checkbox_savePointOrder">
+           <property name="toolTip">
+            <string>在压缩文件内保存点编号映射，读取时自动恢复原始点顺序、点属性和拓扑索引。会增加文件体积；不恢复单元编号。需使用支持此选项的新版程序读取。</string>
+           </property>
+           <property name="text">
+            <string>保存原始点编号映射（读取时恢复，会增加文件体积）</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
           <layout class="QHBoxLayout" name="horizontalLayout_bottom">
            <item>
             <spacer name="horizontalSpacer_4">

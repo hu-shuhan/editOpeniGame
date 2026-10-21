@@ -31,6 +31,7 @@ public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
     static constexpr uint32_t SupportedParamVersion = 2;
+    static constexpr uint32_t PointOrderParamVersion = 3;
     static constexpr uint32_t LegacyParamVersion = 1;
 
     MeshDecoderFilter() {
@@ -51,12 +52,18 @@ public:
 
         if (!InitializeInputs()) { return false; }
 
+        m_pointOrder.clear();
+        m_requiresPointOrder = false;
+        m_hasPointOrder = false;
+        m_hasParams = false;
+        m_dataPayloads = 0;
         m_DecompressProgress = 0.0f;
 
         PayloadBuffer buf;
         while (m_DecoderInput->ReadPayload(&buf)) {
             if (!ProcessPayload(buf)) { return false; }
         }
+        if (m_requiresPointOrder && (!m_hasPointOrder || m_dataPayloads != 7)) { return false; }
 
         // 将 adapter 的输出设置到 DecodeOutput
         if (m_DecoderAdapter) {
@@ -90,6 +97,69 @@ private:
 
     // progress record
     float m_DecompressProgress = 0.0f;
+    std::vector<uint32_t> m_pointOrder; // encoded point ID -> original point ID
+    bool m_requiresPointOrder = false;
+    bool m_hasPointOrder = false;
+    bool m_hasParams = false;
+    unsigned int m_dataPayloads = 0;
+
+    bool PointOrderDecoder(const PayloadBuffer& payload) {
+        if (!m_hasParams || !m_requiresPointOrder || m_hasPointOrder) { return false; }
+        constexpr size_t headerSize = sizeof(uint32_t) + sizeof(uint64_t);
+        const auto count = m_codecParams.geomParams.elementCount;
+        if (payload.size() < headerSize || count > std::numeric_limits<uint32_t>::max() ||
+            count != (payload.size() - headerSize) / sizeof(uint32_t) ||
+            (payload.size() - headerSize) % sizeof(uint32_t) != 0) {
+            return false;
+        }
+        try {
+            const std::vector<uint8_t> data(payload.begin(), payload.end());
+            CodecBinaryInputArchive ar(data);
+            uint32_t version = 0;
+            uint64_t storedCount = 0;
+            ar.Process(version);
+            ar.Process(storedCount);
+            if (version != 1 || storedCount != count) { return false; }
+            std::vector<uint32_t> order(static_cast<size_t>(count));
+            std::vector<bool> seen(static_cast<size_t>(count), false);
+            for (auto& original : order) {
+                ar.Process(original);
+                if (original >= count || seen[original]) { return false; }
+                seen[original] = true;
+            }
+            m_pointOrder = std::move(order);
+            m_hasPointOrder = true;
+            return true;
+        } catch (const std::exception& e) {
+            IGAME_CORE_ERROR("Invalid IGC point order mapping: {}", e.what());
+            return false;
+        }
+    }
+
+    template<typename T>
+    bool RestorePointValues(std::vector<T>& values, int dimension) const {
+        if (!m_requiresPointOrder) { return true; }
+        if (!m_hasPointOrder || dimension <= 0 ||
+            values.size() / static_cast<size_t>(dimension) != m_pointOrder.size() ||
+            values.size() % static_cast<size_t>(dimension) != 0) { return false; }
+        std::vector<T> restored(values.size());
+        for (size_t encoded = 0; encoded < m_pointOrder.size(); ++encoded) {
+            std::copy_n(values.begin() + encoded * dimension, dimension,
+                        restored.begin() + static_cast<size_t>(m_pointOrder[encoded]) * dimension);
+        }
+        values.swap(restored);
+        return true;
+    }
+
+    bool RestorePointIndices(std::vector<unsigned int>& ids) const {
+        if (!m_requiresPointOrder) { return true; }
+        if (!m_hasPointOrder) { return false; }
+        for (auto& id : ids) {
+            if (id >= m_pointOrder.size()) { return false; }
+            id = m_pointOrder[id];
+        }
+        return true;
+    }
 
     static bool MulWillOverflow(IGsize a, IGsize b) {
         return b != 0 && a > std::numeric_limits<IGsize>::max() / b;
@@ -139,6 +209,18 @@ private:
     // region caller
     bool ProcessPayload(PayloadBuffer& buf) {
         PayloadType type = buf.type;
+        if (type != PayloadType::kParameterSet && !m_hasParams) { return false; }
+        if (type != PayloadType::kParameterSet && type != PayloadType::kPointOrderBrick &&
+            m_requiresPointOrder && !m_hasPointOrder) { return false; }
+        if (type == PayloadType::kPointOrderBrick) {
+            const auto count = m_codecParams.geomParams.elementCount;
+            if (!m_requiresPointOrder || m_hasPointOrder || buf.empty() ||
+                count > std::numeric_limits<uint32_t>::max() ||
+                count > (std::numeric_limits<size_t>::max() - 12) / sizeof(uint32_t) ||
+                ZSTD_getFrameContentSize(buf.data(), buf.size()) != 12 + count * sizeof(uint32_t)) {
+                return false;
+            }
+        }
 
         PayloadBuffer bufDecompressed;
         if (buf.empty()) {
@@ -150,22 +232,30 @@ private:
 
         switch (type) {
             case PayloadType::kParameterSet: {
+                if (m_hasParams) { return false; }
                 if (!this->ParamsDecoder(bufDecompressed)) { return false; }
+                m_hasParams = true;
                 if (m_DecoderAdapter) {
                     m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
                 }
                 break;
             }
+            case PayloadType::kPointOrderBrick: {
+                return PointOrderDecoder(bufDecompressed);
+            }
             case PayloadType::kGeometryBrick: {
                 if (!this->GeomDecoder(bufDecompressed)) { return false; }
+                m_dataPayloads |= 1;
                 break;
             }
             case PayloadType::kAttributeBrick: {
                 if (!this->AttrDecoder(bufDecompressed)) { return false; }
+                m_dataPayloads |= 2;
                 break;
             }
             case PayloadType::kTopologyBrick: {
                 if (!this->TopoDecoder(bufDecompressed)) { return false; }
+                m_dataPayloads |= 4;
                 break;
             }
             default:
@@ -206,7 +296,8 @@ private:
             return false;
         }
 
-        if (header.version != SupportedParamVersion && header.version != LegacyParamVersion) {
+        if (header.version != SupportedParamVersion && header.version != LegacyParamVersion &&
+            header.version != PointOrderParamVersion) {
             IGAME_CORE_ERROR("Unsupported IGC parameter version {}. Please update or regenerate this file", header.version);
             return false;
         }
@@ -247,6 +338,7 @@ private:
             IGAME_CORE_ERROR("Invalid IGC parameter payload");
             return false;
         }
+        m_requiresPointOrder = header.version == PointOrderParamVersion;
 
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);
@@ -272,6 +364,7 @@ private:
         m_DecompressProgress += 0.15;
         UpdateProgress(m_DecompressProgress);
 
+        if (!RestorePointValues(decodedFloat, 3)) { return false; }
         this->m_DecoderAdapter->SetPointBuffer(decodedFloat);
         return true;
     }
@@ -378,7 +471,13 @@ private:
         }
 
         // 所有线程完成后，按顺序添加属性
-        for (const auto& attr : attrBuffers) {
+        for (auto& attr : attrBuffers) {
+            if (attr.attachmentType == IG_POINT) {
+                const bool restored = attr.isFloat() ? RestorePointValues(attr.floatData, attr.dimension)
+                    : attr.isUInt8() ? RestorePointValues(attr.uint8Data, attr.dimension)
+                                     : RestorePointValues(attr.doubleData, attr.dimension);
+                if (!restored) { return false; }
+            }
             this->m_DecoderAdapter->AddAttribute(attr);
         }
         return true;
@@ -460,6 +559,7 @@ private:
                                 this->m_codecParams.topoParams.topCellSizeBinaryCount,
                                 volume2facesSize);
 
+            if (!RestorePointIndices(face2pointsIndex)) { return false; }
             this->m_DecoderAdapter->AddSecondaryIndexCells(
                 volume2facesIndex,
                 volume2facesSize,
@@ -500,6 +600,7 @@ private:
                 inputCursor += this->m_codecParams.topoParams.cellTypeBinaryCount;
             }
 
+            if (!RestorePointIndices(volume2pointsIndex)) { return false; }
             // 写入网格
             bool unstructuredFlag = this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH;
 

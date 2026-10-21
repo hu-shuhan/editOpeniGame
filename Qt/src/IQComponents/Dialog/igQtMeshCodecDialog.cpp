@@ -928,6 +928,7 @@ void igQtMeshCodecDialog::on_checkbox_exportNumpy_clicked(bool checked)
 
     auto* list = new QListWidget(body);
     const auto attrs = m_uiSampleLeafObj->GetAttributeSet()->GetAllAttributes();
+    bool hasExportableAttributes = false;
     for (int i = 0; attrs && i < attrs->GetNumberOfElements(); ++i) {
         const auto attr = attrs->GetElement(i);
         const QString attachment = attr.attachmentType == IG_POINT
@@ -943,6 +944,7 @@ void igQtMeshCodecDialog::on_checkbox_exportNumpy_clicked(bool checked)
         const auto valueSize = attr.pointer->GetArrayTypedSize();
         const bool supported = valueSize == sizeof(float) || valueSize == sizeof(double);
         if (supported) {
+            hasExportableAttributes = true;
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
             item->setCheckState(
                 std::find(m_numpyAttributeIndices.begin(), m_numpyAttributeIndices.end(), i) !=
@@ -959,6 +961,17 @@ void igQtMeshCodecDialog::on_checkbox_exportNumpy_clicked(bool checked)
     auto* buttons = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
         Qt::Horizontal, body);
+    auto* selectAllButton = buttons->addButton(QStringLiteral("全选"), QDialogButtonBox::ActionRole);
+    selectAllButton->setAutoDefault(false);
+    selectAllButton->setEnabled(hasExportableAttributes);
+    connect(selectAllButton, &QPushButton::clicked, &selector, [list]() {
+        for (int row = 0; row < list->count(); ++row) {
+            auto* item = list->item(row);
+            if ((item->flags() & Qt::ItemIsEnabled) && (item->flags() & Qt::ItemIsUserCheckable)) {
+                item->setCheckState(Qt::Checked);
+            }
+        }
+    });
     connect(buttons, &QDialogButtonBox::accepted, &selector, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &selector, &QDialog::reject);
     layout->addWidget(buttons);
@@ -1557,6 +1570,7 @@ iGame::CodecControlParams igQtMeshCodecDialog::BuildCodecParams() const
 {
     iGame::CodecControlParams params;
     params.showReport = m_showReport;
+    params.savePointOrder = ui->checkbox_savePointOrder->isChecked();
     params.compressLevel = m_compressLevel + 1;
     params.exportNumpy = m_exportNumpy;
     params.numpyAttributeIndices = m_numpyAttributeIndices;
