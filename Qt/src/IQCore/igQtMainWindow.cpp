@@ -3279,6 +3279,7 @@ void igQtMainWindow::initAllFilters() {
 
             // 4. 用过滤后的数据构建 newMesh
             auto newMesh = SurfaceMesh::New();
+            newMesh->SetName(input->GetName() + "_SurfaceSimplification");
             for (const auto& v: filteredVerts) {
                 newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
             }
