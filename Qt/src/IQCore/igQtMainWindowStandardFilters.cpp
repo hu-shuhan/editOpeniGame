@@ -3042,7 +3042,9 @@ bool igQtMainWindow::connectImportedFilterAction(QAction* action, const QString&
             });
             if (!panel->isOutput(input)) panel->setInput(input);
         } else if (id == "axis_aligned_reflection") {
-            auto* panel = filterPanel<igQtAxisAlignedReflectionWidget>(this, id, [&](auto* p, auto) {
+            auto* panel = filterPanel<igQtAxisAlignedReflectionWidget>(
+                    this, id, [&](igQtAxisAlignedReflectionWidget* p, std::function<void()> close) {
+                Q_UNUSED(close);
                 connect(p, &igQtAxisAlignedReflectionWidget::applyRequested, this, [=]() {
                     auto filter = AxisAlignedReflectionFilter::New();
                     filter->SetInput(p->input());
