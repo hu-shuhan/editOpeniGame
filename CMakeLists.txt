@@ -26,7 +26,7 @@ option(ENABLE_IGV_MODULE "Enable IGV (HDF5-based iGameVis universal format) Modu
 # 打开后才会注册 testIGVLargeFile 目标。
 option(IGAME_ENABLE_IGV_LARGE_TESTS "Build the IGV large-file regression (>4 GiB / 1e8 cells)" OFF)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
-set(ENABLE_LIBTORCH_MODULE "CPU" CACHE STRING "Libtorch ThirdParty Module: OFF / GPU / CPU")
+set(ENABLE_LIBTORCH_MODULE "GPU" CACHE STRING "Libtorch ThirdParty Module: OFF / GPU / CPU")
 set_property(CACHE ENABLE_LIBTORCH_MODULE PROPERTY STRINGS OFF GPU CPU)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)

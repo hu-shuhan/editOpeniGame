@@ -32,12 +32,14 @@ struct CodecPayloadSet {
     PayloadBuffer topo{PayloadType::kTopologyBrick};
     PayloadBuffer attr{PayloadType::kAttributeBrick};
     PayloadBuffer param{PayloadType::kParameterSet};
+    PayloadBuffer pointOrder{PayloadType::kPointOrderBrick};
 
     void Release() {
         PayloadBuffer().swap(geom);
         PayloadBuffer().swap(topo);
         PayloadBuffer().swap(attr);
         PayloadBuffer().swap(param);
+        PayloadBuffer().swap(pointOrder);
     }
 };
 
@@ -136,6 +138,9 @@ public:
             }
             this->AttrEncoder(raw.attr, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
             this->ParamsEncoder(raw.param);
+            if (m_CodecControlParams.savePointOrder) {
+                this->PointOrderEncoder(raw.pointOrder, pointIdRemap);
+            }
 
             // 释放 remap 内存
             { std::vector<unsigned int>().swap(pointIdRemap); }
@@ -143,6 +148,10 @@ public:
             { std::vector<unsigned int>().swap(bottomCellIdRemap); }
 
             CompressPayloads(raw, compressed);
+            if (m_CodecControlParams.savePointOrder &&
+                !MeshCodecZSTD(m_compressLevel).Compress(compressed.pointOrder, raw.pointOrder)) {
+                throw std::runtime_error("Failed to compress point order mapping");
+            }
 
             // 只统计几何、拓扑和属性的压缩 payload。
             // 不包含参数块，因为参数块不属于 Array。
@@ -155,6 +164,10 @@ public:
             WritePayloads(compressed);
 
             FinalizeEncoding(rawArrayBytes, compressedArrayBytes);
+            if (m_showReport && m_CodecControlParams.savePointOrder) {
+                m_report.emplace_back("点编号映射大小（含块头）",
+                                      fmt::v11::format("{} bytes", compressed.pointOrder.size() + 5));
+            }
         } catch (const std::exception& e) {
             IGAME_CORE_ERROR("Failed to encode IGC mesh payload: {}", e.what());
             return false;
@@ -283,6 +296,7 @@ private:
 
     void WritePayloads(const CodecPayloadSet& compressed) {
         WriteBuf(compressed.param);
+        if (!compressed.pointOrder.empty()) { WriteBuf(compressed.pointOrder); }
         WriteBuf(compressed.geom);
         WriteBuf(compressed.topo);
         WriteBuf(compressed.attr);
@@ -305,7 +319,7 @@ private:
         const IGenum meshType = m_EncoderAdapter->GetMeshType();
 
         // 2. 拓扑 Array
-        if (meshType != IG_POINT_SET) {
+        if (meshType != IG_POINT_SET && meshType != IG_STRUCTURED_MESH) {
             // Cell ID 使用的是 IdArray，它不是普通 DataArray。
             if (const auto cellIds = m_EncoderAdapter->GetCellIdBuffer()) {
                 totalBytes += static_cast<std::uint64_t>(cellIds->GetNumberOfIds()) * sizeof(igIndex);
@@ -471,8 +485,10 @@ private:
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
 
-        // 点云特殊处理
-        if (this->m_codecParams.meshType == IG_POINT_SET) {
+        // Point clouds and structured meshes do not encode explicit cell arrays.
+        // In particular, a 2D structured mesh has no VolumeMesh::GetCells().
+        if (this->m_codecParams.meshType == IG_POINT_SET ||
+            this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
             this->m_codecParams.topoParams.isSecondaryIndex = false;
             this->m_codecParams.topoParams.fixedCellSize = -1;
         } else {
@@ -516,7 +532,8 @@ private:
 
     void ParamsEncoder(PayloadBuffer& payload) {
         CodecStorageHeader header{};
-        header.version = 2;
+        // Old readers must reject mapped files instead of silently losing point IDs.
+        header.version = m_CodecControlParams.savePointOrder ? 3 : 2;
         header.SetRequires64BitSize(Requires64BitSize());
         UpdateProgress(0.7);
 
@@ -536,6 +553,30 @@ private:
             std::memcpy(payload.data() + headerData.size(), data.data(), data.size());
         }
         UpdateProgress(0.8);
+    }
+
+    void PointOrderEncoder(PayloadBuffer& payload, const std::vector<unsigned int>& originalToEncoded) {
+        const size_t count = static_cast<size_t>(m_codecParams.geomParams.elementCount);
+        if (count > std::numeric_limits<uint32_t>::max() ||
+            (!originalToEncoded.empty() && originalToEncoded.size() != count)) {
+            throw std::runtime_error("Invalid point order mapping size");
+        }
+        std::vector<uint32_t> encodedToOriginal(count);
+        std::vector<bool> seen(count, false);
+        for (size_t original = 0; original < count; ++original) {
+            const uint32_t encoded = originalToEncoded.empty() ? static_cast<uint32_t>(original)
+                                                              : originalToEncoded[original];
+            if (encoded >= count || seen[encoded]) {
+                throw std::runtime_error("Invalid point order permutation");
+            }
+            seen[encoded] = true;
+            encodedToOriginal[encoded] = static_cast<uint32_t>(original);
+        }
+        std::vector<uint8_t> data;
+        CodecBinaryOutputArchive ar(data);
+        ar.Process(uint32_t{1});
+        ar.Process(encodedToOriginal);
+        payload.assign(data.begin(), data.end());
     }
 
     void GeomEncoder(PayloadBuffer& payload, std::vector<unsigned int>& pointIdRemap) {

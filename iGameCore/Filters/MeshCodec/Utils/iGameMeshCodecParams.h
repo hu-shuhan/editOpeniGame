@@ -237,6 +237,7 @@ struct CodecControlParams {
 	FloatControlParams geomControl;                 // 几何数据控制参数
 	std::vector<FloatControlParams> attrControl;    // 属性数据控制参数列表
 	bool showReport = false;
+	bool savePointOrder = false;                    // 保存点编号映射，读取时恢复原始点顺序
 	int compressLevel = 12;
 	bool exportNumpy = false;                       // 是否导出原始/重建场数据
 	std::vector<int> numpyAttributeIndices;         // 要导出的属性索引

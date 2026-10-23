@@ -18,6 +18,7 @@
 
 class QResizeEvent;
 class QShowEvent;
+class QCloseEvent;
 
 class IG_QT_MODULE_EXPORT igQtFilterDialogDockWidget : public QDockWidget {
     Q_OBJECT
@@ -34,7 +35,9 @@ public:
     };
 
     void apply();
+    void preview();
     void close();
+    void enablePreview(bool enabled);
 
     void setFilterTitle(const QString& title);
     void setFilterDescription(const QString& text);
@@ -124,9 +127,20 @@ public:
         applyFunctor = std::bind(functor, args...);
     }
 
+    template<typename Functor, typename... Args>
+    void setPreviewFunctor(Functor&& functor, Args&&... args) {
+        previewFunctor = std::bind(functor, args...);
+    }
+
+    template<typename Functor, typename... Args>
+    void setCloseFunctor(Functor&& functor, Args&&... args) {
+        closeFunctor = std::bind(functor, args...);
+    }
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private:
     void applyFramelessForFloating(bool floating);
@@ -146,6 +160,9 @@ private:
     };
 
     std::function<void()> applyFunctor;
+    std::function<void()> previewFunctor;
+    std::function<void()> closeFunctor;
+    bool closeFunctorCalled = false;
     std::map<int, Item> itemMap;
     int index;
     bool m_verticalParameterLayout = false;

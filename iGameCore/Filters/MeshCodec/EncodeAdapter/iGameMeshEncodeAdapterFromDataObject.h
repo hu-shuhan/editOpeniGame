@@ -229,18 +229,17 @@ public:
         }
         
         // 提取 face -> points 索引
-        IdArray::Pointer f2pIndex = facesData->GetCellIdArray();
-        UnsignedIntArray::Pointer f2pOffset = facesData->GetOffset();
-
-        const auto offsetCount = f2pOffset->GetNumberOfValues();
-        face2pointsOffset.resize(offsetCount);
-        std::memcpy(face2pointsOffset.data(), f2pOffset->RawPointer(),
-                    offsetCount * sizeof(unsigned int));
-
-        const auto indexCount = face2pointsOffset[facesData->GetNumberOfCells()];
-        face2pointsIndex.resize(indexCount);
-        std::memcpy(face2pointsIndex.data(), f2pIndex->RawPointer(),
-                    indexCount * sizeof(unsigned int));
+        // CellArray may store fixed-size faces with a compact offset array.
+        // The variable-size topology codec needs an explicit offset per face.
+        face2pointsOffset.clear();
+        face2pointsIndex.clear();
+        face2pointsOffset.push_back(0);
+        for (IGsize face = 0; face < facesData->GetNumberOfCells(); ++face) {
+            const igIndex* ids = nullptr;
+            const int count = facesData->GetCellIds(face, ids);
+            face2pointsIndex.insert(face2pointsIndex.end(), ids, ids + count);
+            face2pointsOffset.push_back(static_cast<unsigned int>(face2pointsIndex.size()));
+        }
     }
 
     // 仅用于解决二级索引问题

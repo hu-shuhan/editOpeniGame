@@ -22,17 +22,16 @@ if (ENABLE_CGNS_MODULE)
         set(CGNS_BUILD_SHARED OFF CACHE BOOL "Build shared CGNS library" FORCE)
     endif ()
 
-    # 在系统环境变量里设置HDF5_HOME，值为HDF5路径
-    if (DEFINED ENV{HDF5_HOME})
-        set(HDF5_DIR "$ENV{HDF5_HOME}/cmake")
-    else ()
-        if (WIN32)
-            set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-        endif ()
-    endif ()
-    if (WIN32 AND NOT HDF5_DIR)
-        set(HDF5_DIR "D:/anaconda3/Library/cmake/hdf5"
-            CACHE PATH "HDF5 CMake configuration directory")
+    # Respect an explicit HDF5_DIR; otherwise locate an installed config file.
+    # HDF5_HOME may name either the installation root or the config directory.
+    if (NOT HDF5_DIR)
+        find_path(HDF5_DIR
+            NAMES hdf5-config.cmake HDF5Config.cmake
+            HINTS "${HDF5_ROOT}" ENV HDF5_ROOT ENV HDF5_HOME ENV HDF5_DIR
+            PATHS "C:/Program Files/HDF_Group/HDF5/1.13.0"
+                  "D:/anaconda3/Library"
+            PATH_SUFFIXES cmake share/cmake cmake/hdf5 lib/cmake/hdf5
+            DOC "HDF5 CMake configuration directory")
     endif ()
     set(HDF5_BUILD_SHARED_LIBS OFF)
     set(HDF5_USE_STATIC_LIBRARIES ON)

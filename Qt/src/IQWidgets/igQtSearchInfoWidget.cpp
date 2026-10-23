@@ -12,6 +12,7 @@
 #include <QTableWidgetItem>
 
 #include <iGameDataObject.h>
+#include <iGameMetadata.h>
 #include <iGameModel.h>
 #include <iGameSelection.h>
 
@@ -19,6 +20,17 @@
 #include <utility>
 
 using namespace iGame;
+
+namespace {
+
+ArrayObject* NumericMetadataArray(const EntryValue& value) {
+    if (const auto* array = std::get_if<IntArray::Pointer>(&value)) return array->GetPointer();
+    if (const auto* array = std::get_if<FloatArray::Pointer>(&value)) return array->GetPointer();
+    if (const auto* array = std::get_if<DoubleArray::Pointer>(&value)) return array->GetPointer();
+    return nullptr;
+}
+
+} // namespace
 
 igQtSearchInfoWidget::igQtSearchInfoWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtSearchInfo), m_currentModelData(nullptr), m_currentDataType(0) {
@@ -52,7 +64,9 @@ void igQtSearchInfoWidget::setCurrentModelData(iGame::DataObject* modelData) {
         ui->radioButton_Cells->setChecked(true);
         m_currentDataType = 1;
     } else {
-        m_currentDataType = ui->radioButton_Cells->isChecked() ? 1 : 0;
+        m_currentDataType = ui->radioButton_Objects->isChecked()
+                ? 2
+                : (ui->radioButton_Cells->isChecked() ? 1 : 0);
     }
 
     refreshProperties();
@@ -100,7 +114,9 @@ void igQtSearchInfoWidget::setCurrentModel(iGame::Model* model) {
         ui->radioButton_Points->setChecked(true);
         m_currentDataType = 0;
     } else {
-        m_currentDataType = ui->radioButton_Cells->isChecked() ? 1 : 0;
+        m_currentDataType = ui->radioButton_Objects->isChecked()
+                ? 2
+                : (ui->radioButton_Cells->isChecked() ? 1 : 0);
     }
 
     refreshProperties();
@@ -121,6 +137,23 @@ void igQtSearchInfoWidget::setSelectedPartIds(const QVector<int>& partIds) {
         ui->radioButton_Cells->setChecked(true);
     }
 
+    ui->lineEdit_Value->clear();
+    refreshProperties();
+    refreshData();
+}
+
+void igQtSearchInfoWidget::setCurrentDataType(int dataType) {
+    if (dataType < 0 || dataType > 2) return;
+    m_selectedPartIds.clear();
+    m_currentDataType = dataType;
+    {
+        const QSignalBlocker blockPoints(ui->radioButton_Points);
+        const QSignalBlocker blockCells(ui->radioButton_Cells);
+        const QSignalBlocker blockObjects(ui->radioButton_Objects);
+        ui->radioButton_Points->setChecked(dataType == 0);
+        ui->radioButton_Cells->setChecked(dataType == 1);
+        ui->radioButton_Objects->setChecked(dataType == 2);
+    }
     ui->lineEdit_Value->clear();
     refreshProperties();
     refreshData();
@@ -164,6 +197,35 @@ void igQtSearchInfoWidget::refreshProperties() {
             descriptor.component = component;
             addProperty(std::move(descriptor));
         }
+    }
+
+    if (m_currentDataType == 2) {
+        QVector<QPair<QString, ArrayObject*>> arrays;
+        if (auto* metadata = m_currentModelData->GetMetadata()) {
+            for (const auto& entry: metadata->entries()) {
+                auto* array = NumericMetadataArray(entry.second);
+                if (!array || array->GetDimension() <= 0 || array->GetNumberOfElements() == 0) continue;
+                arrays.push_back({QString::fromStdString(entry.first), array});
+            }
+        }
+        std::sort(arrays.begin(), arrays.end(), [](const auto& first, const auto& second) {
+            return first.first.compare(second.first, Qt::CaseInsensitive) < 0;
+        });
+        for (const auto& metadataArray: arrays) {
+            const int dimension = metadataArray.second->GetDimension();
+            for (int component = 0; component < dimension; ++component) {
+                PropertyDescriptor descriptor;
+                descriptor.kind = PropertyDescriptor::Kind::Metadata;
+                descriptor.displayName = dimension == 1
+                        ? metadataArray.first
+                        : QStringLiteral("%1[%2]").arg(metadataArray.first).arg(component);
+                descriptor.component = component;
+                descriptor.metadataArray = metadataArray.second;
+                addProperty(std::move(descriptor));
+            }
+        }
+        if (!m_properties.isEmpty()) ui->comboBox_Property->setCurrentIndex(0);
+        return;
     }
 
     auto* attributeSet = m_currentModelData->GetAttributeSet();
@@ -289,6 +351,12 @@ void igQtSearchInfoWidget::initConnections() {
         refreshProperties();
         refreshData();
     });
+    connect(ui->radioButton_Objects, &QRadioButton::toggled, this, [this](bool checked) {
+        if (!checked) return;
+        m_currentDataType = 2;
+        refreshProperties();
+        refreshData();
+    });
     connect(ui->comboBox_Property, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this](int) { refreshData(); });
     connect(m_previousPageButton, &QPushButton::clicked, this, [this]() {
@@ -344,6 +412,13 @@ int igQtSearchInfoWidget::currentItemCount() const {
         return points ? static_cast<int>(points->GetNumberOfPoints()) : 0;
     }
 
+    if (m_currentDataType == 2) {
+        const int propertyIndex = ui->comboBox_Property->currentIndex();
+        if (propertyIndex < 0 || propertyIndex >= m_properties.size()) return 0;
+        const auto* array = m_properties[propertyIndex].metadataArray;
+        return array ? static_cast<int>(array->GetNumberOfElements()) : 0;
+    }
+
     auto cells = m_currentModelData->GetCellArray();
     if (cells) return static_cast<int>(cells->GetNumberOfCells());
 
@@ -370,6 +445,14 @@ bool igQtSearchInfoWidget::propertyValue(int itemId, const PropertyDescriptor& d
         return true;
     }
 
+    if (descriptor.kind == PropertyDescriptor::Kind::Metadata) {
+        if (!descriptor.metadataArray ||
+            itemId >= static_cast<int>(descriptor.metadataArray->GetNumberOfElements()))
+            return false;
+        value = descriptor.metadataArray->GetElementValue(itemId, descriptor.component);
+        return true;
+    }
+
     auto* attributeSet = m_currentModelData->GetAttributeSet();
     if (!attributeSet || descriptor.attributeIndex < 0 ||
         descriptor.attributeIndex >= attributeSet->GetNumberOfAttributes())
@@ -381,7 +464,7 @@ bool igQtSearchInfoWidget::propertyValue(int itemId, const PropertyDescriptor& d
 }
 
 bool igQtSearchInfoWidget::hasSelectionForCurrentDataType() const {
-    if (!m_currentSelection) return false;
+    if (!m_currentSelection || m_currentDataType == 2) return false;
     return !m_currentSelection->GetSelectedItems(m_currentDataType == 0 ? IG_POINT : IG_CELL).empty();
 }
 
@@ -451,7 +534,7 @@ void igQtSearchInfoWidget::renderCurrentPage() {
     QVector<const PropertyDescriptor*> displayedProperties;
     displayedProperties.reserve(m_properties.size());
     for (const auto& property: m_properties) {
-        if (property.kind == PropertyDescriptor::Kind::Attribute) displayedProperties.push_back(&property);
+        if (property.kind != PropertyDescriptor::Kind::Coordinate) displayedProperties.push_back(&property);
     }
 
     auto* table = ui->tableWidget_Results;
@@ -459,6 +542,7 @@ void igQtSearchInfoWidget::renderCurrentPage() {
     table->clearContents();
 
     const bool isPointData = m_currentDataType == 0;
+    const bool isObjectData = m_currentDataType == 2;
     if (isPointData) {
         table->setColumnCount(4 + displayedProperties.size());
         QStringList headers{QStringLiteral("点 ID"), "X", "Y", "Z"};
@@ -466,7 +550,7 @@ void igQtSearchInfoWidget::renderCurrentPage() {
         table->setHorizontalHeaderLabels(headers);
     } else {
         table->setColumnCount(1 + displayedProperties.size());
-        QStringList headers{QStringLiteral("单元 ID")};
+        QStringList headers{isObjectData ? QStringLiteral("对象 ID") : QStringLiteral("单元 ID")};
         for (const auto* property: displayedProperties) headers.push_back(property->displayName);
         table->setHorizontalHeaderLabels(headers);
     }
@@ -502,7 +586,9 @@ void igQtSearchInfoWidget::renderCurrentPage() {
 
     const bool hasPartFilter = m_currentDataType == 1 && !m_selectedPartIds.isEmpty() &&
                                m_currentModelData->HasBlockMapping();
-    const QString resultScope = hasPartFilter
+    const QString resultScope = isObjectData
+                                        ? QStringLiteral("全部对象")
+                                        : hasPartFilter
                                         ? QStringLiteral("选中零件")
                                         : (hasSelectionForCurrentDataType() ? QStringLiteral("选中数据")
                                                                            : QStringLiteral("全部数据"));

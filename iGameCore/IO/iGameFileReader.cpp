@@ -50,6 +50,12 @@ bool FileReader::Execute() {
     //std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
     if (!Parsing()) {
         IGAME_CORE_ERROR("Parsing failure");
+        // 失败路径也必须释放 Open() 建立的资源（Windows 上是 CreateFile +
+        // CreateFileMapping + MapViewOfFile，POSIX 上是 fd + mmap）。
+        // 不释放的话，一个"读失败"的畸形文件会被自己的映射一直锁住到进程退出：
+        // 在文件管理器里删不掉、也覆盖不了，任何"读临时文件 → 被拒 → 重写同名文件"
+        // 的流程都会失败。Close() 是幂等的（见其内部注释），不影响任何成功路径。
+        Close();
         resetProgressUI();
         return false;
     }
@@ -60,6 +66,9 @@ bool FileReader::Execute() {
     }
     if (!CreateDataObject()) {
         IGAME_CORE_ERROR("Generate DataObject failure");
+        // 同上：让"所有失败出口都释放资源"这条规则在代码里可见。此处 Close()
+        // 已经在上面的成功路径执行过一次，再调一次是空操作。
+        Close();
         resetProgressUI();
         return false;
     }
@@ -333,11 +342,21 @@ bool FileReader::CreateDataObject() {
 // Internal function to read in an integer value.
 // Returns zero if there was an error.
 int FileReader::Read(char* result) {
-    if (this->IS < this->FILEEND) {
-        *result = (char) *this->IS;
-        return 1;
+    if (m_FileType == IGAME_BINARY) {
+        if (this->IS < this->FILEEND) {
+            *result = (char) *this->IS;
+            ++this->IS;
+            return 1;
+        }
+        return 0;
     }
-    return 0;
+    // ASCII 里 char / unsigned char 数组存的是数值（例如 vtkGhostType 写的是 0 / 2 / 32），必须按数字解析。
+    // 按字符读会写入 ASCII 码（'0' = 48）并且只前进 1 字节，导致同一文件里 unsigned_char 数组之后的
+    // 段解析错位（CELL_DATA 段后面的 POINT_DATA 段整段丢失、nan/inf 之后的数值全部变 0 由此产生）。
+    int intData = 0;
+    this->IS = mAtoi(this->IS, intData);
+    *result = static_cast<char>(intData);
+    return 1;
 }
 //------------------------------------------------------------------------------
 int FileReader::Read(char* data, size_t n) {
@@ -351,11 +370,18 @@ int FileReader::Read(char* data, size_t n) {
 }
 //------------------------------------------------------------------------------
 int FileReader::Read(unsigned char* result) {
-    if (this->IS < this->FILEEND) {
-        *result = (unsigned char) *this->IS;
-        return 1;
+    if (m_FileType == IGAME_BINARY) {
+        if (this->IS < this->FILEEND) {
+            *result = (unsigned char) *this->IS;
+            ++this->IS;
+            return 1;
+        }
+        return 0;
     }
-    return 0;
+    int intData = 0;
+    this->IS = mAtoi(this->IS, intData);
+    *result = static_cast<unsigned char>(intData);
+    return 1;
 }
 
 //------------------------------------------------------------------------------

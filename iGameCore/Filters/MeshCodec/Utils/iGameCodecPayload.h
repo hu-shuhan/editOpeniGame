@@ -15,6 +15,7 @@ enum class PayloadType {
     kAttributeBrick = 2,
     kTopologyBrick = 3,
     kCompressedBrick = 4,
+    kPointOrderBrick = 5,
 };
 
 struct PayloadBuffer : public std::vector<char> {
