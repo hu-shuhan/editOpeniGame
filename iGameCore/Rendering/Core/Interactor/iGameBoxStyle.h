@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "iGameBasicStyle.h"
 #include "iGamePoints.h"
 #include <vector>
@@ -17,8 +17,28 @@ public:
     void MousePressEvent(IEvent event) override;
     void MouseMoveEvent(IEvent event) override;
     void MouseReleaseEvent(IEvent event) override;
+    void SetLeftButtonOnly(bool enabled) { m_LeftButtonOnly = enabled; }
+    void WheelEvent(IEvent event) override { if (!m_LeftButtonOnly) BasicStyle::WheelEvent(event); }
+    bool IsInteractionActive() const override {
+        if (m_LeftButtonOnly) return m_SelectedItem != IG_NONE && m_MouseMode == MouseButton::LeftButton;
+        return m_SelectedItem != IG_NONE &&
+               (m_MouseMode == MouseButton::MiddleButton ||
+                (m_ParaViewInteraction && m_UniformScaling && m_MouseMode == MouseButton::RightButton) ||
+                ((m_AllowLeftHandleDrag || m_AllowRegionResize || m_AllowBoundaryDrag) && m_MouseMode == MouseButton::LeftButton) ||
+                (m_CenterTranslationMode && m_SelectedItem == IG_MID_POINT &&
+                 m_MouseMode == MouseButton::LeftButton));
+    }
 
     void InitBox(const Point& p1, const Point& p2);
+    void SetAllowRotation(bool allow) { m_AllowRotation = allow; }
+    void SetAllowLeftHandleDrag(bool allow) { m_AllowLeftHandleDrag = allow; }
+    void SetCenterTranslationMode(bool enabled) { m_CenterTranslationMode = enabled; }
+    void SetAllowRegionResize(bool enabled, double minimumSize = 1.e-7) {
+        m_AllowRegionResize = enabled;
+        m_MinRegionSize = minimumSize;
+    }
+    void SetAllowBoundaryDrag(bool enabled) { m_AllowBoundaryDrag = enabled; }
+    void SetParaViewInteraction(bool enabled) { m_ParaViewInteraction = enabled; }
     void DeleteBox();
 
     void ToDraw();
@@ -87,6 +107,18 @@ protected:
 
     igm::vec2 m_PressSite = igm::vec2{0.0f};
     bool m_MeetedBox{};
+    bool m_AllowRotation{true};
+    bool m_LeftButtonOnly{false};
+    bool m_AllowLeftHandleDrag{false};
+    bool m_CenterTranslationMode{false};
+    bool m_AllowRegionResize{false};
+    bool m_AllowBoundaryDrag{false};
+    bool m_ParaViewInteraction{false};
+    bool m_UniformScaling{false};
+    Point m_ScaleStartPoint;
+    double m_MinRegionSize{1.e-7};
+    std::pair<Point, Point> m_ResizeBounds;
+    igm::vec2 m_ResizeScreenAxis{0.f};
     MouseButton m_MousePressButton{MouseButton::NoButton};
 
     std::vector<IGuint> m_DrawHandles;

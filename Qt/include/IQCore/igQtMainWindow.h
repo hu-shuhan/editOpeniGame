@@ -25,6 +25,8 @@
 #include <array>
 #undef QT_NO_OPENGL
 
+class igQtExtractTimeStepsWidget;
+class igQtHistogramChartWidget;
 class QMenu;
 class QHBoxLayout;
 
@@ -166,6 +168,13 @@ private slots:
 
 
 private:
+    igQtExtractTimeStepsWidget* m_extractTimeStepsWidget = nullptr;
+    QDockWidget* m_histogramDock = nullptr;
+    igQtHistogramChartWidget* m_histogramChartWidget = nullptr;
+    QPointer<igQtFilterDialogDockWidget> m_histogramParametersDock;
+    QWidget* m_histogramParameterContents = nullptr;
+    QDockWidget* m_histogramSeriesDock = nullptr;
+    void closeHistogramParameters();
     int m_outlineCount{0};
     QDialog* m_linearExtrusionDialog = nullptr;
     igQtLinearExtrusionWidget* m_linearExtrusionWidget = nullptr;

@@ -8,6 +8,7 @@
  */
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <QColor>
+#include <QCloseEvent>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
@@ -105,6 +106,7 @@ igQtFilterDialogDockWidget::igQtFilterDialogDockWidget(QWidget* parent, bool fra
     ui->setupUi(this);
 
     connect(ui->applyButton, &QPushButton::clicked, this, &igQtFilterDialogDockWidget::apply);
+    connect(ui->previewButton, &QPushButton::clicked, this, &igQtFilterDialogDockWidget::preview);
     connect(ui->closeButton, &QPushButton::clicked, this, &igQtFilterDialogDockWidget::close);
 
     gridLayout = new QGridLayout();
@@ -182,12 +184,28 @@ void igQtFilterDialogDockWidget::applyFramelessForFloating(bool floating) {
 }
 
 void igQtFilterDialogDockWidget::apply() {
-    applyFunctor();
+    if (applyFunctor) applyFunctor();
+}
+
+void igQtFilterDialogDockWidget::closeEvent(QCloseEvent* event) {
+    if (!closeFunctorCalled) {
+        closeFunctorCalled = true;
+        if (closeFunctor) closeFunctor();
+    }
+    QDockWidget::closeEvent(event);
+}
+
+void igQtFilterDialogDockWidget::preview() {
+    if (previewFunctor) previewFunctor();
+}
+
+void igQtFilterDialogDockWidget::enablePreview(bool enabled) {
+    ui->previewButton->setVisible(enabled);
 }
 
 void igQtFilterDialogDockWidget::close() {
-    hide();
-    delete this;
+    QDockWidget::close();
+    deleteLater();
 }
 
 void igQtFilterDialogDockWidget::setFilterTitle(const QString& title) {

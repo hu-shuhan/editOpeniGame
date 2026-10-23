@@ -17,6 +17,7 @@ namespace iGame
 class DataObject;
 class Model;
 class Selection;
+class ArrayObject;
 }
 
 namespace Ui
@@ -46,6 +47,9 @@ public:
     // 直接按零件 ID 过滤单元表格；空列表表示取消零件过滤。
     void setSelectedPartIds(const QVector<int>& partIds);
 
+    // 切换表格数据类型：0 点数据，1 单元数据，2 对象数据（Metadata 数组）。
+    void setCurrentDataType(int dataType);
+
 private slots:
     // 查询按钮点击槽函数
     void onQueryButtonClicked();
@@ -55,12 +59,13 @@ private slots:
 
 private:
     struct PropertyDescriptor {
-        enum class Kind { Coordinate, Attribute };
+        enum class Kind { Coordinate, Attribute, Metadata };
 
         Kind kind{Kind::Attribute};
         QString displayName;
         int attributeIndex{-1};
         int component{0};
+        iGame::ArrayObject* metadataArray{nullptr};
     };
 
     Ui::igQtSearchInfo* ui;
@@ -82,7 +87,7 @@ private:
     QPushButton* m_pageJumpButton{nullptr};
     int m_currentPage{0};
 
-    // 当前选择的数据类型 (0: 点数据, 1: 面数据)
+    // 当前选择的数据类型 (0: 点数据, 1: 单元数据, 2: 对象数据)
     int m_currentDataType;
 
     // 初始化UI
