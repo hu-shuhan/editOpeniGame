@@ -333,11 +333,21 @@ bool FileReader::CreateDataObject() {
 // Internal function to read in an integer value.
 // Returns zero if there was an error.
 int FileReader::Read(char* result) {
-    if (this->IS < this->FILEEND) {
-        *result = (char) *this->IS;
-        return 1;
+    if (m_FileType == IGAME_BINARY) {
+        if (this->IS < this->FILEEND) {
+            *result = (char) *this->IS;
+            ++this->IS;
+            return 1;
+        }
+        return 0;
     }
-    return 0;
+    // ASCII 里 char / unsigned char 数组存的是数值（例如 vtkGhostType 写的是 0 / 2 / 32），必须按数字解析。
+    // 按字符读会写入 ASCII 码（'0' = 48）并且只前进 1 字节，导致同一文件里 unsigned_char 数组之后的
+    // 段解析错位（CELL_DATA 段后面的 POINT_DATA 段整段丢失、nan/inf 之后的数值全部变 0 由此产生）。
+    int intData = 0;
+    this->IS = mAtoi(this->IS, intData);
+    *result = static_cast<char>(intData);
+    return 1;
 }
 //------------------------------------------------------------------------------
 int FileReader::Read(char* data, size_t n) {
@@ -351,11 +361,18 @@ int FileReader::Read(char* data, size_t n) {
 }
 //------------------------------------------------------------------------------
 int FileReader::Read(unsigned char* result) {
-    if (this->IS < this->FILEEND) {
-        *result = (unsigned char) *this->IS;
-        return 1;
+    if (m_FileType == IGAME_BINARY) {
+        if (this->IS < this->FILEEND) {
+            *result = (unsigned char) *this->IS;
+            ++this->IS;
+            return 1;
+        }
+        return 0;
     }
-    return 0;
+    int intData = 0;
+    this->IS = mAtoi(this->IS, intData);
+    *result = static_cast<unsigned char>(intData);
+    return 1;
 }
 
 //------------------------------------------------------------------------------

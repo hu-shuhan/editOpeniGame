@@ -38,6 +38,9 @@ public:
     I_OBJECT(InteractorStyle);
 
     virtual void Initialize(SmartPointer<Interactor> interactor) = 0;
+    // A special region widget owns its drag while a handle is captured.
+    // Other styles retain the regular camera/selection gestures.
+    virtual bool IsInteractionActive() const { return false; }
     virtual void FilterEvent(IEvent event) {
         switch (event.type) {
             case IEvent::MousePress:

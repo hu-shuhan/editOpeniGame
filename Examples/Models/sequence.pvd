@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">
+  <Collection>
+    <DataSet timestep="0" group="" part="0" file="sequence_frames/frame_000.vtu"/>
+    <DataSet timestep="0.5" group="" part="0" file="sequence_frames/frame_001.vtu"/>
+    <DataSet timestep="1" group="" part="0" file="sequence_frames/frame_002.vtu"/>
+    <DataSet timestep="1.5" group="" part="0" file="sequence_frames/frame_003.vtu"/>
+    <DataSet timestep="2" group="" part="0" file="sequence_frames/frame_004.vtu"/>
+    <DataSet timestep="2.5" group="" part="0" file="sequence_frames/frame_005.vtu"/>
+    <DataSet timestep="3" group="" part="0" file="sequence_frames/frame_006.vtu"/>
+    <DataSet timestep="3.5" group="" part="0" file="sequence_frames/frame_007.vtu"/>
+    <DataSet timestep="4" group="" part="0" file="sequence_frames/frame_008.vtu"/>
+    <DataSet timestep="4.5" group="" part="0" file="sequence_frames/frame_009.vtu"/>
+    <DataSet timestep="5" group="" part="0" file="sequence_frames/frame_010.vtu"/>
+    <DataSet timestep="5.5" group="" part="0" file="sequence_frames/frame_011.vtu"/>
+    <DataSet timestep="6" group="" part="0" file="sequence_frames/frame_012.vtu"/>
+    <DataSet timestep="6.5" group="" part="0" file="sequence_frames/frame_013.vtu"/>
+    <DataSet timestep="7" group="" part="0" file="sequence_frames/frame_014.vtu"/>
+    <DataSet timestep="7.5" group="" part="0" file="sequence_frames/frame_015.vtu"/>
+    <DataSet timestep="8" group="" part="0" file="sequence_frames/frame_016.vtu"/>
+    <DataSet timestep="8.5" group="" part="0" file="sequence_frames/frame_017.vtu"/>
+    <DataSet timestep="9" group="" part="0" file="sequence_frames/frame_018.vtu"/>
+    <DataSet timestep="9.5" group="" part="0" file="sequence_frames/frame_019.vtu"/>
+    <DataSet timestep="10" group="" part="0" file="sequence_frames/frame_020.vtu"/>
+  </Collection>
+</VTKFile>
