@@ -816,18 +816,24 @@ igame_add_example(testSurfaceVectors Filter/TestSurfaceVectors.cpp)
 
 igame_add_example(testHistogram Filter/Histogram/TestHistogram.cpp)
 
+if (TARGET Qt_module)
 igame_add_example(testHistogramChartChecks Filter/Histogram/TestHistogramChartChecks.cpp)
 target_link_libraries(testHistogramChartChecks PRIVATE Qt_module Qt5::Widgets Qt5::Charts)
+endif ()
 
 igame_add_example(testHistogramChecks Filter/Histogram/TestHistogramChecks.cpp)
 
 igame_add_example(testExtractCellsByRegion Filter/Selection/TestExtractCellsByRegion.cpp)
 
+if (TARGET Qt_module)
 igame_add_example(testExtractCellsByRegionDialog Filter/Selection/TestExtractCellsByRegionDialog.cpp)
 target_link_libraries(testExtractCellsByRegionDialog PRIVATE Qt_module Qt5::Widgets Qt5::Charts)
+endif ()
 
+if (TARGET Qt_module)
 igame_add_example(testExtractCellsByRegionUi Filter/Selection/TestExtractCellsByRegionUi.cpp)
 target_link_libraries(testExtractCellsByRegionUi PRIVATE Qt_module Qt5::Widgets Qt5::Charts)
+endif ()
 
 igame_add_example(testYieldCriteria Filter/Tensor/TestYieldCriteria.cpp)
 
@@ -839,8 +845,10 @@ igame_add_example(testVolumeOfRevolution Filter/VolumeOfRevolution/TestVolumeOfR
 
 igame_add_example(testConnectedSurfaceProperties Filter/DataProcessing/ConnectedSurfaceProperties/TestConnectedSurfaceProperties.cpp)
 
+if (TARGET Qt_module)
 igame_add_example(testConnectedSurfacePropertiesWidget Filter/DataProcessing/ConnectedSurfaceProperties/TestConnectedSurfacePropertiesWidget.cpp)
 target_link_libraries(testConnectedSurfacePropertiesWidget PRIVATE Qt_module Qt5::Widgets Qt5::Charts)
+endif ()
 
 igame_add_example(testOverlappingCellsDetector Filter/DataProcessing/OverlappingCellsDetector/TestOverlappingCellsDetector.cpp)
 
@@ -859,8 +867,10 @@ set_tests_properties(migrated_testRandomAttributes PROPERTIES WORKING_DIRECTORY 
 add_test(NAME migrated_testSurfaceVectors COMMAND testSurfaceVectors)
 set_tests_properties(migrated_testSurfaceVectors PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
 
+if (TARGET testHistogramChartChecks)
 add_test(NAME migrated_testHistogramChartChecks COMMAND testHistogramChartChecks)
 set_tests_properties(migrated_testHistogramChartChecks PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
+endif ()
 
 add_test(NAME migrated_testHistogramChecks COMMAND testHistogramChecks --no-pause)
 set_tests_properties(migrated_testHistogramChecks PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
@@ -868,11 +878,15 @@ set_tests_properties(migrated_testHistogramChecks PROPERTIES WORKING_DIRECTORY "
 add_test(NAME migrated_testExtractCellsByRegion COMMAND testExtractCellsByRegion)
 set_tests_properties(migrated_testExtractCellsByRegion PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
 
+if (TARGET testExtractCellsByRegionDialog)
 add_test(NAME migrated_testExtractCellsByRegionDialog COMMAND testExtractCellsByRegionDialog)
 set_tests_properties(migrated_testExtractCellsByRegionDialog PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
+endif ()
 
+if (TARGET testExtractCellsByRegionUi)
 add_test(NAME migrated_testExtractCellsByRegionUi COMMAND testExtractCellsByRegionUi Models/ExtractCellsByRegion_BoxCases.vtk)
 set_tests_properties(migrated_testExtractCellsByRegionUi PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
+endif ()
 
 add_test(NAME migrated_testYieldCriteria COMMAND testYieldCriteria)
 set_tests_properties(migrated_testYieldCriteria PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
@@ -889,21 +903,29 @@ set_tests_properties(migrated_testVolumeOfRevolution PROPERTIES WORKING_DIRECTOR
 add_test(NAME migrated_testConnectedSurfaceProperties COMMAND testConnectedSurfaceProperties)
 set_tests_properties(migrated_testConnectedSurfaceProperties PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
 
+if (TARGET testConnectedSurfacePropertiesWidget)
 add_test(NAME migrated_testConnectedSurfacePropertiesWidget COMMAND testConnectedSurfacePropertiesWidget)
 set_tests_properties(migrated_testConnectedSurfacePropertiesWidget PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
+endif ()
 
 add_test(NAME migrated_testOverlappingCellsDetector COMMAND testOverlappingCellsDetector)
 set_tests_properties(migrated_testOverlappingCellsDetector PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" TIMEOUT 120 LABELS "standard-filter-migration" ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IGAME_EXAMPLE_NO_RENDER=1;IGV_TEST_NO_VIEW=1")
 
 # These integration tests exercise GL-backed interactive widgets.
+if (WIN32 AND TARGET Qt_module)
 set_tests_properties(migrated_testExtractCellsByRegionUi migrated_testConnectedSurfacePropertiesWidget PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows;IGAME_EXAMPLE_NO_RENDER=1")
+endif ()
 
 foreach(_MIGRATED_FILTER_TARGET IN ITEMS testAppendDatasets testDeflectNormals testPointPlaneInterpolator testRandomAttributes testSurfaceVectors testHistogram testHistogramChartChecks testHistogramChecks testExtractCellsByRegion testExtractCellsByRegionDialog testExtractCellsByRegionUi testYieldCriteria testExtractTimeSteps testTemporalShiftScale testVolumeOfRevolution testConnectedSurfaceProperties testConnectedSurfacePropertiesWidget testOverlappingCellsDetector)
+    if (TARGET ${_MIGRATED_FILTER_TARGET})
     igame_link_standard_example(${_MIGRATED_FILTER_TARGET})
     target_include_directories(${_MIGRATED_FILTER_TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/Qt")
+    endif ()
 endforeach()
 
 # Match the application's Qt runtime without copying DLLs into the source tree.
+# Core-only CI does not create Qt targets.
+if (WIN32 AND TARGET Qt_module)
 get_target_property(_MIGRATED_QMAKE Qt5::qmake IMPORTED_LOCATION)
 get_filename_component(_MIGRATED_QT_BIN "${_MIGRATED_QMAKE}" DIRECTORY)
 if (WIN32)
@@ -914,3 +936,5 @@ if (WIN32)
             "QT_QPA_PLATFORM_PLUGIN_PATH=${_MIGRATED_QT_BIN}/../plugins/platforms")
     endforeach()
 endif()
+
+endif ()
