@@ -1,11 +1,19 @@
 #include "iGameVTKWriter.h"
 
+#include <cmath>
 #include <iomanip>
 #include <limits>
 #include <sstream>
 
 namespace {
 std::string ToPreciseString(double value) {
+    // 非有限值必须写成 VTK 规范里的 nan / inf / -inf。
+    // 交给默认的 ostringstream 时 MSVC 会打出 "-nan(ind)" / "1.#INF" 这类平台私有写法，
+    // 本仓库自己的 ASCII 读取器读不回来，ParaView / VTK 等其它工具同样读不了。
+    if (!std::isfinite(value)) {
+        if (std::isnan(value)) { return "nan"; }
+        return std::signbit(value) ? "-inf" : "inf";
+    }
     std::ostringstream stream;
     stream << std::setprecision(std::numeric_limits<double>::max_digits10) << value;
     return stream.str();
