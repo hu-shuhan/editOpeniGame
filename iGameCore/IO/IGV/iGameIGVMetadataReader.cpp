@@ -21,7 +21,6 @@ using namespace igv;
 // 小工具
 // -----------------------------------------------------------------------------
 
-/// 失败收口：清 HDF5 错误栈（§5.4：不透传错误栈到上层日志）+ 写 error。
 bool Fail(std::string* error, const std::string& message) {
     ClearHdf5Errors();
     if (error != nullptr) { *error = message; }
@@ -31,7 +30,6 @@ bool Fail(std::string* error, const std::string& message) {
 /// H5Literate 回调：只收集 **dataset** 名。
 ///
 /// `H5Oget_info_by_name3` 读的是对象头（对象类型属于链接信息），**不触碰 dataset 数据**，
-/// 满足 §7.2 对快路径的约束。组自身的 attribute（如 `Scalars` 活跃标记）不是链接，
 /// 因此不会混进这里 —— 正是我们要的。
 herr_t CollectDatasetNames(hid_t group, const char* name, const H5L_info_t* /*info*/, void* opData) {
     auto* out = static_cast<std::vector<std::string>*>(opData);
@@ -56,7 +54,6 @@ bool ListDatasets(hid_t group, std::vector<std::string>& out) {
 
 /// H5Literate 回调：只收集 **group** 名（与 CollectDatasetNames 对称）。
 ///
-/// 用途只有一个：P6 的"未实现容器"探测（`Block_*` / `Steps`，见 §12.1.3 / §12.2）。
 /// 同样只读对象头，**不触碰任何 dataset 数据**，因此 `h5dreadCount` 不变。
 herr_t CollectGroupNames(hid_t group, const char* name, const H5L_info_t* /*info*/, void* opData) {
     auto* out = static_cast<std::vector<std::string>*>(opData);
@@ -85,7 +82,6 @@ bool ListGroups(hid_t group, std::vector<std::string>& out) {
 /// 文件浏览器用本函数填列表，若它给出一份看起来正常的包围盒与属性清单，
 /// 用户点开时才会撞上 `IGVReader` 的拒绝 —— 那是最差的时机。
 /// 与其在 UI 上制造"能列出但打不开"的文件，不如在列清单这一步就说清原因。
-/// 见 §12.1.3 / §12.2 与 P6-1 / P6-3b。
 bool RejectUnsupportedContainer(hid_t root, std::string* error) {
     std::vector<std::string> groups;
     if (!ListGroups(root, groups)) {
@@ -95,12 +91,10 @@ bool RejectUnsupportedContainer(hid_t root, std::string* error) {
         switch (ClassifyUnsupportedContainer(g)) {
             case UnsupportedContainer::MultiBlock:
                 return Fail(error, "/IGV contains the block subgroup '" + g +
-                                       "': MultiBlock is not supported in this release"
-                                       " (design doc section 12.2 / P6)");
+                                       "': MultiBlock is not supported in this release");
             case UnsupportedContainer::TimeSeries:
                 return Fail(error, "/IGV contains the time-series group '" + g +
-                                       "': a single-file time series is not supported in this release"
-                                       " (design doc section 12.1 / P6)");
+                                       "': a single-file time series is not supported in this release");
             case UnsupportedContainer::None:
             default:
                 break;
@@ -190,14 +184,12 @@ bool DatasetShape(hid_t group, std::string_view name, std::vector<hsize_t>& dims
     return true;
 }
 
-/// DType → 每元素字节数（§7.1 的 `valueSize`）。宽度只由 DType 决定（§3.5）。
 int ValueSizeOf(DType t) { return static_cast<int>(SizeOfDType(t)); }
 
 // -----------------------------------------------------------------------------
 // 各段解析
 // -----------------------------------------------------------------------------
 
-/// 根组 attribute + Version + 计数（§3.1 / §3.4 / §3.10）。
 bool ParseRoot(const H5GroupHandle& root, IGVMetadata& out, std::string* error) {
     // 第 0 步：未实现的数据容器（多块 / 单文件内嵌时变）直接拒绝（P6）。
     // 放在最前：这两个容器一旦存在，根组里那份"父块"的 metadata 就**不代表文件的内容**，
@@ -219,7 +211,6 @@ bool ParseRoot(const H5GroupHandle& root, IGVMetadata& out, std::string* error) 
     out.versionMajor = version[0];
     out.versionMinor = version[1];
 
-    // CellTypeEncoding：含 Types 时**必须**存在且为 "IGCellType"（§3.5.1，读侧硬规则）。
     if (DatasetExists(root.Get(), kDatasetTypes)) {
         std::string encoding;
         if (!RequireAscii(root.Get(), kAttrCellTypeEncoding, encoding, "/IGV", error)) { return false; }
@@ -229,7 +220,6 @@ bool ParseRoot(const H5GroupHandle& root, IGVMetadata& out, std::string* error) 
         }
     }
 
-    // Bounds：可选。**没有时不回落读 Points**（§7.2 末条）——由调用方决定是否降级。
     std::vector<double> bounds;
     if (!OptionalF64Array(root.Get(), kAttrBounds, 6, bounds, out.hasBounds, "/IGV", error)) { return false; }
     if (out.hasBounds) {
@@ -293,7 +283,6 @@ bool ParseRoot(const H5GroupHandle& root, IGVMetadata& out, std::string* error) 
     // ---- TopologyIndex（可选 attribute；缺省 = Primary）+ 多面体面数 ----
     //
     // 面数从 `FaceOffsets` 的 **dataspace** 推出（nfaces = len-1），不读它的值 ——
-    // 与三个计数组的处理一致，保持快路径零解压（§11.3）。
     {
         std::string topologyIndex;
         if (ReadAsciiAttribute(root.Get(), kAttrTopologyIndex, topologyIndex)) {
@@ -362,7 +351,6 @@ bool ParseAttributeGroup(const H5GroupHandle& root, std::string_view groupName,
     for (const std::string& name : names) {
         const std::string where = "/IGV/" + std::string(groupName) + "/" + name;
 
-        // 一次 H5Dopen 取全部信息：attribute（§3.6）+ dataspace/dtype（§7.1）。
         // datasetOpenCount 只在这里 + DatasetShape 里递增，语义是"打开了几个 dataset 的元数据"。
         IGVStats::datasetOpenCount.fetch_add(1, std::memory_order_relaxed);
         H5DatasetHandle ds(H5Dopen2(group.Get(), name.c_str(), H5P_DEFAULT));
@@ -376,7 +364,7 @@ bool ParseAttributeGroup(const H5GroupHandle& root, std::string_view groupName,
         std::vector<double> range;
         bool hasRange = false;
         if (!OptionalF64Array(ds.Get(), kAttrRange, 0, range, hasRange, where, error)) { return false; }
-        if (!hasRange) { return Fail(error, where + " is missing the required attribute 'range' (§3.6)"); }
+        if (!hasRange) { return Fail(error, where + " is missing the required attribute 'range' ()"); }
         info.range = std::move(range);
 
         // ---- shape / dtype（不读数据） ----
@@ -414,7 +402,6 @@ bool ParseAttributeGroup(const H5GroupHandle& root, std::string_view groupName,
         info.dTypeToken = std::string(DTypeToken(dtype));
         info.dTypeBits = DTypeBits(dtype);
 
-        // ---- 与显式声明交叉校验（§3.6）：HDF5 类型 vs DataType vs DataTypeBits ----
         // 快路径也只读 attribute / 对象头，**不**碰 dataset 数据，因此这里加校验
         // 不会破坏 P3 的"零解压"不变量。
         {
@@ -440,7 +427,6 @@ bool ParseAttributeGroup(const H5GroupHandle& root, std::string_view groupName,
             }
         }
 
-        // ---- 交叉校验：range 长度编码了 components（§3.6） ----
         const size_t expectedRange = (info.components == 1)
                                          ? 2u
                                          : 2u * (1u + static_cast<size_t>(info.components));
@@ -450,7 +436,6 @@ bool ParseAttributeGroup(const H5GroupHandle& root, std::string_view groupName,
                                " requires " + std::to_string(expectedRange));
         }
 
-        // ---- 交叉校验：point / cell 属性的元素数必须与计数一致（§6.3） ----
         if (info.attachment == kAttachmentPoint && out.pointCount > 0 && info.count != out.pointCount) {
             return Fail(error, where + ": point attribute has " + std::to_string(info.count) +
                                " elements but Points has " + std::to_string(out.pointCount) + " points");

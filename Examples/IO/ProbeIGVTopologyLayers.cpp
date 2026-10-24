@@ -1,38 +1,16 @@
-// 查询本探针的引入提交：
-//   git log --diff-filter=A --format="%h %s" -- Examples/IO/ProbeIGVTopologyLayers.cpp
+// IGV topology probe.
 //
-// 本文件回答的是 IGV 实现阶段 P1 的三个**前置设计问题**，不是某个 BUG 的回归测试。
-// 引入原因：设计文档 kia/igv分阶段实现方案.md §9 P1 与 kia/P0实施记录.md §5.2 列出：
-//   Q1  VolumeMesh::GetCells() 返回 face 还是 volume？写 Offsets/Types 时用哪一层？
-//   Q2  SurfaceMesh / VolumeMesh / UnstructuredMesh 是否都保证 GetCellIdOffset() 长度为 ncells+1？
-//   Q3  非结构族是否可能没有 Types（例如 SurfaceMesh 全是三角面）？
-// 这三个问题靠读代码无法确定（GetCells() 在注释与实际语义上有歧义），必须实测。
+// Answers three questions needed by the writer:
+//   Q1 Does VolumeMesh::GetCells() return faces or volumes?
+//   Q2 Do SurfaceMesh/VolumeMesh/UnstructuredMesh always provide ncells+1 offsets?
+//   Q3 Can non-unstructured meshes lack Types?
 //
-// 错误表现（若 Q1/Q2 判断错误）：
-//   会把 VolumeMesh 的**体**当单元、或把**面**当单元，写出与 iGame 内部表示不一致的
-//   Offsets/Types，读回后得到错误拓扑 —— 而且**不会报错**，属静默数据损坏。
+// If these are wrong, the writer emits face/volume indices that disagree with iGame's
+// internal representation and read-back topology is silently wrong.
 //
-// 本探针要保证的正确行为（P1 写出侧必须满足的不变量）：
-//   I1  GetCellIdOffset() 的长度为 GetNumberOfCells() + 1
-//   I2  Offsets[0] == 0
-//   I3  Offsets 严格递增
-//   I4  Offsets 末值 == GetCellIdBufferSize()
-//   I5  Connectivity 中每个索引 < GetNumberOfPoints()
-//   I6  Types 中每个值属于 IGV 白名单（iGameIGVCellType.h）
-//   I7  每个单元的点数可由 Offsets 差分唯一确定（不依赖 GetCellSize(int) 那个死函数）
-//
-// 重要边界用例与不可直接断言之处：
-//   - GetCellTypes() 在 MeshEncodeAdapterFromDataObject 里对非 UnstructuredMesh 会
-//     assert（iGameMeshEncodeAdapterFromDataObject.h:368），因此本探针只在
-//     IG_UNSTRUCTURED_MESH 上取 Types，其余类型打印 "n/a" 并改由 Connectivity 反推。
-//   - 多面体（IG_POLYHEDRON）走二级索引路径，一级索引需经 SplitSecondaryIndex 取得，
-//     不能假设 GetCellIdBuffer() 直接可用 —— 这一点在 P1 之前必须查清（见 I7 的输出）。
-//   - 固定单元尺寸的网格，GetCellIdBufferSize() 可能包含 padding
-//     （iGameMeshEncodeAdapterFromDataObject.h:294-296 用 ncells*fixedCellSize 计算），
-//     此时 I4 不成立，须改用 GetCellIdOffset() 末值 —— I4 在这个分支会报告出来。
-//
-// 运行：cd Examples && ./probeIGVTopologyLayers [模型路径...]
-//   不给参数时使用下方 kDefaultModels 里的全部模型。
+// Invariants checked: offsets length, zero start, strict increase, final offset equals
+// buffer size, connectivity in range, Types in the whitelist, and point count derivable
+// from offsets.
 
 #include <MeshCodec/EncodeAdapter/iGameMeshEncodeAdapterFromDataObject.h>
 #include <iGameFileIO.h>
@@ -429,7 +407,7 @@ void ProbeOne(const std::string& path, ProbeStats& stats) {
               "Q1: volume2faces offset 末值应等于 index 长度");
         stats.sawPolyhedronSecondaryIndex = true;
 
-        Info("Q1 结论: 该网格是**多面体（二级索引）**。IGV 只存一级索引（§3.7），"
+        Info("Q1 结论: 该网格是**多面体（二级索引）**。IGV 只存一级索引（），"
              "P1 必须决定用哪条路径取 cell→point 一级索引。");
     }
 }
@@ -469,7 +447,7 @@ int main(int argc, char** argv) {
 
     std::cerr << "================================================================\n";
     std::cerr << "IGV P1 前置问题探针：拓扑层级 / Offsets 契约 / Types\n";
-    std::cerr << "回答 kia/P0实施记录.md §5.2 的 Q1 / Q2 / Q3\n";
+    std::cerr << "回答   的 Q1 / Q2 / Q3\n";
     std::cerr << "================================================================\n";
     std::cerr << "模型数: " << models.size() << "\n";
 
@@ -485,7 +463,7 @@ int main(int argc, char** argv) {
     }
 
     std::cerr << "\n================================================================\n";
-    std::cerr << "汇总（用于回填设计文档）\n";
+    std::cerr << "Summary\n";
     std::cerr << "================================================================\n";
     std::cerr << "已探测模型数                    : " << probed << "\n";
     std::cerr << "Q2 Offsets 长度 == ncells+1     : "
@@ -507,8 +485,7 @@ int main(int argc, char** argv) {
 
     std::cerr << "\n检查项: " << g_checks << " 项，失败 " << g_failed << " 项\n";
     if (g_failed == 0) {
-        std::cerr << "全部通过：P1 写出侧的不变量 I1–I7 在这些模型上成立。\n";
-        std::cerr << "请把上面的 [info] 结论回填到 kia/P0实施记录.md §5.2 与设计文档 §3.7。\n";
+        std::cerr << "全部通过：IGV 写出侧的不变量 I1–I7 在这些模型上成立。\n";
     } else {
         std::cerr << "存在失败项：**先解决它们再进 P1**（P1 会把这些不变量当前提）。\n";
     }

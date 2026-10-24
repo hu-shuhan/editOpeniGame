@@ -6,6 +6,7 @@
 #include <cstring>
 #include <filesystem>
 #include <limits>
+#include <utility>
 
 #include "Log/iGameLogger.h"
 #include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
@@ -65,7 +66,6 @@ IGenum AttachmentFromGroup(std::string_view groupName) {
     return IG_NONE;
 }
 
-/// 整数溢出安全乘法（§6.3 最后一条：复用 CodecStorageParamSizeLimits 的思路）。
 bool MulWouldOverflow(int64_t a, int64_t b) {
     if (a == 0 || b == 0) { return false; }
     if (a < 0 || b < 0) { return true; }
@@ -73,12 +73,10 @@ bool MulWouldOverflow(int64_t a, int64_t b) {
 }
 
 /**
- * dataspace 声明的元素数必须与文件里**实际分配的存储**相符（§6.3 / P5-11）。
  *
  * 为什么需要它：`MulWouldOverflow()` 只能挡住"乘出来超过 int64"的荒谬维度，
  * 挡不住 `2^32` 这种**算得出来但显然不可能**的维度 —— 而后者会让
  * `std::vector::resize()` 在 `H5Dread` **之前**就去申请 TB 级内存，进程直接被
- * OOM 杀掉。而 §9 P5-1 的判据是「拒绝、不崩溃、不 OOM」。
  *
  * 判据是**物理**的，不是拍脑袋的阈值：
  *   - IGV 的数据集要么不压缩（声明字节数 == 文件内已分配字节数），
@@ -125,7 +123,6 @@ bool CheckDeclaredStorage(hid_t dataset, std::string_view label, int64_t element
 }
 
 // =============================================================================
-// H5Literate 回调：只收集名字，不做任何 H5Dopen（§6.1 步骤 6 / §7.2）
 // =============================================================================
 
 struct NameCollector {
@@ -139,7 +136,6 @@ herr_t CollectNamesCallback(hid_t group, const char* name, const H5L_info_t* /*i
     if (collector == nullptr || name == nullptr) { return 0; }
 
     // H5Oget_info_by_name3 读的是对象头（对象类型属于链接信息），
-    // **不触碰 dataset 数据** —— 满足 §7.2 对元数据快路径的约束。
     H5O_info2_t info{};
     if (H5Oget_info_by_name3(group, name, &info, H5O_INFO_BASIC, H5P_DEFAULT) < 0) {
         ClearHdf5Errors();
@@ -172,7 +168,6 @@ bool ListGroupMembers(hid_t group, std::vector<std::string>* groups,
 // HDF5 file image 的 ownership 回调（R13 的落实方式）
 // =============================================================================
 //
-// 背景（R13，设计文档 §15）：
 //   `FileReader` 的 `SetMemoryBuffer(data, size)` 语义是"**非拥有**，调用方负责
 //   缓冲的生命周期"（`iGameFileReader.h:93-96`）。而 HDF5 的
 //   `H5Pset_file_image(fapl, buf, len)` 签名是 `void*`（非 const），
@@ -342,7 +337,6 @@ IGenum IGVReader::MapAttributeTypeToIGenum(std::string_view token) {
 
 IGenum IGVReader::MapIGVDataTypeToMeshType(std::string_view igvDataType,
                                           std::string_view type) {
-    // §3.2：**优先** IGVDataType（iGame 原名），缺失则回落到 Type 推导
     // —— 向前兼容：老文件无 IGVDataType 也能读。
     if (!igvDataType.empty()) {
         if (igvDataType == kIGVDataTypePointSet)         { return IG_POINT_SET; }
@@ -356,11 +350,9 @@ IGenum IGVReader::MapIGVDataTypeToMeshType(std::string_view igvDataType,
     if (type == kTypeStructuredGrid) { return IG_STRUCTURED_MESH; }
     if (type == kTypeUnstructuredGrid) {
         // Type 粒度无法区分 VolumeMesh 与 UnstructuredMesh；二者在本期的
-        // 一级索引表达完全一致（§3.7），统一落到 UnstructuredMesh。
         return IG_UNSTRUCTURED_MESH;
     }
     if (type == kTypePolyData) {
-        // Type 粒度无法区分 PointSet 与 SurfaceMesh（§3.2）：二者都用 PolyData。
         // 这里先给 SurfaceMesh；若文件里**没有**任何拓扑 dataset，
         // ParseGeometryAndTopology 会把它改判为 PointSet。
         return IG_SURFACE_MESH;
@@ -378,7 +370,6 @@ void IGVReader::Fail(const std::string& reason) {
 }
 
 // =============================================================================
-// Parsing（§6.1）
 // =============================================================================
 
 bool IGVReader::Parsing() {
@@ -404,7 +395,6 @@ bool IGVReader::Parsing() {
     //   → 0.85..1.0 重建（RebuildFromParsed / CreateDataObject 内）
     this->UpdateProgress(0.02);
 
-    // ---- 步骤 1：按 m_UseMemoryBuffer 分派 fapl（§6.1 步骤 1，R13/R14）----
     H5FileHandle file;
     if (m_UseMemoryBuffer) {
         if (m_MemoryBuffer == nullptr || m_MemoryBufferSize == 0) {
@@ -418,7 +408,7 @@ bool IGVReader::Parsing() {
         if (!m_FilePath.empty() && std::filesystem::exists(m_FilePath)) {
    IGAME_CORE_WARN("[IGV] reading from a memory image, but m_FilePath='{}' and a file "
                             "with that name EXISTS on disk. HDF5 could in theory ignore the file "
-                            "image and read the on-disk file instead (spec risk R14). Tests "
+                            "image and read the on-disk file instead. Tests "
                             "should keep the data at a path where no same-named file exists.",
                             m_FilePath);
         }
@@ -497,18 +487,16 @@ bool IGVReader::Parsing() {
     }
 
     // ---- 步骤 3：打开 /IGV 组 ----
-    // 刻意**不**做 /VTKHDF 探测 —— 兼容档已砍（§1.7）。探测一个我们明确不支持的
     // 格式只会把"文件损坏"和"格式不对"两类错误混在一起。
     this->UpdateProgress(0.06);
     H5GroupHandle root(H5Gopen2(file.Get(), std::string(kRootGroup).c_str(), H5P_DEFAULT));
     if (!root.IsValid()) {
         ClearHdf5Errors();
-  Fail("the root group is not /IGV - this is not an IGV file (spec A2: the IGV root group is always /IGV)");
+  Fail("the root group is not /IGV - this is not an IGV file");
         return false;
     }
     this->UpdateProgress(0.10);
 
-    // ---- 步骤 3b：多块 / 时变探测与显式拒绝（P6 / §12.1 / §12.2）----
     //
     // 本阶段唯一的目的是**不静默丢数据**：
     //   * 含 `Block_*` 的文件是多块文件 —— 若把 `/IGV` 自己的几何当整体返回，
@@ -516,7 +504,6 @@ bool IGVReader::Parsing() {
     //   * 含 `Steps` 的文件是单文件内嵌时变 —— 同样存在"只返回第 0 步"的风险。
     // 两者都必须在**读任何数据之前**拒绝，且错误信息要指明是哪一种（P6-1 / P6-3b）。
     //
-    // 刻意**不**对"未知组"一概拒绝：§10.3 要求 minor 更高的文件被接受
     // （未知 attribute / dataset 跳过），所以只拒绝这两类**已被规范命名**的容器。
     {
         std::vector<std::string> groups;
@@ -528,17 +515,14 @@ bool IGVReader::Parsing() {
             switch (ClassifyUnsupportedContainer(g)) {
                 case UnsupportedContainer::MultiBlock:
                     // 绝不允许把第一块当整体返回 —— 那种"部分成功"会让用户以为数据完整，
-                    // 比报错危险得多（§12.2）。
      Fail("found block subgroup '" + g +
-                         "': MultiBlock is not supported in this release"
-                         " (design doc section 12.2 / P6)."
-                         " Reading is rejected so that the remaining blocks are not dropped silently");
+                         "': MultiBlock is not supported in this release. "
+                         "Reading is rejected so that the remaining blocks are not dropped silently");
                     return false;
                 case UnsupportedContainer::TimeSeries:
      Fail("found time-series group '" + g +
-                         "': a single-file time series is not supported in this release"
-                         " (design doc section 12.1 / P6)."
-                         " Reading is rejected so that the other time steps are not dropped silently");
+                         "': a single-file time series is not supported in this release. "
+                         "Reading is rejected so that the other time steps are not dropped silently");
                     return false;
                 case UnsupportedContainer::None:
                 default:
@@ -570,7 +554,7 @@ bool IGVReader::Parsing() {
         if (!g.IsValid()) {
             ClearHdf5Errors();
    Fail("missing attribute group /IGV/" + std::string(groupName) +
-                 " - the spec requires all three attribute groups to exist (spec section 3.1)");
+                 " - the spec requires all three attribute groups to exist");
             return false;
         }
 
@@ -590,7 +574,7 @@ bool IGVReader::Parsing() {
         if (!g.IsValid()) {
             ClearHdf5Errors();
    Fail("missing attribute group /IGV/" + group.name +
-                 " - the spec requires all three attribute groups to exist (spec section 3.1)");
+                 " - the spec requires all three attribute groups to exist");
             return false;
         }
         for (const std::string& name : group.datasets) {
@@ -607,25 +591,21 @@ bool IGVReader::Parsing() {
     }
     this->UpdateProgress(0.55);
 
-    // ---- 步骤 8：几何 / 拓扑 + §6.3 全部交叉校验 ----
     if (!ParseGeometryAndTopology(static_cast<int64_t>(root.Get()))) {
         return false;
     }
 
-    // ---- 步骤 8b：属性的元素数 vs 网格计数（§6.3 / P5-5）----
     // 这一步必须在 ParseGeometryAndTopology 之后：pointCount / cellCount 到这里才确定。
     if (!ValidateAttributeLengths()) {
         return false;
     }
 
     // ---- 步骤 9：H5Fclose 由 H5FileHandle 析构自动完成 ----
-    // §6.1 的关键约束：需要的数据**全部**已在上面读进内存成员，
     // CreateDataObject() 不会再触碰任何 HDF5 句柄（R3）。
     return true;
 }
 
 // =============================================================================
-// 根组 attribute（§6.1 步骤 4–5）
 // =============================================================================
 
 bool IGVReader::ParseRootAttributes(int64_t rootId) {
@@ -639,7 +619,7 @@ bool IGVReader::ParseRootAttributes(int64_t rootId) {
     }
     if (!IsSupportedTypeToken(m_Meta.type)) {
   Fail("unknown Type value '" + m_Meta.type +
-             "' (this implementation supports PolyData / UnstructuredGrid / StructuredGrid, see spec section 3.2)");
+             "' (supported types: PolyData / UnstructuredGrid / StructuredGrid)");
         return false;
     }
 
@@ -656,14 +636,13 @@ bool IGVReader::ParseRootAttributes(int64_t rootId) {
         std::vector<int64_t> version;
         if (!ReadDataset(root, kDatasetVersion, DType::I64, 2, version)) {
             ClearHdf5Errors();
-   Fail("missing or unreadable /IGV/Version (expected i64[2], see spec section 3.1)");
+   Fail("missing or unreadable /IGV/Version (expected i64[2])");
             return false;
         }
         m_Meta.versionMajor = version[0];
         m_Meta.versionMinor = version[1];
     }
 
-    // §10.3 版本兼容策略
     if (m_Meta.versionMajor != kSupportedMajor) {
   Fail("incompatible IGV version " + std::to_string(m_Meta.versionMajor) + "." +
              std::to_string(m_Meta.versionMinor) + ": this implementation supports major=" +
@@ -673,7 +652,6 @@ bool IGVReader::ParseRootAttributes(int64_t rootId) {
         return false;
     }
     if (m_Meta.versionMinor > kSupportedMinor) {
-        // minor 更高 => **接受**（向后兼容增量），未知 attribute/dataset 跳过（§10.3）
   IGAME_CORE_INFO("[IGV] file minor version ({}) is newer than this implementation ({}); "
                         "accepting it as backward-compatible. Unknown attributes/datasets will "
                         "be skipped.",
@@ -754,7 +732,6 @@ bool IGVReader::ParseRootAttributes(int64_t rootId) {
 }
 
 // =============================================================================
-// 单个属性 dataset（§6.1 步骤 7）
 // =============================================================================
 
 bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
@@ -821,7 +798,7 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
         return false;
     }
     {
-        // P5-11：与 Points 同理 —— 属性 dataset 的 dataspace 也可能被篡改。
+        // 与 Points 同理：属性 dataset 的 dataspace 也可能被篡改。
         std::string why;
         const int64_t elementBytes =
             static_cast<int64_t>(SizeOfDType(pa.dtype)) * static_cast<int64_t>(pa.components);
@@ -831,10 +808,8 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
         }
     }
 
-    // ---- 显式 dtype 声明（1.x，§3.6）：定宽名 + 位宽，与 HDF5 类型三方交叉校验 ----
     //
     // 三者是**独立的事实来源**：HDF5 类型来自对象头，`DataType`/`DataTypeBits` 来自
-    // 写出方的声明。任何一个对不上，说明文件自相矛盾 —— 按 §6.3 拒绝，不做"以哪个为准"
     // 的猜测。老文件（1.0）没有这两个 attribute，此时**只用 HDF5 类型**（向后兼容）。
     {
         std::string declaredToken;
@@ -898,7 +873,6 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
         pa.attributeTypeValue = AttributeTypeFromToken(pa.attributeTypeToken);
     }
 
-    // ---- range：长度必须是 2 或 2*(1+components)（§6.3）----
     {
         std::vector<double> range;
         if (!ReadF64ArrayAttribute(obj, kAttrRange, 0, range)) {
@@ -932,7 +906,6 @@ bool IGVReader::ParseOneAttribute(int64_t groupId, const std::string& groupName,
 }
 
 // =============================================================================
-// 几何 / 拓扑 + §6.3 交叉校验（§6.1 步骤 8）
 // =============================================================================
 
 bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
@@ -959,7 +932,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         // A8：Points 只允许 f32
         if (dtype != DType::F32) {
    Fail(std::string("Points dtype must be f32 (H5T_IEEE_F32LE), actual ") +
-                 DTypeName(dtype) + " (spec A8)");
+                 DTypeName(dtype) + "");
             return false;
         }
 
@@ -969,7 +942,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
             return false;
         }
         {
-            // P5-11：先确认"声明的字节数"没有荒谬到超出文件的物理存储，
+            // 先确认"声明的字节数"没有荒谬到超出文件的物理存储，
             // 再 resize —— 否则一份被篡改的 dataspace 会让进程在分配处被 OOM 杀掉。
             H5DatasetHandle ds(H5Dopen2(root, std::string(kDatasetPoints).c_str(), H5P_DEFAULT));
             std::string why;
@@ -1018,7 +991,6 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         }
     }
 
-    // ---- NumberOfPoints 必填，且必须与 Points.dims[0] 一致（§3.4 / §6.3）----
     {
         std::vector<int64_t> v;
         if (!DatasetExists(root, kDatasetNumberOfPoints) ||
@@ -1035,10 +1007,8 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
     }
 
     // -------------------------------------------------------------------------
-    // PointSet：无拓扑分支（§3.3 / §3.7）
     // -------------------------------------------------------------------------
     if (isPointSet) {
-        // §3.3：「PointSet 不写 Connectivity/Offsets/Types」。若这些数据集存在，
         // 说明写出方没有遵守分型规则；继续读会**静默丢掉拓扑**
         // （iGame 的 PointSet 没有单元表达能力），因此必须拒绝。
         for (std::string_view bad : {kDatasetConnectivity, kDatasetOffsets, kDatasetTypes,
@@ -1050,7 +1020,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
     Fail("Type/IGVDataType declares PointSet, but a topology dataset exists: '" +
                      std::string(bad) +
                      "'. A PointSet cannot carry cells; continuing would silently drop the"
-                     " topology, so this is rejected (design doc section 3.3 / 3.7)");
+                     " topology, so this is rejected");
                 return false;
             }
         }
@@ -1061,7 +1031,6 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
     }
 
     // -------------------------------------------------------------------------
-    // StructuredMesh：Points + Dimensions，无拓扑 dataset（§3.1）
     // -------------------------------------------------------------------------
     if (isStructured) {
         if (!m_Meta.hasDimensions) {
@@ -1089,8 +1058,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
             DatasetExists(root, kDatasetOffsets) ||
             DatasetExists(root, kDatasetTypes)) {
    Fail("IGVDataType=StructuredMesh must not carry Connectivity/Offsets/Types"
-                 " (a structured mesh expresses its topology implicitly through Dimensions,"
-                 " see design doc section 3.1)");
+                 " (a structured mesh expresses its topology implicitly through Dimensions)");
             return false;
         }
         m_HasTopology = false;
@@ -1105,12 +1073,11 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
     for (std::string_view required : kUnstructuredTopologyDatasets) {
         if (!DatasetExists(root, required)) {
    Fail("non-structural file is missing the required dataset '" + std::string(required) +
-                 "' (see spec section 3.1)");
+                 "'");
             return false;
         }
     }
 
-    // ---- 计数组：先用它们定住长度，再与数组交叉校验（§3.4 的核心用法）----
     int64_t declaredCells = 0;
     int64_t declaredConn = 0;
     {
@@ -1264,7 +1231,6 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         }
     }
 
-    // ---- Connectivity 索引越界（§6.3：一级索引比 pointCount，二级索引比 faceCount）----
     const int64_t connectivityLimit = m_SecondaryIndex ? m_FaceCount : pointCount;
     const char* const limitName = m_SecondaryIndex ? "faceCount" : "pointCount";
     for (size_t i = 0; i < m_Connectivity.size(); ++i) {
@@ -1277,7 +1243,6 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         }
     }
 
-    // ---- Types（u8）+ 白名单（§6.3 / §3.5.1 D 第 2 条）----
     this->UpdateProgress(0.78);
     {
         std::vector<hsize_t> shape;
@@ -1345,7 +1310,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         } else {
    Fail("Types[" + std::to_string(i) + "] = " + std::to_string(code) +
                  " is not in the IGV cell-type whitelist (an unknown code must be rejected,"
-                 " never skipped or treated as 0 - see design doc section 3.5.1 D item 2)");
+                 " never skipped or treated as 0)");
         }
         return false;
     }
@@ -1356,7 +1321,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         if (!ReadAsciiAttribute(root, kAttrCellTypeEncoding, encoding)) {
             ClearHdf5Errors();
    Fail("the file contains Types but has no CellTypeEncoding attribute - "
-                 "design doc A3 / section 3.5.1 D item 1 requires rejection here, the encoding scheme must not be guessed");
+                 "the encoding scheme must not be guessed");
             return false;
         }
         if (encoding != kCellTypeEncodingIGCellType) {
@@ -1366,10 +1331,8 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
         }
     }
 
-    // ---- §3.5.0：dataspace 必须是"固定"的（当前维度 == 最大维度）----
     //
     // 这条检查把"本期用固定 dataspace"变成可检查事实。若将来 F6/F9 引入可扩展
-    // dataspace，它会**主动失败**，强制同步更新规范与 §6.3 的交叉校验规则，
     // 而不是静默漂移。
     for (std::string_view name : kUnstructuredTopologyDatasets) {
         std::vector<hsize_t> dims;
@@ -1383,7 +1346,7 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
             if (maxDims[i] == H5S_UNLIMITED || maxDims[i] != dims[i]) {
     Fail("dataset '" + std::string(name) +
                      "' uses an extensible dataspace, but this release requires a fixed dataspace"
-                     " (design doc A16 / section 3.5.0). If extensibility is really wanted,"
+                     ". If extensibility is really wanted,"
                      " the spec and the section 6.3 cross-checks must be updated together");
                 return false;
             }
@@ -1396,10 +1359,8 @@ bool IGVReader::ParseGeometryAndTopology(int64_t rootId) {
 }
 
 // =============================================================================
-// 属性长度 vs 网格计数（§6.3 / P5-5）
 // =============================================================================
 
-/// 多面体面表：FaceConnectivity（面→点）+ FaceOffsets + NumberOfFaces（§3.7 / §6.3）。
 ///
 /// 校验项与一级索引同构 —— 偏移从 0 起、严格递增、末值等于数组长度、索引不越界、
 /// 显式计数与数组长度一致。它必须在 Connectivity 越界校验**之前**跑完，因为二级
@@ -1410,7 +1371,7 @@ bool IGVReader::ParsePolyhedronFaces(int64_t rootId, int64_t declaredCells, int6
     for (std::string_view name : kPolyhedronTopologyDatasets) {
         if (!DatasetExists(root, name)) {
    Fail("TopologyIndex=Secondary but the required dataset '" + std::string(name) +
-                 "' is missing (spec section 3.7)");
+                 "' is missing");
             return false;
         }
     }
@@ -1574,7 +1535,6 @@ bool IGVReader::ValidateAttributeLengths() {
 }
 
 // =============================================================================
-// CreateDataObject（§6.2）
 // =============================================================================
 
 bool IGVReader::RebuildFromParsed() {
@@ -1592,7 +1552,6 @@ bool IGVReader::RebuildFromParsed() {
 
     // 步骤 4：拓扑分支
     if (m_MeshType == IG_POINT_SET) {
-        // 无拓扑 —— 跳过（§3.3 的空拓扑分支）
     } else if (m_MeshType == IG_STRUCTURED_MESH) {
         // 注意：SetDimensionSize **会写穿** axisSize（s[2] = 1），所以传本地副本。
         int axisSize[3] = {static_cast<int>(m_Meta.dimensions[0]),
@@ -1685,11 +1644,14 @@ bool IGVReader::RebuildFromParsed() {
 
         // 步骤 7：把文件里的预计算 range 挂回属性。
         //
-        // ⚠ 排列换算：iGame 的 `dataRange` 是 (dim+1) x 2 的表 ——
-        //     element 0    = 模长 min/max
-        //     element 1+j  = 分量 j 的 min/max（**每个分量只占一个 element**，靠第二维放 min/max）
-        //   而 IGV 的写法是扁平的一维 [magMin, magMax, c0Min, c0Max, ...]
-        //   （**每个分量占两个连续位置**）。两者信息等价、**排列不同**，必须显式换算。
+        // iGame dataRange has (components+1) rows:
+        //   element 0   = magnitude min/max
+        //   element 1+j = component j min/max
+        // IGV stores a flat array:
+        //   components == 1 -> [min, max]
+        //   components >  1 -> [magMin, magMax, c0Min, c0Max, ...]
+        // The scalar UI and color mapping read element 1, so the scalar branch must fill
+        // both element 0 and element 1.
         AttributeSet::Attribute& attr = attrSet->GetAttribute(attrIndex);
         if (!attr.IsNone()) {
             DoubleArray::Pointer range = DoubleArray::New();
@@ -1697,7 +1659,16 @@ bool IGVReader::RebuildFromParsed() {
             range->Resize(static_cast<IGsize>(pa.components) + 1);
             if (pa.components == 1) {
                 if (pa.range.size() >= 2) {
-                    range->SetElement(0, {pa.range[0], pa.range[1]});
+                    double lo = pa.range[0];
+                    double hi = pa.range[1];
+                    if (lo > hi) { std::swap(lo, hi); }
+                    const double absHi = std::max(std::fabs(lo), std::fabs(hi));
+                    const double absLo = (lo <= 0.0 && hi >= 0.0)
+                                                 ? 0.0
+                                                 : std::min(std::fabs(lo), std::fabs(hi));
+                    // element 0 = magnitude range, element 1 = raw component range.
+                    range->SetElement(0, {absLo, absHi});
+                    range->SetElement(1, {lo, hi});
                 }
             } else if (pa.range.size() >= 2 * (1 + static_cast<size_t>(pa.components))) {
                 range->SetElement(0, {pa.range[0], pa.range[1]});
@@ -1720,7 +1691,6 @@ bool IGVReader::RebuildFromParsed() {
     this->UpdateProgress(0.96);
 
     // 步骤 7b：Bounds 一致性自检（**不拒绝** —— 写出方可能是另一实现；
-    // 这条自检用于暴露写出侧 bug，见 §6.2 步骤 7）。
     if (m_Meta.hasBounds && m_Meta.pointCount > 0) {
         double bmin[3] = {std::numeric_limits<double>::max(),
                           std::numeric_limits<double>::max(),

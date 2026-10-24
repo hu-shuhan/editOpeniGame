@@ -540,19 +540,16 @@ igame_add_example(testZeroCellPointCloudValidation Rendering/ZeroCellPointCloudV
 igame_add_example(testPolylineWireframeValidation Rendering/PolylineWireframeValidation.cpp)
 igame_add_example(testUtf8FilePathValidation IO/Utf8FilePathValidation.cpp)
 
-# IGV 实现阶段 P1 的前置问题探针（回答 kia/P0实施记录.md §5.2 的 Q1/Q2/Q3）。
+# IGV topology probe (answers Q1/Q2/Q3 before implementing the writer).
 #
-# ★ P5（CI 接入）起**不再构建**：它在当前树上编译不过 —— 14 处 API 漂移
-#   （`Points::GetDimension` / `Points::GetArrayTypedSize` / `IdArray::GetNumberOfValues` /
-#    `SurfaceMesh::GetCells` 等都不存在了，`Merge branch 'main' into igv` 之后一直如此）。
-#   它是一份**打印式诊断**（不做产品断言），要回答的三个问题已经在
-#   kia/P0实施记录.md §5.2 有结论，因此这里选择"不构建"而不是"猜着改回旧 API"：
-#   强行改会把它变成一个我猜出来的新工具，反而失去"当时实测过什么"的可追溯性。
-#   源码保留在 Examples/IO/ProbeIGVTopologyLayers.cpp 作为历史产物。
+# Not built: it no longer compiles against the current APIs (Points::GetDimension,
+# Points::GetArrayTypedSize, IdArray::GetNumberOfValues, SurfaceMesh::GetCells, etc.).
+# It is a print-only diagnostic with no product assertions; its three questions are
+# already answered. The source is kept as a historical artifact.
 # igame_add_example(probeIGVTopologyLayers IO/ProbeIGVTopologyLayers.cpp)
 
 # ---------------------------------------------------------------------------
-# IGV P1 的验收程序（设计文档 §9 P1 / kia/P1实施记录.md）
+# IGV round-trip test.
 #
 # 为什么包在 ENABLE_IGV_MODULE 里：IGV 的读写实现依赖 HDF5（IGV_ENABLE），
 # 模块关闭时 iGameCore 里根本不会编译 iGameIGVWriter.cpp / iGameIGVReader.cpp，
@@ -566,14 +563,14 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
     igame_add_example(testIGVRoundTrip IO/TestIGVRoundTrip.cpp)
     target_link_libraries(testIGVRoundTrip PUBLIC HDF5::HDF5)
     target_compile_definitions(testIGVRoundTrip PUBLIC IGV_ENABLE)
-    # 把源码目录注入进去：测试程序用它定位 Models/ 与 kia/testdata/igv 的
-    # golden 样例，从而不依赖"当前工作目录"（跨平台 + 跨 IDE/CTest 都稳）。
+    # Inject the source directory so the test can find Models/ and IGV golden samples
+    # without depending on the current working directory.
     target_compile_definitions(testIGVRoundTrip PRIVATE
         IGAME_IGV_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 endif ()
 
 # ---------------------------------------------------------------------------
-# IGV P3 的验收程序（设计文档 §7 元数据快路径 / §9 P3 / kia/P3实施记录.md）
+# IGV metadata fast-path test.
 #
 # 与上面两个 IGV 程序的差别：
 #   * 只走 FileIO::ReadIGVMetadata + FileIO::ReadFile 两条**公开路径**，自己**不**直接调
@@ -590,7 +587,7 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
 endif ()
 
 # ---------------------------------------------------------------------------
-# IGV P4 的验收程序（设计文档 §9 P4 / kia/P4实施记录.md）
+# IGC <-> IGV conversion test.
 #
 # 与前面三个 IGV 程序的差别：本程序**直接**用 IGCWriter / IGCReader（而不只是
 # FileIO），因为「保真边界报告」需要两样 FileIO 给不了的东西：
@@ -613,7 +610,7 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
 endif ()
 
 # ---------------------------------------------------------------------------
-# IGV P5 的验收程序（设计文档 §9 P5 / kia/P5实施记录.md）
+# IGV robustness and large-file tests.
 #
 # 两个目标，性质不同：
 #   * testIGVRobustness：畸形文件必须被拒绝（P5-1…P5-11、P5-14）。**默认构建**，
@@ -676,14 +673,13 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
 endif ()
 
 # ---------------------------------------------------------------------------
-# IGV P2 的验收程序（设计文档 §9 P2 / kia/P2实施记录.md）
+# IGV FileIO integration test.
 #
 # 与 testIGVRoundTrip 不同，本程序**不**链接 HDF5、只经 FileIO 分派，因此刻意
 # 注册在 ENABLE_IGV_MODULE 门控**之外**（只排除 Emscripten）：
 #   * 模块 ON ：验证 P2-3/4/5（主路径写/读、内存读）与 P2-8（既有格式零回归）；
 #   * 模块 OFF：同一份源码编译出的程序转而验证 P2-7（后缀仍被识别，I/O 明确失败）。
-# 若包在门控里，P2-7 就永远没有可运行的载体 —— 设计文档把它列为验收项，
-# 而 OFF 构建里连程序都不存在的话，这一项只能靠读代码"声称通过"。
+# 若包在门控里，模块关闭时的降级路径就没有可运行的测试载体。
 #
 # 不链接 HDF5 的直接好处：该 TU 不引入 IGV/HDF5 头，增量编译显著快于
 # testIGVRoundTrip（后者经 iGameIGVWriter.h 间接拉入 MeshEncoderFilter）。

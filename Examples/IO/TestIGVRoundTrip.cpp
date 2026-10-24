@@ -1,49 +1,15 @@
-// 查询本测试的引入提交：
-//   git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVRoundTrip.cpp
+// IGV round-trip tests.
 //
-// 本文件是 IGV（iGameVis 通用格式）P1 阶段的验收程序，覆盖设计文档
-// kia/igv分阶段实现方案.md §9 P1 的 V1.1–V1.7 全部验证项。
+// Verifies that the five mesh kinds, attributes, polyhedra, dtypes, and scalar ranges
+// survive write/read without value changes. Reading an independently produced golden
+// file catches the case where writer and reader share the same wrong convention.
 //
-// =============================================================================
-// 为什么需要它（要保证的正确行为与重要边界用例的原因）
-// =============================================================================
+// Fixtures that the VTK reader cannot produce (PointSet, VolumeMesh, f64/u8 attributes)
+// are constructed directly. The memory path uses a path that does not exist on disk, so
+// HDF5 cannot silently open a real file instead of the in-memory image.
 //
-// IGV 的 P9 准入第 1/2 条是「写出五类网格 + 全属性」与「完整读回、bitwise 保真」。
-// 这两条**只能靠可执行的逐值比对来证明**，读代码无法证明：
-//
-//   1. 「无损」在本方案中的定义是 **bitwise 相等**，不是近似相等
-//      （设计文档 §11.2）。IGC 的历史缺陷正是"double 走 float 编码"这类
-//      静默精度损失 —— 用近似判据它可能落在容差内而蒙混过关。
-//   2. 写出与读取两侧会「互为正确答案」：若只测 round-trip，写出 bug 会被读取
-//      bug 掩盖，测试全绿而文件格式是错的。因此本程序**额外**包含
-//      「读 P0 手写 golden 样例」这一段（该样例由 h5py 独立产出，不是
-//      IGVWriter 的产物），形成双向锚定。
-//   3. 「零解压直读」的物理保证（P9-3 的前置条件）必须**可断言**：
-//      对每个数据 dataset 断言含 DEFLATE filter；attribute 在任何情况下可读。
-//   4. 写侧的每一个「拒绝」都必须有用例（A9：校验不得退化为 assert）。
-//      「写了 if 判断」不等于「校验有效」—— 只有逐个红过，才证明校验真的在拦。
-//
-// 重要边界用例及其原因：
-//   * **PointSet 的空拓扑分支**是独立代码路径。iGame 的 `PointSet` 没有单元存储
-//     （无 `SetCells`/`AddCell`），而且 VTK 读到的 `VTK_VERTEX` 点云实际是
-//     `UnstructuredMesh`（每个点一个 IG_VERTEX 单元，见 iGameVTKAbstractReader.cpp:1279），
-//     所以 PointSet 夹具必须**直接构造**，不能靠读 .vtk 得到。
-//   * **f64 / u8 属性不能靠文件夹具提供**：iGame 的 VTK 读入路径对这两类属性
-//     没有稳定保证。若不显式构造，V1.2「双精度不降精度」就永远测不到。
-//   * **内存路径必须用"磁盘上不存在同名文件"的数据**（V1.5 / R14）：否则
-//     「HDF5 忽略了 file image、直接打开了磁盘同名文件」这个 bug 会被静默通过。
-//   * **DirectPath** 走的是 `WriteToFilePathDirect()`，而 `WriteToFile()` 路径
-//     必须**不**失败（基类 `Execute()` 之后会覆盖落盘，见 IGVWriter 的说明）。
-//   * **V1.6** 用真实 VTKHDF 文件（`Examples/Models/*.vtkhdf`）反证读取器不会把
-//     "长得像"的文件当 IGV 读。这一条的价值在于**拒绝得干净**（不崩溃、不误解、
-//     错误信息指出根组不对）。
-//
-// 引入原因：IGV P1 阶段的验收需求（设计文档 §9 P1）。属"新功能的验收测试"，
-// 不是某个 BUG 的回归测试，因此没有对应的修复提交号。
-//
-// 运行：cd Examples && ./testIGVRoundTrip [--models <dir>] [--golden <dir>]
-//   退出码 0 = V1.1–V1.7 全绿。
-// =============================================================================
+// Usage: cd Examples && ./testIGVRoundTrip [--models <dir>] [--golden <dir>]
+// Exit code 0 means all enabled checks passed.
 
 #include <IGV/iGameIGVReader.h>
 #include <IGV/iGameIGVWriter.h>
@@ -111,7 +77,6 @@ fs::path WorkDir() {
 /// 可执行文件所在目录的候选列表（用于稳健定位 `Models/` 与 golden 样例）。
 ///
 /// 为什么需要它：MSBuild 把可执行文件放在 `<build>/Examples/Release/`，
-/// 而运行时 CWD 可能是别处；golden 样例在源码树的 `kia/testdata/igv`。
 /// 靠"CWD 往上两级"这种假设既不可靠也不跨平台。
 ///
 /// 这里给出一串**候选根目录**，再逐个向上找目标 —— 覆盖
@@ -165,7 +130,6 @@ fs::path FindResource(const std::vector<fs::path>& roots, const fs::path& relati
 }
 
 // =============================================================================
-// 逐值比对辅助（§11.2：bitwise，不是近似）
 // =============================================================================
 
 bool SameFloats(const std::vector<float>& a, const std::vector<float>& b) {
@@ -351,7 +315,6 @@ DataObject::Pointer MakePolyhedronMesh() {
 /// 它在"所有面点数相同"的网格上会越界读 —— iGame 的 `CellArray` 把定长单元折叠成
 /// `m_FixedCellSize`，此时 `GetOffset()` 只返回 `{0}`，而那个函数按
 /// `face2pointsOffset[GetNumberOfCells()]` 取值（实测 0xC0000005）。
-/// 一个规则的立方体就会触发。上游缺陷见 kia/主仓库问题.md 问题 4。
 bool ExtractPolyhedronTables(DataObject::Pointer obj, std::vector<int32_t>& v2f,
                              std::vector<int64_t>& vOff, std::vector<int32_t>& f2p,
                              std::vector<int64_t>& fOff, int64_t& faceCountOut) {
@@ -755,7 +718,6 @@ void CompareObjects(const Snapshot& a, const Snapshot& b, const std::string& lab
  Check(SameFloats(a.points, b.points),
           label + ": Points bitwise equal (" + std::to_string(a.points.size()) + " floats)");
 
-    // 顺序不变（§3.3「不做空间重排」）
  Check(SameInts(a.connectivity, b.connectivity) && SameI64(a.offsets, b.offsets) &&
               SameU8(a.types, b.types),
           label + ": Connectivity/Offsets/Types equal and order preserved");
@@ -1043,7 +1005,6 @@ bool InspectIGVFile(const std::string& path, IGVStructureReport& out, std::strin
                     (full == "/IGV/Version");
 
                 if (!isCountDataset) {
-                    // 小 dataset（< 4 KiB）按 §5.3 不压缩；大 dataset 必须压缩。
                     const hid_t sp = H5Dget_space(ds);
                     hsize_t npoints = 0;
                     if (sp >= 0) {
@@ -1173,9 +1134,7 @@ int main(int argc, char** argv) {
     }
 
     if (goldenDir.empty()) {
-        // 默认找仓库里的 P0 golden 样例（kia/testdata/igv）。
         // 用候选根目录向上搜索，而不是假设"CWD 往上两级" ——
-        // 否则在 <build>/Examples/Release/ 下会解析成不存在的 <build>/kia/testdata/igv
         // （实测踩到过这一点）。
         const fs::path found = FindResource(roots, fs::path("kia") / "testdata" / "igv");
         if (!found.empty()) {
@@ -1189,8 +1148,7 @@ int main(int argc, char** argv) {
     }
 
  std::cerr << "================================================================\n"
-              << "IGV P1 acceptance: V1.1-V1.7\n"
-              << "Covers kia/igv implementation plan, section 9 (P1)\n"
+              << "IGV round-trip acceptance: V1.1-V1.7\n"
               << "================================================================\n"
               << "Working dir   : " << fs::current_path().string() << "\n"
               << "Models dir    : " << modelsDir << "\n"
@@ -1270,7 +1228,6 @@ int main(int argc, char** argv) {
              std::to_string(sb.attrs.size()));
         CompareObjects(sa, sb, fx.label);
 
-        // PointSet 的空拓扑分支必须真的没有拓扑 dataset（§3.3）
         if (fx.fixtureKind == 1) {
    Check(!sb.hasTopology, fx.label + ": read-back object has no topology (empty-topology branch)");
    Check(sb.attrs.size() == 1, fx.label + ": point attribute count is 1");
@@ -1692,15 +1649,12 @@ int main(int argc, char** argv) {
     }
 
     // =========================================================================
-    // V1.3 补充 — 压缩可通过选项关闭（§11.5）
     // =========================================================================
     Section("V1.3b compression=none really does not compress (section 11.5)");
     {
         // 造一个**点数足够多**的网格，否则"不压缩"是因为"本来就不压小数组"，
-        // 而不是因为 compression=none 生效（§5.3 的 4 KiB 阈值是数据量判据）。
         //
         // 上一版的做法是给 4 个点的夹具硬挂一个 4096 元素的点属性 —— 那不是
-        // "大网格"，而是**非法输入**：写侧的 elementCount 校验（§2.4(B)2）
         // 正当地拒绝了它（4096 != 4），于是 V1.3b 三项全红。
         // 也就是说：那条失败是测试自己的夹具错了，不是产品缺陷。
         //
@@ -1814,11 +1768,8 @@ int main(int argc, char** argv) {
     //
     // 为什么单列一节：`iGameIGVCellType.h` 的白名单有 33 项，而 P1 原先的夹具
     // 只覆盖 8 项（其余 25 项全是二次型 / 高阶 / Lagrange）。现实工程模型里几乎
-    // 没有这些单元，因此由 kia/tools/MakeHighOrderCellModels.py 按
-    // "1 文件 = 1 VTK 码值" 生成，见 kia/测试模型列表.md §5.2。
     //
     // 本节的价值不在于"几何正确"，而在于把**码值 ↔ iGame 枚举 ↔ IGV Types** 这条
-    // 映射链在全部 33 个值上跑一遍。P1 §3.1 的真实缺陷（VTK 码被当成 IGCellType 码）
     // 正是这条链上最危险的一环。
     Section("V1.8 high-order / quadratic cell types round-trip (M2 full-code coverage)");
     {
@@ -1836,7 +1787,7 @@ int main(int argc, char** argv) {
 
         if (highOrder.empty()) {
             Info("V1.8: no IGV_highorder_*.vtk found in " + modelsDir +
-                 " - run `python kia/tools/MakeHighOrderCellModels.py` first."
+                 " - run `python  first."
                  " This section does NOT claim coverage.");
         } else {
             Info("V1.8: found " + std::to_string(highOrder.size()) +
@@ -1857,11 +1808,10 @@ int main(int argc, char** argv) {
             // 读到了对象，但单元被读没了 = 上游 VTK 读取器没有该单元类型的分支
             // （iGameVTKAbstractReader.cpp 的 TransferVtkCellToiGameCell 里显式丢弃）。
             // 这不是 IGV 的问题，因此**明确报为覆盖缺口**而非失败
-            // （kia/测试准则.md §2.4：未覆盖必须显式声明，不得伪造通过）。
             if (sa.types.empty() && sa.connectivity.empty()) {
                 Info(label + ": read as an object with 0 cells - the iGame VTK reader has no "
                             "branch for this cell type, so this VALUE IS NOT COVERED by IGV "
-                            "(upstream gap, see the test model list, section 4.1)");
+                            "(upstream reader gap)");
                 ++g_cellTypeUpstreamGaps;
                 continue;
             }
@@ -1897,7 +1847,6 @@ int main(int argc, char** argv) {
     // =========================================================================
     //
     // 为什么需要这一节：`GetOutput()` 在 VTK legacy 路径上**没有 VolumeMesh 分支**
-    // （见 kia/测试模型列表.md §5.1），所以 `Examples/Models` 下的 62 个 .vtk
     // 一个都做不出 IG_VOLUME_MESH —— 五类网格里唯一没有文件来源的一类。
     // `.rst` 走 AnsysReader → PVD → VTU → FileReader::CreateDataObject() 的
     // numFaces+numVolumes 分支，是现成的 VolumeMesh 来源。
@@ -1919,7 +1868,6 @@ int main(int argc, char** argv) {
         //    （iGameVTKReader.cpp:78-93）→ 62 个 .vtk 一个都做不出 IG_VOLUME_MESH；
         // 2. `hemisphere.rst` 实测走 AnsysReader → PVD → VTU，拿到的是
         //    **IG_COMPOSITE_DATA_OBJECT**（DataObjectType=2）—— PVD 交回的是
-        //    多数据集集合，不是单个 VolumeMesh；多块要到 P6 才处理（§12.2）。
         //
         // 所以 VolumeMesh 只能直接构造。它是 iGame 里唯一"面 + 体"双索引的网格：
         // `FileReader::CreateDataObject()` 也正是在 numFaces && numVolumes 时才建它
@@ -1997,7 +1945,6 @@ int main(int argc, char** argv) {
                     Check(false, "V1.9: read-back failed - " + r->GetLastError());
                 } else {
                     // IGV 只存**一级索引**（体 -> 点），所以读回按 UnstructuredMesh
-                    // 语义表达（§3.7）。这里断言点数/体数/属性/Types 一致，
                     // 而不要求"读回仍是 VolumeMesh"。
                     const Snapshot sa = TakeSnapshot(mesh);
                     const Snapshot sb = TakeSnapshot(objB);
@@ -2041,7 +1988,7 @@ int main(int argc, char** argv) {
                     Info("V1.9 note: hemisphere.rst reads as DataObjectType=" + std::to_string(t) +
                          " (IG_COMPOSITE_DATA_OBJECT=2 -> PVD handed back a multi-dataset "
                          "collection). It is therefore NOT a single VolumeMesh; MultiBlock is "
-                         "P6 work (design doc section 12.2).");
+                         "P6 work.");
                     // 明确不声称覆盖：只断言"如果它哪天变成 VolumeMesh，必须同时带
                     // cell array"，而不是硬要求它现在就是 VolumeMesh。
                     Check(t != IG_VOLUME_MESH || rstObj->GetCellArray() != nullptr,
@@ -2059,7 +2006,6 @@ int main(int argc, char** argv) {
     // =========================================================================
     //
     // 为什么需要它：V1.3b 的 4096 点只能让"每一块都压缩"这条断言勉强成立，
-    // 而 §5.3 的 chunk 策略（目标 1 MiB / 最小 4 KiB）只有在**多 chunk**时才真正
     // 被检验 —— 即 chunk 边界是否会把记录切断、chunk 尺寸是否合理。
     //
     // 规模：7³=343 点、6³=216 六面体单元 → Connectivity 1728 i32 (6.9 KiB)、
@@ -2119,7 +2065,6 @@ int main(int argc, char** argv) {
             }
             mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, f);
         }
-        // 体属性：**3 分量** —— 覆盖 range 的 2*(1+k) 排列（§8.2）
         {
             FloatArray::Pointer f = FloatArray::New();
             f->SetDimension(3);
@@ -2163,7 +2108,6 @@ int main(int argc, char** argv) {
     // V1.11 — ASCII PLY：点云（→ PointSet）与三角表面（→ SurfaceMesh）
     // =========================================================================
     //
-    // 为什么单列一节：`PLYReader` 有两个已知上游隐患（见 kia/测试模型列表.md §4.3）：
     //   1. **完全不检查 `format` 行**，一律按文本解析 —— 二进制 PLY 会读出垃圾数据；
     //   2. `ReadFaces()` 把面节点写进 `int vhs[16]` 且不校验 `Component`
     //      —— 面节点数 > 16 是栈溢出。
@@ -2235,7 +2179,6 @@ int main(int argc, char** argv) {
                           " (actual " + std::to_string(sa.cellCount) + ")");
             }
             if (!c.expectTopology) {
-                // 点云：读回也必须是空拓扑（§3.3 的分支，不只是"没读出来"）
                 Check(!sa.hasTopology, label + ": point cloud object has no topology");
             }
 
@@ -2248,7 +2191,6 @@ int main(int argc, char** argv) {
             Check(true, label + ": write OK (" +
                             std::to_string(fs::file_size(out) / 1024 / 1024) + " MB)");
 
-            // 文件结构：点云**不得**有拓扑 dataset（§3.1 的分型规则）
             CheckFileStructure(out, label);
             {
                 const hid_t f = H5Fopen(out.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -2346,11 +2288,105 @@ int main(int argc, char** argv) {
     }
 
     // =========================================================================
+    Section("V1.12b scalar dataRange maps the file's [min,max] into the component slot");
+    // =========================================================================
+    //
+    // A scalar attribute stored as .igv used to come back with Min/Max = 0, and
+    // switching attributes could leave the color range on the previous attribute.
+    // IGV stores only [min,max]; iGame's dataRange has magnitude at element 0 and the
+    // raw component at element 1. The reader wrote only element 0. The scalar UI reads
+    // element 1 and SetRange(0,0) is rejected, so the old range stayed active.
+    {
+        auto mesh = UnstructuredMesh::New();
+        Points::Pointer pts = Points::New();
+        pts->Resize(4);
+        const float coords[12] = {0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f};
+        std::memcpy(pts->RawPointer(), coords, sizeof(coords));
+        mesh->SetPoints(pts);
+
+        CellArray::Pointer cells = CellArray::New();
+        igIndex tet[4] = {0, 1, 2, 3};
+        cells->AddCellIds(tet, 4);
+        UnsignedIntArray::Pointer cellTypes = UnsignedIntArray::New();
+        cellTypes->AddValue(static_cast<unsigned int>(IG_TETRA));
+        mesh->SetCells(cells, cellTypes);
+
+        AttributeSet* set = mesh->GetAttributeSet();
+
+        DoubleArray::Pointer signedScalar = DoubleArray::New();
+        signedScalar->SetDimension(1);
+        signedScalar->SetName("scalar_signed");
+        signedScalar->Resize(4);
+        const double signedValues[4] = {-5.0, -2.0, 0.0, 3.0};
+        for (IGsize i = 0; i < 4; ++i) { signedScalar->SetValue(i, signedValues[i]); }
+        set->AddAttribute(IG_SCALAR, IG_POINT, signedScalar);
+
+        LongLongArray::Pointer ids = LongLongArray::New();
+        ids->SetDimension(1);
+        ids->SetName("scalar_id_i64");
+        ids->Resize(4);
+        const long long idValues[4] = {1, 2, 3, 4};
+        for (IGsize i = 0; i < 4; ++i) { ids->SetValue(i, static_cast<double>(idValues[i])); }
+        set->AddAttribute(IG_SCALAR, IG_POINT, ids);
+
+        DoubleArray::Pointer cellScalar = DoubleArray::New();
+        cellScalar->SetDimension(1);
+        cellScalar->SetName("scalar_cell");
+        cellScalar->Resize(1);
+        cellScalar->SetValue(0, -1.5);
+        set->AddAttribute(IG_SCALAR, IG_CELL, cellScalar);
+
+        const fs::path out = WorkDir() / "v112b_scalar_range.igv";
+        IGVWriter::Pointer w = IGVWriter::New();
+        if (!w->WriteToFile(mesh, out.string())) {
+            Check(false, "V1.12b: write failed - " + w->GetLastError());
+        } else {
+            IGVReader::Pointer r = IGVReader::New();
+            DataObject::Pointer back = r->ReadFile(out.string());
+            if (!back) {
+                Check(false, "V1.12b: read-back failed - " + r->GetLastError());
+            } else {
+                auto checkRange = [&](const char* name, IGenum attachment, double magLo,
+                                      double magHi, double rawLo, double rawHi) {
+                    AttributeSet* readSet = back->GetAttributeSet();
+                    const int idx = readSet ? readSet->GetAttributeIndex(name) : -1;
+                    Check(idx >= 0, std::string("V1.12b attribute '") + name + "' exists after read-back");
+                    if (idx < 0) { return; }
+                    auto& attr = readSet->GetAttribute(static_cast<IGsize>(idx));
+                    Check(attr.attachmentType == attachment,
+                          std::string("V1.12b attribute '") + name + "' keeps its attachment");
+                    Check(attr.dataRange != nullptr && attr.dataRange->GetDimension() == 2 &&
+                                  attr.dataRange->GetNumberOfElements() == 2,
+                          std::string("V1.12b attribute '") + name + "' has a 2-element dataRange");
+                    if (attr.dataRange == nullptr || attr.dataRange->GetNumberOfElements() != 2) {
+                        return;
+                    }
+                    const double gotMagLo = attr.dataRange->GetValue(0);
+                    const double gotMagHi = attr.dataRange->GetValue(1);
+                    const double gotRawLo = attr.dataRange->GetValue(2);
+                    const double gotRawHi = attr.dataRange->GetValue(3);
+                    Check(gotRawLo == rawLo && gotRawHi == rawHi,
+                          std::string("V1.12b attribute '") + name +
+                                  "' component range (element 1) equals the file range [" +
+                                  std::to_string(rawLo) + ", " + std::to_string(rawHi) + "]");
+                    Check(gotMagLo == magLo && gotMagHi == magHi,
+                          std::string("V1.12b attribute '") + name +
+                                  "' magnitude range (element 0) is consistent with the file range [" +
+                                  std::to_string(magLo) + ", " + std::to_string(magHi) + "]");
+                };
+
+                checkRange("scalar_signed", IG_POINT, 0.0, 5.0, -5.0, 3.0);
+                checkRange("scalar_id_i64", IG_POINT, 1.0, 4.0, 1.0, 4.0);
+                checkRange("scalar_cell", IG_CELL, 1.5, 1.5, -1.5, -1.5);
+            }
+        }
+    }
+
+    // =========================================================================
     Section("V1.13 polyhedron (secondary index) round-trip: volume->face->point");
     // =========================================================================
     //
     // 背景：1.0 的 IGV 只存一级索引（cell->point），多面体因此被**拒绝写出**
-    // （§3.7 当时的决定），CCM 这类多面体数据源完全无法保存成 .igv。
     // 1.x 增加二级索引的显式表达：
     //   Connectivity     = 体→面（面 id）     Offsets     = 体→面的偏移
     //   FaceConnectivity = 面→点              FaceOffsets = 面→点的偏移

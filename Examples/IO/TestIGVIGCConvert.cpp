@@ -1,92 +1,17 @@
 /**
- * @file  TestIGVIGCConvert.cpp
- * @brief IGV P4 验收程序：IGC <-> IGV 互转与「保真边界报告」。
+ * @file TestIGVIGCConvert.cpp
+ * @brief IGC <-> IGV conversion and fidelity-boundary tests.
  *
- * 对应 kia/igv分阶段实现方案.md §9「P4 — IGC ⇄ IGV 互转」的 P4-1…P4-6，
- * 以及 §15 R7（「默认档是否无损」必须**实测**，不能靠读默认值臆断）。
- * 实施记录见 kia/P4实施记录.md。
+ * The test checks that IGC and IGV share data semantics so conversion does not silently
+ * change values. Risks: IGC quantization truncates attributes; IGC spatially reorders
+ * points and cells; and a nominal "lossless" profile must still be measured, not assumed.
  *
- * ============================================================================
- * 为什么需要这个程序（它要保证的正确行为）
- * ============================================================================
+ * Comparisons use either the encoder's reorder trace or an order-free canonical form, so
+ * a shared wrong convention cannot make both sides agree.
  *
- * P1/P2/P3 证明的是「IGV 自己读写无损」「IGV 进了 FileIO 分派」「元数据能零解压读」。
- * P4 要证明的是另一件事：**IGV 与 IGC 说的是同一套语义**，因而两者之间的转换
- * 既走得通、又不会偷偷改数据。这件事的风险全部集中在「转换链路上到底丢了什么」：
- *
- *   1. IGV → IGC 走的是 IGC 的编码器，而 IGC 是**有损能力**的容器：一旦
- *      `QuantizeMode` 不是 None，尾数会被截断；`double` 属性在量化档下会被
- *      降到 float 精度（IGC 的历史缺陷点，见 `igv通用格式.md` §2.4(B)3）。
- *      因此「能转」不等于「保真」—— 必须把**实测误差**报出来，不能只报成功。
- *   2. IGC 的编码器会做**空间重排**（`meshopt_spatialSortRemap` + 单元顶点缓存
- *      优化），解码后的点序/单元序与源对象不同。所以「逐值 bitwise 相等」这句话
- *      在 IGC 介入之后**不能按原始下标直接比**；必须用编码器给出的重排映射把
- *      解码结果的第 j 个元素对回源对象的第 inv[j] 个元素，否则会得到一个
- *      "看起来保真、其实错位"的假通过（把两套顺序不同的正确数据判成不同，
- *      或者更糟：把顺序相同的错误数据判成相同）。
- *   3. 「无损档/有损档」是**名义档位**，不是结论。`QuantizeMode::Default` 搭配
- *      `quantizeLevel = 0` 时实际上保留全部 23 位尾数、一个字节都不改；反过来
- *      未来某个档位的语义变化也可能让"名义无损"变成有损。因此报告里的
- *      **结论必须由实测比对决定**，名义档位只作为解释字段。P4-6 就是钉这一条。
- *
- * 边界用例（为什么必须有）：
- *   - `SurfaceMesh` / `VolumeMesh` / `PointSet` **直接构造**：VTK legacy 读入路径
- *     做不出 `IG_VOLUME_MESH`，`PointSet` 也没有文件来源（详见 P1 记录 §4.12、
- *     §5.4）。若不直接构造，五类网格里的三类就永远进不了这条链路。
- *   - 稠密尾数夹具（`Dense*`）：用 0/1/2 这类可精确表示的坐标做有损档测试，
- *     量化会因为"本来就没有可截断的位"而变成恒等操作，测试会假通过。
- *   - `PointSet`（空拓扑）：IGC 对它**根本不写拓扑 payload**，是唯一能证明
- *     "无拓扑分支不会被误当成 0 单元网格"的用例。
- *
- * 明确**不**声称覆盖（不伪造通过，见 kia/测试准则.md §2.4）：
- *   - 外部工具产出的 `.igc`：本程序产出的 `.igc` 都由本进程的 `IGCWriter` 写出，
- *     因此能拿到重排映射。第三方 `.igc` 拿不到映射，只能做顺序无关比对，
- *     不在本程序范围。
- *   - MultiBlock / 时变：P6 范围。
- *
- * ============================================================================
- * ★ 本阶段实测到的一个**上游缺陷**（不在 IGV 分支修，见 kia/主仓库问题.md 问题 2）
- * ============================================================================
- *
- * `PointSet` 与 `StructuredMesh` 的 `.igc` **写得出、读不回**。根因在 MeshCodec：
- *
- *   1. `MeshCodecZSTD::Compress()` 对空输入返回 `false`（`iGameMeshCodecZSTD.h:16-20`），
- *      而 `CompressPayloads()` 忽略返回值，于是"空 payload"被原样留下；
- *   2. `EncodeOutputBinaryArray::WritePayload()` 照样写出 `type + length(=0)` 的
- *      **0 长度 payload 块**（`iGameEncodeOutputBinaryArray.h`）；
- *   3. 解码端 `MeshCodecZSTD::Decompress()` 对空输入**返回 false**
- *      （`iGameMeshCodecZSTD.h:49-54`），于是 `ProcessPayload()` 失败 →
- *      `MeshDecoderFilter::Execute()` 失败 → `IGCReader::Parsing()` 失败 → 整份文件读不了。
- *
- * 而 `PointSet` / `StructuredMesh` **必然**产生空的拓扑块（`TopoEncoder` 对这两类
- * 直接 `payload.resize(0)`，`iGameMeshEncoderFilter.h:876-897`）；`PointSet` 之外，
- * 任何**没有属性**的网格还会多一个空属性块。也就是说受影响的不止这两类网格：
- * 一份"无属性"的六面体网格 `.igc` 同样读不回来。
- *
- * 本程序因此把"被上游缺陷挡住"的用例**显式记账**（`[skip]` + 计数），既不假装通过，
- * 也不让整个阶段变红；同时 P4-0 用**缺陷钉**（先断言"空块仍在、读取仍失败"）
- * 把这件事变成可自动发现的事实：主仓库修好后 P4-0 会立刻变红，提醒把
- * P4-1/P4-2/P4-4 里被排除的两类网格改回"必须通过"。
- *
- * ============================================================================
- * 「逐值 bitwise 相等」在这里是**两条独立判据**（都过才判无损）
- * ============================================================================
- *
- *   A. 顺序还原后逐值比对：用 `IGCWriter::SetEncodeTrace` 的 original→decoded
- *      映射把解码结果的第 d 个元素对回源对象第 inv[d] 个，连带把源连接索引经同一
- *      映射变换后比对。→ 证明"内容相等 + 下标对应正确"。
- *   B. 顺序无关的规范形比对：每个点/单元把「坐标 + 该元素上的属性值」编成字节串
- *      （单元再加类型与各顶点内容），排序后逐串比较。→ **完全不使用编码器的自述**，
- *      因此是 A 的独立交叉验证（测试准则 §2.3）。
- *
- * 单靠 A 的风险是"两边用同一个错误约定"：映射来自被测代码本身。B 不听编码器说话。
- * 两条判据自身还有反例自检（`P4-self`）：改 1 个 bit / 纯置换 / 改 1 个顶点，
- * 逐个断言各自该响的时候响、不该响的时候不响 —— **没红过的判据无法证明有效**
- * （测试准则 §2.0.2）。
- *
- * 提交状态：待提交。测试与实现同次首次提交，因此无法记录自引用提交号；
- * 可用 `git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVIGCConvert.cpp`
- * 查询引入本文件的提交。
+ * Some IGC files contain zero-length payload blocks that the current decoder cannot read.
+ * Those cases are counted as skipped, and a pin test records the failure; the pin is
+ * expected to turn red when the upstream decoder is fixed.
  */
 
 #include <IGC/iGameIGCReader.h>
@@ -124,12 +49,8 @@ namespace fs = std::filesystem;
 
 int g_checks = 0;
 int g_failed = 0;
-/// 被**上游缺陷**挡住的用例数：既不算通过，也不算失败（见文件头的缺陷说明）。
+/// 被上游缺陷挡住的用例数：既不算通过，也不算失败。
 int g_blocked = 0;
-
-// =============================================================================
-// 输出与断言（控制台一律英文 ASCII，见 kia/测试准则.md §2.0）
-// =============================================================================
 
 void Section(const std::string& name) {
     std::cerr << "\n------------------------------------------------------------------------------\n"
@@ -145,11 +66,8 @@ void Check(bool ok, const std::string& what) {
 
 void Info(const std::string& what) { std::cerr << " [info] " << what << "\n"; }
 
-/// 记账一个"被上游缺陷挡住"的用例。
-///
-/// 为什么不用 `Check(false, ...)`：那会让整个 P4 阶段变红，而缺陷不在本分支的
-/// 修复范围内（§1.4 原则 4）。为什么不用"静默 continue"：那等于伪造通过
-/// （测试准则 §2.4）。所以既打印、又计数，并在总结里单列。
+/// Record a case blocked by an upstream defect. The skip is explicit and counted;
+/// it is neither a pass nor a failure.
 void Blocked(const std::string& label, const std::string& why) {
     ++g_blocked;
     std::cerr << " [skip] " << label << ": blocked by an upstream defect - " << why << "\n";
@@ -277,10 +195,8 @@ void HandleIgcReadFailure(const std::string& label, const fs::path& igcPath) {
         return;
     }
     if (HasZeroLengthBrick(bricks)) {
-        // 控制台必须是纯 ASCII（测试准则 §2.0），所以这里只用英文描述那份文档，
-        // 不写中文路径；完整路径见 kia/P4实施记录.md 与「主仓库问题记录」problem 2。
         Blocked(label, "empty payload brick [" + BrickListText(bricks) +
-                           "] makes MeshCodecZSTD::Decompress fail; see problem 2 of the main-repo issues log "
+                           "] makes MeshCodecZSTD::Decompress fail;  "
                            "(documented in the P4 record)");
         return;
     }
@@ -294,7 +210,6 @@ void HandleIgcReadFailure(const std::string& label, const fs::path& igcPath) {
 
 /// 一个数组的"可比内容"。
 ///
-/// `raw` 用于 §11.2 的 bitwise 判据（判据是"位相等"，不是近似相等）；
 /// `values` 只用于有损档的误差统计 —— 判定"是否相等"永远看 `raw`。
 struct ArrayData {
     int valueSize{0};
@@ -350,7 +265,6 @@ bool ExtractArray(const ArrayObject::Pointer& arr, ArrayData& out) {
         }
         return true;
     }
-    // 其余数组类型（IntArray 等）不在 IGV 规范内（§3.6），无从比较。
     return false;
 }
 
@@ -603,7 +517,6 @@ OrderMap MakeOrderMap(const std::vector<unsigned int>& originalToDecoded, int64_
 // 「保真边界报告」
 // =============================================================================
 //
-// 这是 P4 的核心交付物（§9 P4 第 3 条）。它的**结论字段只能由实测比对决定**：
 // 名义档位（`igcProfile`）只是解释字段，绝不参与 verdict 的计算。
 
 /// 一个数组的保真条目。
@@ -702,7 +615,6 @@ struct ConvertReport {
 
 /// 逐值比对（带顺序还原），把结果写进 `report.arrays`。
 ///
-/// 判据是**位相等**（`raw` 逐字节 memcmp），不是近似相等 —— 与 §11.2 一致。
 /// `values` 只用来算误差，仅供有损档的报告，不参与"是否相等"的判定。
 void CompareOneArray(const std::string& name, const std::string& attachment, const ArrayData& ref,
                      const ArrayData& got, const OrderMap& map, ConvertReport& report) {
@@ -1090,7 +1002,6 @@ ConvertReport CompareObjects(const std::string& label, const std::string& source
 //
 // 全部属性和网格的名字都刻意避开 X/Y/Z 与 0/1/2 结尾：
 // `FileIO::FinalizeLoadedObject()` 会把这类名字的标量合并成一个 3 分量向量
-// （TransformScalars2VectorArray，见 P2 记录 §3.4），那会让"属性集合不变"
 // 的断言变成在测另一件事。
 
 /// 单精度点标量属性（f32 单分量）。
@@ -1109,7 +1020,6 @@ void AddFloatPointAttr(PointSet* mesh, const std::string& name, float scale) {
 /// 真正无单元的 PointSet（空拓扑分支）。
 ///
 /// 为什么必须直接构造：VTK 里的 `VTK_VERTEX` 点云会被建成 UnstructuredMesh，
-/// 而 iGame 的 PointSet 没有单元存储（详见 P1 记录 §4.12）。
 PointSet::Pointer MakePointSetFixture() {
     auto ps = PointSet::New();
     Points::Pointer pts = Points::New();
@@ -1151,7 +1061,6 @@ SurfaceMesh::Pointer MakeSurfaceMeshFixture() {
 }
 
 /// 立方体 VolumeMesh：6 个四边形面 + 1 个六面体体单元（面数 != 体数，这是
-/// "误把面数当单元数"的边界。VTK legacy 读入造不出 IG_VOLUME_MESH，见 P1 记录 §5.4）。
 VolumeMesh::Pointer MakeVolumeMeshFixture() {
     auto mesh = VolumeMesh::New();
     Points::Pointer pts = Points::New();
@@ -1427,7 +1336,6 @@ void SwapElements(ArrayData& d, int64_t a, int64_t b) {
 
 /// P4-self：两条判据的**反例自检**。
 ///
-/// 依据 kia/测试准则.md §2.0.2：一个"从来没红过"的判据无法证明有效 ——
 /// 它会和"实现正确"在输出上长得一模一样。这里注入三类缺陷，逐个断言都能被抓住：
 ///   1. 改一个点坐标的最低位（1 个 bit）→ 两条判据都必须判"不等"；
 ///   2. 把两个点整体交换（内容不变、只有顺序变）→ **顺序无关判据仍判相等**，
@@ -1538,7 +1446,7 @@ void RunComparatorSelfCheck() {
     }
 }
 
-/// P4-0：上游缺陷的**缺陷钉**（见文件头）。
+/// Pin for the upstream defect: it asserts that the defect still exists.
 ///
 /// 这一节断言的是"缺陷**仍然**存在"：`.igc` 里确实有 0 长度 payload 块，而且
 /// 既有 `IGCReader` 确实读不回来。它一旦变红，说明主仓库把空块处理修好了 ——
@@ -2003,7 +1911,6 @@ void RunP46(const std::vector<Fixture>& fixtures) {
     }
 }
 
-/// P4-R7（§15 R7 的调研任务）：**默认档到底是不是无损**，必须实测。
 ///
 /// 两条独立的证据：
 ///   1. `FileIO::WriteFile(.igc)` 不带任何控制参数 —— 这正是产品里"另存为 .igc"的路径；
@@ -2095,8 +2002,7 @@ int main(int argc, char** argv) {
     }
 
     std::cerr << "================================================================\n"
-              << "IGV P4 acceptance: IGC <-> IGV conversion and the fidelity boundary report\n"
-              << "Covers kia/igv implementation plan, section 9 (P4) and section 15 (R7)\n"
+              << "IGV acceptance: IGC <-> IGV conversion and the fidelity boundary report\n"
               << "================================================================\n"
               << "Working dir   : " << fs::current_path().string() << "\n"
               << "Models dir    : " << modelsDir << "\n"
@@ -2148,7 +2054,7 @@ int main(int argc, char** argv) {
     if (g_blocked > 0) {
         std::cerr << "NOTE: " << g_blocked
                   << " case(s) could not run because of the upstream IGC defect (empty payload brick).\n"
-                  << "      They are NOT counted as passes - see problem 2 of the main-repo issues log.\n";
+                  << "      They are NOT counted as passes - .\n";
     }
     if (g_failed == 0) {
         std::cerr << "ALL PASSED: P4-1..P4-6 and the R7 research item hold in this run.\n";

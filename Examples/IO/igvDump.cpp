@@ -2,7 +2,6 @@
  * @file  igvDump.cpp
  * @brief IGV P5 工具：把一个 `.igv` 的**结构**打印成可读文本（`h5dump -H -A` 的等价物）。
  *
- * 对应 kia/igv分阶段实现方案.md §9「P5 — 鲁棒性与大文件回归」第 2 条。
  *
  * ============================================================================
  * 为什么需要它
@@ -11,8 +10,6 @@
  * 1. **人工排查**：`.igv` 是 HDF5，出问题时第一件事是"文件里到底有什么"。
  *    `h5dump` 要额外安装、输出对非 HDF5 专家不友好，而且 4 GiB 的文件会打出
  *    几千万行数据。本工具只打**结构与元数据**，默认不打印数据。
- * 2. **golden 比对**（§11.4）：文本体积极小、可 diff、可在 code review 里直接看。
- *    仓库里 `kia/vtkhdf/*.txt` 就是这个套路。
  * 3. **不依赖外部可执行文件**：`--self-check` 自己造一个 `.igv`、自己 dump、自己断言
  *    关键行都在，因此它能作为 CTest 目标跑（不需要 h5dump，也不需要外部模型）。
  *
@@ -29,7 +26,7 @@
  * **两种模式的定位差异**（都保留，因为用户习惯不同）：
  *   * 文本模式回答"文件里**有什么**结构"——给排查/比对用，可 diff、可贴进 issue；
  *   * `--gui` 回答"这些数据**是什么**"——Name / Type / Components / Ranges / Bounds，
- *     形状照 ParaView 的 Information 面板做（见 `Examples/IO/igvDump_GUI.md`）。
+ *     形状照 ParaView 的 Information 面板做。
  *   两者都只走元数据快路径，都不解压任何 dataset。
  *
  * 提交状态：待提交。可用
@@ -470,7 +467,6 @@ bool DumpFile(const std::string& path, const DumpOptions& options, std::string& 
 
 /// 造一个"每类关键字段都有、且大到会触发 chunk + gzip"的小样例。
 ///
-/// 尺寸必须让 `Points` 与 `Connectivity` 的未压缩字节数超过 §5.3 的 4 KiB 阈值，
 /// 否则写出侧会按"小 dataset 不 chunk 不压缩"处理，dump 里就看不到
 /// `chunk=` / `filters=gzip` —— 那两条断言会假失败（本自检第一版就是这样）。
 /// 20x20x20 个六面体 = 8000 单元 / 9261 点：几毫秒就能造完，但足够越线。
@@ -601,7 +597,6 @@ int RunSelfCheck() {
         {"GROUP \"FieldData\"", "FieldData group"},
         {"ATTRIBUTE \"attachment\"", "per-attribute attachment"},
         {"ATTRIBUTE \"range\"", "per-attribute range"},
-        // 1.x：每个属性 dataset 显式声明定宽类型 + 位宽（§3.6）。
         // 这两条一起钉住"文件不需要读者去猜类型宽度"这件事。
         {"ATTRIBUTE \"DataType\"", "per-attribute fixed-width DataType token"},
         {"ATTRIBUTE \"DataTypeBits\"", "per-attribute explicit bit width"},

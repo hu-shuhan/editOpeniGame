@@ -24,7 +24,6 @@
  *
  * 关于本文件里的中文字面量：它们是**界面字符串**（菜单/标签/状态栏），走 Qt 的
  * Unicode 绘制路径，不经过终端代码页，因此不受"控制台必须 ASCII"那条约束
- * （理由与边界见 kia/测试准则.md §2.0.3）。本文件里唯一的控制台输出
  * （截图成功/失败那一行）是英文。
  */
 
@@ -111,7 +110,6 @@ QString FormatCount(int64_t value) {
 /// 属性数组的类型标签：`Float64(64bit)`。
 ///
 /// 位宽**一定**显示，因为这是用户对着 vtk legacy 的 `long`/`id type` 踩过的坑：
-/// 同一个文件在两台机器上按不同宽度解释。IGV 里类型是定宽的（§3.5），
 /// 面板把它连名字带位宽一起摊开，读者不需要去查"double 是几位"。
 QString DTypeLabelOf(const igv::IGVArrayInfo& array) {
     if (!array.dTypeToken.empty() && array.dTypeBits > 0) {
@@ -153,7 +151,6 @@ QIcon MakeDotIcon(const QColor& color) {
 
 /// 一个属性的 Ranges。
 ///
-/// 文件里的 `range` 有两种长度（§3.6）：
 ///   * `components == 1` → `[min, max]`（长度 2，**不**重复存模长）
 ///   * `components >  1` → `[magMin, magMax, c0Min, c0Max, …]`（长度 2*(1+k)）
 /// 显示成 ParaView 的 `[a, b], [c, d], …`：第一对是模长，后面逐分量。
@@ -329,7 +326,6 @@ public:
         const std::string native = path.toStdString();
         // FileIO::ReadIGVMetadata 内部就是这两步（Reset + Reader），
         // 这里直接调 Reader 是为了不让这个工具的 TU 把 iGameFileIO.h 拉进来
-        // （那会把整套 Reader 头文件带进编译，见 kia/测试准则.md §1）。
         igv::IGVStats::Reset();
         std::string error;
         m_Info.ok = IGVMetadataReader::ReadFromFile(native, m_Info.meta, &error);
@@ -522,7 +518,7 @@ private:
                 QStringLiteral("igvDump --gui：只读 IGV 元数据（attribute + dataspace），"
                                "不解压任何 dataset。\n"
                                "面板显示的 Bounds / Ranges 是文件里**预计算**的值（IGV 的增值项）。\n"
-                               "用法与右键集成见 Examples/IO/igvDump_GUI.md。"));
+                               "命令行用法见 igvDump --help。"));
         m_Banner->setStyleSheet(QStringLiteral("padding:6px; background:#eef3fb; color:#123;"));
         m_Banner->setVisible(true);
     }

@@ -19,11 +19,9 @@ namespace {
 using namespace iGame::igv;
 
 // =============================================================================
-// iGame 枚举 <-> 规范 token（§3.2 / §3.6 / §3.8）
 // =============================================================================
 
 /// iGame `DataObjectType` → 根组 `Type`（VTKHDF 同名值）与 `IGVDataType`（iGame 原名）。
-/// 表外的类型一律不列（§1.5 原则 1），由返回值 false 表达"unsupported"。
 bool MapMeshType(IGenum meshType, std::string_view& outType, std::string_view& outIGVDataType) {
     switch (meshType) {
         case IG_POINT_SET:
@@ -51,7 +49,6 @@ bool MapMeshType(IGenum meshType, std::string_view& outType, std::string_view& o
     }
 }
 
-/// `AttributeType` → token（§3.6）。
 std::string_view MapAttributeType(IGenum t) {
     switch (t) {
         case IG_SCALAR:  return kAttributeTypeScalars;
@@ -64,7 +61,6 @@ std::string_view MapAttributeType(IGenum t) {
     }
 }
 
-/// `AttributeWithElementType` → `attachment` token（§3.6 / §3.8）。
 std::string_view MapAttachment(IGenum a) {
     switch (a) {
         case IG_POINT:      return kAttachmentPoint;
@@ -79,14 +75,12 @@ std::string_view MapAttachment(IGenum a) {
     }
 }
 
-/// 依附类型 → 分组名（§3.8）。
 std::string_view GroupOfAttachment(IGenum a) {
     if (a == IG_POINT) { return kGroupPointData; }
     if (a == IG_CELL) { return kGroupCellData; }
     return kGroupFieldData;
 }
 
-/// iGame 数组类 → 规范 dtype（§3.5 / §3.6 的 dtype 映射表）。
 ///
 /// **10 类一一对应、无降级**：iGame 的数组族与 VTK 的标量类型正好同构，
 /// 因此"全部支持"就是把这张表列全，而不是把窄类型提升成宽类型。
@@ -127,7 +121,6 @@ const char* ArrayTypeLabel(IGenum arrayType) {
     }
 }
 
-/// §3.6 只给属性定义了 f32 / f64 / u8 三种 dtype，但来源数据里常带 int32 的单元类型码
 /// （典型：STAR-CCM+ 转换器产出的 `CellType`）。这类数组**不该一票否决整次导出** ——
 /// 否则"所有从 ccm 转来的模型都无法保存为 igv"。
 ///
@@ -141,7 +134,6 @@ void WarnSkipUnsupportedAttribute(const std::string& name, IGenum arrayType) {
                     name, ArrayTypeLabel(arrayType));
 }
 
-/// 属性名是否是合法 HDF5 名（§5.1 步骤 1.8）。
 /// HDF5 名是**路径**，含 '/' 会破坏分组结构；空名与以 '.' 开头的名会被 HDF5 保留语义吞掉。
 bool IsValidHdf5Name(std::string_view name) {
     if (name.empty()) { return false; }
@@ -151,7 +143,6 @@ bool IsValidHdf5Name(std::string_view name) {
     return true;
 }
 
-/// 单元点数 → IGCellType（仅用于"无 Types 数组"的网格；§3.7）。
 /// 只覆盖无歧义的线性单元。返回 false 表示无法由点数唯一确定类型。
 bool CellTypeFromSize(IGsize size, IGCellType& out) {
     switch (size) {
@@ -169,7 +160,6 @@ bool CellTypeFromSize(IGsize size, IGCellType& out) {
 ///
 /// **刻意不调用 `iGameCellType.h` 的自由函数 `GetCellSize(int)`** ——
 /// 那个函数对 `IG_HEXAHEDRON` 返回 6（正确值 8），是 P0 记录在案的死代码笔误
-/// （见 kia/P0实施记录.md §2.4）。虽然它当前全仓库零调用，但 IGV 的
 /// Types↔Offsets 一致性自检若误用它，会**拒绝一切六面体网格**。
 int FixedCellSizeOfType(int type) {
     switch (static_cast<IGCellType>(type)) {
@@ -189,7 +179,6 @@ int FixedCellSizeOfType(int type) {
  * 从 `CellArray` 取出 IGV `Offsets`，并返回**真实的** Connectivity 元素数。
  *
  * ⚠ 为什么不能直接用适配器的 `GetCellIdOffset()` 与 `GetCellIdBufferSize()`
- *   —— 这是本阶段第二个真实 bug 的根因，属设计文档 §15 R12 警告的同一类问题：
  *
  *   `CellArray::AddCellIds()` 对 `m_Buffer` 采取**按需翻倍扩容**策略
  *   （`iGameCellArray.cpp:103-127`）：
@@ -226,7 +215,6 @@ int64_t BuildIgvOffsetsFromCellArray(CellArray* cells, int64_t cellCount,
     if (cells == nullptr || cellCount <= 0) { return -1; }
 
     if (cells->IsUseOffSet()) {
-        // 有真实 offset 数组：直接取权威值（§3.3：不做任何空间重排）
         outOffsets.resize(static_cast<size_t>(cellCount) + 1);
         for (int64_t i = 0; i <= cellCount; ++i) {
             outOffsets[static_cast<size_t>(i)] =
@@ -253,7 +241,6 @@ int64_t BuildIgvOffsetsFromCellArray(CellArray* cells, int64_t cellCount,
 // 暂存结构：先在内存里把一切算完并校验完，再写 HDF5
 // =============================================================================
 //
-// 这样做的理由：§5.4 要求**每个拒绝路径都发生在写盘之前**。若边校验边写，
 // 中途失败会留下半截文件，而且"rejected"与"HDF5 调用失败"两类错误会混在一起。
 
 struct StagedAttribute {
@@ -271,7 +258,6 @@ struct StagedAttribute {
     ///
     /// 为什么不给每种 dtype 各留一个 `std::vector`：10 类 dtype 会让 StagedAttribute
     /// 变成 10 个向量 + 10 个分支，而"字节 + dtype"这层表达本来就足够——宽度由
-    /// `SizeOfDType(dtype)` 唯一确定（§3.5）。
     std::vector<unsigned char> bytes;
     std::vector<double> range;
 
@@ -279,12 +265,10 @@ struct StagedAttribute {
     [[nodiscard]] size_t ValueCount() const { return bytes.size() / SizeOfDType(dtype); }
 };
 
-/// 计算逐属性 range（§8.2）。
 ///
 /// components == 1：`[min, max]`（长度 2，**不重复存模长** —— 消除草案歧义）
 /// components > 1 ：`[magMin, magMax, c0Min,c0Max, c1Min,c1Max, ...]`（长度 2*(1+k)）
 ///
-/// NaN 处理按 IEEE 语义：比较恒 false，天然被跳过。全部为 NaN 时返回全 0（§8.2）。
 template <typename T>
 std::vector<double> ComputeRange(const T* data, int64_t count, int components) {
     const size_t k = static_cast<size_t>(components);
@@ -345,7 +329,6 @@ std::vector<double> ComputeRange(const T* data, int64_t count, int components) {
     return out;
 }
 
-/// 把某个具体数组类的数据原样取成字节，并算 range（§3.5 的 10 类 dtype 共用）。
 ///
 /// 模板参数是"数组类 + 元素类型"：两者必须匹配（iGame 的数组族是一一对应的），
 /// `DynamicCast` 失败即说明 `MapArrayDType` 与实际类不一致 —— 那是 bug，不是数据问题，
@@ -363,7 +346,6 @@ bool StageTypedArray(const ArrayObject::Pointer& array, StagedAttribute& sa) {
     return true;
 }
 
-/// 多面体（二级索引）→ IGV 的四组数组 + 写侧自校验（§3.7）。
 ///
 /// 输出：
 ///   connectivity      = 体 → 面 的面 id（i32）
@@ -377,7 +359,6 @@ bool StageTypedArray(const ArrayObject::Pointer& array, StagedAttribute& sa) {
 /// 折叠成 `m_FixedCellSize`，此时 `GetOffset()` 只返回 `{0}`，而它却用
 /// `face2pointsOffset[faces->GetNumberOfCells()]` 取值（实测 0xC0000005）。
 /// 一个"每条边都等长的立方体"就会触发，所以这里直接从 VolumeMesh 的公开 API 取
-/// （上游缺陷见 kia/主仓库问题.md 问题 4；本分支不改共享基础设施，见 §1.4 原则 4）。
 ///
 /// 两种 iGame 表示都支持：
 ///   * `VolumeMesh` + `IsPolyhedronType`：已有 face 表与 volume→face 表，直接读；
@@ -605,7 +586,6 @@ bool IGVWriter::GenerateBuffers() {
     m_MemoryImage.clear();
     m_LastError.clear();
 
-    // 1. 前置校验（§5.1 步骤 1）
     if (!ValidateDataObject()) {
         return false;
     }
@@ -617,7 +597,6 @@ bool IGVWriter::GenerateBuffers() {
         // `SaveBufferDataToFile()`，而它用 `fopen(m_FilePath, "wb")` —— 会把文件截断。
         // 因此若在 GenerateBuffers() 里直接 H5Fcreate(path)，随后立刻被基类截成 0 字节。
         //
-        // 真正的"绕开内存镜像直写"入口是 `WriteToFilePathDirect()`（§5.1 步骤 5 的
         // DirectPath 分支 / R2 / P7-4），它不经过 Execute()。而任何走 Execute() 的路径
         // 一律使用内存镜像 —— 与 IGCWriter 等既有 writer 的行为一致。
   IGAME_CORE_WARN("[IGV] writeMode=DirectPath has no effect on WriteToFile()"
@@ -634,7 +613,6 @@ bool IGVWriter::GenerateBuffers() {
         return false;
     }
 
-    // 11. 交给基类落盘（§5.1 步骤 11–12）
     m_Buffers.resize(1, nullptr);
     m_Buffers[0] = CharArray::New();
     m_Buffers[0]->Resize(static_cast<IGsize>(m_MemoryImage.size()));
@@ -663,7 +641,6 @@ bool IGVWriter::WriteToFilePathDirect(DataObject::Pointer dataObject, const std:
 }
 
 // =============================================================================
-// 前置校验（§5.1 步骤 1 / §5.4 / V1.7）
 // =============================================================================
 
 bool IGVWriter::ValidateDataObject() {
@@ -677,21 +654,18 @@ bool IGVWriter::ValidateDataObject() {
     //
     // 为什么这条必须在写盘之前、且在类型判定之前：
     //   1. iGame 的"多块"是 `DataObject` + `SubDataObjectsHelper` 树
-    //      （CGNS 多 zone / VTM / PVD / IGCM，见 §12.2 的现状表），父对象通常是
     //      `DrawObject`，其 `GetDataObjectType()` 不属五类网格 —— 1.2 会拒绝它，
     //      但报出的是"unsupported data object type 8"，用户看不出真正的原因是
     //      "这是多块文件，IGV 本期不写多块"；
     //   2. 更危险的是**五类网格之一自带子块**的情形：1.2 会放行，
     //      而写出实现只遍历父对象自己的几何/拓扑，子块就被**静默丢弃**。
-    //      这与 §12.2「绝不允许把第一块当整体返回」是同一个危险，只是方向相反。
     //
     // 处置与读侧一致：拒绝 + 说清"是 2 个块、本期不支持"，而不是猜着写一部分。
     if (m_DataObject->HasSubDataObject()) {
         const int blocks = m_DataObject->GetNumberOfSubDataObjects();
         Fail("the data object holds " + std::to_string(blocks) +
-             " sub-block(s): MultiBlock is not supported in this release"
-             " (design doc section 12.2 / P6)."
-             " Writing is rejected so that the sub-blocks are not dropped silently");
+             " sub-block(s): MultiBlock is not supported in this release. "
+             "Writing is rejected so that the sub-blocks are not dropped silently");
         return false;
     }
 
@@ -700,17 +674,15 @@ bool IGVWriter::ValidateDataObject() {
     std::string_view igvDataTypeToken;
     const IGenum meshType = m_DataObject->GetDataObjectType();
     if (!MapMeshType(meshType, typeToken, igvDataTypeToken)) {
-        // 明确报出类型值（§5.4："非 5 类网格 → return false + 报出类型值"）
   Fail("unsupported data object type " + std::to_string(static_cast<long long>(meshType)) +
              " (only supports IG_POINT_SET(3) / IG_SURFACE_MESH(4) / IG_VOLUME_MESH(5) / "
              "IG_UNSTRUCTURED_MESH(6) / IG_STRUCTURED_MESH(7))");
         return false;
     }
 
-    // 1.3 经适配器取统一视图（复用 IGC 已验证的取数逻辑，§4.1 支点）
     auto adapter = std::make_unique<MeshEncodeAdapterFromDataObject>(m_DataObject);
 
-    // 1.4 / 1.5 分量数与 f32 硬校验（A8 / A9）。
+    // 分量数与 f32 校验。
     //
     // 注意 `Points` **本身没有** GetDimension() / GetArrayTypedSize()
     // —— 它的内部缓冲是 `FloatArray m_Buffer`（见 iGamePoints.h:82），
@@ -729,7 +701,6 @@ bool IGVWriter::ValidateDataObject() {
     // 是同一个事实的两种表述，而 HDF5 允许 0 长度 dataset —— 也就是说"空点云"
     // **可以**被写成一个自洽的文件，但读侧会得到一个没有任何点的网格对象，
     // 后续渲染/遍历都可能拿到空缓冲。规范把 `Points` 定义为必填的几何数组，
-    // 因此这里按"无法如实表达"拒绝，与 §5.4「每个拒绝都在写盘之前」一致。
     //
     // 这条缺口是 V1.7 第 3 项暴露的（P1 首次可运行验证时该用例失败）。
     if (points->GetNumberOfPoints() == 0) {
@@ -752,7 +723,7 @@ bool IGVWriter::ValidateDataObject() {
         return false;
     }
 
-    // 1.5 f32 硬校验（A8 / A9）——**不得退化为 assert**。
+    // f32 校验不得退化为 assert。
     if (pointArray->GetArrayTypedSize() != static_cast<IGsize>(sizeof(float))) {
   Fail("Points must be float32 (f32): actual bytes per component " +
              std::to_string(pointArray->GetArrayTypedSize()) +
@@ -817,7 +788,6 @@ bool IGVWriter::ValidateDataObject() {
 
             const int64_t elementCount = static_cast<int64_t>(array->GetNumberOfElements());
 
-            // §2.4(B)2 落地：写盘侧校验 elementCount，而不是读盘侧静默截断
             const IGenum attachment = attr.GetAttachmentType();
             if (attachment == IG_POINT) {
                 if (elementCount != pointCount) {
@@ -840,7 +810,6 @@ bool IGVWriter::ValidateDataObject() {
                 }
             }
             // 其余 attachment（edge/box/change/...）不进 PointData/CellData 的长度校验：
-            // 它们的元素数与点/单元数无固定关系（§3.8 归入 FieldData）。
         }
     }
 
@@ -904,7 +873,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
                     static_cast<size_t>(pointValueCount) * sizeof(float));
     }
 
-    // Bounds（§8.1）。复用 DataObject 既有能力（§8.1 末条要求先尝试复用）。
     std::vector<double> bounds(kBoundsCount, 0.0);
     bool hasBounds = false;
     if (pointCount > 0) {
@@ -933,7 +901,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
     // 大模型下这一段是耗时主段，必须按阶段回报，否则进度条会一直停在起点。
     this->UpdateProgress(0.10);
 
-    // ---- 拓扑（按类型分型，§3.1）----
     const bool isPointSet = (meshType == IG_POINT_SET);
     const bool isStructured = (meshType == IG_STRUCTURED_MESH);
     const bool hasTopology = !isPointSet && !isStructured;
@@ -961,7 +928,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         structuredDims[2] = dims[2];
     }
 
-    // ---- 多面体（二级索引，体→面→点）：§3.7 的 1.x 扩展 ----
     //
     // 一级索引与二级索引的区别不只是"多两张表"：**`Connectivity` 的含义变了**
     // （一级 = 单元→点，二级 = 体→面）。因此文件里必须显式写
@@ -1085,7 +1051,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             }
         }
 
-        // ---- Types（§3.2 / §3.5.1）----
         types.resize(static_cast<size_t>(cellCount));
         if (meshType == IG_UNSTRUCTURED_MESH) {
             // 有权威来源：UnstructuredMesh::GetCellTypes()
@@ -1106,7 +1071,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             }
         } else {
             // SurfaceMesh / VolumeMesh 无 Types 数组（适配器只对 UnstructuredMesh 暴露），
-            // 由单元点数推导（§3.7）。**全部单元点数必须一致**，否则无法如实表达。
             for (int64_t i = 0; i < cellCount; ++i) {
                 const int64_t size = offsets[static_cast<size_t>(i) + 1] -
                                      offsets[static_cast<size_t>(i)];
@@ -1128,7 +1092,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             }
         }
 
-        // §5.1 步骤 1.7 / §3.5.1 / V1.7 第 4–7 项：Types 白名单硬校验。
         // 这一条是写侧白名单的**唯一防线**（尤其 IG_POLYHEDRON）。
         for (int64_t i = 0; i < cellCount; ++i) {
             const int code = static_cast<int>(types[static_cast<size_t>(i)]);
@@ -1140,7 +1103,7 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
                      std::string(forbidden->reason));
             } else {
     Fail("Types[" + std::to_string(i) + "] = " + std::to_string(code) +
-                     " is not in the IGV cell-type whitelist (see iGameIGVCellType.h / spec section 3.5.1)");
+                     " is not in the IGV cell-type whitelist (see iGameIGVCellType.h)");
             }
             return false;
         }
@@ -1165,7 +1128,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
     // 拓扑（接续关系 / offsets / types）已生成。
     this->UpdateProgress(0.30);
 
-    // ---- 属性暂存（§3.6 / §3.8）----
     std::vector<StagedAttribute> staged;
     AttributeSet* attrSet = m_DataObject->GetAttributeSet();
     if (attrSet != nullptr) {
@@ -1224,7 +1186,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
 
     H5FileHandle file;
     if (memoryImage != nullptr) {
-        // §4.1 支点 1 / §5.1 步骤 5：core VFD 在内存里生成完整 file image。
         //
         // backing_store = false 表示"不落盘到 backing file"，这正是我们要的：
         // 字节由 H5Fget_file_image 取回，落盘交给基类的 SaveBufferDataToFile。
@@ -1254,7 +1215,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
 
     const bool compress = (m_Options.compression == IGVCompression::GzipDefault);
 
-    // ---- /IGV 根组 + §3.1 的 attribute ----
     H5GroupHandle root(H5Gcreate2(file.Get(), std::string(kRootGroup).c_str(),
                                   H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
     if (!root.IsValid()) {
@@ -1361,7 +1321,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         }
     }
 
-    // ---- 多面体的面表（§3.7，1.x）：FaceConnectivity / FaceOffsets / NumberOfFaces ----
     if (polyhedron) {
         const hsize_t fcdims[1] = {static_cast<hsize_t>(faceConnectivity.size())};
         if (!WriteDataset(root.Get(), kDatasetFaceConnectivity, DType::I32,
@@ -1392,10 +1351,7 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
     // 几何 / 拓扑数据集已写入 HDF5。
     this->UpdateProgress(0.55);
 
-    // ---- §5.2：三个计数组必须用**回读实际落盘维度**填充，不能用写前期望值 ----
     //
-    // 理由（§5.2 / R12）：一旦写前计算与实际写出不一致（例如属性被静默截断），
-    // 用期望值填的计数组会"自洽地错"，读取侧的交叉校验（§6.3）将无法发现问题。
     // 只有计数组独立于数组长度来源时，它才有校验价值。
     {
         int64_t actualPoints = 0;
@@ -1443,7 +1399,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         }
     }
 
-    // ---- 属性组与 dataset（§3.6 / §3.8）----
     for (std::string_view groupName :
          {kGroupPointData, kGroupCellData, kGroupFieldData}) {
         H5GroupHandle g(H5Gcreate2(root.Get(), std::string(groupName).c_str(),
@@ -1494,7 +1449,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
         //
         // 与 HDF5 自身的类型**冗余**，但这正是要点：VTK 的 `long`/`id type` 宽度随平台
         // 变化，读取方不该被迫去推断。三份信息（HDF5 类型 / DataType / DataTypeBits）
-        // 互相交叉校验，任何一份不一致都说明文件坏了（§6.3）。
         if (!WriteAsciiAttribute(ds.Get(), kAttrDataType, DTypeToken(sa.dtype)) ||
             !WriteI64Attribute(ds.Get(), kAttrDataTypeBits,
                                static_cast<int64_t>(DTypeBits(sa.dtype)))) {
@@ -1525,7 +1479,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
             return false;
         }
 
-        // iGame 枚举原值（冗余但保真，§3.6）
         if (!WriteI64Attribute(ds.Get(), kAttrIGAttributeType,
                               static_cast<int64_t>(sa.igAttributeType)) ||
             !WriteI64Attribute(ds.Get(), kAttrIGAttachmentType,
@@ -1539,7 +1492,6 @@ bool IGVWriter::BuildHdf5(const std::string& pathForDirectWrite, std::vector<cha
     // 生成阶段到此结束；随后由基类把内存镜像落盘（SaveBufferDataToFile 按 8MB 分块上报）。
     this->UpdateProgress(0.75);
 
-    // ---- §5.1 步骤 9–10：flush + 取回 file image（必须在 H5Fclose 之前） ----
     if (memoryImage != nullptr) {
         if (H5Fflush(file.Get(), H5F_SCOPE_GLOBAL) < 0) {
             ClearHdf5Errors();

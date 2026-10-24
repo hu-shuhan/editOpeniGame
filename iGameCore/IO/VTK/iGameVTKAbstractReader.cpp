@@ -1562,7 +1562,6 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             //
             // 为什么把这十种从 `default: break` 里单独拎出来：IGV 的白名单
             // （iGameCore/IO/IGV/iGameIGVCellType.h）把它们列为**可写**单元，
-            // 但本读取器**建不出**对应单元（见 kia/测试模型列表.md §4.1）。
             // 若与 default 合并，文件会被读成"0 个单元"的空网格，而调用方
             // 拿到的是一个看似合法的对象 —— 这是典型的"静默丢数据"。
             //
@@ -1582,9 +1581,8 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
             case iGame::VTKAbstractReader::QUADRATIC_POLYGON:
             case iGame::VTKAbstractReader::TRIQUADRATIC_PYRAMID:
             case iGame::VTKAbstractReader::LAGRANGE_CURVE:
-                igError("VTK cell type {} is in the IGV writable whitelist but this reader has no "
-                        "iGame cell for it; the cell is DROPPED. See the gap list in "
-                        "kia/ (test model list, section 4.1).", static_cast<int>(type));
+                igError("VTK cell type {} has no iGame cell in this reader; the cell is dropped.",
+                        static_cast<int>(type));
                 ++skippedCells;
                 break;
             case iGame::VTKAbstractReader::POLYHEDRON: //42

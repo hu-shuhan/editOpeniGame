@@ -3,47 +3,27 @@
 
 /**
  * @file  iGameIGVCellType.h
- * @brief IGV 的 `Types` 写入白名单 / 禁止表，以及 IGCellType ↔ VTK 标准码的**编译期**对照。
+ * @brief IGV Types whitelist/forbidden list and the iGameCellType-to-VTK code mapping.
  *
- * 依据：kia/igv分阶段实现方案.md §3.5.1。
+ * iGame and VTK disagree in the low code range. iGameCellType.h gives explicit values only
+ * for IG_EMPTY_CELL, IG_VERTEX, and IG_LINE; later values are implicit, and VTK has no FACE:
  *
- * ============================================================================
- * ⚠⚠ 本文件的核心事实（经编译器实测确认，曾长期被误判）⚠⚠
- * ============================================================================
+ *     iGame: FACE=3  TRIANGLE=4  QUAD=5  POLYGON=6  VOLUME=7  POLYHEDRON=8
+ *            TETRA=9 HEXAHEDRON=10 PYRAMID=11 PRISM=12
+ *     VTK  : (none)  TRIANGLE=5  QUAD=9  POLYGON=7  (none)    (none)
+ *            TETRA=10 HEXAHEDRON=12 PYRAMID=13 WEDGE=14
  *
- * **iGame 的单元码与 VTK 标准码在低值段整体错位，并非"逐值一致"。**
+ * Writing raw iGame codes into a VTK reader therefore produces wrong geometry without an
+ * error. This is why the file carries CellTypeEncoding="IGCellType".
  *
- * 根因：iGameCellType.h 只在 `IG_EMPTY_CELL = 0` / `IG_VERTEX = 1` / `IG_LINE = 2`
- * 三处用了显式初值，**从 `IG_FACE` 起全部隐式递增**，而 VTK 在同一位置没有 `FACE`：
+ * High codes (quadratic 21-37, Lagrange 68-74) match VTK.
  *
- *     iGame:  FACE=3  TRIANGLE=4  QUAD=5  POLYGON=6  VOLUME=7  POLYHEDRON=8
- *             TETRA=9 HEXAHEDRON=10 PYRAMID=11 PRISM=12
- *     VTK  :  (无)    TRIANGLE=5  QUAD=9  POLYGON=7  (无)      (无)
- *             TETRA=10 HEXAHEDRON=12 PYRAMID=13 WEDGE=14
+ * Rules:
+ *  1. Values are written as IGCellType symbols, never as hand-written numbers.
+ *  2. VTK codes are kept in kVtkStandardCodes and queried through VtkCodeOf().
+ *  3. Compile-time static_asserts keep the whitelist values and the VTK mapping consistent.
  *
- * 后果（全部是**静默产生错误几何**，不报错）：
- *     IG_TRIANGLE(4)   在 VTK 里是 VTK_POLY_LINE
- *     IG_QUAD(5)       在 VTK 里是 VTK_TRIANGLE
- *     IG_TETRA(9)      在 VTK 里是 VTK_QUAD
- *     IG_HEXAHEDRON(10)在 VTK 里是 VTK_TETRA
- *     IG_PRISM(12)     在 VTK 里是 VTK_HEXAHEDRON
- *
- * **这是 `CellTypeEncoding` attribute 必须存在的根本原因** ——
- * 远比我先前以为的"`IG_POLY_LINE` 一个码不一致"严重得多。
- *
- * 高值段（二次型 21–37、Lagrange 68–74）则与 VTK **完全一致**。
- *
- * ============================================================================
- * 数值纪律（防止上述错误重演）
- * ============================================================================
- *  1. 本文件的 `value` 一律写 **IGCellType 符号**，不手写数字。编译器负责求值。
- *  2. VTK 对照表在下方固化为 `kVtkStandardCodes`，由 `VtkCodeOf()` 查表。
- *  3. 编译期 `static_assert` 断言每条白名单的 `vtkCompatible` 与
- *     `value == VtkCodeOf(value)` **一致**。任何一方被改错都会立刻编译失败。
- *     （诊断信息里不用符号名 —— 它在 `#include <string_view>` 且 C++17 下
- *      不是常量表达式；改用数值与表内位置。）
- *
- * 本文件是纯静态数据，不依赖 HDF5。
+ * Pure static data; no HDF5 dependency.
  */
 
 #include <cstddef>
@@ -172,7 +152,6 @@ struct CellTypeEntry {
  * 白名单。只把"确定能正确表达为一级索引单元"的类型放进来。
  *
  * 期望项数 33（= iGameCellType.h 的 37 个具名项 − 4 个禁止项）。
- * 覆盖性由 `kia/tools/TestIGVCellTypeWhitelist.py` 独立验证（它能解析源文件，
  * 而本文件的编译期断言只能验证表内自洽）。
  *
  * `vtkCompatible` 的判定依据是**数值**是否与 VTK 等价码相同：
@@ -229,7 +208,6 @@ inline constexpr CellTypeEntry kCellTypeWhitelist[] = {
 // =============================================================================
 
 /**
- * **明确禁止写入** `Types` 的值及原因。写侧遇到必须报错拒绝（§5.1 步骤 1.7 / V1.7）。
  *
  * 期望项数 4（= 37 − 33）。
  */
@@ -314,7 +292,6 @@ inline constexpr size_t kForbiddenCellTypeSize =
 // **不**在这里断言"白名单 + 禁止表 == 37"这类总数：
 //   总数断言只能固化一个数字，无法发现"漏了某个新单元类型"。
 //   覆盖性必须由能解析 iGameCellType.h 的工具验证 ——
-//   即 kia/tools/TestIGVCellTypeWhitelist.py（在 CI 中作为构建后步骤运行）。
 
 namespace detail {
 
@@ -369,7 +346,7 @@ static_assert(detail::ForbiddenHasNoDuplicates(), "duplicate IGCellType value in
 static_assert(detail::FirstVtkCompatibleMismatch() < 0,
               "a whitelist entry's vtkCompatible flag disagrees with 'value == equivalent VTK code'. "
               "The index is in the compiler's constant-evaluation backtrace; "
-              "kia/tools/TestIGVCellTypeWhitelist.py prints the per-value table.");
+              " prints the per-value table.");
 
 // =============================================================================
 // 关键值断言：这些数字是 IGV 与外部格式互操作的全部依据，必须钉死。

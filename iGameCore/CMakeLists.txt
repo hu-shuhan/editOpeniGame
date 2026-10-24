@@ -22,8 +22,7 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 #
 # 为什么必须在这里剔，而不能只跳过 HDF5 链接：GLOB_RECURSE 不认识 option，
 # iGameIGVWriter.cpp / iGameIGVReader.cpp 会被照常编译，而它们 `#include <hdf5.h>`
-# —— OFF 构建会直接编译失败，门控就成了装饰（对照 kia/igv分阶段实现方案.md
-# §11.6 第 5 条「ENABLE_IGV_MODULE=OFF 全量构建成功」与 P2-7）。
+# —— OFF 构建会直接编译失败，门控就成了装饰。关闭模块后全量构建必须成功。
 #
 # 只排除 IO/IGV/ 下的实现文件；iGameIGVFormat.h 是纯常量头（零 HDF5 依赖），
 # 与既有 CGNS 的处置一致：模块关闭时头文件仍在树上，但不参与编译。
@@ -123,7 +122,7 @@ if (ENABLE_CGNS_MODULE)
 endif ()
 
 #--------------------------------------------------------------------
-# IGV (HDF5-based iGameVis universal format) —— 见 kia/igv分阶段实现方案.md §4.3
+# IGV (HDF5-based iGameVis universal format)
 #
 # 与 ENABLE_CGNS_MODULE 同构：编译宏 IGV_ENABLE + 链接 HDF5。
 # 差异在于 IGV 的 HDF5 是**直接依赖**（CGNS 只是恰好也用到 HDF5）。
@@ -155,7 +154,7 @@ endif ()
 #     hdf5::hdf5-static   ← config 模式的静态变体
 #     ${HDF5_LIBRARIES}   ← 老式 Module 模式的裸变量回退
 #
-#   ⚠ 实测踩坑（见 kia/P1实施记录.md §5.3）：config 包导出的静态/共享 target
+#   ⚠ 实测踩坑：config 包导出的静态/共享 target
 #     名是**带命名空间**的（`hdf5::hdf5-static` / `hdf5::hdf5-shared`）。
 #     先前写成不带命名空间的 `TARGET hdf5-static`，判断不命中 →
 #     iGameCore "看起来配置成功但根本没链上 HDF5"，行为随后漂移到别处解析出的库。
@@ -235,7 +234,7 @@ if (ENABLE_IGV_MODULE AND NOT EMSCRIPTEN)
         message(STATUS "IGV: linking HDF5 via variables ${HDF5_LIBRARIES} (HDF5 ${HDF5_VERSION})")
     endif ()
 elseif (ENABLE_IGV_MODULE AND EMSCRIPTEN)
-    message(STATUS "IGV module disabled on Emscripten (see kia/future-tasks.md)")
+    message(STATUS "IGV module disabled on Emscripten (HDF5 is unavailable)")
 endif ()
 
 if (ENABLE_LIBTORCH_MODULE)

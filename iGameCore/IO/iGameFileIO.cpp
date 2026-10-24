@@ -74,7 +74,6 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return IGCM;
     } else if (FileSuffix == "igv") {
         // 后缀识别**不**受 ENABLE_IGV_MODULE 门控：宏关闭时也要认出这是 IGV，
-        // 只是后续读取返回 nullptr（§9 P2 第 7 条 / P2-7「UI 不下崩」）。
         return IGV;
     } else if (FileSuffix == "obj") {
         return OBJ;
@@ -415,7 +414,6 @@ DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_
         }
 #if defined(IGV_ENABLE)
         case iGame::FileIO::IGV: {
-            // 与 IGC 分支逐行同构（§9 P2 第 4 条）：
             // IGVReader 复用 FileReader 基类的 Open -> Parsing -> Close ->
             // CreateDataObject 时序，这里只负责喂路径、跑、取输出。
             IGVReader::Pointer reader = IGVReader::New();
@@ -657,7 +655,6 @@ DataObject::Pointer FileIO::ReadIGCFromMemory(const void* data, size_t size) {
 }
 
 DataObject::Pointer FileIO::ReadIGVFromMemory(const void* data, size_t size) {
-    // 与 ReadIGCFromMemory 同构（§9 P2 第 6 条）。区别只在 Reader 类型：
     // IGVReader 的内存路径走 H5Pset_file_image + core VFD（P1 的 V1.5 已验证
     // 它与文件路径逐值等价，并验证了缓冲生命周期早于 Reader 结束也不二次释放）。
 #if defined(IGV_ENABLE)
@@ -678,7 +675,6 @@ DataObject::Pointer FileIO::ReadIGVFromMemory(const void* data, size_t size) {
 }
 #if defined(IGV_ENABLE)
 bool FileIO::ReadIGVMetadata(const std::string& file_name, igv::IGVMetadata& out, std::string* error) {
-    // §11.3：入口清零、出口不清 —— 调用方返回后可以直接读
     // igv::IGVStats::h5dreadCount 断言"这次快路径没读任何 dataset 数据"。
     igv::IGVStats::Reset();
 
@@ -716,7 +712,6 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
         }
 #if defined(IGV_ENABLE)
         case iGame::FileIO::IGV: {
-            // 与 IGC 分支逐行同构（§9 P2 第 5 条）。IGVWriter 继承 FileWriter，
             // WriteToFile = SetDataObject + SetFilePath + Execute，
             // Execute 内部生成 HDF5 core VFD 内存镜像后由基类落盘。
             IGVWriter::Pointer writer = IGVWriter::New();

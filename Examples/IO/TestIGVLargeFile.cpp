@@ -1,41 +1,13 @@
 /**
- * @file  TestIGVLargeFile.cpp
- * @brief IGV P5 验收程序（二）：>4 GiB 单文件 + 亿级单元（P5-12 / P5-13）。
+ * @file TestIGVLargeFile.cpp
+ * @brief IGV large-file tests: >4 GiB single file and 1e8 cells.
  *
- * 对应 kia/igv分阶段实现方案.md §9「P5 — 鲁棒性与大文件回归」的 P5-12、P5-13。
- * **默认不构建**：由 `-DIGAME_ENABLE_IGV_LARGE_TESTS=ON` 打开，理由见下。
+ * Off by default because the default size needs about 5.3 GB of memory, 5.3 GB of disk,
+ * and minutes of runtime. Enable with IGAME_ENABLE_IGV_LARGE_TESTS; --quick uses about
+ * 200k cells for smoke testing.
  *
- * ============================================================================
- * 为什么单独一个程序、且默认关闭
- * ============================================================================
- *
- * 默认规模（1e8 个六面体）实测需要：
- *   * 内存：DataObject 约 5.3 GB（点 1.2 GB + 连通性 3.2 GB + 偏移 0.8 GB + 类型 0.1 GB）；
- *   * 磁盘：**不压缩**的 `.igv` 约 5.3 GB（压缩会把它压到 4 GiB 以下，那样就测不到
- *     ">4 GiB 文件"这件事了，所以这里刻意用 `compression=none`）；
- *   * 时间：分钟级（造网格 + 写 + 读回 + 校验）。
- *
- * 让每个开发者与 CI 都无条件承担这个代价是不合适的，所以：
- *   * CMake 侧用 `IGAME_ENABLE_IGV_LARGE_TESTS` 门控；
- *   * 程序侧支持 `--cells N` 与 `--quick`（≈200k 单元、几十 MB），
- *     平时的冒烟验证用 quick，真正的 §P5-12 判据只在默认/显式规模下评。
- *
- * ============================================================================
- * 这个程序要证明什么
- * ============================================================================
- *
- * 1. **写出**一份 >4 GiB 的 `.igv` 成功，且走的是**直写路径**（`DirectPath`）——
- *    core VFD 的内存镜像会再吃掉一份文件大小的内存（R2），5.3 GB 的数据 + 5.3 GB
- *    镜像在 16 GB 机器上会直接失败。所以这里同时验证 P7-4 的前置条件。
- * 2. **读回**成功，点数 / 单元数 / 最后一个 offset / 抽样连通性全部正确 ——
- *    也就是"64 位偏移与 i64 Offsets 没有溢出"。
- * 3. **峰值内存**有记录（P5-13 明确要求），供后续 P7 决策参考。
- *
- * 明确**不**声称覆盖：`Offsets` 超过 `u32` 范围（>4.29e9 个连通性索引）需要
- * ≥5e8 个单元、约 20 GB 内存，本轮不覆盖（见 kia/P5实施记录.md §5）。
- *
- * 提交状态：待提交。可用
- * `git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVLargeFile.cpp` 查询。
+ * Verifies direct-path writing (no second in-memory copy), read-back counts/offsets, a
+ * sampled connectivity check, and peak memory. Offsets beyond u32 are out of scope.
  */
 
 #include <IGV/iGameIGVReader.h>
@@ -203,8 +175,7 @@ int main(int argc, char** argv) {
     const fs::path file = opt.dir / "large.igv";
 
     std::cout << "================================================================\n"
-              << "IGV P5 acceptance (2/2): >4 GiB single file and 1e8 cells\n"
-              << "Covers kia/igv implementation plan section 9 (P5-12 / P5-13)\n"
+              << "IGV acceptance (2/2): >4 GiB single file and 1e8 cells\n"
               << "================================================================\n";
 
     int64_t nx = 0, ny = 0, nz = 0;
@@ -313,7 +284,6 @@ int main(int argc, char** argv) {
     // ⚠ 必须直接调 `WriteToFilePathDirect()`，不能只设 `writeMode = DirectPath` 再走
     // `WriteToFile()`：后者是基类 `Execute()` 的流程（GenerateBuffers → 落盘），
     // IGVWriter 看到这种组合会**降级成内存镜像**并打 WARN —— 5.3 GB 的数据会因此
-    // 需要 10.6 GB 峰值内存（本程序 --quick 首次运行就是这样，见 P5 实施记录）。
     igv::IGVWriteOptions options;
     options.writeMode = igv::IGVWriteMode::DirectPath;
     options.compression = igv::IGVCompression::None;
@@ -358,7 +328,6 @@ int main(int argc, char** argv) {
     //
     // 为什么不能只看读回对象的 `GetOffset()`：解码适配器对**定长**网格走
     // `AddUnstructuredFixedCells()`，于是重建出来的 CellArray 用"固定单元大小"表达，
-    // `GetOffset()` 只有 1 个元素（{0}）—— 这是设计如此（§6.2 步骤 4），
     // 但它把"文件里的 Offsets 到底对不对"这件事藏起来了，所以这里回到文件本身去看。
     {
         hid_t fileId = H5Fopen(file.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);

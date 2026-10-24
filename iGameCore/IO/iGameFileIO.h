@@ -9,7 +9,6 @@
 
 #if defined(IGV_ENABLE)
 // 元数据快路径的返回结构（P3）。只在 IGV 模块开启时暴露，避免 OFF 构建引入
-// IGV 的类型依赖；`igv::IGVMetadata` 是纯数据（不含 HDF5），见 §7.1。
 #include "IGV/iGameIGVFormat.h"
 #endif
 
@@ -49,7 +48,6 @@ public:
         SPECTRAL_DAT,
         SPECTRAL_NEKTAR,
         VTI, // ImageData support required by the Median example model
-        // IGV（iGameVis 通用格式，HDF5 容器）。按 kia/igv分阶段实现方案.md §9 P2
         // 要求插入到 **FILETYPE_COUNT 之前**：既有取值一个都不变（已有格式的
         // switch 分支因此零回归），只把计数加一。
         IGV,
@@ -70,10 +68,8 @@ public:
 
 #if defined(IGV_ENABLE)
     /**
-     * IGV **元数据快路径**（P3，§7）：不加载 mesh、不解压任何 dataset，
      * 只返回包围盒 / 计数 / 属性清单（含每个属性的 dtype、分量数、预计算 range）。
      *
-     * 入口会 `IGVStats::Reset()`（§11.3：入口清零、出口不清），因此调用方可以在返回后
      * 读取 `igv::IGVStats::h5dreadCount` 断言"本次快路径没读任何数据"。
      *
      * @param error 非空时写入失败原因

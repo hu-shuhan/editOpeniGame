@@ -300,7 +300,7 @@ private:
         //   → 文件含 Types → AddUnstructuredFixedCells() → 本函数 → 崩溃。
         // 也就是说：**读回任何 VolumeMesh 的 .igv 都会崩**，而不是报错。
         // 之所以 P1 一直没发现，是因为当时没有任何夹具能产出 IG_VOLUME_MESH
-        // （VTK legacy 读入路径根本不建它，见 kia/测试模型列表.md §5.1）。
+        // （VTK legacy 读入路径根本不建它，见  ）。
         //
         // 修法按 mesh 类型分派：UnstructuredMesh 用 SetCells（带 Types），
         // VolumeMesh 用 SetVolumes（体数组即一级索引；它没有 SetCells，

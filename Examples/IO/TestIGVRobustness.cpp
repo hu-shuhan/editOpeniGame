@@ -1,53 +1,16 @@
 /**
- * @file  TestIGVRobustness.cpp
- * @brief IGV P5 验收程序（一）：畸形文件必须**被拒绝**，且进程不崩溃、不 OOM。
+ * @file TestIGVRobustness.cpp
+ * @brief IGV malformed-file rejection tests.
  *
- * 对应 kia/igv分阶段实现方案.md §9「P5 — 鲁棒性与大文件回归」的 **P5-1…P5-11、P5-14**，
- * 以及 §6.3「读取侧鲁棒性」全表。记录见 kia/P5实施记录.md。
+ * A malformed file must be rejected with a diagnostic error, must not crash or OOM, and
+ * must not return a partial object. Tests mutate one field at a time and check that the
+ * reader returns nullptr and names the offending field.
  *
- * P6 阶段（「不静默丢数据」的拒绝路径）在本程序里新增了 **P6-1…P6-6** 一节，
- * 记录见 kia/P6实施记录.md。新增该节的原因是一个具体的危险：含 `Block_*`（多块）或
- * `Steps`（单文件内嵌时变）的文件，若读取器只把 `/IGV` 自己的几何当整体返回，
- * **不会报错、却只给了用户一部分数据** —— 这种"部分成功"比拒绝危险得多。
- * 同一条危险在写侧的表现是"五类网格之一自带子块，写出时只写父对象"。
- * 该节因此同时钉住：读侧拒绝并返回 nullptr、`Block_` 前缀只认**组**不认**属性名**、
- * 以及格式表里**没有**为 MultiBlock 预留 `Type` 取值。
+ * Boundary cases: truncation at several positions, a huge declared dataspace that would
+ * OOM, attribute length mismatches, and attribute names starting with Block_ that must
+ * not be mistaken for multiblock groups.
  *
- * ============================================================================
- * 为什么需要这个程序（要保证的正确行为）
- * ============================================================================
- *
- * P1 的读取器把 §6.3 的检查写进了代码，但**"写了 if 判断"不等于"校验有效"**
- * （测试准则 §2.6）。本程序的做法是：拿一份**合法**的 `.igv` 当种子，用 HDF5 C API
- * 精确地把它改成"只有一处是错的"，逐个喂给 `IGVReader`，断言：
- *
- *   1. `ReadFile()` 返回 `nullptr`（不是崩溃、不是"部分成功"）；
- *   2. `GetLastError()` 里含**能定位问题**的关键字（属性名 / 越界位置 / 实际值 …）；
- *   3. 进程还活着（能继续跑下一个用例）—— 这一条对 OOM 类缺陷才有意义。
- *
- * 边界用例（为什么必须有）：
- *   - **截断 10%/50%/99%**：HDF5 的失败模式随截断位置不同（超级块坏 / 元数据坏 /
- *     数据块缺），不能只测一个比例。
- *   - **`2^33` 元素的 dataspace**：`MulWouldOverflow` 只挡"乘出来超过 int64"，
- *     挡不住"算得出来但显然不可能"。不修的话 `vector::resize` 会先申请 34 GB，
- *     进程被 OOM 杀掉 —— 而这正是"拒绝失败"最隐蔽的形态（没有返回 false，是**死掉**）。
- *     判据用**物理**比例（声明字节数 / 文件里已分配字节数 ≤ 4096，deflate 的物理上限
- *     约 1032:1），不引入拍脑袋的阈值。
- *   - **属性长度 ≠ 点数**：属性自己的 dataspace 自洽，跨对象的一致性原先只有写侧把关；
- *     §6.3 要求读侧也拒绝。
- *   - **`PointData` 下名为 `Block_0` 的属性**（P6-3）：判块必须看"是不是组"，
- *     不能只看名字前缀，否则一份合法文件会被误拒。
- *
- * 明确**不**声称覆盖：
- *   - >4 GiB 与亿级单元：属 P5-12 / P5-13，见 `TestIGVLargeFile.cpp`（单独门控）。
- *   - 真有内存破坏（ASAN）类问题：本机 MSVC Release 不带 ASAN。fuzz 只能证明"没崩"，
- *     不能证明"没有未定义行为"。
- *   - 并发读同一个文件：§15 R1 提到的 HDF5 线程安全属产品侧约束，不在此验证。
- *   - 多块 / 时变的**读写实现**（P6 只做拒绝路径，见 kia/未来任务.md F5 / F6）。
- *
- * 提交状态：待提交。测试与实现同次首次提交，因此无法记录自引用提交号；
- * 可用 `git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVRobustness.cpp`
- * 查询引入本文件的提交（P6 一节的提交主题："add: igv p6 reject path"）。
+ * Large files and ASAN coverage are out of scope.
  */
 
 #include <IGV/iGameIGVMetadataReader.h>
@@ -88,7 +51,6 @@ int g_checks = 0;
 int g_failed = 0;
 
 // =============================================================================
-// 输出与断言（控制台一律英文 ASCII，见 kia/测试准则.md §2.0）
 // =============================================================================
 
 void Section(const std::string& name) {
@@ -218,7 +180,7 @@ ReadOutcome TryRead(const fs::path& path) {
 /// fuzz 用这条路而不是写临时文件，有两个理由：
 ///   1. 少一次磁盘往返，1000 次迭代快一个数量级；
 ///   2. 文件路径读会走基类 `FileReader::Open()` 的**文件映射**，而基类在
-///      `Parsing()` 失败时**不调用 `Close()`**（见 主仓库问题.md 问题 3）——
+///      `Parsing()` 失败时基类**不调用 `Close()`**，映射可能泄漏——
 ///      映射泄漏会让该文件在进程退出前一直被锁住，于是"下一次覆盖同一个文件名"会失败。
 ///      内存路径不建任何映射，天然绕开这个上游缺陷。
 ReadOutcome TryReadMemory(const std::vector<char>& bytes) {
@@ -479,7 +441,6 @@ bool DeleteObject(hid_t file, const char* path, std::string& error) {
 ///
 /// 为什么要重写而不是"原地改 dataspace"：HDF5 的固定 dataspace 不能改维度，
 /// 所以"篡改 dataspace"在文件层面就等价于"用另一个 dataspace 重建该 dataset"。
-/// 重建时必须把 §3.6 要求的 attribute（AttributeType / attachment / range）一起补上，
 /// 否则读取器会先因为缺 attribute 而拒绝，测不到长度校验那一条。
 bool RecreateAttributeDataset(hid_t file, const char* groupPath, const char* name,
                               int64_t count, int components, const std::string& attachment,
@@ -678,7 +639,6 @@ UnstructuredMesh::Pointer MakeSeedMesh() {
     return mesh;
 }
 
-/// 结构化种子：用于验证 Dimensions 相关分支（P5 表中未单列，但同属 §6.3）。
 StructuredMesh::Pointer MakeStructuredSeed() {
     auto mesh = StructuredMesh::New();
     const int nx = 4;
@@ -752,8 +712,7 @@ int main(int argc, char** argv) {
     }
 
     std::cerr << "================================================================\n"
-              << "IGV P5 acceptance (1/2): malformed files must be rejected, never crash\n"
-              << "Covers kia/igv implementation plan section 9 (P5-1..P5-11, P5-14)\n"
+              << "IGV acceptance (1/2): malformed files must be rejected, never crash\n"
               << "================================================================\n"
               << "Working dir   : " << fs::current_path().string() << "\n"
               << "Temp dir      : " << WorkDir().string() << "\n";
@@ -880,7 +839,6 @@ int main(int argc, char** argv) {
          },
          "overflows"},
 
-        // ---- 以下属 §6.3 同一张表，成本几乎为零，一并钉住 ----
         // 注意：禁止表的 name 是 "Face"（不是 "IG_FACE"），reason 里写了"value 3 is VTK_LINE"。
         {"+ Types contains the forbidden code IG_FACE(3)", "px_types_forbidden.igv",
          [](hid_t f, const fs::path&, std::string& e) { return WriteU8Element(f, "/IGV/Types", 0, 3, e); },
@@ -940,7 +898,6 @@ int main(int argc, char** argv) {
          [](hid_t f, const fs::path&, std::string& e) { return DeleteObject(f, "/IGV/Version", e); },
          "Version"},
 
-        // ---- 1.x：显式 dtype 声明必须与 HDF5 类型一致（§3.6 / §6.3）----
         // 这三条是"类型宽度不靠猜"的守卫：任何一个声明与实际类型不符，都要在
         // **读任何数据之前**拒绝，而不是"以某个为准"地继续读。
         {"+ DataType disagrees with the HDF5 type", "px_dtype_mismatch.igv",
@@ -959,7 +916,6 @@ int main(int argc, char** argv) {
          },
          "requires agreement"},
 
-        // ---- §3.7 / §6.3：多面体（二级索引）的声明与数据必须自洽 ----
         {"+ TopologyIndex is an unknown value", "px_topomode_unknown.igv",
          [](hid_t f, const fs::path&, std::string& e) {
              TypedHandle root(H5Gopen2(f, "/IGV", H5P_DEFAULT), Obj::Group);
@@ -1073,7 +1029,6 @@ int main(int argc, char** argv) {
     // -------------------------------------------------------------------------
     //
     // 背景（要保证的正确行为）：
-    //   §12.1 / §12.2 明确本期**不实现**多块与时变的读写，并把 P6 的唯一目的定为
     //   「不静默丢数据」：含 `Block_*` 子组（多块）或 `Steps` 组（单文件内嵌时变）的文件
     //   必须**拒绝**，绝不能把第一块 / 第 0 步当整体返回 —— 那种"部分成功"会让用户
     //   以为数据完整，比报错危险得多（P6-1 / P6-2）。
@@ -1087,7 +1042,6 @@ int main(int argc, char** argv) {
     //   P6-6 是**写侧**的同一条危险：五类网格之一若自带子块，类型检查会放行，
     //   而写出实现只遍历父对象自己的几何 —— 子块就被静默丢弃。
     //
-    // 明确**不**声称覆盖：真正读写多块 / 时变（属 kia/未来任务.md F5 / F6，本期不做）。
 
     // --- P6-1 + P6-2: 多块探测、显式拒绝、返回 nullptr ---
     {
@@ -1213,7 +1167,6 @@ int main(int argc, char** argv) {
             ExpectReject("P6-3b a file with a Steps group (single-file time series)", p,
                          "time series is not supported");
 
-            // 元数据快路径同样拒绝（与 P6-2b 同理，见 §12.1.3）。
             igv::IGVMetadata meta;
             std::string metaError;
             const bool metaOk = IGVMetadataReader::ReadFromFile(p.string(), meta, &metaError);
@@ -1238,7 +1191,6 @@ int main(int argc, char** argv) {
               "P6-4 the structured single-block seed is unaffected too (36 points + Dimensions)");
     }
 
-    // --- P6-5: 格式表里不存在 MultiBlock 的 Type 取值（§1.4 原则 1）---
     {
         using namespace iGame::igv;
         Check(!IsSupportedTypeToken("MultiBlock") && !IsSupportedTypeToken("MultiBlockDataSet"),

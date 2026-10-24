@@ -1,40 +1,14 @@
 /**
- * @file  TestIGVMetadata.cpp
- * @brief P3 验收程序：IGV 元数据快路径（V3.1–V3.5）。
+ * @file TestIGVMetadata.cpp
+ * @brief IGV metadata fast-path tests.
  *
- * 对应 `kia/igv分阶段实现方案.md` §7（元数据快路径）/ §9 P3 / §11.3（零解压可断言化）。
+ * The fast path must return the same bounds, counts, and array descriptors as a full
+ * read without reading data datasets. IGVStats::h5dreadCount must be exactly 1 (the
+ * uncompressed Version dataset); any data read decompresses chunks and is a regression.
  *
- * ## 这个测试为什么存在（防止什么退化）
- *
- * 快路径的价值全部建立在一个物理事实上：**不读 dataset 数据就不会解压 gzip chunk**。
- * 这条约束如果只写在文档里，第一次有人为了省事在快路径里顺手 `H5Dread` 一下 `Points`
- * 就会悄悄破功，而且**功能测试全绿**（返回值依然正确，只是慢了几十秒）——这类退化用
- * 「结果对不对」永远测不出来，只能用**调用计数**测。
- *
- * 因此本测试的核心不是「元数据对不对」，而是：
- *   1. 元数据必须与全量读路径**独立对得上**（两套代码，结果一致才说明双方都对，V3.3）；
- *   2. 快路径期间 `IGVStats::h5dreadCount` 必须恰好为 **1**（唯一允许的是 16 字节的
- *      `Version` dataset，写侧 `compress=false` 永不解压）；任何数据读取都会让它 > 1。
- *
- * ## 重要边界用例及其原因
- *
- * - **`hasBounds == false` 的文件（写侧未提供 Bounds）**：快路径**不得**回落到读 `Points`
- *   去现算包围盒（§7.2 末条）。这类文件在 V3.3 中跳过 bounds 比对，而不是让测试去「补算」。
- * - **`PointSet`（无拓扑）**：`cellCount` 必须为 0 且 `hasCellCount == false`，
- *   防止把「没有单元」误报成「0 个单元」，从而与「未知」混淆。
- * - **多分量属性（components > 1）**：`range` 长度必须是 `2*(1+components)`，
- *   `components` 必须取自 dataspace 的第 2 维而不是靠猜；且 range 的数值要与
- *   **读回数据重算**的结果一致（不拿文件里的 range 自证，避免「写出和写错一起错」）。
- * - **内存镜像路径**：`ReadFromMemory` 与 `ReadFromFile` 必须给出**完全相同**的元数据
- *   （C/S 端拿到的是字节流而不是路径）。
- *
- * ## 修复/实现提交状态
- *
- * **待提交**（P3 实现尚未提交）。首次提交后，用下面的命令回填真实提交号并更新本段：
- *
- * ```
- * git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVMetadata.cpp
- * ```
+ * Boundary cases: a file without Bounds must not fall back to reading Points; PointSet
+ * must report no cells rather than zero cells; multi-component ranges must come from
+ * dataspace and match values recomputed from the data; memory and file paths must agree.
  */
 
 #include <iGameCellType.h>
@@ -88,7 +62,6 @@ std::string Str(double v) {
     return buf;
 }
 
-/// attachment 枚举 → IGV token（与写侧 §3.8 一致）。
 std::string AttachmentToken(IGenum a) {
     switch (a) {
         case IG_POINT: return "point";
@@ -103,7 +76,6 @@ std::string AttachmentToken(IGenum a) {
     }
 }
 
-/// 从读回的数组**重新计算** range（§8.2 语义），用于与快路径报告的 range 交叉验证。
 ///
 /// 为什么不直接比较文件里写的 range：那等于用「写出方的输出」给「同一份输出」做证词。
 /// 重算走的是「数据 → range」，与写侧「数据 → range」独立实现，双方一致才有意义。
@@ -317,7 +289,6 @@ void CheckOneFile(const fs::path& path, int64_t& outPoints, int64_t& outCells) {
     // "点数 == 0" 当失败；下面的逐值校验对空网格本来也没有意义，直接跳过并**明说**。
     if (meta.pointCount == 0) {
         // ASCII only: new console output must not add to the file's pre-existing
-        // non-ASCII debt (see kia/P5实施记录.md section 5).
         std::cout << "   [skip] this file has 0 points (empty mesh / a rejection-path artifact); "
                      "the point-count dependent V3.1 checks do not apply to it\n";
         outPoints = 0;
@@ -351,9 +322,8 @@ void CheckOneFile(const fs::path& path, int64_t& outPoints, int64_t& outCells) {
                       std::to_string(full.cellCount) + "）");
     }
 
-    // ---- V3.3：bounds。文件没写 Bounds 时**不允许**回落算（§7.2 末条） ----
     if (!meta.hasBounds) {
-        std::cout << "   bounds: 文件未提供（hasBounds=false），按 §7.2 不回落读 Points\n";
+        std::cout << "   bounds: 文件未提供（hasBounds=false），按  不回落读 Points\n";
     } else {
         Check(full.hasBounds, "V3.3 文件有 Bounds → 全量读也能算出 bounds");
         if (full.hasBounds) {

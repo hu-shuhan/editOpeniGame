@@ -3,28 +3,17 @@
 
 /**
  * @file  iGameIGVHdf5Util.h
- * @brief IGV 的 HDF5 底层小工具集合（attribute / dataset / dtype / chunk / filter）。
+ * @brief HDF5 helpers for IGV: attributes, datasets, dtype mapping, chunking, filters.
  *
- * 设计约束（见 kia/igv分阶段实现方案.md §4.2、§4.4、§13 第 7 条）：
- *   **HDF5 头文件只允许出现在 IGV 的 .cpp 中**，公共头一律不得 include <hdf5.h>
- *   —— 否则 HDF5 的类型/宏会污染所有既有编译单元。
+ * HDF5 headers must stay inside IGV implementation units. This file is a private
+ * implementation header; it may be included by the IGV writer, reader, and metadata
+ * reader .cpp files, never by a public header.
  *
- *   因此本文件**只允许被 iGameIGVWriter.cpp / iGameIGVReader.cpp /
- *   （将来的）iGameIGVMetadataReader.cpp 这类 .cpp include**，不得被任何
- *   对外头文件 include。文件名用 .h 而非 .cpp 只是为了共享实现，
- *   职责上等同于"私有实现细节"。
+ * iGameIGVFormat.h holds names and values with no HDF5 dependency.
+ * This file holds HDF5 call wrappers and no format constants.
  *
- * 与 iGameIGVFormat.h 的分工：
- *   iGameIGVFormat.h —— **字符串与数值常量**（纯数据，无 HDF5）
- *   iGameIGVHdf5Util.h —— **HDF5 调用包装**（只有函数，无规范常量）
- *
- * 为什么要有这一层（而不是在 writer/reader 里直接调 HDF5）：
- *   1. 每个 HDF5 C API 都有 hid_t 的 close 语义与错误栈处理，散落调用必然漏 close
- *      （§5.4 要求"HDF5 任一调用失败逐层 H5Eclear 后 return false"）。
- *   2. P3 的 MetadataReader 需要"只读 attribute、绝不碰 dataset"这条硬约束
- *      （§7.2）。把 attribute 读取集中在一处，这条约束才可能被审计与测试。
- *   3. P3 明确建议把底层小工具共享、只让流程编排独立（§9 P3 "为什么它必须
- *      独立于 IGVReader"）。
+ * The wrapper layer centralizes handle lifetime, error-stack clearing, and the metadata
+ * reader's attribute-only rule.
  */
 
 #include <hdf5.h>
@@ -47,7 +36,7 @@ namespace igv {
 // 0. 计数器
 // =============================================================================
 //
-// struct IGVStats 已抽到 iGameIGVStats.h（P3）：它不含 HDF5 类型，独立成文件后
+// struct IGVStats 已抽到 iGameIGVStats.h：它不含 HDF5 类型，独立成文件后
 // 验收程序/FileIO 不必为了看计数而依赖 <hdf5.h>。这里只保留一句转发说明。
 
 
@@ -57,7 +46,6 @@ namespace igv {
 
 /// 清空 HDF5 错误栈。
 ///
-/// §5.4：HDF5 任一调用失败要"逐层 H5Eclear 后 return false，不透传 HDF5 错误栈
 /// 到上层日志"。HDF5 的错误栈是全局的，不清会在日志里刷出大量与本次失败无关的
 /// 历史错误，掩盖真实原因。
 inline void ClearHdf5Errors() {
@@ -146,7 +134,6 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
     }
 }
 
-/// 内存侧（读写用）的 native 类型。§3.5.0："读入按 H5T_NATIVE_* 匹配，
 /// 规避 long/int 平台宽度歧义"。
 [[nodiscard]] inline hid_t NativeTypeOf(DType t) {
     switch (t) {
@@ -184,7 +171,6 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
     H5T_order_t order = H5T_ORDER_NONE;
     if (cls == H5T_FLOAT || cls == H5T_INTEGER) { order = H5Tget_order(typeId); }
 
-    // 端序：小端要求（§3.3）。
     // 注意 H5Tget_order 对"同 native"的类型可能返回 H5T_ORDER_NONE（表示无端序概念，
     // 例如某些虚拟类型）。H5T_IEEE_F32LE / H5T_STD_I32LE 明确返回 LE。
     if (requireLittleEndian && order != H5T_ORDER_LE && order != H5T_ORDER_NONE) {
@@ -198,7 +184,6 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
     }
     if (cls == H5T_INTEGER) {
         // 整数按 **(符号, 宽度)** 唯一确定一个定宽 DType —— 不再有"只认 u8/i32/i64"
-        // 的白名单：VTK 的全部整型都要能无损进出（§3.5 的 10 类 dtype）。
         if (sign == H5T_SGN_NONE) {
             switch (size) {
                 case 1: out = DType::U8;  return true;
@@ -220,7 +205,6 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
 }
 
 // =============================================================================
-// 4. 定长 ASCII attribute（§3.3：定长 ASCII + H5T_STR_NULLPAD）
 // =============================================================================
 
 /// 建一个定长 ASCII 类型（NULLPAD，与 VTKHDF / P0 golden 样例一致）。
@@ -238,7 +222,6 @@ inline constexpr size_t kMaxAsciiAttributeBytes = 128;
  * 写文本 attribute（定长 ASCII / NULLPAD）。
  *
  * 这是零解压元数据的载体：attribute 存在 HDF5 对象头里，**永不压缩**
- * （§3.3），因此读取时不需要任何 dataset 解压。
  */
 inline bool WriteAsciiAttribute(hid_t loc, std::string_view name, std::string_view value) {
     // 规范里的 attribute 值都以 '\0' 结尾的定长串存储；长度取"包括结尾 NUL"
@@ -319,7 +302,6 @@ inline bool WriteI64ArrayAttribute(hid_t loc, std::string_view name,
 }
 
 // =============================================================================
-// 5. attribute 读取（只碰 attribute，绝不碰 dataset —— §7.2）
 // =============================================================================
 
 /**
@@ -476,7 +458,6 @@ inline bool ReadI64ArrayAttribute(hid_t loc, std::string_view name,
 //
 // 注意区分：
 //   * `PeekDataset*` 系列会 H5Dopen —— 因此**不能**出现在元数据快路径里
-//     （§7.2 禁止 H5Dopen）。它们只服务 IGVReader 与测试的结构校验。
 //   * `Attribute*` 系列只 H5Aopen，可以在快路径使用。
 
 /// dataset 是否存在（用 H5Lexists，不打开）。
@@ -552,7 +533,6 @@ inline int PeekDatasetShape(hid_t loc, std::string_view name, std::vector<hsize_
     return rank;
 }
 
-/// 读 dataset 的当前维度与最大维度（用于 §3.5.0 的「固定 dataspace」断言）。
 inline bool ReadDatasetDimsAndMaxDims(hid_t loc, std::string_view name,
                                       std::vector<hsize_t>& dims,
                                       std::vector<hsize_t>& maxDims) {
@@ -583,7 +563,6 @@ inline bool ReadDatasetDimsAndMaxDims(hid_t loc, std::string_view name,
 // 7. dataset 写入（chunk + deflate）
 // =============================================================================
 
-/// chunk 尺寸策略（§5.3）。
 ///
 /// ```
 /// rank == 1                      → { min(n, kChunkRows) }
@@ -592,7 +571,6 @@ inline bool ReadDatasetDimsAndMaxDims(hid_t loc, std::string_view name,
 /// 小 dataset（未压缩字节数 < kChunkMinBytes）→ 不 chunk、不压缩。
 /// ```
 ///
-/// 阈值是 P7 之前使用的**初值**（§5.3 末注），由 P7-1…P7-3 实测回调。
 inline constexpr size_t kChunkTargetBytes = 1024 * 1024;  ///< 1 MiB
 inline constexpr size_t kChunkMinBytes = 4 * 1024;        ///< 4 KiB
 inline constexpr unsigned kDeflateLevel = 1;              ///< A4：默认 gzip(1)
@@ -618,7 +596,6 @@ inline constexpr unsigned kDeflateLevel = 1;              ///< A4：默认 gzip(
 
     std::vector<hsize_t> chunk(static_cast<size_t>(dims.size()), 0);
     chunk[0] = static_cast<hsize_t>(rows);
-    // 沿元素维切分，**不得切断单条记录**（§3.3 chunk 约定）
     for (size_t i = 1; i < dims.size(); ++i) { chunk[i] = dims[i]; }
     return chunk;
 }
@@ -626,7 +603,6 @@ inline constexpr unsigned kDeflateLevel = 1;              ///< A4：默认 gzip(
 /**
  * 写一个 dataset。
  *
- * @param dims        维度（当前维度，§A16 固定 dataspace：maxdims == dims）
  * @param elemCount   元素总数（= dims 的乘积）
  * @param data        内存数据（native 类型，HDF5 自动做端序转换）
  * @param compress    是否使用 gzip
@@ -680,11 +656,8 @@ inline bool WriteCountDataset(hid_t loc, std::string_view name, int64_t value) {
 }
 
 /**
- * 回读某个 dataset 的**实际落盘元素数**（§5.2）。
  *
- * §5.2 强制要求：计数组必须用"回读实际维度"填充，不能用写前算好的期望值。
  * 一旦写前计算与实际写出不一致（例如属性被静默截断），用期望值填的计数组会
- * 「自洽地错」，读取侧的交叉校验（§6.3）将无法发现问题。
  *
  * ⚠ 语义（曾写错，导致五类网格**全部**写出失败）：
  *   `NumberOfPoints` 是 **Points 的第一维**（点数），**不是** dims 的乘积。

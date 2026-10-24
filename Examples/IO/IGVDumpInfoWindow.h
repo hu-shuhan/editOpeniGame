@@ -12,11 +12,8 @@
  * 数据来源是 IGV 的**元数据快路径**（`IGVMetadataReader`），因此：
  *   * 打开一个 5 GiB 的 `.igv` 也只需读 HDF5 的 attribute（+ 一次 `Version`），
  *     不解压任何 dataset —— 与 `igvDump` 的定位一致（诊断/查看，不动数据）。
- *   * 面板里显示的 `Bounds` 与每个属性的 `Ranges` 都是**文件里预计算好的**
- *     （IGV 相对 IGC 的增值项，见 `kia/igv分阶段实现方案.md` §3.4 / §8），
- *     不是本工具现算的 —— 所以它同时也是一个"写出侧的 range 到底对不对"的检查入口。
- *
- * 用法与右键集成见 `Examples/IO/igvDump_GUI.md`。
+ *   * 面板里显示的 `Bounds` 与每个属性的 `Ranges` 都是文件里预计算好的，
+ *     不是本工具现算的；它同时可以检查写出侧的 range 是否正确。
  */
 
 #include <string>

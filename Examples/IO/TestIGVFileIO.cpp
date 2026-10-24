@@ -1,39 +1,15 @@
 /**
- * @file  TestIGVFileIO.cpp
- * @brief IGV P2 验收程序：把 IGV 变成 FileIO 的一等公民。
+ * @file TestIGVFileIO.cpp
+ * @brief IGV FileIO integration tests.
  *
- * 对应 kia/igv分阶段实现方案.md §9「P2 — 接入既有框架」与 P2-1…P2-10；
- * 记录见 kia/P2实施记录.md。
+ * Verifies suffix dispatch and type names, write/read and memory read, existing-format
+ * regression, and graceful failure when ENABLE_IGV_MODULE is off.
  *
- * 为什么需要这个程序（测试要保证的行为）：
+ * Boundary cases: a renamed non-.igv file must not reach the IGV reader; a missing path
+ * must fail cleanly; ReadIGVFromMemory(nullptr, 0) must be rejected before HDF5.
  *
- *   P1 的 TestIGVRoundTrip.cpp 是**直接实例化** IGVReader/IGVWriter 的，因此它
- *   证明了「读写核心正确」，却完全没有碰 FileIO 的分派逻辑。而 P2 的全部风险
- *   恰好集中在分派层：
- *
- *   1. `FileType` 枚举插入位置若不在 FILETYPE_COUNT 之前、或不慎改变了既有取值，
- *      会让所有既有格式的 `switch` 分支错位 —— 这类错误**不会**在编译期报出来。
- *   2. `GetFileType` 的后缀分支与 `GetFileTypeAsString` 的字符串必须成对新增，
- *      否则日志里出现 "NONE" 而实际能读，排查会被误导。
- *   3. `ENABLE_IGV_MODULE=OFF` 的构建里，`.igv` 仍要被**识别**（后缀识别与模块
- *      门控无关），但读取必须**明确失败**而不是崩溃或静默返回空对象。
- *   4. `ReadIGVFromMemory` 与 `ReadIGCFromMemory` 同构，必须与文件路径逐值等价
- *      （P1 的 V1.5 已在 Reader 层验证过；这里验证 FileIO 封装层没有引入差异，
- *      例如 FinalizeLoadedObject 的属性重排改变了属性集合）。
- *
- * 边界用例的原因：
- *   - `.bin` 改名用例（P2-6）：证明分派真的看后缀，而不是"任何文件都试着当 IGV 读"。
- *   - 不存在的 `.igv` 路径：证明分派把路径交给 Reader 后，Reader 的失败不会变成崩溃。
- *   - `ReadIGVFromMemory(nullptr, 0)`：证明封装层自己做了入参校验，而不是把空指针
- *     塞给 HDF5。
- *
- * 本程序**不**声称覆盖：P2-9（GUI 对话框里肉眼看到 IGV 选项）与 P2-10（远程包
- * 校验单测的运行）。这两项的源码级改动由 `kia/tools/CheckIGVQtIntegration.py`
- * 做机械核对，运行级验证需要 Qt 构建与一次人工打开对话框（见 P2 实施记录 §5）。
- *
- * 提交状态：待提交。测试与实现同次首次提交，因此无法记录自引用提交号；
- * 可用 `git log --diff-filter=A --format="%h %s" -- Examples/IO/TestIGVFileIO.cpp`
- * 查询引入本文件的提交。
+ * Not covered here: the GUI file dialog and remote-package validation, which need a Qt
+ * build and manual interaction.
  */
 
 #include <iGameCellType.h>
@@ -332,8 +308,7 @@ int main(int argc, char** argv) {
     const fs::path modelsDir = FindModelsDir(argc > 0 ? argv[0] : nullptr);
 
     std::cerr << "================================================================\n"
-              << "IGV P2 acceptance: FileIO integration\n"
-              << "Covers kia/igv implementation plan, section 9 (P2)\n"
+              << "IGV acceptance: FileIO integration\n"
               << "================================================================\n"
               << "Working dir : " << fs::current_path().string() << "\n"
               << "Temp dir    : " << work.string() << "\n"
@@ -371,7 +346,6 @@ int main(int argc, char** argv) {
         Check(FileIO::GetFileTypeAsString(FileIO::NONE) == "NONE",
               "GetFileTypeAsString(NONE) == \"NONE\" (unchanged)");
         // IGV 必须是 FILETYPE_COUNT 之前的最后一个取值：这样它既被 switch 覆盖，
-        // 又不会挪动任何既有枚举值（§9 P2 第 1 条）。
         Check(FileIO::IGV == FileIO::FILETYPE_COUNT - 1,
               "IGV is the last enumerator before FILETYPE_COUNT");
     }
@@ -568,7 +542,6 @@ int main(int argc, char** argv) {
     // =========================================================================
     Section("P2-8 no regression on existing formats (suffix table + a real read/write)");
     {
-        // 8.1 后缀 → 类型：全部用**枚举符号**比较，避免人工转写数值（测试准则 §2.1）。
         struct SuffixCase {
             const char* file;
             IGenum expected;
@@ -729,7 +702,7 @@ int main(int argc, char** argv) {
         Info("P2-9 (IGV visible in the Qt open dialog) and P2-10 (remote package "
              "validation unit test) are Qt-side items: they need a Qt build plus a "
              "manual dialog check. Their source-level changes are verified by "
-             "kia/tools/CheckIGVQtIntegration.py; this program does NOT claim to cover them.");
+             "; this program does NOT claim to cover them.");
     }
 
     std::cerr << "\n================================================================\n"
