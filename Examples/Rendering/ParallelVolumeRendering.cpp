@@ -68,8 +68,11 @@
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <sstream>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -77,6 +80,14 @@
 
 #if defined(__linux__)
 #  include <sched.h>   // sched_getaffinity：拿到本进程真正可用的核数（srun --cpu-bind 后）
+#endif
+#if !defined(_WIN32)
+#  include <unistd.h>  // gethostname / getpid（启动日志里的节点名与进程号）
+#endif
+#if defined(_WIN32)
+// Winsock2 已由 ParallelVolumeProtocol.h 先行包含，这里再引入 windows.h 不会冲突
+// （否则 windows.h 里的 winsock.h 会与 winsock2.h 重定义）。
+#  include <windows.h> // GetComputerNameA / GetCurrentProcessId
 #endif
 
 #include <GLFW/glfw3.h>
@@ -116,6 +127,171 @@ int DetectUsableCoreCount() {
     }
     if (n <= 0) { n = 1; }
     return n;
+}
+
+// ---------------------------------------------------------------------------
+// 启动 / 加载日志用的小工具。
+//
+// 为什么用「主机名」定位节点，而不是 MPI_Get_processor_name：
+//   · 本示例必须能在 IGAME_ENABLE_MPI=OFF 的单进程构建下编译（ParallelContext 退化为
+//     Rank()==0 / Size()==1）；直接调用 MPI 符号会破坏无 MPI 构建；
+//   · gethostname（Linux/macOS）与 GetComputerName（Windows）在所有档次的机器（本机、
+//     容器、超算计算节点）上都存在，返回的就是「这个进程跑在哪台机器上」，与
+//     MPI_Get_processor_name 返回的节点名是同一信息；
+//   · 用 rank 0 汇总出的「节点 -> rank 区间」映射，就能定位「哪个分块文件在哪台机器上
+//     加载」，并且对 1000 rank 也只打印几十行。
+// ---------------------------------------------------------------------------
+std::string LocalHostName() {
+#if defined(_WIN32)
+    char buf[256] = {0};
+    DWORD len = static_cast<DWORD>(sizeof(buf));
+    if (GetComputerNameA(buf, &len) != 0 && len > 0) {
+        return std::string(buf, static_cast<size_t>(len));
+    }
+#else
+    char buf[256] = {0};
+    if (gethostname(buf, sizeof(buf) - 1) == 0 && buf[0] != '\0') {
+        return std::string(buf);
+    }
+#endif
+    const char* env = std::getenv("HOSTNAME");
+    if (!env || !*env) { env = std::getenv("COMPUTERNAME"); }
+    return (env && *env) ? std::string(env) : std::string("unknown");
+}
+
+long CurrentProcessId() {
+#if defined(_WIN32)
+    return static_cast<long>(GetCurrentProcessId());
+#else
+    return static_cast<long>(getpid());
+#endif
+}
+
+const char* TargetArchName() {
+#if defined(_M_X64) || defined(__x86_64__)
+    return "x86_64";
+#elif defined(_M_ARM64) || defined(__aarch64__)
+    return "aarch64";
+#elif defined(__EMSCRIPTEN__)
+    return "wasm";
+#else
+    return "unknown";
+#endif
+}
+
+std::string CompilerName() {
+#if defined(_MSC_VER)
+    return "MSVC " + std::to_string(_MSC_VER);
+#elif defined(__clang__)
+    return "Clang " + std::to_string(__clang_major__) + "." +
+           std::to_string(__clang_minor__) + "." +
+           std::to_string(__clang_patchlevel__);
+#elif defined(__GNUC__)
+    return "GCC " + std::to_string(__GNUC__) + "." +
+           std::to_string(__GNUC_MINOR__) + "." +
+           std::to_string(__GNUC_PATCHLEVEL__);
+#else
+    return "unknown";
+#endif
+}
+
+// 环境变量快照：未设置时返回 "-"（日志里显式可见，而不是留空）。
+std::string EnvOrDash(const char* name) {
+    const char* v = std::getenv(name);
+    return (v && *v) ? std::string(v) : std::string("-");
+}
+
+// 人类可读字节数："1.23 GiB (1324567890 bytes)"；< 1 KiB 时只打整数 B。
+std::string FormatBytes(double bytes) {
+    static const char* kUnits[] = {"B", "KiB", "MiB", "GiB", "TiB", "PiB"};
+    if (!(bytes > 0.0)) { return "0 B"; }
+    int unit = 0;
+    double v = bytes;
+    while (v >= 1024.0 && unit < 5) {
+        v /= 1024.0;
+        ++unit;
+    }
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(unit == 0 ? 0 : 2) << v << ' '
+        << kUnits[unit];
+    if (unit > 0) {
+        oss << " (" << static_cast<long long>(bytes) << " bytes)";
+    }
+    return oss.str();
+}
+
+std::string FormatSeconds(double sec) {
+    std::ostringstream oss;
+    if (sec < 1.0) {
+        // 亚秒级用毫秒，避免大量 0.00s 看不出差异（重采样常只有几毫秒）。
+        oss << std::fixed << std::setprecision(sec < 0.1 ? 2 : 1) << sec * 1000.0
+            << "ms";
+    } else {
+        oss << std::fixed << std::setprecision(sec < 10.0 ? 2 : 1) << sec << "s";
+    }
+    return oss.str();
+}
+
+std::string FormatMs(double ms) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(ms < 10.0 ? 2 : 1) << ms << "ms";
+    return oss.str();
+}
+
+// 体素数：134217728 (134.21 Mvox)。
+std::string FormatVoxels(double v) {
+    std::ostringstream oss;
+    oss << static_cast<long long>(v);
+    if (v >= 1e9) {
+        oss << " (" << std::fixed << std::setprecision(2) << v / 1e9 << " Gvox)";
+    } else if (v >= 1e6) {
+        oss << " (" << std::fixed << std::setprecision(2) << v / 1e6 << " Mvox)";
+    } else if (v >= 1e3) {
+        oss << " (" << std::fixed << std::setprecision(1) << v / 1e3 << " Kvox)";
+    }
+    return oss.str();
+}
+
+double MsSince(const std::chrono::steady_clock::time_point& a,
+               const std::chrono::steady_clock::time_point& b) {
+    return std::chrono::duration<double, std::milli>(b - a).count();
+}
+
+double SecSince(const std::chrono::steady_clock::time_point& a,
+                const std::chrono::steady_clock::time_point& b) {
+    return std::chrono::duration<double>(b - a).count();
+}
+
+// 打印「节点 -> rank 区间」映射（仅 rank 0 调用）。连续 rank 合并成 "0-17" 这样的区间，
+// 1000 rank / 56 节点也只占几十行；节点数超过 kMaxNodes 时截断，避免日志爆炸。
+void PrintNodeMap(const std::map<std::string, std::vector<int>>& byNode, int size) {
+    std::cout << "[nodes] " << byNode.size() << " node(s) hosting " << size
+              << " rank(s):\n";
+    constexpr std::size_t kMaxNodes = 64;
+    std::size_t printed = 0;
+    for (const auto& kv : byNode) {
+        if (printed++ >= kMaxNodes) {
+            std::cout << "[nodes] ... (" << (byNode.size() - kMaxNodes)
+                      << " more node(s) omitted)\n";
+            break;
+        }
+        std::cout << "[nodes]   " << kv.first << " (" << kv.second.size()
+                  << " rank(s)): ";
+        const auto& ranks = kv.second;
+        for (std::size_t i = 0; i < ranks.size();) {
+            std::size_t j = i;
+            while (j + 1 < ranks.size() && ranks[j + 1] == ranks[j] + 1) { ++j; }
+            if (i > 0) { std::cout << ", "; }
+            if (j > i) {
+                std::cout << ranks[i] << '-' << ranks[j];
+            } else {
+                std::cout << ranks[i];
+            }
+            i = j + 1;
+        }
+        std::cout << '\n';
+    }
+    std::cout.flush();
 }
 
 // 本进程写入 PNG 的时间戳（秒级）；同一批合成图用同一时间戳。
@@ -310,10 +486,12 @@ void PrintUsage(const char* prog) {
             << "                           to rank 0, O(sum of ROI areas).\n"
             << "      --binary-swap        binary-swap compositing (cf. IceT\n"
             << "                           icetBSwapCompose): ceil(log2 P) rounds of pairwise\n"
-            << "                           half-image exchange plus ordered over, work spread\n"
+            << "                           half-ROI exchange plus ordered over, work spread\n"
             << "                           over all ranks and no rank-0 hotspot; meant for\n"
-            << "                           thousands of ranks. If given together with\n"
-            << "                           --direct, the last one wins.\n"
+            << "                           thousands of ranks. Prefer --direct at ~1k ranks:\n"
+            << "                           binary-swap is a globally synchronized blocking\n"
+            << "                           P2P wave and can stall interactive frames. If given\n"
+            << "                           together with --direct, the last one wins.\n"
             << "      --blockwise          Depth criterion for compositing (default): one\n"
             << "                           depth per rank (that of the super-block center),\n"
             << "                           and rank 0 blends whole images in that global\n"
@@ -506,6 +684,7 @@ CliOptions ParseCli(int argc, char** argv) {
 int main(int argc, char** argv) {
     using namespace iGame;
 
+    const auto tProgram0 = std::chrono::steady_clock::now();
     ParallelContext::Initialize(&argc, &argv);
     auto ctx = ParallelContext::Instance();
     const int rank = ctx->Rank();
@@ -513,14 +692,8 @@ int main(int argc, char** argv) {
 
     // iGame 线程池线程数按「本进程实际可用核数」设定（默认 12 在 --cpu-bind=cores 场景
     // 是 12 倍超订）。必须在任何 parallelFor（重采样 / 光线步进 / 砖块构建）之前设置。
-    {
-        const int cores = DetectUsableCoreCount();
-        ThreadPool::SetDefaultThreadCount(cores);
-        if (rank == 0) {
-            std::cerr << "[threads] iGame ThreadPool default thread count = "
-                      << cores << " (usable cores = " << cores << ")\n";
-        }
-    }
+    const int usableCores = DetectUsableCoreCount();
+    ThreadPool::SetDefaultThreadCount(usableCores);
 
     const CliOptions cli = ParseCli(argc, argv);
 
@@ -550,24 +723,116 @@ int main(int argc, char** argv) {
     // 渲染后端：默认 --cpu（阶段 4 生产后端）；--gpu 走阶段 3 验证通路。
     const bool useCPU = !cli.useGPU;
 
+    // 输入标识与节点名：启动横幅和加载汇总都要用（相对路径 + 绝对路径各留一份，
+    // 便于在作业日志里确认「跑的到底是哪份数据」）。
+    const std::string inputName =
+            std::filesystem::path(input).filename().string();
+    std::string inputAbs = input;
+    {
+        std::error_code ecAbs;
+        const auto absPath = std::filesystem::weakly_canonical(input, ecAbs);
+        if (!ecAbs) { inputAbs = absPath.string(); }
+    }
+    const std::string localNode = LocalHostName();
+
+    // 节点映射：各 rank 上报自己的主机名，rank 0 打印「节点 -> rank 区间」。
+    // 这是集合通信，所有 rank 必须调用；放在分发器之前，保证启动日志先于（可能很慢的）
+    // 全量分块扫描出现。rankNodes 只在 rank 0 上有效。
+    std::map<std::string, std::vector<int>> nodeMap;
+    {
+        constexpr int kNodeNameBytes = 64;
+        std::vector<char> sendNode(kNodeNameBytes, '\0');
+        std::strncpy(sendNode.data(), localNode.c_str(), kNodeNameBytes - 1);
+        std::vector<char> recvNodes;
+        if (rank == 0) {
+            recvNodes.assign(static_cast<size_t>(size) * kNodeNameBytes, '\0');
+        }
+        ctx->Gather(sendNode.data(), rank == 0 ? recvNodes.data() : nullptr,
+                    kNodeNameBytes, 0);
+        if (rank == 0) {
+            for (int r = 0; r < size; ++r) {
+                const char* begin =
+                        recvNodes.data() + static_cast<size_t>(r) * kNodeNameBytes;
+                const char* end = std::find(begin, begin + kNodeNameBytes, '\0');
+                nodeMap[std::string(begin, end)].push_back(r);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 启动横幅（rank 0）：程序/构建、输入文件、后端与模式、规模与核心、调度器环境。
+    // 只打一次，方便在 server_%j.out 开头直接确认「这份作业跑的什么数据、开了多少进程/核」。
+    // -------------------------------------------------------------------------
+    if (rank == 0) {
+        const std::string mode = cli.server
+                                         ? (useCPU ? "server" : "server (ignored: GPU)")
+                                         : (cli.interactive
+                                                    ? (useCPU ? "interactive"
+                                                              : "interactive (ignored: GPU)")
+                                                    : "batch");
+        std::cout << "[env] ===== iGameVis parallel volume rendering backend =====\n";
+        std::cout << "[env] program="
+                  << std::filesystem::path(argv[0]).filename().string()
+                  << " built=" << __DATE__ << ' ' << __TIME__
+                  << " compiler=" << CompilerName()
+                  << " arch=" << TargetArchName() << '\n';
+        std::cout << "[env] input=" << inputName << " path=" << inputAbs << '\n';
+        std::cout << "[env] backend=" << (useCPU ? "CPU" : "GPU")
+                  << " mode=" << mode << " timestep=" << timestep
+                  << " resample=" << resPerChunk
+                  << " composite=" << (cli.useBinarySwap ? "binary-swap" : "direct")
+                  << '/' << (cli.usePixelwise ? "pixelwise" : "blockwise") << '\n';
+        std::cout << "[env] ranks=" << size << " nodes=" << nodeMap.size()
+                  << " cores/rank=" << usableCores
+                  << " threads/rank=" << ThreadPool::GetDefaultThreadCount()
+                  << " hardware_concurrency=" << std::thread::hardware_concurrency()
+                  << " OMP_NUM_THREADS=" << EnvOrDash("OMP_NUM_THREADS") << '\n';
+        std::cout << "[env] scheduler: job=" << EnvOrDash("SLURM_JOB_ID")
+                  << " slurm_nodes=" << EnvOrDash("SLURM_NNODES")
+                  << " slurm_ntasks=" << EnvOrDash("SLURM_NTASKS")
+                  << " slurm_cpus/task=" << EnvOrDash("SLURM_CPUS_PER_TASK")
+                  << " ompi_size=" << EnvOrDash("OMPI_COMM_WORLD_SIZE")
+                  << " ompi_local_rank=" << EnvOrDash("OMPI_COMM_WORLD_LOCAL_RANK")
+                  << " pmi_size=" << EnvOrDash("PMI_SIZE") << '\n';
+        std::cout << "[env] node of rank 0: " << localNode
+                  << " pid=" << CurrentProcessId() << '\n';
+        std::cout.flush();
+        PrintNodeMap(nodeMap, size);
+    }
+
+    // 程序结束提示（rank 0）：--server 是持久服务，正常运行时只会因外部终止而退出，
+    // 所以正常路径上「最后一行」由加载汇总（见下）承担；这里补的是会话/批处理结束的时刻。
+    auto PrintRunEnd = [&](const char* reason) {
+        if (rank != 0) { return; }
+        std::cout << "[done] " << reason << " input=" << inputName
+                  << " wall=" << FormatSeconds(SecSince(tProgram0,
+                                                        std::chrono::steady_clock::now()))
+                  << '\n';
+        std::cout.flush();
+    };
+
     // 1. 文件级分发（阶段 7，对齐 UnifiedVersion/DataDistribution::ComputeDistribution）：
     //    解析 PVD/目录/单文件 → 各 rank 只扫 part%Size==rank 的分块包围盒 → AllReduce
     //    汇总 → 确定性排序 + 连续切块。每个 rank 只知道自己要读哪些分块文件，**不整读全量**。
+    const auto tDist0 = std::chrono::steady_clock::now();
     auto distributor = iGameVolumeDistributor::New();
     if (!distributor->ComputeFileDistribution(input, timestep)) {
         ParallelContext::Finalize();
         return 1;
     }
+    const auto tDist1 = std::chrono::steady_clock::now();
     const int nLocalFiles = distributor->GetNumberOfLocalPieceFiles();
 
     // 打印本 rank 分配到的分块（对标 TestPVolumeRender 的 rank/block/pieces 输出，
-    // 确认每个 rank 只读自己那部分分块）。
+    // 确认每个 rank 只读自己那部分分块）。带上节点名与 pid：这就是「这个分块在哪个
+    // node 上加载」的直接答案；分块清单本身按 part(文件名) 列出。
     {
         const auto blk = distributor->GetLocalBlock();
         std::ostringstream oss;
-        oss << "[rank " << rank << "] block=(" << blk.ix0 << ".." << blk.ix1 << ", "
-            << blk.iy0 << ".." << blk.iy1 << ", " << blk.iz0 << ".." << blk.iz1
-            << "), pieces=" << nLocalFiles << ": [";
+        oss << "[load] rank " << rank << " node=" << localNode
+            << " pid=" << CurrentProcessId() << " block=(" << blk.ix0 << ".."
+            << blk.ix1 << ", " << blk.iy0 << ".." << blk.iy1 << ", " << blk.iz0
+            << ".." << blk.iz1 << ") pieces=" << nLocalFiles << ": [";
         for (int i = 0; i < nLocalFiles; ++i) {
             if (i) { oss << ", "; }
             oss << distributor->GetLocalPiecePart(i) << "("
@@ -581,6 +846,7 @@ int main(int argc, char** argv) {
 
     // 2. 字段选择：优先用 --field 直接指定（srun 批处理无 stdin）；否则 rank0 读自己
     //    第 0 个分块列出可渲染字段并等待输入，随后广播给所有 rank。
+    const auto tField0 = std::chrono::steady_clock::now();
     char fieldBuf[1024] = {0};
     if (!cli.field.empty()) {
         std::strncpy(fieldBuf, cli.field.c_str(), sizeof(fieldBuf) - 1);
@@ -652,6 +918,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     const std::string selectedField(fieldBuf);
+    const auto tField1 = std::chrono::steady_clock::now();
 
     // 3. 多帧枚举：PVD 会解析出所有时间步（每帧分块数一致、相同 part 空间位置不变）；
     //    目录/单文件只有 1 帧。时间步按文件里实际出现的值记录（不一定从 0 开始），
@@ -713,20 +980,51 @@ int main(int argc, char** argv) {
         }
     }
 
+    // 加载统计（每个 rank 本地累计；全局汇总见下面的 [load-summary]）。
+    //   readSec / resampleSec      本 rank 的实际耗时（用于定位 IO 还是重采样慢）
+    //   startFrameDiskBytes        起始帧本 rank 分块在磁盘上的字节数（= 模型大小口径之一）
+    //   allFramesDiskBytes         所有帧实际读过的分块字节数（多帧数据的总 IO 量）
+    //   startFrameSourceBytes      起始帧源网格常驻内存（GetRealMemorySize 汇总分块）
+    double readSec = 0.0;
+    double resampleSec = 0.0;
+    double startFrameDiskBytes = 0.0;
+    double allFramesDiskBytes = 0.0;
+    double startFrameSourceBytes = 0.0;
+
+    const auto tLoad0 = std::chrono::steady_clock::now();
     double sourceMinSpacing = 0.0;
     for (int f = 0; f < numFrames; ++f) {
         auto composite = DataObject::New();
+        const auto tRead0 = std::chrono::steady_clock::now();
+        double frameDiskBytes = 0.0;
         for (int i = 0; i < nLocalFiles; ++i) {
-            auto piece = FileIO::ReadFile(distributor->GetLocalPieceFile(i, f));
+            const std::string& piecePath = distributor->GetLocalPieceFile(i, f);
+            // 文件大小（磁盘口径）与 ReadFile 的解析开销分开统计；file_size 只读元数据。
+            std::error_code sizeEc;
+            const auto fileBytes = std::filesystem::file_size(piecePath, sizeEc);
+            if (!sizeEc) { frameDiskBytes += static_cast<double>(fileBytes); }
+            auto piece = FileIO::ReadFile(piecePath);
             if (!piece) {
-                std::cerr << "[rank " << rank << "] failed to read "
-                          << distributor->GetLocalPieceFile(i, f) << '\n';
+                std::cerr << "[rank " << rank << "] failed to read " << piecePath
+                          << '\n';
                 ParallelContext::Finalize();
                 return 1;
             }
             composite->AddSubDataObject(piece);
         }
+        const auto tRead1 = std::chrono::steady_clock::now();
+        const double frameReadMs = MsSince(tRead0, tRead1);
+        readSec += frameReadMs / 1000.0;
+        allFramesDiskBytes += frameDiskBytes;
+        if (f == startFrame) {
+            startFrameDiskBytes = frameDiskBytes;
+            // 注意：非起始帧的 composite 在本轮结束时随重采样器一起释放（见上面的 OOM
+            // 注释），所以「源数据常驻内存」只统计起始帧，才是服务进程真实占用。
+            startFrameSourceBytes =
+                    static_cast<double>(composite->GetRealMemorySize());
+        }
 
+        double frameResampleMs = 0.0;
         StructuredMesh::Pointer direct = nullptr;
         if (distributor->GetTotalPieceCount() == 1) {
             auto it = composite->SubDataObjectIteratorBegin();
@@ -742,6 +1040,7 @@ int main(int argc, char** argv) {
         if (direct) {
             volumes[static_cast<size_t>(f)] = direct;
         } else {
+            const auto tResample0 = std::chrono::steady_clock::now();
             auto resampler = iGameVolumeResampleFilter::New();
             resampler->SetInput(composite);
             resampler->SetFieldName(selectedField);
@@ -755,6 +1054,9 @@ int main(int argc, char** argv) {
                 ParallelContext::Finalize();
                 return 1;
             }
+            const auto tResample1 = std::chrono::steady_clock::now();
+            frameResampleMs = MsSince(tResample0, tResample1);
+            resampleSec += frameResampleMs / 1000.0;
             volumes[static_cast<size_t>(f)] = resampler->GetStructuredMesh();
             masks[static_cast<size_t>(f)] = resampler->GetValidMask();
             if (f == startFrame) { anchorResampler = resampler; }
@@ -780,7 +1082,20 @@ int main(int argc, char** argv) {
                 }
             }
         }
+
+        // 多帧加载进度（rank 0）：长作业里能确认还在推进，以及每帧 IO / 重采样各占多少。
+        // 单帧数据不打印（下面每个 rank 的 [load] 行已足够）。
+        if (rank == 0 && numFrames > 1) {
+            std::cout << "[load] frame " << (f + 1) << '/' << numFrames
+                      << " timestep=" << distributor->GetTimestep(f)
+                      << " rank0-pieces=" << nLocalFiles
+                      << " disk=" << FormatBytes(frameDiskBytes)
+                      << " read=" << FormatMs(frameReadMs)
+                      << " resample=" << FormatMs(frameResampleMs) << '\n';
+            std::cout.flush();
+        }
     }
+    const auto tLoad1 = std::chrono::steady_clock::now();
 
     // 7. 全局标量范围：各 rank 局部 min/max -> AllReduce -> 全局一致（对标
     //    VolumeRenderingCommon.h:44-50 的 AllReduce(MIN/MAX)）。
@@ -943,6 +1258,178 @@ int main(int argc, char** argv) {
     }
 
     // -------------------------------------------------------------------------
+    // 加载完成汇总（rank 0）：输入文件、节点/核心、模型规模、内存、耗时。
+    //
+    // 为什么放在这里（加载 + 全局范围 + 包围盒 + 传输函数都算完，进入渲染 / C/S 服务
+    // 循环之前）：
+    //   · --server 是持久服务，正常运行时永远走不到 main 末尾，作业日志里能稳定出现的
+    //     「最后一段」就是这里；
+    //   · 所有 rank 都必须执行下面的 AllReduce / AllGather（集合通信次数一致，否则
+    //     死锁），因此这些调用不能包在 if (rank == 0) 里。
+    // -------------------------------------------------------------------------
+    const bool usedResample = (anchorResampler != nullptr);
+    double volumeBytes = 0.0;  // 所有缓存帧的体数据（+ mask）常驻内存
+    double totalVoxels = 0.0;  // 起始帧体素总数（所有 rank 之和，代表单帧分辨率）
+    double validVoxels = 0.0;  // 起始帧中有效体素（mask != 0）
+    // 多帧播放会缓存每一帧的体数据（volumes/masks 各帧都常驻），内存必须按帧累加；
+    // 体素数/有效率只统计起始帧，用来说明单帧分辨率与分块覆盖情况。
+    for (int f = 0; f < numFrames; ++f) {
+        if (volumes[static_cast<size_t>(f)]) {
+            volumeBytes += static_cast<double>(
+                    volumes[static_cast<size_t>(f)]->GetRealMemorySize());
+        }
+        if (masks[static_cast<size_t>(f)]) {
+            volumeBytes += static_cast<double>(
+                    masks[static_cast<size_t>(f)]->GetRealMemorySize());
+        }
+    }
+    if (volumes[static_cast<size_t>(startFrame)]) {
+        const igIndex* dim =
+                volumes[static_cast<size_t>(startFrame)]->GetDimensionSize();
+        if (dim) {
+            totalVoxels = static_cast<double>(dim[0]) * static_cast<double>(dim[1]) *
+                          static_cast<double>(dim[2]);
+        }
+    }
+    if (masks[static_cast<size_t>(startFrame)]) {
+        auto& mask = masks[static_cast<size_t>(startFrame)];
+        const IGsize maskCount = mask->GetNumberOfElements();
+        const unsigned char* maskData = mask->RawPointer();
+        for (IGsize i = 0; i < maskCount; ++i) {
+            if (maskData[i] != 0) { validVoxels += 1.0; }
+        }
+    }
+    // 多帧**重采样**共享同一份点坐标（iGameVolumeResampleFilter.cpp 的 SetGeometryTemplate
+    // 分支：volumes[f>0] 复用 volumes[0] 的 Points），按帧累加 GetRealMemorySize 会把
+    // 这块 12 B/体素的几何重复计 numFrames-1 次，这里扣掉，得到真实常驻内存。
+    // 单块直读路径每帧各自 ReadFile，点坐标不共享，不能扣（usedResample 为 false）。
+    if (usedResample && numFrames > 1 && volumes[0] &&
+        volumes[0]->GetPoints()) {
+        volumeBytes -= static_cast<double>(
+                               volumes[0]->GetPoints()->GetRealMemorySize()) *
+                       static_cast<double>(numFrames - 1);
+    }
+    const double loadSec = readSec + resampleSec;
+
+    // [0] 起始帧磁盘字节 [1] 所有帧磁盘字节 [2] 源常驻内存 [3] 体数据常驻内存
+    // [4] 体素数 [5] 有效体素 [6] 核心数 [7] 本 rank 分块数
+    // [8] 读耗时 [9] 重采样耗时
+    double localSums[10] = {
+            startFrameDiskBytes, allFramesDiskBytes, startFrameSourceBytes,
+            volumeBytes, totalVoxels, validVoxels,
+            static_cast<double>(usableCores), static_cast<double>(nLocalFiles),
+            readSec, resampleSec};
+    double globalSums[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    ctx->AllReduce(localSums, globalSums, 10, ParallelContext::ReduceOp::Sum);
+
+    double localPiecesMin = nLocalFiles, localPiecesMax = nLocalFiles;
+    double globalPiecesMin = 0.0, globalPiecesMax = 0.0;
+    ctx->AllReduce(&localPiecesMin, &globalPiecesMin, 1,
+                   ParallelContext::ReduceOp::Min);
+    ctx->AllReduce(&localPiecesMax, &globalPiecesMax, 1,
+                   ParallelContext::ReduceOp::Max);
+
+    double localCoresMin = usableCores, localCoresMax = usableCores;
+    double globalCoresMin = 0.0, globalCoresMax = 0.0;
+    ctx->AllReduce(&localCoresMin, &globalCoresMin, 1,
+                   ParallelContext::ReduceOp::Min);
+    ctx->AllReduce(&localCoresMax, &globalCoresMax, 1,
+                   ParallelContext::ReduceOp::Max);
+
+    // 各 rank 的总加载耗时（read + resample），用于找慢节点 / 负载不均。
+    std::vector<double> allLoadSec(static_cast<size_t>(size), 0.0);
+    ctx->AllGather(&loadSec, allLoadSec.data(), 1);
+
+    const auto tSummary = std::chrono::steady_clock::now();
+    if (rank == 0) {
+        double minLoad = allLoadSec.empty() ? 0.0 : allLoadSec[0];
+        double maxLoad = minLoad;
+        double sumLoad = 0.0;
+        int slowest = 0;
+        for (int r = 0; r < size; ++r) {
+            const double v = allLoadSec[static_cast<size_t>(r)];
+            sumLoad += v;
+            if (v < minLoad) { minLoad = v; }
+            if (v > maxLoad) {
+                maxLoad = v;
+                slowest = r;
+            }
+        }
+        const double avgLoad = (size > 0) ? sumLoad / static_cast<double>(size) : 0.0;
+        std::string slowestNodeResolved = "?";
+        for (const auto& kv : nodeMap) {
+            for (int r : kv.second) {
+                if (r == slowest) { slowestNodeResolved = kv.first; }
+            }
+        }
+        const double validPct = (globalSums[4] > 0.0)
+                                        ? 100.0 * globalSums[5] / globalSums[4]
+                                        : 0.0;
+        const double throughputMiBs =
+                (maxLoad > 0.0) ? (globalSums[1] / (1024.0 * 1024.0)) / maxLoad : 0.0;
+        const double distSec = SecSince(tDist0, tDist1);
+        const double fieldSec = SecSince(tField0, tField1);
+        const double loadWallSec = SecSince(tLoad0, tLoad1);
+        const double prepSec = SecSince(tLoad1, tSummary);
+
+        std::cout << "[load-summary] input=" << inputName << " path=" << inputAbs
+                  << " field='" << selectedField << "' timestep=" << timestep
+                  << " frames=" << numFrames
+                  << " pieces=" << distributor->GetTotalPieceCount() << '\n';
+        std::cout << "[load-summary] ranks=" << size << " nodes=" << nodeMap.size()
+                  << " cores/rank min/avg/max=" << globalCoresMin << '/'
+                  << (globalSums[6] / static_cast<double>(size)) << '/'
+                  << globalCoresMax << " total-cores="
+                  << static_cast<long long>(globalSums[6])
+                  << " threads/rank=" << ThreadPool::GetDefaultThreadCount()
+                  << " pieces/rank min/avg/max=" << globalPiecesMin << '/'
+                  << (globalSums[7] / static_cast<double>(size)) << '/'
+                  << globalPiecesMax << '\n';
+        std::cout << "[load-summary] dataset on disk: start frame="
+                  << FormatBytes(globalSums[0]) << ", all " << numFrames
+                  << " frame(s)=" << FormatBytes(globalSums[1]) << '\n';
+        if (usedResample) {
+            std::cout << "[load-summary] memory: source(start frame, resident)="
+                      << FormatBytes(globalSums[2])
+                      << ", resampled(all cached frames, volume+mask)="
+                      << FormatBytes(globalSums[3])
+                      << ", total=" << FormatBytes(globalSums[2] + globalSums[3])
+                      << '\n';
+            std::cout << "[load-summary] resample: target=" << tni << 'x' << tnj
+                      << 'x' << tnk << " per rank, voxels/frame total="
+                      << FormatVoxels(globalSums[4]) << ", valid="
+                      << FormatVoxels(globalSums[5]) << " (" << std::fixed
+                      << std::setprecision(1) << validPct << "%)\n";
+        } else {
+            // 单块 StructuredMesh 直接复用（每帧各自一份）：源数据就是体数据，不重复计。
+            std::cout << "[load-summary] memory: volume(all cached frames) = "
+                      << FormatBytes(globalSums[3])
+                      << " (single-piece input used directly, no resample)\n";
+        }
+        std::cout << "[load-summary] load time per rank: total min/avg/max="
+                  << FormatSeconds(minLoad) << '/' << FormatSeconds(avgLoad) << '/'
+                  << FormatSeconds(maxLoad) << " (slowest rank " << slowest
+                  << " on " << slowestNodeResolved << "); avg read="
+                  << FormatSeconds(globalSums[8] / static_cast<double>(size))
+                  << " avg resample="
+                  << FormatSeconds(globalSums[9] / static_cast<double>(size))
+                  << " aggregate-read=" << std::fixed << std::setprecision(1)
+                  << throughputMiBs << " MiB/s\n";
+        std::cout << "[load-summary] startup: distribute=" << FormatSeconds(distSec)
+                  << " field=" << FormatSeconds(fieldSec)
+                  << " load(all frames)=" << FormatSeconds(loadWallSec)
+                  << " prep(range/bounds/tf)=" << FormatSeconds(prepSec)
+                  << " total=" << FormatSeconds(SecSince(tProgram0, tSummary))
+                  << '\n';
+        std::cout << "[load-summary] field range=[" << std::defaultfloat
+                  << std::setprecision(6) << globalMin << ", " << globalMax
+                  << "] hasRange=" << hasRange
+                  << " bbox.diag=" << globalBounds.diag()
+                  << " voxelSize=" << voxelSize << '\n';
+        std::cout.flush();
+    }
+
+    // -------------------------------------------------------------------------
     // CPU 后端（阶段 4）：纯 CPU 光线步进体渲染，无头、不依赖 OpenGL/GLFW。
     // 每个 rank 用自己的超块体素场渲染到 CPU 图像缓冲（RGBA + float 深度），
     // 再交给 iGameCompositePass 做深度有序合成，rank 0 输出合成 PNG。
@@ -1023,6 +1510,7 @@ int main(int argc, char** argv) {
                     cli.useBinarySwap, volumes, masks, numFrames,
                     startFrame, selectedField, voxelSize, cli.hqStepScale,
                     cli.lqStepScale, cli.lqDivisor, cli.usePixelwise);
+            PrintRunEnd("interactive session ended");
             ParallelContext::Finalize();
             return rc;
         }
@@ -1202,6 +1690,7 @@ int main(int argc, char** argv) {
                     cli.usePixelwise, frameCentersXYZ, frameRadii,
                     frameFocusCentersXYZ, frameFocusRadii,
                     cli.autoPlayIntervalMs);
+            PrintRunEnd("server stopped");
             ParallelContext::Finalize();
             return rc;
         }
@@ -1335,6 +1824,7 @@ int main(int argc, char** argv) {
             }
         }
 
+        PrintRunEnd("CPU batch rendering finished");
         ParallelContext::Finalize();
         return 0;
     }
@@ -1522,6 +2012,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    PrintRunEnd("GPU batch rendering finished");
     ParallelContext::Finalize();
     return 0;
 }

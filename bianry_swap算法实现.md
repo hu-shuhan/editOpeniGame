@@ -133,3 +133,9 @@ Binary Swap 的每一阶段中，进程按照 swizzle 后的逻辑 rank 两两�
 ## 细节注意
 每个rank相互传递合成时，仍然可以沿用之前的ROI方法，减少传输量。
 最后各rank向rank0发送1/N数据时，也是用ROI方法，rank0不再需要排序，直接拼合所有图像就可以。
+
+> **实现状态（待提交）**：`iGameCompositePass::CompositeBinarySwap` 与
+> `iGamePVPixel::PixelCompositePass::CompositeBinarySwap` 已按这两条做——先
+> `AllGatherInt` 求各 rank 非空外接矩形的并集 ROI，只在 ROI 子图上做 ⌈log₂P⌉ 轮交换；
+> 轮末 `Gatherv` 只把各 rank 的最终分块拼成 ROI，rank0 再写回全帧位置。ROI 为空时直接
+> 输出背景；ROI 像素数 < rank 数时退回稀疏 ROI 合成。

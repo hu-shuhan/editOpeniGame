@@ -28,8 +28,9 @@
 // 两条策略都支持（与 --direct / --binary-swap 正交组合）：
 //   SetUseBinarySwapComposite(false) → 逐像素 + 稀疏 ROI 汇聚（CompositeSparse）
 //   SetUseBinarySwapComposite(true)  → 逐像素 + binary-swap 交换（CompositeBinarySwap，
-//                                      ⌈log₂P⌉ 轮两两交换半张图，每轮在像素级按深度定前后；
-//                                      只支持 2 的幂 P，非 2 幂自动退回上面那条）
+//                                      ⌈log₂P⌉ 轮两两交换「并集 ROI 子图」的一半，每轮
+//                                      在像素级按深度定前后；只支持 2 的幂 P，非 2 幂
+//                                      自动退回上面那条）
 //
 // ---------------------------------------------------------------------------
 // 深度口径（关键，两套口径方向相反，别搞混）
@@ -61,6 +62,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <utility>
 #include <vector>
 
 namespace iGamePVPixel {
@@ -476,6 +478,40 @@ inline void ExtractPremultipliedROI(const std::vector<unsigned char>& full, int 
     }
 }
 
+// rank 0 的收尾（与 iGameCore 的 ComposeROIOutputs 同口径）：
+//   roiFrame 是「预乘 alpha」的 ROI 合成结果（roiW*roiH*4）；
+//   outFull = 全帧不透明 RGBA8（ROI 叠背景，其余填背景色）；
+//   outROI  = transparentROI ? 预乘 ROI（原样，供客户端叠背景）
+//                            : 叠背景后的不透明 ROI。
+inline void ComposeROIOutputs(const std::vector<unsigned char>& roiFrame, int roiW,
+                              int roiH, int x0, int y0, int fullW, int fullH,
+                              const float bg[3], bool transparentROI,
+                              std::vector<unsigned char>& outFull,
+                              std::vector<unsigned char>& outROI) {
+    const long long nFull = static_cast<long long>(fullW) * fullH;
+    outFull.assign(static_cast<std::size_t>(nFull) * 4, 0);
+    for (long long p = 0; p < nFull; ++p) {
+        const std::size_t o = static_cast<std::size_t>(p) * 4;
+        outFull[o + 0] = ToUChar(bg[0]);
+        outFull[o + 1] = ToUChar(bg[1]);
+        outFull[o + 2] = ToUChar(bg[2]);
+        outFull[o + 3] = 255;
+    }
+    std::vector<unsigned char> roiOpaque;
+    FlattenToBackground(roiFrame, bg, static_cast<long long>(roiW) * roiH, roiOpaque);
+    for (int y = 0; y < roiH; ++y) {
+        std::memcpy(outFull.data() +
+                            (static_cast<std::size_t>(y0 + y) * fullW + x0) * 4,
+                    roiOpaque.data() + static_cast<std::size_t>(y) * roiW * 4,
+                    static_cast<std::size_t>(roiW) * 4);
+    }
+    if (transparentROI) {
+        outROI = roiFrame;
+    } else {
+        outROI = std::move(roiOpaque);
+    }
+}
+
 // ---- binary-swap 的平坦均分 / 二分边界 / 按位反序（与 iGameCore 同算法）----
 inline long long FlatLen(long long f, long long n, int p) {
     const long long base = n / p;
@@ -718,7 +754,17 @@ private:
         return true;
     }
 
-    // 逐像素 + binary-swap：⌈log₂P⌉ 轮两两交换半张图（RGBA+depth），每轮按深度定前后。
+    // 逐像素 + binary-swap：⌈log₂P⌉ 轮两两交换「并集 ROI 子图」的一半（RGBA+depth），
+    // 每轮按深度定前后。ROI 外的全透明像素不参与交换（设计稿的「沿用 ROI 方法」）。
+    //
+    // 本次修复（待提交）：
+    //   · BUG/触发：旧实现按整张 W×H 交换（pixelwise 最坏 4 MB/rank/round），1024 rank
+    //     时 10 轮全局同步的阻塞 P2P 会把交互帧拖到秒级，rank0 卡在 MPI_Wait 里，
+    //     客户端表现为拖动无响应/重连拿不到 metadata。
+    //   · 正确行为：先 AllGatherInt 求并集 ROI，只在 ROI 子图上 swap；ROI 为空时
+    //     直接输出背景，ROI 像素数 < P 时退回逐像素稀疏 ROI 合成。
+    //   · 顺带修复：深度相等时旧代码双方都传 aFirstOnTie=true，交换两侧会得到不同
+    //     颜色；现在按「groupRank 小者在前」定序，两侧一致。
     bool CompositeBinarySwap() {
         auto ctx = iGame::ParallelContext::Instance();
         const int size = ctx->Size();
@@ -752,6 +798,62 @@ private:
             }
         }
 
+        // 1.5) ROI：各 rank 求非空像素外接矩形，AllGatherInt 后取并集；binary-swap
+        //      只在「并集 ROI 子图」上做（设计稿 bianry_swap算法实现.md 的「沿用
+        //      ROI 方法，减少传输量」）。并集由同一份 AllGatherInt 算出，所有 rank
+        //      一致，所以配对、半图长度与收尾 Gatherv 偏移仍然完全确定。
+        const int width = m_Width;
+        const int height = m_Height;
+        m_ResultWidth = width;
+        m_ResultHeight = height;
+        int lx0 = width, ly0 = height, lx1 = -1, ly1 = -1;
+        if (m_LocalRGBA.size() >= static_cast<std::size_t>(width) * height * 4) {
+            for (int y = 0; y < height; ++y) {
+                const unsigned char* row =
+                        m_LocalRGBA.data() + static_cast<std::size_t>(y) * width * 4;
+                for (int x = 0; x < width; ++x) {
+                    if (row[x * 4 + 3] != 0) {
+                        if (x < lx0) { lx0 = x; }
+                        if (x > lx1) { lx1 = x; }
+                        if (y < ly0) { ly0 = y; }
+                        if (y > ly1) { ly1 = y; }
+                    }
+                }
+            }
+        }
+        const bool localEmpty = (lx1 < lx0 || ly1 < ly0);
+        const int localROI[4] = {localEmpty ? 0 : lx0, localEmpty ? 0 : ly0,
+                                 localEmpty ? 0 : (lx1 - lx0 + 1),
+                                 localEmpty ? 0 : (ly1 - ly0 + 1)};
+        std::vector<int> allROI(static_cast<std::size_t>(size) * 4, 0);
+        ctx->AllGatherInt(localROI, allROI.data(), 4);
+
+        int rx0 = width, ry0 = height, rx1 = -1, ry1 = -1;
+        for (int r = 0; r < size; ++r) {
+            const int rw = allROI[static_cast<std::size_t>(r) * 4 + 2];
+            const int rh = allROI[static_cast<std::size_t>(r) * 4 + 3];
+            if (rw <= 0 || rh <= 0) { continue; }
+            const int rx = allROI[static_cast<std::size_t>(r) * 4 + 0];
+            const int ry = allROI[static_cast<std::size_t>(r) * 4 + 1];
+            rx0 = std::min(rx0, rx);
+            ry0 = std::min(ry0, ry);
+            rx1 = std::max(rx1, rx + rw - 1);
+            ry1 = std::max(ry1, ry + rh - 1);
+        }
+        if (rx1 < rx0 || ry1 < ry0) {
+            if (isRoot) {
+                const std::vector<unsigned char> empty;
+                detail::ComposeROIOutputs(empty, 0, 0, 0, 0, width, height,
+                                          m_Background, m_TransparentROI,
+                                          m_ResultRGBA, m_ResultROIRGBA);
+                m_ResultROIX = m_ResultROIY = m_ResultROIW = m_ResultROIH = 0;
+            }
+            ctx->Barrier();
+            return true;
+        }
+        const int roiW = rx1 - rx0 + 1;
+        const int roiH = ry1 - ry0 + 1;
+
         // 2) 全局块序（近→远；块深度小 = 近）→ groupRank（只用于配对与最终分块映射）
         std::vector<double> allBlockDepth(static_cast<std::size_t>(size), 0.0);
         ctx->AllGather(&m_BlockDepth, allBlockDepth.data(), 1);
@@ -774,15 +876,34 @@ private:
         }
         if (groupRank < 0) { return false; }
 
-        const long long N = static_cast<long long>(m_Width) * m_Height;
+        // ROI 子图像素数；ROI 小于 rank 数时平坦均分会出现大量空块，退回稀疏路径。
+        const long long N = static_cast<long long>(roiW) * roiH;
         if (size < 2 || N < static_cast<long long>(size)) { return CompositeSparse(); }
 
         const int rounds =
                 static_cast<int>(std::log2(static_cast<double>(size)));
-        std::vector<unsigned char> workRGBA = m_LocalRGBA;
-        workRGBA.resize(static_cast<std::size_t>(N) * 4, 0);
-        std::vector<float> workDepth = m_LocalDepth;
-        workDepth.resize(static_cast<std::size_t>(N), 0.0f);
+
+        // 工作图 = 本 rank 在并集 ROI 内的 RGBA + 逐像素深度；ROI 外不参与交换。
+        std::vector<unsigned char> workRGBA(static_cast<std::size_t>(N) * 4, 0);
+        std::vector<float> workDepth(static_cast<std::size_t>(N), 0.0f);
+        if (m_LocalRGBA.size() >= static_cast<std::size_t>(width) * height * 4) {
+            const std::size_t rowBytes = static_cast<std::size_t>(roiW) * 4;
+            const bool haveDepth =
+                    m_LocalDepth.size() >= static_cast<std::size_t>(width) * height;
+            for (int y = 0; y < roiH; ++y) {
+                const unsigned char* src =
+                        m_LocalRGBA.data() +
+                        (static_cast<std::size_t>(ry0 + y) * width + rx0) * 4;
+                std::memcpy(workRGBA.data() + static_cast<std::size_t>(y) * rowBytes,
+                            src, rowBytes);
+                if (haveDepth) {
+                    std::memcpy(workDepth.data() + static_cast<std::size_t>(y) * roiW,
+                                m_LocalDepth.data() +
+                                        static_cast<std::size_t>(ry0 + y) * width + rx0,
+                                static_cast<std::size_t>(roiW) * sizeof(float));
+                }
+            }
+        }
 
         long long pieceLen = N;
         int step = 1;
@@ -819,12 +940,17 @@ private:
             std::vector<unsigned char> recvRGBA;
             std::vector<float> recvDepth;
             if (!detail::UnpackPiece(recvBuf, myLen, recvRGBA, recvDepth)) {
-                ctx->Wait(sendReq);
-                return false;
+                // 不要在这里 return false：其它 rank 还要进入下一轮/Gatherv，
+                // 提前返回会造成集合通信失配（死锁）。按「对方全透明」继续。
+                std::cerr << "[pixelwise] binary-swap unpack failed on rank " << rank
+                          << "; treating the partner half as transparent.\n";
             }
-            // 逐像素按深度合并（深度大 = 近的在前；深度相等时本方在前，保证双方一致）
-            detail::MergePiecesByDepth(myRGBA, myDepth, recvRGBA, recvDepth, myLen, true,
-                                       workRGBA, workDepth);
+            // 逐像素按深度合并（reversed-z：深度大 = 近的在前）。深度相等时必须用
+            // 「全局 groupRank 小者在前」——这样交换双方才得到同一结果；旧实现两边
+            // 都传 true（都让自己在前），平局时两半会合成出不同的颜色。
+            const bool myFirstOnTie = (groupRank < partner);
+            detail::MergePiecesByDepth(myRGBA, myDepth, recvRGBA, recvDepth, myLen,
+                                       myFirstOnTie, workRGBA, workDepth);
             ctx->Wait(sendReq);
 
             pieceLen = myLen;
@@ -853,21 +979,21 @@ private:
         }
         if (static_cast<long long>(workRGBA.size()) !=
             static_cast<long long>(recvCounts[static_cast<std::size_t>(rank)])) {
-            if (isRoot) {
-                std::cerr << "[pixelwise] binary-swap piece length is inconsistent "
-                             "(internal error).\n";
-            }
-            return false;
+            // 同上：不能提前 return（会与其它 rank 的 Gatherv 失配）。按协议补齐/截断，
+            // 至少保证集合通信能完成。
+            std::cerr << "[pixelwise] binary-swap piece length is inconsistent "
+                         "(internal error); padding/truncating before Gatherv.\n";
+            workRGBA.resize(
+                    static_cast<std::size_t>(recvCounts[static_cast<std::size_t>(rank)]),
+                    0);
         }
 
-        m_ResultWidth = m_Width;
-        m_ResultHeight = m_Height;
-        std::vector<unsigned char> fullFrame;
-        if (isRoot) { fullFrame.assign(static_cast<std::size_t>(N) * 4, 0); }
+        std::vector<unsigned char> roiFrame;
+        if (isRoot) { roiFrame.assign(static_cast<std::size_t>(N) * 4, 0); }
         ctx->Gatherv(reinterpret_cast<const char*>(workRGBA.data()),
                      recvCounts[static_cast<std::size_t>(rank)],
-                     reinterpret_cast<char*>(fullFrame.empty() ? nullptr
-                                                               : fullFrame.data()),
+                     reinterpret_cast<char*>(roiFrame.empty() ? nullptr
+                                                              : roiFrame.data()),
                      recvCounts.data(), displs.data(), 0);
 
         if (!isRoot) {
@@ -875,21 +1001,15 @@ private:
             return true;
         }
 
-        // 4) rank0：叠背景 + 扫非背景外接矩形（与块级全图路径口径一致）
-        detail::FlattenToBackground(fullFrame, m_Background, N, m_ResultRGBA);
-        int roi[4] = {0, 0, 0, 0};
-        if (m_TransparentROI) {
-            // 预乘 alpha ROI：全帧结果仍是不透明背景，ROI 保留 alpha 交给客户端叠背景。
-            detail::ExtractPremultipliedROI(fullFrame, m_Width, m_Height, roi,
-                                            m_ResultROIRGBA);
-        } else {
-            detail::ComputeROIFromFullFrame(m_ResultRGBA, m_Width, m_Height, roi,
-                                            m_ResultROIRGBA);
-        }
-        m_ResultROIX = roi[0];
-        m_ResultROIY = roi[1];
-        m_ResultROIW = roi[2];
-        m_ResultROIH = roi[3];
+        // 4) rank0：拼出的 ROI 就是预乘 alpha 的逐像素合成结果；写出全帧不透明结果 +
+        //    ROI 子矩形（与块级/稀疏路径口径一致）。
+        m_ResultROIX = rx0;
+        m_ResultROIY = ry0;
+        m_ResultROIW = roiW;
+        m_ResultROIH = roiH;
+        detail::ComposeROIOutputs(roiFrame, roiW, roiH, rx0, ry0, width, height,
+                                  m_Background, m_TransparentROI, m_ResultRGBA,
+                                  m_ResultROIRGBA);
         ctx->Barrier();
         return true;
     }

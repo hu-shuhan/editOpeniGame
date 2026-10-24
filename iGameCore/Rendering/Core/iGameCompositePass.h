@@ -91,16 +91,21 @@ public:
      *
      * @details
      *  对标 IceT 的 `ICET_SINGLE_IMAGE_STRATEGY_BSWAP`（即 radix-k 的 k=2 特例，
-     *  `icetBSwapCompose`）：把整张图在 ⌈log₂P⌉ 轮内两两交换半张图并「前端 OVER 后端」
-     *  合成，每进程每轮只收发「自己负责的那一半」，汇聚量 O(图像大小)、无 rank0 单点
-     *  瓶颈；最后把 P 块合成结果 Gatherv 回 rank 0 拼成完整图。与「稀疏 ROI + Gatherv」
-     *  的区别是：稀疏路径把 O(P) 条点对点全部打到 rank 0，binary-swap 把合成工作与
-     *  通信分摊到所有 rank（P 到上千 rank 时更有意义）。
+     *  `icetBSwapCompose`）：先由各 rank 的局部非空外接矩形 AllGatherInt 出「并集
+     *  ROI」，再在 ROI 子图上做 ⌈log₂P⌉ 轮两两交换与「前端 OVER 后端」合成。每进程
+     *  每轮只收发「自己负责的那半张 ROI」，汇聚量 O(图像大小 / ROI 面积)、无 rank0
+     *  单点瓶颈；最后把 P 块合成结果 Gatherv 回 rank 0 拼成 ROI 并写回全帧。
+     *  与「稀疏 ROI + Gatherv」的区别是：稀疏路径把 O(P) 条点对点全部打到 rank 0，
+     *  binary-swap 把合成工作与通信分摊到所有 rank（P 到上千 rank 时更有意义）。
+     *
+     *  注意：不要在 1024 rank 上无脑用它——它是 ⌈log₂P⌉ 轮**全局同步的阻塞 P2P**，
+     *  512 对/轮 × 10 轮时任何一对慢/拥塞都会把整帧拖住；这种数据形态下默认的
+     *  稀疏 ROI 路径更快，也更不容易出现交互假死。
      *
      *  顺序正确性（Swizzle）：进程按「块深度近→远」排序得到 groupRank（0=最前），
      *  binary-swap 按 groupRank 做逐轮配对（partner = groupRank ^ 2^r），每轮组内
      *  「数字小者更靠前」，因此「按数字序 front-to-back over」即保持透明度有序；
-     *  轮次结束后每个进程持有的分块索引是 groupRank 的「按位反序」，分块在最终图上
+     *  轮次结束后每个进程持有的分块索引是 groupRank 的「按位反序」，分块在 ROI 内
      *  平坦连续、互不重叠，Gatherv 即可无损重组。
      *
      *  ⚠️ 只支持 2 的幂 P：非 2 幂 P 会打印警告并回退到稀疏 ROI 合成（把不存在的

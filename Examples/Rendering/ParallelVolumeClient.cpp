@@ -499,9 +499,33 @@ int main(int argc, char** argv) {
     iGamePVNet::ConfigureInteractiveSocket(sock);
 
     // 握手：接收标量范围 + colorbar ramp + 渲染分辨率。
+    //
+    // 服务端可能还在读数据 / 渲染首帧，甚至卡在 MPI 里；旧代码的 RecvMetadata 没有
+    // 超时，会永远挂在 recv 上（表现为「client 连不上」）。这里给握手加 60s 上限：
+    // 超时后明确报错退出，让用户能重启客户端，而不是假死。
+#ifdef _WIN32
+    DWORD rcvTimeoutMs = 60000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+               reinterpret_cast<const char*>(&rcvTimeoutMs),
+               sizeof(rcvTimeoutMs));
+#else
+    timeval rcvTimeout{60, 0};
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &rcvTimeout, sizeof(rcvTimeout));
+#endif
     iGamePVNet::Metadata meta;
-    if (!iGamePVNet::RecvMetadata(sock, meta)) {
-        std::cerr << "[client] metadata recv failed\n";
+    const bool metaOk = iGamePVNet::RecvMetadata(sock, meta);
+    // 握手完成后清掉接收超时：I/O 线程用 select + 非阻塞 recv，不需要这个上限。
+#ifdef _WIN32
+    DWORD noTimeoutMs = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+               reinterpret_cast<const char*>(&noTimeoutMs), sizeof(noTimeoutMs));
+#else
+    timeval noTimeout{0, 0};
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &noTimeout, sizeof(noTimeout));
+#endif
+    if (!metaOk) {
+        std::cerr << "[client] metadata recv failed or timed out (60s); the "
+                     "server may still be loading/compositing or stuck in MPI.\n";
         iGamePVNet::CloseSocket(sock);
         iGamePVNet::Cleanup();
         return 1;

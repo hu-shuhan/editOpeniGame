@@ -615,8 +615,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         if (rank == 0) {
             const auto tSend0 = std::chrono::steady_clock::now();
 
-            // 1) ROI 由合成器直接给出（稀疏路径在合成时就知道了），无需再扫一遍全图。
-            //    全图路径（binary-swap）下 Composite() 收尾时也已扫过一次，语义一致。
+            // 1) ROI 由合成器直接给出（稀疏路径与 ROI 版 binary-swap 都在合成时算出），
+            //    无需再扫一遍全图。
             const int rx0 = resROIX;
             const int ry0 = resROIY;
             const int roiW = resROIW;

@@ -90,18 +90,33 @@ public:
     void Barrier() const;
 
     // ---- 非阻塞点对点（阶段 4：并行合成用）----
-    // requestId 由本类自增分配；发送/接收缓冲区在对应 Wait/WaitAny 完成前必须保持有效。
+    // requestId 由本类分配（优先复用已完成的槽位）；发送/接收缓冲区在对应
+    // Wait/WaitAny 完成前必须保持有效。
+    // 实现内部复用已完成的槽位（m_Requests 只增长到「同时未完成的请求数」量级），
+    // 不会随运行时间线性膨胀。
     int Isend(const char* buf, int count, int dest, int tag) const;
     int Irecv(char* buf, int count, int src, int tag) const;
     void Wait(int requestId) const;
     /** 返回最先完成的 requestId；无可等待请求时返回 -1。 */
     int WaitAny(const int* requestIds, int count) const;
 
+    /**
+     * 可选的 MPI 等待超时（秒，0 = 关闭）。设置环境变量
+     * `PVR_MPI_WAIT_TIMEOUT_SEC` 后，Wait 用 MPI_Test 轮询；超时会打印诊断并
+     * `MPI_Abort`，把「服务端假死、客户端永远等不到帧」变成一次明确的作业失败。
+     * 默认关闭（不改变正常路径的阻塞语义）。
+     */
+    static void SetWaitTimeoutSeconds(double seconds);
+    static double GetWaitTimeoutSeconds();
+
 protected:
     ParallelContext() = default;
     ~ParallelContext() override = default;
 
 private:
+    /** 复用一个已完成的请求槽位；没有空槽才 push_back。 */
+    int StoreRequest(void* handle) const;
+
     int m_Rank{0};
     int m_Size{1};
     // 非阻塞请求存储（void* 指向 MPI 后端分配的请求句柄；单进程直通不使用）。
