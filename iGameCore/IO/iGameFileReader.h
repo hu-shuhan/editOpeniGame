@@ -1,4 +1,4 @@
-﻿#ifndef iGameFileReader_h
+#ifndef iGameFileReader_h
 #define iGameFileReader_h
 
 #include "iGameFilter.h"
@@ -7,8 +7,10 @@
 #include "iGameFlatArray.h"
 #include "iGameSurfaceMesh.h"
 #include <algorithm>
+#include <cctype>
 #include <cfloat>
 #include <cstdio>
+#include <limits>
 
 #ifdef PLATFORM_WINDOWS
 #include <stdio.h>
@@ -318,6 +320,47 @@ inline static double morn_atof_k[21] = {1.0,
                                         0.000000000000000001,
                                         0.0000000000000000001};
 
+// ASCII 数值里 "nan" / "inf" 这类**非有限值** token 的识别。
+//
+// 为什么必须有：legacy VTK 的 ASCII 数组允许出现 nan / inf，而 MSVC 的浮点格式化会把
+// NaN 打成 "-nan(ind)"（本仓库的 VTK 写出过去正是这样）。旧的 mAtof 遇到这种 token 时
+// 一个字符都不消费就返回，调用方（FileReader::Read(float*)）把返回的游标写回 IS 就等于
+// 游标卡死；从这一刻起**后面所有数值都读到同一个 token**，表现为"从某个元素开始整列变 0"。
+// 实测：Examples/Models/Quad_Bicycle.vtk 的 test_2（82212 个值）因此丢了 64629 个。
+//
+// 这里只识别 token 并推进游标；符号由调用方处理（负号已经在外面吃掉）。
+enum class MANonFiniteToken { None, NaN, Inf };
+
+inline MANonFiniteToken mANonFiniteToken(const char** p) {
+    const char* q = *p;
+    // 大小写不敏感匹配；'infinity' 必须排在 'inf' 前面，否则会剩下 "inity" 破坏后续解析。
+    auto matchWord = [&q](const char* word) -> bool {
+        const char* s = q;
+        for (const char* w = word; *w != '\0'; ++w, ++s) {
+            if (std::tolower(static_cast<unsigned char>(*s)) != *w) { return false; }
+        }
+        q = s;
+        return true;
+    };
+
+    MANonFiniteToken token = MANonFiniteToken::None;
+    if (matchWord("nan")) {
+        token = MANonFiniteToken::NaN;
+    } else if (matchWord("infinity") || matchWord("inf")) {
+        token = MANonFiniteToken::Inf;
+    } else {
+        return MANonFiniteToken::None;
+    }
+
+    // MSVC 的尾巴：nan(ind) / -nan(ind) / inf(ind)。整段吃掉，否则括号会留在流里。
+    if (*q == '(') {
+        while (*q != '\0' && *q != ')') { ++q; }
+        if (*q == ')') { ++q; }
+    }
+    *p = q;
+    return token;
+}
+
 inline double mAtof(const char* p) {
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
     int flag = 0;
@@ -369,6 +412,22 @@ inline const char* mAtof(const char* p, float& val) {
         p++;
     } else if (*p == '+')
         p++;
+
+    // 非有限值（nan / inf）：返回对应的值并推进游标，不参与后面的数字解析。
+    const char* const numberStart = p;
+    switch (mANonFiniteToken(&p)) {
+        case MANonFiniteToken::NaN:
+            val = std::numeric_limits<float>::quiet_NaN();
+            if (flag) { val = -val; }
+            return p;
+        case MANonFiniteToken::Inf:
+            val = std::numeric_limits<float>::infinity();
+            if (flag) { val = -val; }
+            return p;
+        case MANonFiniteToken::None:
+            break;
+    }
+
     for (; (*p >= '0') && (*p <= '9'); p++) d = d * 10.0 + (*p - '0');
     if (*p == '.') {
         p++;
@@ -396,6 +455,16 @@ inline const char* mAtof(const char* p, float& val) {
         for (; (*p >= '0') && (*p <= '9'); p++) e = e * 10 + (*p - '0');
         d = d * pow(10.0, ((f == 1) ? (0 - e) : e));
     }
+
+    // 一个字符都没消费成功（格式外的 token）：把整个 token 跳过去再给出 NaN。
+    // 关键约束：游标必须前进 —— 否则上层的 `for (i..) Read(data)` 循环会永远读到同一位置，
+    // 剩下所有元素都会被写成一模一样的值（这就是"整列变 0"的成因）。
+    if (p == numberStart) {
+        while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') { ++p; }
+        val = std::numeric_limits<float>::quiet_NaN();
+        return p;
+    }
+
     val = (flag) ? (0 - d) : d;
     return p;
 }
@@ -411,6 +480,22 @@ inline const char* mAtof(const char* p, double& val) {
         p++;
     } else if (*p == '+')
         p++;
+
+    // 与 float 重载同理：nan / inf 要作为数值识别并推进游标。
+    const char* const numberStart = p;
+    switch (mANonFiniteToken(&p)) {
+        case MANonFiniteToken::NaN:
+            val = std::numeric_limits<double>::quiet_NaN();
+            if (flag) { val = -val; }
+            return p;
+        case MANonFiniteToken::Inf:
+            val = std::numeric_limits<double>::infinity();
+            if (flag) { val = -val; }
+            return p;
+        case MANonFiniteToken::None:
+            break;
+    }
+
     for (; (*p >= '0') && (*p <= '9'); p++) d = d * 10.0 + (*p - '0');
     if (*p == '.') {
         p++;
@@ -438,6 +523,13 @@ inline const char* mAtof(const char* p, double& val) {
         for (; (*p >= '0') && (*p <= '9'); p++) e = e * 10 + (*p - '0');
         d = d * pow(10.0, ((f == 1) ? (0 - e) : e));
     }
+    // 同上：游标必须前进，否则上层循环会卡在同一个 token 上。
+    if (p == numberStart) {
+        while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') { ++p; }
+        val = std::numeric_limits<double>::quiet_NaN();
+        return p;
+    }
+
     val = (flag) ? (0 - d) : d;
     return p;
 }
