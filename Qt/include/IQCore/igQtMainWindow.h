@@ -230,7 +230,10 @@ private:
     int leftDockAlignedWidth();
     void applyLeftDockAlignment();
     void startLeftDockAlignmentWatch();
+    void enableLeftDockShrink();
     int m_leftAlignTicks{0};
+    int m_leftAlignStable{0};
+    int m_leftAlignLast{-1};
     bool m_applyingLeftDockWidth{false};
 
     void applyStyleMode(int mode);
@@ -264,6 +267,8 @@ private:
     /** 文字超宽时断成最多两行，第二行仍超宽则省略号收尾 */
     QString wrapToolbarButtonText(const QString& text, int maxWidth, const QFontMetrics& fm) const;
 
+    int m_toolbarCaptionFontPx{0};
+    int m_toolbarAutoFontMinWidth{0};
     int m_currentToolbarIconSize = 40;
     bool m_toolbarRebuilding = false;
 
