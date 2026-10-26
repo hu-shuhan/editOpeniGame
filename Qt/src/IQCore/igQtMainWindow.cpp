@@ -234,8 +234,19 @@ struct ToolbarSpacingMetrics {
 };
 
 ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
-    iconSize = qMax(24, iconSize);
+    iconSize = qMax(20, iconSize);
     ToolbarSpacingMetrics metrics;
+    // 窄屏档（<=24）：间距收到最小，尽量把四组挤进单行
+    if (iconSize < 24) {   // 仅在下探到硬下限时才收紧间距，24 档保持原样
+        metrics.btnGap = 1;
+        metrics.edgeMargin = 1;
+        metrics.buttonPadding = 1;
+        metrics.verticalGap = 3;
+        metrics.bottomMargin = 6;
+        metrics.groupGap = 4;
+        metrics.rowGap = 2;
+        return metrics;
+    }
     metrics.btnGap = qMax(2, iconSize / 12);
     metrics.edgeMargin = qMax(1, iconSize / 22);
     metrics.buttonPadding = qMax(1, iconSize / 20);
@@ -286,10 +297,12 @@ int resolveToolbarIconSizeForWidget(const QWidget* widget) {
 }
 
 // 工具栏单排适配的可调参数
-constexpr int kToolbarIconMin = 24;             // 图标尺寸下限（与 resolveToolbarIconSize 的 clamp 下限一致）
+constexpr int kToolbarIconMin = 24;      // 图标尺寸下限（与 resolveToolbarIconSize 的 clamp 下限一致）
+constexpr int kToolbarIconHardMin = 20;  // 仅当最小图标仍放不下时才下探到的硬下限             // 图标尺寸下限（与 resolveToolbarIconSize 的 clamp 下限一致）
 constexpr int kToolbarIconMax = 56;             // 图标尺寸上限（放大填充时允许略超分档表，让宽屏更饱满）
 constexpr double kToolbarFillRatio = 0.92;      // 单排填充目标：工具栏总宽达到可用宽度的 92% 左右即停止放大
 constexpr int kToolbarButtonTextMinWidth = 48;
+constexpr int kToolbarCaptionFontMin = 6;      // 窄屏挤单行时文字字号下限
 constexpr int kToolbarButtonTextMaxLines = 3;
 
 // 按钮字号（逻辑像素）随图标尺寸联动。
@@ -714,15 +727,54 @@ void igQtMainWindow::applyLeftDockAlignment()
     m_applyingLeftDockWidth = false;
 }
 
+// 允许把左侧面板拖得比内容所需最小宽度更窄（临时压缩后观察视口）
+// 最小宽度与内容所需宽度解耦：压小停靠面板的显式最小宽度，并清掉内容控件自身的显式最小宽度
+void igQtMainWindow::enableLeftDockShrink()
+{
+    const int kMinW = 140;
+    auto allow = [kMinW](QDockWidget* d) {
+        if (!d) return;
+        d->setMinimumWidth(kMinW);
+        if (QWidget* c = d->widget()) {
+            c->setMinimumWidth(0);
+            QSizePolicy sp = c->sizePolicy();
+            if (sp.horizontalPolicy() != QSizePolicy::Ignored) {
+                sp.setHorizontalPolicy(QSizePolicy::Ignored);
+                c->setSizePolicy(sp);
+            }
+        }
+    };
+    // 左停靠区的全部面板（含隐藏的字段面板：停靠区最小值取它们的并集）+ 模型树/属性面板
+    const QList<QDockWidget*> all = this->findChildren<QDockWidget*>();
+    for (QDockWidget* d : all) {
+        if (!d) continue;
+        if (this->dockWidgetArea(d) != Qt::LeftDockWidgetArea
+            && d->objectName() != QStringLiteral("LayerTreeDock")
+            && d->objectName() != QStringLiteral("LeftFieldDock")
+            && d->objectName() != QStringLiteral("LayerPropertiesDock")) {
+            continue;
+        }
+        if (d->maximumWidth() < 100) continue;
+        allow(d);
+    }
+    allow(m_leftFieldDock);
+    if (modelTreeWidget) allow(modelTreeWidget->getPropertiesDock());
+}
 void igQtMainWindow::startLeftDockAlignmentWatch()
 {
     if (m_leftAlignTicks > 0) return;
-    m_leftAlignTicks = 20;
+    m_leftAlignTicks = 25;
+    m_leftAlignStable = 0;
+    m_leftAlignLast = -1;
     auto* timer = new QTimer(this);
     timer->setInterval(120);
     connect(timer, &QTimer::timeout, this, [this, timer]() {
+        const int before = leftDockAlignedWidth();
         applyLeftDockAlignment();
-        if (--m_leftAlignTicks <= 0) timer->stop();
+        if (before == m_leftAlignLast) ++m_leftAlignStable;
+        else { m_leftAlignLast = before; m_leftAlignStable = 0; }
+        // 几何连续 5 拍不变即停：此后不再干预手动拖拽
+        if (m_leftAlignStable >= 5 || --m_leftAlignTicks <= 0) timer->stop();
     });
     timer->start();
 }
@@ -1370,6 +1422,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     QTimer::singleShot(0, this, [this]() {
         if (m_leftFieldDock) {
             const int targetW = leftDockContentWidth();
+            enableLeftDockShrink();
             this->resizeDocks({m_leftFieldDock}, {targetW}, Qt::Horizontal);
             if (modelTreeWidget && modelTreeWidget->getPropertiesDock()) {
                 this->resizeDocks({modelTreeWidget->getPropertiesDock()}, {targetW}, Qt::Horizontal);
@@ -6738,7 +6791,8 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
         spacing.bottomMargin += 2;
     }
     const QList<QAction*> actions = toolbar->actions();
-    const int fontPx = toolbarButtonFontPixel(iconSizePx);
+    const int fontPx = (m_toolbarCaptionFontPx > 0) ? m_toolbarCaptionFontPx
+                                                    : toolbarButtonFontPixel(iconSizePx);
 
     QFont titleFont(QStringLiteral("PingFang SC"));
     titleFont.setPointSize(titlePointSizeForIcon(iconSizePx));
@@ -6790,7 +6844,9 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title, in
         QFont btnFont(QStringLiteral("PingFang SC"));
         btnFont.setPixelSize(fontPx);
         const QFontMetrics fm(btnFont);
-        const int textMaxW = qMax(kToolbarButtonTextMinWidth, iconSize.width() + 16);
+        const int textMaxW = (m_toolbarCaptionFontPx > 0)
+                ? qMax(24, fontPx * 5)
+                : qMax(kToolbarButtonTextMinWidth, iconSize.width() + 16);
         const QString rawText = act->text();
         const QString wrappedText = wrapToolbarButtonText(rawText, textMaxW, fm);
         const int textLines = wrappedText.isEmpty() ? 1 : wrappedText.count(QLatin1Char('\n')) + 1;
@@ -6931,13 +6987,46 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     int iconSize = m_currentToolbarIconSize;
 
     // 2) 宽度拟合：整行放不下时逐档缩小图标并重建，直到放得下或到图标下限
-    while (iconSize > kToolbarIconMin && measureToolbarRowWidth() > availableWidth) {
-        iconSize = qMax(kToolbarIconMin, iconSize - 4);
+    auto shrinkToFit = [&]() {
+        while (iconSize > kToolbarIconMin && measureToolbarRowWidth() > availableWidth) {
+            iconSize = qMax(kToolbarIconMin, iconSize - 4);
+            rebuildToolbarRow(iconSize);
+            wrappers = collectWrappers();
+        }
+    };
+    shrinkToFit();
+
+    // 2.5) 最小图标仍放不下：按溢出比例缩小按钮文字字号（文字保留），下限 6px
+    const int widthNow = measureToolbarRowWidth();
+    if (widthNow > availableWidth) {
+        if (m_toolbarAutoFontMinWidth == 0 && m_toolbarCaptionFontPx == 0) m_toolbarAutoFontMinWidth = widthNow;
+        const int curFont = (m_toolbarCaptionFontPx > 0) ? m_toolbarCaptionFontPx
+                                                         : toolbarButtonFontPixel(iconSize);
+        int target = static_cast<int>(qint64(curFont) * availableWidth / qMax(1, widthNow));
+        target = qBound(kToolbarCaptionFontMin, target, qMax(kToolbarCaptionFontMin, curFont - 1));
+        if (target != m_toolbarCaptionFontPx) {
+            m_toolbarCaptionFontPx = target;
+            rebuildToolbarRow(iconSize);
+            wrappers = collectWrappers();
+            shrinkToFit();
+        }
+    } else if (m_toolbarCaptionFontPx > 0 && m_toolbarAutoFontMinWidth > 0
+               && availableWidth >= m_toolbarAutoFontMinWidth + 48) {
+        m_toolbarCaptionFontPx = 0;   // 宽度回来：恢复随图标联动的自动字号
+        m_toolbarAutoFontMinWidth = 0;
+        rebuildToolbarRow(iconSize);
+        wrappers = collectWrappers();
+        shrinkToFit();
+    }
+
+    // 3) 空间充足时按填充比例放大图标/字号，避免宽屏下右侧太空
+    // 2.6) 字号已到下限仍放不下：图标再下探到硬下限
+    if (measureToolbarRowWidth() > availableWidth && iconSize > kToolbarIconHardMin) {
+        iconSize = kToolbarIconHardMin;
         rebuildToolbarRow(iconSize);
         wrappers = collectWrappers();
     }
 
-    // 3) 空间充足时按填充比例放大图标/字号，避免宽屏下右侧太空
     const int targetWidth = qMax(320, static_cast<int>(availableWidth * kToolbarFillRatio));
     while (iconSize < kToolbarIconMax && measureToolbarRowWidth() < targetWidth) {
         iconSize = qMin(kToolbarIconMax, iconSize + 2);
