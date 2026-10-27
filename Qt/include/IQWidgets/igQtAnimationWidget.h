@@ -62,6 +62,7 @@ public:
     // Playback and exporters request the same configured output sequence/cache.
     bool renderAnimationOutputFrame(int index, bool exporting = false);
     int animationOutputFrameCount() const;
+    iGame::DataObject::Pointer createForceStaticMeshResult();
 
 public slots:
     void initAnimationComponents();
@@ -136,6 +137,8 @@ private:
     iGame::DataObject* m_DiffBoundModel{nullptr};  // 绑定模型，切换模型时自动关闭
     igQtAnimationFilterManager m_AnimationFilterManager;
     igQtAnimationPipelineSteps m_AnimationPipeline;
+    // Intrinsic result computation; user animation edits cannot remove it.
+    igQtAnimationPipelineSteps m_ResultComputation;
     unsigned long long m_AnimationPipelineRevision{0};
     unsigned long long m_DisplayedPipelineRevision{0};
     QString m_AnimationPipelineDisplayAttribute;
@@ -145,6 +148,22 @@ private:
     iGame::DataObject::Pointer m_AnimationDisplayedObject{nullptr};
     iGame::DataObject* m_AnimationInitializedSource{nullptr};
     igQtAnimationOutputCache m_AnimationOutputCache;
+    struct AnimationModelState {
+        iGame::Model::Pointer model;
+        iGame::DataObject::Pointer source;
+        iGame::DataObject::Pointer display;
+        igQtAnimationPipelineSteps steps;
+        igQtAnimationPipelineSteps computation;
+        igQtAnimationOutputCache cache;
+        unsigned long long revision{0};
+        unsigned long long displayedRevision{0};
+        QString resultName;
+        int outputFrame{0};
+    };
+    QMap<iGame::Model*, AnimationModelState> m_ModelAnimationStates;
+    AnimationModelState m_PendingAnimationResult;
+    QString m_AnimationResultName;
+    int m_RestoreOutputFrame{0};
     int m_DisplayedSourceFrame{0};
     QString m_AnimationFrameError;
 

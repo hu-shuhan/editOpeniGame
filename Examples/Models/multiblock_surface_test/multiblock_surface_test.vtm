@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8'?>
+<VTKFile type="vtkMultiBlockDataSet" version="1.0" byte_order="LittleEndian">
+  <vtkMultiBlockDataSet>
+    <Block index="0" name="VolumeAssembly">
+      <DataSet index="0" name="hex_grid" file="hex_grid.vtu" />
+      <DataSet index="1" name="tet_grid" file="tet_grid.vtu" />
+      <Block index="2" name="MixedCellAssembly">
+        <DataSet index="0" name="wedge_pair" file="wedge_pair.vtu" />
+        <DataSet index="1" name="pyramid_pair" file="pyramid_pair.vtu" />
+      </Block>
+    </Block>
+    <Block index="1" name="SurfaceAssembly">
+      <DataSet index="0" name="surface_patch" file="surface_patch.vtu" />
+    </Block>
+  </vtkMultiBlockDataSet>
+</VTKFile>

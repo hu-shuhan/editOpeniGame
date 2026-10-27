@@ -12,6 +12,8 @@ class igQtAnimationFilterManager;
 struct IG_QT_MODULE_EXPORT igQtAnimationPipelineStep {
     QString filterId;
     QVariantMap parameters;
+    // Reference geometry belongs to this step, never to a cached output frame.
+    mutable iGame::DataObject::Pointer referenceGeometry;
 };
 
 using igQtAnimationPipelineSteps = QList<igQtAnimationPipelineStep>;

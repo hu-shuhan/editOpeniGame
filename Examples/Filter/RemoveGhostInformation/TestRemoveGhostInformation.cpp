@@ -864,7 +864,8 @@ bool TestNoGhostAttribute() {
     if (filter->WasModified()) { return false; }
 
 
-    if (filter->GetOutput() != nullptr) { return false; }
+    // 待提交：更新后的接口在无需移除时透传输入，WasModified 为 false。
+    if (filter->GetOutput() != mesh) { return false; }
 
 
     if (mesh->GetNumberOfCells() != 2) { return false; }

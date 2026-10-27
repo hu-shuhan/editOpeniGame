@@ -1,3 +1,4 @@
+#include "iGameVisibleBlockTraversal.h"
 #include "iGameModel.h"
 #include "iGameFilter.h"
 #include "iGameInteractor.h"
@@ -183,12 +184,7 @@ ForEachDrawObject(DataObject::Pointer root,
 
 static void ForEachRenderableLeaf(DataObject::Pointer root,
         const std::function<void(DrawObject::Pointer)>& fn) {
-    if (!root) return;
-    auto draw = DynamicCast<DrawObject>(root);
-    if (!draw) return;
-    if (!draw->HasSubDataObject()) { fn(draw); return; }
-    for (auto it = root->SubDataObjectIteratorBegin(); it != root->SubDataObjectIteratorEnd(); ++it)
-        ForEachRenderableLeaf(it->second, fn);
+    RenderingDetail::ForEachVisibleLeaf(root, fn);
 }
 
 // 表面着色用的 shader 选择：0/1 保持旧的 Blinn-Phong 行为，2 使用 PBR。
