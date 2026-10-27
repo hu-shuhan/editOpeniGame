@@ -81,6 +81,7 @@ void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::P
             auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
             createPropertyLabel(formLayout, QStringLiteral("类型"), QStringLiteral("表面网格"));
             createPropertyLabel(formLayout, QStringLiteral("面数"), QString::number(mesh->GetNumberOfFaces()));
+            createPropertyLabel(formLayout, QStringLiteral("边/折线数"), QString::number(mesh->GetNumberOfEdges()));
             createPropertyLabel(formLayout, QStringLiteral("点数"), QString::number(mesh->GetNumberOfPoints()));
         } break;
         case IG_VOLUME_MESH: {
@@ -96,6 +97,12 @@ void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::P
             createPropertyLabel(formLayout, QStringLiteral("X 维度"), QString::number(size[0]));
             createPropertyLabel(formLayout, QStringLiteral("Y 维度"), QString::number(size[1]));
             createPropertyLabel(formLayout, QStringLiteral("Z 维度"), QString::number(size[2]));
+            createPropertyLabel(formLayout, QStringLiteral("点数"), QString::number(mesh->GetNumberOfPoints()));
+        } break;
+        case IG_POINT_SET: {
+            auto points = iGame::DynamicCast<iGame::PointSet>(obj);
+            createPropertyLabel(formLayout, QStringLiteral("类型"), QStringLiteral("点集"));
+            createPropertyLabel(formLayout, QStringLiteral("点数"), QString::number(points->GetNumberOfPoints()));
         } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
@@ -139,6 +146,9 @@ void igQtModelInformationWidget::updateInformationFrame() {
     this->show();
 
     auto obj = currentModel->GetDataObject();
+    // 显示对象优先用调用方指定的"当前选中对象"（选中多块子块时为子块本身），
+    // 未指定时回落为当前模型的根 DataObject（保持原有行为）。
+    if (m_OverrideDataObject) { obj = m_OverrideDataObject; }
 
     // 处理文件属性
     iGame::Property::Pointer p;
@@ -238,6 +248,52 @@ void igQtModelInformationWidget::updateInformationFrame() {
         createPropertyLabel(statForm, axisNames[i], boundsValue);
     }
 
+
+    frameLayout->addWidget(createLabel(QStringLiteral("数据数组 (Data Arrays)")));
+    frameLayout->addWidget(createSeparator());
+    auto* arraysWidget = new QWidget(informationFrame);
+    auto* arraysForm = new QFormLayout(arraysWidget);
+    arraysForm->setContentsMargins(0, 0, 0, 0);
+    arraysForm->setVerticalSpacing(0);
+    arraysForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    m_tableRow = 0;
+    int arrayCount = 0;
+    if (auto attributes = obj->GetAttributeSet()) {
+        for (IGsize i = 0; i < attributes->GetNumberOfAttributes(); ++i) {
+            auto& attribute = attributes->GetAttribute(i);
+            if (attribute.isDeleted || !attribute.pointer) { continue; }
+            ++arrayCount;
+            auto array = attribute.pointer;
+            const QString attachment = attribute.attachmentType == IG_POINT ? QStringLiteral("点数据")
+                    : attribute.attachmentType == IG_CELL ? QStringLiteral("单元数据") : QStringLiteral("其他数据");
+            QString description = QStringLiteral("%1 · %2 分量 · %3 项")
+                    .arg(attachment).arg(array->GetDimension())
+                    .arg(static_cast<qulonglong>(array->GetNumberOfElements()));
+            if (array->GetNumberOfElements() > 0) {
+                auto ranges = attribute.GetDataRange();
+                if (ranges && ranges->GetNumberOfValues() >= static_cast<IGsize>((array->GetDimension() + 1) * 2)) {
+                    for (int component = 0; component < array->GetDimension(); ++component) {
+                        const QString range = QStringLiteral("[%1, %2]")
+                                .arg(ranges->GetValue((component + 1) * 2), 0, 'g', 9)
+                                .arg(ranges->GetValue((component + 1) * 2 + 1), 0, 'g', 9);
+                        description += array->GetDimension() == 1 ? QStringLiteral("\n范围：%1").arg(range)
+                                : QStringLiteral("\n分量 %1：%2").arg(component).arg(range);
+                    }
+                }
+            }
+            createPropertyLabel(arraysForm, QString::fromStdString(array->GetName()), description);
+        }
+    }
+    if (arrayCount == 0) { createPropertyLabel(arraysForm, QStringLiteral("数组"), QStringLiteral("无")); }
+    if (floatingCards) {
+        const InfoCardPalette cardPal = infoCardPalette();
+        arraysWidget->setObjectName(QStringLiteral("InfoCard"));
+        arraysWidget->setStyleSheet(
+                QStringLiteral("QWidget#InfoCard { background-color: %1; border: 1px solid %2; border-radius: 4px; }")
+                        .arg(QString::fromLatin1(cardPal.bg), QString::fromLatin1(cardPal.border)));
+        arraysWidget->setContentsMargins(8, 8, 8, 8);
+    }
+    frameLayout->addWidget(arraysWidget);
 
     // 底部弹性区保证内容在较少时贴顶显示
     frameLayout->addStretch();

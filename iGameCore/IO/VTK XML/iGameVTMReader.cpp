@@ -256,10 +256,9 @@ bool iGameVTMReader::Parsing() {
     const bool isFlatDataSet = BlockElem == nullptr && DataSetElem != nullptr;
     std::size_t totalFileCount = 0;
     std::function<void(tinyxml2::XMLElement*)> countFiles = [&](tinyxml2::XMLElement* parent) {
-        for (auto* elem = parent->FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
-            const std::string tag = elem->Name();
-            if (tag == "Block") { countFiles(elem); }
-            else if (tag == "DataSet" && elem->Attribute("file")) { ++totalFileCount; }
+        for (auto* child = parent->FirstChildElement(); child; child = child->NextSiblingElement()) {
+            if (std::string(child->Name()) == "DataSet" && child->Attribute("file")) ++totalFileCount;
+            else if (std::string(child->Name()) == "Block") countFiles(child);
         }
     };
     countFiles(vtkMultiBlockElem);
@@ -275,8 +274,6 @@ bool iGameVTMReader::Parsing() {
     IGsize unstructuredCellRecords = 0;
     std::size_t unstructuredPieceCount = 0;
     IGAME_CORE_INFO("[VTM] Found {} referenced files in {}", totalFileCount, m_FilePath);
-
-    std::vector<DataObject::Pointer> overall_multiBlock;
 
     auto readReferencedFile = [&](const char* fileAttribute) -> DataObject::Pointer {
         ++currentFileCount;
@@ -357,63 +354,47 @@ bool iGameVTMReader::Parsing() {
         return object;
     };
 
-    // Handle <Block> format (nested structure)
-    if (BlockElem) {
-        // Every assembly node must be drawable: Model/UI code accesses its
-        // visibility. Recurse through nested blocks rather than dropping them.
-        std::function<bool(tinyxml2::XMLElement*, DrawObject::Pointer)> readChildren;
-        readChildren = [&](tinyxml2::XMLElement* parent, DrawObject::Pointer assembly) {
-            for (auto* elem = parent->FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
-                const std::string tag = elem->Name();
-                if (tag == "Block") {
-                    auto child = DrawObject::New();
-                    if (const char* name = elem->Attribute("name")) { child->SetName(name); }
-                    if (m_RemoteRenderingEnabled) { child->SetRemoteRenderingEnabled(true); }
-                    if (!readChildren(elem, child)) { return false; }
-                    assembly->AddSubDataObject(child);
-                } else if (tag == "DataSet") {
-                    if (const char* file = elem->Attribute("file")) {
-                        auto child = readReferencedFile(file);
-                        if (!child) { return false; }
-                        if (const char* name = elem->Attribute("name")) { child->SetName(name); }
-                        assembly->AddSubDataObject(child);
-                    }
-                }
-            }
-            return true;
-        };
-        auto rootAssembly = DrawObject::New();
-        if (m_RemoteRenderingEnabled) { rootAssembly->SetRemoteRenderingEnabled(true); }
-        if (!readChildren(vtkMultiBlockElem, rootAssembly)) { return false; }
-        // Preserve the historical single-assembly root shape.
-        if (rootAssembly->GetNumberOfSubDataObjects() == 1) {
-            overall_multiBlock.push_back(rootAssembly->SubDataObjectIteratorBegin()->second);
-        } else {
-            overall_multiBlock.push_back(rootAssembly);
+    std::function<DataObject::Pointer(tinyxml2::XMLElement*, unsigned)> readChildren;
+    readChildren = [&](tinyxml2::XMLElement* parent, unsigned depth) -> DataObject::Pointer {
+        if (depth > 64) {
+            IGAME_CORE_ERROR("[VTM] Block hierarchy exceeds 64 levels");
+            return nullptr;
         }
-    }
-    // Handle <DataSet> format (flat structure)
-    else if (DataSetElem) {
-        DataObject::Pointer curMultiBlock = DrawObject::New();
-        if (m_RemoteRenderingEnabled) DynamicCast<DrawObject>(curMultiBlock)->SetRemoteRenderingEnabled(true);
-
-        while (DataSetElem) {
-            const char* existAttribute = DataSetElem->Attribute("file");
-            if (existAttribute) {
-                DataObject::Pointer newObj = readReferencedFile(existAttribute);
-                if (!newObj) {
-                    IGAME_CORE_ERROR("[VTM] Aborting after {}/{} referenced files were read successfully",
-                                     successfulFileCount,
-                                     totalFileCount);
-                    return false;
-                }
-                curMultiBlock->AddSubDataObject(newObj);
+        auto group = DrawObject::New();
+        if (m_RemoteRenderingEnabled) group->SetRemoteRenderingEnabled(true);
+        std::vector<std::pair<unsigned, tinyxml2::XMLElement*>> children;
+        for (auto* child = parent->FirstChildElement(); child; child = child->NextSiblingElement()) {
+            const std::string tag = child->Name();
+            if (tag != "Block" && tag != "DataSet") continue;
+            unsigned index = static_cast<unsigned>(children.size());
+            if (child->Attribute("index") && child->QueryUnsignedAttribute("index", &index) != tinyxml2::XML_SUCCESS) {
+                IGAME_CORE_ERROR("[VTM] Invalid block index");
+                return nullptr;
             }
-            DataSetElem = DataSetElem->NextSiblingElement("DataSet");
+            children.emplace_back(index, child);
         }
-
-        overall_multiBlock.push_back(curMultiBlock);
-    }
+        std::sort(children.begin(), children.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            // DrawObject's child map cannot represent empty indexed slots.
+            if (children[i].first != i) {
+                IGAME_CORE_ERROR("[VTM] Sparse or duplicate block indices are not supported");
+                return nullptr;
+            }
+            auto* element = children[i].second;
+            DataObject::Pointer object;
+            if (std::string(element->Name()) == "Block") object = readChildren(element, depth + 1);
+            else if (const char* file = element->Attribute("file")) object = readReferencedFile(file);
+            if (!object) {
+                IGAME_CORE_ERROR("[VTM] Empty or unreadable block at index {}", i);
+                return nullptr;
+            }
+            if (const char* name = element->Attribute("name")) object->SetName(name);
+            group->AddSubDataObject(object);
+        }
+        return group;
+    };
+    parseData = readChildren(vtkMultiBlockElem, 0);
+    if (!parseData) return false;
 
     IGAME_CORE_INFO("[VTM] Finished reading {}/{} referenced files successfully from {}",
                     successfulFileCount,
@@ -426,24 +407,13 @@ bool iGameVTMReader::Parsing() {
                         unstructuredCellRecords);
     }
 
-    if (successfulFileCount != totalFileCount || overall_multiBlock.empty()) {
+    if (successfulFileCount != totalFileCount) {
+        parseData = nullptr;
         return false;
-    } else if (overall_multiBlock.size() == 1) {
-        parseData = overall_multiBlock.front();
-        if (isFlatDataSet) {
-            auto flatRoot = DynamicCast<DrawObject>(parseData);
-            if (!PublishCommonFlatAttributes(flatRoot)) {
-                IGAME_CORE_WARN("[VTM] Continuing without a common root attribute schema for {}", m_FilePath);
-            }
-        }
-        return true;
-    } else {
-        DataObject::Pointer rootDataObject = DrawObject::New();
-        for (const auto& mp: overall_multiBlock) rootDataObject->AddSubDataObject(mp);
-
-        parseData = rootDataObject;
-        return true;
     }
+    if (isFlatDataSet && !PublishCommonFlatAttributes(DynamicCast<DrawObject>(parseData)))
+        IGAME_CORE_WARN("[VTM] Continuing without a common root attribute schema for {}", m_FilePath);
+    return true;
 }
 
 bool iGameVTMReader::CreateDataObject() {

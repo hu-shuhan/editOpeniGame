@@ -1,4 +1,4 @@
-﻿#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
+#include "IQWidgets/ColorManager/igQtColorManagerWidget.h"
 #include "IQCore/igQtFramelessWidget.h"
 #include <IQWidgets/igQtRenderWidget.h>
 #include <QMessageBox>
@@ -86,6 +86,14 @@ bool igQtColorManagerWidget::syncFromCurrentModel() {
 	}
 	ui->widget_ColorRangeSlider->update();
 	return ok;
+}
+
+void igQtColorManagerWidget::setCurrentDataObject(iGame::DataObject::Pointer obj) {
+	// 透传给内部色条滑块：色条编辑的绑定/写回按"选中优先"对象进行
+	// （多块组内选中子块时为子块自己；nullptr 时滑块回落当前模型根对象）。
+	if (ui && ui->widget_ColorRangeSlider) {
+		ui->widget_ColorRangeSlider->setCurrentDataObject(obj);
+	}
 }
 
 void igQtColorManagerWidget::resetColorRange() {

@@ -26,12 +26,16 @@ bool igQtColorRangeSlider::InitColorRangeSlider() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     m_ColorMapper = nullptr;
     iGame::ColorMap::Pointer src;
-    if (scene) {
+    // 目标对象"选中优先"：多块组内选中子块时，色条编辑绑定【子块】自己的 ColorMapper；
+    // 无选中时回落当前模型根对象（既有行为）。此前固定读根对象，子块场景下会编辑到组根。
+    iGame::DataObject::Pointer target = m_OverrideDataObject;
+    if (!target && scene) {
         auto model = scene->GetCurrentModel();
-        if (model && model->GetDataObject()) {
-            src = model->GetDataObject()->GetColorMapper();
-            m_ColorMapper = src;
-        }
+        if (model) { target = model->GetDataObject(); }
+    }
+    if (target) {
+        src = target->GetColorMapper();
+        m_ColorMapper = src;
     }
     if (src) {
         UpdateSliderWithColorBar(src);
@@ -256,13 +260,16 @@ bool igQtColorRangeSlider::updataManagerColorBarWithMyCorlorBar()
         !m_TmpColorMapper->GetColorRange()) {
         return false;
     }
-    // 重新绑定当前模型 mapper，避免场景切换后写到旧对象
-    if (auto scene = iGame::SceneManager::Instance()->GetCurrentScene()) {
-        if (auto model = scene->GetCurrentModel()) {
-            if (auto obj = model->GetDataObject()) {
-                if (auto mapper = obj->GetColorMapper()) { m_ColorMapper = mapper; }
-            }
+    // 重新绑定目标对象的 mapper，避免场景切换后写到旧对象。
+    // 选中优先：多块组内选中子块时写回【子块】自己的 mapper（与 InitColorRangeSlider 同源）。
+    iGame::DataObject::Pointer target = m_OverrideDataObject;
+    if (!target) {
+        if (auto scene = iGame::SceneManager::Instance()->GetCurrentScene()) {
+            if (auto model = scene->GetCurrentModel()) { target = model->GetDataObject(); }
         }
+    }
+    if (target) {
+        if (auto mapper = target->GetColorMapper()) { m_ColorMapper = mapper; }
     }
     if (!m_ColorMapper) return false;
 
@@ -299,21 +306,6 @@ void igQtColorRangeSlider::changeColorBarWithDefaultMode(int mode)
         break;
     case 4:
         this->m_TmpColorMapper->InitColorBarWithBlueCyanGreenYellowRedMagentaType();//蓝绿黄红紫
-        break;
-    case 5:
-        this->m_TmpColorMapper->InitColorBarWithTurboType();
-        break;
-    case 6:
-        this->m_TmpColorMapper->InitColorBarWithViridisType();
-        break;
-    case 7:
-        this->m_TmpColorMapper->InitColorBarWithCoolWarmType();
-        break;
-    case 8:
-        this->m_TmpColorMapper->InitColorBarWithFastType();//Fast
-        break;
-    case 9:
-        this->m_TmpColorMapper->InitColorBarWithTurboSoftType();//Turbo（中段降饱和）
         break;
     default:
         break;

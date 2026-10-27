@@ -3,6 +3,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include "iGameColorMap.h"
+#include "iGameDataObject.h"
 //namespace iGame {
 //	class iGameColorMap;
 //}
@@ -12,6 +13,14 @@ class igQtColorRangeSlider : public QWidget
 
 public:
 	igQtColorRangeSlider(QWidget* Parent = nullptr);
+
+	/**
+	 * @brief 设置"当前数据对象"（选中优先语义，由色条管理面板传入）。
+	 *
+	 * 传入多块组的子块时，色条编辑的绑定/写回都作用在【子块】自己的 ColorMapper；
+	 * 未设置（nullptr）时保持既有行为：回落为当前模型的根对象。
+	 */
+	void setCurrentDataObject(iGame::DataObject::Pointer obj) { m_OverrideDataObject = obj; }
 
 	QSize minimumSizeHint() const override;
 
@@ -49,5 +58,7 @@ private:
 	bool isPressed = false;
 	int mDelta;
 	bool RealUpdate = false;
+	/** "选中优先"的数据对象（多块组内选中子块时由外部设置；nullptr = 回落当前模型根对象） */
+	iGame::DataObject::Pointer m_OverrideDataObject;
 };
 

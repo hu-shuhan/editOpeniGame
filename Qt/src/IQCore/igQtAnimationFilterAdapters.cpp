@@ -4,6 +4,7 @@
 #include <Contour/iGameContourFilter.h>
 #include <Convert/iGameConvertToPointDataFilter.h>
 #include <IsoVolume/iGameIsoVolumeFilter.h>
+#include <ForceStaticMesh/iGameForceStaticMeshFilter.h>
 #include <iGameDrawObject.h>
 #include <iGameType.h>
 #include <iGameUnstructuredMesh.h>
@@ -800,6 +801,59 @@ igQtCreateIsoVolumeAnimationFilterDescriptor() {
 
 bool igQtRegisterBuiltinAnimationFilters(
         igQtAnimationFilterManager& manager, QString* error) {
+    igQtAnimationFilterDescriptor staticMesh;
+    staticMesh.id = QStringLiteral("forceStaticMesh");
+    staticMesh.displayName = QStringLiteral("强制静态网格（Force Static Mesh）");
+    staticMesh.outputPolicy = igQtAnimationFilterOutputPolicy::ReplaceFrame;
+    staticMesh.supports = [](iGame::DataObject::Pointer input, QString& message) {
+        if (hasMeshGeometry(input)) return true;
+        message = QStringLiteral("当前帧没有可缓存的网格。");
+        return false;
+    };
+    staticMesh.describeOutput = [](const igQtAnimationDataInfo& input, const QVariantMap&,
+                                   igQtAnimationDataInfo& output, QString&) {
+        output = input;
+        return true;
+    };
+    staticMesh.parameterSchemaFromInfo = [](const igQtAnimationDataInfo&,
+            igQtAnimationFilterParameterSchema& schema, QString&) {
+        schema.clear();
+        return true;
+    };
+    staticMesh.execute = [](const igQtAnimationFrameContext& context, const QVariantMap&) {
+        igQtAnimationFilterResult result;
+        if (!context.referenceGeometry) {
+            result.error = QStringLiteral("静态网格缺少 Pipeline 缓存上下文。");
+            return result;
+        }
+        auto& reference = *context.referenceGeometry;
+        // Each evaluation owns a fresh output: later frames cannot mutate an
+        // earlier entry of the animation LRU cache or the reference geometry.
+        auto filter = iGame::ForceStaticMeshFilter::New();
+        filter->SetInput(reference ? reference : context.input);
+        if (!filter->ExecuteAtTimeStep(context.sourceFrameIndex, context.sourceTime)) {
+            result.error = QString::fromStdString(filter->GetStatusMessage());
+            return result;
+        }
+        filter->SetInput(context.input);
+        if (!filter->ExecuteAtTimeStep(context.sourceFrameIndex, context.sourceTime)) {
+            result.error = QString::fromStdString(filter->GetStatusMessage());
+            return result;
+        }
+        result.output = filter->GetOutput();
+        // A private copy also handles automatic rebuilds after size changes.
+        auto snapshot = iGame::ForceStaticMeshFilter::New();
+        snapshot->SetInput(result.output);
+        if (!snapshot->Execute()) {
+            result.error = QString::fromStdString(snapshot->GetStatusMessage());
+            return result;
+        }
+        reference = snapshot->GetOutput();
+        result.output->SetName("ForceStaticMesh");
+        result.success = true;
+        return result;
+    };
+    if (!manager.registerFilter(std::move(staticMesh), error)) return false;
     if (!manager.registerFilter(
                 igQtCreateContourAnimationFilterDescriptor(), error)) {
         return false;

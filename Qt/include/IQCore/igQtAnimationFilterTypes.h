@@ -76,6 +76,7 @@ struct IG_QT_MODULE_EXPORT igQtAnimationFrameContext {
     int outputFrameIndex{-1};
     double outputTime{0.0};
     bool exporting{false};
+    iGame::DataObject::Pointer* referenceGeometry{nullptr};
 };
 
 /** Filter Adapter 执行一帧后返回给动画系统的统一结果。 */

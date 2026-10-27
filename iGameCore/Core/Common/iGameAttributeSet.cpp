@@ -340,7 +340,7 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     double dimensionRanges[128];
     for (int i = 0; i < 2 * (dim + 1); i += 2) {
         dimensionRanges[i + 0] = DBL_MAX;
-        dimensionRanges[i + 1] = DBL_MIN;
+        dimensionRanges[i + 1] = -DBL_MAX;
     }
 
     auto& data = this->pointer;

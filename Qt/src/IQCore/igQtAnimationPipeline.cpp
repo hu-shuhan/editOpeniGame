@@ -51,6 +51,7 @@ bool igQtExecuteAnimationPipeline(
 
         igQtAnimationFrameContext stepContext = context;
         stepContext.input = working;
+        stepContext.referenceGeometry = &step.referenceGeometry;
         const auto result =
                 manager.execute(step.filterId, stepContext, step.parameters);
         if (!result.success) {

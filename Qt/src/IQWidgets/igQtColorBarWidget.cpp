@@ -1,4 +1,5 @@
-﻿#include <IQWidgets/igQtColorBarWidget.h>
+#include <IQWidgets/igQtColorBarWidget.h>
+#include <IQWidgets/igQtRenderWidget.h>
 #include <QDebug>
 #include <iGameSceneManager.h>
 #include "iGameSmartPointer.h"
@@ -28,19 +29,24 @@ void igQtColorBarWidget::updateColorBarDrawInfo() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     m_ColorMapper = nullptr;
 	m_AttributeName = "";  // Reset attribute name
-	if (scene) {
-        auto model = scene->GetCurrentModel();
-        if (model&&model->GetDataObject()&&model->GetDataObject()->GetAttributeIndex()!=-1
-            ) {
-			m_ColorMapper =model->GetDataObject()->GetColorMapper();
-			// Get current attribute name
-			int attrIdx = model->GetDataObject()->GetAttributeIndex();
-			auto attrSet = model->GetDataObject()->GetAttributeSet();
-			if (attrSet) {
-				auto attr = attrSet->GetAttribute(attrIdx);
-				if (attr.pointer) {
-					m_AttributeName = attr.pointer->GetName();
-				}
+	// 目标对象"选中优先"：多块组内选中子块（或子块属性行）时，色条按【子块】自己的
+	// 属性名/配色器/范围显示；无选中时回落当前模型根对象（既有行为）。
+	// 此前固定读当前模型根：组根属性下标 -1 → 跳过 → 回退默认 mapper（范围 0-255）
+	// —— 这就是"子块属性已着色、左侧色条却显示 0-255 / 空属性名"的原因。
+	iGame::DataObject::Pointer target = m_OverrideDataObject;
+	if (!target && scene) {
+		auto model = scene->GetCurrentModel();
+		if (model) { target = model->GetDataObject(); }
+	}
+	if (target && target->GetAttributeIndex() != -1) {
+		m_ColorMapper = target->GetColorMapper();
+		// Get current attribute name
+		int attrIdx = target->GetAttributeIndex();
+		auto attrSet = target->GetAttributeSet();
+		if (attrSet) {
+			auto attr = attrSet->GetAttribute(attrIdx);
+			if (attr.pointer) {
+				m_AttributeName = attr.pointer->GetName();
 			}
 		}
 	}
@@ -62,43 +68,20 @@ void igQtColorBarWidget::updateColorBarDrawInfo() {
 	}
     float min = m_ColorMapper->GetRange()[0];
     float max = m_ColorMapper->GetRange()[1];
-	// 若当前属性已锁定范围，刻度直接读父容器固定的 dataRange（与标量场同源），
+	// 若当前属性已锁定范围，刻度直接读该对象固定的 dataRange（与标量场同源），
 	// 避免 mapper 在帧内被临时改回当帧范围导致颜色条刻度跳动
-	if (!m_AttributeName.empty()) {
-		auto sc = iGame::SceneManager::Instance()->GetCurrentScene();
-		if (sc && sc->GetCurrentModel() && sc->GetCurrentModel()->GetDataObject()) {
-			auto dataObject = sc->GetCurrentModel()->GetDataObject();
-			if (dataObject->IsAttributeRangeLocked(m_AttributeName)) {
-				auto attrs = dataObject->GetAttributeSet();
-				auto& attr = attrs->GetAttribute(m_AttributeName);
-				auto dr = attr.GetDataRange();
-				if (dr && dr->GetNumberOfValues() >= 2) {
-					int dim = dataObject->GetAttributeDimension();
-					int e = dim + 1;
-					if (e < 0 || e >= dr->GetNumberOfElements()) { e = 0; }
-					min = (float)dr->GetValue(2 * e);
-					max = (float)dr->GetValue(2 * e + 1);
-				}
-			}
-		}
-	}
-	// 范围退化（如按法向量的模长着色）会让六个刻度全相同，退回该属性的分量范围
-	if (!(max > min) && !m_AttributeName.empty()) {
-		auto sc = iGame::SceneManager::Instance()->GetCurrentScene();
-		if (sc && sc->GetCurrentModel() && sc->GetCurrentModel()->GetDataObject()) {
-			auto dataObject = sc->GetCurrentModel()->GetDataObject();
+	if (!m_AttributeName.empty() && target) {
+		auto dataObject = target;
+		if (dataObject->IsAttributeRangeLocked(m_AttributeName)) {
 			auto attrs = dataObject->GetAttributeSet();
-			if (attrs) {
-				auto& attr = attrs->GetAttribute(m_AttributeName);
-				auto dr = attr.GetDataRange();
-				if (dr) {
-					const int elems = dr->GetNumberOfElements();
-					for (int e = 1; e < elems; e++) {
-						float lo = (float)dr->GetValue(2 * e);
-						float hi = (float)dr->GetValue(2 * e + 1);
-						if (hi > lo) { min = lo; max = hi; break; }
-					}
-				}
+			auto& attr = attrs->GetAttribute(m_AttributeName);
+			auto dr = attr.GetDataRange();
+			if (dr && dr->GetNumberOfValues() >= 2) {
+				int dim = dataObject->GetAttributeDimension();
+				int e = dim + 1;
+				if (e < 0 || e >= dr->GetNumberOfElements()) { e = 0; }
+				min = (float)dr->GetValue(2 * e);
+				max = (float)dr->GetValue(2 * e + 1);
 			}
 		}
 	}
@@ -163,7 +146,7 @@ void igQtColorBarWidget::initDrawStringStyle()
 void igQtColorBarWidget::mousePressEvent(QMouseEvent* _event)
 {
 	this->isPressed = true;
-	this->boundColor = Qt::white;
+	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
 	this->lastPos = _event->pos();
 }
 void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
@@ -180,7 +163,7 @@ void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
 void igQtColorBarWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
 	this->isPressed = false;
-	this->boundColor = Qt::white;
+	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
 	update();
 
 }
@@ -202,10 +185,10 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 {
 	updateColorBarDrawInfo();
 	QPainter painter(this);
-	painter.setPen(Qt::white); // Set text color to white
+	painter.setPen(igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text));
 	
 	// Set boundColor to white for ParaView style
-	this->boundColor = Qt::white;
+	this->boundColor = igQtRenderWidget::uiRole(igQtRenderWidget::UiRole::Text);
 	
 	QVector<QRect>data;
 	data.resize(6);
@@ -245,7 +228,7 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 		QRect textRect(colorBarWidth + 2, (int)y - (textHeight + 1) / 2, textWidth + restWidth, textHeight);
 		painter.drawText(textRect, strData[i]);
 		if (i == 0 || i == data.size() - 1)continue;
-		painter.fillRect(QRect(0, (int)y, colorBarWidth / 4, 2), this->boundColor);
+		painter.fillRect(QRect(2, (int)y, colorBarWidth / 4, 2), this->boundColor);
 		painter.fillRect(QRect(3 * colorBarWidth / 4, (int)y, colorBarWidth - 3 * colorBarWidth / 4, 2), this->boundColor);
 
 	}
