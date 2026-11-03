@@ -590,6 +590,18 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         auto& parentAttr = this->GetAttributeSet()->GetAttribute(index);
         auto parentDataRange = parentAttr.GetDataRange();
 
+        // A shell shares this mapper but must not set its range from a subset.
+        // Initialize it here from the owning object's selected component instead.
+        // Otherwise switching x -> magnitude can retain the x range: shell-only
+        // conversion returns before the owner's normal color conversion runs.
+        if (m_IsMainRenderableObject && m_ColorMapper && !m_ColorMapper->GetStable() &&
+            parentDataRange && dimension >= -1 &&
+            dimension + 1 < parentDataRange->GetNumberOfElements()) {
+            const int offset = 2 * (dimension + 1);
+            m_ColorMapper->SetRange(parentDataRange->GetValue(offset), parentDataRange->GetValue(offset + 1));
+        }
+
+
         if (m_RenderableMesh.SurfaceMesh &&
             m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
             m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;

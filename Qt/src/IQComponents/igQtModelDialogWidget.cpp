@@ -1088,6 +1088,7 @@ int igQtModelDialogWidget::addModelToModelTree(iGame::Model::Pointer model) {
 int igQtModelDialogWidget::updateCurrentModelInfo() {
     //    qDebug() << ui->modelTreeWidget->currentIndex();
 
+    ui->ModelInformationWidget->setOverrideDataObject(GetCurrentDataObject());
     ui->ModelInformationWidget->updateInformationFrame();
     Q_EMIT CurrendModelChanged();
 
@@ -1392,4 +1393,19 @@ void igQtModelDialogWidget::positionTreeDockToRendererCorner(QWidget* rendererWi
     m_treeDock->show();
     m_treeDock->raise();
     m_treeDock->activateWindow();
+}
+
+iGame::DataObject::Pointer igQtModelDialogWidget::GetCurrentDataObject() {
+    // 1) 优先取模型树中【当前选中】的数据对象：
+    //    选中多块装配体的子块时，返回的是子块本身，而不是它的父模型。
+    if (modelTreeWidget) {
+        auto selected = modelTreeWidget->getSingleSelectedDataObject();
+        if (selected) { return selected; }
+    }
+
+    // 2) 没有任何选中时，回退为"当前模型的 DataObject"，保持既有行为不变。
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) { return nullptr; }
+    auto model = scene->GetCurrentModel();
+    return model ? model->GetDataObject() : nullptr;
 }

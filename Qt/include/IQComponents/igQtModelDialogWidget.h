@@ -30,6 +30,7 @@ public:
         if (modelTreeWidget) modelTreeWidget->syncVisibilityIcons();
     }
 
+    iGame::DataObject::Pointer GetCurrentDataObject();
     igQtModelDialogWidget(QWidget* parent);
     ~igQtModelDialogWidget() override = default;
 

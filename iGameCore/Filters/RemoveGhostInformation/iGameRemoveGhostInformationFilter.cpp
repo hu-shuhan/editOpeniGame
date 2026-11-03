@@ -4,6 +4,9 @@
 #include "iGameAttributeSet.h"
 #include "iGameCellArray.h"
 #include "iGamePoints.h"
+#include "Selection/iGameExtractBlockFilter.h"
+#include <functional>
+#include <set>
 
 #include <algorithm>
 #include <cctype>
@@ -215,10 +218,46 @@ RemoveGhostInformationFilter::RemoveGhostInformationFilter() {
 bool RemoveGhostInformationFilter::Execute() {
 
     m_WasModified = false;
+    SetOutput(0, nullptr);
 
     auto inputObject = GetInput(0);
 
     if (inputObject.IsNull()) { return false; }
+
+    // Keep the same partition hierarchy emitted by GhostCellFilter. Remove
+    // each leaf's duplicates independently; never merge different partitions.
+    if (!ExtractBlockFilter::GetBlocks(inputObject).empty()) {
+        std::set<DataObject*> active;
+        bool modified = false;
+        std::function<DataObject::Pointer(DataObject::Pointer)> remove;
+        remove = [&](DataObject::Pointer node) -> DataObject::Pointer {
+            if (!node || !active.insert(node.get()).second) return nullptr;
+            const auto children = ExtractBlockFilter::GetBlocks(node);
+            DataObject::Pointer result;
+            if (!children.empty()) {
+                if (DynamicCast<PointSet>(node)) return nullptr;
+                auto container = DrawObject::New(); container->SetName(node->GetName());
+                for (auto child : children) {
+                    if (!child) { container->AddSubDataObject(DrawObject::New()); continue; }
+                    auto copied = remove(child);
+                    if (!copied) return nullptr;
+                    container->AddSubDataObject(copied);
+                }
+                result = container;
+            } else if (DynamicCast<UnstructuredMesh>(node)) {
+                auto filter = RemoveGhostInformationFilter::New(); filter->SetInput(node);
+                if (!filter->Execute()) return nullptr;
+                modified |= filter->WasModified(); result = filter->GetOutput();
+            } else if (node->GetDataObjectType() == IG_DRAW_OBJECT || node->GetDataObjectType() == IG_DATA_OBJECT ||
+                       node->GetDataObjectType() == IG_COMPOSITE_DATA_OBJECT) {
+                auto container = DrawObject::New(); container->SetName(node->GetName()); result = container;
+            }
+            active.erase(node.get()); return result;
+        };
+        auto result = remove(inputObject);
+        if (!result) return false;
+        m_WasModified = modified; SetOutput(0, modified ? result : inputObject); return true;
+    }
 
     // 当前版本处理UnstructuredMesh
     auto input = DynamicCast<UnstructuredMesh>(inputObject);
@@ -233,7 +272,7 @@ bool RemoveGhostInformationFilter::Execute() {
 
     auto inputAttributes = input->GetAttributeSet();
 
-    if (inputAttributes == nullptr) { return true; }
+    if (inputAttributes == nullptr) { SetOutput(input); return true; }
 
 
     // 查找Point和Cell级vtkGhostType
@@ -268,7 +307,7 @@ bool RemoveGhostInformationFilter::Execute() {
     }
 
 
-    if (pointGhostArray == nullptr && cellGhostArray == nullptr) { return true; }
+    if (pointGhostArray == nullptr && cellGhostArray == nullptr) { SetOutput(input); return true; }
 
 
     // Ghost数组长度检查

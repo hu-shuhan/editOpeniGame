@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<VTKFile type="vtkMultiBlockDataSet" version="1.0" byte_order="LittleEndian">
+  <vtkMultiBlockDataSet>
+    <Block index="0" name="surface_group">
+      <DataSet index="0" name="ExtractSelectionTriangles" file="ExtractSelectionTriangles.vtu"/>
+    </Block>
+    <Block index="1" name="volume_group">
+      <DataSet index="0" name="ExtractSelectionTetrahedra" file="ExtractSelectionTetrahedra.vtu"/>
+    </Block>
+  </vtkMultiBlockDataSet>
+</VTKFile>

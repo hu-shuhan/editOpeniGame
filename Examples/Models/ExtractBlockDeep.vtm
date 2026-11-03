@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<VTKFile type="vtkMultiBlockDataSet" version="1.0" byte_order="LittleEndian">
+  <vtkMultiBlockDataSet>
+    <Block index="1" name="Volumes">
+      <Block index="0" name="Solids">
+        <DataSet index="0" name="DeepHexahedron" file="ExtractBlockHexahedron.vtu"/>
+      </Block>
+    </Block>
+    <DataSet index="0" name="Triangles" file="ExtractSelectionTriangles.vtu"/>
+  </vtkMultiBlockDataSet>
+</VTKFile>

@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="60" NumberOfCells="24">
+      <PointData Scalars="ProbeValue">
+        <DataArray type="Float64" format="ascii" Name="ProbeValue">
+-4 -3 -2 -1 0 -2 -1 0 1 2 0 1 2 3 4 2 3 4 5 6 -1 0 1 2 3 1 2 3 4 5 3 4 5 6 7 5 6 7 8 9 2 3 4 5 6 4 5 6 7 8 6 7 8 9 10 8 9 10 11 12
+</DataArray>
+      </PointData>
+      <CellData Scalars="BlockId">
+        <DataArray type="Int32" format="ascii" Name="BlockId">
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+</DataArray>
+        <DataArray type="Int32" format="ascii" Name="OriginalCellId">
+0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23
+</DataArray>
+      </CellData>
+      <Points>
+        <DataArray type="Float64" format="ascii" NumberOfComponents="3">
+-6 1 0 -5 1 0 -4 1 0 -3 1 0 -2 1 0 -6 2 0 -5 2 0 -4 2 0 -3 2 0 -2 2 0 -6 3 0 -5 3 0 -4 3 0 -3 3 0 -2 3 0 -6 4 0 -5 4 0 -4 4 0 -3 4 0 -2 4 0 -6 1 1 -5 1 1 -4 1 1 -3 1 1 -2 1 1 -6 2 1 -5 2 1 -4 2 1 -3 2 1 -2 2 1 -6 3 1 -5 3 1 -4 3 1 -3 3 1 -2 3 1 -6 4 1 -5 4 1 -4 4 1 -3 4 1 -2 4 1 -6 1 2 -5 1 2 -4 1 2 -3 1 2 -2 1 2 -6 2 2 -5 2 2 -4 2 2 -3 2 2 -2 2 2 -6 3 2 -5 3 2 -4 3 2 -3 3 2 -2 3 2 -6 4 2 -5 4 2 -4 4 2 -3 4 2 -2 4 2
+</DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" format="ascii" Name="connectivity">
+0 1 6 5 20 21 26 25 1 2 7 6 21 22 27 26 2 3 8 7 22 23 28 27 3 4 9 8 23 24 29 28 5 6 11 10 25 26 31 30 6 7 12 11 26 27 32 31 7 8 13 12 27 28 33 32 8 9 14 13 28 29 34 33 10 11 16 15 30 31 36 35 11 12 17 16 31 32 37 36 12 13 18 17 32 33 38 37 13 14 19 18 33 34 39 38 20 21 26 25 40 41 46 45 21 22 27 26 41 42 47 46 22 23 28 27 42 43 48 47 23 24 29 28 43 44 49 48 25 26 31 30 45 46 51 50 26 27 32 31 46 47 52 51 27 28 33 32 47 48 53 52 28 29 34 33 48 49 54 53 30 31 36 35 50 51 56 55 31 32 37 36 51 52 57 56 32 33 38 37 52 53 58 57 33 34 39 38 53 54 59 58
+</DataArray>
+        <DataArray type="Int64" format="ascii" Name="offsets">
+8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160 168 176 184 192
+</DataArray>
+        <DataArray type="UInt8" format="ascii" Name="types">
+12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12
+</DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>

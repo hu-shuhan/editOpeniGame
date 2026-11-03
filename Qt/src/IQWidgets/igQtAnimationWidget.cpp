@@ -1,3 +1,4 @@
+#include <map>
 //
 // Created by m_ky on 2024/4/22.
 //
@@ -56,6 +57,7 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
     ui->comboBoxAnimationFilter->addItem(QStringLiteral("添加 Filter..."),
                                          QString());
     for (const auto& id : m_AnimationFilterManager.filterIds()) {
+        if (id == QStringLiteral("forceStaticMesh")) continue;
         const auto* descriptor = m_AnimationFilterManager.descriptor(id);
         if (descriptor) {
             ui->comboBoxAnimationFilter->addItem(descriptor->displayName, id);
@@ -245,6 +247,11 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
 
 igQtAnimationWidget::~igQtAnimationWidget() {
     restoreAnimationFilterSource();
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (scene) scene->MakeCurrent();
+    m_ModelAnimationStates.clear();
+    m_PendingAnimationResult = {};
+    if (scene) scene->DoneCurrent();
     delete ui;
 }
 
@@ -321,8 +328,44 @@ bool igQtAnimationWidget::bindAnimationSource() {
         (object == m_AnimationFilterSourceObject || object == m_AnimationDisplayedObject)) return true;
     restoreAnimationFilterSource();
     if (!object || !object->PeekTimeFrames() || object->PeekTimeFrames()->GetArrays().empty()) return false;
+    scene->MakeCurrent();
+    // Drop bindings for models removed from the scene, including their frames.
+    std::map<int, iGame::Model::Pointer> liveModels;
+    if (auto pool = scene->GetModelList())
+        for (auto it = pool->Begin(); it != pool->End(); ++it) liveModels.emplace(it->first, it->second);
+    for (auto it = m_ModelAnimationStates.begin(); it != m_ModelAnimationStates.end();) {
+        const bool live = std::any_of(liveModels.begin(), liveModels.end(),
+                [&](const auto& entry) { return entry.second.get() == it.key(); });
+        if (!live) it = m_ModelAnimationStates.erase(it);
+        else ++it;
+    }
+    if (m_PendingAnimationResult.display == object) {
+        m_PendingAnimationResult.model = model;
+        m_ModelAnimationStates[model.get()] = std::move(m_PendingAnimationResult);
+        m_PendingAnimationResult = {};
+    }
     m_AnimationFilterSourceModel = model;
-    m_AnimationFilterSourceObject = object;
+    auto saved = m_ModelAnimationStates.find(model.get());
+    if (saved != m_ModelAnimationStates.end()) {
+        m_AnimationFilterSourceObject = saved->source;
+        m_AnimationDisplayedObject = saved->display;
+        m_AnimationPipeline = std::move(saved->steps);
+        m_ResultComputation = std::move(saved->computation);
+        m_AnimationOutputCache = std::move(saved->cache);
+        m_AnimationPipelineRevision = saved->revision;
+        m_DisplayedPipelineRevision = saved->displayedRevision;
+        m_AnimationResultName = saved->resultName;
+        m_RestoreOutputFrame = saved->outputFrame;
+        m_ModelAnimationStates.erase(saved);
+    } else {
+        m_AnimationFilterSourceObject = object;
+        m_AnimationPipeline.clear();
+        m_ResultComputation.clear();
+        ++m_AnimationPipelineRevision;
+        m_AnimationResultName.clear();
+        m_RestoreOutputFrame = -1;
+    }
+    scene->DoneCurrent();
     return true;
 }
 
@@ -330,7 +373,67 @@ void igQtAnimationWidget::invalidateAnimationOutputs() {
     auto scene = m_AnimationFilterSourceModel ? m_AnimationFilterSourceModel->GetScene() : nullptr;
     if (scene) scene->MakeCurrent();
     m_AnimationOutputCache.clear();
+    for (auto& step : m_AnimationPipeline) step.referenceGeometry = nullptr;
     if (scene) scene->DoneCurrent();
+}
+
+iGame::DataObject::Pointer igQtAnimationWidget::createForceStaticMeshResult() {
+    using namespace iGame;
+    if (!bindAnimationSource()) return nullptr;
+    VcrController->onPause();
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    auto current = scene->GetCurrentModel()->GetDataObject();
+    igQtAnimationPipelineStep step;
+    step.filterId = QStringLiteral("forceStaticMesh");
+    igQtAnimationPipelineSteps previewSteps;
+    previewSteps.push_back(step);
+    igQtAnimationFrameContext context;
+    context.input = current;
+    context.sourceFrameIndex = currentFrameIndex();
+    igQtAnimationFilterResult result;
+    scene->MakeCurrent();
+    {
+        DataObject::DeferDrawableConversionScope cpu;
+        if (!igQtExecuteAnimationPipeline(m_AnimationFilterManager, previewSteps, context, result)) {
+            scene->DoneCurrent();
+            return nullptr;
+        }
+    }
+    int suffix = 1;
+    QString name;
+    std::map<int, Model::Pointer> models;
+    if (auto pool = scene->GetModelList())
+        for (auto it = pool->Begin(); it != pool->End(); ++it) models.emplace(it->first, it->second);
+    do {
+        name = QStringLiteral("ForceStaticMesh%1").arg(suffix++);
+    } while (std::any_of(models.begin(), models.end(), [&](const auto& entry) {
+        return entry.second->GetDataObject()->GetName() == name.toStdString();
+    }));
+    auto output = DynamicCast<DrawObject>(result.output);
+    output->SetName(name.toStdString());
+    output->SetTimeFrames(m_AnimationFilterSourceObject->PeekTimeFrames());
+    if (auto previous = DynamicCast<DrawObject>(current)) output->SetViewStyle(previous->GetViewStyle());
+    output->ConvertToDrawableData();
+    const int attribute = current->GetAttributeIndex();
+    auto attrs = current->GetAttributeSet();
+    if (attrs && attribute >= 0 && attribute < attrs->GetNumberOfAttributes()) {
+        const int index = output->GetAttributeSet()->GetAttributeIndex(attrs->GetAttribute(attribute).pointer->GetName());
+        if (index >= 0) output->ViewCloudPicture(scene, index, current->GetAttributeDimension());
+    }
+    output->ConvertToDrawableData();
+    scene->DoneCurrent();
+    m_PendingAnimationResult = {};
+    m_PendingAnimationResult.source = m_AnimationFilterSourceObject;
+    m_PendingAnimationResult.display = output;
+    m_PendingAnimationResult.computation = m_ResultComputation;
+    m_PendingAnimationResult.computation.append(m_AnimationPipeline);
+    m_PendingAnimationResult.computation.push_back(previewSteps.front());
+    m_PendingAnimationResult.cache.setCapacity(m_PreferredCacheNum);
+    m_PendingAnimationResult.revision = m_AnimationPipelineRevision + 1;
+    m_PendingAnimationResult.displayedRevision = m_PendingAnimationResult.revision;
+    m_PendingAnimationResult.resultName = name;
+    m_PendingAnimationResult.outputFrame = VcrController->currentKeyframeIndex();
+    return output;
 }
 
 bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest& request, bool exporting) {
@@ -361,6 +464,15 @@ bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest&
             output.error = QStringLiteral("当前帧差值计算失败。"); return output;
         }
         QString error;
+        if (!m_ResultComputation.isEmpty()) {
+            igQtAnimationFilterResult intrinsic;
+            if (!igQtExecuteAnimationPipeline(m_AnimationFilterManager, m_ResultComputation, context, intrinsic, &error)) {
+                intrinsic.success = false; intrinsic.error = error;
+                return intrinsic;
+            }
+            intrinsic.output->SetTimeFrames(context.input->PeekTimeFrames());
+            context.input = intrinsic.output;
+        }
         if (!igQtExecuteAnimationPipeline(m_AnimationFilterManager, m_AnimationPipeline, context, output, &error)) {
             output.success = false; output.error = error;
         }
@@ -382,7 +494,7 @@ bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest&
     // Retain the private read context stored with this final output. Never
     // reconnect it to the source's legacy frame cache, including on cache hits.
     display->SetColorMapper(previous ? previous->GetColorMapper() : source->GetColorMapper());
-    source->SetColorMapper(display->GetColorMapper());
+    if (!m_AnimationResultName.isEmpty()) display->SetName(m_AnimationResultName.toStdString());
     if (previous) {
         display->SetDeformationData(previous->GetDeformationData());
         if (m_AnimationPipeline.isEmpty() || previous == m_AnimationDisplayedObject)
@@ -459,7 +571,7 @@ bool igQtAnimationWidget::displayAnimationFrame(const igQtAnimationFrameRequest&
     }
     display->RefreshAnimationOutputRanges();
     if (m_AnimationPipelineDisplayAttribute.isEmpty()) display->ViewCloudPicture(scene, -1);
-    applyPipelineDisplaySettings(scene, display, source);
+    applyPipelineDisplaySettings(scene, display, display);
     // Rendering settings remain live on hits; data filters do not run again.
     if (display->GetDeformationData()->GetEnableStatus()) display->ForceReConvertToDrawableData();
     display->SetViewStyle(display->GetViewStyle());
@@ -728,8 +840,11 @@ bool igQtAnimationWidget::animationPipelineInputInfo(
         int row, igQtAnimationDataInfo& input, QString& error) const {
     igQtAnimationDataInfo source;
     if (!igQtDescribeAnimationData(animationFilterInput(), source, error)) return false;
+    igQtAnimationDataInfo nodeOutput;
+    if (!igQtDescribeAnimationPipelineInput(m_AnimationFilterManager, m_ResultComputation,
+            m_ResultComputation.size(), source, nodeOutput, error)) return false;
     return igQtDescribeAnimationPipelineInput(m_AnimationFilterManager, m_AnimationPipeline,
-                                             row, source, input, error);
+                                             row, nodeOutput, input, error);
 }
 
 void igQtAnimationWidget::updateAnimationFilterSummary() {
@@ -737,7 +852,7 @@ void igQtAnimationWidget::updateAnimationFilterSummary() {
     ui->listWidgetAnimationPipeline->clear();
     igQtAnimationDataInfo upstream;
     QString descriptionError;
-    bool described = igQtDescribeAnimationData(animationFilterInput(), upstream, descriptionError);
+    bool described = animationPipelineInputInfo(0, upstream, descriptionError);
     for (int i = 0; i < static_cast<int>(m_AnimationPipeline.size()); ++i) {
         const auto& step = m_AnimationPipeline.at(i);
         const auto* descriptor = m_AnimationFilterManager.descriptor(step.filterId);
@@ -811,11 +926,23 @@ void igQtAnimationWidget::applyPipelineDisplaySettings(
 void igQtAnimationWidget::restoreAnimationFilterSource() {
     auto scene = m_AnimationFilterSourceModel ? m_AnimationFilterSourceModel->GetScene() : nullptr;
     if (scene) scene->MakeCurrent();
-    m_AnimationOutputCache.clear();
-    if (m_AnimationFilterSourceModel && m_AnimationFilterSourceObject &&
-        m_AnimationFilterSourceModel->GetDataObject() == m_AnimationDisplayedObject) {
-        m_AnimationFilterSourceModel->SetDataObject(m_AnimationFilterSourceObject);
+    if (m_AnimationFilterSourceModel && m_AnimationFilterSourceObject) {
+        AnimationModelState state;
+        state.model = m_AnimationFilterSourceModel;
+        state.source = m_AnimationFilterSourceObject;
+        state.display = m_AnimationDisplayedObject;
+        state.steps = std::move(m_AnimationPipeline);
+        state.computation = std::move(m_ResultComputation);
+        state.cache = std::move(m_AnimationOutputCache);
+        state.revision = m_AnimationPipelineRevision;
+        state.displayedRevision = m_DisplayedPipelineRevision;
+        state.resultName = m_AnimationResultName;
+        state.outputFrame = VcrController->currentKeyframeIndex();
+        m_ModelAnimationStates[state.model.get()] = std::move(state);
     }
+    m_AnimationPipeline.clear();
+    m_ResultComputation.clear();
+    m_AnimationOutputCache = {};
     m_AnimationFilterSourceModel = nullptr;
     m_AnimationFilterSourceObject = nullptr;
     m_AnimationDisplayedObject = nullptr;
@@ -1059,6 +1186,8 @@ void igQtAnimationWidget::initAnimationComponents() {
             VcrController, &igQtAnimationVcrController::updateCurrentKeyframe, Qt::UniqueConnection);
     updateAnimationModeControls();
     updateAnimationFilterSummary();
+    if (m_RestoreOutputFrame >= 0)
+        VcrController->updateCurrentKeyframe(std::clamp(m_RestoreOutputFrame, 0, VcrController->frameCount() - 1));
 }
 void igQtAnimationWidget::ClearAnimationVCRInfo() {
     invalidateAnimationOutputs();

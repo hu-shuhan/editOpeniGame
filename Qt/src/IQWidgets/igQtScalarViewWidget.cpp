@@ -7,6 +7,22 @@
 #include <iomanip>
 //#include <iGameManager.h>
 //#include <iGameModelColorManager.h>
+namespace {
+/**
+ * 色条/变量选择作用的目标对象：**选中优先**。
+ *
+ * 多块组内选中子块时（模型树侧通过 setCurrentDataObject 传入），
+ * 色条按子块自己的属性表/配色器显示与调范围；无选中/无设置时回落为
+ * 当前模型的根对象 —— 保持既有单模型行为不变。
+ */
+iGame::DataObject::Pointer ResolveScalarTargetObject(const iGame::DataObject::Pointer& selected) {
+	if (selected) { return selected; }
+	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+	if (!scene) { return nullptr; }
+	auto model = scene->GetCurrentModel();
+	return model ? model->GetDataObject() : nullptr;
+}
+} // namespace
 /**
  * @class   igQtScalarViewWidget
  * @brief   igQtScalarViewWidget's brief
@@ -56,8 +72,10 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 	connect(ui->comboBox_RangeMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
         [this](int idx) {
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-            if (!scene || !scene->GetCurrentModel()) return;
-            auto obj = scene->GetCurrentModel()->GetDataObject();
+            if (!scene) return;
+            // 选中优先：多块组内选中子块时，"范围模式"必须作用在子块自身
+            // （与 loadScalarData 同源）—— 此前读根对象，会把模式写到组根上。
+            auto obj = ResolveScalarTargetObject(m_OverrideDataObject);
             if (!obj || scalarName.empty()) return;
 
             // 下拉框索引与 RangeMode 枚举一致：0=每帧调整，1=只扩不缩，2=全局固定
@@ -79,17 +97,11 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 void igQtScalarViewWidget::loadScalarData() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	m_ColorMapper = nullptr;
-	iGame::DataObject::Pointer obj;
-	if (scene) {
-		auto model = scene->GetCurrentModel();
-		if (model) { obj = model->GetDataObject(); }
-	}
+	// 选中优先：多块组内选中子块时，色条/范围按【子块】显示；
+	// 无选中时回落当前模型根对象（既有行为）。此前固定读根对象，
+	// 组根从未着色（属性下标 -1）会直接 return —— 色条不更新即源于此。
+	auto obj = ResolveScalarTargetObject(m_OverrideDataObject);
 	if (!obj) return;
-
-	// Track current model name
-	if (scene && scene->GetCurrentModel()) {
-		m_CurrentModelName = scene->GetCurrentModel()->GetDataObject()->GetName();
-	}
 
 	this->currentSelectedScalarIdx = obj->GetAttributeIndex();
 	if (currentSelectedScalarIdx < 0) return;
@@ -155,33 +167,23 @@ void igQtScalarViewWidget::showScalarView() {
 void igQtScalarViewWidget::updateDrawStyle() {
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	if (!scene) return;
-	auto model = scene->GetCurrentModel();
-	if (model && model->GetDataObject()) {
-		m_ColorMapper = model->GetDataObject()->GetColorMapper();
-	}
+	// 目标对象选中优先：子块伪彩用的是【子块自己的（独立）配色器】，
+	// 这里必须取同一个 mapper —— 否则 Modified()/重烘焙作用在根对象上，子块颜色不刷新。
+	auto obj = ResolveScalarTargetObject(m_OverrideDataObject);
+	if (obj) { m_ColorMapper = obj->GetColorMapper(); }
 	if (!m_ColorMapper) return;
 	m_ColorMapper->Modified();
 	scene->Update();
 }
 void igQtScalarViewWidget::editColorBar() { 
-	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    iGame::DataObject::Pointer obj=nullptr;
-    if (scene) {
-        auto model = scene->GetCurrentModel();
-        if (model) { obj = model->GetDataObject(); }
-    }
+	iGame::DataObject::Pointer obj = ResolveScalarTargetObject(m_OverrideDataObject);
     if (!obj) return;
 	Q_EMIT ChangeShowColorManager(); 
 }
 void igQtScalarViewWidget::rescaleRange() {
 	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper; }
 	if (currentSelectedScalarIdx < 0) return;
-    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    iGame::DataObject::Pointer obj=nullptr;
-    if (scene) {
-        auto model = scene->GetCurrentModel();
-        if (model) { obj = model->GetDataObject(); }
-    }
+	iGame::DataObject::Pointer obj = ResolveScalarTargetObject(m_OverrideDataObject);
     if (!obj) return;
     obj->ReCollectSubDataObjectDataRange();
     auto attribute = obj->GetAttributeSet()->GetAttribute(currentSelectedScalarIdx);

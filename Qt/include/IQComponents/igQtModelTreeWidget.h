@@ -279,6 +279,7 @@ class IG_QT_MODULE_EXPORT igQtModelTreeWidget : public QTreeWidget {
 public:
     igQtModelTreeWidget(QWidget* parent = nullptr);
     std::vector<iGame::DataObject::Pointer> getSelectedDataObjects() const;
+    iGame::DataObject::Pointer getSingleSelectedDataObject() const;
     void syncVisibilityIcons();
 
     ModelTreeWidgetItem* getItem(const QPoint& p) const;
