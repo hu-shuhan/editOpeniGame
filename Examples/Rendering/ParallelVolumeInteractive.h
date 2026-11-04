@@ -516,7 +516,7 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                           double globalMin, double globalMax,
                           const double gcenter[3],
                           const double blockCenter[3], double radius, int width,
-                          int height, bool useBinarySwap,
+                          int height, bool use23Swap,
                           const std::vector<iGame::StructuredMesh::Pointer>& volumes,
                           const std::vector<iGame::UnsignedCharArray::Pointer>& masks,
                           int numFrames, int startFrame,
@@ -708,7 +708,7 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
                                      static_cast<unsigned>(fh)},
                           rgba, depth);
 
-        // 分布式合成：默认稀疏 ROI 路径（--binary-swap 走 binary-swap 合成，O(log P) 轮）；
+        // 分布式合成：默认稀疏 ROI 路径（--2-3-swap 走 2-3 swap 合成，O(log P) 轮、任意 P）；
         // --pixelwise 换用逐像素首命中深度排序（ParallelVolumePixelComposite，pvr 模块内）。
         auto composite = iGame::iGameCompositePass::New();
         iGamePVPixel::PixelCompositePass pixelComposite;
@@ -720,14 +720,14 @@ inline int RunInteractive(iGame::iGameVolumeRayCastCPU* rayCaster,
             pixelComposite.SetLocalImage(fw, fh, rgba, depth);
             pixelComposite.SetBlockDepth(blockDepth);
             pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            pixelComposite.SetUseBinarySwapComposite(useBinarySwap);
+            pixelComposite.SetUse23SwapComposite(use23Swap);
             compositeOk = pixelComposite.Composite();
             frameRGBA = &pixelComposite.GetResultRGBA();
         } else {
             composite->SetLocalImage(fw, fh, rgba, depth);
             composite->SetBlockDepth(blockDepth);
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            composite->SetUseBinarySwapComposite(useBinarySwap);
+            composite->SetUse23SwapComposite(use23Swap);
             compositeOk = composite->Composite();
             frameRGBA = &composite->GetResultRGBA();
         }

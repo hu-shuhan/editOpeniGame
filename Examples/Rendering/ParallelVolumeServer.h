@@ -160,7 +160,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
                      double globalMin, double globalMax,
                      const double gcenter[3],
                      const double blockCenter[3], double radius,
-                     int width, int height, int port, bool useBinarySwap,
+                     int width, int height, int port, bool use23Swap,
                      const std::vector<iGame::StructuredMesh::Pointer>& volumes,
                      const std::vector<iGame::UnsignedCharArray::Pointer>& masks,
                      int numFrames, int startFrame,
@@ -563,8 +563,8 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
 
         // 分布式深度有序合成。默认走「稀疏 ROI 合成」：每个 rank 只上报自己非空像素的
         // 外接矩形，汇聚量与 rank 0 工作量都和 rank 数基本解耦（对标 IceT
-        // valid_pixels_viewport）。--binary-swap 时改走 binary-swap 合成（对标 IceT
-        // icetBSwapCompose，通信与合成摊到所有 rank）。
+        // valid_pixels_viewport）。--2-3-swap 时改走 2-3 swap 合成（SC 2008，任意 P，
+        // 通信与合成摊到所有 rank；P 为 2 的幂时退化为 binary-swap）。
         // --pixelwise 则换用「逐像素首命中深度排序」的合成路径（ParallelVolumePixelComposite，
         // 实现放在 pvr 模块内，不改 iGameCore）；与上面两个策略正交组合。
         auto composite = iGame::iGameCompositePass::New();
@@ -582,7 +582,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             pixelComposite.SetLocalImage(fw, fh, rgba, depth);
             pixelComposite.SetBlockDepth(blockDepth);
             pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            pixelComposite.SetUseBinarySwapComposite(useBinarySwap);
+            pixelComposite.SetUse23SwapComposite(use23Swap);
             // C/S 帧只发「预乘 alpha + 透明背景」的 ROI，客户端叠到自己的渐变背景上。
             pixelComposite.SetTransparentROI(true);
             compositeOk = pixelComposite.Composite();
@@ -595,7 +595,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
             composite->SetLocalImage(fw, fh, rgba, depth);
             composite->SetBlockDepth(blockDepth);
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            composite->SetUseBinarySwapComposite(useBinarySwap);
+            composite->SetUse23SwapComposite(use23Swap);
             // C/S 帧只发「预乘 alpha + 透明背景」的 ROI，客户端叠到自己的渐变背景上。
             composite->SetTransparentROI(true);
             compositeOk = composite->Composite();
@@ -615,7 +615,7 @@ inline int RunServer(iGame::iGameVolumeRayCastCPU* rayCaster,
         if (rank == 0) {
             const auto tSend0 = std::chrono::steady_clock::now();
 
-            // 1) ROI 由合成器直接给出（稀疏路径与 ROI 版 binary-swap 都在合成时算出），
+            // 1) ROI 由合成器直接给出（稀疏路径与 ROI 版 2-3 swap 都在合成时算出），
             //    无需再扫一遍全图。
             const int rx0 = resROIX;
             const int ry0 = resROIY;

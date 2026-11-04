@@ -26,6 +26,7 @@ list(APPEND IGAME_CORE_FILE
         "Filters/VolumeMeshAlgorithm/iGameVolumeDistributor.cpp"
         "Filters/VolumeMeshAlgorithm/iGameVolumeResampleFilter.h"
         "Filters/VolumeMeshAlgorithm/iGameVolumeResampleFilter.cpp"
+        "Rendering/Core/iGameComposite23Swap.h"
         "Rendering/Core/iGameCompositePass.h"
         "Rendering/Core/iGameCompositePass.cpp"
         "Rendering/Core/iGameVolumeRayCastCPU.h"

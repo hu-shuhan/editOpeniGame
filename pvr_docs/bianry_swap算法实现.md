@@ -139,3 +139,9 @@ Binary Swap 的每一阶段中，进程按照 swizzle 后的逻辑 rank 两两�
 > `AllGatherInt` 求各 rank 非空外接矩形的并集 ROI，只在 ROI 子图上做 ⌈log₂P⌉ 轮交换；
 > 轮末 `Gatherv` 只把各 rank 的最终分块拼成 ROI，rank0 再写回全帧位置。ROI 为空时直接
 > 输出背景；ROI 像素数 < rank 数时退回稀疏 ROI 合成。
+
+> **2026-11 更新（2-3 swap 已取代 binary-swap）**：主合成路径现在是
+> `iGameCompositePass::Composite23Swap`（`--2-3-swap`），基于论文
+> *Massively Parallel Volume Rendering Using 2-3 Swap Image Compositing*（SC 2008）：
+> 用 2/3 路合成树替代两两配对，**任意 P** 都能直接合成（不再要求 2 的幂），
+> P 为 2 的幂时退化为 binary-swap。上面这段「实现状态」是 binary-swap 时期的历史记录。

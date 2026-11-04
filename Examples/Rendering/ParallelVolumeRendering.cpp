@@ -4,7 +4,7 @@
 // CLI（命名参数，默认 CPU 后端）：
 //   <program> -i <input> [-t <timestep>] [--resample <res>] [--gpu|--cpu]
 //             [--interactive] [--server [--port <n>] [--autoplay-interval <ms>]]
-//             [-f <field>] [--direct|--binary-swap] [--blockwise|--pixelwise]
+//             [-f <field>] [--direct|--2-3-swap] [--blockwise|--pixelwise]
 //     -i, --input <file>   输入数据（.pvd/.vtm/.igcm 多分块，或 .vtr/.vts/.vtu 单块）
 //     -f, --field <name>   直接指定渲染字段（srun 批处理无 stdin 时必需）
 //     -t, --timestep <n>   PVD 时间步（默认 0；非 PVD 忽略）
@@ -15,8 +15,8 @@
 //         --server          C/S 服务端（阶段 6，仅 --cpu 后端）：rank 0 开放 TCP 端口
 //                          供前端（ParallelVolumeClient）连接，流式回传合成图
 //         --port <n>        --server 监听端口（默认 11111）
-//         --direct / --binary-swap
-//                          图像合成策略：稀疏 ROI 汇聚（默认）/ binary-swap 交换
+//         --direct / --2-3-swap
+//                          图像合成策略：稀疏 ROI 汇聚（默认）/ 2-3 swap 交换
 //         --blockwise / --pixelwise
 //                          合成的深度口径：块级超块中心深度（默认）/ 逐像素首命中深度
 //         --autoplay-interval <ms>
@@ -419,11 +419,11 @@ struct CliOptions {
     bool useGPU{false}; // false = CPU 后端（默认）
     bool interactive{false}; // true = 交互窗口（阶段 5，仅 CPU 后端有效）
     bool server{false}; // true = C/S 服务端（阶段 6，仅 CPU 后端有效）
-    bool useBinarySwap{false}; // true = binary-swap 合成（对标 IceT icetBSwapCompose）
+    bool use23Swap{false}; // true = 2-3 swap 合成（SC 2008；任意 P）
     // 合成的深度口径（--blockwise 默认 / --pixelwise）：
     //   false = blockwise：每 rank 一个「超块中心深度」，rank0 按该全局块序整幅 over
     //   true  = pixelwise：每个像素用各自的「首命中深度」排序 over
-    //                       （与 --direct / --binary-swap 正交组合；实现在
+    //                       （与 --direct / --2-3-swap 正交组合；实现在
     //                        ParallelVolumePixelComposite.h，不动 iGameCore）
     bool usePixelwise{false};
     int port{11111};    // --server 监听端口
@@ -484,14 +484,17 @@ void PrintUsage(const char* prog) {
             << "      --direct             Sparse-ROI compositing (default): each rank\n"
             << "                           gathers the bounding box of its non-empty pixels\n"
             << "                           to rank 0, O(sum of ROI areas).\n"
-            << "      --binary-swap        binary-swap compositing (cf. IceT\n"
-            << "                           icetBSwapCompose): ceil(log2 P) rounds of pairwise\n"
-            << "                           half-ROI exchange plus ordered over, work spread\n"
-            << "                           over all ranks and no rank-0 hotspot; meant for\n"
-            << "                           thousands of ranks. Prefer --direct at ~1k ranks:\n"
-            << "                           binary-swap is a globally synchronized blocking\n"
-            << "                           P2P wave and can stall interactive frames. If given\n"
-            << "                           together with --direct, the last one wins.\n"
+            << "      --2-3-swap          2-3 swap compositing (Yu, Wang, Ma, SC 2008):\n"
+            << "                           floor(log2 P) rounds of 2/3-way merges on a\n"
+            << "                           compositing tree, ordered over spread over all\n"
+            << "                           ranks and no rank-0 hotspot. Unlike binary-swap\n"
+            << "                           it accepts ANY number of ranks (P = 2^K-1 does\n"
+            << "                           not idle half the ranks); P a power of two\n"
+            << "                           degenerates to binary-swap. Prefer --direct at\n"
+            << "                           ~1k interactive ranks: it is still a globally\n"
+            << "                           synchronized blocking P2P wave. --binary-swap is\n"
+            << "                           accepted as a legacy alias. If given together\n"
+            << "                           with --direct, the last one wins.\n"
             << "      --blockwise          Depth criterion for compositing (default): one\n"
             << "                           depth per rank (that of the super-block center),\n"
             << "                           and rank 0 blends whole images in that global\n"
@@ -502,7 +505,7 @@ void PrintUsage(const char* prog) {
             << "                           ordering is correct per pixel. Cost: the payload\n"
             << "                           carries an extra depth plane and rank 0 must\n"
             << "                           depth-sort per pixel. Combines with both --direct\n"
-            << "                           and --binary-swap; if given together with\n"
+            << "                           and --2-3-swap; if given together with\n"
             << "                           --blockwise, the last one wins.\n"
             << "      --hq-step <f>        Voxels per step for the high-quality (mouse-up)\n"
             << "                           setting (default 1.5). The step is in units of the\n"
@@ -597,12 +600,13 @@ CliOptions ParseCli(int argc, char** argv) {
             opts.server = true;
             continue;
         }
-        if (a == "--binary-swap") {
-            opts.useBinarySwap = true;
+        if (a == "--2-3-swap" || a == "--2-3swap" || a == "--23-swap" ||
+            a == "--binary-swap") {
+            opts.use23Swap = true;
             continue;
         }
         if (a == "--direct") {
-            opts.useBinarySwap = false;
+            opts.use23Swap = false;
             continue;
         }
         if (a == "--pixelwise") {
@@ -780,7 +784,7 @@ int main(int argc, char** argv) {
         std::cout << "[env] backend=" << (useCPU ? "CPU" : "GPU")
                   << " mode=" << mode << " timestep=" << timestep
                   << " resample=" << resPerChunk
-                  << " composite=" << (cli.useBinarySwap ? "binary-swap" : "direct")
+                  << " composite=" << (cli.use23Swap ? "2-3-swap" : "direct")
                   << '/' << (cli.usePixelwise ? "pixelwise" : "blockwise") << '\n';
         std::cout << "[env] ranks=" << size << " nodes=" << nodeMap.size()
                   << " cores/rank=" << usableCores
@@ -1507,7 +1511,7 @@ int main(int argc, char** argv) {
             const int rc = iGameVolInteractive::RunInteractive(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.useBinarySwap, volumes, masks, numFrames,
+                    cli.use23Swap, volumes, masks, numFrames,
                     startFrame, selectedField, voxelSize, cli.hqStepScale,
                     cli.lqStepScale, cli.lqDivisor, cli.usePixelwise);
             PrintRunEnd("interactive session ended");
@@ -1684,7 +1688,7 @@ int main(int argc, char** argv) {
             const int rc = iGamePVServer::RunServer(
                     cpuRayCaster.get(), cpuCamera.get(), tf.get(), globalMin,
                     globalMax, gcenter, blockCenter, radius, width, height,
-                    cli.port, cli.useBinarySwap, volumes, masks,
+                    cli.port, cli.use23Swap, volumes, masks,
                     numFrames, startFrame, selectedField, voxelSize,
                     cli.hqStepScale, cli.lqStepScale, cli.lqDivisor,
                     cli.usePixelwise, frameCentersXYZ, frameRadii,
@@ -1788,7 +1792,7 @@ int main(int argc, char** argv) {
                 pixelComposite.SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
                         blockCenter, camPos, front));
                 pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
-                pixelComposite.SetUseBinarySwapComposite(cli.useBinarySwap);
+                pixelComposite.SetUse23SwapComposite(cli.use23Swap);
                 compositeOk = pixelComposite.Composite();
                 frameRGBA = &pixelComposite.GetResultRGBA();
             } else {
@@ -1796,7 +1800,7 @@ int main(int argc, char** argv) {
                 composite->SetBlockDepth(iGameCompositePass::ComputeBlockDepth(
                         blockCenter, camPos, front));
                 composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-                composite->SetUseBinarySwapComposite(cli.useBinarySwap);
+                composite->SetUse23SwapComposite(cli.use23Swap);
                 compositeOk = composite->Composite();
                 frameRGBA = &composite->GetResultRGBA();
             }
@@ -1969,7 +1973,7 @@ int main(int argc, char** argv) {
             pixelComposite.SetLocalImage(fbW, fbH, rgba, depth);
             pixelComposite.SetBlockDepth(blockDepth);
             pixelComposite.SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            pixelComposite.SetUseBinarySwapComposite(cli.useBinarySwap);
+            pixelComposite.SetUse23SwapComposite(cli.use23Swap);
             compositeOk = pixelComposite.Composite();
             frameRGBA = &pixelComposite.GetResultRGBA();
             resultW = pixelComposite.GetResultWidth();
@@ -1978,7 +1982,7 @@ int main(int argc, char** argv) {
             composite->SetLocalImage(fbW, fbH, rgba, depth);
             composite->SetBlockDepth(blockDepth);
             composite->SetBackgroundColor(0.0f, 0.0f, 0.0f);
-            composite->SetUseBinarySwapComposite(cli.useBinarySwap);
+            composite->SetUse23SwapComposite(cli.use23Swap);
             compositeOk = composite->Composite();
             frameRGBA = &composite->GetResultRGBA();
             resultW = composite->GetResultWidth();

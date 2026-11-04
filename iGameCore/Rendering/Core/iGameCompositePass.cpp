@@ -1,11 +1,13 @@
 #include "iGameCompositePass.h"
 
+#include "iGameComposite23Swap.h"
 #include "iGameParallelContext.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <iostream>
 #include <limits>
 #include <utility>
@@ -37,13 +39,19 @@ double iGameCompositePass::ComputeBlockDepth(const double center[3],
 }
 
 // ---------------------------------------------------------------------------
-// binary-swap 合成辅助函数（对标 IceT `icetBSwapCompose` = radix-k 的 k=2 特例，
-// 有序 BLEND / 无深度）
+// 2-3 swap 合成辅助函数（H. Yu, C. Wang, K.-L. Ma, SC 2008）
+//
+// 与 binary-swap 的关键区别：合成树每个内部节点有 2 或 3 个孩子，因此任意 P 都能
+// 用（P = 2^K - 1 时也不会有一半处理器空闲）。树的构造、图像平坦划分与分块归属
+// 顺序由 iGameComposite23Swap.h 提供（纯逻辑，供块级/逐像素两条路径共用）。
 // ---------------------------------------------------------------------------
 namespace {
+namespace Swap23 = Composite23Swap;
+
 // 预乘 alpha 图叠到背景色上，输出不透明 RGBA8（与稀疏/全图路径输出一致）。
 void FlattenToBackground(const std::vector<unsigned char>& src, const float bg[3],
                          int n, std::vector<unsigned char>& out) {
+    out.resize(static_cast<std::size_t>(n) * 4);
     auto toU = [](float v) {
         return static_cast<unsigned char>(
                 std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
@@ -104,134 +112,77 @@ void ComposeROIOutputs(const std::vector<unsigned char>& roiFrame, int roiW,
     }
 }
 
-// ---- 整幅图被平分成 p 块的「平坦均分」：把 n 个像素平分成 p 块，第 f 块长度。----
-long long BinarySwapFlatLen(long long f, long long n, int p) {
-    const long long base = n / p;
-    const long long rem = n % p;
-    return base + (f < rem ? 1 : 0);
-}
-// 第 f 块在 [0, n) 里的起始偏移。
-long long BinarySwapFlatOffset(long long f, long long n, int p) {
-    const long long base = n / p;
-    const long long rem = n % p;
-    return f * base + std::min(f, rem);
+
+void PutU32(std::vector<unsigned char>& b, std::uint32_t v) {
+    b.push_back(static_cast<unsigned char>(v & 0xffu));
+    b.push_back(static_cast<unsigned char>((v >> 8) & 0xffu));
+    b.push_back(static_cast<unsigned char>((v >> 16) & 0xffu));
+    b.push_back(static_cast<unsigned char>((v >> 24) & 0xffu));
 }
 
-// 把当前块（长度 size，将最终裂成 eventual 个平坦分块）在本轮裂成 2 半的相对边界
-// （3 个偏移：offsets[0]=0、offsets[1]=中点、offsets[2]=size）。等价于「把 size 平分
-// 成 eventual 块、每 sub=eventual/2 块合并成一半」，从而保证递归二分 == 最终平坦均分
-// （与 IceT icetSparseImageSplitChoosePartitions 一致）。
-std::vector<long long> BinarySwapSplitOffsets(int eventual, long long size) {
-    long long remainder = size % eventual;
-    const int sub = eventual / 2;
-    const long long lowerSize = (size / eventual) * sub;
-    std::vector<long long> offs(3);
-    long long off = 0;
-    for (int j = 0; j < 2; ++j) {
-        offs[static_cast<size_t>(j)] = off;
-        off += lowerSize;
-        if (remainder > sub) {
-            off += sub;
-            remainder -= sub;
-        } else {
-            off += remainder;
-            remainder = 0;
-        }
-    }
-    offs[2] = off;
-    return offs;
+std::uint32_t GetU32(const unsigned char* b, std::size_t off) {
+    return static_cast<std::uint32_t>(b[off]) |
+           (static_cast<std::uint32_t>(b[off + 1]) << 8) |
+           (static_cast<std::uint32_t>(b[off + 2]) << 16) |
+           (static_cast<std::uint32_t>(b[off + 3]) << 24);
 }
 
-// 按位反序：groupRank（深度序位置，近→远）→ 最终分块索引。binary-swap 每轮取
-// groupRank 的一位做「数字」，⌈log₂P₂⌉ 轮递归后每个进程持有的分块索引 = groupRank
-// 的按位反序（即 IceT radixkGetFinalPartitionIndex 的 k=2 特例）。
-int BinarySwapFinalPartition(int groupRank, int rounds) {
-    int fp = 0;
-    for (int r = 0; r < rounds; ++r) {
-        fp = (fp << 1) | ((groupRank >> r) & 1);
-    }
-    return fp;
-}
-
-// 把 work 里 [relStart, relStart+len) 的密集 RGBA8 打包成可发送的紧凑消息。
-// 消息格式（接收端已知 len）：
-//   u32 头 = 0             → 全空（无后续载荷）
+// 把一段密集预乘 RGBA8 打包成可发送的紧凑消息体：
+//   u32 头 = 0            → 全空（无后续载荷）
 //   u32 头 = 0xFFFFFFFF   → 密集（后续 len*4 字节原始 RGBA）
-//   u32 头 = cnt (其它)    → 稀疏（后续 cnt 个 (u32 relIdx, u8 r,g,b,a)）
-// 选择依据：稀疏编码 8 字节/像素，密集 4 字节/像素，取较小者（避免把密集块放大 2 倍）。
-std::vector<unsigned char> BinarySwapPack(const std::vector<unsigned char>& work,
-                                          long long relStart, long long len) {
-    auto putU32 = [](std::vector<unsigned char>& b, std::uint32_t v) {
-        b.push_back(static_cast<unsigned char>(v & 0xff));
-        b.push_back(static_cast<unsigned char>((v >> 8) & 0xff));
-        b.push_back(static_cast<unsigned char>((v >> 16) & 0xff));
-        b.push_back(static_cast<unsigned char>((v >> 24) & 0xff));
-    };
-
+//   u32 头 = cnt (其它)   → 稀疏（后续 cnt 个 (u32 relIdx, u8 r,g,b,a)）
+// 选择依据：稀疏编码 8 字节/像素、密集 4 字节/像素，取较小者。
+std::vector<unsigned char> PackDense(const unsigned char* rgba, long long len) {
     long long cnt = 0;
     for (long long i = 0; i < len; ++i) {
-        if (work[static_cast<size_t>(relStart + i) * 4 + 3] != 0) { ++cnt; }
+        if (rgba[static_cast<std::size_t>(i) * 4 + 3] != 0) { ++cnt; }
     }
 
     std::vector<unsigned char> buf;
-    buf.reserve(static_cast<size_t>(4 + len * 4));
+    buf.reserve(static_cast<std::size_t>(4 + len * 4));
     if (cnt == 0) {
-        putU32(buf, 0u);
+        PutU32(buf, 0u);
     } else if (cnt * 8 <= len * 4) {
-        putU32(buf, static_cast<std::uint32_t>(cnt));
+        PutU32(buf, static_cast<std::uint32_t>(cnt));
         for (long long i = 0; i < len; ++i) {
-            const std::size_t b = static_cast<size_t>(relStart + i) * 4;
-            if (work[b + 3] != 0) {
-                putU32(buf, static_cast<std::uint32_t>(i));
-                buf.push_back(work[b + 0]);
-                buf.push_back(work[b + 1]);
-                buf.push_back(work[b + 2]);
-                buf.push_back(work[b + 3]);
+            const std::size_t b = static_cast<std::size_t>(i) * 4;
+            if (rgba[b + 3] != 0) {
+                PutU32(buf, static_cast<std::uint32_t>(i));
+                buf.push_back(rgba[b + 0]);
+                buf.push_back(rgba[b + 1]);
+                buf.push_back(rgba[b + 2]);
+                buf.push_back(rgba[b + 3]);
             }
         }
     } else {
-        putU32(buf, 0xFFFFFFFFu);
-        for (long long i = 0; i < len; ++i) {
-            const std::size_t b = static_cast<size_t>(relStart + i) * 4;
-            buf.push_back(work[b + 0]);
-            buf.push_back(work[b + 1]);
-            buf.push_back(work[b + 2]);
-            buf.push_back(work[b + 3]);
-        }
+        PutU32(buf, 0xFFFFFFFFu);
+        buf.insert(buf.end(), rgba, rgba + static_cast<std::size_t>(len) * 4);
     }
     return buf;
 }
 
 // 解包成长度为 len 的密集 RGBA8（非 0 像素按 relIdx 落位，其余保持 0）。
-std::vector<unsigned char> BinarySwapUnpack(const std::vector<unsigned char>& buf,
-                                            long long len) {
-    auto getU32 = [&](std::size_t off) -> std::uint32_t {
-        if (off + 4 > buf.size()) { return 0; }
-        return static_cast<std::uint32_t>(buf[off]) |
-               (static_cast<std::uint32_t>(buf[off + 1]) << 8) |
-               (static_cast<std::uint32_t>(buf[off + 2]) << 16) |
-               (static_cast<std::uint32_t>(buf[off + 3]) << 24);
-    };
-
-    std::vector<unsigned char> dense(static_cast<size_t>(len) * 4, 0);
-    if (buf.size() < 4) { return dense; }
-    const std::uint32_t h = getU32(0);
+std::vector<unsigned char> UnpackDense(const unsigned char* buf, std::size_t size,
+                                       long long len) {
+    std::vector<unsigned char> dense(static_cast<std::size_t>(len) * 4, 0);
+    if (size < 4) { return dense; }
+    const std::uint32_t h = GetU32(buf, 0);
     if (h == 0) { return dense; }
     if (h == 0xFFFFFFFFu) {
-        const std::size_t want = static_cast<size_t>(len) * 4;
-        const std::size_t have = buf.size() - 4;
+        const std::size_t want = static_cast<std::size_t>(len) * 4;
+        const std::size_t have = size - 4;
         if (have > 0) {
-            std::memcpy(dense.data(), buf.data() + 4, std::min(want, have));
+            std::memcpy(dense.data(), buf + 4, std::min(want, have));
         }
         return dense;
     }
     std::size_t pos = 4;
     for (std::uint32_t t = 0; t < h; ++t) {
-        if (pos + 8 > buf.size()) { break; }
-        const std::uint32_t rel = getU32(pos);
+        if (pos + 8 > size) { break; }
+        const std::uint32_t rel = GetU32(buf, pos);
         pos += 4;
         if (static_cast<long long>(rel) >= len) { pos += 4; continue; }
-        const std::size_t b = static_cast<size_t>(rel) * 4;
+        const std::size_t b = static_cast<std::size_t>(rel) * 4;
         dense[b + 0] = buf[pos + 0];
         dense[b + 1] = buf[pos + 1];
         dense[b + 2] = buf[pos + 2];
@@ -241,93 +192,57 @@ std::vector<unsigned char> BinarySwapUnpack(const std::vector<unsigned char>& bu
     return dense;
 }
 
-// 把两张「等长」的密集预乘 RGBA8 做 front-to-back over（front = 近，back = 远），
-// float 累加（与 CompositeSparse 的逐像素公式一致），最后量化回 uint8。
-std::vector<unsigned char> BinarySwapCompositeTwo(
-        const std::vector<unsigned char>& front,
-        const std::vector<unsigned char>& back, long long len) {
-    std::vector<float> acc(static_cast<size_t>(len) * 4, 0.0f);
-    for (const auto* p : {&front, &back}) {
-        if (static_cast<long long>(p->size()) < len * 4) { continue; }
-        for (long long i = 0; i < len; ++i) {
-            const std::size_t b = static_cast<size_t>(i) * 4;
-            const float fa = static_cast<float>((*p)[b + 3]) / 255.0f;
-            if (fa <= 0.0f) { continue; }
-            const float inv = 1.0f - acc[b + 3];
-            if (inv <= 0.001f) { continue; }
-            acc[b + 0] += inv * (static_cast<float>((*p)[b + 0]) / 255.0f);
-            acc[b + 1] += inv * (static_cast<float>((*p)[b + 1]) / 255.0f);
-            acc[b + 2] += inv * (static_cast<float>((*p)[b + 2]) / 255.0f);
-            acc[b + 3] += inv * fa;
-        }
-    }
-    auto toU = [](float v) {
-        return static_cast<unsigned char>(
-                std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
-    };
-    std::vector<unsigned char> out(static_cast<size_t>(len) * 4);
+// 把一段密集预乘 RGBA8 以 front-to-back over 累加进 acc 的 [off, off+len) 区间。
+// （acc 是 float 累加缓冲：预乘颜色 + alpha；与 CompositeSparse 的公式一致。）
+void OverDenseInto(float* acc, long long off, const unsigned char* dense,
+                   long long len) {
     for (long long i = 0; i < len; ++i) {
-        const std::size_t b = static_cast<size_t>(i) * 4;
-        out[b + 0] = toU(acc[b + 0]);
-        out[b + 1] = toU(acc[b + 1]);
-        out[b + 2] = toU(acc[b + 2]);
-        out[b + 3] = toU(acc[b + 3]);
+        const std::size_t b = static_cast<std::size_t>(i) * 4;
+        const float fa = static_cast<float>(dense[b + 3]) / 255.0f;
+        if (fa <= 0.0f) { continue; }
+        float* ap = acc + (off + i) * 4;
+        const float inv = 1.0f - ap[3];
+        if (inv <= 0.001f) { continue; }
+        ap[0] += inv * (static_cast<float>(dense[b + 0]) / 255.0f);
+        ap[1] += inv * (static_cast<float>(dense[b + 1]) / 255.0f);
+        ap[2] += inv * (static_cast<float>(dense[b + 2]) / 255.0f);
+        ap[3] += inv * fa;
     }
-    return out;
 }
+
+unsigned char ToUChar(float v) {
+    return static_cast<unsigned char>(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
-// binary-swap 合成（对标 IceT `icetBSwapCompose`，有序 BLEND / 无深度）
+// 2-3 swap 合成（任意 P；论文 SC 2008）
 //
-// 算法（见 legacy_doc/并行体渲染通信优化-实现步骤.md 阶段 4.2 与
-// `bianry_swap算法实现.md`）：
-//   1) AllGather 尺寸校验 + 本 rank ROI，AllGatherInt 后取并集 ROI；
+// 数据流：
+//   1) AllGather 尺寸校验 + 各 rank 非空外接矩形求并集 ROI（与稀疏路径同口径）；
 //   2) 块深度排序 → m_SortOrder（近→远）；groupRank = 本进程在深度序中的位置；
-//   3) 仅支持 2 的幂 P：非 2 幂会在入口打印警告并回退到稀疏 ROI 合成（见 0)）；
-//   4) 工作图 = 本 rank 在「并集 ROI」内的子图（预乘 alpha RGBA8），ROI 外的全透明
-//      像素不参与交换——这正是设计稿要求的「沿用 ROI 方法，减少传输量」；
-//   5) ⌈log₂P⌉ 轮：第 r 轮按 groupRank 的第 r 位把当前块平分成两半，与
-//      partner = groupRank ^ (1<<r) 交换「自己不负责的那半」、收「自己负责的那半」，
-//      再按数字序（=深度序）front-to-back over 合成；
-//   6) 结束后每个进程持有一块完全合成的分块（索引 = 按位反序的 groupRank），Gatherv 到
-//      rank 0 拼成 ROI（分块在 ROI 内平坦连续、互不重叠，rank0 无需再排序），再写全帧
-//      不透明结果 + ROI 子矩形。
+//   3) 构造 2-3 合成树（P 为 2 的幂时退化为完全二叉树）；
+//   4) 工作图 = 本 rank 在并集 ROI 内的子图（预乘 alpha RGBA8），整幅图按平坦像素
+//      数组处理；叶子层每个 rank 持有整幅图；
+//   5) 自底向上 ⌊log₂P⌋ 轮：合并 2/3 个孩子时，把整幅图按合并后组的处理器数重新
+//      平坦均分，按论文 Algorithm 2 的顺序分给组内处理器。每个处理器把自己的旧
+//      区间切片发给新所有者，并收齐自己新区间需要的若干切片，按**孩子顺序**
+//      front-to-back over（孩子是深度序里连续的 rank 区间 ⇒ 顺序正确）；
+//   6) 结束后每个 rank 持有最终图的一块（Root 的 order 位置即分块序号），Gatherv
+//      到 rank 0 按平坦偏移拼成 ROI，再写全帧不透明结果 + ROI 子矩形。
 //
-// 注意：这里交换的是「并集 ROI 子图」而不是整张 W×H，所以 1024 rank / 1024² 时
-// 每轮消息从「半张全图」降到「半张 ROI」；配对与 Gatherv 偏移的数学不变。
+// 复杂度：⌊log₂P⌋ 轮；每轮每处理器最多与 4 个处理器通信（旧区间/新区间是两套
+// 平坦划分，边界不对齐时最多跨 4 份），每处理器收发的像素总量 < 4/3 × ROI 大小。
 //
-// 顺序正确性（Swizzle）：进程按「块深度近→远」得到 groupRank，每轮配对都发生在
-// groupRank 相邻数字上——数字小者更靠前（近），因此「按数字序 front-to-back over」
-// 恒保持透明度有序；这与 IceT 先 swizzle 再 bswap 完全等价。
-//
-// 本次修复（待提交）：
-//   · BUG/触发：旧实现直接对整张 W×H 做 swap。1024 rank / 1024² 时 round 0 每个
-//     rank 要收/发半张全图（最坏 ~2 MB/rank），⌈log₂P⌉=10 轮全局同步的阻塞 P2P，
-//     超算上任意一对慢/拥塞就会让 rank0 长时间停在 MPI_Wait 里——C/S 表现为
-//     「拖动没反应、新客户端连上却拿不到 metadata」。
-//   · 正确行为：先 AllGatherInt 求各 rank 非空外接矩形的并集，只在并集 ROI 子图上
-//     做 binary-swap；ROI 外的全透明像素不参与交换，配对/半图长度/Gatherv 偏移不变。
-//   · 边界：并集为空时所有 rank 直接输出背景；ROI 像素数 < P 时退回稀疏 ROI 合成。
+// 有序合成：混合顺序始终是「孩子顺序 = 深度序的连续区间」，与 binary-swap 的
+// swizzle 等价；OrderAssignment 只影响负载均衡，不参与前后判断。
 // ---------------------------------------------------------------------------
-bool iGameCompositePass::CompositeBinarySwap() {
+bool iGameCompositePass::Composite23Swap() {
     auto* ctx = ParallelContext::Instance().GetPointer();
     const int size = ctx->Size();
     const int rank = ctx->Rank();
     const bool isRoot = (rank == 0);
-
-    // 0) binary-swap（k=2 逐轮对半分）只对 2 的幂 P 严格成立。非 2 幂时若把不存在的
-    //    「幽灵」rank 当全透明、又跳过与它的通信，那么幽灵负责的那半张图（里面是本方
-    //    真实数据）就没人接收、数据丢失，最终该分区会缺块/变黑。正确做法是
-    //    「伸缩/telescoping」，目前未实现；这里直接回退到稀疏 ROI 合成（结果始终正确）。
-    if ((size & (size - 1)) != 0) {
-        if (isRoot) {
-            std::cerr << "[iGameCompositePass] binary-swap requires a "
-                         "power-of-2 rank count (got "
-                      << size << "); falling back to sparse ROI compositing.\n";
-        }
-        return CompositeSparse();
-    }
 
     // 1) 尺寸一致性校验（AllGather 全员一致，避免死锁）。
     double localDims[2] = {static_cast<double>(m_Width),
@@ -339,24 +254,21 @@ bool iGameCompositePass::CompositeBinarySwap() {
     bool dimsAgree = (size >= 1);
     for (int r = 0; r < size; ++r) {
         if (static_cast<int>(allDims[static_cast<size_t>(r) * 2]) != width ||
-            static_cast<int>(allDims[static_cast<size_t>(r) * 2 + 1]) !=
-                    height) {
+            static_cast<int>(allDims[static_cast<size_t>(r) * 2 + 1]) != height) {
             dimsAgree = false;
             break;
         }
     }
     if (!dimsAgree || width <= 0 || height <= 0) {
         if (isRoot) {
-            std::cerr << "[iGameCompositePass] binary-swap image size mismatch "
-                         "or empty across ranks.\n";
+            std::cerr << "[iGameCompositePass] 2-3 swap image size mismatch or "
+                         "empty across ranks.\n";
         }
         return false;
     }
 
-    // 1.5) ROI：各 rank 求非空像素外接矩形，AllGatherInt 后取并集；binary-swap 只在
-    //      「并集 ROI 子图」上做（设计稿 bianry_swap算法实现.md 的「沿用 ROI 方法，
-    //      减少传输量」）。并集由同一份 AllGatherInt 结果算出，所有 rank 一致，
-    //      所以配对、半图长度与收尾 Gatherv 偏移仍然完全确定。
+    // 1.5) ROI：各 rank 求非空像素外接矩形，AllGatherInt 后取并集；2-3 swap 只在
+    //      「并集 ROI 子图」上做（ROI 外全透明像素不参与交换）。
     m_ResultWidth = width;
     m_ResultHeight = height;
     int lx0 = width, ly0 = height, lx1 = -1, ly1 = -1;
@@ -406,6 +318,7 @@ bool iGameCompositePass::CompositeBinarySwap() {
     }
     const int roiW = rx1 - rx0 + 1;
     const int roiH = ry1 - ry0 + 1;
+    const long long N = static_cast<long long>(roiW) * roiH;
 
     // 2) 全局块序（近 -> 远）。groupRank = 本 rank 在深度序中的位置（0=最前）。
     std::vector<double> allBlockDepth(static_cast<size_t>(size));
@@ -421,27 +334,41 @@ bool iGameCompositePass::CompositeBinarySwap() {
                   }
                   return a < b;
               });
-    int groupRank = -1;
+    std::vector<int> worldToGroup(static_cast<size_t>(size), -1);
     for (int g = 0; g < size; ++g) {
-        if (m_SortOrder[static_cast<size_t>(g)] == rank) { groupRank = g; break; }
+        worldToGroup[static_cast<size_t>(m_SortOrder[static_cast<size_t>(g)])] = g;
     }
+    const int groupRank = worldToGroup[static_cast<size_t>(rank)];
     if (groupRank < 0) { return false; }
 
-    // ROI 子图的像素数。ROI 太小（小于 rank 数）时平坦均分会切出大量空块，退回
-    // 稀疏 ROI 合成（所有 rank 的空/非空判断和并集一致，不会走岔）。
-    const long long N = static_cast<long long>(roiW) * roiH;
+    // ROI 太小（像素数 < rank 数）时平坦划分会出现 0 长分块，退回稀疏 ROI 合成。
+    // 该判断只依赖全局一致的 size/N/ROI，所有 rank 不会走岔。
     if (size < 2 || N < static_cast<long long>(size)) {
         return CompositeSparse();
     }
+    if (N > static_cast<long long>(std::numeric_limits<int>::max()) / 8) {
+        if (isRoot) {
+            std::cerr << "[iGameCompositePass] 2-3 swap ROI too large for int "
+                         "counts; falling back to sparse ROI compositing.\n";
+        }
+        return CompositeSparse();
+    }
 
-    // 3) P 已由入口守卫保证为 2 的幂，轮数 = log2(P)。
-    const int P2 = size;
-    const int rounds =
-            (size > 1) ? static_cast<int>(std::log2(static_cast<double>(size)))
-                       : 0;
+    // 3) 2-3 合成树（所有 rank 由同一个 P 构造，逐位一致）。
+    const Swap23::Tree tree = Swap23::Build(size);
+    if (tree.depth < 1) { return CompositeSparse(); }
+    if (isRoot) {
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            std::cout << "[iGameCompositePass] 2-3 swap: P=" << size
+                      << " tree-depth=" << tree.depth << " root-children="
+                      << tree.nodes[0].children.size() << " ROI=" << roiW << 'x'
+                      << roiH << '\n';
+        }
+    }
 
-    // 4) 工作图 = 本 rank 在「并集 ROI」内的子图（预乘 alpha RGBA8），长度恰好
-    //    roiW*roiH*4；ROI 外像素不参与交换（它们全透明，本来就没有贡献）。
+    // 4) 工作图 = 本 rank 在「并集 ROI」内的子图（预乘 alpha RGBA8）。
     std::vector<unsigned char> work(static_cast<size_t>(N) * 4, 0);
     if (m_LocalRGBA.size() >= static_cast<size_t>(width) * height * 4) {
         const size_t rowBytes = static_cast<size_t>(roiW) * 4;
@@ -454,91 +381,196 @@ bool iGameCompositePass::CompositeBinarySwap() {
         }
     }
 
-    long long pieceLen = N;
-    int step = 1;      // = 2^round，本轮组内「数字」的步长
-    int remaining = P2; // 当前组大小（每轮减半）
+    // 5) 自底向上合并。层号 d：d = tree.depth 是叶子（每 rank 一幅整图），d = 0 是根。
+    for (int d = tree.depth - 1; d >= 0; --d) {
+        const int childIndex = Swap23::NodeOf(tree, d + 1, groupRank);
+        const int parentIndex = Swap23::NodeOf(tree, d, groupRank);
+        const Swap23::Node& child = tree.nodes[static_cast<size_t>(childIndex)];
+        const Swap23::Node& parent = tree.nodes[static_cast<size_t>(parentIndex)];
+        const int childRanks = child.hi - child.lo;
+        const int parentRanks = parent.hi - parent.lo;
 
-    for (int r = 0; r < rounds; ++r) {
-        const int myDigit = (groupRank / step) % 2;
-        const int partner = groupRank ^ step;  // 翻转 groupRank 的第 r 位
+        // 旧区间：本 rank 在「孩子节点」里分到的分块。
+        const int oldPos = Swap23::PosOf(tree, d + 1, groupRank);
+        const long long oldLo = Swap23::FlatOffset(oldPos, N, childRanks);
+        const long long oldLen = Swap23::FlatLen(oldPos, N, childRanks);
+        const long long oldHi = oldLo + oldLen;
+        if (static_cast<long long>(work.size()) != oldLen * 4) {
+            // 内部错误：不能提前 return（其它 rank 还要继续集合通信）。按协议补齐。
+            std::cerr << "[iGameCompositePass] 2-3 swap piece length mismatch "
+                         "(rank "
+                      << rank << ", depth " << d << "); padding.\n";
+            work.resize(static_cast<size_t>(oldLen) * 4, 0);
+        }
 
-        // 本轮把当前块平分成两半（与最终的平坦均分一致）。
-        const std::vector<long long> offs =
-                BinarySwapSplitOffsets(remaining, pieceLen);
-        const long long myStart = offs[static_cast<size_t>(myDigit)];
-        const long long myLen = offs[static_cast<size_t>(myDigit) + 1] - myStart;
+        // 新区间：本 rank 在「父节点」里分到的分块。
+        const int newPos = Swap23::PosOf(tree, d, groupRank);
+        const long long newLo = Swap23::FlatOffset(newPos, N, parentRanks);
+        const long long newLen = Swap23::FlatLen(newPos, N, parentRanks);
+        const long long newHi = newLo + newLen;
 
-        // 我保留的半张（自己负责的那半）。
-        std::vector<unsigned char> myPiece(
-                work.begin() + static_cast<size_t>(myStart) * 4,
-                work.begin() + static_cast<size_t>(myStart + myLen) * 4);
+        // 5a) 发送：旧区间与父节点的哪些新分块相交（每份属于不同处理器）。
+        //     用 deque 保证 Isend 用到的缓冲区地址不会因扩容而失效。
+        std::deque<std::vector<unsigned char>> sendBufs;
+        std::vector<int> sendReqs;
+        for (int q = Swap23::FirstPieceIntersecting(oldLo, N, parentRanks);
+             q < parentRanks; ++q) {
+            const long long pieceLo = Swap23::FlatOffset(q, N, parentRanks);
+            if (pieceLo >= oldHi) { break; }
+            const long long pieceHi = pieceLo + Swap23::FlatLen(q, N, parentRanks);
+            const long long is = std::max(pieceLo, oldLo);
+            const long long ie = std::min(pieceHi, oldHi);
+            if (ie <= is) { continue; }
+            const int owner = parent.order[static_cast<size_t>(q)];
+            if (owner == groupRank) { continue; } // 这一份归自己，无需发送
 
-        // 与伙伴交换：发「我不负责的那半」，收「我负责的那半」（2 的幂下 partner 恒为
-        // 真实 rank，不存在幽灵）。
-        const int partnerDigit = 1 - myDigit;
-        const long long otherStart = offs[static_cast<size_t>(partnerDigit)];
-        const long long otherLen =
-                offs[static_cast<size_t>(partnerDigit) + 1] - otherStart;
+            std::vector<unsigned char> payload =
+                    PackDense(work.data() + (is - oldLo) * 4, ie - is);
+            std::vector<unsigned char> msg;
+            msg.reserve(8 + payload.size());
+            PutU32(msg, static_cast<std::uint32_t>(is));
+            PutU32(msg, static_cast<std::uint32_t>(ie - is));
+            msg.insert(msg.end(), payload.begin(), payload.end());
+            const int partner = m_SortOrder[static_cast<size_t>(owner)];
+            const int req = ctx->Isend(
+                    reinterpret_cast<const char*>(msg.data()),
+                    static_cast<int>(msg.size()), partner, d);
+            sendBufs.push_back(std::move(msg));
+            sendReqs.push_back(req);
+        }
 
-        std::vector<unsigned char> sendBuf =
-                BinarySwapPack(work, otherStart, otherLen);
-        const long long maxMsg = 4 + myLen * 4;  // 头 + 最坏情况（密集 myLen 像素）
-        std::vector<unsigned char> recvBuf(static_cast<size_t>(maxMsg));
-        const int worldPartner = m_SortOrder[static_cast<size_t>(partner)];
-        const int recvReq =
-                ctx->Irecv(reinterpret_cast<char*>(recvBuf.data()),
-                           static_cast<int>(maxMsg), worldPartner, r);
-        const int sendReq =
-                ctx->Isend(reinterpret_cast<const char*>(sendBuf.data()),
-                           static_cast<int>(sendBuf.size()), worldPartner, r);
-        ctx->Wait(recvReq);
-        std::vector<unsigned char> otherPiece =
-                BinarySwapUnpack(recvBuf, myLen);
-        ctx->Wait(sendReq);
+        // 5b) 接收：新区间由各孩子的旧分块拼成；每个孩子最多有 2~3 个旧分块与
+        //     新区间相交（旧分块属于不同处理器，各发一段）。
+        struct Incoming {
+            int childSeq{0};       // 父节点 children 里的序号（混合顺序）
+            int sender{0};         // groupRank
+            long long start{0};    // 绝对像素下标
+            long long len{0};
+            std::vector<unsigned char> buf;
+            int req{-1};
+        };
+        std::vector<Incoming> incoming;
+        incoming.reserve(static_cast<size_t>(parent.children.size()) * 3);
+        for (int ci = 0; ci < static_cast<int>(parent.children.size()); ++ci) {
+            const Swap23::Node& cn =
+                    tree.nodes[static_cast<size_t>(parent.children[static_cast<size_t>(ci)])];
+            const int cnRanks = cn.hi - cn.lo;
+            for (int q = Swap23::FirstPieceIntersecting(newLo, N, cnRanks); q < cnRanks;
+                 ++q) {
+                const long long pieceLo = Swap23::FlatOffset(q, N, cnRanks);
+                if (pieceLo >= newHi) { break; }
+                const long long pieceHi =
+                        pieceLo + Swap23::FlatLen(q, N, cnRanks);
+                const long long is = std::max(pieceLo, newLo);
+                const long long ie = std::min(pieceHi, newHi);
+                if (ie <= is) { continue; }
+                const int sender = cn.order[static_cast<size_t>(q)];
+                if (sender == groupRank) { continue; } // 本地片段，混合时直接取
 
-        // pieces[d] = 数字 d（=深度序）的贡献；按数字序 front-to-back over。
-        std::vector<std::vector<unsigned char>> pieces(2);
-        pieces[static_cast<size_t>(myDigit)] = std::move(myPiece);
-        pieces[static_cast<size_t>(partnerDigit)] = std::move(otherPiece);
-        work = BinarySwapCompositeTwo(pieces[0], pieces[1], myLen);
+                Incoming in;
+                in.childSeq = ci;
+                in.sender = sender;
+                in.start = is;
+                in.len = ie - is;
+                const long long maxMsg = 4 + in.len * 4 + 8; // 消息头 + 最坏密集
+                in.buf.resize(static_cast<size_t>(maxMsg));
+                in.req = ctx->Irecv(
+                        reinterpret_cast<char*>(in.buf.data()),
+                        static_cast<int>(maxMsg),
+                        m_SortOrder[static_cast<size_t>(sender)], d);
+                incoming.push_back(std::move(in));
+            }
+        }
 
-        pieceLen = myLen;
-        remaining /= 2;
-        step *= 2;
+        // 5c) 混合：按孩子顺序（= 深度序的连续区间）front-to-back over。
+        std::vector<float> acc(static_cast<size_t>(newLen) * 4, 0.0f);
+        std::size_t incomingCursor = 0;
+        for (int ci = 0; ci < static_cast<int>(parent.children.size()); ++ci) {
+            const Swap23::Node& cn =
+                    tree.nodes[static_cast<size_t>(parent.children[static_cast<size_t>(ci)])];
+            const int cnRanks = cn.hi - cn.lo;
+            for (int q = Swap23::FirstPieceIntersecting(newLo, N, cnRanks); q < cnRanks;
+                 ++q) {
+                const long long pieceLo = Swap23::FlatOffset(q, N, cnRanks);
+                if (pieceLo >= newHi) { break; }
+                const long long pieceHi =
+                        pieceLo + Swap23::FlatLen(q, N, cnRanks);
+                long long is = std::max(pieceLo, newLo);
+                long long ie = std::min(pieceHi, newHi);
+                if (ie <= is) { continue; }
+                const int sender = cn.order[static_cast<size_t>(q)];
+                if (sender == groupRank) {
+                    // 本 rank 自己的旧分块，直接从 work 里切。
+                    OverDenseInto(acc.data(), is - newLo,
+                                  work.data() + (is - oldLo) * 4, ie - is);
+                    continue;
+                }
+
+                // 找到对应的接收项（发送顺序与这里一致：孩子序 + 分块序号）。
+                if (incomingCursor >= incoming.size() ||
+                    incoming[incomingCursor].childSeq != ci) {
+                    std::cerr << "[iGameCompositePass] 2-3 swap receive bookkeeping "
+                                 "mismatch (rank "
+                              << rank << ", depth " << d << ").\n";
+                    continue;
+                }
+                Incoming& in = incoming[incomingCursor];
+                ctx->Wait(in.req);
+                long long gotStart = static_cast<long long>(GetU32(in.buf.data(), 0));
+                long long gotLen = static_cast<long long>(GetU32(in.buf.data(), 4));
+                if (gotStart != is || gotLen != ie - is) {
+                    std::cerr << "[iGameCompositePass] 2-3 swap message range "
+                                 "mismatch (rank "
+                              << rank << ", depth " << d << ", expected [" << is
+                              << ',' << ie << "), got [" << gotStart << ','
+                              << (gotStart + gotLen) << "]).\n";
+                    // 仍按发送方给的区间处理；越界则丢弃。
+                    if (gotStart < newLo || gotStart + gotLen > newHi ||
+                        gotLen <= 0) {
+                        ++incomingCursor;
+                        continue;
+                    }
+                    is = gotStart;
+                    ie = gotStart + gotLen;
+                }
+                std::vector<unsigned char> dense =
+                        UnpackDense(in.buf.data() + 8, in.buf.size() - 8, ie - is);
+                OverDenseInto(acc.data(), is - newLo, dense.data(), ie - is);
+                ++incomingCursor;
+            }
+        }
+        for (int req : sendReqs) { ctx->Wait(req); }
+
+        // 5d) 量化回 uint8，作为下一层（或收尾 Gatherv）的输入。
+        work.resize(static_cast<size_t>(newLen) * 4);
+        for (long long i = 0; i < newLen * 4; ++i) {
+            work[static_cast<size_t>(i)] = ToUChar(acc[static_cast<size_t>(i)]);
+        }
     }
 
-    // 5) 最终分块索引 = 按位反序的 groupRank；Gatherv 到 rank 0 拼合。
-    const int finalPartition = BinarySwapFinalPartition(groupRank, rounds);
-    const long long finalLen = BinarySwapFlatLen(finalPartition, N, P2);
-#if !defined(NDEBUG)
-    if (pieceLen != finalLen ||
-        static_cast<long long>(work.size()) != finalLen * 4) {
-        std::cerr << "[iGameCompositePass] binary-swap piece size mismatch: "
-                  << "tracked=" << pieceLen << " expected=" << finalLen << '\n';
-    }
-#endif
+    // 6) 最终分块序号 = 本 rank 在根节点 order 里的位置；Gatherv 到 rank 0 拼合。
+    const int finalPos = Swap23::PosOf(tree, 0, groupRank);
+    const long long finalLen = Swap23::FlatLen(finalPos, N, size);
 
-    // 由共享的 m_SortOrder 推出每个 rank 的分块偏移/长度（全员一致）。
     std::vector<int> recvCounts(static_cast<size_t>(size), 0);
     std::vector<int> displs(static_cast<size_t>(size), 0);
     for (int r2 = 0; r2 < size; ++r2) {
-        int gr2 = -1;
-        for (int g = 0; g < size; ++g) {
-            if (m_SortOrder[static_cast<size_t>(g)] == r2) { gr2 = g; break; }
-        }
-        const int fp2 = BinarySwapFinalPartition(gr2, rounds);
-        const long long len2 = BinarySwapFlatLen(fp2, N, P2);
-        const long long off2 = BinarySwapFlatOffset(fp2, N, P2);
-        recvCounts[static_cast<size_t>(r2)] = static_cast<int>(len2 * 4);
-        displs[static_cast<size_t>(r2)] = static_cast<int>(off2 * 4);
+        const int g2 = worldToGroup[static_cast<size_t>(r2)];
+        if (g2 < 0) { continue; }
+        const int pos2 = Swap23::PosOf(tree, 0, g2);
+        recvCounts[static_cast<size_t>(r2)] =
+                static_cast<int>(Swap23::FlatLen(pos2, N, size) * 4);
+        displs[static_cast<size_t>(r2)] =
+                static_cast<int>(Swap23::FlatOffset(pos2, N, size) * 4);
     }
 
-    // 防御：work 与 Gatherv 的 sendCount 必须一致；不一致时补齐，避免 MPI 读越界。
     const long long sendLen = recvCounts[static_cast<size_t>(rank)];
     if (static_cast<long long>(work.size()) < sendLen) {
-        std::cerr << "[iGameCompositePass] binary-swap piece size mismatch; "
-                     "padding before Gatherv.\n";
+        std::cerr << "[iGameCompositePass] 2-3 swap piece size mismatch; padding "
+                     "before Gatherv.\n";
         work.resize(static_cast<size_t>(sendLen), 0);
+    } else if (static_cast<long long>(work.size()) > sendLen) {
+        work.resize(static_cast<size_t>(sendLen));
     }
 
     std::vector<unsigned char> roiFrame;
@@ -568,17 +600,18 @@ bool iGameCompositePass::CompositeBinarySwap() {
     return true;
 }
 
+
 bool iGameCompositePass::Composite() {
     auto* ctx = ParallelContext::Instance().GetPointer();
     const int size = ctx->Size();
 
     // 合成策略分流（所有 rank 依据同一组开关走到同一分支，不会失配）：
-    //   1) --binary-swap：binary-swap 合成（O(log P) 轮、通信与合成分摊到所有 rank，
-    //      无 rank0 单点汇聚，适合上千 rank；对标 IceT icetBSwapCompose）；
+    //   1) --2-3-swap：2-3 swap 合成（任意 P、O(log P) 轮、通信与合成分摊到所有
+    //      rank，无 rank0 单点汇聚，适合上千 rank）；
     //   2) 稀疏 ROI 合成（默认 / --direct）：只汇聚每个 rank 的非空像素外接矩形，
     //      上千 rank 下汇聚量与 rank 0 工作量都和 P 基本解耦。
-    if (m_UseBinarySwapComposite && size > 1) {
-        return CompositeBinarySwap();
+    if (m_Use23SwapComposite && size > 1) {
+        return Composite23Swap();
     }
     if (m_UseSparseComposite) {
         return CompositeSparse();
