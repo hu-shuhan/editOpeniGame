@@ -1606,9 +1606,8 @@ void igQtMainWindow::initAllComponents() {
                 auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
                 if (scene == nullptr) { return; }
 
-                // 体绘制唯一入口：结构化网格走 compute 光线步进，
-                // 其它网格自动使用旧的片元链表实现（选型需要查询 GL 版本，
-                // 因此先确保上下文可用）。
+                // 体绘制唯一入口：仅结构化网格走 compute 光线步进。
+                // 其它数据类型返回 Off，并由下方弹窗提示使用 ResampleToImage。
                 scene->MakeCurrent();
                 std::string message;
                 const auto mode = scene->SetVolumeRendering(toggled, &message);
@@ -1621,8 +1620,7 @@ void igQtMainWindow::initAllComponents() {
                     // 打开体绘制设置面板：显示视口大小/渲染分辨率/体数据规模，
                     // 并允许调整采样步数与不透明度缩放
                     this->showVolumeRenderingPanel();
-                    // 成功开启：若发生了实现方式回退（例如非结构化网格），
-                    // 在状态栏给出提示即可，不弹窗打断
+                    // 成功开启；消息仅作为状态栏提示。
                     if (!message.empty()) {
                         statusBar()->showMessage(QString::fromStdString(message),
                                                  5000);
@@ -5096,7 +5094,6 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Update Deformation Info when model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
             DeformationWidget, &igQtDeformationWidget::updateInfo);
-
     // Refresh the stream-tracer vector list when the current model changes.
     // 只在面板可见时刷新：pickSourceModel/isUsableSource 会遍历全部单元，
     // 模型树点击很频繁，大网格上无谓地跑一遍代价不小。

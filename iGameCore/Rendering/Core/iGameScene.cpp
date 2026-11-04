@@ -2929,7 +2929,7 @@ SmartPointer<DrawObject> Scene::FindVolumeSource() {
         if (DynamicCast<StructuredMesh>(dataObject) != nullptr) {
             return DynamicCast<DrawObject>(dataObject);
         }
-        // 其它网格（非结构化/体网格）作为候选，走旧的片元链表实现
+        // 其它网格（非结构化/体网格）作为候选，供入口判定“不支持类型”。
         if (fallback == nullptr) {
             auto pointSet = DynamicCast<PointSet>(dataObject);
             if (pointSet != nullptr && pointSet->GetNumberOfPoints() > 0) {
@@ -3017,7 +3017,7 @@ Scene::CheckVolumeRaycastingSupport(std::string* message) {
     };
 
     // 只有“后端支持 compute + 存在结构化网格 + 有可用标量属性”时才返回 Ok；
-    // 调用方据此决定是走光线步进、回退到旧的片元链表实现，还是提示用户
+    // 调用方据此决定是走光线步进，还是提示用户先转换数据。
     if (!this->IsVolumeRaycastingAvailable()) {
         return fail(VolumeRaycastingStatus::UnsupportedBackend,
                     "当前图形后端不支持体绘制：需要 OpenGL 4.6（compute shader）。");
@@ -3027,7 +3027,7 @@ Scene::CheckVolumeRaycastingSupport(std::string* message) {
     if (this->HasMultiBlockData()) {
         return fail(VolumeRaycastingStatus::MultiBlockUnsupported,
                     "当前数据是多块/动画网格（含子数据对象），暂不支持 compute "
-                    "光线步进体绘制；请使用旧的片元链表实现。");
+                    "光线步进体绘制；请先使用 ResampleToImage Filter 转换。");
     }
 
     auto drawObject = this->FindVolumeSource();
@@ -3040,8 +3040,7 @@ Scene::CheckVolumeRaycastingSupport(std::string* message) {
     if (structuredMesh == nullptr) {
         return fail(VolumeRaycastingStatus::NoStructuredMesh,
                     "当前数据不是结构化网格（STRUCTURED_GRID），"
-                    "无法使用 compute 光线步进；可改用旧的片元链表实现，"
-                    "或先用 ResampleToImageFilter 转换为结构化网格。");
+                    "请先使用 ResampleToImage Filter 转换为结构化网格。");
     }
 
     igIndex* dimension = structuredMesh->GetDimensionSize();
@@ -3094,8 +3093,7 @@ Scene::SetVolumeRaycasting(bool toggled, std::string* message) {
     }
 
     // 本函数只负责 compute 实现：不满足条件时返回状态，
-    // 由调用方（SetVolumeRendering 的分派逻辑）决定回退到旧的“片元链表”
-    // 实现还是提示用户。
+    // 由调用方提示用户；旧片元链表不再作为自动回退路径。
     const auto status = this->CheckVolumeRaycastingSupport(message);
     if (status != VolumeRaycastingStatus::Ok) {
             m_EnableVolumeRaycasting = false;
@@ -3429,19 +3427,21 @@ void Scene::VolumeRaycastPass() {
             m_EnableVolumeRaycasting = false;
 
             // 数据已经不适合 compute 光线步进（例如开着体绘制切换到四面体网格，
-            // 或变成多块/动画数据）：按入口的选型规则改用旧的“片元链表”实现，
-            // 不弹窗打断。
+            // 或变成多块/动画数据）：关闭体绘制并提示先转换数据，绝不回退到旧实现。
             auto source = this->FindVolumeSource();
             const bool stillStructured =
                     source != nullptr &&
                     DynamicCast<StructuredMesh>(source) != nullptr &&
                     !source->HasSubDataObject() && !this->HasMultiBlockData();
             if (!stillStructured) {
-                IGAME_RENDERING_WARN(
+                m_EnableVolumeRendering = false;
+                m_VolumeRaycastFailureMessage =
+                        "当前数据已不再是可用于 compute 光线步进的结构化网格。\n"
+                        "请先使用 ResampleToImage Filter 将其转换为结构化网格。";
+                IGAME_RENDERING_ERROR(
                         "[Scene::VolumeRaycastPass] source is no longer a "
-                        "single structured mesh, switch to legacy fragment "
-                        "volume rendering.");
-                m_EnableVolumeRendering = true;
+                        "single structured mesh; volume rendering disabled and "
+                        "ResampleToImage conversion is required.");
                 this->Update();
                 return;
             }
@@ -4367,19 +4367,25 @@ Scene::VolumeRenderingMode Scene::SetVolumeRendering(bool toggled,
         return VolumeRenderingMode::Off;
     }
 
-    // 多块/动画数据优先判定：这类数据的子对象会被动画组件 Clear/Add 重建，
-    // compute 路径既无法用单个体纹理覆盖多块，也不能安全持有子对象指针，
-    // 统一交给旧的“片元链表”实现（它按子对象逐个绘制）。
+    // 公共入口只允许 compute 路径；先清掉可能由调试接口显式开启的旧实现状态。
+    m_EnableVolumeRaycasting = false;
+    m_EnableVolumeRendering = false;
+
+    // 多块/动画数据优先判定：compute 路径无法用单个体纹理覆盖多块。
+    // 旧片元链表存在固定存储上限，因此不再从公共入口回退到该实现。
     if (this->HasMultiBlockData()) {
-        this->SetFragmentVolumeRendering(true);
-        IGAME_RENDERING_INFO(
-                "[Scene::SetVolumeRendering] multi-block/animation data, use "
-                "legacy fragment volume rendering.");
+        m_EnableVolumeRaycasting = false;
+        m_EnableVolumeRendering = false;
+        IGAME_RENDERING_WARN(
+                "[Scene::SetVolumeRendering] multi-block/animation data is "
+                "not supported; request ResampleToImage conversion.");
         if (message != nullptr) {
             *message =
-                    "当前数据是多块/动画网格，已使用旧的片元链表体绘制实现。";
+                    "当前数据是多块/动画网格，无法直接进行体绘制。\n"
+                    "请先使用 ResampleToImage Filter 将其转换为单块结构化网格。";
         }
-        return VolumeRenderingMode::Fragment;
+        this->Update();
+        return VolumeRenderingMode::Off;
     }
 
     auto source = this->FindVolumeSource();
@@ -4402,26 +4408,33 @@ Scene::VolumeRenderingMode Scene::SetVolumeRendering(bool toggled,
             return VolumeRenderingMode::Raycast;
         }
 
-        // 结构化网格但当前后端不支持 compute（GL 版本不合适）→ 回退旧实现
-        this->SetFragmentVolumeRendering(true);
-        IGAME_RENDERING_INFO(
-                "[Scene::SetVolumeRendering] compute ray marching unavailable, "
-                "use legacy fragment volume rendering.");
+        // 旧片元链表入口已屏蔽：compute 不可用时只返回失败原因。
+        m_EnableVolumeRaycasting = false;
+        m_EnableVolumeRendering = false;
+        IGAME_RENDERING_WARN(
+                "[Scene::SetVolumeRendering] compute ray marching unavailable; "
+                "legacy fragment volume rendering is disabled.");
         if (message != nullptr) {
-            *message = reason + "\n已改用旧的片元链表体绘制实现。";
+            *message = reason +
+                       "\n旧片元链表体绘制入口已禁用。";
         }
-        return VolumeRenderingMode::Fragment;
+        this->Update();
+        return VolumeRenderingMode::Off;
     }
 
-    // 非结构化网格（四面体/六面体等）→ 旧的片元链表实现
-    this->SetFragmentVolumeRendering(true);
-    IGAME_RENDERING_INFO(
-            "[Scene::SetVolumeRendering] non-structured mesh, use legacy "
-            "fragment volume rendering.");
+    // 非结构化网格（四面体/六面体等）不再进入旧片元链表体绘制。
+    m_EnableVolumeRaycasting = false;
+    m_EnableVolumeRendering = false;
+    IGAME_RENDERING_WARN(
+            "[Scene::SetVolumeRendering] non-structured mesh is not supported; "
+            "request ResampleToImage conversion.");
     if (message != nullptr) {
-        *message = "当前数据不是结构化网格，使用旧的片元链表体绘制。通过ResampleToImage Filter可将网格重采样为结构化网格。";
+        *message =
+                "当前数据不是结构化网格，无法直接进行体绘制。\n"
+                "请先使用 ResampleToImage Filter 将其转换为结构化网格。";
     }
-    return VolumeRenderingMode::Fragment;
+    this->Update();
+    return VolumeRenderingMode::Off;
 }
 
 void Scene::UpdateModelsBoundingSphere() {

@@ -537,22 +537,20 @@ public:
      */
     enum class VolumeRenderingMode {
         Off = 0,   ///< 未开启
-        Fragment,  ///< 旧的“片元链表”实现（非结构化网格 / 不支持 compute 时使用）
+        Fragment,  ///< 旧的“片元链表”实现（仅供显式调试入口）
         Raycast    ///< compute shader 光线步进实现（结构化网格）
     };
 
     /**
-     * @brief 启用或禁用体绘制（唯一对外入口，按数据类型自动选择实现）。
+     * @brief 启用或禁用体绘制（唯一对外入口）。
      * @param toggled 是否启用。
      * @param message 选型说明或失败原因（可为空）。
      * @return 实际采用的实现方式；Off 表示开启失败。
      *
      * @details
-     *  结构化网格 → compute shader 光线步进（SetVolumeRaycasting）；
-     *  其它情况   → 旧的“片元链表”实现（SetFragmentVolumeRendering），包括：
-     *  非结构化网格、多块/动画数据（含子数据对象，播放时子对象会被重建，
-     *  无法安全持有）、以及当前后端不支持 compute 的情况。
-     *  这样既保留了老实现的能力，又让结构化网格走高效路径。
+     *  结构化网格 → compute shader 光线步进；
+     *  非结构化网格或多块/动画数据 → 开启失败，并提示使用
+     *  ResampleToImage Filter 转换。旧片元链表不再从公共入口回退启用。
      */
     VolumeRenderingMode SetVolumeRendering(bool toggled,
                                            std::string* message = nullptr);
@@ -575,7 +573,7 @@ public:
     enum class VolumeRaycastingStatus {
         Ok = 0,             ///< 可用
         UnsupportedBackend,  ///< 当前图形后端/驱动不支持（需要 OpenGL 4.3+ 的 compute）
-        NoStructuredMesh,    ///< 场景中没有可用于光线步进的结构化网格（非结构化网格请走 Fragment 实现）
+        NoStructuredMesh,    ///< 场景中没有可用于光线步进的结构化网格
         NoScalarAttribute,   ///< 没有可用的标量属性
         InvalidAttribute,    ///< 属性数据规模与网格不匹配（例如 ghost 之类的单元数据）
         MultiBlockUnsupported ///< 多块/动画数据（含子数据对象），暂不支持 compute 光线步进
@@ -592,7 +590,7 @@ public:
      *  以及需要固定实现的调用方使用；普通业务请直接用 SetVolumeRendering，
      *  它会按数据类型自动选择实现。开启前先做可用性检查：后端是否支持 compute、
      *  场景中是否存在结构化网格、是否存在可用的标量属性；任何一项不满足都返回
-     *  对应状态，由调用方决定回退（Fragment）还是提示用户。
+     *  对应状态，由调用方提示用户。
      *  仅在 OpenGL 4.6 后端可用（Web / OpenGL 3.3 不支持 compute 与 3D 纹理）。
      */
     VolumeRaycastingStatus SetVolumeRaycasting(bool toggled,
