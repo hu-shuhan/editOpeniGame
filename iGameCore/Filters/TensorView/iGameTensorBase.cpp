@@ -14,6 +14,10 @@ iGameTensorBase::iGameTensorBase() {
 iGameTensorBase::~iGameTensorBase() {}
 void iGameTensorBase::SetPoints(Points::Pointer points) { this->m_Points = points; }
 void iGameTensorBase::SetTensorAttributes(ArrayObject::Pointer attributes) { this->m_TensorAttributes = attributes; }
+void iGameTensorBase::SetSliceNum(int s) {
+    if (s < 2) s = 2;
+    this->m_TensorManager->SetSliceNum(s);
+}
 void iGameTensorBase::ShowTensorField() {
     UpdateGlyphDrawPositionData();
     UpdateGlyphDrawIndexData();

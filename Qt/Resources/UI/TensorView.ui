@@ -162,6 +162,28 @@
         </layout>
        </item>
        <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_SliceNum" stretch="0,1">
+         <property name="spacing"><number>4</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <item>
+          <widget class="QLabel" name="label_SliceNum">
+           <property name="minimumSize"><size><width>90</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>90</width><height>16777215</height></size></property>
+           <property name="text"><string>椭球细分数</string></property>
+           <property name="alignment"><set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="spinBox_SliceNum">
+           <property name="toolTip"><string>数值越大，椭球越平滑，但会增加绘制开销</string></property>
+           <property name="minimum"><number>2</number></property>
+           <property name="maximum"><number>128</number></property>
+           <property name="value"><number>5</number></property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
         <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
          <property name="spacing">
           <number>4</number>

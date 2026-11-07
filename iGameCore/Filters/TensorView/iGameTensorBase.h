@@ -28,6 +28,7 @@ public:
     void SetPositionsScalarArray(ArrayObject::Pointer, int d = -1);
     //显示张量场
     void ShowTensorField();
+    void SetSliceNum(int s);
 
     //更新图元顶点数据
     void UpdateGlyphDrawPositionData();

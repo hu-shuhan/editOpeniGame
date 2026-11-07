@@ -21,6 +21,7 @@ public slots:
 	void InitTensorAttributes();
 	void ShowTensorField();
 	void UpdateGlyphType();
+	void UpdateSliceNum(int s);
 	void UpdateGlyphScale(double s);
 	void UpdateInfoCombox();
 	void InitTensorWidget();

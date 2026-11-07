@@ -25,6 +25,7 @@ igQtTensorWidget::igQtTensorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 	connect(ui->TensorInfoComboBox, SIGNAL(currentIndexChanged(QString)), this, SLOT(InitTensorAttributes()));
 	connect(ui->btn_Apply, SIGNAL(clicked(bool)), this, SLOT(ShowTensorField()));
 	connect(ui->GlyphTypeComboBox, SIGNAL(currentIndexChanged(QString)), this, SLOT(UpdateGlyphType()));
+	connect(ui->spinBox_SliceNum, SIGNAL(valueChanged(int)), this, SLOT(UpdateSliceNum(int)));
 	QRegExp rx = QRegExp("^?\\d+(\\.\\d+)?([eE][-+]?\\d+)?$");
 	ui->lineEdit_TensorScale->setValidator(new QRegExpValidator(rx, this));
 	connect(ui->horizontalSlider_ScaleSlider, &QSlider::valueChanged, this, [&]() {
@@ -100,6 +101,8 @@ void igQtTensorWidget::UpdateComponentsShow(bool flag)
 	if (flag) {
 		ui->lineEdit_TensorScale->show();
 		ui->horizontalSlider_ScaleSlider->show();
+		ui->label_SliceNum->show();
+		ui->spinBox_SliceNum->show();
 		ui->ScalarInfoComboBox->show();
 		ui->label_ColorFrom->show();
 		ui->label_ScaleData->show();
@@ -109,6 +112,8 @@ void igQtTensorWidget::UpdateComponentsShow(bool flag)
 	else {
 		ui->lineEdit_TensorScale->hide();
 		ui->horizontalSlider_ScaleSlider->hide();
+		ui->label_SliceNum->hide();
+		ui->spinBox_SliceNum->hide();
 		ui->ScalarInfoComboBox->hide();
 		ui->label_ColorFrom->hide();
 		ui->label_ScaleData->hide();
@@ -184,11 +189,20 @@ void igQtTensorWidget::InitTensorAttributes()
 void igQtTensorWidget::ShowTensorField()
 {
 	if (!this->m_DataObject || !this->m_Manager)return;
+	m_Manager->SetSliceNum(ui->spinBox_SliceNum->value());
 	this->m_Manager->ShowTensorField();
 	this->UpdateComponentsShow(true);
 	m_Generated = true;
 	m_Manager->DataObject::SetName(m_DataObject->GetName() + "_TensorView");
 	Q_EMIT DrawTensorGlyphs(m_Manager);
+}
+void igQtTensorWidget::UpdateSliceNum(int s)
+{
+	if (!m_Manager || !m_Generated)return;
+	m_Manager->SetSliceNum(s);
+	m_Manager->ShowTensorField();
+	m_Manager->ConvertToDrawableData();
+	Q_EMIT UpdateTensorGlyphs(m_Manager);
 }
 void igQtTensorWidget::UpdateGlyphScale(double s)
 {
