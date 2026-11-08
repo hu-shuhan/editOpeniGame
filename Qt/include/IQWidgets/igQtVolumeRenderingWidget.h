@@ -7,7 +7,7 @@
 // 开启体绘制时自动打开：
 //   - 信息：视口大小（逻辑像素）、渲染分辨率（设备像素，即 compute 实际派发
 //     的分辨率）、线程组派发数、体数据维度与纹理显存、采样密度、每帧采样数；
-//   - 参数：采样步数（含“按体数据推荐”）、不透明度缩放、质量预设、
+//   - 参数：采样步数（含“按体数据推荐”）、不透明度缩放、
 //     是否立即生效，以及 应用 / 重置 / 关闭。
 //
 // 参数只在 compute 光线步进（VolumeRenderingMode::Raycast）下生效；旧的
@@ -44,7 +44,6 @@ signals:
 private slots:
     void onStepsValueChanged(int steps);
     void onOpacityValueChanged(double opacity);
-    void onPresetChanged(int index);
     void onRecommendClicked();
     void onApplyClicked();
     void onResetClicked();

@@ -84,8 +84,6 @@ void igQtVolumeRenderingWidget::initConnections() {
     connect(ui->doubleSpinBox_Opacity,
             QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtVolumeRenderingWidget::onOpacityValueChanged);
-    connect(ui->comboBox_Preset, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &igQtVolumeRenderingWidget::onPresetChanged);
     connect(ui->pushButton_Recommend, &QPushButton::clicked, this,
             &igQtVolumeRenderingWidget::onRecommendClicked);
     connect(ui->pushButton_Apply, &QPushButton::clicked, this,
@@ -177,8 +175,8 @@ void igQtVolumeRenderingWidget::updateReadout(
     const bool raycast = hasScene && info.mode == iGame::Scene::VolumeRenderingMode::Raycast;
     for (QWidget* widget : std::initializer_list<QWidget*>{
                  ui->spinBox_Steps, ui->doubleSpinBox_Opacity,
-                 ui->pushButton_Recommend, ui->comboBox_Preset,
-                 ui->checkBox_LiveUpdate, ui->pushButton_Apply}) {
+                 ui->pushButton_Recommend, ui->checkBox_LiveUpdate,
+                 ui->pushButton_Apply}) {
         widget->setEnabled(raycast);
     }
     // ---- 当前体层：由模型树当前选中的模型决定（与 ColorMapper 一致）----
@@ -450,11 +448,6 @@ void igQtVolumeRenderingWidget::applyQuality() {
 
 void igQtVolumeRenderingWidget::onStepsValueChanged(int steps) {
     if (m_updating) { return; }
-    // 值被手动改过就不再声称是某个预设
-    if (ui->comboBox_Preset->currentIndex() != 0) {
-        const QSignalBlocker blocker(ui->comboBox_Preset);
-        ui->comboBox_Preset->setCurrentIndex(0);
-    }
     updateStepsHint(steps);
     if (ui->checkBox_LiveUpdate->isChecked()) {
         applyQuality();
@@ -465,51 +458,6 @@ void igQtVolumeRenderingWidget::onStepsValueChanged(int steps) {
 
 void igQtVolumeRenderingWidget::onOpacityValueChanged(double opacity) {
     if (m_updating) { return; }
-    if (ui->comboBox_Preset->currentIndex() != 0) {
-        const QSignalBlocker blocker(ui->comboBox_Preset);
-        ui->comboBox_Preset->setCurrentIndex(0);
-    }
-    if (ui->checkBox_LiveUpdate->isChecked()) {
-        applyQuality();
-    } else {
-        m_pendingEdits = true;
-    }
-}
-
-void igQtVolumeRenderingWidget::onPresetChanged(int index) {
-    if (m_updating || index <= 0) { return; }
-
-    int steps = ui->spinBox_Steps->value();
-    double opacity = ui->doubleSpinBox_Opacity->value();
-    switch (index) {
-        case 1: // 快速预览
-            steps = 128;
-            opacity = 0.0005;
-            break;
-        case 2: // 标准
-            steps = 512;
-            opacity = 0.0010;
-            break;
-        case 3: { // 精细：按体数据推荐步数
-            const int recommended = recommendedSteps();
-            steps = recommended > 0 ? recommended : 1024;
-            opacity = 0.0015;
-            break;
-        }
-        default:
-            return;
-    }
-
-    m_updating = true;
-    ui->spinBox_Steps->setValue(
-            std::clamp(steps, ui->spinBox_Steps->minimum(),
-                       ui->spinBox_Steps->maximum()));
-    ui->doubleSpinBox_Opacity->setValue(
-            std::clamp(opacity, ui->doubleSpinBox_Opacity->minimum(),
-                       ui->doubleSpinBox_Opacity->maximum()));
-    m_updating = false;
-
-    updateStepsHint(ui->spinBox_Steps->value());
     if (ui->checkBox_LiveUpdate->isChecked()) {
         applyQuality();
     } else {
@@ -532,8 +480,7 @@ void igQtVolumeRenderingWidget::onApplyClicked() { applyQuality(); }
 void igQtVolumeRenderingWidget::onResetClicked() {
     m_updating = true;
     ui->spinBox_Steps->setValue(128);
-    ui->doubleSpinBox_Opacity->setValue(0.001);
-    ui->comboBox_Preset->setCurrentIndex(0);
+    ui->doubleSpinBox_Opacity->setValue(0.1);
     m_updating = false;
 
     updateStepsHint(ui->spinBox_Steps->value());

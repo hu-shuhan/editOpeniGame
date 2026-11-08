@@ -238,48 +238,17 @@
           <double>0.000100000000000</double>
          </property>
          <property name="maximum">
-          <double>0.050000000000000</double>
+          <double>1.000000000000000</double>
          </property>
          <property name="singleStep">
           <double>0.000100000000000</double>
          </property>
          <property name="value">
-          <double>0.001000000000000</double>
+          <double>0.100000000000000</double>
          </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_PresetTitle">
-        <property name="text">
-         <string>质量预设</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1" colspan="2">
-       <widget class="QComboBox" name="comboBox_Preset">
-        <item>
-         <property name="text">
-          <string>自定义</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>快速预览（128 步 / 0.0005）</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>标准（512 步 / 0.001）</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>精细（推荐步数 / 0.0015）</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item row="3" column="0" colspan="3">
+      <item row="2" column="0" colspan="3">
        <widget class="QCheckBox" name="checkBox_LiveUpdate">
         <property name="text">
          <string>参数变化立即生效</string>
@@ -289,7 +258,7 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="0" colspan="3">
+      <item row="3" column="0" colspan="3">
        <widget class="QLabel" name="label_MaskTitle">
         <property name="toolTip">
          <string>空白/ghost体素处理方式,需要vtkValidPointMask或vtkGhostType</string>
@@ -299,7 +268,7 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="1" colspan="2">
+      <item row="3" column="1" colspan="2">
        <widget class="QComboBox" name="comboBox_MaskMode">
         <property name="toolTip">
          <string>无效体素处理。挖空：完全不贡献；实体：固定颜色绘制</string>
@@ -321,14 +290,14 @@
         </item>
        </widget>
       </item>
-      <item row="5" column="0">
+      <item row="4" column="0">
        <widget class="QLabel" name="label_ShellOpacityTitle">
         <property name="text">
          <string>当前层掩膜不透明度</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="1" colspan="2">
+      <item row="4" column="1" colspan="2">
        <widget class="QDoubleSpinBox" name="doubleSpinBox_ShellOpacity">
         <property name="decimals">
          <number>2</number>
@@ -347,7 +316,7 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0" colspan="3">
+      <item row="5" column="0" colspan="3">
        <widget class="QCheckBox" name="checkBox_CurrentLayerEnabled">
         <property name="toolTip">
          <string>启用/停用当前选中的体层（每个模型独立）</string>
@@ -360,7 +329,7 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="0" colspan="3">
+      <item row="6" column="0" colspan="3">
        <widget class="QLabel" name="label_StepsHint">
         <property name="text">
          <string>-</string>

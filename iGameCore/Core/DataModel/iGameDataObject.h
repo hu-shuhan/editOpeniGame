@@ -25,7 +25,7 @@ public:
      */
     struct VolumeRenderingSettings {
         bool enabled = true;
-        float opacityScale = 0.001f;
+        float opacityScale = 0.1f;
         int maskMode = 0; // 0=off, 1=carve, 2=shell
         float shellOpacity = 0.9f;
     };
