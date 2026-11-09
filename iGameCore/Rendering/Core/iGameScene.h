@@ -734,8 +734,8 @@ public:
         int layerCount = 1;            ///< 参与体绘制的层数（1 或 2）
         bool layer0Enabled = true;     ///< 第一层是否启用
         bool layer1Enabled = true;     ///< 第二层是否启用
-        float layer0Opacity = 0.1f;    ///< 第一层不透明度缩放
-        float layer1Opacity = 0.1f;    ///< 第二层不透明度缩放
+        float layer0Opacity = 0.02f;   ///< 第一层不透明度缩放
+        float layer1Opacity = 0.02f;   ///< 第二层不透明度缩放
         std::string layer0Name;        ///< 第一层模型名（面板显示）
         std::string layer1Name;        ///< 第二层模型名（面板显示）
         int currentLayer = -1;         ///< 当前选中模型对应的体层（-1 = 不是体层）
@@ -1032,8 +1032,8 @@ protected:
     int m_VolumeStepCount = 128;
     // 不透明度缩放：alpha = LUT 不透明度 × 该值。
     // 默认 LUT 不透明度为常数 1，此时它等价于“每个体素的 alpha 贡献”；
-    // 可用范围 0.0001~1.0，默认取 0.1。
-    float m_VolumeOpacityScale = 0.1f;
+    // 可用范围 0.0001~1.0，默认取 0.02。
+    float m_VolumeOpacityScale = 0.02f;
 
     // ---- 第二体层（两个可见结构化模型一起体绘制）----
     // 每层参数保存在各自 DataObject::VolumeRenderingSettings 中，
@@ -1057,7 +1057,7 @@ protected:
     bool m_VolumeLayer2Enabled = false;
     bool m_VolumeLayer0UserEnabled = true;  // 第一层用户开关（默认参与）
     bool m_VolumeLayer2UserEnabled = true;  // 第二层用户开关（默认参与）
-    float m_VolumeOpacityScale2 = 0.1f;     // 第二层自己的不透明度缩放
+    float m_VolumeOpacityScale2 = 0.02f;    // 第二层自己的不透明度缩放
     unsigned int m_VolumeFrameSeed = 0;     // 抖动种子（逐帧变化）
     // 以下三项为一次性自检开关：用于定位体绘制“不可见/无效果”的问题，
     // 稳定后可整体移除（对应 VolumeRaycastPass 中的诊断代码）

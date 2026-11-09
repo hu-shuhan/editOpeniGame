@@ -4363,6 +4363,7 @@ Scene::VolumeRenderingMode Scene::SetVolumeRendering(bool toggled,
         if (message != nullptr) { message->clear(); }
         m_EnableVolumeRaycasting = false;
         m_EnableVolumeRendering = false;
+        m_VolumeRaycastFailureMessage.clear();
         this->Update();
         return VolumeRenderingMode::Off;
     }

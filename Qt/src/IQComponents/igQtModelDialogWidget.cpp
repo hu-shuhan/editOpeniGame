@@ -1172,6 +1172,14 @@ void igQtModelDialogWidget::deleteCurrentModel() {
 
     if (currentItem == nullptr) return;
 
+    // 删除模型会让体绘制的数据源失效；先正常关闭体绘制，避免下一帧进入
+    // 体绘制失败提示流程。
+    if (scene != nullptr &&
+        scene->GetVolumeRenderingMode() !=
+                iGame::Scene::VolumeRenderingMode::Off) {
+        scene->SetVolumeRendering(false);
+    }
+
     int id = currentItem->getModelId();
     
     // 在删除之前获取模型名称，避免在 RemoveModel 后持有引用

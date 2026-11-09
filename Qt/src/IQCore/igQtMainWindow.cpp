@@ -5087,6 +5087,17 @@ void igQtMainWindow::initAllMySignalConnections() {
     // 删除高程输出节点时自动关闭右侧 Elevation 参数面板
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             ElevationFilterPanel, &igQtElevationFilterPanel::onModelDeleted);
+    // 删除模型时 Scene 已在删除前关闭体绘制；这里只同步取消开关，
+    // 不弹出任何失败提示。
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            this, [this](const std::string&) {
+                if (ui->action_VolumeRendering == nullptr ||
+                    !ui->action_VolumeRendering->isChecked()) {
+                    return;
+                }
+                const QSignalBlocker blocker(ui->action_VolumeRendering);
+                ui->action_VolumeRendering->setChecked(false);
+            });
 
     // Update animation controls when model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,

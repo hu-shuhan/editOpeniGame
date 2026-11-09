@@ -480,7 +480,7 @@ void igQtVolumeRenderingWidget::onApplyClicked() { applyQuality(); }
 void igQtVolumeRenderingWidget::onResetClicked() {
     m_updating = true;
     ui->spinBox_Steps->setValue(128);
-    ui->doubleSpinBox_Opacity->setValue(0.1);
+    ui->doubleSpinBox_Opacity->setValue(0.02);
     m_updating = false;
 
     updateStepsHint(ui->spinBox_Steps->value());
