@@ -39,7 +39,6 @@ uniform mat4 invProjView;
 uniform int numSteps;         // 每条光线的最大采样步数
 uniform float opacityScale;   // 整体不透明度缩放（调节浓淡）
 uniform float jitterSeed;     // 每帧变化，用于抖动采样起点
-uniform vec3 backgroundColor; // 体后方的背景色（体数据独立渲染时使用）
 uniform int debugMode;        // 0=正常渲染；1=输出命中诊断（一次性 GPU 自检用）
 
 uniform sampler3D volumeTexture;   // 体数据（R16F，三线性插值）
@@ -64,6 +63,7 @@ uniform int layer1On;              // 第二层用户开关
 uniform float opacityScale2;       // 第二层自己的不透明度缩放
 
 layout(binding = 0, rgba8) uniform writeonly image2D outImage;
+uniform sampler2D sceneColorSampler; // 已渲染场景色（几何 + 背景），体绘制结果与之合成
 
 // 简单的散列函数，用于抖动采样起点
 float Hash12(vec2 p) {
@@ -96,6 +96,9 @@ void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 imageSize = imageSize(outImage);
     if (pixel.x >= imageSize.x || pixel.y >= imageSize.y) { return; }
+
+    // 场景色：体绘制在 shader 内与场景色合成，避免整屏覆盖后几何消失
+    vec3 sceneColor = texelFetch(sceneColorSampler, pixel, 0).rgb;
 
     // 1. 像素坐标 -> NDC -> 世界空间光线
     //    注意：引擎使用反向 Z（igm::perspectiveRH_OZ / orthoRH_OZ，
@@ -136,7 +139,7 @@ void main() {
     }
 
     if (!rayValid) {
-        imageStore(outImage, pixel, vec4(backgroundColor, 1.0));
+        imageStore(outImage, pixel, vec4(sceneColor, 1.0));
         return;
     }
 
@@ -179,7 +182,7 @@ void main() {
 
     if (!hit || tFar <= tNear) {
         // 光线与体数据不相交
-        imageStore(outImage, pixel, vec4(backgroundColor, 1.0));
+        imageStore(outImage, pixel, vec4(sceneColor, 1.0));
         return;
     }
 
@@ -281,6 +284,6 @@ void main() {
     }
 
     // 5. 剩余透射率显示出背景色
-    vec3 color = accumulated + transmittance * backgroundColor;
+    vec3 color = accumulated + transmittance * sceneColor;
     imageStore(outImage, pixel, vec4(color, 1.0));
 }

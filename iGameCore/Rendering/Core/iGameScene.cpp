@@ -1338,6 +1338,10 @@ void Scene::DrawFrame() {
         if (m_EnableVolumeRaycasting) {
             // 目前体绘制结果直接覆盖视口（与旧的体绘制行为一致，暂不与几何做
             // 深度合成），后续可改为先画不透明几何再做深度感知合成
+            // 先画几何，再由体绘制在 shader 内与场景色合成（不再整屏覆盖）
+            ShadowPass();
+            ForwardPass();
+            TransparentPass();
             VolumeRaycastPass();
         } else if (!m_EnableVolumeRendering) {
             ShadowPass();
@@ -3574,10 +3578,18 @@ void Scene::VolumeRaycastPass() {
 
     // m_ColorTexture 是主帧缓冲的颜色附件，作为 image 写入时不能同时挂在
     // “当前绑定的帧缓冲”上（否则构成读写反馈回路），这里改绑体绘制帧缓冲。
+    // 把已渲染场景（几何 + 背景）解析并复制到备份纹理，供体绘制在 shader 内合成
+    ResolveFrameBuffer();
+    GLFramebuffer::Blit(m_Framebuffer, m_FramebufferBackup, 0, 0, viewport.x,
+                        viewport.y, 0, 0, viewport.x, viewport.y,
+                        GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    m_ColorTextureBackup->Active(GL_TEXTURE7);
+
     m_VolumeFramebuffer->Bind();
 
     shader->Use();
     checkGL("shader->Use");
+    shader->SetUniformi("sceneColorSampler", 7);
 
     shader->SetUniformMatrix4x4("invProjView", invProjView);
     shader->SetUniformMatrix4x4("worldToTexture", worldToTexture);
@@ -3585,7 +3597,6 @@ void Scene::VolumeRaycastPass() {
     shader->SetUniformf("opacityScale", m_VolumeOpacityScale);
     shader->SetUniformf("jitterSeed",
                         static_cast<float>(m_VolumeFrameSeed % 1024u));
-    shader->SetUniform3f("backgroundColor", m_BackgroundColor);
 
     m_VolumeTexture3d->Active(GL_TEXTURE1);
     shader->SetUniformi("volumeTexture", 1);
