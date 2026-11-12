@@ -106,31 +106,28 @@ bool NastranReader::Parsing() {
     }
 
 
-    std::string outputPath = m_BDFFilePath + ".vtu";
-    int returnCode = 0;
-    if (m_RemoteConversionEnabled) {
-        std::filesystem::path outputFilePath = FileSystem::PathFromUtf8(m_BDFFilePath);
-        outputFilePath += ".vtu";
-        outputPath = FileSystem::PathToUtf8(outputFilePath);
-        // C/S package paths may contain Unicode and spaces.
-        std::vector<std::string> arguments = {"--force", "--bdf", m_BDFFilePath, "--output", outputPath};
-        if (!m_OP2FilePath.empty()) {
-            arguments.push_back("--op2");
-            arguments.push_back(m_OP2FilePath);
-        } else {
-            IGAME_WARN("Not set op2");
-        }
-        if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
-            IGAME_ERROR("[NastranReader] Failed to start converter: {}", exePath);
-            return false;
-        }
+    std::filesystem::path outputFilePath = m_RemoteConversionEnabled
+            ? FileSystem::PathFromUtf8(m_BDFFilePath) : std::filesystem::path(m_BDFFilePath);
+    outputFilePath += ".vtu";
+    std::string outputPath = m_RemoteConversionEnabled
+            ? FileSystem::PathToUtf8(outputFilePath) : outputFilePath.string();
+
+    // 与 CAS/Fluent 一样统一走 ExternalProcess::Run：onefile 转换器会先把自身解包到
+    // 子进程的 TEMP，系统 %TEMP% 不可用时 std::system 只会得到同样的解包失败。
+    std::vector<std::string> arguments = {"--force", "--bdf", m_BDFFilePath,
+                                          "--output", outputPath};
+    if (!m_OP2FilePath.empty()) {
+        arguments.push_back("--op2");
+        arguments.push_back(m_OP2FilePath);
     } else {
-        // Preserve main's command construction and shell invocation for ordinary files.
-        std::string arguments = " --force --bdf " + m_BDFFilePath + " --output " + outputPath;
-        if (!m_OP2FilePath.empty()) arguments += " --op2 " + m_OP2FilePath;
-        else IGAME_WARN("Not set op2");
-        std::string fullCommand = exePath + arguments;
-        returnCode = std::system(fullCommand.c_str());
+        IGAME_WARN("Not set op2");
+    }
+    IGAME_CORE_DEBUG("[NastranReader] Running converter: {} --force --bdf {} --output {}",
+                     exePath, m_BDFFilePath, outputPath);
+    int returnCode = 0;
+    if (!ExternalProcess::Run(exePath, arguments, returnCode)) {
+        IGAME_ERROR("[NastranReader] Failed to start converter: {}", exePath);
+        return false;
     }
 
     if (returnCode == 0) {

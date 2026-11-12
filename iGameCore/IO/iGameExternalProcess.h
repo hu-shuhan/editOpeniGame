@@ -5,11 +5,13 @@
 #include "iGameProgressObserver.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cwchar>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <string>
 #include <system_error>
@@ -146,6 +148,86 @@ inline bool BuildEnvironmentWithTemp(const std::wstring& tempDirectory,
     out.push_back(L'\0');
     return true;
 }
+
+/**
+ * 判断目录是否可用作子进程的 TEMP：先建目录，再真实写入一个探针文件。
+ *
+ * 只调用 create_directories 不够 —— 只读属性、磁盘配额、组策略都可能让
+ * 目录存在但写不进去，而转换器在解包阶段就会以同样的方式失败。
+ */
+inline bool IsDirectoryWritable(const std::filesystem::path& directory) {
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    if (error) { return false; }
+
+    const std::filesystem::path probe =
+            directory / (L"_igv_probe_" + std::to_wstring(GetCurrentProcessId()));
+    {
+        std::ofstream stream(probe, std::ios::binary | std::ios::trunc);
+        if (!stream) { return false; }
+        stream << "probe";
+        if (!stream.good()) {
+            stream.close();
+            std::filesystem::remove(probe, error);
+            return false;
+        }
+    }
+    std::filesystem::remove(probe, error);
+    return true;
+}
+
+/**
+ * 为没有显式指定临时目录的调用方挑选一个可写的临时根目录。
+ *
+ * 候选顺序是有意为之：**程序自己的工作目录优先**。onefile 转换器把自身解包到
+ * 子进程的 TEMP 下（`_MEI<pid>`），某些机器/安全策略会拒绝在系统 `%TEMP%` 下
+ * 创建该目录，转换器只打印 "Could not create temporary directory!" 就退出；
+ * 而程序自己的 `temp/` 一定在可写位置。系统临时目录只作为最后兜底。
+ */
+inline std::filesystem::path ResolveConverterTempRoot() {
+    std::vector<std::filesystem::path> candidates;
+
+    std::error_code error;
+    const std::filesystem::path currentDirectory = std::filesystem::current_path(error);
+    if (!error) {
+        candidates.push_back(currentDirectory / L"temp");
+    }
+
+    wchar_t* localAppData = nullptr;
+    size_t localAppDataLength = 0;
+    if (_wdupenv_s(&localAppData, &localAppDataLength, L"LOCALAPPDATA") == 0 &&
+        localAppData != nullptr) {
+        candidates.emplace_back(std::filesystem::path(localAppData) / L"iGameVis" / L"temp");
+        free(localAppData);
+    }
+
+    std::filesystem::path systemTemp;
+    try {
+        systemTemp = std::filesystem::temp_directory_path();
+    } catch (const std::filesystem::filesystem_error&) {
+        systemTemp.clear();
+    }
+    if (!systemTemp.empty()) {
+        candidates.push_back(systemTemp / L"iGameVis" / L"temp");
+    }
+
+    for (const auto& candidate : candidates) {
+        if (IsDirectoryWritable(candidate)) { return candidate; }
+    }
+    return {};
+}
+
+/**
+ * 每次调用一个独立子目录，避免并发转换互相踩到同一个 `_MEI<pid>`，
+ * 也便于退出后整体清理（只删自己建的目录，不动调用方的 `temp/`）。
+ */
+inline std::filesystem::path MakeScratchTempDirectory(const std::filesystem::path& root) {
+    if (root.empty()) { return {}; }
+    static std::atomic<unsigned long> counter{0};
+    const unsigned long index = ++counter;
+    return root / (L"_igv_" + std::to_wstring(GetCurrentProcessId()) + L"_" +
+                   std::to_wstring(index));
+}
 #endif
 
 } // namespace detail
@@ -209,7 +291,9 @@ private:
 // 启动失败返回 false；成功则 returnCode 为子进程退出码（0 表示成功）。
 //
 // @param utf8TempDirectory 可选。非空时把子进程的 TEMP/TMP 指向该目录（不存在则创建），
-//        见上方 BuildEnvironmentWithTemp 的说明。空串表示完全继承父进程环境。
+//        见上方 BuildEnvironmentWithTemp 的说明；该目录不可写时会自动退回下面的默认目录。
+//        为空时自动挑选一个可写的临时目录（优先程序工作目录下的 temp/），
+//        两者都不可用才继承父进程环境。
 // @param onWaitTick 可选。非空时不再一次性无限等待，而是每约 100ms 醒一次并调用它，
 //        让调用方在等待期间上报进度/文案（转换器本身无法给出真实进度）。
 //        为空时行为与原先完全一致（单次 INFINITE 等待）。
@@ -233,17 +317,47 @@ inline bool Run(const std::string& utf8Executable,
         std::vector<wchar_t> commandBuffer(commandLine.begin(), commandLine.end());
         commandBuffer.push_back(L'\0');
 
-        // 需要时给子进程一组 TEMP/TMP 被改写过的环境块。
+        // 子进程的 TEMP/TMP：调用方没有指定时也自动准备一个可写的目录。
+        // onefile 自解包发生在转换器自己的代码之前，系统 %TEMP% 不可用时
+        // 转换器只会打印 "Could not create temporary directory!" 然后退出。
         std::vector<wchar_t> environmentBlock;
         void* environment = nullptr;
+        fs::path tempDirectory;
+        bool ownsTempDirectory = false;
         if (!utf8TempDirectory.empty()) {
-            const fs::path tempDirectory = FileSystem::PathFromUtf8(utf8TempDirectory);
+            tempDirectory = FileSystem::PathFromUtf8(utf8TempDirectory);
             std::error_code createError;
             fs::create_directories(tempDirectory, createError);
-            if (!detail::BuildEnvironmentWithTemp(tempDirectory.native(), environmentBlock)) {
-                return false;
+            if (createError) {
+                // 调用方给的目录不可写：退回自动挑选的目录，而不是让转换器在解包阶段失败。
+                tempDirectory.clear();
             }
-            environment = environmentBlock.data();
+        }
+        if (tempDirectory.empty()) {
+            tempDirectory = detail::MakeScratchTempDirectory(detail::ResolveConverterTempRoot());
+            ownsTempDirectory = true;
+        }
+
+        // 只清理自己创建的目录；调用方指定的 temp/ 归调用方管理。
+        struct ScratchDirectoryGuard {
+            fs::path directory;
+
+            ~ScratchDirectoryGuard() {
+                if (directory.empty()) { return; }
+                std::error_code removeError;
+                fs::remove_all(directory, removeError);
+            }
+        };
+        ScratchDirectoryGuard scratchGuard;
+        scratchGuard.directory = ownsTempDirectory ? tempDirectory : fs::path{};
+
+        if (!tempDirectory.empty()) {
+            std::error_code createError;
+            fs::create_directories(tempDirectory, createError);
+            if (!createError &&
+                detail::BuildEnvironmentWithTemp(tempDirectory.native(), environmentBlock)) {
+                environment = environmentBlock.data();
+            }
         }
 
         STARTUPINFOW startupInfo{};

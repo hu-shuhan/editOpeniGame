@@ -19,8 +19,8 @@ bool CASReader::Parsing() {
     fs::path tempDir = fs::current_path() / "temp";
     if (!fs::exists(tempDir)) { fs::create_directories(tempDir); }
 
-    // ????¼??? temp ?????
-    std::string outputDir = m_RemoteConversionEnabled ? FileSystem::PathToUtf8(tempDir) : tempDir.string();
+    // 输出目录统一用 UTF-8：转换器参数经 CreateProcessW 以宽字符下发。
+    std::string outputDir = FileSystem::PathToUtf8(tempDir);
 
     // ????¼?????????????¼
     //std::string outputDir = inputPath.parent_path().string();
@@ -60,21 +60,13 @@ bool CASReader::Parsing() {
     // ?????????????
 
     int returnCode = 0;
-    if (m_RemoteConversionEnabled) {
-        // C/S package paths may contain Unicode and spaces.
-        std::vector<std::string> arguments = {"--input", casPath, "--output", outputDir};
-        IGAME_CORE_DEBUG("[CASReader] Running converter: {} --input {} --output {}", exePath, casPath, outputDir);
-        if (!ExternalProcess::Run(exePath, arguments, returnCode,
-                                  FileSystem::PathToUtf8(tempDir))) {
-            IGAME_CORE_ERROR("[CASReader] Failed to start converter: {}", exePath);
-            return false;
-        }
-    } else {
-        // Preserve main's command construction and shell invocation for ordinary files.
-        std::string arguments = "--input " + casPath + " --output " + outputDir;
-        std::string fullCommand = "\"" + exePath + "\" " + arguments;
-        IGAME_CORE_DEBUG("[CASReader] Running command: {}", fullCommand);
-        returnCode = std::system(fullCommand.c_str());
+    // 无论是否 C/S 模式都走 ExternalProcess::Run：cas_converter.exe 是 onefile 打包，
+    // 会先把自身解包到子进程的 TEMP，系统 %TEMP% 不可用时 std::system 会直接失败。
+    std::vector<std::string> arguments = {"--input", casPath, "--output", outputDir};
+    IGAME_CORE_DEBUG("[CASReader] Running converter: {} --input {} --output {}", exePath, casPath, outputDir);
+    if (!ExternalProcess::Run(exePath, arguments, returnCode, FileSystem::PathToUtf8(tempDir))) {
+        IGAME_CORE_ERROR("[CASReader] Failed to start converter: {}", exePath);
+        return false;
     }
     if (returnCode != 0) {
         IGAME_CORE_ERROR("CAS to VTK conversion failed. Return code: {}", returnCode);
