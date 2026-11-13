@@ -3,6 +3,8 @@
 #include "Log/iGameLogger.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
 #include <cmath>
+#include <limits>
+#include <vector>
 IGAME_NAMESPACE_BEGIN
 
 template<typename ArrayType>
@@ -18,6 +20,12 @@ static void ReportCgnsFieldInf(const char* fieldName, int index_base, int index_
         }
     }
 }
+
+static bool TryBatchReadCgnsFixedCells(UnstructuredMesh::Pointer mesh,
+                                       int index_file,
+                                       int index_base,
+                                       int index_zone,
+                                       cgsize_t expected_cells);
 
 iGameCGNSReader::iGameCGNSReader() {
     this->SetNumberOfOutputs(1);
@@ -420,6 +428,10 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
         if (m_UnstructuredMesh == nullptr) { m_UnstructuredMesh = UnstructuredMesh::New(); }
         m_UnstructuredMesh->SetPoints(m_Points);
         this->m_DataObjectType = IG_UNSTRUCTURED_MESH;
+        if (TryBatchReadCgnsFixedCells(m_UnstructuredMesh, index_file, index_base,
+                                       index_zone, cellNum)) {
+            return;
+        }
         for (int index_section = 1; index_section <= nsections; index_section++) {
             char sectionname[100];
             ElementType_t type;
@@ -478,6 +490,147 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
             }
         }
     }
+}
+
+struct CgnsFixedSection {
+    int index;
+    ElementType_t type;
+    cgsize_t cells;
+    int pointsPerCell;
+    IGenum iGameType;
+};
+
+static bool MapCgnsFixedElementType(ElementType_t type, IGenum& result) {
+    switch (type) {
+        case HEXA_8: result = IG_HEXAHEDRON; return true;
+        case TETRA_4: result = IG_TETRA; return true;
+        case PYRA_5: result = IG_PYRAMID; return true;
+        case PENTA_6: result = IG_PRISM; return true;
+        case TRI_3: result = IG_TRIANGLE; return true;
+        case QUAD_4: result = IG_QUAD; return true;
+        default: return false;
+    }
+}
+
+static bool TryBatchReadCgnsFixedCells(UnstructuredMesh::Pointer mesh,
+                                       int index_file,
+                                       int index_base,
+                                       int index_zone,
+                                       cgsize_t expected_cells) {
+    if (!mesh || expected_cells <= 0) return false;
+
+    int section_count = 0;
+    if (cg_nsections(index_file, index_base, index_zone, &section_count) != CG_OK ||
+        section_count <= 0) {
+        return false;
+    }
+
+    std::vector<CgnsFixedSection> sections;
+    sections.reserve(static_cast<size_t>(section_count));
+    cgsize_t total_cells = 0;
+    cgsize_t total_connections = 0;
+    bool fixed = true;
+    IGenum first_type = IG_NONE;
+    int first_points_per_cell = -1;
+
+    for (int section_index = 1; section_index <= section_count; ++section_index) {
+        char section_name[100];
+        ElementType_t type;
+        cgsize_t start = 0;
+        cgsize_t end = 0;
+        int boundary = 0;
+        int parent = 0;
+        if (cg_section_read(index_file, index_base, index_zone, section_index,
+                            section_name, &type, &start, &end, &boundary,
+                            &parent) != CG_OK ||
+            end < start) {
+            return false;
+        }
+
+        IGenum iGameType = IG_NONE;
+        int points_per_cell = 0;
+        if (!MapCgnsFixedElementType(type, iGameType) ||
+            cg_npe(type, &points_per_cell) != CG_OK || points_per_cell <= 0) {
+            return false;
+        }
+
+        const cgsize_t cells = end - start + 1;
+        if (cells > expected_cells - total_cells) return false;
+        total_cells += cells;
+        if (static_cast<unsigned long long>(points_per_cell) >
+            (std::numeric_limits<cgsize_t>::max() - total_connections) /
+                    static_cast<unsigned long long>(cells)) {
+            return false;
+        }
+        total_connections += cells * points_per_cell;
+        if (sections.empty()) {
+            first_type = iGameType;
+            first_points_per_cell = points_per_cell;
+        } else if (iGameType != first_type ||
+                   points_per_cell != first_points_per_cell) {
+            fixed = false;
+        }
+        sections.push_back({section_index, type, cells, points_per_cell,
+                            iGameType});
+    }
+    if (total_cells != expected_cells ||
+        total_connections > static_cast<cgsize_t>(std::numeric_limits<unsigned int>::max())) {
+        return false;
+    }
+
+    auto ids = IdArray::New();
+    ids->Resize(static_cast<IGsize>(total_connections));
+    auto id_values = ids->RawPointer();
+    auto types = UnsignedIntArray::New();
+    types->Resize(static_cast<IGsize>(total_cells));
+    auto type_values = types->RawPointer();
+    UnsignedIntArray::Pointer offsets;
+    unsigned int* offset_values = nullptr;
+    if (!fixed) {
+        offsets = UnsignedIntArray::New();
+        offsets->Resize(static_cast<IGsize>(total_cells) + 1);
+        offset_values = offsets->RawPointer();
+        offset_values[0] = 0;
+    }
+
+    cgsize_t cell_cursor = 0;
+    cgsize_t connection_cursor = 0;
+    for (const auto& section : sections) {
+        std::vector<cgsize_t> elements(
+                static_cast<size_t>(section.cells * section.pointsPerCell));
+        if (cg_elements_read(index_file, index_base, index_zone, section.index,
+                             elements.data(), nullptr) != CG_OK) {
+            return false;
+        }
+        for (cgsize_t cell = 0; cell < section.cells; ++cell) {
+            if (offset_values) {
+                offset_values[cell_cursor] =
+                        static_cast<unsigned int>(connection_cursor);
+            }
+            type_values[cell_cursor] = static_cast<unsigned int>(section.iGameType);
+            for (int point = 0; point < section.pointsPerCell; ++point) {
+                const cgsize_t value =
+                        elements[static_cast<size_t>(cell) * section.pointsPerCell + point];
+                if (value < 1 || value > static_cast<cgsize_t>(std::numeric_limits<igIndex>::max())) {
+                    return false;
+                }
+                id_values[connection_cursor++] = static_cast<igIndex>(value - 1);
+            }
+            ++cell_cursor;
+        }
+    }
+    if (offset_values) {
+        offset_values[total_cells] = static_cast<unsigned int>(connection_cursor);
+    }
+
+    auto cells = CellArray::New();
+    if (fixed) {
+        cells->SetData(ids, first_points_per_cell);
+    } else {
+        cells->SetData(ids, offsets);
+    }
+    mesh->SetCells(cells, types);
+    return true;
 }
 void iGameCGNSReader::ChangeMixElementToMyCell(std::vector<cgsize_t> elements, int num_read_elements) {
     if (m_UnstructuredMesh == nullptr) { m_UnstructuredMesh = UnstructuredMesh::New(); }
