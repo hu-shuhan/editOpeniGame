@@ -39,8 +39,12 @@
 #include "iGameProgressObserver.h"
 #include <Nastran/iGameNastranReader.h>
 #include <VTK XML/iGameVTMWriter.h>
+#include <algorithm>
+#include <cmath>
 #include <exception>
 #include <filesystem>
+#include <limits>
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 IGenum FileIO::GetFileType(const std::string& file_name) {
@@ -198,12 +202,191 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
     }
 }
 
+namespace {
+
+enum class ScalarStorage {
+    Unsupported,
+    Float,
+    Double,
+};
+
+struct ScalarStorageView {
+    ScalarStorage storage{ScalarStorage::Unsupported};
+    const void* data{nullptr};
+    IGsize count{0};
+    IGsize elements{0};
+};
+
+ScalarStorageView GetScalarStorageView(const ArrayObject::Pointer& source) {
+    ScalarStorageView view;
+    if (!source) return view;
+    if (source->GetDimension() != 1) return view;
+    view.elements = source->GetNumberOfElements();
+    view.count = source->GetNumberOfValues();
+    if (view.elements != view.count) return view;
+    if (auto floats = DynamicCast<FloatArray>(source)) {
+        view.storage = ScalarStorage::Float;
+        view.data = floats->RawPointer();
+    } else if (auto doubles = DynamicCast<DoubleArray>(source)) {
+        view.storage = ScalarStorage::Double;
+        view.data = doubles->RawPointer();
+    }
+    return view;
+}
+
+template<typename Output, typename X, typename Y, typename Z>
+void BuildTypedVector(const X* x, const Y* y, const Z* z, IGsize count,
+                      Output* output, double* range) {
+    double minX = std::numeric_limits<double>::max();
+    double maxX = -std::numeric_limits<double>::max();
+    double minY = std::numeric_limits<double>::max();
+    double maxY = -std::numeric_limits<double>::max();
+    double minZ = std::numeric_limits<double>::max();
+    double maxZ = -std::numeric_limits<double>::max();
+    double minMagnitude = std::numeric_limits<double>::max();
+    double maxMagnitude = 0.0;
+
+    for (IGsize i = 0; i < count; ++i) {
+        const double xValue = static_cast<double>(x[i]);
+        const double yValue = static_cast<double>(y[i]);
+        const double zValue = static_cast<double>(z[i]);
+        output[3 * i + 0] = static_cast<Output>(xValue);
+        output[3 * i + 1] = static_cast<Output>(yValue);
+        output[3 * i + 2] = static_cast<Output>(zValue);
+
+        minX = std::min(minX, xValue);
+        maxX = std::max(maxX, xValue);
+        minY = std::min(minY, yValue);
+        maxY = std::max(maxY, yValue);
+        minZ = std::min(minZ, zValue);
+        maxZ = std::max(maxZ, zValue);
+
+        const double magnitude =
+                std::sqrt(xValue * xValue + yValue * yValue + zValue * zValue);
+        minMagnitude = std::min(minMagnitude, magnitude);
+        maxMagnitude = std::max(maxMagnitude, magnitude);
+    }
+
+    // DoubleArray with dimension 2 stores [magnitude, x, y, z] ranges.
+    range[0] = minMagnitude;
+    range[1] = maxMagnitude;
+    range[2] = minX;
+    range[3] = maxX;
+    range[4] = minY;
+    range[5] = maxY;
+    range[6] = minZ;
+    range[7] = maxZ;
+}
+
+template<typename Output, typename X, typename Y>
+bool BuildVectorWithZ(const X* x, const Y* y, const ScalarStorageView& z,
+                      IGsize count, Output* output, double* range) {
+    if (z.storage == ScalarStorage::Float) {
+        BuildTypedVector(x, y, static_cast<const float*>(z.data), count,
+                         output, range);
+        return true;
+    }
+    if (z.storage == ScalarStorage::Double) {
+        BuildTypedVector(x, y, static_cast<const double*>(z.data), count,
+                         output, range);
+        return true;
+    }
+    return false;
+}
+
+template<typename Output, typename X>
+bool BuildVectorWithYZ(const X* x, const ScalarStorageView& y,
+                       const ScalarStorageView& z, IGsize count,
+                       Output* output, double* range) {
+    if (y.storage == ScalarStorage::Float) {
+        return BuildVectorWithZ(x, static_cast<const float*>(y.data), z, count,
+                                output, range);
+    }
+    if (y.storage == ScalarStorage::Double) {
+        return BuildVectorWithZ(x, static_cast<const double*>(y.data), z, count,
+                                output, range);
+    }
+    return false;
+}
+
+template<typename Output>
+bool BuildFastVectorTyped(const ScalarStorageView& x, const ScalarStorageView& y,
+                          const ScalarStorageView& z, IGsize count,
+                          Output* output, double* range) {
+    if (x.storage == ScalarStorage::Float) {
+        return BuildVectorWithYZ(static_cast<const float*>(x.data), y, z, count,
+                                 output, range);
+    }
+    if (x.storage == ScalarStorage::Double) {
+        return BuildVectorWithYZ(static_cast<const double*>(x.data), y, z, count,
+                                 output, range);
+    }
+    return false;
+}
+
+bool BuildFastVector(const ArrayObject::Pointer (&sources)[3],
+                     const std::string& name, ArrayObject::Pointer& output,
+                     DoubleArray::Pointer& range) {
+    const ScalarStorageView x = GetScalarStorageView(sources[0]);
+    const ScalarStorageView y = GetScalarStorageView(sources[1]);
+    const ScalarStorageView z = GetScalarStorageView(sources[2]);
+    if (x.storage == ScalarStorage::Unsupported ||
+        y.storage == ScalarStorage::Unsupported ||
+        z.storage == ScalarStorage::Unsupported ||
+        x.count != y.count || x.count != z.count) {
+        return false;
+    }
+    if ((x.count > 0 && x.data == nullptr) ||
+        (y.count > 0 && y.data == nullptr) ||
+        (z.count > 0 && z.data == nullptr)) {
+        return false;
+    }
+
+    range = DoubleArray::New();
+    range->SetDimension(2);
+    range->Resize(4);
+    double* rangeValues = range->RawPointer();
+    const bool useDoubleVector =
+            x.storage == ScalarStorage::Double ||
+            y.storage == ScalarStorage::Double ||
+            z.storage == ScalarStorage::Double;
+    if (useDoubleVector) {
+        auto vector = DoubleArray::New();
+        vector->SetName(name);
+        vector->SetDimension(3);
+        vector->Resize(x.count);
+        if (!BuildFastVectorTyped(x, y, z, x.count, vector->RawPointer(),
+                                  rangeValues)) {
+            return false;
+        }
+        output = vector;
+    } else {
+        auto vector = FloatArray::New();
+        vector->SetName(name);
+        vector->SetDimension(3);
+        vector->Resize(x.count);
+        if (!BuildFastVectorTyped(x, y, z, x.count, vector->RawPointer(),
+                                  rangeValues)) {
+            return false;
+        }
+        output = vector;
+    }
+    return true;
+}
+
+} // namespace
+
 static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
     AttributeSet::Pointer newAttrs = AttributeSet::New();
     int size = Attrs->GetNumberOfAttributes();
     for (int i = 0; i < size; i++) {
         auto& attr = Attrs->GetAttribute(i);
+        if (!attr.pointer) { continue; }
         auto name = attr.pointer->GetName();
+        if (name.empty()) {
+            newAttrs->AddAttribute(attr.GetType(), attr.attachmentType, attr.pointer, attr.dataRange);
+            continue;
+        }
         if (attr.type != IG_SCALAR) {
             newAttrs->AddAttribute(attr.GetType(), attr.attachmentType, attr.pointer, attr.dataRange);
             continue;
@@ -222,8 +405,9 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     isvector = false;
                     break;
                 }
-                auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
-                if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                auto& candidate = Attrs->GetAttribute(i + j);
+                if (!candidate.pointer || candidate.pointer->GetName().empty() ||
+                    candidate.pointer->GetName().back() != 'X' + j ||
                     Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
                     Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
                     isvector = false;
@@ -237,8 +421,9 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     isvector = false;
                     break;
                 }
-                auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
-                if (tmpName[tmpName.length() - 1] != '0' + j ||
+                auto& candidate = Attrs->GetAttribute(i + j);
+                if (!candidate.pointer || candidate.pointer->GetName().empty() ||
+                    candidate.pointer->GetName().back() != '0' + j ||
                     Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
                     Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
                     isvector = false;
@@ -252,8 +437,9 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     isvector = false;
                     break;
                 }
-                auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
-                if (tmpName[tmpName.length() - 1] != '1' + j ||
+                auto& candidate = Attrs->GetAttribute(i + j);
+                if (!candidate.pointer || candidate.pointer->GetName().empty() ||
+                    candidate.pointer->GetName().back() != '1' + j ||
                     Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
                     Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
                     isvector = false;
@@ -264,62 +450,77 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
         if (!isvector) {
             newAttrs->AddAttribute(attr.type, attr.attachmentType, attr.pointer, attr.dataRange);
         } else {
-            const std::string vectorName = name[name.length() - 2] == '_'
-                                               ? name.substr(0, name.length() - 2)
-                                               : name.substr(0, name.length() - 1);
-            bool useDoubleVector = false;
-            for (int j = 0; j < 3; j++) {
-                if (Attrs->GetAttribute(i + j).pointer->GetArrayTypedSize() == sizeof(double)) {
-                    useDoubleVector = true;
-                    break;
-                }
-            }
-
+            const bool hasUnderscorePrefix =
+                    name.size() >= 2 && name[name.size() - 2] == '_';
+            const std::string vectorName =
+                    hasUnderscorePrefix
+                            ? name.substr(0, name.size() - 2)
+                            : name.substr(0, name.size() - 1);
             ArrayObject::Pointer Vector;
-            if (useDoubleVector) {
-                DoubleArray::Pointer doubleVector = DoubleArray::New();
-                doubleVector->SetName(vectorName);
-                doubleVector->SetDimension(3);
-                doubleVector->Resize(attr.pointer->GetNumberOfElements());
-                Vector = doubleVector;
-            } else {
-                FloatArray::Pointer floatVector = FloatArray::New();
-                floatVector->SetName(vectorName);
-                floatVector->SetDimension(3);
-                floatVector->Resize(attr.pointer->GetNumberOfElements());
-                Vector = floatVector;
+            DoubleArray::Pointer newDataRange;
+            const ArrayObject::Pointer scalarSources[3] = {
+                    Attrs->GetAttribute(i + 0).pointer,
+                    Attrs->GetAttribute(i + 1).pointer,
+                    Attrs->GetAttribute(i + 2).pointer,
+            };
+            bool hasPresetScalarRange = false;
+            for (int j = 0; j < 3; ++j) {
+                hasPresetScalarRange =
+                        hasPresetScalarRange ||
+                        Attrs->GetAttribute(i + j).dataRange != nullptr;
             }
-            igIndex index = 0;
-            int j = 0;
-            for (j = 0; j < 3; j++) {
-                auto scalarData = Attrs->GetAttribute(i + j).pointer;
-                index = j;
-                int k = 0;
-                for (k = 0; k < attr.pointer->GetNumberOfElements(); k++) {
-                    Vector->SetValue(index, scalarData->GetValue(k));
-                    index += 3;
+            if (hasPresetScalarRange ||
+                !BuildFastVector(scalarSources, vectorName, Vector,
+                                 newDataRange)) {
+                bool useDoubleVector = false;
+                for (int j = 0; j < 3; j++) {
+                    if (scalarSources[j]->GetArrayTypedSize() == sizeof(double)) {
+                        useDoubleVector = true;
+                        break;
+                    }
                 }
+
+                if (useDoubleVector) {
+                    DoubleArray::Pointer doubleVector = DoubleArray::New();
+                    doubleVector->SetName(vectorName);
+                    doubleVector->SetDimension(3);
+                    doubleVector->Resize(attr.pointer->GetNumberOfElements());
+                    Vector = doubleVector;
+                } else {
+                    FloatArray::Pointer floatVector = FloatArray::New();
+                    floatVector->SetName(vectorName);
+                    floatVector->SetDimension(3);
+                    floatVector->Resize(attr.pointer->GetNumberOfElements());
+                    Vector = floatVector;
+                }
+                igIndex index = 0;
+                for (int j = 0; j < 3; j++) {
+                    auto scalarData = scalarSources[j];
+                    index = j;
+                    for (IGsize k = 0; k < attr.pointer->GetNumberOfElements(); k++) {
+                        Vector->SetValue(index, scalarData->GetValue(k));
+                        index += 3;
+                    }
+                }
+                newDataRange = DoubleArray::New();
+                newDataRange->SetDimension(2);
+                newDataRange->Resize(3 + 1);
+                for (int j = 0; j < 3; j++) {
+                    auto scalarData = Attrs->GetAttribute(i + j).GetDataRange();
+                    newDataRange->SetElement(j + 1, scalarData->RawPointer() + 2);
+                }
+                double maxMagnitude = 0, minMagnitude = DBL_MAX;
+                for (IGsize k = 0; k < Vector->GetNumberOfValues(); k += 3) {
+                    const double x = Vector->GetValue(k + 0);
+                    const double y = Vector->GetValue(k + 1);
+                    const double z = Vector->GetValue(k + 2);
+                    double curMagnitude = std::sqrt(x * x + y * y + z * z);
+                    maxMagnitude = std::max(maxMagnitude, curMagnitude);
+                    minMagnitude = std::min(minMagnitude, curMagnitude);
+                }
+                newDataRange->SetValue(0, minMagnitude);
+                newDataRange->SetValue(1, maxMagnitude);
             }
-            DoubleArray::Pointer newDataRange = DoubleArray::New();
-            newDataRange->SetDimension(2);
-            newDataRange->Resize(3 + 1);
-            /* 将输入的x、y、z的维度标量范围直接更新成Vector的x、y、z维度的范围 */
-            for (int j = 0; j < 3; j++) {
-                auto scalarData = Attrs->GetAttribute(i + j).GetDataRange();
-                newDataRange->SetElement(j + 1, scalarData->RawPointer() + 2);
-            }
-            /* 计算Vector 维度的Magnitude*/
-            double maxMagnitude = 0, minMagnitude = DBL_MAX;
-            for (int k = 0; k < Vector->GetNumberOfValues(); k += 3) {
-                const double x = Vector->GetValue(k + 0);
-                const double y = Vector->GetValue(k + 1);
-                const double z = Vector->GetValue(k + 2);
-                double curMagnitude = std::sqrt(x * x + y * y + z * z);
-                maxMagnitude = std::max(maxMagnitude, curMagnitude);
-                minMagnitude = std::min(minMagnitude, curMagnitude);
-            }
-            newDataRange->SetValue(0, minMagnitude);
-            newDataRange->SetValue(1, maxMagnitude);
 
             newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, Vector, newDataRange);
             i += 2;
