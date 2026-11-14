@@ -3,8 +3,10 @@
 #include "Log/iGameLogger.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <new>
+#include <type_traits>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 
@@ -13,7 +15,8 @@ static void ReportCgnsFieldInf(const char* fieldName, int index_base, int index_
                                const ArrayType& array) {
     if (!array) { return; }
     const auto* values = array->RawPointer();
-    for (IGsize i = 0; i < array->GetNumberOfValues(); ++i) {
+    const IGsize count = array->GetNumberOfValues();
+    for (IGsize i = 0; i < count; ++i) {
         if (std::isinf(values[i])) {
             IGAME_CORE_WARN("CGNS field '{}' contains Inf at value index {} (base {}, zone {}, solution {}, field {}); continuing read",
                             fieldName, i, index_base, index_zone, index_sol, index_field);
@@ -35,6 +38,11 @@ static bool TryBatchReadCgnsPolyhedra(VolumeMesh::Pointer mesh,
 
 iGameCGNSReader::iGameCGNSReader() {
     this->SetNumberOfOutputs(1);
+    const char* checkInf = std::getenv("IGAME_CGNS_CHECK_INF");
+    m_CheckFieldInf = checkInf != nullptr &&
+            (std::strcmp(checkInf, "1") == 0 ||
+             std::strcmp(checkInf, "true") == 0 ||
+             std::strcmp(checkInf, "TRUE") == 0);
 }
 iGameCGNSReader::~iGameCGNSReader() {}
 
@@ -766,106 +774,286 @@ void iGameCGNSReader::ChangeMixElementToMyCell(std::vector<cgsize_t> elements, i
 
 void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone, int index_sol, ZoneType_t zoneType,
                                  int celldim, GridLocation_t location, cgsize_t* size) {
-    int nfileds;
-    int result = cg_nfields(index_file, index_base, index_zone, index_sol, &nfileds);
+    int fieldCount = 0;
+    int result = cg_nfields(index_file, index_base, index_zone, index_sol, &fieldCount);
     if (CG_OK != result) {
         IGAME_CORE_ERROR("Get Nfields Error: {}", cg_get_error());
+        return;
+    }
+
+    struct CgnsFieldInfo {
+        int index{0};
+        bool valid{false};
+        DataType_t dataType{DataTypeNull};
+        std::string name;
+    };
+    std::vector<CgnsFieldInfo> fields;
+    fields.reserve(static_cast<size_t>(fieldCount));
+    for (int fieldIndex = 1; fieldIndex <= fieldCount; ++fieldIndex) {
+        DataType_t dataType;
+        char fieldName[100]{};
+        result = cg_field_info(index_file, index_base, index_zone, index_sol,
+                               fieldIndex, &dataType, fieldName);
+        if (CG_OK != result) {
+            IGAME_CORE_ERROR("Get Field Info Error: {}", cg_get_error());
+            fields.push_back({fieldIndex, false, DataTypeNull, {}});
+        } else {
+            fields.push_back({fieldIndex, true, dataType, fieldName});
+        }
+    }
+
+    cgsize_t rangeMin[3] = {1, 1, 1};
+    cgsize_t rangeMax[3] = {0, 0, 0};
+    IGsize elementCount = 1;
+    if (zoneType == Structured) {
+        if (location == GridLocation_t::Vertex) {
+            for (int dim = 0; dim < celldim; ++dim) {
+                rangeMax[dim] = size[dim];
+                elementCount *= static_cast<IGsize>(size[dim]);
+            }
+        } else {
+            for (int dim = 0; dim < celldim; ++dim) {
+                rangeMax[dim] = size[dim + celldim];
+                elementCount *= static_cast<IGsize>(size[dim + celldim]);
+            }
+        }
+    } else if (location == GridLocation_t::Vertex) {
+        rangeMax[0] = size[0];
+        elementCount = static_cast<IGsize>(size[0]);
     } else {
-        IGAME_CORE_DEBUG("nfields = {}", nfileds);
-        for (int index_field = 1; index_field <= nfileds; index_field++) {
-            DataType_t dataType;
-            char fieldname[100];
-            result = cg_field_info(index_file, index_base, index_zone, index_sol, index_field, &dataType, fieldname);
-            if (CG_OK != result) {
-                IGAME_CORE_ERROR("Get Field Info Error: {}", cg_get_error());
-                continue;
+        rangeMax[0] = size[1];
+        elementCount = static_cast<IGsize>(size[1]);
+    }
+
+    const IGenum attachmentType =
+            location == GridLocation_t::Vertex
+                    ? IG_POINT
+                    : location == CellCenter ? IG_CELL : IG_NONE;
+    if (m_AttributeSet == nullptr) { m_AttributeSet = AttributeSet::New(); }
+
+    const auto isSupportedFieldType = [](DataType_t type) {
+        return type == Integer || type == LongInteger ||
+               type == RealSingle || type == RealDouble;
+    };
+    const auto isVectorGroup = [&](int fieldIndex) {
+        if (fieldIndex < 0 ||
+            static_cast<size_t>(fieldIndex) + 2 >= fields.size()) {
+            return false;
+        }
+        const auto& first = fields[static_cast<size_t>(fieldIndex)];
+        if (!first.valid || first.name.empty() ||
+            !isSupportedFieldType(first.dataType)) {
+            return false;
+        }
+        const char suffix = first.name.back();
+        if (suffix != 'X' && suffix != '0' && suffix != '1') return false;
+        for (int axis = 1; axis < 3; ++axis) {
+            const auto& component =
+                    fields[static_cast<size_t>(fieldIndex + axis)];
+            if (!component.valid || component.name.empty() ||
+                component.name.back() != suffix + axis ||
+                !isSupportedFieldType(component.dataType)) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    std::vector<double> componentScratch;
+    for (int fieldIndex = 0; fieldIndex < fieldCount; ++fieldIndex) {
+        const auto& field = fields[static_cast<size_t>(fieldIndex)];
+        if (!field.valid) continue;
+
+        if (isVectorGroup(fieldIndex)) {
+            if (elementCount <= std::numeric_limits<IGsize>::max() / 3) {
+                try {
+                    componentScratch.resize(
+                            static_cast<size_t>(elementCount * 3));
+                } catch (const std::bad_alloc&) {
+                    componentScratch.clear();
+                }
             } else {
-                //std::cout << "FieldName = " << fieldname << std::endl;
-                //std::cout << "DataType_t(Integer, LongInteger, RealSingle, and RealDouble) = " << dataType << std::endl;
-                cgsize_t range_min[3] = {1, 1, 1};
-                cgsize_t range_max[3];
-                int arrayNum = 1;
-                if (zoneType == Structured) {
-                    if (location == GridLocation_t::Vertex) {
-                        for (int i = 0; i < celldim; i++) {
-                            range_max[i] = size[i];
-                            if (size[i]) arrayNum *= size[i];
-                        }
-                    } else {
-                        for (int i = 0; i < celldim; i++) {
-                            range_max[i] = size[i + celldim];
-                            if (size[i + celldim]) arrayNum *= size[i + celldim];
-                        }
-                    }
-                } else {
-                    if (location == GridLocation_t::Vertex) {
-                        range_max[0] = size[0];
-                        arrayNum = size[0];
-                    } else {
-                        range_max[0] = size[1];
-                        arrayNum = size[1];
-                    }
-                }
-
-                ArrayObject::Pointer solutionArray;
-                switch (dataType) {
-                    case Integer: {
-                        auto solutionArray_2 = IntArray::New();
-                        solutionArray_2->Resize(arrayNum);
-                        result = cg_field_read(index_file, index_base, index_zone, index_sol, fieldname, dataType,
-                                               range_min, range_max, solutionArray_2->RawPointer());
-                        solutionArray = solutionArray_2;
-                        break;
-                    }
-
-                    case LongInteger: {
-                        auto solutionArray_2 = LongLongArray::New();
-                        solutionArray_2->Resize(arrayNum);
-                        result = cg_field_read(index_file, index_base, index_zone, index_sol, fieldname, dataType,
-                                               range_min, range_max, solutionArray_2->RawPointer());
-                        solutionArray = solutionArray_2;
-                        break;
-                    }
-                    case RealSingle: {
-                        auto solutionArray_2 = FloatArray::New();
-                        solutionArray_2->Resize(arrayNum);
-                        result = cg_field_read(index_file, index_base, index_zone, index_sol, fieldname, dataType,
-                                               range_min, range_max, solutionArray_2->RawPointer());
-                        if (CG_OK == result) {
-                            ReportCgnsFieldInf(fieldname, index_base, index_zone, index_sol, index_field,
-                                               solutionArray_2);
-                        }
-                        solutionArray = solutionArray_2;
-                        break;
-                    }
-                    case RealDouble: {
-                        auto solutionArray_2 = DoubleArray::New();
-                        solutionArray_2->Resize(arrayNum);
-                        result = cg_field_read(index_file, index_base, index_zone, index_sol, fieldname, dataType,
-                                               range_min, range_max, solutionArray_2->RawPointer());
-                        if (CG_OK == result) {
-                            ReportCgnsFieldInf(fieldname, index_base, index_zone, index_sol, index_field,
-                                               solutionArray_2);
-                        }
-                        solutionArray = solutionArray_2;
-                        break;
-                    }
-                    default:
-                        break;
-                }
-                if (CG_OK != result) {
+                componentScratch.clear();
+            }
+        }
+        if (isVectorGroup(fieldIndex) && componentScratch.size() ==
+                                               static_cast<size_t>(elementCount) * 3) {
+            bool readSucceeded = true;
+            for (int axis = 0; axis < 3; ++axis) {
+                const auto& component =
+                        fields[static_cast<size_t>(fieldIndex + axis)];
+                double* destination =
+                        componentScratch.data() +
+                        static_cast<size_t>(axis) * elementCount;
+                result = cg_field_read(
+                        index_file, index_base, index_zone, index_sol,
+                        component.name.c_str(), RealDouble, rangeMin, rangeMax,
+                        destination);
+                if (result != CG_OK) {
                     IGAME_CORE_ERROR("Get Field Error: {}", cg_get_error());
-                } else {
-                    //存储
-                    solutionArray->SetName(fieldname);
-                    if (m_AttributeSet == nullptr) { m_AttributeSet = AttributeSet::New(); }
-                    if (location == GridLocation_t::Vertex) {
-                        m_AttributeSet->AddAttribute(IG_SCALAR, IG_POINT, solutionArray);
-                    } else if (location == CellCenter) {
-                        m_AttributeSet->AddAttribute(IG_SCALAR, IG_CELL, solutionArray);
+                    readSucceeded = false;
+                    break;
+                }
+                if (m_CheckFieldInf &&
+                    (component.dataType == RealSingle ||
+                     component.dataType == RealDouble)) {
+                    for (IGsize value = 0; value < elementCount; ++value) {
+                        if (std::isinf(destination[value])) {
+                            IGAME_CORE_WARN(
+                                    "CGNS field '{}' contains Inf at value index {} (base {}, zone {}, solution {}, field {}); continuing read",
+                                    component.name, value, index_base, index_zone,
+                                    index_sol, component.index);
+                            break;
+                        }
                     }
                 }
             }
+
+            if (readSucceeded) {
+                const bool useDoubleVector =
+                        field.dataType == LongInteger ||
+                        field.dataType == RealDouble ||
+                        fields[static_cast<size_t>(fieldIndex + 1)].dataType == LongInteger ||
+                        fields[static_cast<size_t>(fieldIndex + 1)].dataType == RealDouble ||
+                        fields[static_cast<size_t>(fieldIndex + 2)].dataType == LongInteger ||
+                        fields[static_cast<size_t>(fieldIndex + 2)].dataType == RealDouble;
+                const bool hasUnderscorePrefix =
+                        field.name.size() >= 2 &&
+                        field.name[field.name.size() - 2] == '_';
+                const std::string vectorName =
+                        hasUnderscorePrefix
+                                ? field.name.substr(0, field.name.size() - 2)
+                                : field.name.substr(0, field.name.size() - 1);
+                auto range = DoubleArray::New();
+                range->SetDimension(2);
+                range->Resize(4);
+                auto* rangeValues = range->RawPointer();
+
+                const auto fillVector = [&](auto* output) {
+                    const double* x = componentScratch.data();
+                    const double* y = x + elementCount;
+                    const double* z = y + elementCount;
+                    double minX = std::numeric_limits<double>::max();
+                    double maxX = -std::numeric_limits<double>::max();
+                    double minY = std::numeric_limits<double>::max();
+                    double maxY = -std::numeric_limits<double>::max();
+                    double minZ = std::numeric_limits<double>::max();
+                    double maxZ = -std::numeric_limits<double>::max();
+                    double minMagnitude = std::numeric_limits<double>::max();
+                    double maxMagnitude = 0.0;
+                    for (IGsize value = 0; value < elementCount; ++value) {
+                        const double xValue = x[value];
+                        const double yValue = y[value];
+                        const double zValue = z[value];
+                        output[3 * value + 0] = static_cast<std::remove_pointer_t<decltype(output)>>(xValue);
+                        output[3 * value + 1] = static_cast<std::remove_pointer_t<decltype(output)>>(yValue);
+                        output[3 * value + 2] = static_cast<std::remove_pointer_t<decltype(output)>>(zValue);
+                        minX = std::min(minX, xValue);
+                        maxX = std::max(maxX, xValue);
+                        minY = std::min(minY, yValue);
+                        maxY = std::max(maxY, yValue);
+                        minZ = std::min(minZ, zValue);
+                        maxZ = std::max(maxZ, zValue);
+                        const double magnitude =
+                                std::sqrt(xValue * xValue +
+                                          yValue * yValue +
+                                          zValue * zValue);
+                        minMagnitude = std::min(minMagnitude, magnitude);
+                        maxMagnitude = std::max(maxMagnitude, magnitude);
+                    }
+                    rangeValues[0] = minMagnitude;
+                    rangeValues[1] = maxMagnitude;
+                    rangeValues[2] = minX;
+                    rangeValues[3] = maxX;
+                    rangeValues[4] = minY;
+                    rangeValues[5] = maxY;
+                    rangeValues[6] = minZ;
+                    rangeValues[7] = maxZ;
+                };
+
+                ArrayObject::Pointer vector;
+                if (useDoubleVector) {
+                    auto doubleVector = DoubleArray::New();
+                    doubleVector->SetName(vectorName);
+                    doubleVector->SetDimension(3);
+                    doubleVector->Resize(elementCount);
+                    fillVector(doubleVector->RawPointer());
+                    vector = doubleVector;
+                } else {
+                    auto floatVector = FloatArray::New();
+                    floatVector->SetName(vectorName);
+                    floatVector->SetDimension(3);
+                    floatVector->Resize(elementCount);
+                    fillVector(floatVector->RawPointer());
+                    vector = floatVector;
+                }
+                if (attachmentType != IG_NONE) {
+                    m_AttributeSet->AddAttribute(
+                            IG_VECTOR, attachmentType, vector, range);
+                }
+                fieldIndex += 2;
+                continue;
+            }
+        }
+
+        ArrayObject::Pointer solutionArray;
+        void* fieldBuffer = nullptr;
+        switch (field.dataType) {
+            case Integer: {
+                auto array = IntArray::New();
+                array->Resize(elementCount);
+                fieldBuffer = array->RawPointer();
+                solutionArray = array;
+                break;
+            }
+            case LongInteger: {
+                auto array = LongLongArray::New();
+                array->Resize(elementCount);
+                fieldBuffer = array->RawPointer();
+                solutionArray = array;
+                break;
+            }
+            case RealSingle: {
+                auto array = FloatArray::New();
+                array->Resize(elementCount);
+                fieldBuffer = array->RawPointer();
+                solutionArray = array;
+                break;
+            }
+            case RealDouble: {
+                auto array = DoubleArray::New();
+                array->Resize(elementCount);
+                fieldBuffer = array->RawPointer();
+                solutionArray = array;
+                break;
+            }
+            default:
+                break;
+        }
+        if (!solutionArray || !fieldBuffer) continue;
+        result = cg_field_read(
+                index_file, index_base, index_zone, index_sol,
+                field.name.c_str(), field.dataType, rangeMin, rangeMax,
+                fieldBuffer);
+        if (result != CG_OK) {
+            IGAME_CORE_ERROR("Get Field Error: {}", cg_get_error());
+            continue;
+        }
+        if (m_CheckFieldInf) {
+            if (field.dataType == RealSingle) {
+                ReportCgnsFieldInf(
+                        field.name.c_str(), index_base, index_zone, index_sol,
+                        field.index, DynamicCast<FloatArray>(solutionArray));
+            } else if (field.dataType == RealDouble) {
+                ReportCgnsFieldInf(
+                        field.name.c_str(), index_base, index_zone, index_sol,
+                        field.index, DynamicCast<DoubleArray>(solutionArray));
+            }
+        }
+        solutionArray->SetName(field.name);
+        if (attachmentType != IG_NONE) {
+            m_AttributeSet->AddAttribute(
+                    IG_SCALAR, attachmentType, solutionArray);
         }
     }
 }
