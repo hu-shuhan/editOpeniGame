@@ -118,6 +118,14 @@ void igQtAnimationVcrController::updateCurrentKeyframe(int idx) {
     else Q_EMIT this->timeStepChanged_snap(current_keyframe_index);
 }
 
+void igQtAnimationVcrController::setCurrentKeyframeSilently(int idx) {
+    if(idx < 0 || idx >= keyframe_sum) return ;
+    current_keyframe_index = idx;
+    // Only the VCR display follows; no timeStepChanged_* so the frame that the
+    // reader already attached is not re-read/duplicated.
+    Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
+}
+
 bool igQtAnimationVcrController::frameRequest(int index, igQtAnimationFrameRequest& request) const {
     if (index < 0 || index >= keyframe_sum) return false;
     request = {index, false, 0, index};

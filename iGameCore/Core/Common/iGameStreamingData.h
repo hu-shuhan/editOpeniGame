@@ -70,6 +70,12 @@ public:
     /*获取时间帧数组，未来可删*/
     std::vector<TimeFrame>& GetArrays() { return m_Data;}
 
+    /*记录「对象上当前已经挂载了哪一帧的场数据」。
+     * ODB 这类按需读取的格式默认挂载最后一帧（见 ODBReader::ReadOdbMesh），
+     * 前端据此把时间轴定位到同一帧；其它格式保持 0，行为不变。*/
+    void SetInitialFrameIndex(int index) { m_InitialFrameIndex = index < 0 ? 0 : index; }
+    int GetInitialFrameIndex() const { return m_InitialFrameIndex; }
+
     /* Cache Stuff */
     /*开启动画缓存
      * @param maxCacheSize 最大缓存帧数，超过此数量将淘汰最久未使用的缓存
@@ -93,6 +99,8 @@ protected:
     StreamingData() = default;
     ~StreamingData() = default;
     std::vector<TimeFrame> m_Data;
+
+    int m_InitialFrameIndex{0};
 
     bool m_Enable_Cache{false};
     unsigned int m_Cache_MAXSize{0};

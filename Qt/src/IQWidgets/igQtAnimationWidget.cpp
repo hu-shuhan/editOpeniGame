@@ -1180,6 +1180,15 @@ void igQtAnimationWidget::initAnimationComponents() {
     onCacheNumChanged(std::min(m_PreferredCacheNum, m_SourceFrameCount));
     updateCacheChoices(m_SourceFrameCount);
     updateAnimationComponentsKeyframeSum(m_SourceFrameCount);
+    // ODB 读取器默认挂载最后一帧的场数据（Abaqus/CAE 与 odbAccess 脚本的默认行为），
+    // 这里把时间轴同步到同一帧，避免「面板停在第 1 帧、模型显示的却是最后一帧」。
+    const int attachedFrame = source->PeekTimeFrames()
+            ? source->PeekTimeFrames()->GetInitialFrameIndex() : 0;
+    if (m_RestoreOutputFrame < 0 && attachedFrame > 0 && attachedFrame < m_SourceFrameCount) {
+        VcrController->setCurrentKeyframeSilently(attachedFrame);
+        QSignalBlocker blocked(ui->comboBoxCurrentAnimation);
+        ui->comboBoxCurrentAnimation->setCurrentIndex(attachedFrame);
+    }
     connect(ui->SliderAnimationTrack, &QSlider::sliderMoved, VcrController,
             &igQtAnimationVcrController::updateCurrentKeyframe, Qt::UniqueConnection);
     connect(ui->comboBoxCurrentAnimation, QOverload<int>::of(&QComboBox::currentIndexChanged),

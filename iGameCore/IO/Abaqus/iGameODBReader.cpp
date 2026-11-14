@@ -154,6 +154,14 @@ float AddODBProgress(float add_value = 0.f){
 void SetProgressCoefficient(float _C){
     s_progress_coefficient = _C;
 }
+/* The progress accumulator is a translation-unit global, so it has to be
+ * cleared at the start of every top-level read.  Without this, a second read
+ * (e.g. loading another model or reading a time frame) starts at 100% and the
+ * bar never moves again. */
+void ResetODBProgress(float coefficient = 1.f){
+    s_current_progress = 0.f;
+    s_progress_coefficient = coefficient;
+}
 
 /* Define Internal Adaptor Class. */
 class AttributeParserHelper{
@@ -196,30 +204,46 @@ public:
                                    ODBReader* reader
                                    )
     {
+        if (blkDataBlock.size() == 0) return;
         cur_Progress_val /= blkDataBlock.size();
+        // Element stride inside the target array: components * integration points.
+        const int targetDimension = static_cast<int>(resDataArray->GetDimension());
         for (int i = 0; i < blkDataBlock.size(); i++)
         {
-            auto blk = blkDataBlock[i];
-            int numValues = blk.length();
-            int numComp = blk.width();
-            int nElems = blk.numberOfElements();
-            if(nElems == 0) continue;
-            int numIP = numValues / nElems;
-            float* data = blk.data();
-            for (int j = 0; j < nElems; j++)
+            const auto& blk = blkDataBlock[i];
+            const int numValues = blk.length();
+            const int numComp = blk.width();
+            const int nElems = blk.numberOfElements();
+            if(numComp <= 0 || numValues <= 0) continue;
+            // Number of integration point values stored per element.
+            const int numIP = nElems > 0 ? numValues / nElems : 1;
+            if(numIP <= 0) continue;
+            const float* data = blk.data();
+            if(data == nullptr) continue;
+            const int* elementLabels = blk.elementLabels();
+            if(elementLabels == nullptr) continue;
+            // elementLabels() has one entry per *value row*, i.e. the element
+            // label is repeated once per integration point (verified against
+            // ABQSMAOdbApi: a C3D10 block reports length=4*nElems and labels
+            // 1,1,1,1,2,2,...).  The previous loop treated it as one label per
+            // element, so every element received another element's values.
+            for (int row = 0; row < numValues; row++)
             {
-                int cellLabelAbq = blk.elementLabels()[j];
-                INT64 cellLabelVtk = dataMap[cellLabelAbq];
-                for (int ip = 0; ip < numIP; ip++)
+                auto mapIt = dataMap.find(elementLabels[row]);
+                // Field blocks may reference labels that the mesh mapping does
+                // not know (e.g. element sets of another instance).  Skipping is
+                // the only safe option -- looking them up with operator[] would
+                // silently pile every one of those values onto element 0.
+                if (mapIt == dataMap.end()) continue;
+                const INT64 cellLabelVtk = mapIt->second;
+                const int ip = numIP > 0 ? row % numIP : 0;
+                for (int comp = 0; comp < numComp; comp++)
                 {
-                    for (int comp = 0; comp < numComp; comp++)
-                    {
-                        int idx = cellLabelVtk * numComp * numIP + (INT64)ip * (INT64)numComp + comp;
-                        float val = data[j * numComp * numIP + ip * numComp + comp];
-                        resDataArray->SetValue(idx, val);
-//                        dataArray[cellLabelVtk * numComp * numIP + (INT64)ip * (INT64)numComp + comp] =
-//                                data[j * numComp * numIP + ip * numComp + comp];
-                    }
+                    const int localIndex = ip * numComp + comp;
+                    if (localIndex >= targetDimension) continue;
+                    const INT64 idx = cellLabelVtk * targetDimension + localIndex;
+                    const float val = data[static_cast<INT64>(row) * numComp + comp];
+                    resDataArray->SetValue(idx, val);
                 }
             }
             reader->UpdateProgress(cur_Progress_val);
@@ -232,23 +256,30 @@ public:
                                 float cur_Progress_val,
                                 ODBReader* reader
                                 ){
+        if (blkDataBlock.size() == 0) return;
         cur_Progress_val /= blkDataBlock.size();
+        const int targetDimension = static_cast<int>(resDataArray->GetDimension());
         for (int i = 0; i < blkDataBlock.size(); i++)
         {
-            auto blk = blkDataBlock[i];
-            int numNodes = blk.length();
-            int numComp = blk.width();
-            float* data = blk.data();
+            const auto& blk = blkDataBlock[i];
+            const int numNodes = blk.length();
+            const int numComp = blk.width();
+            if(numNodes <= 0 || numComp <= 0) continue;
+            const float* data = blk.data();
+            if(data == nullptr) continue;
+            const int* nodeLabels = blk.nodeLabels();
+            if(nodeLabels == nullptr) continue;
             for (int j = 0; j < numNodes; j++)
             {
-                int nodeLabelAbq = blk.nodeLabels()[j];
-                INT64 nodeLabelVtk = dataMap[nodeLabelAbq];
+                auto mapIt = dataMap.find(nodeLabels[j]);
+                if (mapIt == dataMap.end()) continue;
+                const INT64 nodeLabelVtk = mapIt->second;
                 for (int comp = 0; comp < numComp; comp++)
                 {
-                    int idx = nodeLabelVtk * numComp + comp;
-                    float val = data[j * numComp + comp];
+                    if (comp >= targetDimension) continue;
+                    const INT64 idx = nodeLabelVtk * targetDimension + comp;
+                    const float val = data[j * numComp + comp];
                     resDataArray->SetValue(idx, val);
-//                    o_data[nodeLabelVtk * numComp + comp] = data[j * numComp + comp];
                 }
             }
             reader->UpdateProgress(cur_Progress_val);
@@ -268,43 +299,92 @@ DataObject::Pointer ODBReader::ReadOdbRawMesh(const std::string &filePath) {
     m_NeedRequestMap = m_NeedRequestInstance = true;
     m_NeedRequestStep = false;
     SetFilePath(filePath);
+    ResetODBProgress();
     Execute();
     UpdateProgress(1.f);
     return this->GetOutput();
 }
 DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath) {
-    if (!IsRuntimeAvailable()) return nullptr;
-    m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = true;
-    SetFilePath(filePath);
-    SetProgressCoefficient(0.5f);
-    Execute();
-    m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = false;
-    auto outputObj = this->GetOutput();
-    int frameIdx = 0;
-    if(ExecuteWithFieldData(frameIdx)) {
-        auto attributeSet = m_Attribute_helper->GetResult();
-        outputObj->SetAttributeSet(attributeSet);
-    }
-    UpdateProgress(1.f);
-    return outputObj;
+    return ReadOdbMesh(filePath, 0);
 }
 DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath, const std::string &stepName) {
+    return ReadOdbMesh(filePath, stepName, 0);
+}
+
+DataObject::Pointer ODBReader::ReadOdbMesh(const std::string &filePath, int frameIdx) {
     if (!IsRuntimeAvailable()) return nullptr;
-    m_NeedRequestMap = m_NeedRequestInstance = true;
-    m_NeedRequestStep = true;
+
+    m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = true;
     SetFilePath(filePath);
-    SetProgressCoefficient(0.5f);
+    ResetODBProgress(0.5f);
     Execute();
     m_NeedRequestMap = m_NeedRequestInstance = false;
 
     auto outputObj = this->GetOutput();
-    int frameIdx = 0;
-    if(ExecuteWithFieldData(stepName, frameIdx)) {
-        auto attributeSet = m_Attribute_helper->GetResult();
-        outputObj->SetAttributeSet(attributeSet);
+    if (outputObj == nullptr) {
+        IGAME_CORE_ERROR("Fail to read ODB mesh: {}", filePath);
+        return nullptr;
+    }
+    if (m_StepFrameMap.empty()) {
+        // No step/frame to attach; the raw mesh is still valid.
+        UpdateProgress(1.f);
+        return outputObj;
+    }
+    const std::string stepName = m_StepFrameMap.begin()->first;
+    const int resolvedFrame = ResolveFrameIndex(stepName, frameIdx);
+    if (ExecuteWithFieldData(stepName, resolvedFrame)) {
+        if (m_Attribute_helper != nullptr) {
+            outputObj->SetAttributeSet(m_Attribute_helper->GetResult());
+        }
+        if (auto timeFrames = outputObj->GetTimeFrames()) {
+            timeFrames->SetInitialFrameIndex(resolvedFrame);
+        }
     }
     UpdateProgress(1.f);
     return outputObj;
+}
+
+DataObject::Pointer ODBReader::ReadOdbMesh(const std::string &filePath, const std::string &stepName, int frameIdx) {
+    if (!IsRuntimeAvailable()) return nullptr;
+
+    m_NeedRequestMap = m_NeedRequestInstance = true;
+    m_NeedRequestStep = true;
+    SetFilePath(filePath);
+    ResetODBProgress(0.5f);
+    Execute();
+    m_NeedRequestMap = m_NeedRequestInstance = false;
+
+    auto outputObj = this->GetOutput();
+    if (outputObj == nullptr) {
+        IGAME_CORE_ERROR("Fail to read ODB mesh: {}", filePath);
+        return nullptr;
+    }
+    std::string resolvedStep = stepName;
+    if (m_StepFrameMap.find(resolvedStep) == m_StepFrameMap.end() &&
+        !m_StepFrameMap.empty()) {
+        IGAME_CORE_WARN("Step '{}' not found in the ODB, using '{}' instead.",
+                        stepName, m_StepFrameMap.begin()->first);
+        resolvedStep = m_StepFrameMap.begin()->first;
+    }
+    const int resolvedFrame = ResolveFrameIndex(resolvedStep, frameIdx);
+    if (ExecuteWithFieldData(resolvedStep, resolvedFrame)) {
+        if (m_Attribute_helper != nullptr) {
+            outputObj->SetAttributeSet(m_Attribute_helper->GetResult());
+        }
+        if (auto timeFrames = outputObj->GetTimeFrames()) {
+            timeFrames->SetInitialFrameIndex(resolvedFrame);
+        }
+    }
+    UpdateProgress(1.f);
+    return outputObj;
+}
+
+int ODBReader::ResolveFrameIndex(const std::string &stepName, int frameIdx) const {
+    auto it = m_StepFrameMap.find(stepName);
+    if (it == m_StepFrameMap.end() || it->second <= 0) return 0;
+    const int frameCount = it->second;
+    if (frameIdx < 0 || frameIdx >= frameCount) return frameCount - 1;
+    return frameIdx;
 }
 
 AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, int frame_idx) {
@@ -312,6 +392,7 @@ AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, i
     SetFilePath(filePath);
     m_NeedRequestInstance = m_NeedRequestStep = true;
     m_NeedRequestMap = true;
+    ResetODBProgress();
     if(ExecuteWithFieldData(frame_idx)) return m_Attribute_helper->GetResult();
     UpdateProgress(1.f);
     return nullptr;
@@ -322,6 +403,7 @@ AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, c
     m_NeedRequestInstance = true;
     m_NeedRequestStep = false;
     m_NeedRequestMap = true;
+    ResetODBProgress();
     if(ExecuteWithFieldData(stepName, frame_idx)) return m_Attribute_helper->GetResult();
     UpdateProgress(1.f);
     return nullptr;
@@ -329,41 +411,40 @@ AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, c
 
 /* Protected API: */
 bool ODBReader::ExecuteWithFieldData(int frameIdx) {
-        odb_initializeAPI();
-        try {
-            if(!OpenODB()){
-                IGAME_CORE_ERROR("Fail to Open ODB dataBase");
-                return false;
-            }
-            UpdateProgress(AddODBProgress(0.05f));
-            IGAME_CORE_DEBUG("Open end");
-            ExtractHeader();
-            UpdateProgress(AddODBProgress(0.05f));
-            IGAME_CORE_DEBUG("ExtractHeader end");
-            ConstructMap();
-            UpdateProgress(AddODBProgress(0.1f));
-            m_Attribute_helper = new AttributeParserHelper(m_StepFrameMap.begin()->first, frameIdx);
-            IGAME_CORE_DEBUG("ConstructMap end");
-            ReadAttributes();
-            IGAME_CORE_DEBUG("ReadAttributes end");
-        }
-        catch (odb_BaseException& exc) {
-            odb_finalizeAPI();
-            IGAME_CORE_ERROR("Abaqus error message: {}", exc.UserReport().CStr());
-            return false;
-        }catch (...) {
-            odb_finalizeAPI();
-            IGAME_CORE_ERROR("Unknown Exception.");
+    odb_initializeAPI();
+    try {
+        if(!OpenODB()){
+            IGAME_CORE_ERROR("Fail to Open ODB dataBase");
             return false;
         }
-        UpdateProgress(1.f);
+        ExtractHeader();
+        ConstructMap();
+        if (m_StepFrameMap.empty()) {
+            IGAME_CORE_ERROR("ODB contains no analysis step, so no field data can be read.");
+            odb_finalizeAPI();
+            return false;
+        }
+        const std::string stepName = m_StepFrameMap.begin()->first;
+        delete m_Attribute_helper;
+        m_Attribute_helper = new AttributeParserHelper(stepName, frameIdx);
+        ReadAttributes();
+        IGAME_CORE_DEBUG("ReadAttributes end");
+    }
+    catch (odb_BaseException& exc) {
         odb_finalizeAPI();
-        return true;
+        IGAME_CORE_ERROR("Abaqus error message: {}", exc.UserReport().CStr());
+        return false;
+    }catch (...) {
+        odb_finalizeAPI();
+        IGAME_CORE_ERROR("Unknown Exception.");
+        return false;
+    }
+    UpdateProgress(1.f);
+    odb_finalizeAPI();
+    return true;
 }
 
 bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) {
-    m_Attribute_helper = new AttributeParserHelper(stepName, frameIdx);
-
     odb_initializeAPI();
     try {
         if(!OpenODB()){
@@ -372,9 +453,12 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
         }
         IGAME_CORE_DEBUG("Open end");
         ExtractAllInstance();
+        ExtractAllStep();
         IGAME_CORE_DEBUG("ExtractHeader end");
         ConstructMap();
         IGAME_CORE_DEBUG("ConstructMap end");
+        delete m_Attribute_helper;
+        m_Attribute_helper = new AttributeParserHelper(stepName, frameIdx);
         ReadAttributes();
         IGAME_CORE_DEBUG("ReadAttributes end");
 
@@ -421,25 +505,15 @@ bool iGame::ODBReader::Execute() {
     UpdateProgress(1.f);
     odb_finalizeAPI();
 
-//    int size = m_Output->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
-//    if (size > 0) {
-//        StringArray::Pointer attrbNameArray = StringArray::New();
-//        for (int i = 0; i < size; i++) {
-//            auto& data = m_Output->GetAttributeSet()->GetAttribute(i);
-//            attrbNameArray->AddElement(data.pointer->GetName());
-//        }
-//        m_Output->GetMetadata()->AddStringArray(ATTRIBUTE_NAME_ARRAY, attrbNameArray);
-//    }
-//    m_Output->SetName(m_FileName);
     SetOutput(0, m_Output);
-    return true;
+    return m_Output != nullptr;
 }
 
 void iGame::ODBReader::SetFilePath(const std::string &filePath) {
     this->m_FilePath = filePath;
     this->m_FileName =
-            filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
-    this->m_FileDir = filePath.substr(0, filePath.find_last_of('/') + 1);
+            filePath.substr(filePath.find_last_of("/\\") + 1, filePath.size());
+    this->m_FileDir = filePath.substr(0, filePath.find_last_of("/\\") + 1);
 }
 
 bool ODBReader::OpenODB() {
@@ -453,7 +527,10 @@ bool ODBReader::ExtractAllInstance() {
     for (instIter.first(); !instIter.isDone(); instIter.next())
     {
 //        igDebug("Instance Name : {}", instIter.currentKey().CStr());
-        m_Instance_names.push_back(instIter.currentKey().CStr());
+        // Copy the name: currentKey() refers to storage owned by the ODB, and
+        // the previous const char* cache made the maps depend on that pointer
+        // staying alive (and compared instance names by address, not content).
+        m_Instance_names.emplace_back(instIter.currentKey().CStr());
     }
     igDebug("Instance Num : {}", m_Instance_names.size());
     return true;
@@ -495,7 +572,7 @@ bool ODBReader::ConstructMap() {
         m_NodesMap[inst_name] = std::map<int, int>();
         m_CellsMap[inst_name] = std::map<int, int>();
         auto rootAssy = m_ODB->rootAssembly();
-        auto inst = rootAssy.instances()[inst_name];
+        auto inst = rootAssy.instances()[inst_name.c_str()];
         const auto& node_list = inst.nodes();
         const auto& cell_list = inst.elements();
         m_nodesNum += node_list.size();
@@ -530,7 +607,7 @@ bool ODBReader::ReadCoordinates() {
     for (const auto& inst_name : m_Instance_names)
     {
         auto& current_nodeMap = m_NodesMap[inst_name];
-        const auto& inst = rootAssy.instances()[inst_name];
+        const auto& inst = rootAssy.instances()[inst_name.c_str()];
         // write node coordinates
         dataSetPoints->Reserve(dataSetPoints->GetNumberOfPoints() + inst.nodes().size());
         for (int i = 0; i < inst.nodes().size(); i ++)
@@ -618,7 +695,19 @@ bool ODBReader::CreateDataObject() {
 bool ODBReader::ReadAttributes() {
     const char* stepName = m_Attribute_helper->stepName.c_str();
     int frameIdx = m_Attribute_helper->frameIdx;
-    const odb_Frame& frame = m_ODB->steps().constGet(stepName).frames()[frameIdx];
+    const auto& step = m_ODB->steps().constGet(stepName);
+    const int frameCount = step.frames().size();
+    if (frameCount <= 0) {
+        IGAME_CORE_ERROR("Step '{}' of the ODB has no frame.", stepName);
+        return false;
+    }
+    // Clamp rather than indexing out of range when the caller asks for a frame
+    // that this step does not have (e.g. a time frame index from another step).
+    if (frameIdx < 0) frameIdx = frameCount - 1;
+    if (frameIdx >= frameCount) frameIdx = frameCount - 1;
+    m_Attribute_helper->frameIdx = frameIdx;
+    IGAME_CORE_DEBUG("Reading ODB step '{}' frame {}/{}", stepName, frameIdx, frameCount);
+    const odb_Frame& frame = step.frames()[frameIdx];
     const auto& fldOutputs = frame.fieldOutputs();
 
 //    for(int i = 0; i < names.size(); i ++){
@@ -635,7 +724,7 @@ bool ODBReader::ReadAttributes() {
     odb_FieldOutputRepositoryIT fieldIter(fldOutputs);
     UpdateProgress(AddODBProgress(0.05f));
     float left_progress = 1.f - s_current_progress / s_progress_coefficient;
-    float left_attr_val = left_progress / fldOutputs.size();
+    float left_attr_val = fldOutputs.size() > 0 ? left_progress / fldOutputs.size() : 0.f;
     for (fieldIter.first(); !fieldIter.isDone(); fieldIter.next())
     {
 //        const auto& fldOutput = fldOutputs.constGet(names.constGet(field_idx));
@@ -644,6 +733,7 @@ bool ODBReader::ReadAttributes() {
 
         // assuming location only has size of 1
         // TODO: may need to consider cases with locations more than 1
+        if (fldOutput.locations().size() == 0) continue;
         auto abqPos = fldOutput.locations().constGet(0).position();
         // if field output contains sectionPoint data, we need to generate separate dataset
 
@@ -653,7 +743,7 @@ bool ODBReader::ReadAttributes() {
         int maxNumIntegrationPoints = 1;
         for (const auto& inst_name : m_Instance_names)
         {
-            auto& inst = m_ODB->rootAssembly().instances().constGet(inst_name);
+            auto& inst = m_ODB->rootAssembly().instances().constGet(inst_name.c_str());
             //get data block of the instance
             //filter by position
             //note that subset.bulkDataBlocks may have more than one
@@ -661,7 +751,7 @@ bool ODBReader::ReadAttributes() {
             auto subset = fldOutput.getSubset(inst).getSubset(abqPos);
             for (int i = 0; i < subset.bulkDataBlocks().size(); i++)
             {
-                auto blk = subset.bulkDataBlocks()[i];
+                const auto& blk = subset.bulkDataBlocks()[i];
                 const auto& sectionPoint = blk.sectionPoint();
                 if (sectionPoint.number() != -1)
                 {
@@ -670,7 +760,7 @@ bool ODBReader::ReadAttributes() {
                 // number of integration points is calculated by dividing bulkdata length by number of elements within the bulk
                 // the purpose of this is that we need to track the maximum number of integration point among all instances
                 // and use max to fill in the VTK data entry
-                if (blk.numberOfElements() != 0)
+                if (blk.numberOfElements() != 0 && blk.width() != 0)
                 {
                     int num_ip = blk.length() / blk.numberOfElements();
                     if (num_ip > maxNumIntegrationPoints)
@@ -681,13 +771,21 @@ bool ODBReader::ReadAttributes() {
             }
         }
 
-        if (abqPos == odb_Enum::odb_ResultPositionEnum::NODAL)
+        if (abqPos == odb_Enum::odb_ResultPositionEnum::NODAL ||
+            abqPos == odb_Enum::odb_ResultPositionEnum::ELEMENT_NODAL)
         {
+            // ELEMENT_NODAL shares the node-labelled bulk blocks of NODAL; the
+            // values are accumulated per node, which is what a point attribute
+            // needs.  Ignoring this position (as before) silently produced an
+            // empty attribute set for odb files written with "*EL FILE, POSITION=
+            // ELEMENT NODAL".
+            // Point attributes always hold one value per node, so the number of
+            // integration points is 1 regardless of the element blocks.
             ReadDataArrayWithSectionPoints(sectionPoints,
                                            fldOutput,
                                            abqPos,
                                            fldOutput.name(),
-                                           maxNumIntegrationPoints,
+                                           1,
                                            PointData,
                                            left_attr_val
                                            );
@@ -710,52 +808,67 @@ bool ODBReader::ReadAttributes() {
                                            left_attr_val * 0.5
                                            );
         }
+        else if(abqPos == odb_Enum::odb_ResultPositionEnum::CENTROID ||
+                abqPos == odb_Enum::odb_ResultPositionEnum::WHOLE_ELEMENT){
+            // Already one value per element (e.g. "*EL FILE, POSITION=CENTROID"
+            // or element volume): keep it as a cell attribute instead of
+            // dropping the field.
+            ReadDataArrayWithSectionPoints(sectionPoints,
+                                           fldOutput,
+                                           abqPos,
+                                           fldOutput.name(),
+                                           1,
+                                           CellData,
+                                           left_attr_val
+                                           );
+        }
     }
 
-    /* Read LocalCS */
-    auto fldOutput = frame.fieldOutputs().constGet("S");
+    /* Read LocalCS. Not every ODB stores stress, and a field without an
+     * orientation still needs the material orientation attribute. */
+    if (m_cellsNum == 0 || !fldOutputs.isMember(odb_String("S"))) {
+        return true;
+    }
+    const auto& fldOutput = fldOutputs.constGet(odb_String("S"));
     FloatArray::Pointer localCSArray = FloatArray::New();
     localCSArray->SetName("Material_Orientation");
     localCSArray->SetDimension(3);
     localCSArray->Resize(m_cellsNum);
     for (const auto& inst_name : m_Instance_names)
     {
-        auto inst = m_ODB->rootAssembly().instances()[inst_name];
+        auto inst = m_ODB->rootAssembly().instances()[inst_name.c_str()];
         auto& curCellMap = m_CellsMap[inst_name];
         auto instStress = fldOutput
                 .getSubset(inst)
                 .getSubset(odb_Enum::odb_ResultPositionEnum::CENTROID);
         for (int i = 0; i < instStress.bulkDataBlocks().size(); i++)
         {
-            auto block = instStress.bulkDataBlocks()[i];
+            const auto& block = instStress.bulkDataBlocks()[i];
+            const int* elementLabels = block.elementLabels();
+            if (elementLabels == nullptr) continue;
             // local coordinate system is a quaternion.
             // size is 4 x numElements
             float* localCS = block.localCoordSystem();
-            if (localCS == nullptr)
+            const bool hasQuaternion = localCS != nullptr && block.orientationWidth() >= 4;
+            for (int elem = 0; elem < block.numberOfElements(); elem++)
             {
-                for (int elem = 0; elem < block.numberOfElements(); elem++)
+                auto mapIt = curCellMap.find(elementLabels[elem]);
+                if (mapIt == curCellMap.end()) continue;
+                const int vtkIndex = mapIt->second;
+                if (!hasQuaternion)
                 {
-                    int abqIndex = block.elementLabels()[elem];
-                    int vtkIndex = curCellMap[abqIndex];
                     localCSArray->SetValue(vtkIndex * 3 + 0, 1);// default orientation if localCS is empty
                     localCSArray->SetValue(vtkIndex * 3 + 1, 0);
                     localCSArray->SetValue(vtkIndex * 3 + 2, 0);
+                    continue;
                 }
-            }
-            else
-            {
-                for (int elem = 0; elem < block.numberOfElements(); elem++)
-                {
-                    int abqIndex = block.elementLabels()[elem];
-                    int vtkIndex = curCellMap[abqIndex];
-                    float q1 = localCS[elem * 4];
-                    float q2 = localCS[elem * 4 + 1];
-                    float q3 = localCS[elem * 4 + 2];
-                    float q4 = localCS[elem * 4 + 3]; // scalar term
-                    localCSArray->SetValue(vtkIndex * 3 + 0, q4 * q4 + q1 * q1 - q2 * q2 - q3 * q3);
-                    localCSArray->SetValue(vtkIndex * 3 + 1, 2 * (q1 * q2 - q3 * q4));
-                    localCSArray->SetValue(vtkIndex * 3 + 2, 2 * (q1 * q3 + q2 * q4));
-                }
+                const float q1 = localCS[elem * 4];
+                const float q2 = localCS[elem * 4 + 1];
+                const float q3 = localCS[elem * 4 + 2];
+                const float q4 = localCS[elem * 4 + 3]; // scalar term
+                localCSArray->SetValue(vtkIndex * 3 + 0, q4 * q4 + q1 * q1 - q2 * q2 - q3 * q3);
+                localCSArray->SetValue(vtkIndex * 3 + 1, 2 * (q1 * q2 - q3 * q4));
+                localCSArray->SetValue(vtkIndex * 3 + 2, 2 * (q1 * q3 + q2 * q4));
             }
         }
 
@@ -776,6 +889,7 @@ void ODBReader::ReadDataArrayWithSectionPoints(const std::vector<odb_SectionPoin
     if (sectionPoints.empty())
     {
         ReadDataArray(fldOutput, pos, maxNumOfIntergrationPoints, fieldName, dataArrayType, current_progress_val);
+        return;
     }
     current_progress_val /= sectionPoints.size();
     for (const auto& sp : sectionPoints)
@@ -808,9 +922,8 @@ void ODBReader::ReadDataArray(const odb_FieldOutput &fldOutput, const odb_Enum::
         array->Resize(m_nodesNum);
         for (const auto& instanceName : m_Instance_names)
         {
-            auto selectedInstance =  m_ODB->rootAssembly().instances().constGet(instanceName);
+            auto selectedInstance =  m_ODB->rootAssembly().instances().constGet(instanceName.c_str());
             auto subset = fldOutput.getSubset(selectedInstance).getSubset(pos);
-            auto subsetname = subset.name().cStr();
             AttributeParserHelper::ReadSortedPointData(subset.bulkDataBlocks(), m_NodesMap[instanceName], array, current_progress_val, this);
         }
         auto attributeType = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldOutput);
@@ -825,7 +938,7 @@ void ODBReader::ReadDataArray(const odb_FieldOutput &fldOutput, const odb_Enum::
         array->Resize(m_cellsNum);
         for (const auto& instanceName : m_Instance_names)
         {
-            auto selectedInstance =  m_ODB->rootAssembly().instances().constGet(instanceName);
+            auto selectedInstance =  m_ODB->rootAssembly().instances().constGet(instanceName.c_str());
             auto subset = fldOutput.getSubset(selectedInstance).getSubset(pos);
             AttributeParserHelper::ReadSortedCellData(subset.bulkDataBlocks(), m_CellsMap[instanceName], array, current_progress_val, this);
         }
@@ -956,11 +1069,26 @@ std::vector<std::string> ODBReader::ReadOdbAllStep(const std::string &filePath) 
     std::vector<std::string> res;
     if (!IsRuntimeAvailable()) return res;
     odb_initializeAPI();
-    auto odb_ptr =&openOdb(odb_String(filePath.c_str()));
-    odb_StepRepositoryIT stepIt(odb_ptr->steps());
-    for(stepIt.first(); !stepIt.isDone(); stepIt.next())
-    {
-        res.emplace_back(stepIt.currentKey().cStr());
+    try {
+        auto odb_ptr = &openOdb(odb_String(filePath.c_str()));
+        if (odb_ptr == nullptr) {
+            odb_finalizeAPI();
+            return res;
+        }
+        odb_StepRepositoryIT stepIt(odb_ptr->steps());
+        for(stepIt.first(); !stepIt.isDone(); stepIt.next())
+        {
+            res.emplace_back(stepIt.currentKey().cStr());
+        }
+        // The ODB was opened only to list its steps; release it before
+        // finalizing the API instead of leaking it for the whole session.
+        odb_ptr->close();
+    }
+    catch (odb_BaseException& exc) {
+        IGAME_CORE_ERROR("Abaqus error message: {}", exc.UserReport().CStr());
+    }
+    catch (...) {
+        IGAME_CORE_ERROR("Unknown exception while reading the ODB step list.");
     }
     odb_finalizeAPI();
     return res;

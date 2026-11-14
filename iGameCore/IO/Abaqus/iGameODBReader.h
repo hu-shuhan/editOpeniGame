@@ -28,6 +28,24 @@ public:
     /* Read Odb file's Mesh WITH first keyframe's field data with specific stepName. */
     DataObject::Pointer ReadOdbFirstFrameMesh(const std::string& filePath, const std::string& stepName);
 
+    /* Read Odb file's Mesh together with one frame of field data.
+     *
+     * `frameIdx < 0` (the default) selects the LAST frame of the step.  That is
+     * the converged / end-of-step state, i.e. what Abaqus/CAE shows when the
+     * ODB is opened and what an `odbAccess` script reads with the usual
+     * `step=-1` default.  `frameIdx == 0` is the step's initial frame, which is
+     * the all-zero state for a static step and is why reading frame 0 makes
+     * every attribute range collapse to 0~0.
+     *
+     * The attached frame is recorded on the returned object's StreamingData
+     * (StreamingData::SetInitialFrameIndex) so that the time line can be parked
+     * on the frame whose values are already loaded.
+     */
+    DataObject::Pointer ReadOdbMesh(const std::string& filePath,
+                                    const std::string& stepName,
+                                    int frameIdx = -1);
+    DataObject::Pointer ReadOdbMesh(const std::string& filePath, int frameIdx = -1);
+
     /* Read raw Mesh without specific frame's field data. */
     DataObject::Pointer ReadOdbRawMesh(const std::string& filePath);
 
@@ -60,6 +78,10 @@ protected:
     bool CreateDataObject();
 
     bool OpenODB();
+
+    /* Clamp `frameIdx` into [0, frameCount-1] for `stepName`.
+     * A negative index means "the last frame". */
+    int ResolveFrameIndex(const std::string& stepName, int frameIdx) const;
 
     bool ExtractHeader();
     bool ExtractAllInstance();
@@ -101,11 +123,11 @@ private:
     std::string m_FileDir;
     /*Odb stuff.*/
     odb_Odb* m_ODB{nullptr};//防止未加载AbqSDK时读取ODB文件导致崩溃
-    std::vector<const char*> m_Instance_names;
+    std::vector<std::string> m_Instance_names;
     std::map<std::string, int> m_StepFrameMap;
 
-    std::map<const char*, std::map<int, int>> m_NodesMap;
-    std::map<const char*, std::map<int, int>> m_CellsMap;
+    std::map<std::string, std::map<int, int>> m_NodesMap;
+    std::map<std::string, std::map<int, int>> m_CellsMap;
     size_t  m_nodesNum{0}, m_cellsNum{0};
 
     bool m_NeedRequestMap {true};

@@ -41,6 +41,10 @@ public:
     int frameCount() const { return keyframe_sum; }
     bool frameRequest(int index, igQtAnimationFrameRequest& request) const;
 
+    // 静默定位到某一帧：只刷新面板显示（滑条/关键帧树），不发出重新读帧的信号。
+    // 用于读取器已经把某一帧的场数据挂到对象上时（ODB 默认最后一帧）对齐时间轴。
+    void setCurrentKeyframeSilently(int idx);
+
     void onTick();
 
     void onPlay(bool);

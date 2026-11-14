@@ -556,7 +556,10 @@ void igQtFileLoader::OpenODBFile(const std::string& filePath, bool remoteRenderi
         if (~stepIdx) {
             auto reader = iGame::ODBReader::New();
             igDebug("Reading ODB file: {}, Step: {}", filePath, stepNames[stepIdx]);
-            DataObject::Pointer obj = reader->ReadOdbFirstFrameMesh(filePath, stepNames[stepIdx]);
+            // Read the last frame of the step by default.  Frame 0 is the
+            // initial state of a static step and holds zeros for every field,
+            // so loading it made all attribute ranges look like 0~0.
+            DataObject::Pointer obj = reader->ReadOdbMesh(filePath, stepNames[stepIdx]);
             if (obj == nullptr) {
                 QMessageBox::warning(nullptr, "ODB read failed",
                                      "The selected ODB file could not be read.");

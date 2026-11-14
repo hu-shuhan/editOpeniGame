@@ -447,7 +447,9 @@ DataObject::Pointer FileIO::ReadFileWithRenderingPolicy(const std::string& file_
 #if defined(AbqSDK_ENABLE)
         case iGame::FileIO::ODB: {
             ODBReader::Pointer reader = ODBReader::New();
-            resObj = reader->ReadOdbFirstFrameMesh(file_name);
+            // Attach the last frame of the first step: the initial frame of a
+            // static step is the unloaded state, where every field is zero.
+            resObj = reader->ReadOdbMesh(file_name);
             break;
         }
 #endif
