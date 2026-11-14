@@ -3,6 +3,7 @@
 #include "iGameFaceTable.h"
 #include "iGameScene.h"
 #include <array>
+#include <limits>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 
@@ -20,10 +21,18 @@ void StructuredMesh::SetDimensionSize(igIndex s[3]){
         this->Dimension = 3;
     this->m_BuildStructuredConnectivty = false;
 }
-IGsize StructuredMesh::GetNumberOfCells() {
-    if (size[2] > 1) return GetNumberOfVolumes();
-    else
-        return GetNumberOfFaces();
+IGsize StructuredMesh::GetNumberOfCells() const noexcept {
+    if (size[0] < 2 || size[1] < 2) return 0;
+
+    const IGsize nx = static_cast<IGsize>(size[0] - 1);
+    const IGsize ny = static_cast<IGsize>(size[1] - 1);
+    if (nx > std::numeric_limits<IGsize>::max() / ny) return 0;
+    const IGsize cells2D = nx * ny;
+    if (size[2] <= 1) return cells2D;
+
+    const IGsize nz = static_cast<IGsize>(size[2] - 1);
+    if (nz > std::numeric_limits<IGsize>::max() / cells2D) return 0;
+    return cells2D * nz;
 }
 void StructuredMesh::BuildStructuredFaces() {
     igIndex i = 0, j = 0, k = 0;
@@ -77,53 +86,90 @@ void StructuredMesh::BuildStructuredFaces() {
         }
     }
 }
-void StructuredMesh::GenStructuredCellConnectivities() {
+void StructuredMesh::EnsureStructuredCellConnectivities() {
     if (m_BuildStructuredConnectivty) return;
     if (size[2] <= 1) {
         size[2] = 1;
         this->Dimension = 2;
     }
-    igIndex i = 0, j = 0, k = 0;
-    igIndex vhs[8] = {0};
-    igIndex st = 0;
+
+    const IGsize numberOfCells = this->GetNumberOfCells();
+    if (numberOfCells == 0) {
+        this->m_Volumes = nullptr;
+        this->m_Faces = nullptr;
+        this->m_BuildStructuredConnectivty = true;
+        this->Modified();
+        return;
+    }
+
+    // Drop any prior representation before rebuilding after a dimension change.
+    this->m_Volumes = nullptr;
+    this->m_Faces = nullptr;
     if (this->Dimension == 3) {
-        this->m_Volumes = CellArray::New();
-        this->m_Volumes->Resize((size[0] - 1) * (size[1] - 1) * (size[2] - 1));
-        igIndex tmpvhs[8] = {0,
-                             1,
-                             1 + size[0] * size[1],
-                             size[0] * size[1],
-                             size[0],
-                             1 + size[0],
-                             1 + size[0] + size[0] * size[1],
-                             size[0] + size[0] * size[1]};
-        for (k = 0; k < size[2] - 1; ++k) {
-            for (j = 0; j < size[1] - 1; ++j) {
-                st = j * size[0] + k * size[0] * size[1];
-                for (i = 0; i < size[0] - 1; ++i) {
-                    for (int it = 0; it < 8; it++) {
-                        vhs[it] = st + tmpvhs[it];
-                    }
-                    m_Volumes->AddCellIds(vhs, 8);
-                    st++;
+        const IGsize nx = static_cast<IGsize>(size[0]);
+        const IGsize ny = static_cast<IGsize>(size[1]);
+        const IGsize nz = static_cast<IGsize>(size[2]);
+        if (nx > std::numeric_limits<IGsize>::max() / ny) return;
+        const IGsize plane = nx * ny;
+        if (numberOfCells > std::numeric_limits<IGsize>::max() / 8) return;
+        const IGsize numberOfIds = numberOfCells * 8;
+
+        auto buffer = IdArray::New();
+        buffer->SetNumberOfIds(numberOfIds);
+        igIndex* ids = buffer->RawPointer();
+        IGsize offset = 0;
+        for (IGsize k = 0; k + 1 < nz; ++k) {
+            for (IGsize j = 0; j + 1 < ny; ++j) {
+                IGsize point = j * nx + k * plane;
+                for (IGsize i = 0; i + 1 < nx; ++i, ++point) {
+                    ids[offset++] = static_cast<igIndex>(point);
+                    ids[offset++] = static_cast<igIndex>(point + 1);
+                    ids[offset++] = static_cast<igIndex>(point + 1 + plane);
+                    ids[offset++] = static_cast<igIndex>(point + plane);
+                    ids[offset++] = static_cast<igIndex>(point + nx);
+                    ids[offset++] = static_cast<igIndex>(point + 1 + nx);
+                    ids[offset++] = static_cast<igIndex>(point + 1 + nx + plane);
+                    ids[offset++] = static_cast<igIndex>(point + nx + plane);
                 }
             }
         }
 
+        this->m_Volumes = CellArray::New();
+        this->m_Volumes->SetData(buffer, 8);
     } else {
-        this->m_Faces = CellArray::New();
-        this->m_Faces->Resize((size[0] - 1) * (size[1] - 1));
-        igIndex tmpvhs[4] = {0, 1, size[0] + 1, size[0]};
-        for (j = 0; j < size[1] - 1; ++j) {
-            st = j * size[0];
-            for (i = 0; i < size[0] - 1; ++i) {
-                for (int it = 0; it < 4; it++) { vhs[it] = st + tmpvhs[it]; }
-                st++;
-                m_Faces->AddCellIds(vhs, 4);
+        const IGsize nx = static_cast<IGsize>(size[0]);
+        const IGsize ny = static_cast<IGsize>(size[1]);
+        if (numberOfCells > std::numeric_limits<IGsize>::max() / 4) return;
+        const IGsize numberOfIds = numberOfCells * 4;
+
+        auto buffer = IdArray::New();
+        buffer->SetNumberOfIds(numberOfIds);
+        igIndex* ids = buffer->RawPointer();
+        IGsize offset = 0;
+        for (IGsize j = 0; j + 1 < ny; ++j) {
+            IGsize point = j * nx;
+            for (IGsize i = 0; i + 1 < nx; ++i, ++point) {
+                ids[offset++] = static_cast<igIndex>(point);
+                ids[offset++] = static_cast<igIndex>(point + 1);
+                ids[offset++] = static_cast<igIndex>(point + 1 + nx);
+                ids[offset++] = static_cast<igIndex>(point + nx);
             }
         }
+
+        this->m_Faces = CellArray::New();
+        this->m_Faces->SetData(buffer, 4);
     }
     m_BuildStructuredConnectivty = true;
+    this->Modified();
+}
+
+CellArray::Pointer StructuredMesh::GetCellArray() {
+    this->EnsureStructuredCellConnectivities();
+    return this->Dimension == 3 ? this->m_Volumes : this->m_Faces;
+}
+
+void StructuredMesh::GenStructuredCellConnectivities() {
+    this->EnsureStructuredCellConnectivities();
 }
 igIndex StructuredMesh::GetPointIndex(igIndex i, igIndex j, igIndex k) {
     return i + j * size[0] + k * size[0] * size[1];

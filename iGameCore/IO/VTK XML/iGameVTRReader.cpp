@@ -312,7 +312,6 @@ bool iGameVTRReader::CreateDataObject() {
     mesh->SetDimensionSize(m_Data.dimensionSize);
     mesh->SetPoints(m_Data.GetPoints());
     mesh->SetAttributeSet(m_Data.GetData());
-    mesh->GenStructuredCellConnectivities();
     return true;
 }
 

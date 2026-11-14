@@ -175,7 +175,8 @@ IGsize iGameTemporalStatistics::ElementCount(DataObject::Pointer geometry, IGenu
         auto points = geometry->GetPoints();
         return points.IsNull() ? 0 : points->GetNumberOfPoints();
     }
-    // 结构化网格 / Lagrange 网格的单元是隐含或另行存储的，GetCellArray() 拿不到，按类型取单元数
+    // 结构化网格 / Lagrange 网格的单元是隐含或另行存储的，按类型直接取单元数，
+    // 避免仅为统计而物化结构化连接表。
     switch (geometry->GetDataObjectType()) {
         case IG_STRUCTURED_MESH: {
             auto mesh = DynamicCast<StructuredMesh>(geometry);

@@ -226,7 +226,6 @@ bool iGame::iGameVTSReader::Parsing() {
         structed_mesh->SetDimensionSize(m_Data.dimensionSize);
         structed_mesh->SetPoints(m_Data.GetPoints());
         structed_mesh->SetAttributeSet(m_Data.GetData());
-        structed_mesh->GenStructuredCellConnectivities();
         return true;
     }
 IGAME_NAMESPACE_END

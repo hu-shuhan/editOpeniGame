@@ -19,10 +19,12 @@ public:
     // Return the type of data object as IG_STRUCTURED_MESH.
     IGenum GetDataObjectType() const override { return IG_STRUCTURED_MESH; }
 
-    // Get the number of cells in the structured mesh.
-    IGsize GetNumberOfCells();
+    // Get the number of cells in the structured mesh. Counting cells is
+    // implicit and does not materialize their connectivity.
+    IGsize GetNumberOfCells() const noexcept;
 
-    virtual CellArray::Pointer GetCellArray() override { return nullptr; }
+    // Materialize the implicit structured connectivity on first access.
+    virtual CellArray::Pointer GetCellArray() override;
 
     // Set the dimensions of the mesh.
     void SetDimensionSize(igIndex s[3]);
@@ -42,8 +44,17 @@ public:
     // Build the structured faces of the mesh.
     void BuildStructuredFaces();
 
-    // Generate the connectivity information for structured cells.
+    // Materialize the implicit structured connectivity once. Repeated calls
+    // are no-ops until the dimensions change.
+    void EnsureStructuredCellConnectivities();
+
+    // Backward-compatible name for callers that explicitly request topology.
     void GenStructuredCellConnectivities();
+
+    // Query the lazy-build state without triggering materialization.
+    bool IsStructuredCellConnectivityBuilt() const noexcept {
+        return m_BuildStructuredConnectivty;
+    }
 
     // Structured cells can be quads (2D) or hexahedra (3D). Populate both cell
     // and point RGBA buffers so octree attributes also color point rendering.

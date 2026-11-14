@@ -7,6 +7,10 @@ void CellArray::Initialize() {
     m_Buffer->Initialize();
     m_Offsets->Initialize();
     m_Offsets->AddValue(0);
+    m_DeleteMasker->Reset();
+    m_NumberOfCells = 0;
+    m_FixedCellSize = -1;
+    m_UseOffsets = false;
 }
 
 // Allocate memory, and the old memory is preserved. The array
@@ -256,16 +260,40 @@ void CellArray::GarbageCollection() {
 IdArray::Pointer CellArray::GetCellIdArray() { return m_Buffer; }
 UnsignedIntArray::Pointer CellArray::GetOffset() { return m_Offsets; }
 void CellArray::SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets) {
+    if (!ids || !offsets || offsets->GetNumberOfValues() == 0) {
+        this->Initialize();
+        m_NumberOfCells = 0;
+        m_FixedCellSize = -1;
+        m_UseOffsets = true;
+        this->Modified();
+        return;
+    }
     m_Buffer = ids;
     m_Offsets = offsets;
-    m_NumberOfCells = offsets->GetNumberOfValues() - 1;
+    m_NumberOfCells = static_cast<IGsize>(offsets->GetNumberOfValues() - 1);
     this->m_UseOffsets = true;
+    this->m_FixedCellSize = -1;
+    m_DeleteMasker->Initialize(m_NumberOfCells);
+    this->Modified();
 }
 void CellArray::SetData(IdArray::Pointer ids, int fixedSize) {
+    if (!ids || fixedSize <= 0 ||
+        ids->GetNumberOfIds() % static_cast<IGsize>(fixedSize) != 0) {
+        this->Initialize();
+        m_NumberOfCells = 0;
+        m_FixedCellSize = -1;
+        m_UseOffsets = false;
+        this->Modified();
+        return;
+    }
     m_Buffer = ids;
-    m_NumberOfCells = m_Buffer->GetNumberOfIds()/fixedSize;
+    m_NumberOfCells = m_Buffer->GetNumberOfIds() / static_cast<IGsize>(fixedSize);
     this->m_UseOffsets = false;
     this->m_FixedCellSize = fixedSize;
+    m_Offsets->Initialize();
+    m_Offsets->AddValue(0);
+    m_DeleteMasker->Initialize(m_NumberOfCells);
+    this->Modified();
 }
 
 void CellArray::SetFixedSize(int fixedSize) {

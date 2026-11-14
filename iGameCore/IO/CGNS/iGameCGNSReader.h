@@ -10,7 +10,6 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <string>
-#include <unordered_set>
 #include <iGameFileReader.h>
 IGAME_NAMESPACE_BEGIN
 class iGameCGNSReader : public FileReader {
@@ -23,7 +22,11 @@ public:
     bool Execute() override;
 
     ~iGameCGNSReader();
-    void GenStructuredCellConnectivities(cgsize_t cellDim, cgsize_t* size);
+    // Full-field Inf validation is diagnostic only and disabled by default.
+    // Set IGAME_CGNS_CHECK_INF=1 or call this method to enable it.
+    void SetCheckFieldInf(bool enabled) noexcept { m_CheckFieldInf = enabled; }
+    bool GetCheckFieldInf() const noexcept { return m_CheckFieldInf; }
+    void PrepareStructuredMesh(cgsize_t cellDim, cgsize_t* size);
     void ReadPointCoordinates(int pointNum, int positionDim, int index_file, int index_base, int index_zone,
                               cgsize_t* size);
     void ReadUnstructuredCellConnectivities(int index_file, int index_base, int index_zone, cgsize_t cellNum);
@@ -56,7 +59,7 @@ private:
     AttributeSet::Pointer m_AttributeSet{nullptr};
     DataObject::Pointer m_ParentObject{nullptr};
     igIndex m_DataObjectType = IG_NONE;
-    std::unordered_set<std::string> BoundryNames;
+    bool m_CheckFieldInf{false};
 };
 
 IGAME_NAMESPACE_END

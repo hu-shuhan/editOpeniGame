@@ -475,10 +475,7 @@ bool GetLeafEntityCounts(const DataObject::Pointer& object, EntityCounts& counts
                 return false;
             }
 
-            /*
-             * StructuredMesh::GetCellArray() 返回 nullptr，
-             * 因此必须显式调用 GetNumberOfCells()。
-             */
+            // 单元数由结构化尺寸直接得到，不应仅为计数而物化连接表。
             counts.SupportsCellIds = true;
             counts.CellCount = mesh->GetNumberOfCells();
             break;

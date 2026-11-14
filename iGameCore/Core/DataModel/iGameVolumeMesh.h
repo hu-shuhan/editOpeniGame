@@ -198,26 +198,10 @@ public:
 
     //forceBuild will build polyhedron even if have Built
     void InitPolyhedronVertices(const std::function<void(double)>& onProgress = nullptr,bool forceBuild=false);
-    void InitVolumesWithPolyhedron(CellArray::Pointer faces, CellArray::Pointer VolumeFaces) {
-        m_VolumeFaces = VolumeFaces;
-        m_Faces = faces;
-        m_Volumes = CellArray::New();
-        igIndex CellNum = this->m_VolumeFaces->GetNumberOfCells();
-        igIndex ptIds[IGAME_CELL_MAX_SIZE]{}, faceIds[IGAME_CELL_MAX_SIZE]{};
-        IGsize npts = 0;
-        for (igIndex i = 0; i < CellNum; i++) {
-            std::set<igIndex> vset;
-            int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
-            for (int j = 0; j < fsize; j++) {
-                int size = m_Faces->GetCellIds(faceIds[j], ptIds);
-                for (int k = 0; k < size; k++) { vset.insert(ptIds[k]); }
-            }
-            npts = 0;
-            for (auto it: vset) { ptIds[npts++] = it; }
-            m_Volumes->AddCellIds(ptIds, npts);
-        }
-        this->IsPolyhedronType = true;
-    }
+    // Materialize unique, sorted volume point ids from face connectivity in
+    // one batch. Returns false if the supplied topology is inconsistent.
+    bool InitVolumesWithPolyhedron(CellArray::Pointer faces,
+                                   CellArray::Pointer VolumeFaces);
     bool GetIsPolyhedronType() { return this->IsPolyhedronType; }
     void SetIsPolyhedronType(bool flag) { this->IsPolyhedronType = flag; }
     //Get real size of DataObject

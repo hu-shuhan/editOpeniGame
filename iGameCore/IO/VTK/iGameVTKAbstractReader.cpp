@@ -1,6 +1,8 @@
 ﻿#include "iGameVTKAbstractReader.h"
 #include "iGameByteSwap.h"
+#include <algorithm>
 #include <cstring>
+#include <limits>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 
@@ -83,6 +85,163 @@ VTKAbstractReader::VTKTYPE NormalizeVtkCellType(VTKAbstractReader::VTKTYPE type,
             break;
     }
     return type;
+}
+
+bool MapVtkCellTypeToiGame(VTKAbstractReader::VTKTYPE type, IGenum& result) {
+    switch (type) {
+        case VTKAbstractReader::VERTEX: result = IG_VERTEX; return true;
+        case VTKAbstractReader::LINE: result = IG_LINE; return true;
+        case VTKAbstractReader::POLYLINE: result = IG_POLY_LINE; return true;
+        case VTKAbstractReader::TRIANGLE: result = IG_TRIANGLE; return true;
+        case VTKAbstractReader::POLYGON: result = IG_POLYGON; return true;
+        case VTKAbstractReader::PIXEL:
+        case VTKAbstractReader::QUAD: result = IG_QUAD; return true;
+        case VTKAbstractReader::TETRA: result = IG_TETRA; return true;
+        case VTKAbstractReader::HEXAHEDRON: result = IG_HEXAHEDRON; return true;
+        case VTKAbstractReader::WEDGE: result = IG_PRISM; return true;
+        case VTKAbstractReader::PYRAMID: result = IG_PYRAMID; return true;
+        case VTKAbstractReader::QUADRATIC_EDGE: result = IG_QUADRATIC_EDGE; return true;
+        case VTKAbstractReader::QUADRATIC_TRIANGLE: result = IG_QUADRATIC_TRIANGLE; return true;
+        case VTKAbstractReader::QUADRATIC_QUAD: result = IG_QUADRATIC_QUAD; return true;
+        case VTKAbstractReader::QUADRATIC_TETRA: result = IG_QUADRATIC_TETRA; return true;
+        case VTKAbstractReader::QUADRATIC_HEXAHEDRON: result = IG_QUADRATIC_HEXAHEDRON; return true;
+        case VTKAbstractReader::QUADRATIC_WEDGE: result = IG_QUADRATIC_PRISM; return true;
+        case VTKAbstractReader::QUADRATIC_PYRAMID: result = IG_QUADRATIC_PYRAMID; return true;
+        case VTKAbstractReader::LAGRANGE_TETRAHEDRON: result = IG_LAGRANGE_TETRAHEDRON; return true;
+        case VTKAbstractReader::LAGRANGE_HEXAHEDRON: result = IG_LAGRANGE_HEXAHEDRON; return true;
+        case VTKAbstractReader::LAGRANGE_PRISM: result = IG_LAGRANGE_PRISM; return true;
+        case VTKAbstractReader::LAGRANGE_PYRAMID: result = IG_LAGRANGE_PYRAMID; return true;
+        case VTKAbstractReader::LAGRANGE_QUADRILATERAL: result = IG_LAGRANGE_QUADRILATERAL; return true;
+        case VTKAbstractReader::LAGRANGE_TRIANGLE: result = IG_LAGRANGE_TRIANGLE; return true;
+        default: return false;
+    }
+}
+
+IdArray::Pointer CopyVtkIndexArrayToIds(ArrayObject::Pointer source, IGsize count) {
+    if (!source || count == 0) return nullptr;
+    auto result = IdArray::New();
+    result->Resize(count);
+    auto output = result->RawPointer();
+    switch (source->GetArrayType()) {
+        case IG_IntArray: {
+            auto values = DynamicCast<IntArray>(source);
+            std::copy(values->RawPointer(), values->RawPointer() + count, output);
+            return result;
+        }
+        case IG_UnsignedIntArray: {
+            auto values = DynamicCast<UnsignedIntArray>(source);
+            for (IGsize i = 0; i < count; ++i) {
+                const auto value = values->RawPointer()[i];
+                if (value > static_cast<unsigned int>(std::numeric_limits<igIndex>::max())) {
+                    return nullptr;
+                }
+                output[i] = static_cast<igIndex>(value);
+            }
+            return result;
+        }
+        case IG_LongLongArray: {
+            auto values = DynamicCast<LongLongArray>(source);
+            for (IGsize i = 0; i < count; ++i) {
+                const auto value = values->RawPointer()[i];
+                if (value < 0 || value > std::numeric_limits<igIndex>::max()) return nullptr;
+                output[i] = static_cast<igIndex>(value);
+            }
+            return result;
+        }
+        case IG_UnsignedLongLongArray: {
+            auto values = DynamicCast<UnsignedLongLongArray>(source);
+            for (IGsize i = 0; i < count; ++i) {
+                const auto value = values->RawPointer()[i];
+                if (value > static_cast<unsigned long long>(std::numeric_limits<igIndex>::max())) {
+                    return nullptr;
+                }
+                output[i] = static_cast<igIndex>(value);
+            }
+            return result;
+        }
+        default:
+            for (IGsize i = 0; i < count; ++i) {
+                const auto value = source->GetValue(i);
+                if (value < 0 || value > std::numeric_limits<igIndex>::max()) return nullptr;
+                output[i] = static_cast<igIndex>(value);
+            }
+            return result;
+    }
+}
+
+bool TryBatchTransferVtkCells(UnstructuredMesh::Pointer& mesh,
+                              ArrayObject::Pointer cellsId,
+                              ArrayObject::Pointer cellsConnect,
+                              ArrayObject::Pointer cellTypes) {
+    if (!mesh || !cellsId || !cellsConnect || !cellTypes || mesh->GetNumberOfCells() != 0) {
+        return false;
+    }
+    const IGsize cellCount = cellTypes->GetNumberOfElements();
+    if (cellCount == 0 || cellsId->GetNumberOfElements() != cellCount + 1) return false;
+
+    auto offsets = UnsignedIntArray::New();
+    offsets->Resize(cellCount + 1);
+    auto offsetValues = offsets->RawPointer();
+    auto types = UnsignedIntArray::New();
+    types->Resize(cellCount);
+    auto typeValues = types->RawPointer();
+
+    IGenum firstType = IG_NONE;
+    int firstSize = -1;
+    bool fixed = true;
+    bool onlyVertexCells = true;
+    int previousEnd = 0;
+    int normalizedCells = 0;
+
+    for (IGsize i = 0; i < cellCount; ++i) {
+        const auto startValue = cellsId->GetValue(i);
+        const auto endValue = cellsId->GetValue(i + 1);
+        if (startValue != previousEnd || endValue <= startValue ||
+            endValue > std::numeric_limits<igIndex>::max()) {
+            return false;
+        }
+        const int start = static_cast<int>(startValue);
+        const int end = static_cast<int>(endValue);
+        const int size = end - start;
+        const auto declaredType = static_cast<VTKAbstractReader::VTKTYPE>(
+                static_cast<int>(cellTypes->GetValue(i)));
+        const auto normalizedType = NormalizeVtkCellType(declaredType, size);
+        if (!IsVtkCellSizeValid(normalizedType, size)) return false;
+        normalizedCells += normalizedType != declaredType ? 1 : 0;
+
+        IGenum mappedType = IG_NONE;
+        if (!MapVtkCellTypeToiGame(normalizedType, mappedType)) return false;
+        offsetValues[i] = static_cast<unsigned int>(start);
+        typeValues[i] = static_cast<unsigned int>(mappedType);
+        onlyVertexCells &= normalizedType == VTKAbstractReader::VERTEX;
+        if (i == 0) {
+            firstType = mappedType;
+            firstSize = size;
+        } else if (firstType != mappedType || firstSize != size) {
+            fixed = false;
+        }
+        previousEnd = end;
+    }
+    offsetValues[cellCount] = static_cast<unsigned int>(previousEnd);
+
+    auto ids = CopyVtkIndexArrayToIds(cellsConnect, previousEnd);
+    if (!ids) return false;
+
+    auto cellArray = CellArray::New();
+    if (fixed) {
+        cellArray->SetData(ids, firstSize);
+    } else {
+        cellArray->SetData(ids, offsets);
+    }
+    mesh->SetCells(cellArray, types);
+    if (onlyVertexCells) {
+        mesh->SetShellRenderingOption(false);
+        mesh->SetViewStyle(IG_POINTS);
+    }
+    if (normalizedCells > 0) {
+        igDebug("Batch VTK transfer normalized {} mislabeled quadratic cells", normalizedCells);
+    }
+    return true;
 }
 } // namespace
 
@@ -1170,6 +1329,66 @@ bool VTKAbstractReader::ReadSurfaceMesh() {
             }
             m_SurfaceMesh->SetFaces(this->CreateCellArray(CellsId, CellsConnect));
             sawPolygons = true;
+        } else if (!strncmp(line, "triangle_strips", 15)) {
+            // VTK legacy POLYDATA 的 TRIANGLE_STRIPS：<numStrips> <size>，
+            // 经典布局按 (count, ids...) 排列。引擎没有可持久化的三角带单元
+            // 类型，这里把每条带展开成三角形（相邻三角形绕向交替）。
+            igIndex stripNum = 0, stripSize = 0;
+            const char* tmpIS = this->IS;
+            if (!(this->Read(&stripNum) && this->Read(&stripSize))) {
+                igError("Cannot read triangle strips!");
+                return false;
+            }
+            if (stripNum < 0 || stripSize < 0) {
+                igError("Invalid triangle strips counts!");
+                return false;
+            }
+            ArrayObject::Pointer stripId, stripConnect;
+            bool stripsRead = false;
+            if (this->m_FileType == IGAME_BINARY && this->FileVersion >= 51) {
+                // 5.1+ 的 OFFSETS / CONNECTIVITY 布局，计数由辅助函数自行读取
+                this->IS = tmpIS;
+                stripsRead = this->ReadCellsWithOffsetType(stripNum, stripId, stripConnect) != 0;
+            } else {
+                stripsRead =
+                        this->ReadCellsWithCellSizeType(stripNum, stripSize, stripId, stripConnect) != 0;
+            }
+            if (!stripsRead || stripId == nullptr || stripConnect == nullptr) {
+                igError("Error reading triangle strips!");
+                return false;
+            }
+
+            auto triangleId = IntArray::New();
+            auto triangleConnect = IntArray::New();
+            const int strips = static_cast<int>(stripId->GetNumberOfElements()) - 1;
+            const int connectCount = static_cast<int>(stripConnect->GetNumberOfElements());
+            int index = 0;
+            for (int s = 0; s < strips; ++s) {
+                const int st = static_cast<int>(stripId->GetValue(s));
+                const int ed = static_cast<int>(stripId->GetValue(s + 1));
+                const int n = ed - st;
+                if (st < 0 || n < 3 || ed > connectCount) { continue; }
+                for (int j = 0; j + 2 < n; ++j) {
+                    const int a = static_cast<int>(stripConnect->GetValue(st + j));
+                    const int b = static_cast<int>(stripConnect->GetValue(st + j + 1));
+                    const int c = static_cast<int>(stripConnect->GetValue(st + j + 2));
+                    triangleId->AddValue(index);
+                    index += 3;
+                    // 三角带相邻三角形绕向交替，否则法线会翻转
+                    if ((j & 1) == 0) {
+                        triangleConnect->AddValue(a);
+                        triangleConnect->AddValue(b);
+                        triangleConnect->AddValue(c);
+                    } else {
+                        triangleConnect->AddValue(b);
+                        triangleConnect->AddValue(a);
+                        triangleConnect->AddValue(c);
+                    }
+                }
+            }
+            triangleId->AddValue(index);
+            m_SurfaceMesh->SetFaces(this->CreateCellArray(triangleId, triangleConnect));
+            sawPolygons = true;
         } else if (!strncmp(line, "cell_data", 9)) {
             if (!this->Read(&CellsNum)) {
                 igError("Cannot read cell data!");
@@ -1316,7 +1535,6 @@ bool VTKAbstractReader::ReadStructuredGrid() {
         }
         m_StructuredMesh->SetPoints(points);
     }
-    m_StructuredMesh->GenStructuredCellConnectivities();
     return true;
 }
 CellArray::Pointer VTKAbstractReader::CreateCellArray(ArrayObject::Pointer CellsID, ArrayObject::Pointer CellsConnect) {
@@ -1380,6 +1598,11 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
         return;
     }
     UnstructuredMesh::Pointer mesh = _mesh == nullptr ? UnstructuredMesh::New() : DynamicCast<UnstructuredMesh>(_mesh);
+    if (!FacesConnect && !FacesOffset && !PolyToFaces && !PolysOffset &&
+        TryBatchTransferVtkCells(mesh, CellsID, CellsConnect, VtkCellsType)) {
+        _mesh = mesh;
+        return;
+    }
     const int CellNum = static_cast<int>(VtkCellsType->GetNumberOfElements());
     const int offsetsCount = static_cast<int>(CellsID->GetNumberOfElements());
     const int connectCount = static_cast<int>(CellsConnect->GetNumberOfElements());

@@ -496,6 +496,10 @@ int FileReader::ReadString(char result[256]) {
         result[0] = '\0';
         return 0;
     }
+    // 防御：未处理的二进制段落里可能长时间找不到空白/换行，此时 slen 会远超
+    // 调用方的 256 字节缓冲，直接 memcpy 会写穿栈（表现为打开文件闪退）。
+    constexpr int kMaxStringBytes = 255;
+    if (slen > kMaxStringBytes) { slen = kMaxStringBytes; }
     std::memcpy(result, this->IS, slen);
     result[slen] = '\0';
 
