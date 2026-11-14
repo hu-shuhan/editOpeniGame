@@ -10,7 +10,6 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <string>
-#include <unordered_set>
 #include <iGameFileReader.h>
 IGAME_NAMESPACE_BEGIN
 class iGameCGNSReader : public FileReader {
@@ -23,7 +22,7 @@ public:
     bool Execute() override;
 
     ~iGameCGNSReader();
-    void GenStructuredCellConnectivities(cgsize_t cellDim, cgsize_t* size);
+    void PrepareStructuredMesh(cgsize_t cellDim, cgsize_t* size);
     void ReadPointCoordinates(int pointNum, int positionDim, int index_file, int index_base, int index_zone,
                               cgsize_t* size);
     void ReadUnstructuredCellConnectivities(int index_file, int index_base, int index_zone, cgsize_t cellNum);
@@ -56,7 +55,6 @@ private:
     AttributeSet::Pointer m_AttributeSet{nullptr};
     DataObject::Pointer m_ParentObject{nullptr};
     igIndex m_DataObjectType = IG_NONE;
-    std::unordered_set<std::string> BoundryNames;
 };
 
 IGAME_NAMESPACE_END

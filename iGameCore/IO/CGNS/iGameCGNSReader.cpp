@@ -4,6 +4,7 @@
 #include "ModelSurface/iGameModelGeometryFilter.h"
 #include <cmath>
 #include <limits>
+#include <new>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 
@@ -26,28 +27,17 @@ static bool TryBatchReadCgnsFixedCells(UnstructuredMesh::Pointer mesh,
                                        int index_base,
                                        int index_zone,
                                        cgsize_t expected_cells);
+static bool TryBatchReadCgnsPolyhedra(VolumeMesh::Pointer mesh,
+                                      int index_file,
+                                      int index_base,
+                                      int index_zone,
+                                      cgsize_t expected_cells);
 
 iGameCGNSReader::iGameCGNSReader() {
     this->SetNumberOfOutputs(1);
 }
 iGameCGNSReader::~iGameCGNSReader() {}
 
-void CollectNodeIDs(double parent_id, double node_id, int depth, std::vector<double>& node_ids) {
-    char label[CGIO_MAX_NAME_LENGTH + 1];
-    int numChildren;
-    // Store the current node ID in the vector
-    node_ids.push_back(node_id);
-    // Get the label of the current node (optional, for debugging)
-    cgio_get_label(parent_id, node_id, label);
-    //std::cout << std::string(depth * 2, ' ') << node_id << " " << "Node Label: " << label << std::endl;
-    // Get the number of children of the current node
-    cgio_number_children(parent_id, node_id, &numChildren);
-    if (numChildren > 0) {
-        std::vector<double> child_ids(numChildren);
-        cgio_children_ids(parent_id, node_id, 1, numChildren, &numChildren, child_ids.data());
-        for (int i = 0; i < numChildren; ++i) { CollectNodeIDs(parent_id, child_ids[i], depth + 1, node_ids); }
-    }
-}
 bool iGameCGNSReader::Parsing() 
 {
     //CGNS不通过字节流Parsing
@@ -80,36 +70,6 @@ bool iGameCGNSReader::Execute() {
     }
     this->UpdateProgress(0.10);
 
-    int cgio_num;
-    result = cg_get_cgio(index_file, &cgio_num);
-    if (CG_OK != result) { IGAME_CORE_ERROR("Get cgio num Error: {}", cg_get_error()); }
-    // Get the root node ID
-    double root_id;
-    cgio_get_root_id(cgio_num, &root_id);
-    // Vector to store all node IDs
-    std::vector<double> node_ids;
-    // Collect all node IDs starting from the root node
-    CollectNodeIDs(cgio_num, root_id, 0, node_ids);
-
-    for (int i = 0; i < node_ids.size(); i++) {
-        char label[256];
-        cgio_get_label(cgio_num, node_ids[i], label);
-        if (strcmp(label, "ZoneBC_t") != 0) { continue; }
-        double zoneId = node_ids[i];
-        std::vector<double> child_node_ids;
-        CollectNodeIDs(cgio_num, zoneId, 0, child_node_ids);
-        for (int j = 0; j < child_node_ids.size(); j++) {
-            cgio_get_label(cgio_num, child_node_ids[j], label);
-            if (strcmp(label, "BC_t") != 0) { continue; }
-            auto bcnode = child_node_ids[j];
-            char name[256];
-            char dataType[256];
-            cgio_get_name(cgio_num, bcnode, name);
-            cgio_get_data_type(cgio_num, bcnode, dataType);
-            BoundryNames.insert(name);
-            continue;
-        }
-    }
     this->UpdateProgress(0.20);
 
     int nbases;
@@ -172,9 +132,10 @@ bool iGameCGNSReader::Execute() {
                         this->ReadPointCoordinates(totalPoints, physdim, index_file, index_base, index_zone, size);
                         // 读取完点后更新进度 (30% of zone progress)
                         this->UpdateProgress(zone_base_progress + zone_progress_step * 0.3);
-                        // Gen cells (connectivity)
-                        this->GenStructuredCellConnectivities(celldim, size);
-                        // 读取完单元后更新进度 (70% of zone progress)
+                        // Connectivity is implicit for structured zones; keep it lazy
+                        // until rendering or another consumer explicitly requests cells.
+                        this->PrepareStructuredMesh(celldim, size);
+                        // 网格维度和点已就绪，更新进度 (70% of zone progress)
                         this->UpdateProgress(zone_base_progress + zone_progress_step * 0.7);
                     } else if (zoneType == Unstructured) {
                         IGAME_CORE_DEBUG("ZoneType = Unstructured");
@@ -295,15 +256,12 @@ void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int in
 }
 
 
-void iGameCGNSReader::GenStructuredCellConnectivities(cgsize_t cellDim, cgsize_t* size) {
+void iGameCGNSReader::PrepareStructuredMesh(cgsize_t cellDim, cgsize_t* size) {
     if (m_StructuredMesh == nullptr) { m_StructuredMesh = StructuredMesh::New(); }
-    auto structType = QUAD_4;
-    if (cellDim == 3 && size[2] > 1) { structType = HEXA_8; }
     m_StructuredMesh->SetPoints(m_Points);
     igIndex tmpSize[3] = {0};
     for (int i = 0; i < cellDim; i++) { tmpSize[i] = size[i]; }
     m_StructuredMesh->SetDimensionSize(tmpSize);
-    m_StructuredMesh->GenStructuredCellConnectivities();
 }
 void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int index_base, int index_zone,
                                                          cgsize_t cellNum) {
@@ -345,84 +303,10 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
             if (m_VolumeMesh == nullptr) { m_VolumeMesh = VolumeMesh::New(); }
             m_VolumeMesh->SetPoints(m_Points);
             this->m_DataObjectType = IG_VOLUME_MESH;
-            CellArray::Pointer Faces = CellArray::New();
-            CellArray::Pointer Volumes = CellArray::New();
-            for (int index_section = 1; index_section <= nsections; index_section++) {
-                char sectionname[100];
-                ElementType_t type;
-                cgsize_t start, end;
-                int nbndry, parent_flag;
-                cg_section_read(index_file, index_base, index_zone, index_section, sectionname, &type, &start, &end,
-                                &nbndry, &parent_flag);
-                cgsize_t num_elements = end - start + 1;
-                //std::cout << "section " << index_section << " " << sectionname << ' ' << start << ' ' << end << " "
-                //          << num_elements << '\n';
-                bool is_boundry = BoundryNames.count(sectionname);
-                bool is_zone =  std::strncmp(sectionname, "zone_", 5) == 0;
-                if (type == NGON_n) {
-                    cgsize_t elementDataSize;
-                    cg_ElementDataSize(index_file, index_base, index_zone, index_section, &elementDataSize);
-                    std::vector<cgsize_t> elements;
-                    elements.resize(elementDataSize);
-                    std::vector<cgsize_t> offset;
-                    offset.resize(num_elements + 1);
-                    auto elementsData = elements.data();
-                    cg_poly_elements_read(index_file, index_base, index_zone, index_section, elementsData,
-                                          offset.data(), NULL);
-                    cgsize_t cellVcnt = 0;
-                    cgsize_t idx = 0;
-                    igIndex vhs[IGAME_CELL_MAX_SIZE];
-                    if (offset[0] != offset[1]) {
-                        for (cgsize_t i = 0; i < num_elements; i++) {
-                            cellVcnt = offset[i + 1] - offset[i];
-                            for (int j = 0; j < cellVcnt; j++) { vhs[j] = elements[idx++] - 1; }
-                            Faces->AddCellIds(vhs, cellVcnt);
-                        }
-                    } else {
-                        for (cgsize_t i = 0; i < num_elements; i++) {
-                            cellVcnt = elements[idx++];
-                            for (int j = 0; j < cellVcnt; j++) { vhs[j] = elements[idx++] - 1; }
-                            Faces->AddCellIds(vhs, cellVcnt);
-                        }
-                    }
-                    std::vector<cgsize_t> temp;
-                    elements.swap(temp);
-                    std::vector<cgsize_t> temp_1;
-                    offset.swap(temp_1);
-                } else if (type == NFACE_n) {
-                    cgsize_t elementDataSize;
-                    cg_ElementDataSize(index_file, index_base, index_zone, index_section, &elementDataSize);
-                    std::vector<cgsize_t> elements;
-                    elements.resize(elementDataSize);
-                    std::vector<cgsize_t> offset;
-                    offset.resize(num_elements + 1);
-                    auto elementsData = elements.data();
-                    cg_poly_elements_read(index_file, index_base, index_zone, index_section, elementsData,
-                                          offset.data(), NULL);
-                    cgsize_t cellFcnt = 0;
-                    cgsize_t idx = 0;
-                    igIndex vhs[IGAME_CELL_MAX_SIZE];
-                    igIndex fhs[IGAME_CELL_MAX_SIZE];
-                    if (offset[0] != offset[1]) {
-                        for (cgsize_t i = 0; i < num_elements; i++) {
-                            cellFcnt = offset[i + 1] - offset[i];
-                            for (int j = 0; j < cellFcnt; j++) { fhs[j] = std::abs(elements[idx++]) - 1; }
-                            Volumes->AddCellIds(fhs, cellFcnt);
-                        }
-                    } else {
-                        for (int i = 0; i < num_elements; i++) {
-                            cellFcnt = elements[idx++];
-                            for (int j = 0; j < cellFcnt; j++) { fhs[j] = std::abs(elements[idx++]) - 1; }
-                            Volumes->AddCellIds(fhs, cellFcnt);
-                        }
-                    }
-                    std::vector<cgsize_t> temp;
-                    elements.swap(temp);
-                    std::vector<cgsize_t> temp_1;
-                    offset.swap(temp_1);
-                }
+            if (!TryBatchReadCgnsPolyhedra(m_VolumeMesh, index_file, index_base,
+                                           index_zone, cellNum)) {
+                IGAME_CORE_ERROR("Failed to batch-read CGNS polyhedral topology");
             }
-            this->m_VolumeMesh->InitVolumesWithPolyhedron(Faces, Volumes);
         }
     } else {
         if (m_UnstructuredMesh == nullptr) { m_UnstructuredMesh = UnstructuredMesh::New(); }
@@ -490,6 +374,216 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
             }
         }
     }
+}
+
+static bool TryBatchReadCgnsPolyhedra(VolumeMesh::Pointer mesh,
+                                      int index_file,
+                                      int index_base,
+                                      int index_zone,
+                                      cgsize_t expected_cells) {
+    if (!mesh || expected_cells <= 0) return false;
+
+    int section_count = 0;
+    if (cg_nsections(index_file, index_base, index_zone, &section_count) != CG_OK ||
+        section_count <= 0) {
+        return false;
+    }
+
+    struct PolySection {
+        int index;
+        ElementType_t type;
+        cgsize_t elements;
+        cgsize_t data_size;
+    };
+    std::vector<PolySection> sections;
+    sections.reserve(static_cast<size_t>(section_count));
+
+    IGsize total_faces = 0;
+    IGsize total_face_data = 0;
+    IGsize total_volumes = 0;
+    IGsize total_volume_face_links = 0;
+    for (int section_index = 1; section_index <= section_count; ++section_index) {
+        char section_name[100];
+        ElementType_t type;
+        cgsize_t start = 0;
+        cgsize_t end = 0;
+        int boundary = 0;
+        int parent = 0;
+        if (cg_section_read(index_file, index_base, index_zone, section_index,
+                            section_name, &type, &start, &end, &boundary,
+                            &parent) != CG_OK ||
+            end < start || (type != NGON_n && type != NFACE_n)) {
+            return false;
+        }
+
+        cgsize_t data_size = 0;
+        if (cg_ElementDataSize(index_file, index_base, index_zone,
+                               section_index, &data_size) != CG_OK ||
+            data_size < 0) {
+            return false;
+        }
+
+        const IGsize element_count = static_cast<IGsize>(end - start + 1);
+        const IGsize section_data_size = static_cast<IGsize>(data_size);
+        if (type == NGON_n) {
+            if (element_count > std::numeric_limits<IGsize>::max() - total_faces ||
+                section_data_size >
+                        std::numeric_limits<IGsize>::max() - total_face_data) {
+                return false;
+            }
+            total_faces += element_count;
+            total_face_data += section_data_size;
+        } else {
+            if (element_count > std::numeric_limits<IGsize>::max() - total_volumes ||
+                section_data_size >
+                        std::numeric_limits<IGsize>::max() - total_volume_face_links) {
+                return false;
+            }
+            total_volumes += element_count;
+            total_volume_face_links += section_data_size;
+        }
+        sections.push_back({section_index, type,
+                            static_cast<cgsize_t>(element_count),
+                            static_cast<cgsize_t>(section_data_size)});
+    }
+
+    if (total_faces == 0 || total_volumes == 0 ||
+        total_volumes != static_cast<IGsize>(expected_cells)) {
+        return false;
+    }
+    const IGsize max_offset =
+            static_cast<IGsize>(std::numeric_limits<unsigned int>::max());
+    const IGsize max_index =
+            static_cast<IGsize>(std::numeric_limits<igIndex>::max());
+    if (total_faces > max_index || total_face_data > max_offset ||
+        total_volume_face_links > max_offset ||
+        mesh->GetNumberOfPoints() > max_index + 1) {
+        return false;
+    }
+
+    IdArray::Pointer face_ids;
+    IdArray::Pointer volume_face_ids;
+    UnsignedIntArray::Pointer face_offsets;
+    UnsignedIntArray::Pointer volume_face_offsets;
+    try {
+        face_ids = IdArray::New();
+        face_ids->Resize(total_face_data);
+        volume_face_ids = IdArray::New();
+        volume_face_ids->Resize(total_volume_face_links);
+        face_offsets = UnsignedIntArray::New();
+        face_offsets->Resize(total_faces + 1);
+        volume_face_offsets = UnsignedIntArray::New();
+        volume_face_offsets->Resize(total_volumes + 1);
+    } catch (const std::bad_alloc&) {
+        return false;
+    }
+
+    auto* face_id_values = face_ids->RawPointer();
+    auto* volume_face_id_values = volume_face_ids->RawPointer();
+    auto* face_offset_values = face_offsets->RawPointer();
+    auto* volume_face_offset_values = volume_face_offsets->RawPointer();
+    face_offset_values[0] = 0;
+    volume_face_offset_values[0] = 0;
+
+    IGsize face_cursor = 0;
+    IGsize face_connection_cursor = 0;
+    IGsize volume_cursor = 0;
+    IGsize volume_face_cursor = 0;
+    std::vector<cgsize_t> elements;
+    std::vector<cgsize_t> offsets;
+    for (const auto& section: sections) {
+        try {
+            elements.resize(static_cast<size_t>(section.data_size));
+            offsets.resize(static_cast<size_t>(section.elements) + 1);
+        } catch (const std::bad_alloc&) {
+            return false;
+        }
+        if (cg_poly_elements_read(index_file, index_base, index_zone,
+                                  section.index, elements.data(), offsets.data(),
+                                  nullptr) != CG_OK) {
+            return false;
+        }
+
+        const bool use_offsets =
+                section.elements > 0 && offsets[0] != offsets[1];
+        cgsize_t sequential = 0;
+        for (cgsize_t element = 0; element < section.elements; ++element) {
+            cgsize_t begin = 0;
+            cgsize_t count = 0;
+            if (use_offsets) {
+                begin = offsets[static_cast<size_t>(element)];
+                const cgsize_t next =
+                        offsets[static_cast<size_t>(element) + 1];
+                if (begin < 0 || next < begin) return false;
+                count = next - begin;
+            } else {
+                if (sequential >= static_cast<cgsize_t>(elements.size())) {
+                    return false;
+                }
+                count = elements[static_cast<size_t>(sequential++)];
+                begin = sequential;
+                if (count < 0) return false;
+                sequential += count;
+            }
+            if (begin < 0 || count <= 0 ||
+                static_cast<IGsize>(begin) + static_cast<IGsize>(count) >
+                        static_cast<IGsize>(elements.size())) {
+                return false;
+            }
+
+            if (section.type == NGON_n) {
+                face_offset_values[face_cursor] =
+                        static_cast<unsigned int>(face_connection_cursor);
+                for (cgsize_t point = 0; point < count; ++point) {
+                    const cgsize_t point_id =
+                            elements[static_cast<size_t>(begin + point)];
+                    if (point_id < 1 || point_id > max_index + 1) {
+                        return false;
+                    }
+                    face_id_values[face_connection_cursor++] =
+                            static_cast<igIndex>(point_id - 1);
+                }
+                ++face_cursor;
+            } else {
+                volume_face_offset_values[volume_cursor] =
+                        static_cast<unsigned int>(volume_face_cursor);
+                for (cgsize_t face = 0; face < count; ++face) {
+                    const cgsize_t signed_face =
+                            elements[static_cast<size_t>(begin + face)];
+                    if (signed_face == 0) return false;
+                    const cgsize_t face_id =
+                            signed_face < 0 ? -signed_face : signed_face;
+                    if (face_id > static_cast<cgsize_t>(total_faces) ||
+                        face_id > static_cast<cgsize_t>(max_index) + 1) {
+                        return false;
+                    }
+                    volume_face_id_values[volume_face_cursor++] =
+                            static_cast<igIndex>(face_id - 1);
+                }
+                ++volume_cursor;
+            }
+        }
+    }
+
+    if (face_cursor != total_faces || volume_cursor != total_volumes ||
+        face_connection_cursor > total_face_data ||
+        volume_face_cursor > total_volume_face_links ||
+        face_connection_cursor > max_offset ||
+        volume_face_cursor > max_offset) {
+        return false;
+    }
+    face_offset_values[total_faces] =
+            static_cast<unsigned int>(face_connection_cursor);
+    volume_face_offset_values[total_volumes] =
+            static_cast<unsigned int>(volume_face_cursor);
+    face_ids->Resize(face_connection_cursor);
+    volume_face_ids->Resize(volume_face_cursor);
+
+    auto faces = CellArray::New();
+    faces->SetData(face_ids, face_offsets);
+    auto volume_faces = CellArray::New();
+    volume_faces->SetData(volume_face_ids, volume_face_offsets);
+    return mesh->InitVolumesWithPolyhedron(faces, volume_faces);
 }
 
 struct CgnsFixedSection {

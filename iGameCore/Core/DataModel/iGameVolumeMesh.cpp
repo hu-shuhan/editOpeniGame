@@ -2,8 +2,99 @@
 #include "ModelSurface/iGameModelGeometryFilter.h"
 #include "iGameFaceTable.h"
 #include "iGameScene.h"
+#include <algorithm>
+#include <limits>
+#include <new>
+#include <utility>
+#include <vector>
 
 IGAME_NAMESPACE_BEGIN
+
+bool VolumeMesh::InitVolumesWithPolyhedron(CellArray::Pointer faces,
+                                           CellArray::Pointer volumeFaces) {
+    if (!faces || !volumeFaces) return false;
+
+    const IGsize cellCount = volumeFaces->GetNumberOfCells();
+    const IGsize faceCount = faces->GetNumberOfCells();
+    const IGsize pointCount = this->GetNumberOfPoints();
+    constexpr IGsize maxOffset =
+            static_cast<IGsize>(std::numeric_limits<unsigned int>::max());
+    if (cellCount >= maxOffset ||
+        pointCount > static_cast<IGsize>(std::numeric_limits<igIndex>::max()) + 1) {
+        return false;
+    }
+
+    std::vector<igIndex> volumeIds;
+    try {
+        const IGsize reserveCount =
+                cellCount > std::numeric_limits<IGsize>::max() / 8
+                        ? cellCount
+                        : cellCount * 8;
+        volumeIds.reserve(static_cast<size_t>(reserveCount));
+    } catch (const std::bad_alloc&) {
+        return false;
+    }
+
+    auto offsets = UnsignedIntArray::New();
+    offsets->Resize(cellCount + 1);
+    auto* offsetValues = offsets->RawPointer();
+    offsetValues[0] = 0;
+
+    std::vector<unsigned int> pointStamps;
+    try {
+        pointStamps.assign(static_cast<size_t>(pointCount), 0);
+    } catch (const std::bad_alloc&) {
+        return false;
+    }
+
+    for (IGsize cell = 0; cell < cellCount; ++cell) {
+        offsetValues[cell] = static_cast<unsigned int>(volumeIds.size());
+        const igIndex* cellFaces = nullptr;
+        const int faceInCellCount = volumeFaces->GetCellIds(cell, cellFaces);
+        if (faceInCellCount < 0 || (faceInCellCount > 0 && cellFaces == nullptr)) {
+            return false;
+        }
+        const unsigned int stamp = static_cast<unsigned int>(cell + 1);
+        for (int faceInCell = 0; faceInCell < faceInCellCount; ++faceInCell) {
+            const igIndex faceId = cellFaces[faceInCell];
+            if (faceId < 0 || static_cast<IGsize>(faceId) >= faceCount) {
+                return false;
+            }
+            const igIndex* facePoints = nullptr;
+            const int pointInFaceCount = faces->GetCellIds(faceId, facePoints);
+            if (pointInFaceCount < 0 ||
+                (pointInFaceCount > 0 && facePoints == nullptr)) {
+                return false;
+            }
+            for (int pointInFace = 0; pointInFace < pointInFaceCount; ++pointInFace) {
+                const igIndex pointId = facePoints[pointInFace];
+                if (pointId < 0 || static_cast<IGsize>(pointId) >= pointCount) {
+                    return false;
+                }
+                auto& pointStamp = pointStamps[static_cast<size_t>(pointId)];
+                if (pointStamp == stamp) continue;
+                pointStamp = stamp;
+                volumeIds.push_back(pointId);
+            }
+        }
+        std::sort(volumeIds.begin() + offsetValues[cell], volumeIds.end());
+        if (volumeIds.size() > maxOffset) return false;
+    }
+    offsetValues[cellCount] = static_cast<unsigned int>(volumeIds.size());
+
+    auto ids = IdArray::New();
+    ids->Resize(volumeIds.size());
+    std::copy(volumeIds.begin(), volumeIds.end(), ids->RawPointer());
+
+    auto volumes = CellArray::New();
+    volumes->SetData(ids, offsets);
+    m_VolumeFaces = std::move(volumeFaces);
+    m_Faces = std::move(faces);
+    m_Volumes = std::move(volumes);
+    this->IsPolyhedronType = true;
+    this->Modified();
+    return true;
+}
 
 IGsize VolumeMesh::GetNumberOfVolumes() const noexcept { return m_Volumes ? m_Volumes->GetNumberOfCells() : 0; }
 
