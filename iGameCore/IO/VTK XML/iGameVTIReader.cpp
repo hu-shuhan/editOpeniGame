@@ -536,7 +536,6 @@ bool iGameVTIReader::CreateDataObject() {
     structuredMesh->SetDimensionSize(m_Data.dimensionSize);
     structuredMesh->SetPoints(m_Data.GetPoints());
     structuredMesh->SetAttributeSet(m_Data.GetData());
-    structuredMesh->GenStructuredCellConnectivities();
     return true;
 }
 

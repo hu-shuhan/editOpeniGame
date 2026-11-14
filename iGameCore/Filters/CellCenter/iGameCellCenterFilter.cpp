@@ -29,8 +29,8 @@ bool CellCenterFilter::Execute() {
     auto inPoints = input->GetPoints();
     CellArray::Pointer inCells;
     if (input->GetDataObjectType() == IG_STRUCTURED_MESH) {
-        // 结构化网格：GetCellArray() 返回空（隐式拓扑），
-        // 先调用 GenStructuredCellConnectivities() 生成连接表，
+        // 结构化网格的拓扑是隐式且按需生成的；此过滤器需要显式连接表，
+        // 因此先调用 GenStructuredCellConnectivities() 再取单元数组，
         // 3D 取体单元，2D 取面单元。
         auto structured = DynamicCast<StructuredMesh>(input);
         if (!structured) return false;

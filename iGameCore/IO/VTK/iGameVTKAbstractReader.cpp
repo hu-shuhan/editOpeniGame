@@ -1535,7 +1535,6 @@ bool VTKAbstractReader::ReadStructuredGrid() {
         }
         m_StructuredMesh->SetPoints(points);
     }
-    m_StructuredMesh->GenStructuredCellConnectivities();
     return true;
 }
 CellArray::Pointer VTKAbstractReader::CreateCellArray(ArrayObject::Pointer CellsID, ArrayObject::Pointer CellsConnect) {
